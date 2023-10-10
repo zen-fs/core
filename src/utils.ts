@@ -6,11 +6,11 @@ import { ErrorCode, ApiError } from './ApiError';
 import * as path from 'path';
 import { Cred } from './cred';
 import { Buffer } from 'buffer';
-import type { BackendConstructor, BackendOptions, BaseBackendConstructor } from './backends/backend';
+import type { BaseBackendConstructor } from './backends/backend';
 
 /**
  * Synchronous recursive makedir.
- * @hidden
+ * @internal
  */
 export function mkdirpSync(p: string, mode: number, cred: Cred, fs: FileSystem): void {
 	if (!fs.existsSync(p, cred)) {
@@ -21,7 +21,7 @@ export function mkdirpSync(p: string, mode: number, cred: Cred, fs: FileSystem):
 
 /**
  * Copies a slice of the given buffer
- * @hidden
+ * @internal
  */
 export function copyingSlice(buff: Buffer, start: number = 0, end = buff.length): Buffer {
 	if (start < 0 || end < 0 || end > buff.length || start > end) {
@@ -37,7 +37,7 @@ export function copyingSlice(buff: Buffer, start: number = 0, end = buff.length)
 
 /**
  * Option validator for a Buffer file system option.
- * @hidden
+ * @internal
  */
 export async function bufferValidator(v: object): Promise<void> {
 	if (!Buffer.isBuffer(v)) {
@@ -140,7 +140,7 @@ function levenshtein(a: string, b: string): number {
 
 /**
  * Checks that the given options object is valid for the file system options.
- * @hidden
+ * @internal
  */
 export async function checkOptions(backend: BaseBackendConstructor, opts: object): Promise<void> {
 	const optsInfo = backend.Options;
@@ -255,6 +255,32 @@ export function toPromise(fn: (...fnArgs: unknown[]) => unknown) {
 }
 
 /**
- * @hidden
+ * @internal
  */
 export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : cb => setTimeout(cb, 0);
+
+/**
+ * @internal
+ */
+export const ROOT_NODE_ID: string = '/';
+
+/**
+ * Returns an empty directory node.
+ * @internal
+ */
+export function getEmptyDirNode(): Buffer {
+	return Buffer.from('{}');
+}
+
+/**
+ * Generates a random ID.
+ * @internal
+ */
+export function randomUUID(): string {
+	// From http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+		const r = (Math.random() * 16) | 0;
+		const v = c === 'x' ? r : (r & 0x3) | 0x8;
+		return v.toString(16);
+	});
+}

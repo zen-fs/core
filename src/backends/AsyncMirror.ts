@@ -1,14 +1,13 @@
 import { type FileSystem, SynchronousFileSystem, FileSystemMetadata } from '../filesystem';
 import { ApiError, ErrorCode } from '../ApiError';
-import { File, FileFlag } from '../file';
+import { File, FileFlag, PreloadFile } from '../file';
 import { Stats } from '../stats';
-import PreloadFile from '../generic/preload_file';
 import * as path from 'path';
 import { Cred } from '../cred';
 import { CreateBackend, type BackendOptions } from './backend';
 
 /**
- * @hidden
+ * @internal
  */
 interface AsyncOperation {
 	apiMethod: string;

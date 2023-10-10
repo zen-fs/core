@@ -1,8 +1,8 @@
 {
-	"name": "browserfs",
-	"version": "2.0.0",
-	"description": "A filesystem in your browser!",
-	"main": "dist/browserfs.js",
+	"name": "@browserfs/core",
+	"version": "2.0.0-indev-1",
+	"description": "A filesystem in your browser",
+	"main": "dist/index.js",
 	"types": "dist",
 	"keywords": [
 		"filesystem",
@@ -10,8 +10,8 @@
 		"storage"
 	],
 	"type": "module",
-	"homepage": "https://github.com/jvilk/BrowserFS",
-	"author": "John Vilk <jvilk@cs.umass.edu> (http://people.cs.umass.edu/~jvilk)",
+	"homepage": "https://github.com/browser-fs/core",
+	"author": "John Vilk <jvilk@cs.umass.edu>",
 	"contributors": [
 		{
 			"name": "dr-vortex",
@@ -22,20 +22,16 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/jvilk/BrowserFS.git"
+		"url": "https://github.com/browser-fs/core.git"
 	},
 	"bugs": {
-		"url": "https://github.com/jvilk/BrowserFS/issues"
+		"url": "https://github.com/browser-fs/core/issues"
 	},
 	"engines": {
 		"node": ">= 18"
 	},
 	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"require": "./dist/browserfs.min.cjs",
-			"import": "./dist/browserfs.min.mjs"
-		}
+		"./*": "./dist/*"
 	},
 	"scripts": {
 		"lint": "eslint src test/**/*.test.ts",
@@ -51,7 +47,6 @@
 		"@types/archiver": "~2.1.2",
 		"@types/jest": "^29.5.1",
 		"@types/node": "^14.18.62",
-		"@types/wicg-file-system-access": "^2020.9.6",
 		"@typescript-eslint/eslint-plugin": "^5.55.0",
 		"@typescript-eslint/parser": "^5.55.0",
 		"archiver": "~2.1.1",
@@ -59,7 +54,6 @@
 		"bfs-process": "~0.1.6",
 		"buffer": "~5.1.0",
 		"cross-env": "^7.0.3",
-		"dropbox": "~4.0.9",
 		"esbuild": "^0.17.18",
 		"esbuild-plugin-polyfill-node": "^0.3.0",
 		"eslint": "^8.36.0",

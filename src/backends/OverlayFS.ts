@@ -1,28 +1,27 @@
 import { type FileSystem, BaseFileSystem, FileSystemMetadata } from '../filesystem';
 import { ApiError, ErrorCode } from '../ApiError';
-import { File, FileFlag, ActionType } from '../file';
+import { File, FileFlag, ActionType, PreloadFile } from '../file';
 import { Stats } from '../stats';
-import PreloadFile from '../generic/preload_file';
-import LockedFS from '../generic/locked_fs';
+import LockedFS from './Locked';
 import * as path from 'path';
 import { Cred } from '../cred';
 import type { Buffer } from 'buffer';
 import { CreateBackend, type BackendOptions } from './backend';
 /**
- * @hidden
+ * @internal
  */
 const deletionLogPath = '/.deletedFiles.log';
 
 /**
  * Given a read-only mode, makes it writable.
- * @hidden
+ * @internal
  */
 function makeModeWritable(mode: number): number {
 	return 0o222 | mode;
 }
 
 /**
- * @hidden
+ * @internal
  */
 function getFlag(f: string): FileFlag {
 	return FileFlag.getFileFlag(f);

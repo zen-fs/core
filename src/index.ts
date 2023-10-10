@@ -4,7 +4,6 @@
 
 import fs from './emulation/fs';
 import { FileSystem, type BFSOneArgCallback, type BFSCallback } from './filesystem';
-import EmscriptenFS from './generic/emscripten_fs';
 import { backends } from './backends';
 import { ErrorCode, ApiError } from './ApiError';
 import { Cred } from './cred';
@@ -14,13 +13,6 @@ import { type MountMapping, setCred } from './emulation/shared';
 
 if (process && (<any>process)['initializeTTYs']) {
 	(<any>process)['initializeTTYs']();
-}
-
-/**
- * @hidden
- */
-export function registerBackend(name: string, fs: BackendConstructor) {
-	backends[name] = fs;
 }
 
 /**
@@ -168,13 +160,16 @@ export function getFileSystem(config: FileSystemConfiguration, cb?: BFSCallback<
 	return;
 }
 
+export * from './backends';
+export * from './backends/AsyncStore';
+export * from './backends/SyncStore';
+export * from './ApiError';
 export * from './cred';
-export * from './inode';
-export * from './stats';
 export * from './file';
 export * from './filesystem';
-export * from './backends';
-export * from './ApiError';
-export * from './generic/key_value_filesystem';
-export { fs, EmscriptenFS };
+export * from './inode';
+export * from './mutex';
+export * from './stats';
+export * from './utils';
+export { fs };
 export default fs;

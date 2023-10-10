@@ -83,7 +83,7 @@ export class FolderAdapter extends BaseFileSystem {
 }
 
 /**
- * @hidden
+ * @internal
  */
 function translateError(folder: string, e: any): any {
 	if (e !== null && typeof e === 'object') {
@@ -99,7 +99,7 @@ function translateError(folder: string, e: any): any {
 }
 
 /**
- * @hidden
+ * @internal
  */
 function wrapCallback(folder: string, cb: any): any {
 	if (typeof cb === 'function') {
@@ -115,7 +115,7 @@ function wrapCallback(folder: string, cb: any): any {
 }
 
 /**
- * @hidden
+ * @internal
  */
 function wrapFunction(name: string, wrapFirst: boolean, wrapSecond: boolean): Function {
 	if (name.slice(name.length - 4) !== 'Sync') {

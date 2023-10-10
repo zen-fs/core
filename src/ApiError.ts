@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 /**
- * Standard libc error codes. Add more to this enum and ErrorStrings as they are
+ * Standard libc error codes. More will be added to this enum and ErrorStrings as they are
  * needed.
  * @url http://www.gnu.org/software/libc/manual/html_node/Error-Codes.html
  */
@@ -24,7 +24,7 @@ export enum ErrorCode {
 
 /**
  * Strings associated with each error code.
- * @hidden
+ * @internal
  */
 export const ErrorStrings: { [code: string | number]: string } = {};
 ErrorStrings[ErrorCode.EPERM] = 'Operation not permitted.';

@@ -1,4 +1,4 @@
-import Mutex from './mutex';
+import Mutex from '../mutex';
 import { FileContents, FileSystem, FileSystemMetadata } from '../filesystem';
 import { FileFlag } from '../file';
 import { Stats } from '../stats';

@@ -3,7 +3,7 @@
 		"module": "es2015",
 		"target": "es2015",
 		"outDir": "dist",
-		"lib": ["dom", "esnext"],
+		"lib": ["esnext"],
 		"moduleResolution": "node",
 		"sourceMap": true,
 		"inlineSources": true,

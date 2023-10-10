@@ -2,7 +2,7 @@ export type MutexCallback = () => void;
 
 /**
  * Non-recursive mutex
- * @hidden
+ * @internal
  */
 export default class Mutex {
 	private _locks: Map<string, MutexCallback[]> = new Map();
