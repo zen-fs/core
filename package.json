@@ -34,13 +34,13 @@
 		"./*": "./dist/*"
 	},
 	"scripts": {
-		"lint": "eslint src test/**/*.test.ts",
-		"build": "rm -rf dist/* && node scripts/build.mjs",
-		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
-		"prepublishOnly": "npm run build",
-		"build:docs": "typedoc --out docs --name BrowserFS src/index.ts",
+		"format": "prettier --write src test",
 		"format:check": "prettier --check src test",
-		"format": "prettier --write src test"
+		"lint": "eslint src test",
+		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
+		"build": "node scripts/build.mjs",
+		"build:docs": "typedoc --out docs --name BrowserFS src/index.ts",
+		"prepublishOnly": "npm run build"
 	},
 	"devDependencies": {
 		"@jest/globals": "^29.5.0",

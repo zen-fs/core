@@ -6,6 +6,7 @@ on:
             - main
             - master
     workflow_dispatch:
+    workflow_call:
 
 jobs:
     ci:

@@ -11,12 +11,7 @@ export const backends: { [backend: string]: BackendConstructor } = {
 	OverlayFS,
 };
 export default backends;
-export {
-	AsyncMirror,
-	FolderAdapter,
-	InMemory,
-	OverlayFS,
-};
+export { AsyncMirror, FolderAdapter, InMemory, OverlayFS };
 
 export function registerBackend(name: string, fs: BackendConstructor) {
 	backends[name] = fs;

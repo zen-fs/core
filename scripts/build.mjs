@@ -1,28 +1,46 @@
-import { build } from 'esbuild';
+import { context } from 'esbuild';
 import { polyfillNode } from 'esbuild-plugin-polyfill-node';
+import { parseArgs } from 'node:util';
+import { execSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
 
-const common = {
+const options = parseArgs({
+	config: {
+		keep: { short: 'k', type: 'boolean', default: false },
+		watch: { short: 'w', type: 'boolean', default: false },
+	},
+}).values;
+
+const ctx = await context({
 	entryPoints: ['src/index.ts'],
-	target: ['es6'],
+	target: 'es6',
 	globalName: 'BrowserFS',
+	outfile: 'dist/browser.min.js',
 	sourcemap: true,
 	keepNames: true,
 	bundle: true,
+	minify: true,
+	platform: 'browser',
 	alias: { process: 'bfs-process', path: 'path' },
-	plugins: [polyfillNode()],
-};
+	plugins: [polyfillNode(), { name: 'watcher', setup(build) {
+		build.onStart(() => {
+			if(!options.keep) {
+				rmSync('dist', { force: true, recursive: true });
+			}
 
-const configs = {
-	'browser, unminified': { outfile: 'dist/browserfs.js', platform: 'browser' },
-	'browser, minified': { outfile: 'dist/browserfs.min.js', platform: 'browser', minify: true },
-	'ESM, unminified': { outfile: 'dist/browserfs.mjs', platform: 'neutral', format: 'esm' },
-	'ESM, minified': { outfile: 'dist/browserfs.min.mjs', platform: 'neutral', format: 'esm', minify: true },
-	'node, unminified': { outfile: 'dist/browserfs.cjs', platform: 'node', format: 'cjs', alias: {}, plugins: [] },
-	'node, minified': { outfile: 'dist/browserfs.min.cjs', platform: 'node', format: 'cjs', minify: true, alias: {}, plugins: [] },
-};
+			try {
+				execSync('tsc -p tsconfig.json');
+			} catch (e) {
+				console.error(e);
+			}
+		});
+	} }],
+});
 
-for (const [name, config] of Object.entries(configs)) {
-	console.log(`Building for ${name}...`);
-	await build({ ...common, ...config });
-	console.log(`Built for ${name}.`);
+if(options.watch) {
+	console.log('Watching for changes...');
+	await ctx.watch();
+} else {
+	await ctx.rebuild();
+	await ctx.dispose();
 }
