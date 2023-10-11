@@ -33,20 +33,11 @@ export function createMockStats(mode): Stats {
 	return new Stats(FileType.FILE, -1, mode);
 }
 
-const tests /*: { [B in keyof typeof Backends]: Parameters<typeof Backends[B]['Create']>[0] }*/ = {
+const tests = {
 	AsyncMirror: { sync: { fs: 'InMemory' }, async: { fs: 'InMemory' } },
-	//Dropbox: {},
-	//Emscripten: {},
-	//FileSystemAccess: {},
 	FolderAdapter: { wrapped: { fs: 'InMemory' }, folder: '/example' },
 	InMemory: {},
-	//IndexedDB: {},
-	//IsoFS: {},
-	//Storage: {},
 	OverlayFS: { readable: { fs: 'InMemory' }, writable: { fs: 'InMemory' } },
-	//WorkerFS: {},
-	//HTTPRequest: {},
-	//ZipFS: {},
 };
 
 export const backends = Object.entries(tests);
