@@ -1,5 +1,3 @@
 *
-!src/**/*
 !dist/**/*
 !license.md
-
