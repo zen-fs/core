@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"module": "ES2015",
+		"module": "NodeNext",
 		"target": "ES2015",
 		"outDir": "dist",
 		"lib": ["ESNext"],

@@ -459,15 +459,12 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 				throw ApiError.ENOENT(path.resolve(parent, filename));
 			}
 		};
-		if (parent === '.') {
-			parent = process.cwd();
-		}
 		if (parent === '/') {
 			if (filename === '') {
-				// BASE CASE #1: Return the root's ID.
+				// Return the root's ID.
 				return ROOT_NODE_ID;
 			} else {
-				// BASE CASE #2: Find the item in the root node.
+				// Find the item in the root node.
 				return readDirectory(this.getINode(tx, parent, ROOT_NODE_ID));
 			}
 		} else {

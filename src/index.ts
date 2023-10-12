@@ -7,13 +7,8 @@ import { FileSystem, type BFSOneArgCallback, type BFSCallback } from './filesyst
 import { backends } from './backends/index.js';
 import { ErrorCode, ApiError } from './ApiError.js';
 import { Cred } from './cred.js';
-import * as process from 'process';
 import type { BackendConstructor } from './backends/backend.js';
 import { type MountMapping, setCred } from './emulation/shared.js';
-
-if (process && (<any>process)['initializeTTYs']) {
-	(<any>process)['initializeTTYs']();
-}
 
 /**
  * Initializes BrowserFS with the given file systems.

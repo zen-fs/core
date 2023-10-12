@@ -97,7 +97,7 @@ export function nop() {
 }
 
 // credentials
-export let cred: Cred;
+export let cred: Cred = Cred.Root;
 export function setCred(val: Cred): void {
 	cred = val;
 }
