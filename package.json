@@ -22,7 +22,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/browser-fs/core.git"
+		"url": "git+https://github.com/browser-fs/core.git"
 	},
 	"bugs": {
 		"url": "https://github.com/browser-fs/core/issues"
