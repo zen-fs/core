@@ -1,9 +1,9 @@
-import Mutex from '../mutex';
-import { FileContents, FileSystem, FileSystemMetadata } from '../filesystem';
-import { FileFlag } from '../file';
-import { Stats } from '../stats';
-import { File } from '../file';
-import { Cred } from '../cred';
+import Mutex from '../mutex.js';
+import { FileContents, FileSystem, FileSystemMetadata } from '../filesystem.js';
+import { FileFlag } from '../file.js';
+import { Stats } from '../stats.js';
+import { File } from '../file.js';
+import { Cred } from '../cred.js';
 
 /**
  * This class serializes access to an underlying async filesystem.

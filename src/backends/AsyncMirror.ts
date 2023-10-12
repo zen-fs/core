@@ -1,10 +1,10 @@
-import { type FileSystem, SynchronousFileSystem, FileSystemMetadata } from '../filesystem';
-import { ApiError, ErrorCode } from '../ApiError';
-import { File, FileFlag, PreloadFile } from '../file';
-import { Stats } from '../stats';
+import { type FileSystem, SynchronousFileSystem, FileSystemMetadata } from '../filesystem.js';
+import { ApiError, ErrorCode } from '../ApiError.js';
+import { File, FileFlag, PreloadFile } from '../file.js';
+import { Stats } from '../stats.js';
 import * as path from 'path';
-import { Cred } from '../cred';
-import { CreateBackend, type BackendOptions } from './backend';
+import { Cred } from '../cred.js';
+import { CreateBackend, type BackendOptions } from './backend.js';
 
 /**
  * @internal

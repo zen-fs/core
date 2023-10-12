@@ -1,7 +1,7 @@
 import type { StatsBase } from 'fs';
-import { Cred } from './cred';
+import { Cred } from './cred.js';
 import { Buffer } from 'buffer';
-import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from './emulation/constants';
+import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from './emulation/constants.js';
 
 /**
  * Indicates the type of the given file. Applied to 'mode'.

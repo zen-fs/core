@@ -1,8 +1,8 @@
-import { BaseFileSystem, type FileSystem } from '../filesystem';
+import { BaseFileSystem, type FileSystem } from '../filesystem.js';
 import * as path from 'path';
-import { ApiError } from '../ApiError';
-import { Cred } from '../cred';
-import { CreateBackend, type BackendOptions } from './backend';
+import { ApiError } from '../ApiError.js';
+import { Cred } from '../cred.js';
+import { CreateBackend, type BackendOptions } from './backend.js';
 
 export namespace FolderAdapter {
 	/**

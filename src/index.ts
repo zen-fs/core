@@ -2,14 +2,14 @@
  * BrowserFS's main module. This is exposed in the browser via the BrowserFS global.
  */
 
-import fs from './emulation/fs';
-import { FileSystem, type BFSOneArgCallback, type BFSCallback } from './filesystem';
-import { backends } from './backends';
-import { ErrorCode, ApiError } from './ApiError';
-import { Cred } from './cred';
+import fs from './emulation/fs.js';
+import { FileSystem, type BFSOneArgCallback, type BFSCallback } from './filesystem.js';
+import { backends } from './backends/index.js';
+import { ErrorCode, ApiError } from './ApiError.js';
+import { Cred } from './cred.js';
 import * as process from 'process';
-import type { BackendConstructor } from './backends/backend';
-import { type MountMapping, setCred } from './emulation/shared';
+import type { BackendConstructor } from './backends/backend.js';
+import { type MountMapping, setCred } from './emulation/shared.js';
 
 if (process && (<any>process)['initializeTTYs']) {
 	(<any>process)['initializeTTYs']();
@@ -160,16 +160,16 @@ export function getFileSystem(config: FileSystemConfiguration, cb?: BFSCallback<
 	return;
 }
 
-export * from './backends';
-export * from './backends/AsyncStore';
-export * from './backends/SyncStore';
-export * from './ApiError';
-export * from './cred';
-export * from './file';
-export * from './filesystem';
-export * from './inode';
-export * from './mutex';
-export * from './stats';
-export * from './utils';
+export * from './backends/index.js';
+export * from './backends/AsyncStore.js';
+export * from './backends/SyncStore.js';
+export * from './ApiError.js';
+export * from './cred.js';
+export * from './file.js';
+export * from './filesystem.js';
+export * from './inode.js';
+export * from './mutex.js';
+export * from './stats.js';
+export * from './utils.js';
 export { fs };
 export default fs;

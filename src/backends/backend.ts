@@ -1,5 +1,5 @@
-import type { BFSCallback, FileSystem } from '../filesystem';
-import { checkOptions } from '../utils';
+import type { BFSCallback, FileSystem } from '../filesystem.js';
+import { checkOptions } from '../utils.js';
 
 /**
  * Describes a file system option.

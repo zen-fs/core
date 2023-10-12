@@ -1,4 +1,4 @@
-import { Stats, FileType } from './stats';
+import { Stats, FileType } from './stats.js';
 import { Buffer } from 'buffer';
 
 /**

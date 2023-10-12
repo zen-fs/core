@@ -1,12 +1,12 @@
 /**
  * Grab bag of utility functions used across the code.
  */
-import { FileSystem } from './filesystem';
-import { ErrorCode, ApiError } from './ApiError';
+import { FileSystem } from './filesystem.js';
+import { ErrorCode, ApiError } from './ApiError.js';
 import * as path from 'path';
-import { Cred } from './cred';
+import { Cred } from './cred.js';
 import { Buffer } from 'buffer';
-import type { BaseBackendConstructor } from './backends/backend';
+import type { BaseBackendConstructor } from './backends/backend.js';
 
 /**
  * Synchronous recursive makedir.

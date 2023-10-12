@@ -1,13 +1,13 @@
 // Utilities and shared data
 
 import { posix as path } from 'path';
-import { ApiError, ErrorCode } from '../ApiError';
-import { Cred } from '../cred';
-import { FileSystem } from '../filesystem';
-import { File } from '../file';
-//import { BackendConstructor } from '../backends';
-import { InMemoryFileSystem } from '../backends/InMemory';
-import { BackendConstructor } from '../backends/backend';
+import { ApiError, ErrorCode } from '../ApiError.js';
+import { Cred } from '../cred.js';
+import { FileSystem } from '../filesystem.js';
+import { File } from '../file.js';
+//import { BackendConstructor } from '../backends.js';
+import { InMemoryFileSystem } from '../backends/InMemory.js';
+import { BackendConstructor } from '../backends/backend.js';
 
 /**
  * converts Date or number to a fractional UNIX timestamp

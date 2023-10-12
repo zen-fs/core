@@ -1,12 +1,12 @@
-import { type FileSystem, BaseFileSystem, FileSystemMetadata } from '../filesystem';
-import { ApiError, ErrorCode } from '../ApiError';
-import { File, FileFlag, ActionType, PreloadFile } from '../file';
-import { Stats } from '../stats';
-import LockedFS from './Locked';
+import { type FileSystem, BaseFileSystem, FileSystemMetadata } from '../filesystem.js';
+import { ApiError, ErrorCode } from '../ApiError.js';
+import { File, FileFlag, ActionType, PreloadFile } from '../file.js';
+import { Stats } from '../stats.js';
+import LockedFS from './Locked.js';
 import * as path from 'path';
-import { Cred } from '../cred';
+import { Cred } from '../cred.js';
 import type { Buffer } from 'buffer';
-import { CreateBackend, type BackendOptions } from './backend';
+import { CreateBackend, type BackendOptions } from './backend.js';
 /**
  * @internal
  */

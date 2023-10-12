@@ -1,7 +1,7 @@
-import { ApiError, ErrorCode } from './ApiError';
-import { Stats } from './stats';
-import { FileSystem } from './filesystem';
-import { getMount } from './emulation/shared';
+import { ApiError, ErrorCode } from './ApiError.js';
+import { Stats } from './stats.js';
+import { FileSystem } from './filesystem.js';
+import { getMount } from './emulation/shared.js';
 import { Buffer } from 'buffer';
 
 export enum ActionType {

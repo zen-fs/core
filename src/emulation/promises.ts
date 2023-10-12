@@ -1,13 +1,13 @@
 import type { ReadStream, WriteStream, FSWatcher, symlink as _symlink } from 'node:fs';
-import { ApiError, ErrorCode } from '../ApiError';
+import { ApiError, ErrorCode } from '../ApiError.js';
 
-import * as constants from './constants';
+import * as constants from './constants.js';
 export { constants };
 
-import { File, FileFlag } from '../file';
-import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared';
-import { FileContents, FileSystem } from '../filesystem';
-import { Stats } from '../stats';
+import { File, FileFlag } from '../file.js';
+import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared.js';
+import { FileContents, FileSystem } from '../filesystem.js';
+import { Stats } from '../stats.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any

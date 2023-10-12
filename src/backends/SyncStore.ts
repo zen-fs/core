@@ -1,12 +1,12 @@
 import * as path from 'path';
-import { ApiError, ErrorCode } from '../ApiError';
-import { Cred } from '../cred';
-import { W_OK, R_OK } from '../emulation/constants';
-import { File, FileFlag, PreloadFile } from '../file';
-import { SynchronousFileSystem } from '../filesystem';
-import Inode from '../inode';
-import { Stats, FileType } from '../stats';
-import { randomUUID, getEmptyDirNode, ROOT_NODE_ID } from '../utils';
+import { ApiError, ErrorCode } from '../ApiError.js';
+import { Cred } from '../cred.js';
+import { W_OK, R_OK } from '../emulation/constants.js';
+import { File, FileFlag, PreloadFile } from '../file.js';
+import { SynchronousFileSystem } from '../filesystem.js';
+import Inode from '../inode.js';
+import { Stats, FileType } from '../stats.js';
+import { randomUUID, getEmptyDirNode, ROOT_NODE_ID } from '../utils.js';
 
 /**
  * Represents a *synchronous* key-value store.

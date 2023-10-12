@@ -1,9 +1,9 @@
-import { ApiError, ErrorCode } from '../ApiError';
-import { File, FileFlag } from '../file';
-import { FileContents, FileSystem } from '../filesystem';
-import { Stats } from '../stats';
+import { ApiError, ErrorCode } from '../ApiError.js';
+import { File, FileFlag } from '../file.js';
+import { FileContents, FileSystem } from '../filesystem.js';
+import { Stats } from '../stats.js';
 import type { symlink, ReadSyncOptions } from 'fs';
-import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts } from './shared';
+import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts } from './shared.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any

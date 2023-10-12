@@ -1,5 +1,5 @@
-import { SyncKeyValueStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncKeyValueRWTransaction, SyncKeyValueFileSystem } from './SyncStore';
-import { CreateBackend, type BackendOptions } from './backend';
+import { SyncKeyValueStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncKeyValueRWTransaction, SyncKeyValueFileSystem } from './SyncStore.js';
+import { CreateBackend, type BackendOptions } from './backend.js';
 
 /**
  * A simple in-memory key-value store backed by a JavaScript object.

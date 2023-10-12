@@ -1,12 +1,12 @@
 import * as path from 'path';
-import { ApiError, ErrorCode } from '../ApiError';
-import { Cred } from '../cred';
-import { W_OK, R_OK } from '../emulation/constants';
-import { PreloadFile, File, FileFlag } from '../file';
-import { BaseFileSystem } from '../filesystem';
-import Inode from '../inode';
-import { Stats, FileType } from '../stats';
-import { ROOT_NODE_ID, randomUUID, getEmptyDirNode } from '../utils';
+import { ApiError, ErrorCode } from '../ApiError.js';
+import { Cred } from '../cred.js';
+import { W_OK, R_OK } from '../emulation/constants.js';
+import { PreloadFile, File, FileFlag } from '../file.js';
+import { BaseFileSystem } from '../filesystem.js';
+import Inode from '../inode.js';
+import { Stats, FileType } from '../stats.js';
+import { ROOT_NODE_ID, randomUUID, getEmptyDirNode } from '../utils.js';
 
 class LRUNode {
 	public prev: LRUNode | null = null;

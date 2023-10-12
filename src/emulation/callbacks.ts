@@ -1,10 +1,10 @@
 import type { FSWatcher, ReadStream, WriteStream, symlink as _symlink } from 'fs';
-import { ApiError, ErrorCode } from '../ApiError';
-import { BFSCallback, BFSOneArgCallback, BFSThreeArgCallback, FileContents } from '../filesystem';
-import { Stats } from '../stats';
-import { nop, normalizeMode } from './shared';
-import * as promises from './promises';
-import { R_OK } from './constants';
+import { ApiError, ErrorCode } from '../ApiError.js';
+import { BFSCallback, BFSOneArgCallback, BFSThreeArgCallback, FileContents } from '../filesystem.js';
+import { Stats } from '../stats.js';
+import { nop, normalizeMode } from './shared.js';
+import * as promises from './promises.js';
+import { R_OK } from './constants.js';
 
 /**
  * Asynchronous rename. No arguments other than a possible exception are given

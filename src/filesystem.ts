@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // disable no-unused-vars since BaseFileSystem uses them a lot
 
-import { ApiError, ErrorCode } from './ApiError';
-import { Stats } from './stats';
-import { File, FileFlag, ActionType } from './file';
+import { ApiError, ErrorCode } from './ApiError.js';
+import { Stats } from './stats.js';
+import { File, FileFlag, ActionType } from './file.js';
 import * as path from 'path';
-import { Cred } from './cred';
+import { Cred } from './cred.js';
 import { Buffer } from 'buffer';
 
 export type BFSOneArgCallback = (e?: ApiError) => unknown;
