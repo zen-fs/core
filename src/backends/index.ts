@@ -4,15 +4,14 @@ import { InMemoryFileSystem as InMemory } from './InMemory';
 import { OverlayFS } from './OverlayFS';
 import { BackendConstructor } from './backend';
 
-export const backends: { [backend: string]: BackendConstructor } = {
-	AsyncMirror,
-	FolderAdapter,
-	InMemory,
-	OverlayFS,
-};
+export const backends: { [backend: string]: BackendConstructor } = {};
 export default backends;
 export { AsyncMirror, FolderAdapter, InMemory, OverlayFS };
 
-export function registerBackend(name: string, fs: BackendConstructor) {
-	backends[name] = fs;
+export function registerBackend(..._backends: BackendConstructor[]) {
+	for (const backend of _backends) {
+		backends[backend.Name] = backend;
+	}
 }
+
+registerBackend(AsyncMirror, FolderAdapter, InMemory, OverlayFS);
