@@ -5,7 +5,6 @@ import { Stats } from '../stats.js';
 import { nop, normalizeMode } from './shared.js';
 import * as promises from './promises.js';
 import { R_OK } from './constants.js';
-import '../types.js';
 import { decode, encode } from '../utils.js';
 
 /**

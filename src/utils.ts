@@ -6,7 +6,7 @@ import { ErrorCode, ApiError } from './ApiError.js';
 import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
 import type { BaseBackendConstructor } from './backends/backend.js';
-import { TextEncoder, TextDecoder } from 'node:util';
+import type { TextEncoder as TextEncoderType, TextDecoder as TextDecoderType } from 'node:util';
 
 /**
  * Synchronous recursive makedir.
@@ -237,6 +237,12 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
  * @internal
  */
 export const ROOT_NODE_ID: string = '/';
+
+
+declare global {
+	const TextEncoder: typeof TextEncoderType;
+	const TextDecoder: typeof TextDecoderType;
+}
 
 export const encode = new TextEncoder().encode;
 export const decode = new TextDecoder().decode;
