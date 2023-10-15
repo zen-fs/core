@@ -1,4 +1,4 @@
-import * as path from 'path';
+import { dirname, basename, join, resolve, sep } from '../emulation/path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
@@ -258,10 +258,10 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
 		const tx = this.store.beginTransaction('readwrite'),
-			oldParent = path.dirname(oldPath),
-			oldName = path.basename(oldPath),
-			newParent = path.dirname(newPath),
-			newName = path.basename(newPath),
+			oldParent = dirname(oldPath),
+			oldName = basename(oldPath),
+			newParent = dirname(newPath),
+			newName = basename(newPath),
 			// Remove oldPath from parent's directory listing.
 			oldDirNode = this.findINode(tx, oldParent),
 			oldDirList = this.getDirListing(tx, oldParent, oldDirNode);
@@ -399,7 +399,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 		//       update is required.
 		const tx = this.store.beginTransaction('readwrite'),
 			// We use the _findInode helper because we actually need the INode id.
-			fileInodeId = this._findINode(tx, path.dirname(p), path.basename(p)),
+			fileInodeId = this._findINode(tx, dirname(p), basename(p)),
 			fileInode = this.getINode(tx, p, fileInodeId),
 			inodeChanged = fileInode.update(stats);
 
@@ -443,7 +443,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * @return string The ID of the file's inode in the file system.
 	 */
 	private _findINode(tx: SyncKeyValueROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): string {
-		const currentPath = path.posix.join(parent, filename);
+		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ApiError(ErrorCode.EIO, 'Infinite loop detected while finding inode', currentPath);
 		}
@@ -456,7 +456,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 			if (dirList[filename]) {
 				return dirList[filename];
 			} else {
-				throw ApiError.ENOENT(path.resolve(parent, filename));
+				throw ApiError.ENOENT(resolve(parent, filename));
 			}
 		};
 		if (parent === '/') {
@@ -468,7 +468,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 				return readDirectory(this.getINode(tx, parent, ROOT_NODE_ID));
 			}
 		} else {
-			return readDirectory(this.getINode(tx, parent + path.sep + filename, this._findINode(tx, path.dirname(parent), path.basename(parent), visited)));
+			return readDirectory(this.getINode(tx, parent + sep + filename, this._findINode(tx, dirname(parent), basename(parent), visited)));
 		}
 	}
 
@@ -479,7 +479,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * @todo memoize/cache
 	 */
 	private findINode(tx: SyncKeyValueROTransaction, p: string): Inode {
-		return this.getINode(tx, p, this._findINode(tx, path.dirname(p), path.basename(p)));
+		return this.getINode(tx, p, this._findINode(tx, dirname(p), basename(p)));
 	}
 
 	/**
@@ -542,8 +542,8 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * @return The Inode for the new file.
 	 */
 	private commitNewFile(tx: SyncKeyValueRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Buffer): Inode {
-		const parentDir = path.dirname(p),
-			fname = path.basename(p),
+		const parentDir = dirname(p),
+			fname = basename(p),
 			parentNode = this.findINode(tx, parentDir),
 			dirListing = this.getDirListing(tx, parentDir, parentNode),
 			currTime = new Date().getTime();
@@ -591,10 +591,10 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 */
 	private removeEntry(p: string, isDir: boolean, cred: Cred): void {
 		const tx = this.store.beginTransaction('readwrite'),
-			parent: string = path.dirname(p),
+			parent: string = dirname(p),
 			parentNode = this.findINode(tx, parent),
 			parentListing = this.getDirListing(tx, parent, parentNode),
-			fileName: string = path.basename(p);
+			fileName: string = basename(p);
 
 		if (!parentListing[fileName]) {
 			throw ApiError.ENOENT(p);

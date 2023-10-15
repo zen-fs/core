@@ -4,7 +4,7 @@
 import { ApiError, ErrorCode } from './ApiError.js';
 import { Stats } from './stats.js';
 import { File, FileFlag, ActionType } from './file.js';
-import * as path from 'path';
+import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
 import { Buffer } from 'buffer';
 

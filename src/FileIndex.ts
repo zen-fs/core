@@ -1,5 +1,5 @@
 import { Stats, FileType } from './stats.js';
-import * as path from 'path';
+import * as path from './emulation/path.js';
 
 /**
  * A simple class for storing a filesystem index. Assumes that all paths passed
@@ -237,7 +237,7 @@ export class FileIndex<T> {
 	 */
 	private _split_path(p: string): string[] {
 		const dirpath = path.dirname(p);
-		const itemname = p.substr(dirpath.length + (dirpath === '/' ? 0 : 1));
+		const itemname = p.slice(dirpath.length + (dirpath === '/' ? 0 : 1));
 		return [dirpath, itemname];
 	}
 }

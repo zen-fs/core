@@ -1,4 +1,4 @@
-import * as path from 'path';
+import { dirname, basename, join, resolve } from '../emulation/path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
@@ -260,10 +260,10 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 
 		try {
 			const tx = this.store.beginTransaction('readwrite'),
-				oldParent = path.dirname(oldPath),
-				oldName = path.basename(oldPath),
-				newParent = path.dirname(newPath),
-				newName = path.basename(newPath),
+				oldParent = dirname(oldPath),
+				oldName = basename(oldPath),
+				newParent = dirname(newPath),
+				newName = basename(newPath),
 				// Remove oldPath from parent's directory listing.
 				oldDirNode = await this.findINode(tx, oldParent),
 				oldDirList = await this.getDirListing(tx, oldParent, oldDirNode);
@@ -407,7 +407,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 		//       update is required.
 		const tx = this.store.beginTransaction('readwrite'),
 			// We use the _findInode helper because we actually need the INode id.
-			fileInodeId = await this._findINode(tx, path.dirname(p), path.basename(p)),
+			fileInodeId = await this._findINode(tx, dirname(p), basename(p)),
 			fileInode = await this.getINode(tx, p, fileInodeId),
 			inodeChanged = fileInode.update(stats);
 
@@ -450,7 +450,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 *   the parent.
 	 */
 	private async _findINode(tx: AsyncKeyValueROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): Promise<string> {
-		const currentPath = path.posix.join(parent, filename);
+		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ApiError(ErrorCode.EIO, 'Infinite loop detected while finding inode', currentPath);
 		}
@@ -481,7 +481,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 					}
 					return id;
 				} else {
-					throw ApiError.ENOENT(path.resolve(parent, filename));
+					throw ApiError.ENOENT(resolve(parent, filename));
 				}
 			}
 		} else {
@@ -496,7 +496,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 				}
 				return id;
 			} else {
-				throw ApiError.ENOENT(path.resolve(parent, filename));
+				throw ApiError.ENOENT(resolve(parent, filename));
 			}
 		}
 	}
@@ -507,7 +507,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * @todo memoize/cache
 	 */
 	private async findINode(tx: AsyncKeyValueROTransaction, p: string, visited: Set<string> = new Set<string>()): Promise<Inode> {
-		const id = await this._findINode(tx, path.dirname(p), path.basename(p), visited);
+		const id = await this._findINode(tx, dirname(p), basename(p), visited);
 		return this.getINode(tx, p, id!);
 	}
 
@@ -579,8 +579,8 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * @param data The data to store at the file's data node.
 	 */
 	private async commitNewFile(tx: AsyncKeyValueRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Buffer): Promise<Inode> {
-		const parentDir = path.dirname(p),
-			fname = path.basename(p),
+		const parentDir = dirname(p),
+			fname = basename(p),
 			parentNode = await this.findINode(tx, parentDir),
 			dirListing = await this.getDirListing(tx, parentDir, parentNode),
 			currTime = new Date().getTime();
@@ -636,10 +636,10 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 			this._cache.remove(p);
 		}
 		const tx = this.store.beginTransaction('readwrite'),
-			parent: string = path.dirname(p),
+			parent: string = dirname(p),
 			parentNode = await this.findINode(tx, parent),
 			parentListing = await this.getDirListing(tx, parent, parentNode),
-			fileName: string = path.basename(p);
+			fileName: string = basename(p);
 
 		if (!parentListing[fileName]) {
 			throw ApiError.ENOENT(p);

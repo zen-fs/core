@@ -3,7 +3,7 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { File, FileFlag, ActionType, PreloadFile } from '../file.js';
 import { Stats } from '../stats.js';
 import LockedFS from './Locked.js';
-import * as path from 'path';
+import { resolve, dirname } from '../emulation/path.js';
 import { Cred } from '../cred.js';
 import type { Buffer } from 'buffer';
 import { CreateBackend, type BackendOptions } from './backend.js';
@@ -212,7 +212,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 			if (await this._readable.exists(oldPath, cred)) {
 				for (const name of await this._readable.readdir(oldPath, cred)) {
 					// Recursion! Should work for any nested files / folders.
-					await this.rename(path.resolve(oldPath, name), path.resolve(newPath, name), cred);
+					await this.rename(resolve(oldPath, name), resolve(newPath, name), cred);
 				}
 			}
 		} else {
@@ -269,7 +269,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 			if (this._readable.existsSync(oldPath, cred)) {
 				this._readable.readdirSync(oldPath, cred).forEach(name => {
 					// Recursion! Should work for any nested files / folders.
-					this.renameSync(path.resolve(oldPath, name), path.resolve(newPath, name), cred);
+					this.renameSync(resolve(oldPath, name), resolve(newPath, name), cred);
 				});
 			}
 		} else {
@@ -640,11 +640,11 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 	 * should they not exist. Use modes from the read-only storage.
 	 */
 	private createParentDirectories(p: string, cred: Cred): void {
-		let parent = path.dirname(p),
+		let parent = dirname(p),
 			toCreate: string[] = [];
 		while (!this._writable.existsSync(parent, cred)) {
 			toCreate.push(parent);
-			parent = path.dirname(parent);
+			parent = dirname(parent);
 		}
 		toCreate = toCreate.reverse();
 
@@ -654,11 +654,11 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 	}
 
 	private async createParentDirectoriesAsync(p: string, cred: Cred): Promise<void> {
-		let parent = path.dirname(p),
+		let parent = dirname(p),
 			toCreate: string[] = [];
 		while (!(await this._writable.exists(parent, cred))) {
 			toCreate.push(parent);
-			parent = path.dirname(parent);
+			parent = dirname(parent);
 		}
 		toCreate = toCreate.reverse();
 

@@ -3,7 +3,7 @@
  */
 import { FileSystem } from './filesystem.js';
 import { ErrorCode, ApiError } from './ApiError.js';
-import * as path from 'path';
+import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
 import { Buffer } from 'buffer';
 import type { BaseBackendConstructor } from './backends/backend.js';

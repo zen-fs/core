@@ -1,6 +1,6 @@
 // Utilities and shared data
 
-import { posix as path } from 'path';
+import { resolve } from './path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { FileSystem } from '../filesystem.js';
@@ -61,7 +61,7 @@ export function normalizePath(p: string): string {
 		throw new ApiError(ErrorCode.EINVAL, 'Path must not be empty.');
 	}
 	p = p.replaceAll(/\/+/g, '/');
-	return path.resolve(p);
+	return resolve(p);
 }
 
 export function normalizeOptions(options: any, defEnc: string | null, defFlag: string, defMode: number | null): { encoding: BufferEncoding; flag: string; mode: number } {
@@ -152,7 +152,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 	if (mountPoint[0] !== '/') {
 		mountPoint = '/' + mountPoint;
 	}
-	mountPoint = path.resolve(mountPoint);
+	mountPoint = resolve(mountPoint);
 	if (mounts.has(mountPoint)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Mount point ' + mountPoint + ' is already in use.');
 	}
@@ -166,7 +166,7 @@ export function umount(mountPoint: string): void {
 	if (mountPoint[0] !== '/') {
 		mountPoint = `/${mountPoint}`;
 	}
-	mountPoint = path.resolve(mountPoint);
+	mountPoint = resolve(mountPoint);
 	if (!mounts.has(mountPoint)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Mount point ' + mountPoint + ' is already unmounted.');
 	}

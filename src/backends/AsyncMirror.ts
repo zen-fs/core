@@ -2,7 +2,7 @@ import { type FileSystem, SynchronousFileSystem, FileSystemMetadata } from '../f
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { File, FileFlag, PreloadFile } from '../file.js';
 import { Stats } from '../stats.js';
-import * as path from 'path';
+import { join } from '../emulation/path.js';
 import { Cred } from '../cred.js';
 import { CreateBackend, type BackendOptions } from './backend.js';
 
@@ -246,7 +246,7 @@ export class AsyncMirror extends SynchronousFileSystem {
 					}
 					const files = await this._async.readdir(p, Cred.Root);
 					for (const file of files) {
-						await copyItem(path.join(p, file));
+						await copyItem(join(p, file));
 					}
 				},
 				copyFile = async (p: string, mode: number): Promise<void> => {

@@ -1,5 +1,5 @@
 import { BaseFileSystem, type FileSystem } from '../filesystem.js';
-import * as path from 'path';
+import { relative, join } from '../emulation/path.js';
 import { ApiError } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { CreateBackend, type BackendOptions } from './backend.js';
@@ -90,7 +90,7 @@ function translateError(folder: string, e: any): any {
 		const err = <ApiError>e;
 		let p = err.path;
 		if (p) {
-			p = '/' + path.relative(folder, p);
+			p = '/' + relative(folder, p);
 			err.message = err.message.replace(err.path!, p);
 			err.path = p;
 		}
@@ -123,10 +123,10 @@ function wrapFunction(name: string, wrapFirst: boolean, wrapSecond: boolean): Fu
 		return function (this: FolderAdapter) {
 			if (arguments.length > 0) {
 				if (wrapFirst) {
-					arguments[0] = path.join(this._folder, arguments[0]);
+					arguments[0] = join(this._folder, arguments[0]);
 				}
 				if (wrapSecond) {
-					arguments[1] = path.join(this._folder, arguments[1]);
+					arguments[1] = join(this._folder, arguments[1]);
 				}
 				arguments[arguments.length - 1] = wrapCallback(this._folder, arguments[arguments.length - 1]);
 			}
@@ -137,10 +137,10 @@ function wrapFunction(name: string, wrapFirst: boolean, wrapSecond: boolean): Fu
 		return function (this: FolderAdapter) {
 			try {
 				if (wrapFirst) {
-					arguments[0] = path.join(this._folder, arguments[0]);
+					arguments[0] = join(this._folder, arguments[0]);
 				}
 				if (wrapSecond) {
-					arguments[1] = path.join(this._folder, arguments[1]);
+					arguments[1] = join(this._folder, arguments[1]);
 				}
 				return (<any>this._wrapped)[name].apply(this._wrapped, arguments);
 			} catch (e) {
