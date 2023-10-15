@@ -238,7 +238,6 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
  */
 export const ROOT_NODE_ID: string = '/';
 
-
 declare global {
 	const TextEncoder: typeof TextEncoderType;
 	const TextDecoder: typeof TextDecoderType;
