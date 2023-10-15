@@ -19,32 +19,6 @@ export function mkdirpSync(p: string, mode: number, cred: Cred, fs: FileSystem):
 	}
 }
 
-/**
- * Copies a slice of the given buffer
- * @internal
- */
-export function copyingSlice(buff: Buffer, start: number = 0, end = buff.length): Buffer {
-	if (start < 0 || end < 0 || end > buff.length || start > end) {
-		throw new TypeError(`Invalid slice bounds on buffer of length ${buff.length}: [${start}, ${end}]`);
-	}
-	if (buff.length === 0) {
-		// Avoid s0 corner case in ArrayBuffer case.
-		return Buffer.alloc(0);
-	} else {
-		return buff.subarray(start, end);
-	}
-}
-
-/**
- * Option validator for a Buffer file system option.
- * @internal
- */
-export async function bufferValidator(v: object): Promise<void> {
-	if (!Buffer.isBuffer(v)) {
-		throw new ApiError(ErrorCode.EINVAL, 'option must be a Buffer.');
-	}
-}
-
 /*
  * Levenshtein distance, from the `js-levenshtein` NPM module.
  * Copied here to avoid complexity of adding another CommonJS module dependency.
