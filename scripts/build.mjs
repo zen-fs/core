@@ -1,5 +1,4 @@
 import { context } from 'esbuild';
-import { polyfillNode } from 'esbuild-plugin-polyfill-node';
 import { parseArgs } from 'node:util';
 import { execSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
@@ -21,7 +20,7 @@ const ctx = await context({
 	bundle: true,
 	minify: true,
 	platform: 'browser',
-	plugins: [polyfillNode(), { name: 'watcher', setup(build) {
+	plugins: [{ name: 'watcher', setup(build) {
 		build.onStart(() => {
 			if(!options.keep) {
 				rmSync('dist', { force: true, recursive: true });
