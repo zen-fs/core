@@ -23,9 +23,10 @@ export interface BackendOption<T> {
 
 	/**
 	 * A custom validation function to check if the option is valid.
-	 * Resolves if valid and rejects if not.
+	 * When async, resolves if valid and rejects if not.
+	 * When sync, it will throw an error if not valid.
 	 */
-	validator?(opt: T): Promise<void>;
+	validator?(opt: T): void | Promise<void>;
 }
 
 /**
