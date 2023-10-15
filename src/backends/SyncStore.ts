@@ -2,7 +2,7 @@ import * as path from 'path';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
-import { File, FileFlag, PreloadFile } from '../file.js';
+import { FileFlag, PreloadFile } from '../file.js';
 import { SynchronousFileSystem } from '../filesystem.js';
 import Inode from '../inode.js';
 import { Stats, FileType } from '../stats.js';
@@ -183,7 +183,7 @@ export interface SyncKeyValueFileSystemOptions {
 	supportLinks?: boolean;
 }
 
-export class SyncKeyValueFile extends PreloadFile<SyncKeyValueFileSystem> implements File {
+export class SyncKeyValueFile extends PreloadFile<SyncKeyValueFileSystem> {
 	constructor(_fs: SyncKeyValueFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Buffer) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
@@ -335,7 +335,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 		return stats;
 	}
 
-	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): File {
+	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncKeyValueFile {
 		const tx = this.store.beginTransaction('readwrite'),
 			data = Buffer.alloc(0),
 			newFile = this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
@@ -343,7 +343,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 		return new SyncKeyValueFile(this, p, flag, newFile.toStats(), data);
 	}
 
-	public openFileSync(p: string, flag: FileFlag, cred: Cred): File {
+	public openFileSync(p: string, flag: FileFlag, cred: Cred): SyncKeyValueFile {
 		const tx = this.store.beginTransaction('readonly'),
 			node = this.findINode(tx, p),
 			data = tx.get(node.id);
