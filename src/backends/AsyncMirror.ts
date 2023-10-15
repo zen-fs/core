@@ -18,7 +18,7 @@ interface AsyncOperation {
  * We define our own file to interpose on syncSync() for mirroring purposes.
  */
 class MirrorFile extends PreloadFile<AsyncMirror> implements File {
-	constructor(fs: AsyncMirror, path: string, flag: FileFlag, stat: Stats, data: Buffer) {
+	constructor(fs: AsyncMirror, path: string, flag: FileFlag, stat: Stats, data: Uint8Array) {
 		super(fs, path, flag, stat, data);
 	}
 
@@ -174,7 +174,7 @@ export class AsyncMirror extends SynchronousFileSystem {
 		// Sanity check: Is this open/close permitted?
 		const fd = this._sync.openSync(p, flag, mode, cred);
 		fd.closeSync();
-		return new MirrorFile(this, p, flag, this._sync.statSync(p, cred), <Buffer>this._sync.readFileSync(p, null, FileFlag.getFileFlag('r'), cred));
+		return new MirrorFile(this, p, flag, this._sync.statSync(p, cred), <Uint8Array>this._sync.readFileSync(p, null, FileFlag.getFileFlag('r'), cred));
 	}
 
 	public unlinkSync(p: string, cred: Cred): void {

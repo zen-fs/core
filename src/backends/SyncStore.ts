@@ -6,7 +6,7 @@ import { FileFlag, PreloadFile } from '../file.js';
 import { SynchronousFileSystem } from '../filesystem.js';
 import Inode from '../inode.js';
 import { Stats, FileType } from '../stats.js';
-import { randomUUID, getEmptyDirNode, ROOT_NODE_ID } from '../utils.js';
+import { encode, randomUUID, ROOT_NODE_ID } from '../utils.js';
 
 /**
  * Represents a *synchronous* key-value store.
@@ -41,7 +41,7 @@ export interface SyncKeyValueROTransaction {
 	 * @param key The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	get(key: string): Buffer | undefined;
+	get(key: string): Uint8Array | undefined;
 }
 
 /**
@@ -56,7 +56,7 @@ export interface SyncKeyValueRWTransaction extends SyncKeyValueROTransaction {
 	 *   avoids storing the data if the key exists.
 	 * @return True if storage succeeded, false otherwise.
 	 */
-	put(key: string, data: Buffer, overwrite: boolean): boolean;
+	put(key: string, data: Uint8Array, overwrite: boolean): boolean;
 	/**
 	 * Deletes the data at the given key.
 	 * @param key The key to delete from the store.
@@ -77,8 +77,8 @@ export interface SyncKeyValueRWTransaction extends SyncKeyValueROTransaction {
  * support for transactions and such.
  */
 export interface SimpleSyncStore {
-	get(key: string): Buffer | undefined;
-	put(key: string, data: Buffer, overwrite: boolean): boolean;
+	get(key: string): Uint8Array | undefined;
+	put(key: string, data: Uint8Array, overwrite: boolean): boolean;
 	del(key: string): void;
 }
 
@@ -90,7 +90,7 @@ export class SimpleSyncRWTransaction implements SyncKeyValueRWTransaction {
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	private originalData: { [key: string]: Buffer | undefined } = {};
+	private originalData: { [key: string]: Uint8Array | undefined } = {};
 	/**
 	 * List of keys modified in this transaction, if any.
 	 */
@@ -98,13 +98,13 @@ export class SimpleSyncRWTransaction implements SyncKeyValueRWTransaction {
 
 	constructor(private store: SimpleSyncStore) {}
 
-	public get(key: string): Buffer | undefined {
+	public get(key: string): Uint8Array | undefined {
 		const val = this.store.get(key);
 		this.stashOldValue(key, val);
 		return val;
 	}
 
-	public put(key: string, data: Buffer, overwrite: boolean): boolean {
+	public put(key: string, data: Uint8Array, overwrite: boolean): boolean {
 		this.markModified(key);
 		return this.store.put(key, data, overwrite);
 	}
@@ -142,7 +142,7 @@ export class SimpleSyncRWTransaction implements SyncKeyValueRWTransaction {
 	 * prevent needless `get` requests if the program modifies the data later
 	 * on during the transaction.
 	 */
-	private stashOldValue(key: string, value: Buffer | undefined) {
+	private stashOldValue(key: string, value: Uint8Array | undefined) {
 		// Keep only the earliest value in the transaction.
 		if (!this._has(key)) {
 			this.originalData[key] = value;
@@ -184,7 +184,7 @@ export interface SyncKeyValueFileSystemOptions {
 }
 
 export class SyncKeyValueFile extends PreloadFile<SyncKeyValueFileSystem> {
-	constructor(_fs: SyncKeyValueFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Buffer) {
+	constructor(_fs: SyncKeyValueFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -316,8 +316,8 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 
 		// Commit the two changed directory listings.
 		try {
-			tx.put(oldDirNode.id, Buffer.from(JSON.stringify(oldDirList)), true);
-			tx.put(newDirNode.id, Buffer.from(JSON.stringify(newDirList)), true);
+			tx.put(oldDirNode.id, encode(JSON.stringify(oldDirList)), true);
+			tx.put(newDirNode.id, encode(JSON.stringify(newDirList)), true);
 		} catch (e) {
 			tx.abort();
 			throw e;
@@ -337,7 +337,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 
 	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncKeyValueFile {
 		const tx = this.store.beginTransaction('readwrite'),
-			data = Buffer.alloc(0),
+			data = new Uint8Array(0),
 			newFile = this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
 		// Open the file.
 		return new SyncKeyValueFile(this, p, flag, newFile.toStats(), data);
@@ -371,7 +371,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 
 	public mkdirSync(p: string, mode: number, cred: Cred): void {
 		const tx = this.store.beginTransaction('readwrite'),
-			data = Buffer.from('{}');
+			data = encode('{}');
 		this.commitNewFile(tx, p, FileType.DIRECTORY, mode, cred, data);
 	}
 
@@ -394,7 +394,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 		fd.chownSync(new_uid, new_gid);
 	}
 
-	public _syncSync(p: string, data: Buffer, stats: Stats): void {
+	public _syncSync(p: string, data: Uint8Array, stats: Stats): void {
 		// @todo Ensure mtime updates properly, and use that to determine if a data
 		//       update is required.
 		const tx = this.store.beginTransaction('readwrite'),
@@ -408,7 +408,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 			tx.put(fileInode.id, data, true);
 			// Sync metadata.
 			if (inodeChanged) {
-				tx.put(fileInodeId, fileInode.toBuffer(), true);
+				tx.put(fileInodeId, fileInode.serialize(), true);
 			}
 		} catch (e) {
 			tx.abort();
@@ -429,8 +429,8 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 				dirInode = new Inode(randomUUID(), 4096, 511 | FileType.DIRECTORY, currTime, currTime, currTime, 0, 0);
 			// If the root doesn't exist, the first random ID shouldn't exist,
 			// either.
-			tx.put(dirInode.id, getEmptyDirNode(), false);
-			tx.put(ROOT_NODE_ID, dirInode.toBuffer(), false);
+			tx.put(dirInode.id, encode('{}'), false);
+			tx.put(ROOT_NODE_ID, dirInode.serialize(), false);
 			tx.commit();
 		}
 	}
@@ -493,7 +493,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 		if (inode === undefined) {
 			throw ApiError.ENOENT(p);
 		}
-		return Inode.fromBuffer(inode);
+		return Inode.Deserialize(inode);
 	}
 
 	/**
@@ -516,7 +516,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * the exceedingly unlikely chance that we try to reuse a random GUID.
 	 * @return The GUID that the data was stored under.
 	 */
-	private addNewNode(tx: SyncKeyValueRWTransaction, data: Buffer): string {
+	private addNewNode(tx: SyncKeyValueRWTransaction, data: Uint8Array): string {
 		const retries = 0;
 		let currId: string;
 		while (retries < 5) {
@@ -541,7 +541,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	private commitNewFile(tx: SyncKeyValueRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Buffer): Inode {
+	private commitNewFile(tx: SyncKeyValueRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Inode {
 		const parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = this.findINode(tx, parentDir),
@@ -571,10 +571,10 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 			const dataId = this.addNewNode(tx, data);
 			fileNode = new Inode(dataId, data.length, mode | type, currTime, currTime, currTime, cred.uid, cred.gid);
 			// Commit file node.
-			const fileNodeId = this.addNewNode(tx, fileNode.toBuffer());
+			const fileNodeId = this.addNewNode(tx, fileNode.serialize());
 			// Update and commit parent directory listing.
 			dirListing[fname] = fileNodeId;
-			tx.put(parentNode.id, Buffer.from(JSON.stringify(dirListing)), true);
+			tx.put(parentNode.id, encode(JSON.stringify(dirListing)), true);
 		} catch (e) {
 			tx.abort();
 			throw e;
@@ -624,7 +624,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 			// Delete node.
 			tx.del(fileNodeId);
 			// Update directory listing.
-			tx.put(parentNode.id, Buffer.from(JSON.stringify(parentListing)), true);
+			tx.put(parentNode.id, encode(JSON.stringify(parentListing)), true);
 		} catch (e) {
 			tx.abort();
 			throw e;

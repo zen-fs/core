@@ -4,7 +4,7 @@
 		"module": "ESNext",
 		"target": "ESNext",
 		"outDir": "../build/temp/test",
-		"lib": ["esnext", "dom"],
+		"lib": ["ESNext"],
 		"moduleResolution": "node",
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true

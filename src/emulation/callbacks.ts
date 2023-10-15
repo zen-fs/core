@@ -5,6 +5,8 @@ import { Stats } from '../stats.js';
 import { nop, normalizeMode } from './shared.js';
 import * as promises from './promises.js';
 import { R_OK } from './constants.js';
+import '../types.js';
+import { decode, encode } from '../utils.js';
 
 /**
  * Asynchronous rename. No arguments other than a possible exception are given
@@ -141,11 +143,11 @@ export function open(path: string, flag: string, arg2?: number | string | BFSCal
  * @option options [String] flag Defaults to `'r'`.
  * @param callback If no encoding is specified, then the raw buffer is returned.
  */
-export function readFile(filename: string, cb: BFSCallback<Buffer>): void;
-export function readFile(filename: string, options: { flag?: string }, callback?: BFSCallback<Buffer>): void;
+export function readFile(filename: string, cb: BFSCallback<Uint8Array>): void;
+export function readFile(filename: string, options: { flag?: string }, callback?: BFSCallback<Uint8Array>): void;
 export function readFile(filename: string, options: { encoding: string; flag?: string }, callback?: BFSCallback<string>): void;
 export function readFile(filename: string, encoding: string, cb: BFSCallback<string>): void;
-export function readFile(filename: string, arg2: any = {}, cb: BFSCallback<string> | BFSCallback<Buffer> = nop) {
+export function readFile(filename: string, arg2: any = {}, cb: BFSCallback<string> | BFSCallback<Uint8Array> = nop) {
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 
 	promises.readFile(filename, typeof arg2 === 'function' ? null : arg2);
@@ -277,7 +279,7 @@ export function fdatasync(fd: number, cb: BFSOneArgCallback = nop): void {
  * Note that it is unsafe to use fs.write multiple times on the same file
  * without waiting for the callback.
  * @param fd
- * @param buffer Buffer containing the data to write to
+ * @param buffer Uint8Array containing the data to write to
  *   the file.
  * @param offset Offset in the buffer to start reading data from.
  * @param length The amount of bytes to write to the file.
@@ -286,8 +288,8 @@ export function fdatasync(fd: number, cb: BFSOneArgCallback = nop): void {
  *   the current position.
  * @param callback The number specifies the number of bytes written into the file.
  */
-export function write(fd: number, buffer: Buffer, offset: number, length: number, cb?: BFSThreeArgCallback<number, Buffer>): void;
-export function write(fd: number, buffer: Buffer, offset: number, length: number, position: number | null, cb?: BFSThreeArgCallback<number, Buffer>): void;
+export function write(fd: number, buffer: Uint8Array, offset: number, length: number, cb?: BFSThreeArgCallback<number, Uint8Array>): void;
+export function write(fd: number, buffer: Uint8Array, offset: number, length: number, position: number | null, cb?: BFSThreeArgCallback<number, Uint8Array>): void;
 export function write(fd: number, data: FileContents, cb?: BFSThreeArgCallback<number, string>): void;
 export function write(fd: number, data: FileContents, position: number | null, cb?: BFSThreeArgCallback<number, string>): void;
 export function write(fd: number, data: FileContents, position: number | null, encoding: BufferEncoding, cb?: BFSThreeArgCallback<number, string>): void;
@@ -297,9 +299,9 @@ export function write(
 	arg3?: any,
 	arg4?: any,
 	arg5?: any,
-	cb: BFSThreeArgCallback<number, Buffer> | BFSThreeArgCallback<number, string> = nop
+	cb: BFSThreeArgCallback<number, Uint8Array> | BFSThreeArgCallback<number, string> = nop
 ): void {
-	let buffer: Buffer,
+	let buffer: Uint8Array,
 		offset: number,
 		length: number,
 		position: number | null = null,
@@ -324,13 +326,13 @@ export function write(
 				cb(new ApiError(ErrorCode.EINVAL, 'Invalid arguments.'));
 				return;
 		}
-		buffer = Buffer.from(arg2, encoding);
+		buffer = encode(arg2);
 		offset = 0;
 		length = buffer.length;
 		const _cb = cb as BFSThreeArgCallback<number, string>;
 		promises
 			.write(fd, buffer, offset, length, position)
-			.then(bytesWritten => _cb(null, bytesWritten, buffer.toString(encoding)))
+			.then(bytesWritten => _cb(null, bytesWritten, decode(buffer)))
 			.catch(_cb);
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?, cb?)
@@ -338,7 +340,7 @@ export function write(
 		offset = arg3;
 		length = arg4;
 		position = typeof arg5 === 'number' ? arg5 : null;
-		const _cb = (typeof arg5 === 'function' ? arg5 : cb) as BFSThreeArgCallback<number, Buffer>;
+		const _cb = (typeof arg5 === 'function' ? arg5 : cb) as BFSThreeArgCallback<number, Uint8Array>;
 		promises
 			.write(fd, buffer, offset, length, position)
 			.then(bytesWritten => _cb(null, bytesWritten, buffer))
@@ -358,7 +360,7 @@ export function write(
  *   position.
  * @param callback The number is the number of bytes read
  */
-export function read(fd: number, buffer: Buffer, offset: number, length: number, position?: number, cb: BFSThreeArgCallback<number, Buffer> = nop): void {
+export function read(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number, cb: BFSThreeArgCallback<number, Uint8Array> = nop): void {
 	promises
 		.read(fd, buffer, offset, length, position)
 		.then(({ bytesRead, buffer }) => cb(null, bytesRead, buffer))

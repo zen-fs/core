@@ -1,6 +1,6 @@
 import type { StatsBase } from 'fs';
 import { Cred } from './cred.js';
-import { Buffer } from 'buffer';
+
 import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from './emulation/constants.js';
 
 /**
@@ -20,14 +20,15 @@ export enum FileType {
  * @see http://man7.org/linux/man-pages/man2/stat.2.html
  */
 export class Stats implements StatsBase<number> {
-	public static fromBuffer(buffer: Buffer): Stats {
-		const size = buffer.readUInt32LE(0),
-			mode = buffer.readUInt32LE(4),
-			atime = buffer.readDoubleLE(8),
-			mtime = buffer.readDoubleLE(16),
-			ctime = buffer.readDoubleLE(24),
-			uid = buffer.readUInt32LE(32),
-			gid = buffer.readUInt32LE(36);
+	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): Stats {
+		const view = new DataView('buffer' in data ? data.buffer : data);
+		const size = view.getUint32(0, true),
+			mode = view.getUint32(4, true),
+			atime = view.getFloat64(8, true),
+			mtime = view.getFloat64(16, true),
+			ctime = view.getFloat64(24, true),
+			uid = view.getUint32(32, true),
+			gid = view.getUint32(36, true);
 
 		return new Stats(mode & S_IFMT, size, mode & ~S_IFMT, atime, mtime, ctime, uid, gid);
 	}
@@ -56,7 +57,7 @@ export class Stats implements StatsBase<number> {
 	// group ID of owner
 	public gid: number = 0;
 	// Some file systems stash data on stats objects.
-	public fileData: Buffer | null = null;
+	public fileData: Uint8Array | null = null;
 	public atimeMs: number;
 	public mtimeMs: number;
 	public ctimeMs: number;
@@ -149,16 +150,17 @@ export class Stats implements StatsBase<number> {
 		}
 	}
 
-	public toBuffer(): Buffer {
-		const buffer = Buffer.alloc(32);
-		buffer.writeUInt32LE(this.size, 0);
-		buffer.writeUInt32LE(this.mode, 4);
-		buffer.writeDoubleLE(this.atime.getTime(), 8);
-		buffer.writeDoubleLE(this.mtime.getTime(), 16);
-		buffer.writeDoubleLE(this.ctime.getTime(), 24);
-		buffer.writeUInt32LE(this.uid, 32);
-		buffer.writeUInt32LE(this.gid, 36);
-		return buffer;
+	public serialize(): Uint8Array {
+		const data = new Uint8Array(32),
+			view = new DataView(data.buffer);
+		view.setUint32(0, this.size, true);
+		view.setUint32(4, this.mode, true);
+		view.setFloat64(8, this.atime.getTime(), true);
+		view.setFloat64(16, this.mtime.getTime(), true);
+		view.setFloat64(24, this.ctime.getTime(), true);
+		view.setUint32(32, this.uid, true);
+		view.setUint32(36, this.gid, true);
+		return data;
 	}
 
 	/**

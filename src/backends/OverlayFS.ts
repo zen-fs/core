@@ -5,7 +5,6 @@ import { Stats } from '../stats.js';
 import LockedFS from './Locked.js';
 import { resolve, dirname } from '../emulation/path.js';
 import { Cred } from '../cred.js';
-import type { Buffer } from 'buffer';
 import { CreateBackend, type BackendOptions } from './backend.js';
 /**
  * @internal
@@ -31,7 +30,7 @@ function getFlag(f: string): FileFlag {
  * Overlays a RO file to make it writable.
  */
 class OverlayFile extends PreloadFile<UnlockedOverlayFS> implements File {
-	constructor(fs: UnlockedOverlayFS, path: string, flag: FileFlag, stats: Stats, data: Buffer) {
+	constructor(fs: UnlockedOverlayFS, path: string, flag: FileFlag, stats: Stats, data: Uint8Array) {
 		super(fs, path, flag, stats, data);
 	}
 
@@ -336,7 +335,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 						const buf = await this._readable.readFile(p, null, getFlag('r'), cred);
 						const stats = Stats.clone(await this._readable.stat(p, cred));
 						stats.mode = mode;
-						return new OverlayFile(this, p, flag, stats, buf as Buffer);
+						return new OverlayFile(this, p, flag, stats, buf as Uint8Array);
 					}
 				default:
 					throw ApiError.EEXIST(p);
@@ -368,7 +367,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 						return this._writable.openSync(p, flag, mode, cred);
 					} else {
 						// Create an OverlayFile.
-						const buf = <Buffer>this._readable.readFileSync(p, null, getFlag('r'), cred);
+						const buf = <Uint8Array>this._readable.readFileSync(p, null, getFlag('r'), cred);
 						const stats = Stats.clone(this._readable.statSync(p, cred));
 						stats.mode = mode;
 						return new OverlayFile(this, p, flag, stats, buf);

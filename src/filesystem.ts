@@ -6,13 +6,13 @@ import { Stats } from './stats.js';
 import { File, FileFlag, ActionType } from './file.js';
 import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
-import { Buffer } from 'buffer';
+import { decode, encode } from './utils.js';
 
 export type BFSOneArgCallback = (e?: ApiError) => unknown;
 export type BFSCallback<T> = (e?: ApiError, rv?: T) => unknown;
 export type BFSThreeArgCallback<T, U> = (e?: ApiError, arg1?: T, arg2?: U) => unknown;
 
-export type FileContents = Buffer | string;
+export type FileContents = Uint8Array | string;
 
 /**
  * Metadata about a FileSystem
@@ -207,7 +207,7 @@ export abstract class FileSystem {
 	 * Asynchronously reads the entire contents of a file.
 	 * @param encoding If non-null, the file's contents should be decoded
 	 *   into a string using that encoding. Otherwise, if encoding is null, fetch
-	 *   the file's contents as a Buffer.
+	 *   the file's contents as a Uint8Array.
 	 * If no encoding is specified, then the raw buffer is returned.
 	 */
 	abstract readFile(fname: string, encoding: BufferEncoding | null, flag: FileFlag, cred: Cred): Promise<FileContents>;
@@ -215,7 +215,7 @@ export abstract class FileSystem {
 	 * Synchronously reads the entire contents of a file.
 	 * @param encoding If non-null, the file's contents should be decoded
 	 *   into a string using that encoding. Otherwise, if encoding is null, fetch
-	 *   the file's contents as a Buffer.
+	 *   the file's contents as a Uint8Array.
 	 */
 	abstract readFileSync(fname: string, encoding: BufferEncoding | null, flag: FileFlag, cred: Cred): FileContents;
 	/**
@@ -564,13 +564,13 @@ export class BaseFileSystem extends FileSystem {
 		try {
 			const stat = await fd.stat();
 			// Allocate buffer.
-			const buf = Buffer.alloc(stat.size);
+			const buf = new Uint8Array(stat.size);
 			await fd.read(buf, 0, stat.size, 0);
 			await fd.close();
 			if (encoding === null) {
 				return buf;
 			}
-			return buf.toString(encoding);
+			return decode(buf);
 		} finally {
 			await fd.close();
 		}
@@ -581,13 +581,13 @@ export class BaseFileSystem extends FileSystem {
 		try {
 			const stat = fd.statSync();
 			// Allocate buffer.
-			const buf = Buffer.alloc(stat.size);
+			const buf = new Uint8Array(stat.size);
 			fd.readSync(buf, 0, stat.size, 0);
 			fd.closeSync();
 			if (encoding === null) {
 				return buf;
 			}
-			return buf.toString(encoding);
+			return decode(buf);
 		} finally {
 			fd.closeSync();
 		}
@@ -597,7 +597,7 @@ export class BaseFileSystem extends FileSystem {
 		const fd = await this.open(fname, flag, mode, cred);
 		try {
 			if (typeof data === 'string') {
-				data = Buffer.from(data, encoding!);
+				data = encode(data);
 			}
 			// Write into file.
 			await fd.write(data, 0, data.length, 0);
@@ -610,7 +610,7 @@ export class BaseFileSystem extends FileSystem {
 		const fd = this.openSync(fname, flag, mode, cred);
 		try {
 			if (typeof data === 'string') {
-				data = Buffer.from(data, encoding!);
+				data = encode(data);
 			}
 			// Write into file.
 			fd.writeSync(data, 0, data.length, 0);
@@ -622,7 +622,7 @@ export class BaseFileSystem extends FileSystem {
 		const fd = await this.open(fname, flag, mode, cred);
 		try {
 			if (typeof data === 'string') {
-				data = Buffer.from(data, encoding!);
+				data = encode(data);
 			}
 			await fd.write(data, 0, data.length, null);
 		} finally {
@@ -633,7 +633,7 @@ export class BaseFileSystem extends FileSystem {
 		const fd = this.openSync(fname, flag, mode, cred);
 		try {
 			if (typeof data === 'string') {
-				data = Buffer.from(data, encoding!);
+				data = encode(data);
 			}
 			fd.writeSync(data, 0, data.length, null);
 		} finally {

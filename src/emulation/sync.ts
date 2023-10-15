@@ -4,6 +4,7 @@ import { FileContents, FileSystem } from '../filesystem.js';
 import { Stats } from '../stats.js';
 import type { symlink, ReadSyncOptions } from 'fs';
 import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts } from './shared.js';
+import { encode } from '../utils.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any
@@ -123,9 +124,9 @@ export function openSync(path: string, flag: string, mode: number | string = 0o6
  * @param options
  * @option options [String] encoding The string encoding for the file contents. Defaults to `null`.
  * @option options [String] flag Defaults to `'r'`.
- * @return [String | BrowserFS.node.Buffer]
+ * @return [String | BrowserFS.node.Uint8Array]
  */
-export function readFileSync(filename: string, options?: { flag?: string }): Buffer;
+export function readFileSync(filename: string, options?: { flag?: string }): Uint8Array;
 export function readFileSync(filename: string, options: { encoding: string; flag?: string }): string;
 export function readFileSync(filename: string, encoding: string): string;
 export function readFileSync(filename: string, arg2: { encoding: string; flag?: string } | { flag?: string } | string = {}): FileContents {
@@ -241,7 +242,7 @@ export function fdatasyncSync(fd: number): void {
  * Note that it is unsafe to use fs.write multiple times on the same file
  * without waiting for it to return.
  * @param fd
- * @param buffer Buffer containing the data to write to
+ * @param buffer Uint8Array containing the data to write to
  *   the file.
  * @param offset Offset in the buffer to start reading data from.
  * @param length The amount of bytes to write to the file.
@@ -249,10 +250,10 @@ export function fdatasyncSync(fd: number): void {
  *   data should be written. If position is null, the data will be written at
  *   the current position.
  */
-export function writeSync(fd: number, buffer: Buffer, offset: number, length: number, position?: number | null): number;
+export function writeSync(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number | null): number;
 export function writeSync(fd: number, data: string, position?: number | null, encoding?: BufferEncoding): number;
-export function writeSync(fd: number, arg2: Buffer | string, arg3?: number, arg4?: BufferEncoding | number, arg5?: number): number {
-	let buffer: Buffer,
+export function writeSync(fd: number, arg2: Uint8Array | string, arg3?: number, arg4?: BufferEncoding | number, arg5?: number): number {
+	let buffer: Uint8Array,
 		offset: number = 0,
 		length: number,
 		position: number | null;
@@ -261,7 +262,7 @@ export function writeSync(fd: number, arg2: Buffer | string, arg3?: number, arg4
 		position = typeof arg3 === 'number' ? arg3 : null;
 		const encoding = (typeof arg4 === 'string' ? arg4 : 'utf8') as BufferEncoding;
 		offset = 0;
-		buffer = Buffer.from(arg2, encoding);
+		buffer = encode(arg2);
 		length = buffer.length;
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?)
@@ -290,9 +291,9 @@ export function writeSync(fd: number, arg2: Buffer | string, arg3?: number, arg4
  *   in the file. If position is null, data will be read from the current file
  *   position.
  */
-export function readSync(fd: number, buffer: Buffer, opts?: ReadSyncOptions): number;
-export function readSync(fd: number, buffer: Buffer, offset: number, length: number, position?: number): number;
-export function readSync(fd: number, buffer: Buffer, opts?: ReadSyncOptions | number, length?: number, position?: number): number {
+export function readSync(fd: number, buffer: Uint8Array, opts?: ReadSyncOptions): number;
+export function readSync(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number): number;
+export function readSync(fd: number, buffer: Uint8Array, opts?: ReadSyncOptions | number, length?: number, position?: number): number {
 	const file = fd2file(fd);
 	let offset = opts as number;
 	if (typeof opts == 'object') {

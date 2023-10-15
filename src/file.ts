@@ -2,7 +2,6 @@ import { ApiError, ErrorCode } from './ApiError.js';
 import { Stats } from './stats.js';
 import { FileSystem } from './filesystem.js';
 import { getMount } from './emulation/shared.js';
-import { Buffer } from 'buffer';
 
 export enum ActionType {
 	// Indicates that the code should not do anything.
@@ -190,7 +189,7 @@ export interface File {
 	 * **Core**: Write buffer to the file.
 	 * Note that it is unsafe to use fs.write multiple times on the same file
 	 * without waiting for the callback.
-	 * @param buffer Buffer containing the data to write to
+	 * @param buffer Uint8Array containing the data to write to
 	 *  the file.
 	 * @param offset Offset in the buffer to start reading data from.
 	 * @param length The amount of bytes to write to the file.
@@ -199,12 +198,12 @@ export interface File {
 	 *   the current position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	write(buffer: Buffer, offset: number, length: number, position: number | null): Promise<number>;
+	write(buffer: Uint8Array, offset: number, length: number, position: number | null): Promise<number>;
 	/**
 	 * **Core**: Write buffer to the file.
 	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
 	 * without waiting for it to return.
-	 * @param buffer Buffer containing the data to write to
+	 * @param buffer Uint8Array containing the data to write to
 	 *  the file.
 	 * @param offset Offset in the buffer to start reading data from.
 	 * @param length The amount of bytes to write to the file.
@@ -212,7 +211,7 @@ export interface File {
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
 	 */
-	writeSync(buffer: Buffer, offset: number, length: number, position: number | null): number;
+	writeSync(buffer: Uint8Array, offset: number, length: number, position: number | null): number;
 	/**
 	 * **Core**: Read data from the file.
 	 * @param buffer The buffer that the data will be
@@ -225,7 +224,7 @@ export interface File {
 	 *   position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	read(buffer: Buffer, offset: number, length: number, position: number | null): Promise<{ bytesRead: number; buffer: Buffer }>;
+	read(buffer: Uint8Array, offset: number, length: number, position: number | null): Promise<{ bytesRead: number; buffer: Uint8Array }>;
 	/**
 	 * **Core**: Read data from the file.
 	 * @param buffer The buffer that the data will be written to.
@@ -235,7 +234,7 @@ export interface File {
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
 	 */
-	readSync(buffer: Buffer, offset: number, length: number, position: number): number;
+	readSync(buffer: Uint8Array, offset: number, length: number, position: number): number;
 	/**
 	 * **Supplementary**: Asynchronous `datasync`.
 	 *
@@ -313,7 +312,7 @@ export class BaseFile {
 
 /**
  * An implementation of the File interface that operates on a file that is
- * completely in-memory. PreloadFiles are backed by a Buffer.
+ * completely in-memory. PreloadFiles are backed by a Uint8Array.
  *
  * This is also an abstract class, as it lacks an implementation of 'sync' and
  * 'close'. Each filesystem that wishes to use this file representation must
@@ -326,7 +325,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	protected _path: string;
 	protected _stat: Stats;
 	protected _flag: FileFlag;
-	protected _buffer: Buffer;
+	protected _buffer: Uint8Array;
 	protected _dirty: boolean = false;
 	/**
 	 * Creates a file with the given path and, optionally, the given contents. Note
@@ -342,26 +341,26 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 *   contents of the file. PreloadFile will mutate this buffer. If not
 	 *   specified, we assume it is a new file.
 	 */
-	constructor(_fs: T, _path: string, _flag: FileFlag, _stat: Stats, contents?: Buffer) {
+	constructor(_fs: T, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super();
 		this._fs = _fs;
 		this._path = _path;
 		this._flag = _flag;
 		this._stat = _stat;
-		this._buffer = contents ? contents : Buffer.alloc(0);
+		this._buffer = contents ? contents : new Uint8Array(0);
 		// Note: This invariant is *not* maintained once the file starts getting
 		// modified.
 		// Note: Only actually matters if file is readable, as writeable modes may
 		// truncate/append to file.
 		if (this._stat.size !== this._buffer.length && this._flag.isReadable()) {
-			throw new Error(`Invalid buffer: Buffer is ${this._buffer.length} long, yet Stats object specifies that file is ${this._stat.size} long.`);
+			throw new Error(`Invalid buffer: Uint8Array is ${this._buffer.length} long, yet Stats object specifies that file is ${this._stat.size} long.`);
 		}
 	}
 
 	/**
 	 * NONSTANDARD: Get the underlying buffer for this file. !!DO NOT MUTATE!! Will mess up dirty tracking.
 	 */
-	public getBuffer(): Buffer {
+	public getBuffer(): Uint8Array {
 		return this._buffer;
 	}
 
@@ -486,7 +485,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 		}
 		this._stat.mtimeMs = Date.now();
 		if (len > this._buffer.length) {
-			const buf = Buffer.alloc(len - this._buffer.length, 0);
+			const buf = new Uint8Array(len - this._buffer.length);
 			// Write will set @_stat.size for us.
 			this.writeSync(buf, 0, buf.length, this._buffer.length);
 			if (this._flag.isSynchronous() && getMount('/')!.metadata.synchronous) {
@@ -496,9 +495,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 		}
 		this._stat.size = len;
 		// Truncate buffer to 'len'.
-		const newBuff = Buffer.alloc(len);
-		this._buffer.copy(newBuff, 0, 0, len);
-		this._buffer = newBuff;
+		this._buffer = this._buffer.subarray(0, len);
 		if (this._flag.isSynchronous() && getMount('/')!.metadata.synchronous) {
 			this.syncSync();
 		}
@@ -508,17 +505,17 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 * Write buffer to the file.
 	 * Note that it is unsafe to use fs.write multiple times on the same file
 	 * without waiting for the callback.
-	 * @param [BrowserFS.node.Buffer] buffer Buffer containing the data to write to
+	 * @param [BrowserFS.node.Uint8Array] buffer Uint8Array containing the data to write to
 	 *  the file.
 	 * @param [Number] offset Offset in the buffer to start reading data from.
 	 * @param [Number] length The amount of bytes to write to the file.
 	 * @param [Number] position Offset from the beginning of the file where this
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
-	 * @param [Function(BrowserFS.ApiError, Number, BrowserFS.node.Buffer)]
+	 * @param [Function(BrowserFS.ApiError, Number, BrowserFS.node.Uint8Array)]
 	 *   cb The number specifies the number of bytes written into the file.
 	 */
-	public async write(buffer: Buffer, offset: number, length: number, position: number): Promise<number> {
+	public async write(buffer: Uint8Array, offset: number, length: number, position: number): Promise<number> {
 		return this.writeSync(buffer, offset, length, position);
 	}
 
@@ -526,7 +523,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 * Write buffer to the file.
 	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
 	 * without waiting for the callback.
-	 * @param [BrowserFS.node.Buffer] buffer Buffer containing the data to write to
+	 * @param [BrowserFS.node.Uint8Array] buffer Uint8Array containing the data to write to
 	 *  the file.
 	 * @param [Number] offset Offset in the buffer to start reading data from.
 	 * @param [Number] length The amount of bytes to write to the file.
@@ -535,7 +532,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 *   the current position.
 	 * @return [Number]
 	 */
-	public writeSync(buffer: Buffer, offset: number, length: number, position: number): number {
+	public writeSync(buffer: Uint8Array, offset: number, length: number, position: number): number {
 		this._dirty = true;
 		if (position === undefined || position === null) {
 			position = this.getPos();
@@ -548,12 +545,13 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 			this._stat.size = endFp;
 			if (endFp > this._buffer.length) {
 				// Extend the buffer!
-				const newBuff = Buffer.alloc(endFp);
-				this._buffer.copy(newBuff);
-				this._buffer = newBuff;
+				const newBuffer = new Uint8Array(endFp);
+				newBuffer.set(this._buffer);
+				this._buffer = newBuffer;
 			}
 		}
-		const len = buffer.copy(this._buffer, position, offset, offset + length);
+		this._buffer.set(buffer.slice(offset, offset + length), position);
+		const len = this._buffer.length;
 		this._stat.mtimeMs = Date.now();
 		if (this._flag.isSynchronous()) {
 			this.syncSync();
@@ -565,7 +563,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 
 	/**
 	 * Read data from the file.
-	 * @param [BrowserFS.node.Buffer] buffer The buffer that the data will be
+	 * @param [BrowserFS.node.Uint8Array] buffer The buffer that the data will be
 	 *   written to.
 	 * @param [Number] offset The offset within the buffer where writing will
 	 *   start.
@@ -573,16 +571,16 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 * @param [Number] position An integer specifying where to begin reading from
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
-	 * @param [Function(BrowserFS.ApiError, Number, BrowserFS.node.Buffer)] cb The
+	 * @param [Function(BrowserFS.ApiError, Number, BrowserFS.node.Uint8Array)] cb The
 	 *   number is the number of bytes read
 	 */
-	public async read(buffer: Buffer, offset: number, length: number, position: number): Promise<{ bytesRead: number; buffer: Buffer }> {
+	public async read(buffer: Uint8Array, offset: number, length: number, position: number): Promise<{ bytesRead: number; buffer: Uint8Array }> {
 		return { bytesRead: this.readSync(buffer, offset, length, position), buffer };
 	}
 
 	/**
 	 * Read data from the file.
-	 * @param [BrowserFS.node.Buffer] buffer The buffer that the data will be
+	 * @param [BrowserFS.node.Uint8Array] buffer The buffer that the data will be
 	 *   written to.
 	 * @param [Number] offset The offset within the buffer where writing will
 	 *   start.
@@ -592,7 +590,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 *   position.
 	 * @return [Number]
 	 */
-	public readSync(buffer: Buffer, offset: number, length: number, position: number): number {
+	public readSync(buffer: Uint8Array, offset: number, length: number, position: number): number {
 		if (!this._flag.isReadable()) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a readable mode.');
 		}
@@ -603,10 +601,10 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 		if (endRead > this._stat.size) {
 			length = this._stat.size - position;
 		}
-		const rv = this._buffer.copy(buffer, offset, position, position + length);
+		this._buffer.set(buffer.slice(offset, offset + length), position);
 		this._stat.atimeMs = Date.now();
 		this._pos = position + length;
-		return rv;
+		return this._buffer.length;
 	}
 
 	/**
@@ -670,7 +668,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
  * Doesn't sync to anything, so it works nicely for memory-only files.
  */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> implements File {
-	constructor(_fs: T, _path: string, _flag: FileFlag, _stat: Stats, contents?: Buffer) {
+	constructor(_fs: T, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 	/**

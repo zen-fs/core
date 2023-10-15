@@ -6,7 +6,7 @@ import { PreloadFile, File, FileFlag } from '../file.js';
 import { BaseFileSystem } from '../filesystem.js';
 import Inode from '../inode.js';
 import { Stats, FileType } from '../stats.js';
-import { ROOT_NODE_ID, randomUUID, getEmptyDirNode } from '../utils.js';
+import { ROOT_NODE_ID, randomUUID, encode } from '../utils.js';
 
 class LRUNode {
 	public prev: LRUNode | null = null;
@@ -129,7 +129,7 @@ export interface AsyncKeyValueROTransaction {
 	 * Retrieves the data at the given key.
 	 * @param key The key to look under for data.
 	 */
-	get(key: string): Promise<Buffer>;
+	get(key: string): Promise<Uint8Array>;
 }
 
 /**
@@ -144,7 +144,7 @@ export interface AsyncKeyValueRWTransaction extends AsyncKeyValueROTransaction {
 	 * @param overwrite If 'true', overwrite any existing data. If 'false',
 	 *   avoids writing the data if the key exists.
 	 */
-	put(key: string, data: Buffer, overwrite: boolean): Promise<boolean>;
+	put(key: string, data: Uint8Array, overwrite: boolean): Promise<boolean>;
 	/**
 	 * Deletes the data at the given key.
 	 * @param key The key to delete from the store.
@@ -161,7 +161,7 @@ export interface AsyncKeyValueRWTransaction extends AsyncKeyValueROTransaction {
 }
 
 export class AsyncKeyValueFile extends PreloadFile<AsyncKeyValueFileSystem> implements File {
-	constructor(_fs: AsyncKeyValueFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Buffer) {
+	constructor(_fs: AsyncKeyValueFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -315,11 +315,10 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 				}
 			}
 			newDirList[newName] = nodeId;
-
 			// Commit the two changed directory listings.
 			try {
-				await tx.put(oldDirNode.id, Buffer.from(JSON.stringify(oldDirList)), true);
-				await tx.put(newDirNode.id, Buffer.from(JSON.stringify(newDirList)), true);
+				await tx.put(oldDirNode.id, encode(JSON.stringify(oldDirList)), true);
+				await tx.put(newDirNode.id, encode(JSON.stringify(newDirList)), true);
 			} catch (e) {
 				await tx.abort();
 				throw e;
@@ -345,7 +344,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 
 	public async createFile(p: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
 		const tx = this.store.beginTransaction('readwrite'),
-			data = Buffer.alloc(0),
+			data = new Uint8Array(0),
 			newFile = await this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
 		// Open the file.
 		return new AsyncKeyValueFile(this, p, flag, newFile.toStats(), data);
@@ -379,7 +378,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 
 	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
 		const tx = this.store.beginTransaction('readwrite'),
-			data = Buffer.from('{}');
+			data = encode('{}');
 		await this.commitNewFile(tx, p, FileType.DIRECTORY, mode, cred, data);
 	}
 
@@ -402,7 +401,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 		await fd.chown(new_uid, new_gid);
 	}
 
-	public async _sync(p: string, data: Buffer, stats: Stats): Promise<void> {
+	public async _sync(p: string, data: Uint8Array, stats: Stats): Promise<void> {
 		// @todo Ensure mtime updates properly, and use that to determine if a data
 		//       update is required.
 		const tx = this.store.beginTransaction('readwrite'),
@@ -416,7 +415,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 			await tx.put(fileInode.id, data, true);
 			// Sync metadata.
 			if (inodeChanged) {
-				await tx.put(fileInodeId, fileInode.toBuffer(), true);
+				await tx.put(fileInodeId, fileInode.serialize(), true);
 			}
 		} catch (e) {
 			await tx.abort();
@@ -437,8 +436,8 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 				dirInode = new Inode(randomUUID(), 4096, 511 | FileType.DIRECTORY, currTime, currTime, currTime, 0, 0);
 			// If the root doesn't exist, the first random ID shouldn't exist,
 			// either.
-			await tx.put(dirInode.id, getEmptyDirNode(), false);
-			await tx.put(ROOT_NODE_ID, dirInode.toBuffer(), false);
+			await tx.put(dirInode.id, encode('{}'), false);
+			await tx.put(ROOT_NODE_ID, dirInode.serialize(), false);
 			await tx.commit();
 		}
 	}
@@ -522,7 +521,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
-		return Inode.fromBuffer(data);
+		return Inode.Deserialize(data);
 	}
 
 	/**
@@ -548,7 +547,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * Adds a new node under a random ID. Retries 5 times before giving up in
 	 * the exceedingly unlikely chance that we try to reuse a random GUID.
 	 */
-	private async addNewNode(tx: AsyncKeyValueRWTransaction, data: Buffer): Promise<string> {
+	private async addNewNode(tx: AsyncKeyValueRWTransaction, data: Uint8Array): Promise<string> {
 		let retries = 0;
 		const reroll = async () => {
 			if (++retries === 5) {
@@ -578,7 +577,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * @param cred The UID/GID to create the file with
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNewFile(tx: AsyncKeyValueRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Buffer): Promise<Inode> {
+	private async commitNewFile(tx: AsyncKeyValueRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
 		const parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = await this.findINode(tx, parentDir),
@@ -607,10 +606,10 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 			const dataId = await this.addNewNode(tx, data);
 			const fileNode = new Inode(dataId, data.length, mode | type, currTime, currTime, currTime, cred.uid, cred.gid);
 			// Commit file node.
-			const fileNodeId = await this.addNewNode(tx, fileNode.toBuffer());
+			const fileNodeId = await this.addNewNode(tx, fileNode.serialize());
 			// Update and commit parent directory listing.
 			dirListing[fname] = fileNodeId;
-			await tx.put(parentNode.id, Buffer.from(JSON.stringify(dirListing)), true);
+			await tx.put(parentNode.id, encode(JSON.stringify(dirListing)), true);
 			await tx.commit();
 			return fileNode;
 		} catch (e) {
@@ -669,7 +668,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 			// Delete node.
 			await tx.del(fileNodeId);
 			// Update directory listing.
-			await tx.put(parentNode.id, Buffer.from(JSON.stringify(parentListing)), true);
+			await tx.put(parentNode.id, encode(JSON.stringify(parentListing)), true);
 		} catch (e) {
 			await tx.abort();
 			throw e;

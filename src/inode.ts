@@ -1,5 +1,5 @@
 import { Stats, FileType } from './stats.js';
-import { Buffer } from 'buffer';
+import { decode, encode } from './utils.js';
 
 /**
  * Generic inode definition that can easily be serialized.
@@ -8,19 +8,17 @@ export default class Inode {
 	/**
 	 * Converts the buffer into an Inode.
 	 */
-	public static fromBuffer(buffer: Buffer): Inode {
-		if (buffer === undefined) {
-			throw new Error('NO');
-		}
+	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): Inode {
+		const view = new DataView('buffer' in data ? data.buffer : data);
 		return new Inode(
-			buffer.toString('ascii', 38),
-			buffer.readUInt32LE(0),
-			buffer.readUInt16LE(4),
-			buffer.readDoubleLE(6),
-			buffer.readDoubleLE(14),
-			buffer.readDoubleLE(22),
-			buffer.readUInt32LE(30),
-			buffer.readUInt32LE(34)
+			decode(view.buffer.slice(38)),
+			view.getUint32(0, true),
+			view.getUint16(4, true),
+			view.getFloat64(6, true),
+			view.getFloat64(14, true),
+			view.getFloat64(22, true),
+			view.getUint32(30, true),
+			view.getUint32(34, true)
 		);
 	}
 
@@ -55,23 +53,25 @@ export default class Inode {
 	 * Get the size of this Inode, in bytes.
 	 */
 	public getSize(): number {
-		// ASSUMPTION: ID is ASCII (1 byte per char).
+		// ASSUMPTION: ID is 1 byte per char.
 		return 38 + this.id.length;
 	}
 
 	/**
 	 * Writes the inode into the start of the buffer.
 	 */
-	public toBuffer(buff: Buffer = Buffer.alloc(this.getSize())): Buffer {
-		buff.writeUInt32LE(this.size, 0);
-		buff.writeUInt16LE(this.mode, 4);
-		buff.writeDoubleLE(this.atime, 6);
-		buff.writeDoubleLE(this.mtime, 14);
-		buff.writeDoubleLE(this.ctime, 22);
-		buff.writeUInt32LE(this.uid, 30);
-		buff.writeUInt32LE(this.gid, 34);
-		buff.write(this.id, 38, this.id.length, 'ascii');
-		return buff;
+	public serialize(data: ArrayBufferLike | ArrayBufferView = new Uint8Array(this.getSize())): Uint8Array {
+		const view = new DataView('buffer' in data ? data.buffer : data);
+		view.setUint32(0, this.size, true);
+		view.setUint16(4, this.mode, true);
+		view.setFloat64(6, this.atime, true);
+		view.setFloat64(14, this.mtime, true);
+		view.setFloat64(22, this.ctime, true);
+		view.setUint32(30, this.uid, true);
+		view.setUint32(34, this.gid, true);
+		const buffer = new Uint8Array(view.buffer);
+		buffer.set(encode(this.id), 38);
+		return buffer;
 	}
 
 	/**

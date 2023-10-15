@@ -5,8 +5,8 @@ import { FileSystem } from './filesystem.js';
 import { ErrorCode, ApiError } from './ApiError.js';
 import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
-import { Buffer } from 'buffer';
 import type { BaseBackendConstructor } from './backends/backend.js';
+import { TextEncoder, TextDecoder } from 'node:util';
 
 /**
  * Synchronous recursive makedir.
@@ -238,13 +238,8 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
  */
 export const ROOT_NODE_ID: string = '/';
 
-/**
- * Returns an empty directory node.
- * @internal
- */
-export function getEmptyDirNode(): Buffer {
-	return Buffer.from('{}');
-}
+export const encode = new TextEncoder().encode;
+export const decode = new TextDecoder().decode;
 
 /**
  * Generates a random ID.

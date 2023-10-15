@@ -8,6 +8,7 @@ import { File, FileFlag } from '../file.js';
 import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { Stats } from '../stats.js';
+import { encode } from '../utils.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any
@@ -142,12 +143,12 @@ export async function open(path: string, flag: string, mode: number | string = 0
  * @param options
  * @option options [String] encoding The string encoding for the file contents. Defaults to `null`.
  * @option options [String] flag Defaults to `'r'`.
- * @return [String | BrowserFS.node.Buffer]
+ * @return [String | BrowserFS.node.Uint8Array]
  */
-export async function readFile(filename: string, options?: { flag?: string }): Promise<Buffer>;
+export async function readFile(filename: string, options?: { flag?: string }): Promise<Uint8Array>;
 export async function readFile(filename: string, options: { encoding: string; flag?: string }): Promise<string>;
 export async function readFile(filename: string, encoding: string): Promise<string>;
-export async function readFile(filename: string, arg2: any = {}): Promise<Buffer | string> {
+export async function readFile(filename: string, arg2: any = {}): Promise<Uint8Array | string> {
 	const options = normalizeOptions(arg2, null, 'r', null);
 	const flag = FileFlag.getFileFlag(options.flag);
 	if (!flag.isReadable()) {
@@ -264,7 +265,7 @@ export async function fdatasync(fd: number): Promise<void> {
  * Note that it is unsafe to use fs.write multiple times on the same file
  * without waiting for it to return.
  * @param fd
- * @param buffer Buffer containing the data to write to
+ * @param buffer Uint8Array containing the data to write to
  *   the file.
  * @param offset Offset in the buffer to start reading data from.
  * @param length The amount of bytes to write to the file.
@@ -272,10 +273,10 @@ export async function fdatasync(fd: number): Promise<void> {
  *   data should be written. If position is null, the data will be written at
  *   the current position.
  */
-export async function write(fd: number, buffer: Buffer, offset: number, length: number, position?: number): Promise<number>;
+export async function write(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number): Promise<number>;
 export async function write(fd: number, data: string, position?: number | null, encoding?: BufferEncoding): Promise<number>;
-export async function write(fd: number, arg2: Buffer | string, arg3?: number, arg4?: BufferEncoding | number, arg5?: number): Promise<number> {
-	let buffer: Buffer,
+export async function write(fd: number, arg2: Uint8Array | string, arg3?: number, arg4?: BufferEncoding | number, arg5?: number): Promise<number> {
+	let buffer: Uint8Array,
 		offset: number = 0,
 		length: number,
 		position: number | null;
@@ -284,7 +285,7 @@ export async function write(fd: number, arg2: Buffer | string, arg3?: number, ar
 		position = typeof arg3 === 'number' ? arg3 : null;
 		const encoding = (typeof arg4 === 'string' ? arg4 : 'utf8') as BufferEncoding;
 		offset = 0;
-		buffer = Buffer.from(arg2, encoding);
+		buffer = encode(arg2);
 		length = buffer.length;
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?)
@@ -313,7 +314,7 @@ export async function write(fd: number, arg2: Buffer | string, arg3?: number, ar
  *   in the file. If position is null, data will be read from the current file
  *   position.
  */
-export async function read(fd: number, buffer: Buffer, offset: number, length: number, position?: number): Promise<{ bytesRead: number; buffer: Buffer }> {
+export async function read(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number): Promise<{ bytesRead: number; buffer: Uint8Array }> {
 	const file = fd2file(fd);
 	if (isNaN(+position)) {
 		position = file.getPos()!;

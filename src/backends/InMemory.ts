@@ -5,7 +5,7 @@ import { CreateBackend, type BackendOptions } from './backend.js';
  * A simple in-memory key-value store backed by a JavaScript object.
  */
 export class InMemoryStore implements SyncKeyValueStore, SimpleSyncStore {
-	private store: Map<string, Buffer> = new Map<string, Buffer>();
+	private store: Map<string, Uint8Array> = new Map<string, Uint8Array>();
 
 	public name() {
 		return InMemoryFileSystem.Name;
@@ -18,11 +18,11 @@ export class InMemoryStore implements SyncKeyValueStore, SimpleSyncStore {
 		return new SimpleSyncRWTransaction(this);
 	}
 
-	public get(key: string): Buffer {
+	public get(key: string): Uint8Array {
 		return this.store.get(key);
 	}
 
-	public put(key: string, data: Buffer, overwrite: boolean): boolean {
+	public put(key: string, data: Uint8Array, overwrite: boolean): boolean {
 		if (!overwrite && this.store.has(key)) {
 			return false;
 		}
