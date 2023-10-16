@@ -8,6 +8,12 @@ import { Cred } from './cred.js';
 import type { BaseBackendConstructor } from './backends/backend.js';
 import type { TextEncoder as TextEncoderType, TextDecoder as TextDecoderType } from 'node:util';
 
+declare const globalThis: {
+	TextEncoder: typeof TextEncoderType;
+	TextDecoder: typeof TextDecoderType;
+	setImmediate?: (callback: () => unknown) => void;
+};
+
 /**
  * Synchronous recursive makedir.
  * @internal
@@ -238,13 +244,8 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
  */
 export const ROOT_NODE_ID: string = '/';
 
-declare global {
-	const TextEncoder: typeof TextEncoderType;
-	const TextDecoder: typeof TextDecoderType;
-}
-
-export const encode = new TextEncoder().encode;
-export const decode = new TextDecoder().decode;
+export const encode = new globalThis.TextEncoder().encode;
+export const decode = new globalThis.TextDecoder().decode;
 
 /**
  * Generates a random ID.
