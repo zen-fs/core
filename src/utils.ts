@@ -244,8 +244,10 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
  */
 export const ROOT_NODE_ID: string = '/';
 
-export const encode = new globalThis.TextEncoder().encode;
-export const decode = new globalThis.TextDecoder().decode;
+const textEncoder = new globalThis.TextEncoder();
+export const encode: typeof textEncoder.encode = textEncoder.encode.bind(textEncoder);
+const textDecoder = new globalThis.TextDecoder();
+export const decode: typeof textDecoder.decode = textDecoder.decode.bind(textDecoder);
 
 /**
  * Generates a random ID.

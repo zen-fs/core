@@ -205,43 +205,36 @@ export abstract class FileSystem {
 	abstract truncateSync(p: string, len: number, cred: Cred): void;
 	/**
 	 * Asynchronously reads the entire contents of a file.
-	 * @param encoding If non-null, the file's contents should be decoded
-	 *   into a string using that encoding. Otherwise, if encoding is null, fetch
-	 *   the file's contents as a Uint8Array.
-	 * If no encoding is specified, then the raw buffer is returned.
 	 */
-	abstract readFile(fname: string, encoding: BufferEncoding | null, flag: FileFlag, cred: Cred): Promise<FileContents>;
+	abstract readFile(fname: string, flag: FileFlag, cred: Cred): Promise<Uint8Array>;
 	/**
 	 * Synchronously reads the entire contents of a file.
-	 * @param encoding If non-null, the file's contents should be decoded
-	 *   into a string using that encoding. Otherwise, if encoding is null, fetch
-	 *   the file's contents as a Uint8Array.
 	 */
-	abstract readFileSync(fname: string, encoding: BufferEncoding | null, flag: FileFlag, cred: Cred): FileContents;
+	abstract readFileSync(fname: string, flag: FileFlag, cred: Cred): Uint8Array;
 	/**
 	 * Asynchronously writes data to a file, replacing the file
 	 * if it already exists.
 	 *
 	 * The encoding option is ignored if data is a buffer.
 	 */
-	abstract writeFile(fname: string, data: FileContents, encoding: BufferEncoding | null, flag: FileFlag, mode: number, cred: Cred): Promise<void>;
+	abstract writeFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void>;
 	/**
 	 * Synchronously writes data to a file, replacing the file
 	 * if it already exists.
 	 *
 	 * The encoding option is ignored if data is a buffer.
 	 */
-	abstract writeFileSync(fname: string, data: FileContents, encoding: BufferEncoding | null, flag: FileFlag, mode: number, cred: Cred): void;
+	abstract writeFileSync(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): void;
 	/**
 	 * Asynchronously append data to a file, creating the file if
 	 * it not yet exists.
 	 */
-	abstract appendFile(fname: string, data: FileContents, encoding: BufferEncoding | null, flag: FileFlag, mode: number, cred: Cred): Promise<void>;
+	abstract appendFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void>;
 	/**
 	 * Synchronously append data to a file, creating the file if
 	 * it not yet exists.
 	 */
-	abstract appendFileSync(fname: string, data: FileContents, encoding: BufferEncoding | null, flag: FileFlag, mode: number, cred: Cred): void;
+	abstract appendFileSync(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): void;
 	// **OPTIONAL INTERFACE METHODS**
 	// Property operations
 	// This isn't always possible on some filesystem types (e.g. Dropbox).
@@ -558,7 +551,7 @@ export class BaseFileSystem extends FileSystem {
 			fd.closeSync();
 		}
 	}
-	public async readFile(fname: string, encoding: BufferEncoding | null, flag: FileFlag, cred: Cred): Promise<FileContents> {
+	public async readFile(fname: string, flag: FileFlag, cred: Cred): Promise<Uint8Array> {
 		// Get file.
 		const fd = await this.open(fname, flag, 0o644, cred);
 		try {
@@ -567,15 +560,12 @@ export class BaseFileSystem extends FileSystem {
 			const buf = new Uint8Array(stat.size);
 			await fd.read(buf, 0, stat.size, 0);
 			await fd.close();
-			if (encoding === null) {
-				return buf;
-			}
-			return decode(buf);
+			return buf;
 		} finally {
 			await fd.close();
 		}
 	}
-	public readFileSync(fname: string, encoding: BufferEncoding | null, flag: FileFlag, cred: Cred): FileContents {
+	public readFileSync(fname: string, flag: FileFlag, cred: Cred): Uint8Array {
 		// Get file.
 		const fd = this.openSync(fname, flag, 0o644, cred);
 		try {
@@ -584,15 +574,12 @@ export class BaseFileSystem extends FileSystem {
 			const buf = new Uint8Array(stat.size);
 			fd.readSync(buf, 0, stat.size, 0);
 			fd.closeSync();
-			if (encoding === null) {
-				return buf;
-			}
-			return decode(buf);
+			return buf;
 		} finally {
 			fd.closeSync();
 		}
 	}
-	public async writeFile(fname: string, data: FileContents, encoding: BufferEncoding | null, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
+	public async writeFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
 		// Get file.
 		const fd = await this.open(fname, flag, mode, cred);
 		try {
@@ -605,7 +592,7 @@ export class BaseFileSystem extends FileSystem {
 			await fd.close();
 		}
 	}
-	public writeFileSync(fname: string, data: FileContents, encoding: BufferEncoding | null, flag: FileFlag, mode: number, cred: Cred): void {
+	public writeFileSync(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): void {
 		// Get file.
 		const fd = this.openSync(fname, flag, mode, cred);
 		try {
@@ -618,7 +605,7 @@ export class BaseFileSystem extends FileSystem {
 			fd.closeSync();
 		}
 	}
-	public async appendFile(fname: string, data: FileContents, encoding: BufferEncoding | null, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
+	public async appendFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
 		const fd = await this.open(fname, flag, mode, cred);
 		try {
 			if (typeof data === 'string') {
@@ -629,7 +616,7 @@ export class BaseFileSystem extends FileSystem {
 			await fd.close();
 		}
 	}
-	public appendFileSync(fname: string, data: FileContents, encoding: BufferEncoding | null, flag: FileFlag, mode: number, cred: Cred): void {
+	public appendFileSync(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): void {
 		const fd = this.openSync(fname, flag, mode, cred);
 		try {
 			if (typeof data === 'string') {

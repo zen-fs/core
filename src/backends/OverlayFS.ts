@@ -6,6 +6,7 @@ import LockedFS from './Locked.js';
 import { resolve, dirname } from '../emulation/path.js';
 import { Cred } from '../cred.js';
 import { CreateBackend, type BackendOptions } from './backend.js';
+import { decode, encode } from '../utils.js';
 /**
  * @internal
  */
@@ -127,13 +128,13 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 	public async _syncAsync(file: PreloadFile<UnlockedOverlayFS>): Promise<void> {
 		const stats = file.getStats();
 		await this.createParentDirectoriesAsync(file.getPath(), stats.getCred(0, 0));
-		return this._writable.writeFile(file.getPath(), file.getBuffer(), null, getFlag('w'), stats.mode, stats.getCred(0, 0));
+		return this._writable.writeFile(file.getPath(), file.getBuffer(), getFlag('w'), stats.mode, stats.getCred(0, 0));
 	}
 
 	public _syncSync(file: PreloadFile<UnlockedOverlayFS>): void {
 		const stats = file.getStats();
 		this.createParentDirectories(file.getPath(), stats.getCred(0, 0));
-		this._writable.writeFileSync(file.getPath(), file.getBuffer(), null, getFlag('w'), stats.mode, stats.getCred(0, 0));
+		this._writable.writeFileSync(file.getPath(), file.getBuffer(), getFlag('w'), stats.mode, stats.getCred(0, 0));
 	}
 
 	/**
@@ -149,8 +150,8 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 
 		// Read deletion log, process into metadata.
 		try {
-			const data = (await this._writable.readFile(deletionLogPath, 'utf8', getFlag('r'), Cred.Root)) as string;
-			this._deleteLog = data;
+			const data = await this._writable.readFile(deletionLogPath, getFlag('r'), Cred.Root);
+			this._deleteLog = decode(data);
 		} catch (err) {
 			if (err.errno !== ErrorCode.ENOENT) {
 				throw err;
@@ -219,7 +220,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 				throw ApiError.EISDIR(newPath);
 			}
 
-			await this.writeFile(newPath, await this.readFile(oldPath, null, getFlag('r'), cred), null, getFlag('w'), oldStats.mode, cred);
+			await this.writeFile(newPath, await this.readFile(oldPath, getFlag('r'), cred), getFlag('w'), oldStats.mode, cred);
 		}
 
 		if (oldPath !== newPath && (await this.exists(oldPath, cred))) {
@@ -276,7 +277,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 				throw ApiError.EISDIR(newPath);
 			}
 
-			this.writeFileSync(newPath, this.readFileSync(oldPath, null, getFlag('r'), cred), null, getFlag('w'), oldStats.mode, cred);
+			this.writeFileSync(newPath, this.readFileSync(oldPath, getFlag('r'), cred), getFlag('w'), oldStats.mode, cred);
 		}
 
 		if (oldPath !== newPath && this.existsSync(oldPath, cred)) {
@@ -332,7 +333,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 						return this._writable.open(p, flag, mode, cred);
 					} else {
 						// Create an OverlayFile.
-						const buf = await this._readable.readFile(p, null, getFlag('r'), cred);
+						const buf = await this._readable.readFile(p, getFlag('r'), cred);
 						const stats = Stats.clone(await this._readable.stat(p, cred));
 						stats.mode = mode;
 						return new OverlayFile(this, p, flag, stats, buf as Uint8Array);
@@ -367,7 +368,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 						return this._writable.openSync(p, flag, mode, cred);
 					} else {
 						// Create an OverlayFile.
-						const buf = <Uint8Array>this._readable.readFileSync(p, null, getFlag('r'), cred);
+						const buf = <Uint8Array>this._readable.readFileSync(p, getFlag('r'), cred);
 						const stats = Stats.clone(this._readable.statSync(p, cred));
 						stats.mode = mode;
 						return new OverlayFile(this, p, flag, stats, buf);
@@ -594,7 +595,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 		} else {
 			this._deleteLogUpdatePending = true;
 			this._writable
-				.writeFile(deletionLogPath, this._deleteLog, 'utf8', FileFlag.getFileFlag('w'), 0o644, cred)
+				.writeFile(deletionLogPath, encode(this._deleteLog), FileFlag.getFileFlag('w'), 0o644, cred)
 				.then(() => {
 					if (this._deleteLogUpdateNeeded) {
 						this._deleteLogUpdateNeeded = false;
@@ -702,7 +703,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 		if (pStats.isDirectory()) {
 			this._writable.mkdirSync(p, pStats.mode, cred);
 		} else {
-			this.writeFileSync(p, this._readable.readFileSync(p, null, getFlag('r'), cred), null, getFlag('w'), pStats.mode, cred);
+			this.writeFileSync(p, this._readable.readFileSync(p, getFlag('r'), cred), getFlag('w'), pStats.mode, cred);
 		}
 	}
 
@@ -711,7 +712,7 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 		if (pStats.isDirectory()) {
 			await this._writable.mkdir(p, pStats.mode, cred);
 		} else {
-			await this.writeFile(p, await this._readable.readFile(p, null, getFlag('r'), cred), null, getFlag('w'), pStats.mode, cred);
+			await this.writeFile(p, await this._readable.readFile(p, getFlag('r'), cred), getFlag('w'), pStats.mode, cred);
 		}
 	}
 }

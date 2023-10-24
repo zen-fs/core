@@ -1,5 +1,5 @@
 import Mutex from '../mutex.js';
-import { FileContents, FileSystem, FileSystemMetadata } from '../filesystem.js';
+import { FileSystem, FileSystemMetadata } from '../filesystem.js';
 import { FileFlag } from '../file.js';
 import { Stats } from '../stats.js';
 import { File } from '../file.js';
@@ -188,44 +188,44 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.truncateSync(p, len, cred);
 	}
 
-	public async readFile(fname: string, encoding: BufferEncoding, flag: FileFlag, cred: Cred): Promise<FileContents> {
+	public async readFile(fname: string, flag: FileFlag, cred: Cred): Promise<Uint8Array> {
 		await this._mu.lock(fname);
-		const data = await this._fs.readFile(fname, encoding, flag, cred);
+		const data = await this._fs.readFile(fname, flag, cred);
 		this._mu.unlock(fname);
 		return data;
 	}
 
-	public readFileSync(fname: string, encoding: BufferEncoding, flag: FileFlag, cred: Cred): FileContents {
+	public readFileSync(fname: string, flag: FileFlag, cred: Cred): Uint8Array {
 		if (this._mu.isLocked(fname)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.readFileSync(fname, encoding, flag, cred);
+		return this._fs.readFileSync(fname, flag, cred);
 	}
 
-	public async writeFile(fname: string, data: FileContents, encoding: BufferEncoding, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
+	public async writeFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
 		await this._mu.lock(fname);
-		await this._fs.writeFile(fname, data, encoding, flag, mode, cred);
+		await this._fs.writeFile(fname, data, flag, mode, cred);
 		this._mu.unlock(fname);
 	}
 
-	public writeFileSync(fname: string, data: FileContents, encoding: BufferEncoding, flag: FileFlag, mode: number, cred: Cred): void {
+	public writeFileSync(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): void {
 		if (this._mu.isLocked(fname)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.writeFileSync(fname, data, encoding, flag, mode, cred);
+		return this._fs.writeFileSync(fname, data, flag, mode, cred);
 	}
 
-	public async appendFile(fname: string, data: FileContents, encoding: BufferEncoding, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
+	public async appendFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
 		await this._mu.lock(fname);
-		await this._fs.appendFile(fname, data, encoding, flag, mode, cred);
+		await this._fs.appendFile(fname, data, flag, mode, cred);
 		this._mu.unlock(fname);
 	}
 
-	public appendFileSync(fname: string, data: FileContents, encoding: BufferEncoding, flag: FileFlag, mode: number, cred: Cred): void {
+	public appendFileSync(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): void {
 		if (this._mu.isLocked(fname)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.appendFileSync(fname, data, encoding, flag, mode, cred);
+		return this._fs.appendFileSync(fname, data, flag, mode, cred);
 	}
 
 	public async chmod(p: string, mode: number, cred: Cred): Promise<void> {

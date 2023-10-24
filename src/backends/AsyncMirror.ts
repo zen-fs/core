@@ -151,10 +151,10 @@ export class AsyncMirror extends SynchronousFileSystem {
 
 	public _syncSync(fd: PreloadFile<AsyncMirror>) {
 		const stats = fd.getStats();
-		this._sync.writeFileSync(fd.getPath(), fd.getBuffer(), null, FileFlag.getFileFlag('w'), stats.mode, stats.getCred(0, 0));
+		this._sync.writeFileSync(fd.getPath(), fd.getBuffer(), FileFlag.getFileFlag('w'), stats.mode, stats.getCred(0, 0));
 		this.enqueueOp({
 			apiMethod: 'writeFile',
-			arguments: [fd.getPath(), fd.getBuffer(), null, fd.getFlag(), stats.mode, stats.getCred(0, 0)],
+			arguments: [fd.getPath(), fd.getBuffer(), fd.getFlag(), stats.mode, stats.getCred(0, 0)],
 		});
 	}
 
@@ -174,7 +174,7 @@ export class AsyncMirror extends SynchronousFileSystem {
 		// Sanity check: Is this open/close permitted?
 		const fd = this._sync.openSync(p, flag, mode, cred);
 		fd.closeSync();
-		return new MirrorFile(this, p, flag, this._sync.statSync(p, cred), <Uint8Array>this._sync.readFileSync(p, null, FileFlag.getFileFlag('r'), cred));
+		return new MirrorFile(this, p, flag, this._sync.statSync(p, cred), this._sync.readFileSync(p, FileFlag.getFileFlag('r'), cred));
 	}
 
 	public unlinkSync(p: string, cred: Cred): void {
@@ -250,8 +250,8 @@ export class AsyncMirror extends SynchronousFileSystem {
 					}
 				},
 				copyFile = async (p: string, mode: number): Promise<void> => {
-					const data = await this._async.readFile(p, null, FileFlag.getFileFlag('r'), Cred.Root);
-					this._sync.writeFileSync(p, data, null, FileFlag.getFileFlag('w'), mode, Cred.Root);
+					const data = await this._async.readFile(p, FileFlag.getFileFlag('r'), Cred.Root);
+					this._sync.writeFileSync(p, data, FileFlag.getFileFlag('w'), mode, Cred.Root);
 				},
 				copyItem = async (p: string): Promise<void> => {
 					const stats = await this._async.stat(p, Cred.Root);

@@ -4,7 +4,7 @@ import { FileContents, FileSystem } from '../filesystem.js';
 import { Stats } from '../stats.js';
 import type { symlink, ReadSyncOptions } from 'fs';
 import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts } from './shared.js';
-import { encode } from '../utils.js';
+import { decode, encode } from '../utils.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any
@@ -135,7 +135,14 @@ export function readFileSync(filename: string, arg2: { encoding: string; flag?: 
 	if (!flag.isReadable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	return doOp('readFileSync', true, filename, options.encoding, flag, cred);
+	const data: Uint8Array = doOp('readFileSync', true, filename, flag, cred);
+	switch (options.encoding) {
+		case 'utf8':
+		case 'utf-8':
+			return decode(data);
+		default:
+			return data;
+	}
 }
 
 /**
@@ -158,7 +165,11 @@ export function writeFileSync(filename: string, data: FileContents, arg3?: { enc
 	if (!flag.isWriteable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to writeFile must allow for writing.');
 	}
-	return doOp('writeFileSync', true, filename, data, options.encoding, flag, options.mode, cred);
+	if (typeof data != 'string' && !options.encoding) {
+		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+	}
+	const encodedData = typeof data == 'string' ? encode(data) : data;
+	return doOp('writeFileSync', true, filename, encodedData, flag, options.mode, cred);
 }
 
 /**
@@ -185,7 +196,11 @@ export function appendFileSync(filename: string, data: FileContents, arg3?: { en
 	if (!flag.isAppendable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}
-	return doOp('appendFileSync', true, filename, data, options.encoding, flag, options.mode, cred);
+	if (typeof data != 'string' && !options.encoding) {
+		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+	}
+	const encodedData = typeof data == 'string' ? encode(data) : data;
+	return doOp('appendFileSync', true, filename, encodedData, flag, options.mode, cred);
 }
 
 /**

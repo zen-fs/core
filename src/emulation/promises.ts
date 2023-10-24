@@ -8,7 +8,7 @@ import { File, FileFlag } from '../file.js';
 import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { Stats } from '../stats.js';
-import { encode } from '../utils.js';
+import { decode, encode } from '../utils.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any
@@ -154,7 +154,14 @@ export async function readFile(filename: string, arg2: any = {}): Promise<Uint8A
 	if (!flag.isReadable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	return doOp('readFile', true, filename, options.encoding, flag, cred);
+	const data: Uint8Array = await doOp('readFile', true, filename, flag, cred);
+	switch (options.encoding) {
+		case 'utf8':
+		case 'utf-8':
+			return decode(data);
+		default:
+			return data;
+	}
 }
 
 /**
@@ -178,7 +185,11 @@ export async function writeFile(filename: string, data: FileContents, arg3?: { e
 	if (!flag.isWriteable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to writeFile must allow for writing.');
 	}
-	return doOp('writeFile', true, filename, data, options.encoding, flag, options.mode, cred);
+	if (typeof data != 'string' && !options.encoding) {
+		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+	}
+	const encodedData = typeof data == 'string' ? encode(data) : data;
+	return doOp('writeFile', true, filename, encodedData, flag, options.mode, cred);
 }
 
 /**
@@ -205,7 +216,11 @@ export async function appendFile(filename: string, data: FileContents, arg3?: an
 	if (!flag.isAppendable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}
-	return doOp('appendFile', true, filename, data, options.encoding, flag, options.mode, cred);
+	if (typeof data != 'string' && !options.encoding) {
+		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+	}
+	const encodedData = typeof data == 'string' ? encode(data) : data;
+	return doOp('appendFile', true, filename, encodedData, flag, options.mode, cred);
 }
 
 // FILE DESCRIPTOR METHODS
