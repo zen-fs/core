@@ -60,42 +60,55 @@ export class FileFlag {
 	 * @throw when the flag is invalid
 	 */
 	constructor(flag: string | number) {
-		if (typeof flag === "string") {
+		if (typeof flag === 'string') {
 			this.flagStr = flag;
 			if (FileFlag.validFlagStrs.indexOf(flag) < 0) {
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
 			}
 		} else {
-			this.flagStr = FileFlag.stringFromNumber(flag)
+			this.flagStr = FileFlag.StringFromNumber(flag);
 		}
 	}
 
 	/**
-	  * @param flag The number representing the flag
-	  * @return The string representing the flag
-	  * @throw when the flag number is invalid
-	  */
-	public static stringFromNumber(flag: number): string {
+	 * @param flag The number representing the flag
+	 * @return The string representing the flag
+	 * @throw when the flag number is invalid
+	 */
+	public static StringFromNumber(flag: number): string {
 		// based on https://github.com/nodejs/node/blob/abbdc3efaa455e6c907ebef5409ac8b0f222f969/lib/internal/fs/utils.js#L619
 		switch (flag) {
-			case O_RDONLY: return 'r';
-			case O_RDONLY | O_SYNC: return 'rs';
-			case O_RDWR: return 'r+';
-			case O_RDWR | O_SYNC: return 'rs+';
+			case O_RDONLY:
+				return 'r';
+			case O_RDONLY | O_SYNC:
+				return 'rs';
+			case O_RDWR:
+				return 'r+';
+			case O_RDWR | O_SYNC:
+				return 'rs+';
 
-			case O_TRUNC | O_CREAT | O_WRONLY: return 'w';
-			case O_TRUNC | O_CREAT | O_WRONLY | O_EXCL: return 'wx';
+			case O_TRUNC | O_CREAT | O_WRONLY:
+				return 'w';
+			case O_TRUNC | O_CREAT | O_WRONLY | O_EXCL:
+				return 'wx';
 
-			case O_TRUNC | O_CREAT | O_RDWR: return 'w+';
-			case O_TRUNC | O_CREAT | O_RDWR | O_EXCL: return 'wx+';
+			case O_TRUNC | O_CREAT | O_RDWR:
+				return 'w+';
+			case O_TRUNC | O_CREAT | O_RDWR | O_EXCL:
+				return 'wx+';
 
-			case O_APPEND | O_CREAT | O_WRONLY: return 'a';
-			case O_APPEND | O_CREAT | O_WRONLY | O_EXCL: return 'ax';
+			case O_APPEND | O_CREAT | O_WRONLY:
+				return 'a';
+			case O_APPEND | O_CREAT | O_WRONLY | O_EXCL:
+				return 'ax';
 
-			case O_APPEND | O_CREAT | O_RDWR: return 'a+';
-			case O_APPEND | O_CREAT | O_RDWR | O_EXCL: return 'ax+';
+			case O_APPEND | O_CREAT | O_RDWR:
+				return 'a+';
+			case O_APPEND | O_CREAT | O_RDWR | O_EXCL:
+				return 'ax+';
 
-			default: throw new ApiError(ErrorCode.EINVAL, 'Invalid flag number: ' + flag);
+			default:
+				throw new ApiError(ErrorCode.EINVAL, 'Invalid flag number: ' + flag);
 		}
 	}
 
