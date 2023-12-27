@@ -2,6 +2,7 @@ import { ApiError, ErrorCode } from './ApiError.js';
 import { Stats } from './stats.js';
 import { FileSystem } from './filesystem.js';
 import { getMount } from './emulation/shared.js';
+import { O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_TRUNC, O_APPEND, O_SYNC } from './emulation/constants.js';
 
 export enum ActionType {
 	// Indicates that the code should not do anything.
@@ -34,34 +35,79 @@ export enum ActionType {
  */
 export class FileFlag {
 	// Contains cached FileMode instances.
-	private static flagCache: Map<string, FileFlag> = new Map();
+	private static flagCache: Map<string | number, FileFlag> = new Map();
 	// Array of valid mode strings.
 	private static validFlagStrs = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
 
 	/**
 	 * Get an object representing the given file flag.
-	 * @param modeStr The string representing the flag
+	 * @param flag The string or number representing the flag
 	 * @return The FileFlag object representing the flag
 	 * @throw when the flag string is invalid
 	 */
-	public static getFileFlag(flagStr: string): FileFlag {
+	public static getFileFlag(flag: string | number): FileFlag {
 		// Check cache first.
-		if (!FileFlag.flagCache.has(flagStr)) {
-			FileFlag.flagCache.set(flagStr, new FileFlag(flagStr));
+		if (!FileFlag.flagCache.has(flag)) {
+			FileFlag.flagCache.set(flag, new FileFlag(flag));
 		}
-		return FileFlag.flagCache.get(flagStr);
+		return FileFlag.flagCache.get(flag);
 	}
 
 	private flagStr: string;
 	/**
 	 * This should never be called directly.
-	 * @param modeStr The string representing the mode
-	 * @throw when the mode string is invalid
+	 * @param flag The string or number representing the flag
+	 * @throw when the flag is invalid
 	 */
-	constructor(flagStr: string) {
-		this.flagStr = flagStr;
-		if (FileFlag.validFlagStrs.indexOf(flagStr) < 0) {
-			throw new ApiError(ErrorCode.EINVAL, 'Invalid flag: ' + flagStr);
+	constructor(flag: string | number) {
+		if (typeof flag === 'number') {
+			flag = FileFlag.StringFromNumber(flag);
+		}
+		if (FileFlag.validFlagStrs.indexOf(flag) < 0) {
+			throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
+		}
+		this.flagStr = flag;
+	}
+
+	/**
+	 * @param flag The number representing the flag
+	 * @return The string representing the flag
+	 * @throw when the flag number is invalid
+	 */
+	public static StringFromNumber(flag: number): string {
+		// based on https://github.com/nodejs/node/blob/abbdc3efaa455e6c907ebef5409ac8b0f222f969/lib/internal/fs/utils.js#L619
+		switch (flag) {
+			case O_RDONLY:
+				return 'r';
+			case O_RDONLY | O_SYNC:
+				return 'rs';
+			case O_RDWR:
+				return 'r+';
+			case O_RDWR | O_SYNC:
+				return 'rs+';
+
+			case O_TRUNC | O_CREAT | O_WRONLY:
+				return 'w';
+			case O_TRUNC | O_CREAT | O_WRONLY | O_EXCL:
+				return 'wx';
+
+			case O_TRUNC | O_CREAT | O_RDWR:
+				return 'w+';
+			case O_TRUNC | O_CREAT | O_RDWR | O_EXCL:
+				return 'wx+';
+
+			case O_APPEND | O_CREAT | O_WRONLY:
+				return 'a';
+			case O_APPEND | O_CREAT | O_WRONLY | O_EXCL:
+				return 'ax';
+
+			case O_APPEND | O_CREAT | O_RDWR:
+				return 'a+';
+			case O_APPEND | O_CREAT | O_RDWR | O_EXCL:
+				return 'ax+';
+
+			default:
+				throw new ApiError(ErrorCode.EINVAL, 'Invalid flag number: ' + flag);
 		}
 	}
 
