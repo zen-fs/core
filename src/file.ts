@@ -60,14 +60,13 @@ export class FileFlag {
 	 * @throw when the flag is invalid
 	 */
 	constructor(flag: string | number) {
-		if (typeof flag === 'string') {
-			this.flagStr = flag;
-			if (FileFlag.validFlagStrs.indexOf(flag) < 0) {
-				throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
-			}
-		} else {
-			this.flagStr = FileFlag.StringFromNumber(flag);
+		if (typeof flag === 'number') {
+			flag = FileFlag.StringFromNumber(flag);
 		}
+		if (FileFlag.validFlagStrs.indexOf(flag) < 0) {
+			throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
+		}
+		this.flagStr = flag;
 	}
 
 	/**
