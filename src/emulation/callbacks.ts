@@ -1,11 +1,13 @@
-import type { FSWatcher, ReadStream, WriteStream, symlink as _symlink } from 'fs';
+import type { FSWatcher, StatOptions, symlink as _symlink } from 'fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
-import { BFSCallback, BFSOneArgCallback, BFSThreeArgCallback, FileContents } from '../filesystem.js';
-import { Stats } from '../stats.js';
+import { TwoArgCallback, NoArgCallback, ThreeArgCallback, FileContents } from '../filesystem.js';
+import { BigIntStats, Stats } from '../stats.js';
 import { nop, normalizeMode } from './shared.js';
 import * as promises from './promises.js';
 import { R_OK } from './constants.js';
 import { decode, encode } from '../utils.js';
+import { ReadStream, WriteStream } from './streams.js';
+import { Dirent } from './dir.js';
 
 /**
  * Asynchronous rename. No arguments other than a possible exception are given
@@ -14,7 +16,7 @@ import { decode, encode } from '../utils.js';
  * @param newPath
  * @param callback
  */
-export function rename(oldPath: string, newPath: string, cb: BFSOneArgCallback = nop): void {
+export function rename(oldPath: string, newPath: string, cb: NoArgCallback = nop): void {
 	promises
 		.rename(oldPath, newPath)
 		.then(() => cb())
@@ -43,11 +45,16 @@ export function exists(path: string, cb: (exists: boolean) => unknown = nop): vo
  * @param path
  * @param callback
  */
-export function stat(path: string, cb: BFSCallback<Stats> = nop): void {
+export function stat(path: string, callback: TwoArgCallback<Stats>): void;
+export function stat(path: string, options: StatOptions & { bigint?: false }, callback: TwoArgCallback<Stats>): void;
+export function stat(path: string, options: StatOptions & { bigint: true }, callback: TwoArgCallback<BigIntStats>): void;
+export function stat(path: string, options: StatOptions, callback: TwoArgCallback<Stats | BigIntStats>): void;
+export function stat(path: string, options?: StatOptions | TwoArgCallback<Stats>, callback: TwoArgCallback<Stats> | TwoArgCallback<BigIntStats> = nop): void {
+	callback = typeof options == 'function' ? options : callback;
 	promises
-		.stat(path)
-		.then(stats => cb(null, stats))
-		.catch(cb);
+		.stat(path, typeof options != 'function' ? options : ({} as object))
+		.then(stats => callback(null, stats as Stats & BigIntStats))
+		.catch(callback);
 }
 
 /**
@@ -57,11 +64,16 @@ export function stat(path: string, cb: BFSCallback<Stats> = nop): void {
  * @param path
  * @param callback
  */
-export function lstat(path: string, cb: BFSCallback<Stats> = nop): void {
+export function lstat(path: string, callback: TwoArgCallback<Stats>): void;
+export function lstat(path: string, options: StatOptions & { bigint?: false }, callback: TwoArgCallback<Stats>): void;
+export function lstat(path: string, options: StatOptions & { bigint: true }, callback: TwoArgCallback<BigIntStats>): void;
+export function lstat(path: string, options: StatOptions, callback: TwoArgCallback<Stats | BigIntStats>): void;
+export function lstat(path: string, options?: StatOptions | TwoArgCallback<Stats>, callback: TwoArgCallback<Stats> | TwoArgCallback<BigIntStats> = nop): void {
+	callback = typeof options == 'function' ? options : callback;
 	promises
-		.lstat(path)
-		.then(stats => cb(null, stats))
-		.catch(cb);
+		.lstat(path, typeof options != 'function' ? options : ({} as object))
+		.then(stats => callback(null, stats as Stats & BigIntStats))
+		.catch(callback);
 }
 
 /**
@@ -70,9 +82,9 @@ export function lstat(path: string, cb: BFSCallback<Stats> = nop): void {
  * @param len
  * @param callback
  */
-export function truncate(path: string, cb?: BFSOneArgCallback): void;
-export function truncate(path: string, len: number, cb?: BFSOneArgCallback): void;
-export function truncate(path: string, arg2: number | BFSOneArgCallback = 0, cb: BFSOneArgCallback = nop): void {
+export function truncate(path: string, cb?: NoArgCallback): void;
+export function truncate(path: string, len: number, cb?: NoArgCallback): void;
+export function truncate(path: string, arg2: number | NoArgCallback = 0, cb: NoArgCallback = nop): void {
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	const len = typeof arg2 === 'number' ? arg2 : 0;
 	promises
@@ -86,7 +98,7 @@ export function truncate(path: string, arg2: number | BFSOneArgCallback = 0, cb:
  * @param path
  * @param callback
  */
-export function unlink(path: string, cb: BFSOneArgCallback = nop): void {
+export function unlink(path: string, cb: NoArgCallback = nop): void {
 	promises
 		.unlink(path)
 		.then(() => cb())
@@ -118,9 +130,9 @@ export function unlink(path: string, cb: BFSOneArgCallback = nop): void {
  * @param mode defaults to `0644`
  * @param callback
  */
-export function open(path: string, flag: string, cb?: BFSCallback<number>): void;
-export function open(path: string, flag: string, mode: number | string, cb?: BFSCallback<number>): void;
-export function open(path: string, flag: string, arg2?: number | string | BFSCallback<number>, cb: BFSCallback<number> = nop): void {
+export function open(path: string, flag: string, cb?: TwoArgCallback<number>): void;
+export function open(path: string, flag: string, mode: number | string, cb?: TwoArgCallback<number>): void;
+export function open(path: string, flag: string, arg2?: number | string | TwoArgCallback<number>, cb: TwoArgCallback<number> = nop): void {
 	const mode = normalizeMode(arg2, 0o644);
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	promises
@@ -142,11 +154,11 @@ export function open(path: string, flag: string, arg2?: number | string | BFSCal
  * @option options [String] flag Defaults to `'r'`.
  * @param callback If no encoding is specified, then the raw buffer is returned.
  */
-export function readFile(filename: string, cb: BFSCallback<Uint8Array>): void;
-export function readFile(filename: string, options: { flag?: string }, callback?: BFSCallback<Uint8Array>): void;
-export function readFile(filename: string, options: { encoding: string; flag?: string }, callback?: BFSCallback<string>): void;
-export function readFile(filename: string, encoding: string, cb: BFSCallback<string>): void;
-export function readFile(filename: string, arg2: any = {}, cb: BFSCallback<string> | BFSCallback<Uint8Array> = nop) {
+export function readFile(filename: string, cb: TwoArgCallback<Uint8Array>): void;
+export function readFile(filename: string, options: { flag?: string }, callback?: TwoArgCallback<Uint8Array>): void;
+export function readFile(filename: string, options: { encoding: string; flag?: string }, callback?: TwoArgCallback<string>): void;
+export function readFile(filename: string, encoding: string, cb: TwoArgCallback<string>): void;
+export function readFile(filename: string, arg2: any = {}, cb: TwoArgCallback<string> | TwoArgCallback<Uint8Array> = nop) {
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 
 	promises.readFile(filename, typeof arg2 === 'function' ? null : arg2);
@@ -171,14 +183,14 @@ export function readFile(filename: string, arg2: any = {}, cb: BFSCallback<strin
  * @option options [String] flag Defaults to `'w'`.
  * @param callback
  */
-export function writeFile(filename: string, data: FileContents, cb?: BFSOneArgCallback): void;
-export function writeFile(filename: string, data: FileContents, encoding?: string, cb?: BFSOneArgCallback): void;
-export function writeFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: string | number; flag?: string }, cb?: BFSOneArgCallback): void;
+export function writeFile(filename: string, data: FileContents, cb?: NoArgCallback): void;
+export function writeFile(filename: string, data: FileContents, encoding?: string, cb?: NoArgCallback): void;
+export function writeFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: string | number; flag?: string }, cb?: NoArgCallback): void;
 export function writeFile(
 	filename: string,
 	data: FileContents,
-	arg3: { encoding?: string; mode?: string | number; flag?: string } | string | BFSOneArgCallback = {},
-	cb: BFSOneArgCallback = nop
+	arg3: { encoding?: string; mode?: string | number; flag?: string } | string | NoArgCallback = {},
+	cb: NoArgCallback = nop
 ): void {
 	cb = typeof arg3 === 'function' ? arg3 : cb;
 	promises.writeFile(filename, data, typeof arg3 === 'function' ? undefined : arg3);
@@ -201,10 +213,10 @@ export function writeFile(
  * @option options [String] flag Defaults to `'a'`.
  * @param callback
  */
-export function appendFile(filename: string, data: FileContents, cb?: BFSOneArgCallback): void;
-export function appendFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }, cb?: BFSOneArgCallback): void;
-export function appendFile(filename: string, data: FileContents, encoding?: string, cb?: BFSOneArgCallback): void;
-export function appendFile(filename: string, data: FileContents, arg3?: any, cb: BFSOneArgCallback = nop): void {
+export function appendFile(filename: string, data: FileContents, cb?: NoArgCallback): void;
+export function appendFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }, cb?: NoArgCallback): void;
+export function appendFile(filename: string, data: FileContents, encoding?: string, cb?: NoArgCallback): void;
+export function appendFile(filename: string, data: FileContents, arg3?: any, cb: NoArgCallback = nop): void {
 	cb = typeof arg3 === 'function' ? arg3 : cb;
 	promises.appendFile(filename, data, typeof arg3 === 'function' ? null : arg3);
 }
@@ -216,10 +228,15 @@ export function appendFile(filename: string, data: FileContents, arg3?: any, cb:
  * @param fd
  * @param callback
  */
-export function fstat(fd: number, cb: BFSCallback<Stats> = nop): void {
+export function fstat(fd: number, cb: TwoArgCallback<Stats>): void;
+export function fstat(fd: number, options: StatOptions & { bigint?: false }, cb: TwoArgCallback<Stats>): void;
+export function fstat(fd: number, options: StatOptions & { bigint: true }, cb: TwoArgCallback<BigIntStats>): void;
+export function fstat(fd: number, options: StatOptions, cb: TwoArgCallback<Stats | BigIntStats>): void;
+export function fstat(fd: number, options?: StatOptions | TwoArgCallback<Stats>, cb: TwoArgCallback<Stats> | TwoArgCallback<BigIntStats> = nop): void {
+	cb = typeof options == 'function' ? options : cb;
 	promises
-		.fstat(fd)
-		.then(stats => cb(null, stats))
+		.fstat(fd, typeof options != 'function' ? options : ({} as object))
+		.then(stats => cb(null, stats as Stats & BigIntStats))
 		.catch(cb);
 }
 
@@ -228,7 +245,7 @@ export function fstat(fd: number, cb: BFSCallback<Stats> = nop): void {
  * @param fd
  * @param callback
  */
-export function close(fd: number, cb: BFSOneArgCallback = nop): void {
+export function close(fd: number, cb: NoArgCallback = nop): void {
 	promises
 		.close(fd)
 		.then(() => cb())
@@ -241,9 +258,9 @@ export function close(fd: number, cb: BFSOneArgCallback = nop): void {
  * @param len
  * @param callback
  */
-export function ftruncate(fd: number, cb?: BFSOneArgCallback): void;
-export function ftruncate(fd: number, len?: number, cb?: BFSOneArgCallback): void;
-export function ftruncate(fd: number, arg2?: any, cb: BFSOneArgCallback = nop): void {
+export function ftruncate(fd: number, cb?: NoArgCallback): void;
+export function ftruncate(fd: number, len?: number, cb?: NoArgCallback): void;
+export function ftruncate(fd: number, arg2?: any, cb: NoArgCallback = nop): void {
 	const length = typeof arg2 === 'number' ? arg2 : 0;
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	promises.ftruncate(fd, length);
@@ -254,7 +271,7 @@ export function ftruncate(fd: number, arg2?: any, cb: BFSOneArgCallback = nop): 
  * @param fd
  * @param callback
  */
-export function fsync(fd: number, cb: BFSOneArgCallback = nop): void {
+export function fsync(fd: number, cb: NoArgCallback = nop): void {
 	promises
 		.fsync(fd)
 		.then(() => cb())
@@ -266,7 +283,7 @@ export function fsync(fd: number, cb: BFSOneArgCallback = nop): void {
  * @param fd
  * @param callback
  */
-export function fdatasync(fd: number, cb: BFSOneArgCallback = nop): void {
+export function fdatasync(fd: number, cb: NoArgCallback = nop): void {
 	promises
 		.fdatasync(fd)
 		.then(() => cb())
@@ -287,19 +304,12 @@ export function fdatasync(fd: number, cb: BFSOneArgCallback = nop): void {
  *   the current position.
  * @param callback The number specifies the number of bytes written into the file.
  */
-export function write(fd: number, buffer: Uint8Array, offset: number, length: number, cb?: BFSThreeArgCallback<number, Uint8Array>): void;
-export function write(fd: number, buffer: Uint8Array, offset: number, length: number, position: number | null, cb?: BFSThreeArgCallback<number, Uint8Array>): void;
-export function write(fd: number, data: FileContents, cb?: BFSThreeArgCallback<number, string>): void;
-export function write(fd: number, data: FileContents, position: number | null, cb?: BFSThreeArgCallback<number, string>): void;
-export function write(fd: number, data: FileContents, position: number | null, encoding: BufferEncoding, cb?: BFSThreeArgCallback<number, string>): void;
-export function write(
-	fd: number,
-	arg2: FileContents,
-	arg3?: any,
-	arg4?: any,
-	arg5?: any,
-	cb: BFSThreeArgCallback<number, Uint8Array> | BFSThreeArgCallback<number, string> = nop
-): void {
+export function write(fd: number, buffer: Uint8Array, offset: number, length: number, cb?: ThreeArgCallback<number, Uint8Array>): void;
+export function write(fd: number, buffer: Uint8Array, offset: number, length: number, position: number | null, cb?: ThreeArgCallback<number, Uint8Array>): void;
+export function write(fd: number, data: FileContents, cb?: ThreeArgCallback<number, string>): void;
+export function write(fd: number, data: FileContents, position: number | null, cb?: ThreeArgCallback<number, string>): void;
+export function write(fd: number, data: FileContents, position: number | null, encoding: BufferEncoding, cb?: ThreeArgCallback<number, string>): void;
+export function write(fd: number, arg2: FileContents, arg3?: any, arg4?: any, arg5?: any, cb: ThreeArgCallback<number, Uint8Array> | ThreeArgCallback<number, string> = nop): void {
 	let buffer: Uint8Array,
 		offset: number,
 		length: number,
@@ -328,7 +338,7 @@ export function write(
 		buffer = encode(arg2);
 		offset = 0;
 		length = buffer.length;
-		const _cb = cb as BFSThreeArgCallback<number, string>;
+		const _cb = cb as ThreeArgCallback<number, string>;
 		promises
 			.write(fd, buffer, offset, length, position)
 			.then(bytesWritten => _cb(null, bytesWritten, decode(buffer)))
@@ -339,7 +349,7 @@ export function write(
 		offset = arg3;
 		length = arg4;
 		position = typeof arg5 === 'number' ? arg5 : null;
-		const _cb = (typeof arg5 === 'function' ? arg5 : cb) as BFSThreeArgCallback<number, Uint8Array>;
+		const _cb = (typeof arg5 === 'function' ? arg5 : cb) as ThreeArgCallback<number, Uint8Array>;
 		promises
 			.write(fd, buffer, offset, length, position)
 			.then(bytesWritten => _cb(null, bytesWritten, buffer))
@@ -359,7 +369,7 @@ export function write(
  *   position.
  * @param callback The number is the number of bytes read
  */
-export function read(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number, cb: BFSThreeArgCallback<number, Uint8Array> = nop): void {
+export function read(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number, cb: ThreeArgCallback<number, Uint8Array> = nop): void {
 	promises
 		.read(fd, buffer, offset, length, position)
 		.then(({ bytesRead, buffer }) => cb(null, bytesRead, buffer))
@@ -373,7 +383,7 @@ export function read(fd: number, buffer: Uint8Array, offset: number, length: num
  * @param gid
  * @param callback
  */
-export function fchown(fd: number, uid: number, gid: number, cb: BFSOneArgCallback = nop): void {
+export function fchown(fd: number, uid: number, gid: number, cb: NoArgCallback = nop): void {
 	promises
 		.fchown(fd, uid, gid)
 		.then(() => cb())
@@ -386,7 +396,7 @@ export function fchown(fd: number, uid: number, gid: number, cb: BFSOneArgCallba
  * @param mode
  * @param callback
  */
-export function fchmod(fd: number, mode: string | number, cb: BFSOneArgCallback): void {
+export function fchmod(fd: number, mode: string | number, cb: NoArgCallback): void {
 	promises
 		.fchmod(fd, mode)
 		.then(() => cb())
@@ -401,7 +411,7 @@ export function fchmod(fd: number, mode: string | number, cb: BFSOneArgCallback)
  * @param mtime
  * @param callback
  */
-export function futimes(fd: number, atime: number | Date, mtime: number | Date, cb: BFSOneArgCallback = nop): void {
+export function futimes(fd: number, atime: number | Date, mtime: number | Date, cb: NoArgCallback = nop): void {
 	promises
 		.futimes(fd, atime, mtime)
 		.then(() => cb())
@@ -413,7 +423,7 @@ export function futimes(fd: number, atime: number | Date, mtime: number | Date, 
  * @param path
  * @param callback
  */
-export function rmdir(path: string, cb: BFSOneArgCallback = nop): void {
+export function rmdir(path: string, cb: NoArgCallback = nop): void {
 	promises
 		.rmdir(path)
 		.then(() => cb())
@@ -426,7 +436,7 @@ export function rmdir(path: string, cb: BFSOneArgCallback = nop): void {
  * @param mode defaults to `0777`
  * @param callback
  */
-export function mkdir(path: string, mode?: any, cb: BFSOneArgCallback = nop): void {
+export function mkdir(path: string, mode?: any, cb: NoArgCallback = nop): void {
 	promises
 		.mkdir(path, mode)
 		.then(() => cb())
@@ -440,10 +450,16 @@ export function mkdir(path: string, mode?: any, cb: BFSOneArgCallback = nop): vo
  * @param path
  * @param callback
  */
-export function readdir(path: string, cb: BFSCallback<string[]> = nop): void {
+export function readdir(path: string, cb: TwoArgCallback<string[]>): void;
+export function readdir(path: string, options: { withFileTypes?: false }, cb: TwoArgCallback<string[]>): void;
+export function readdir(path: string, options: { withFileTypes: true }, cb: TwoArgCallback<Dirent[]>): void;
+export function readdir(path: string, _options: { withFileTypes?: boolean } | TwoArgCallback<string[]>, cb: TwoArgCallback<string[]> | TwoArgCallback<Dirent[]> = nop): void {
+	cb = typeof _options == 'function' ? _options : cb;
+	const options = typeof _options != 'function' ? _options : {};
 	promises
-		.readdir(path)
-		.then(entries => cb(null, entries))
+		.readdir(path, options as object)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		.then(entries => cb(null, entries as any))
 		.catch(cb);
 }
 
@@ -453,7 +469,7 @@ export function readdir(path: string, cb: BFSCallback<string[]> = nop): void {
  * @param dstpath
  * @param callback
  */
-export function link(srcpath: string, dstpath: string, cb: BFSOneArgCallback = nop): void {
+export function link(srcpath: string, dstpath: string, cb: NoArgCallback = nop): void {
 	promises
 		.link(srcpath, dstpath)
 		.then(() => cb())
@@ -467,9 +483,9 @@ export function link(srcpath: string, dstpath: string, cb: BFSOneArgCallback = n
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  * @param callback
  */
-export function symlink(srcpath: string, dstpath: string, cb?: BFSOneArgCallback): void;
-export function symlink(srcpath: string, dstpath: string, type?: _symlink.Type, cb?: BFSOneArgCallback): void;
-export function symlink(srcpath: string, dstpath: string, arg3?: _symlink.Type | BFSOneArgCallback, cb: BFSOneArgCallback = nop): void {
+export function symlink(srcpath: string, dstpath: string, cb?: NoArgCallback): void;
+export function symlink(srcpath: string, dstpath: string, type?: _symlink.Type, cb?: NoArgCallback): void;
+export function symlink(srcpath: string, dstpath: string, arg3?: _symlink.Type | NoArgCallback, cb: NoArgCallback = nop): void {
 	const type = typeof arg3 === 'string' ? arg3 : 'file';
 	cb = typeof arg3 === 'function' ? arg3 : cb;
 	promises
@@ -483,7 +499,7 @@ export function symlink(srcpath: string, dstpath: string, arg3?: _symlink.Type |
  * @param path
  * @param callback
  */
-export function readlink(path: string, cb: BFSCallback<string> = nop): void {
+export function readlink(path: string, cb: TwoArgCallback<string> = nop): void {
 	promises
 		.readlink(path)
 		.then(result => cb(null, result))
@@ -497,7 +513,7 @@ export function readlink(path: string, cb: BFSCallback<string> = nop): void {
  * @param gid
  * @param callback
  */
-export function chown(path: string, uid: number, gid: number, cb: BFSOneArgCallback = nop): void {
+export function chown(path: string, uid: number, gid: number, cb: NoArgCallback = nop): void {
 	promises
 		.chown(path, uid, gid)
 		.then(() => cb())
@@ -511,7 +527,7 @@ export function chown(path: string, uid: number, gid: number, cb: BFSOneArgCallb
  * @param gid
  * @param callback
  */
-export function lchown(path: string, uid: number, gid: number, cb: BFSOneArgCallback = nop): void {
+export function lchown(path: string, uid: number, gid: number, cb: NoArgCallback = nop): void {
 	promises
 		.lchown(path, uid, gid)
 		.then(() => cb())
@@ -524,7 +540,7 @@ export function lchown(path: string, uid: number, gid: number, cb: BFSOneArgCall
  * @param mode
  * @param callback
  */
-export function chmod(path: string, mode: number | string, cb: BFSOneArgCallback = nop): void {
+export function chmod(path: string, mode: number | string, cb: NoArgCallback = nop): void {
 	promises
 		.chmod(path, mode)
 		.then(() => cb())
@@ -537,7 +553,7 @@ export function chmod(path: string, mode: number | string, cb: BFSOneArgCallback
  * @param mode
  * @param callback
  */
-export function lchmod(path: string, mode: number | string, cb: BFSOneArgCallback = nop): void {
+export function lchmod(path: string, mode: number | string, cb: NoArgCallback = nop): void {
 	promises
 		.lchmod(path, mode)
 		.then(() => cb())
@@ -551,7 +567,7 @@ export function lchmod(path: string, mode: number | string, cb: BFSOneArgCallbac
  * @param mtime
  * @param callback
  */
-export function utimes(path: string, atime: number | Date, mtime: number | Date, cb: BFSOneArgCallback = nop): void {
+export function utimes(path: string, atime: number | Date, mtime: number | Date, cb: NoArgCallback = nop): void {
 	promises
 		.utimes(path, atime, mtime)
 		.then(() => cb())
@@ -565,7 +581,7 @@ export function utimes(path: string, atime: number | Date, mtime: number | Date,
  * @param mtime
  * @param callback
  */
-export function lutimes(path: string, atime: number | Date, mtime: number | Date, cb: BFSOneArgCallback = nop): void {
+export function lutimes(path: string, atime: number | Date, mtime: number | Date, cb: NoArgCallback = nop): void {
 	promises
 		.lutimes(path, atime, mtime)
 		.then(() => cb())
@@ -589,9 +605,9 @@ export function lutimes(path: string, atime: number | Date, mtime: number | Date
  *   known real paths.
  * @param callback
  */
-export function realpath(path: string, cb?: BFSCallback<string>): void;
-export function realpath(path: string, cache: { [path: string]: string }, cb: BFSCallback<string>): void;
-export function realpath(path: string, arg2?: any, cb: BFSCallback<string> = nop): void {
+export function realpath(path: string, cb?: TwoArgCallback<string>): void;
+export function realpath(path: string, cache: { [path: string]: string }, cb: TwoArgCallback<string>): void;
+export function realpath(path: string, arg2?: any, cb: TwoArgCallback<string> = nop): void {
 	const cache = typeof arg2 === 'object' ? arg2 : {};
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	promises
@@ -606,9 +622,9 @@ export function realpath(path: string, arg2?: any, cb: BFSCallback<string> = nop
  * @param mode
  * @param callback
  */
-export function access(path: string, cb: BFSOneArgCallback): void;
-export function access(path: string, mode: number, cb: BFSOneArgCallback): void;
-export function access(path: string, arg2: any, cb: BFSOneArgCallback = nop): void {
+export function access(path: string, cb: NoArgCallback): void;
+export function access(path: string, mode: number, cb: NoArgCallback): void;
+export function access(path: string, arg2: any, cb: NoArgCallback = nop): void {
 	const mode = typeof arg2 === 'number' ? arg2 : R_OK;
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	promises
@@ -655,5 +671,35 @@ export function createWriteStream(
 		mode?: number;
 	}
 ): WriteStream {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function rm(path: string) {
+	new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function mkdtemp(path: string) {
+	new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function copyFile(src: string, dest: string, callback: NoArgCallback): void;
+export function copyFile(src: string, dest: string, flags: number, callback: NoArgCallback): void;
+export function copyFile(src: string, dest: string, flags: number | NoArgCallback, callback?: NoArgCallback): void {
+	new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function readv(path: string) {
+	new ApiError(ErrorCode.ENOTSUP);
+}
+
+type writevCallback = ThreeArgCallback<number, Uint8Array[]>;
+
+export function writev(fd: number, buffers: Uint8Array[], cb: writevCallback): void;
+export function writev(fd: number, buffers: Uint8Array[], position: number, cb: writevCallback): void;
+export function writev(fd: number, buffers: Uint8Array[], position: number | writevCallback, cb?: writevCallback) {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function opendir(path: string) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }

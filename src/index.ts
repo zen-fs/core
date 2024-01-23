@@ -3,7 +3,7 @@
  */
 
 import fs from './emulation/fs.js';
-import { FileSystem, type BFSOneArgCallback, type BFSCallback } from './filesystem.js';
+import { FileSystem, type NoArgCallback, type TwoArgCallback } from './filesystem.js';
 import { backends } from './backends/index.js';
 import { ErrorCode, ApiError } from './ApiError.js';
 import { Cred } from './cred.js';
@@ -60,8 +60,8 @@ async function _configure(config: Configuration): Promise<void> {
  * See the FileSystemConfiguration type for more info on the configuration object.
  */
 export function configure(config: Configuration): Promise<void>;
-export function configure(config: Configuration, cb: BFSOneArgCallback): void;
-export function configure(config: Configuration, cb?: BFSOneArgCallback): Promise<void> | void {
+export function configure(config: Configuration, cb: NoArgCallback): void;
+export function configure(config: Configuration, cb?: NoArgCallback): Promise<void> | void {
 	// Promise version
 	if (typeof cb != 'function') {
 		return _configure(config);
@@ -141,8 +141,8 @@ async function _getFileSystem({ fs: fsName, options = {} }: FileSystemConfigurat
  * @param cb Called when the file system is constructed, or when an error occurs.
  */
 export function getFileSystem(config: FileSystemConfiguration): Promise<FileSystem>;
-export function getFileSystem(config: FileSystemConfiguration, cb: BFSCallback<FileSystem>): void;
-export function getFileSystem(config: FileSystemConfiguration, cb?: BFSCallback<FileSystem>): Promise<FileSystem> | void {
+export function getFileSystem(config: FileSystemConfiguration, cb: TwoArgCallback<FileSystem>): void;
+export function getFileSystem(config: FileSystemConfiguration, cb?: TwoArgCallback<FileSystem>): Promise<FileSystem> | void {
 	// Promise version
 	if (typeof cb != 'function') {
 		return _getFileSystem(config);

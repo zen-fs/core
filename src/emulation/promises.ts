@@ -1,4 +1,4 @@
-import type { ReadStream, WriteStream, FSWatcher, symlink as _symlink } from 'node:fs';
+import type { ReadStream, WriteStream, FSWatcher, symlink as _symlink, StatOptions } from 'node:fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 
 import * as constants from './constants.js';
@@ -7,11 +7,13 @@ export { constants };
 import { File, FileFlag } from '../file.js';
 import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared.js';
 import { FileContents, FileSystem } from '../filesystem.js';
-import { Stats } from '../stats.js';
+import { BigIntStats, Stats } from '../stats.js';
 import { decode, encode } from '../utils.js';
+import { Dirent } from './dir.js';
+import { join } from './path.js';
 
 type FileSystemMethod = {
-	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any
+	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
 		? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
 		: never;
 }[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
@@ -88,8 +90,15 @@ export async function exists(path: string): Promise<boolean> {
  * @param path
  * @returns Stats
  */
-export async function stat(path: string): Promise<Stats> {
-	return doOp('stat', true, path, cred);
+export async function stat(path: string, options?: { bigint?: false }): Promise<Stats>;
+export async function stat(path: string, options: { bigint: true }): Promise<BigIntStats>;
+export async function stat(path: string, options?: StatOptions): Promise<Stats | BigIntStats> {
+	const _stats: Stats = await doOp('stat', true, path, cred);
+	let stats: Stats | BigIntStats = _stats;
+	if (options?.bigint) {
+		stats = BigIntStats.clone(stats);
+	}
+	return stats;
 }
 
 /**
@@ -99,8 +108,15 @@ export async function stat(path: string): Promise<Stats> {
  * @param path
  * @return [BrowserFS.node.fs.Stats]
  */
-export async function lstat(path: string): Promise<Stats> {
-	return doOp('stat', false, path, cred);
+export async function lstat(path: string, options?: { bigint?: false }): Promise<Stats>;
+export async function lstat(path: string, options: { bigint: true }): Promise<BigIntStats>;
+export async function lstat(path: string, options?: StatOptions): Promise<Stats | BigIntStats> {
+	const _stats: Stats = await doOp('stat', false, path, cred);
+	let stats: Stats | BigIntStats = _stats;
+	if (options?.bigint) {
+		stats = BigIntStats.clone(stats);
+	}
+	return stats;
 }
 
 // FILE-ONLY METHODS
@@ -148,7 +164,7 @@ export async function open(path: string, flag: string, mode: number | string = 0
 export async function readFile(filename: string, options?: { flag?: string }): Promise<Uint8Array>;
 export async function readFile(filename: string, options: { encoding: string; flag?: string }): Promise<string>;
 export async function readFile(filename: string, encoding: string): Promise<string>;
-export async function readFile(filename: string, arg2: any = {}): Promise<Uint8Array | string> {
+export async function readFile(filename: string, arg2 = {}): Promise<Uint8Array | string> {
 	const options = normalizeOptions(arg2, null, 'r', null);
 	const flag = FileFlag.getFileFlag(options.flag);
 	if (!flag.isReadable()) {
@@ -210,7 +226,7 @@ export async function writeFile(filename: string, data: FileContents, arg3?: { e
  */
 export async function appendFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }): Promise<void>;
 export async function appendFile(filename: string, data: FileContents, encoding?: string): Promise<void>;
-export async function appendFile(filename: string, data: FileContents, arg3?: any): Promise<void> {
+export async function appendFile(filename: string, data: FileContents, arg3?): Promise<void> {
 	const options = normalizeOptions(arg3, 'utf8', 'a', 0o644);
 	const flag = FileFlag.getFileFlag(options.flag);
 	if (!flag.isAppendable()) {
@@ -232,8 +248,15 @@ export async function appendFile(filename: string, data: FileContents, arg3?: an
  * @param fd
  * @return [BrowserFS.node.fs.Stats]
  */
-export async function fstat(fd: number): Promise<Stats> {
-	return fd2file(fd).stat();
+export async function fstat(fd: number, options?: { bigint?: false }): Promise<Stats>;
+export async function fstat(fd: number, options: { bigint: true }): Promise<BigIntStats>;
+export async function fstat(fd: number, options?: StatOptions): Promise<Stats | BigIntStats> {
+	const _stats: Stats = await fd2file(fd).stat();
+	let stats: Stats | BigIntStats = _stats;
+	if (options?.bigint) {
+		stats = BigIntStats.clone(stats);
+	}
+	return stats;
 }
 
 /**
@@ -300,7 +323,7 @@ export async function write(fd: number, arg2: Uint8Array | string, arg3?: number
 		position = typeof arg3 === 'number' ? arg3 : null;
 		const encoding = (typeof arg4 === 'string' ? arg4 : 'utf8') as BufferEncoding;
 		offset = 0;
-		buffer = encode(arg2);
+		buffer = encode(arg2, encoding);
 		length = buffer.length;
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?)
@@ -391,9 +414,10 @@ export async function mkdir(path: string, mode?: number | string): Promise<void>
 /**
  * `readdir`. Reads the contents of a directory.
  * @param path
- * @return [String[]]
  */
-export async function readdir(path: string): Promise<string[]> {
+export async function readdir(path: string, options: { withFileTypes?: false }): Promise<string[]>;
+export async function readdir(path: string, options: { withFileTypes: true }): Promise<Dirent[]>;
+export async function readdir(path: string, options?: { withFileTypes?: boolean }): Promise<string[] | Dirent[]> {
 	path = normalizePath(path);
 	const entries: string[] = await doOp('readdir', true, path, cred);
 	const points = [...mounts.keys()];
@@ -407,7 +431,11 @@ export async function readdir(path: string): Promise<string[]> {
 			entries.push(entry);
 		}
 	}
-	return entries;
+	const values: (string | Dirent)[] = [];
+	for (const entry of entries) {
+		values.push(options?.withFileTypes ? new Dirent(entry, await stat(join(path, entry))) : entry);
+	}
+	return values as string[] | Dirent[];
 }
 
 // SYMLINK METHODS
@@ -583,5 +611,17 @@ export async function createWriteStream(
 		mode?: number;
 	}
 ): Promise<WriteStream> {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export async function rm(path: string) {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export async function mkdtemp(path: string) {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export async function copyFile(path: string) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }

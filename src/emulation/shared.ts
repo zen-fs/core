@@ -5,7 +5,6 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { FileSystem } from '../filesystem.js';
 import { File } from '../file.js';
-//import { BackendConstructor } from '../backends.js';
 import { InMemoryFileSystem } from '../backends/InMemory.js';
 import { BackendConstructor } from '../backends/backend.js';
 

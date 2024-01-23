@@ -50,7 +50,9 @@
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {
-		"@types/node": "^14.0.0"
+		"@types/node": "^14.0.0",
+		"@types/readable-stream": "^4.0.10",
+		"readable-stream": "^4.5.2"
 	},
 	"devDependencies": {
 		"@jest/globals": "^29.5.0",

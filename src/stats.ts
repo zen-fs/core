@@ -1,4 +1,4 @@
-import type { StatsBase } from 'fs';
+import type { StatsBase, Stats as _Stats, BigIntStats as _BigIntStats } from 'fs';
 import { Cred } from './cred.js';
 
 import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from './emulation/constants.js';
@@ -13,71 +13,83 @@ export enum FileType {
 }
 
 /**
- * Implementation of Node's `Stats`.
- *
- * Attribute descriptions are from `man 2 stat'
- * @see http://nodejs.org/api/fs.html#fs_class_fs_stats
- * @see http://man7.org/linux/man-pages/man2/stat.2.html
+ * Common code used by both Stats and BigIntStats
  */
-export class Stats implements StatsBase<number> {
-	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): Stats {
-		const view = new DataView('buffer' in data ? data.buffer : data);
-		const size = view.getUint32(0, true),
-			mode = view.getUint32(4, true),
-			atime = view.getFloat64(8, true),
-			mtime = view.getFloat64(16, true),
-			ctime = view.getFloat64(24, true),
-			uid = view.getUint32(32, true),
-			gid = view.getUint32(36, true);
-
-		return new Stats(mode & S_IFMT, size, mode & ~S_IFMT, atime, mtime, ctime, uid, gid);
+export abstract class StatsCommon<T extends number | bigint> implements StatsBase<T> {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): StatsCommon<number> | StatsCommon<bigint> {
+		throw new ReferenceError('Called static abstract method: StatsCommon.Deserialize()');
 	}
+
+	protected abstract _isBigint: boolean;
+
+	protected get _typename(): string {
+		return this._isBigint ? 'bigint' : 'number';
+	}
+
+	protected get _typename_inverse(): string {
+		return this._isBigint ? 'number' : 'bigint';
+	}
+
+	protected _convert(arg: number | bigint | string | boolean): T {
+		return (this._isBigint ? BigInt(arg) : Number(arg)) as T;
+	}
+
+	public blocks: T;
+	public mode: T;
 
 	/**
-	 * Clones the stats object.
+	 * ID of device containing file
 	 */
-	public static clone(s: Stats): Stats {
-		return new Stats(s.mode & S_IFMT, s.size, s.mode & ~S_IFMT, s.atimeMs, s.mtimeMs, s.ctimeMs, s.uid, s.gid, s.birthtimeMs);
-	}
-
-	public blocks: number;
-	public mode: number;
-	// ID of device containing file
-	public dev: number = 0;
-	// inode number
-	public ino: number = 0;
-	// device ID (if special file)
-	public rdev: number = 0;
-	// number of hard links
-	public nlink: number = 1;
-	// blocksize for file system I/O
-	public blksize: number = 4096;
-	// user ID of owner
-	public uid: number = 0;
-	// group ID of owner
-	public gid: number = 0;
-	// Some file systems stash data on stats objects.
+	public dev: T = this._convert(0);
+	/**
+	 * inode number
+	 */
+	public ino: T = this._convert(0);
+	/**
+	 * device ID (if special file)
+	 */
+	public rdev: T = this._convert(0);
+	/**
+	 * number of hard links
+	 */
+	public nlink: T = this._convert(1);
+	/**
+	 * blocksize for file system I/O
+	 */
+	public blksize: T = this._convert(4096);
+	/**
+	 * user ID of owner
+	 */
+	public uid: T = this._convert(0);
+	/**
+	 * group ID of owner
+	 */
+	public gid: T = this._convert(0);
+	/**
+	 * Some file systems stash data on stats objects.
+	 */
 	public fileData: Uint8Array | null = null;
-	public atimeMs: number;
-	public mtimeMs: number;
-	public ctimeMs: number;
-	public birthtimeMs: number;
-	public size: number;
+	public atimeMs: T;
+	public mtimeMs: T;
+	public ctimeMs: T;
+	public birthtimeMs: T;
+	public size: T;
 
 	public get atime(): Date {
-		return new Date(this.atimeMs);
+		return new Date(Number(this.atimeMs));
 	}
 
 	public get mtime(): Date {
-		return new Date(this.mtimeMs);
+		return new Date(Number(this.mtimeMs));
 	}
 
 	public get ctime(): Date {
-		return new Date(this.ctimeMs);
+		return new Date(Number(this.ctimeMs));
 	}
 
 	public get birthtime(): Date {
-		return new Date(this.birthtimeMs);
+		return new Date(Number(this.birthtimeMs));
 	}
 
 	/**
@@ -93,75 +105,49 @@ export class Stats implements StatsBase<number> {
 	 * @param gid the id of the group that owns the file
 	 * @param birthtimeMs time of file creation, in milliseconds since epoch
 	 */
-	constructor(itemType: FileType, size: number, mode?: number, atimeMs?: number, mtimeMs?: number, ctimeMs?: number, uid?: number, gid?: number, birthtimeMs?: number) {
-		this.size = size;
-		let currentTime = 0;
-		if (typeof atimeMs !== 'number') {
-			currentTime = Date.now();
-			atimeMs = currentTime;
-		}
-		if (typeof mtimeMs !== 'number') {
-			if (!currentTime) {
-				currentTime = Date.now();
-			}
-			mtimeMs = currentTime;
-		}
-		if (typeof ctimeMs !== 'number') {
-			if (!currentTime) {
-				currentTime = Date.now();
-			}
-			ctimeMs = currentTime;
-		}
-		if (typeof birthtimeMs !== 'number') {
-			if (!currentTime) {
-				currentTime = Date.now();
-			}
-			birthtimeMs = currentTime;
-		}
-		if (typeof uid !== 'number') {
-			uid = 0;
-		}
-		if (typeof gid !== 'number') {
-			gid = 0;
-		}
-		this.atimeMs = atimeMs;
-		this.ctimeMs = ctimeMs;
-		this.mtimeMs = mtimeMs;
-		this.birthtimeMs = birthtimeMs;
+	constructor(
+		itemType: FileType = FileType.FILE,
+		size: number | bigint = -1,
+		mode?: number | bigint,
+		atimeMs?: number | bigint,
+		mtimeMs?: number | bigint,
+		ctimeMs?: number | bigint,
+		uid?: number | bigint,
+		gid?: number | bigint,
+		birthtimeMs?: number | bigint
+	) {
+		const currentTime = Date.now();
+		const resolveT = (v: number | bigint, def: number) => (typeof v == this._typename ? v : this._convert(typeof v == this._typename_inverse ? v : def)) as T;
+		this.atimeMs = resolveT(atimeMs, currentTime);
+		this.mtimeMs = resolveT(mtimeMs, currentTime);
+		this.ctimeMs = resolveT(ctimeMs, currentTime);
+		this.birthtimeMs = resolveT(birthtimeMs, currentTime);
+		this.uid = resolveT(uid, 0);
+		this.gid = resolveT(gid, 0);
+		this.size = this._convert(size);
 
-		if (!mode) {
+		if (mode) {
+			this.mode = this._convert(mode);
+		} else {
 			switch (itemType) {
 				case FileType.FILE:
-					this.mode = 0o644;
+					this.mode = this._convert(0o644);
 					break;
 				case FileType.DIRECTORY:
 				default:
-					this.mode = 0o777;
+					this.mode = this._convert(0o777);
 			}
-		} else {
-			this.mode = mode;
 		}
 		// number of 512B blocks allocated
-		this.blocks = Math.ceil(size / 512);
+		this.blocks = this._convert(Math.ceil(Number(size) / 512));
 		// Check if mode also includes top-most bits, which indicate the file's
 		// type.
 		if ((this.mode & S_IFMT) == 0) {
-			this.mode |= itemType;
+			this.mode = (this.mode | this._convert(itemType)) as T;
 		}
 	}
 
-	public serialize(): Uint8Array {
-		const data = new Uint8Array(32),
-			view = new DataView(data.buffer);
-		view.setUint32(0, this.size, true);
-		view.setUint32(4, this.mode, true);
-		view.setFloat64(8, this.atime.getTime(), true);
-		view.setFloat64(16, this.mtime.getTime(), true);
-		view.setFloat64(24, this.ctime.getTime(), true);
-		view.setUint32(32, this.uid, true);
-		view.setUint32(36, this.gid, true);
-		return data;
-	}
+	public abstract serialize(): Uint8Array;
 
 	/**
 	 * @return [Boolean] True if this item is a file.
@@ -222,8 +208,8 @@ export class Stats implements StatsBase<number> {
 	/**
 	 * Convert the current stats object into a cred object
 	 */
-	public getCred(uid: number = this.uid, gid: number = this.gid): Cred {
-		return new Cred(uid, gid, this.uid, this.gid, uid, gid);
+	public getCred(uid: number = Number(this.uid), gid: number = Number(this.gid)): Cred {
+		return new Cred(uid, gid, Number(this.uid), Number(this.gid), uid, gid);
 	}
 
 	/**
@@ -231,19 +217,21 @@ export class Stats implements StatsBase<number> {
 	 * up the type of the file, which is encoded in mode.
 	 */
 	public chmod(mode: number): void {
-		this.mode = (this.mode & S_IFMT) | mode;
+		this.mode = this._convert((this.mode & S_IFMT) | mode);
 	}
 
 	/**
 	 * Change the owner user/group of the file.
 	 * This function makes sure it is a valid UID/GID (that is, a 32 unsigned int)
 	 */
-	public chown(uid: number, gid: number): void {
-		if (!isNaN(+uid) && 0 <= +uid && +uid < 2 ** 32) {
-			this.uid = uid;
+	public chown(uid: number | bigint, gid: number | bigint): void {
+		uid = Number(uid);
+		gid = Number(gid);
+		if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {
+			this.uid = this._convert(uid);
 		}
-		if (!isNaN(+gid) && 0 <= +gid && +gid < 2 ** 32) {
-			this.gid = gid;
+		if (!isNaN(gid) && 0 <= gid && gid < 2 ** 32) {
+			this.gid = this._convert(gid);
 		}
 	}
 
@@ -265,3 +253,105 @@ export class Stats implements StatsBase<number> {
 		return false;
 	}
 }
+
+/**
+ * Implementation of Node's `Stats`.
+ *
+ * Attribute descriptions are from `man 2 stat'
+ * @see http://nodejs.org/api/fs.html#fs_class_fs_stats
+ * @see http://man7.org/linux/man-pages/man2/stat.2.html
+ */
+export class Stats extends StatsCommon<number> {
+	protected _isBigint = false;
+
+	/**
+	 * Clones the stats object.
+	 */
+	public static clone(s: Stats): Stats {
+		return new Stats(s.mode & S_IFMT, s.size, s.mode & ~S_IFMT, s.atimeMs, s.mtimeMs, s.ctimeMs, s.uid, s.gid, s.birthtimeMs);
+	}
+
+	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): Stats {
+		const view = new DataView('buffer' in data ? data.buffer : data);
+		const size = view.getUint32(0, true),
+			mode = view.getUint32(4, true),
+			atime = view.getFloat64(8, true),
+			mtime = view.getFloat64(16, true),
+			ctime = view.getFloat64(24, true),
+			uid = view.getUint32(32, true),
+			gid = view.getUint32(36, true);
+
+		return new Stats(mode & S_IFMT, size, mode & ~S_IFMT, atime, mtime, ctime, uid, gid);
+	}
+
+	public serialize(): Uint8Array {
+		const data = new Uint8Array(32),
+			view = new DataView(data.buffer);
+		view.setUint32(0, this.size, true);
+		view.setUint32(4, this.mode, true);
+		view.setFloat64(8, this.atime.getTime(), true);
+		view.setFloat64(16, this.mtime.getTime(), true);
+		view.setFloat64(24, this.ctime.getTime(), true);
+		view.setUint32(32, this.uid, true);
+		view.setUint32(36, this.gid, true);
+		return data;
+	}
+}
+const $typecheck$Stats: typeof _Stats = Stats; // eslint-disable-line @typescript-eslint/no-unused-vars
+
+/**
+ * Stats with bigint
+ * @todo Implement with bigint instead of wrapping Stats
+ */
+export class BigIntStats extends StatsCommon<bigint> implements _BigIntStats {
+	protected _isBigint = true;
+
+	public atimeNs: bigint;
+	public mtimeNs: bigint;
+	public ctimeNs: bigint;
+	public birthtimeNs: bigint;
+
+	/**
+	 * Clone a stats object.
+	 */
+	public static clone(s: BigIntStats | Stats): BigIntStats {
+		return new BigIntStats(
+			Number(s.mode) & S_IFMT,
+			BigInt(s.size),
+			BigInt(s.mode) & BigInt(~S_IFMT),
+			BigInt(s.atimeMs),
+			BigInt(s.mtimeMs),
+			BigInt(s.ctimeMs),
+			BigInt(s.uid),
+			BigInt(s.gid),
+			BigInt(s.birthtimeMs)
+		);
+	}
+
+	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): Stats {
+		const view = new DataView('buffer' in data ? data.buffer : data);
+		const size = view.getBigUint64(0, true),
+			mode = view.getBigUint64(4, true),
+			atime = view.getFloat64(8, true),
+			mtime = view.getFloat64(16, true),
+			ctime = view.getFloat64(24, true),
+			uid = view.getBigUint64(32, true),
+			gid = view.getBigUint64(36, true);
+
+		return new Stats(Number(mode) & S_IFMT, size, mode & BigInt(~S_IFMT), atime, mtime, ctime, uid, gid);
+	}
+
+	public serialize(): Uint8Array {
+		const data = new Uint8Array(32),
+			view = new DataView(data.buffer);
+		view.setBigUint64(0, this.size, true);
+		view.setBigUint64(4, this.mode, true);
+		view.setFloat64(8, this.atime.getTime(), true);
+		view.setFloat64(16, this.mtime.getTime(), true);
+		view.setFloat64(24, this.ctime.getTime(), true);
+		view.setBigUint64(32, this.uid, true);
+		view.setBigUint64(36, this.gid, true);
+		return data;
+	}
+}
+const $typecheck$BigIntStats: typeof _BigIntStats = BigIntStats; // eslint-disable-line @typescript-eslint/no-unused-vars

@@ -1,10 +1,12 @@
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { File, FileFlag } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
-import { Stats } from '../stats.js';
-import type { symlink, ReadSyncOptions } from 'fs';
+import { BigIntStats, Stats } from '../stats.js';
+import type { symlink, ReadSyncOptions, StatOptions } from 'fs';
 import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts } from './shared.js';
 import { decode, encode } from '../utils.js';
+import { Dirent } from './dir.js';
+import { join } from './path.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any
@@ -70,8 +72,15 @@ export function existsSync(path: string): boolean {
  * @param path
  * @returns Stats
  */
-export function statSync(path: string): Stats {
-	return doOp('statSync', true, path, cred);
+export function statSync(path: string, options?: { bigint: false }): Stats;
+export function statSync(path: string, options: { bigint: true }): BigIntStats;
+export function statSync(path: string, options?: StatOptions): Stats | BigIntStats {
+	const _stats: Stats = doOp('statSync', true, path, cred);
+	let stats: Stats | BigIntStats = _stats;
+	if (options?.bigint) {
+		stats = BigIntStats.clone(stats);
+	}
+	return stats;
 }
 
 /**
@@ -79,10 +88,16 @@ export function statSync(path: string): Stats {
  * `lstat()` is identical to `stat()`, except that if path is a symbolic link,
  * then the link itself is stat-ed, not the file that it refers to.
  * @param path
- * @return [BrowserFS.node.fs.Stats]
  */
-export function lstatSync(path: string): Stats {
-	return doOp('statSync', false, path, cred);
+export function lstatSync(path: string, options?: { bigint: false }): Stats;
+export function lstatSync(path: string, options: { bigint: true }): BigIntStats;
+export function lstatSync(path: string, options?: StatOptions): Stats | BigIntStats {
+	const _stats: Stats = doOp('statSync', false, path, cred);
+	let stats: Stats | BigIntStats = _stats;
+	if (options?.bigint) {
+		stats = BigIntStats.clone(stats);
+	}
+	return stats;
 }
 
 /**
@@ -208,10 +223,16 @@ export function appendFileSync(filename: string, data: FileContents, arg3?: { en
  * `fstat()` is identical to `stat()`, except that the file to be stat-ed is
  * specified by the file descriptor `fd`.
  * @param fd
- * @return [BrowserFS.node.fs.Stats]
  */
-export function fstatSync(fd: number): Stats {
-	return fd2file(fd).statSync();
+export function fstatSync(fd: number, options?: { bigint?: false }): Stats;
+export function fstatSync(fd: number, options: { bigint: true }): BigIntStats;
+export function fstatSync(fd: number, options?: StatOptions): Stats | BigIntStats {
+	const _stats: Stats = fd2file(fd).statSync();
+	let stats: Stats | BigIntStats = _stats;
+	if (options?.bigint) {
+		stats = BigIntStats.clone(stats);
+	}
+	return stats;
 }
 
 /**
@@ -375,9 +396,10 @@ export function mkdirSync(path: string, mode?: number | string): void {
 /**
  * Synchronous `readdir`. Reads the contents of a directory.
  * @param path
- * @return [String[]]
  */
-export function readdirSync(path: string): string[] {
+export function readdirSync(path: string, options: { withFileTypes: false }): string[];
+export function readdirSync(path: string, options: { withFileTypes: true }): Dirent[];
+export function readdirSync(path: string, options?: { withFileTypes?: boolean }): string[] | Dirent[] {
 	path = normalizePath(path);
 	const entries: string[] = doOp('readdirSync', true, path, cred);
 	const points = [...mounts.keys()];
@@ -391,7 +413,7 @@ export function readdirSync(path: string): string[] {
 			entries.push(entry);
 		}
 	}
-	return entries;
+	return options?.withFileTypes ? entries.map(entry => new Dirent(entry, statSync(join(path, entry)))) : entries;
 }
 
 // SYMLINK METHODS
@@ -527,4 +549,28 @@ export function realpathSync(path: string, cache: { [path: string]: string } = {
  */
 export function accessSync(path: string, mode: number = 0o600): void {
 	return doOp('accessSync', true, path, mode, cred);
+}
+
+export function rmSync(path: string) {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function mkdtempSync(path: string) {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function copyFileSync(src: string, dest: string, flags?: number): void {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function readvSync(path: string) {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function writevSync(path: string) {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+
+export function opendirSync(path: string) {
+	throw new ApiError(ErrorCode.ENOTSUP);
 }

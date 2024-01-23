@@ -1,4 +1,4 @@
-import type { BFSCallback, FileSystem } from '../filesystem.js';
+import type { TwoArgCallback, FileSystem } from '../filesystem.js';
 import { checkOptions } from '../utils.js';
 
 /**
@@ -75,19 +75,19 @@ export interface BackendConstructor<FS extends typeof FileSystem = typeof FileSy
 	 */
 	Create(): Promise<InstanceType<FS>>;
 	Create(options: object): Promise<InstanceType<FS>>;
-	Create(cb: BFSCallback<InstanceType<FS>>): void;
-	Create(options: object, cb: BFSCallback<InstanceType<FS>>): void;
-	Create(options: object, cb?: BFSCallback<InstanceType<FS>>): Promise<InstanceType<FS>> | void;
+	Create(cb: TwoArgCallback<InstanceType<FS>>): void;
+	Create(options: object, cb: TwoArgCallback<InstanceType<FS>>): void;
+	Create(options: object, cb?: TwoArgCallback<InstanceType<FS>>): Promise<InstanceType<FS>> | void;
 }
 
 export function CreateBackend<FS extends BaseBackendConstructor>(this: FS): Promise<InstanceType<FS>>;
 export function CreateBackend<FS extends BaseBackendConstructor>(this: FS, options: BackendOptions): Promise<InstanceType<FS>>;
-export function CreateBackend<FS extends BaseBackendConstructor>(this: FS, cb: BFSCallback<InstanceType<FS>>): void;
-export function CreateBackend<FS extends BaseBackendConstructor>(this: FS, options: BackendOptions, cb: BFSCallback<InstanceType<FS>>): void;
+export function CreateBackend<FS extends BaseBackendConstructor>(this: FS, cb: TwoArgCallback<InstanceType<FS>>): void;
+export function CreateBackend<FS extends BaseBackendConstructor>(this: FS, options: BackendOptions, cb: TwoArgCallback<InstanceType<FS>>): void;
 export function CreateBackend<FS extends BaseBackendConstructor>(
 	this: FS,
-	options?: BackendOptions | BFSCallback<InstanceType<FS>>,
-	cb?: BFSCallback<InstanceType<FS>>
+	options?: BackendOptions | TwoArgCallback<InstanceType<FS>>,
+	cb?: TwoArgCallback<InstanceType<FS>>
 ): Promise<InstanceType<FS>> | void {
 	cb = typeof options === 'function' ? options : cb;
 

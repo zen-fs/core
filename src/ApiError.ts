@@ -27,22 +27,23 @@ export enum ErrorCode {
  * Strings associated with each error code.
  * @internal
  */
-export const ErrorStrings: { [code: string | number]: string } = {};
-ErrorStrings[ErrorCode.EPERM] = 'Operation not permitted.';
-ErrorStrings[ErrorCode.ENOENT] = 'No such file or directory.';
-ErrorStrings[ErrorCode.EIO] = 'Input/output error.';
-ErrorStrings[ErrorCode.EBADF] = 'Bad file descriptor.';
-ErrorStrings[ErrorCode.EACCES] = 'Permission denied.';
-ErrorStrings[ErrorCode.EBUSY] = 'Resource busy or locked.';
-ErrorStrings[ErrorCode.EEXIST] = 'File exists.';
-ErrorStrings[ErrorCode.ENOTDIR] = 'File is not a directory.';
-ErrorStrings[ErrorCode.EISDIR] = 'File is a directory.';
-ErrorStrings[ErrorCode.EINVAL] = 'Invalid argument.';
-ErrorStrings[ErrorCode.EFBIG] = 'File is too big.';
-ErrorStrings[ErrorCode.ENOSPC] = 'No space left on disk.';
-ErrorStrings[ErrorCode.EROFS] = 'Cannot modify a read-only file system.';
-ErrorStrings[ErrorCode.ENOTEMPTY] = 'Directory is not empty.';
-ErrorStrings[ErrorCode.ENOTSUP] = 'Operation is not supported.';
+export const ErrorStrings: { [code in ErrorCode]: string } = {
+	[ErrorCode.EPERM]: 'Operation not permitted.',
+	[ErrorCode.ENOENT]: 'No such file or directory.',
+	[ErrorCode.EIO]: 'Input/output error.',
+	[ErrorCode.EBADF]: 'Bad file descriptor.',
+	[ErrorCode.EACCES]: 'Permission denied.',
+	[ErrorCode.EBUSY]: 'Resource busy or locked.',
+	[ErrorCode.EEXIST]: 'File exists.',
+	[ErrorCode.ENOTDIR]: 'File is not a directory.',
+	[ErrorCode.EISDIR]: 'File is a directory.',
+	[ErrorCode.EINVAL]: 'Invalid argument.',
+	[ErrorCode.EFBIG]: 'File is too big.',
+	[ErrorCode.ENOSPC]: 'No space left on disk.',
+	[ErrorCode.EROFS]: 'Cannot modify a read-only file system.',
+	[ErrorCode.ENOTEMPTY]: 'Directory is not empty.',
+	[ErrorCode.ENOTSUP]: 'Operation is not supported.',
+};
 
 interface ApiErrorJSON {
 	errno: ErrorCode;

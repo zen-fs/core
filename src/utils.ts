@@ -6,11 +6,11 @@ import { ErrorCode, ApiError } from './ApiError.js';
 import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
 import type { BaseBackendConstructor } from './backends/backend.js';
-import type { TextEncoder as TextEncoderType, TextDecoder as TextDecoderType } from 'node:util';
+import type { TextEncoder, TextDecoder } from 'node:util';
 
 declare const globalThis: {
-	TextEncoder: typeof TextEncoderType;
-	TextDecoder: typeof TextDecoderType;
+	TextEncoder: typeof TextEncoder;
+	TextDecoder: typeof TextDecoder;
 	setImmediate?: (callback: () => unknown) => void;
 };
 
@@ -244,10 +244,26 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
  */
 export const ROOT_NODE_ID: string = '/';
 
+/**
+ * @internal
+ * Used for caching text decoders
+ */
+
+const decoderCache: Map<string, TextDecoder['decode']> = new Map();
+
 const textEncoder = new globalThis.TextEncoder();
-export const encode: typeof textEncoder.encode = textEncoder.encode.bind(textEncoder);
-const textDecoder = new globalThis.TextDecoder();
-export const decode: typeof textDecoder.decode = textDecoder.decode.bind(textDecoder);
+
+export function encode(input?: string, encoding = 'utf8'): Uint8Array {
+	return textEncoder.encode(input);
+}
+
+export function decode(input?: NodeJS.ArrayBufferView | ArrayBuffer, encoding = 'utf8'): string {
+	if (!decoderCache.has(encoding)) {
+		const textDecoder = new globalThis.TextDecoder(encoding);
+		decoderCache.set(encoding, textDecoder.decode.bind(textDecoder));
+	}
+	return decoderCache.get(encoding)(input);
+}
 
 /**
  * Generates a random ID.

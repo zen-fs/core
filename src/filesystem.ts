@@ -6,11 +6,11 @@ import { Stats } from './stats.js';
 import { File, FileFlag, ActionType } from './file.js';
 import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
-import { decode, encode } from './utils.js';
+import { encode } from './utils.js';
 
-export type BFSOneArgCallback = (e?: ApiError) => unknown;
-export type BFSCallback<T> = (e?: ApiError, rv?: T) => unknown;
-export type BFSThreeArgCallback<T, U> = (e?: ApiError, arg1?: T, arg2?: U) => unknown;
+export type NoArgCallback = (e?: ApiError) => unknown;
+export type TwoArgCallback<T> = (e?: ApiError, rv?: T) => unknown;
+export type ThreeArgCallback<T, U> = (e?: ApiError, arg1?: T, arg2?: U) => unknown;
 
 export type FileContents = Uint8Array | string;
 
