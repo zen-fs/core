@@ -503,7 +503,11 @@ export function readlink(path: PathLike, callback: TwoArgCallback<string> & any)
 export function readlink(path: PathLike, options: BufferEncodingOption, callback: TwoArgCallback<Uint8Array>): void;
 export function readlink(path: PathLike, options: BaseEncodingOptions | string, callback: TwoArgCallback<string | Uint8Array>): void;
 export function readlink(path: PathLike, options: BaseEncodingOptions | BufferEncoding, callback: TwoArgCallback<string>): void;
-export function readlink(path: PathLike, options: BufferEncodingOption | BaseEncodingOptions | string | TwoArgCallback<string>, callback: TwoArgCallback<string> | TwoArgCallback<Uint8Array> = nop): void {
+export function readlink(
+	path: PathLike,
+	options: BufferEncodingOption | BaseEncodingOptions | string | TwoArgCallback<string>,
+	callback: TwoArgCallback<string> | TwoArgCallback<Uint8Array> = nop
+): void {
 	callback = typeof options == 'function' ? options : callback;
 	promises
 		.readlink(path)

@@ -549,7 +549,7 @@ export async function lutimes(path: PathLike, atime: number | Date, mtime: numbe
  * @param path
  * @param options
  * @return resolved path
- * 
+ *
  * Note: This *Can not* use doOp since doOp depends on it
  */
 export async function realpath(path: PathLike, options?: BaseEncodingOptions): Promise<string> {
