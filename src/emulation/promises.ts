@@ -1,11 +1,11 @@
-import type { ReadStream, WriteStream, FSWatcher, symlink as _symlink, StatOptions } from 'node:fs';
+import type { ReadStream, WriteStream, FSWatcher, symlink as _symlink, StatOptions, BaseEncodingOptions, BufferEncodingOption } from 'node:fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 
 import * as constants from './constants.js';
 export { constants };
 
 import { File, FileFlag } from '../file.js';
-import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared.js';
+import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts, PathLike } from './shared.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, Stats } from '../stats.js';
 import { decode, encode } from '../utils.js';
@@ -48,7 +48,7 @@ async function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[na
  * @param oldPath
  * @param newPath
  */
-export async function rename(oldPath: string, newPath: string): Promise<void> {
+export async function rename(oldPath: PathLike, newPath: PathLike): Promise<void> {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
 	const _old = resolveFS(oldPath);
@@ -71,7 +71,7 @@ export async function rename(oldPath: string, newPath: string): Promise<void> {
  * Test whether or not the given path exists by checking with the file system.
  * @param path
  */
-export async function exists(path: string): Promise<boolean> {
+export async function exists(path: PathLike): Promise<boolean> {
 	path = normalizePath(path);
 	try {
 		const { fs, path: resolvedPath } = resolveFS(path);
@@ -90,9 +90,9 @@ export async function exists(path: string): Promise<boolean> {
  * @param path
  * @returns Stats
  */
-export async function stat(path: string, options?: { bigint?: false }): Promise<Stats>;
-export async function stat(path: string, options: { bigint: true }): Promise<BigIntStats>;
-export async function stat(path: string, options?: StatOptions): Promise<Stats | BigIntStats> {
+export async function stat(path: PathLike, options?: { bigint?: false }): Promise<Stats>;
+export async function stat(path: PathLike, options: { bigint: true }): Promise<BigIntStats>;
+export async function stat(path: PathLike, options?: StatOptions): Promise<Stats | BigIntStats> {
 	const _stats: Stats = await doOp('stat', true, path, cred);
 	let stats: Stats | BigIntStats = _stats;
 	if (options?.bigint) {
@@ -108,9 +108,9 @@ export async function stat(path: string, options?: StatOptions): Promise<Stats |
  * @param path
  * @return [BrowserFS.node.fs.Stats]
  */
-export async function lstat(path: string, options?: { bigint?: false }): Promise<Stats>;
-export async function lstat(path: string, options: { bigint: true }): Promise<BigIntStats>;
-export async function lstat(path: string, options?: StatOptions): Promise<Stats | BigIntStats> {
+export async function lstat(path: PathLike, options?: { bigint?: false }): Promise<Stats>;
+export async function lstat(path: PathLike, options: { bigint: true }): Promise<BigIntStats>;
+export async function lstat(path: PathLike, options?: StatOptions): Promise<Stats | BigIntStats> {
 	const _stats: Stats = await doOp('stat', false, path, cred);
 	let stats: Stats | BigIntStats = _stats;
 	if (options?.bigint) {
@@ -126,7 +126,7 @@ export async function lstat(path: string, options?: StatOptions): Promise<Stats 
  * @param path
  * @param len
  */
-export async function truncate(path: string, len: number = 0): Promise<void> {
+export async function truncate(path: PathLike, len: number = 0): Promise<void> {
 	if (len < 0) {
 		throw new ApiError(ErrorCode.EINVAL);
 	}
@@ -137,7 +137,7 @@ export async function truncate(path: string, len: number = 0): Promise<void> {
  * `unlink`.
  * @param path
  */
-export async function unlink(path: string): Promise<void> {
+export async function unlink(path: PathLike): Promise<void> {
 	return doOp('unlink', false, path, cred);
 }
 
@@ -148,7 +148,7 @@ export async function unlink(path: string): Promise<void> {
  * @param flags
  * @param mode defaults to `0644`
  */
-export async function open(path: string, flag: string, mode: number | string = 0o644): Promise<number> {
+export async function open(path: PathLike, flag: string, mode: number | string = 0o644): Promise<number> {
 	const file: File = await doOp('open', true, path, FileFlag.getFileFlag(flag), normalizeMode(mode, 0o644), cred);
 	return getFdForFile(file);
 }
@@ -157,14 +157,14 @@ export async function open(path: string, flag: string, mode: number | string = 0
  * Synchronously reads the entire contents of a file.
  * @param filename
  * @param options
- * @option options [String] encoding The string encoding for the file contents. Defaults to `null`.
- * @option options [String] flag Defaults to `'r'`.
- * @return [String | BrowserFS.node.Uint8Array]
+ * options.encoding The string encoding for the file contents. Defaults to `null`.
+ * options.flag Defaults to `'r'`.
+ * @return Uint8Array
  */
-export async function readFile(filename: string, options?: { flag?: string }): Promise<Uint8Array>;
-export async function readFile(filename: string, options: { encoding: string; flag?: string }): Promise<string>;
-export async function readFile(filename: string, encoding: string): Promise<string>;
-export async function readFile(filename: string, arg2 = {}): Promise<Uint8Array | string> {
+export async function readFile(filename: PathLike, options?: { flag?: string }): Promise<Uint8Array>;
+export async function readFile(filename: PathLike, options: { encoding: string; flag?: string }): Promise<string>;
+export async function readFile(filename: PathLike, encoding: string): Promise<string>;
+export async function readFile(filename: PathLike, arg2 = {}): Promise<Uint8Array | string> {
 	const options = normalizeOptions(arg2, null, 'r', null);
 	const flag = FileFlag.getFileFlag(options.flag);
 	if (!flag.isReadable()) {
@@ -192,10 +192,10 @@ export async function readFile(filename: string, arg2 = {}): Promise<Uint8Array 
  * @option options [Number] mode Defaults to `0644`.
  * @option options [String] flag Defaults to `'w'`.
  */
-export async function writeFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }): Promise<void>;
-export async function writeFile(filename: string, data: FileContents, encoding?: string): Promise<void>;
-export async function writeFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string } | string): Promise<void>;
-export async function writeFile(filename: string, data: FileContents, arg3?: { encoding?: string; mode?: number | string; flag?: string } | string): Promise<void> {
+export async function writeFile(filename: PathLike, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }): Promise<void>;
+export async function writeFile(filename: PathLike, data: FileContents, encoding?: string): Promise<void>;
+export async function writeFile(filename: PathLike, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string } | string): Promise<void>;
+export async function writeFile(filename: PathLike, data: FileContents, arg3?: { encoding?: string; mode?: number | string; flag?: string } | string): Promise<void> {
 	const options = normalizeOptions(arg3, 'utf8', 'w', 0o644);
 	const flag = FileFlag.getFileFlag(options.flag);
 	if (!flag.isWriteable()) {
@@ -224,9 +224,9 @@ export async function writeFile(filename: string, data: FileContents, arg3?: { e
  * @option options [Number] mode Defaults to `0644`.
  * @option options [String] flag Defaults to `'a'`.
  */
-export async function appendFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }): Promise<void>;
-export async function appendFile(filename: string, data: FileContents, encoding?: string): Promise<void>;
-export async function appendFile(filename: string, data: FileContents, arg3?): Promise<void> {
+export async function appendFile(filename: PathLike, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }): Promise<void>;
+export async function appendFile(filename: PathLike, data: FileContents, encoding?: string): Promise<void>;
+export async function appendFile(filename: PathLike, data: FileContents, arg3?): Promise<void> {
 	const options = normalizeOptions(arg3, 'utf8', 'a', 0o644);
 	const flag = FileFlag.getFileFlag(options.flag);
 	if (!flag.isAppendable()) {
@@ -398,7 +398,7 @@ export async function futimes(fd: number, atime: number | Date, mtime: number | 
  * `rmdir`.
  * @param path
  */
-export async function rmdir(path: string): Promise<void> {
+export async function rmdir(path: PathLike): Promise<void> {
 	return doOp('rmdir', true, path, cred);
 }
 
@@ -407,7 +407,7 @@ export async function rmdir(path: string): Promise<void> {
  * @param path
  * @param mode defaults to `0777`
  */
-export async function mkdir(path: string, mode?: number | string): Promise<void> {
+export async function mkdir(path: PathLike, mode?: number | string): Promise<void> {
 	return doOp('mkdir', true, path, normalizeMode(mode, 0o777), cred);
 }
 
@@ -415,9 +415,9 @@ export async function mkdir(path: string, mode?: number | string): Promise<void>
  * `readdir`. Reads the contents of a directory.
  * @param path
  */
-export async function readdir(path: string, options: { withFileTypes?: false }): Promise<string[]>;
-export async function readdir(path: string, options: { withFileTypes: true }): Promise<Dirent[]>;
-export async function readdir(path: string, options?: { withFileTypes?: boolean }): Promise<string[] | Dirent[]> {
+export async function readdir(path: PathLike, options: { withFileTypes?: false }): Promise<string[]>;
+export async function readdir(path: PathLike, options: { withFileTypes: true }): Promise<Dirent[]>;
+export async function readdir(path: PathLike, options?: { withFileTypes?: boolean }): Promise<string[] | Dirent[]> {
 	path = normalizePath(path);
 	const entries: string[] = await doOp('readdir', true, path, cred);
 	const points = [...mounts.keys()];
@@ -445,7 +445,7 @@ export async function readdir(path: string, options?: { withFileTypes?: boolean 
  * @param srcpath
  * @param dstpath
  */
-export async function link(srcpath: string, dstpath: string): Promise<void> {
+export async function link(srcpath: PathLike, dstpath: PathLike): Promise<void> {
 	dstpath = normalizePath(dstpath);
 	return doOp('link', false, srcpath, dstpath, cred);
 }
@@ -456,7 +456,7 @@ export async function link(srcpath: string, dstpath: string): Promise<void> {
  * @param dstpath
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
-export async function symlink(srcpath: string, dstpath: string, type: _symlink.Type = 'file'): Promise<void> {
+export async function symlink(srcpath: PathLike, dstpath: PathLike, type: _symlink.Type = 'file'): Promise<void> {
 	if (!['file', 'dir', 'junction'].includes(type)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid type: ' + type);
 	}
@@ -467,10 +467,13 @@ export async function symlink(srcpath: string, dstpath: string, type: _symlink.T
 /**
  * readlink.
  * @param path
- * @return [String]
  */
-export async function readlink(path: string): Promise<string> {
-	return doOp('readlink', false, path, cred);
+export async function readlink(path: PathLike, options?: BaseEncodingOptions | BufferEncoding): Promise<string>;
+export async function readlink(path: PathLike, options: BufferEncodingOption): Promise<Uint8Array>;
+export async function readlink(path: PathLike, options?: BaseEncodingOptions | string): Promise<string | Uint8Array>;
+export async function readlink(path: PathLike, options?: BufferEncodingOption | BaseEncodingOptions | string): Promise<string | Uint8Array> {
+	const value: string = await doOp('readlink', false, path, cred);
+	return encode(value, typeof options == 'object' ? options.encoding : options);
 }
 
 // PROPERTY OPERATIONS
@@ -481,7 +484,7 @@ export async function readlink(path: string): Promise<string> {
  * @param uid
  * @param gid
  */
-export async function chown(path: string, uid: number, gid: number): Promise<void> {
+export async function chown(path: PathLike, uid: number, gid: number): Promise<void> {
 	return doOp('chown', true, path, uid, gid, cred);
 }
 
@@ -491,7 +494,7 @@ export async function chown(path: string, uid: number, gid: number): Promise<voi
  * @param uid
  * @param gid
  */
-export async function lchown(path: string, uid: number, gid: number): Promise<void> {
+export async function lchown(path: PathLike, uid: number, gid: number): Promise<void> {
 	return doOp('chown', false, path, uid, gid, cred);
 }
 
@@ -500,7 +503,7 @@ export async function lchown(path: string, uid: number, gid: number): Promise<vo
  * @param path
  * @param mode
  */
-export async function chmod(path: string, mode: string | number): Promise<void> {
+export async function chmod(path: PathLike, mode: string | number): Promise<void> {
 	const numMode = normalizeMode(mode, -1);
 	if (numMode < 0) {
 		throw new ApiError(ErrorCode.EINVAL, `Invalid mode.`);
@@ -513,7 +516,7 @@ export async function chmod(path: string, mode: string | number): Promise<void> 
  * @param path
  * @param mode
  */
-export async function lchmod(path: string, mode: number | string): Promise<void> {
+export async function lchmod(path: PathLike, mode: number | string): Promise<void> {
 	const numMode = normalizeMode(mode, -1);
 	if (numMode < 1) {
 		throw new ApiError(ErrorCode.EINVAL, `Invalid mode.`);
@@ -527,7 +530,7 @@ export async function lchmod(path: string, mode: number | string): Promise<void>
  * @param atime
  * @param mtime
  */
-export async function utimes(path: string, atime: number | Date, mtime: number | Date): Promise<void> {
+export async function utimes(path: PathLike, atime: number | Date, mtime: number | Date): Promise<void> {
 	return doOp('utimes', true, path, normalizeTime(atime), normalizeTime(mtime), cred);
 }
 
@@ -537,19 +540,19 @@ export async function utimes(path: string, atime: number | Date, mtime: number |
  * @param atime
  * @param mtime
  */
-export async function lutimes(path: string, atime: number | Date, mtime: number | Date): Promise<void> {
+export async function lutimes(path: PathLike, atime: number | Date, mtime: number | Date): Promise<void> {
 	return doOp('utimes', false, path, normalizeTime(atime), normalizeTime(mtime), cred);
 }
 
 /**
  * `realpath`.
  * @param path
- * @param cache An object literal of mapped paths that can be used to
- *   force a specific path resolution or avoid additional `fs.stat` calls for
- *   known real paths.
- * @return [String]
+ * @param options
+ * @return resolved path
+ * 
+ * Note: This *Can not* use doOp since doOp depends on it
  */
-export async function realpath(path: string, cache: { [path: string]: string } = {}): Promise<string> {
+export async function realpath(path: PathLike, options?: BaseEncodingOptions): Promise<string> {
 	path = normalizePath(path);
 	const { fs, path: resolvedPath, mountPoint } = resolveFS(path);
 	try {
@@ -564,19 +567,19 @@ export async function realpath(path: string, cache: { [path: string]: string } =
 	}
 }
 
-export async function watchFile(filename: string, listener: (curr: Stats, prev: Stats) => void): Promise<void>;
-export async function watchFile(filename: string, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): Promise<void>;
-export async function watchFile(filename: string, arg2: any, listener: (curr: Stats, prev: Stats) => void = nop): Promise<void> {
+export async function watchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void): Promise<void>;
+export async function watchFile(filename: PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): Promise<void>;
+export async function watchFile(filename: PathLike, arg2: any, listener: (curr: Stats, prev: Stats) => void = nop): Promise<void> {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export async function unwatchFile(filename: string, listener: (curr: Stats, prev: Stats) => void = nop): Promise<void> {
+export async function unwatchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void = nop): Promise<void> {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export async function watch(filename: string, listener?: (event: string, filename: string) => any): Promise<FSWatcher>;
-export async function watch(filename: string, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): Promise<FSWatcher>;
-export async function watch(filename: string, arg2: any, listener: (event: string, filename: string) => any = nop): Promise<FSWatcher> {
+export async function watch(filename: PathLike, listener?: (event: string, filename: PathLike) => any): Promise<FSWatcher>;
+export async function watch(filename: PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): Promise<FSWatcher>;
+export async function watch(filename: PathLike, arg2: any, listener: (event: string, filename: string) => any = nop): Promise<FSWatcher> {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
@@ -585,12 +588,12 @@ export async function watch(filename: string, arg2: any, listener: (event: strin
  * @param path
  * @param mode
  */
-export async function access(path: string, mode: number = 0o600): Promise<void> {
+export async function access(path: PathLike, mode: number = 0o600): Promise<void> {
 	return doOp('access', true, path, mode, cred);
 }
 
 export async function createReadStream(
-	path: string,
+	path: PathLike,
 	options?: {
 		flags?: string;
 		encoding?: string;
@@ -603,7 +606,7 @@ export async function createReadStream(
 }
 
 export async function createWriteStream(
-	path: string,
+	path: PathLike,
 	options?: {
 		flags?: string;
 		encoding?: string;
@@ -614,14 +617,14 @@ export async function createWriteStream(
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export async function rm(path: string) {
+export async function rm(path: PathLike) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export async function mkdtemp(path: string) {
+export async function mkdtemp(path: PathLike) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export async function copyFile(path: string) {
+export async function copyFile(path: PathLike) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }

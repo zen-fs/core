@@ -253,7 +253,7 @@ const decoderCache: Map<string, TextDecoder['decode']> = new Map();
 
 const textEncoder = new globalThis.TextEncoder();
 
-export function encode(input?: string, encoding = 'utf8'): Uint8Array {
+export function encode(input: string, encoding = 'utf8'): Uint8Array {
 	return textEncoder.encode(input);
 }
 

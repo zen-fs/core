@@ -1,8 +1,8 @@
-import type { FSWatcher, StatOptions, symlink as _symlink } from 'fs';
+import type { BaseEncodingOptions, BufferEncodingOption, FSWatcher, StatOptions, symlink as _symlink } from 'fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { TwoArgCallback, NoArgCallback, ThreeArgCallback, FileContents } from '../filesystem.js';
 import { BigIntStats, Stats } from '../stats.js';
-import { nop, normalizeMode } from './shared.js';
+import { nop, normalizeMode, PathLike } from './shared.js';
 import * as promises from './promises.js';
 import { R_OK } from './constants.js';
 import { decode, encode } from '../utils.js';
@@ -16,7 +16,7 @@ import { Dirent } from './dir.js';
  * @param newPath
  * @param callback
  */
-export function rename(oldPath: string, newPath: string, cb: NoArgCallback = nop): void {
+export function rename(oldPath: PathLike, newPath: PathLike, cb: NoArgCallback = nop): void {
 	promises
 		.rename(oldPath, newPath)
 		.then(() => cb())
@@ -33,7 +33,7 @@ export function rename(oldPath: string, newPath: string, cb: NoArgCallback = nop
  * @param path
  * @param callback
  */
-export function exists(path: string, cb: (exists: boolean) => unknown = nop): void {
+export function exists(path: PathLike, cb: (exists: boolean) => unknown = nop): void {
 	promises
 		.exists(path)
 		.then(cb)
@@ -45,11 +45,11 @@ export function exists(path: string, cb: (exists: boolean) => unknown = nop): vo
  * @param path
  * @param callback
  */
-export function stat(path: string, callback: TwoArgCallback<Stats>): void;
-export function stat(path: string, options: StatOptions & { bigint?: false }, callback: TwoArgCallback<Stats>): void;
-export function stat(path: string, options: StatOptions & { bigint: true }, callback: TwoArgCallback<BigIntStats>): void;
-export function stat(path: string, options: StatOptions, callback: TwoArgCallback<Stats | BigIntStats>): void;
-export function stat(path: string, options?: StatOptions | TwoArgCallback<Stats>, callback: TwoArgCallback<Stats> | TwoArgCallback<BigIntStats> = nop): void {
+export function stat(path: PathLike, callback: TwoArgCallback<Stats>): void;
+export function stat(path: PathLike, options: StatOptions & { bigint?: false }, callback: TwoArgCallback<Stats>): void;
+export function stat(path: PathLike, options: StatOptions & { bigint: true }, callback: TwoArgCallback<BigIntStats>): void;
+export function stat(path: PathLike, options: StatOptions, callback: TwoArgCallback<Stats | BigIntStats>): void;
+export function stat(path: PathLike, options?: StatOptions | TwoArgCallback<Stats>, callback: TwoArgCallback<Stats> | TwoArgCallback<BigIntStats> = nop): void {
 	callback = typeof options == 'function' ? options : callback;
 	promises
 		.stat(path, typeof options != 'function' ? options : ({} as object))
@@ -64,11 +64,11 @@ export function stat(path: string, options?: StatOptions | TwoArgCallback<Stats>
  * @param path
  * @param callback
  */
-export function lstat(path: string, callback: TwoArgCallback<Stats>): void;
-export function lstat(path: string, options: StatOptions & { bigint?: false }, callback: TwoArgCallback<Stats>): void;
-export function lstat(path: string, options: StatOptions & { bigint: true }, callback: TwoArgCallback<BigIntStats>): void;
-export function lstat(path: string, options: StatOptions, callback: TwoArgCallback<Stats | BigIntStats>): void;
-export function lstat(path: string, options?: StatOptions | TwoArgCallback<Stats>, callback: TwoArgCallback<Stats> | TwoArgCallback<BigIntStats> = nop): void {
+export function lstat(path: PathLike, callback: TwoArgCallback<Stats>): void;
+export function lstat(path: PathLike, options: StatOptions & { bigint?: false }, callback: TwoArgCallback<Stats>): void;
+export function lstat(path: PathLike, options: StatOptions & { bigint: true }, callback: TwoArgCallback<BigIntStats>): void;
+export function lstat(path: PathLike, options: StatOptions, callback: TwoArgCallback<Stats | BigIntStats>): void;
+export function lstat(path: PathLike, options?: StatOptions | TwoArgCallback<Stats>, callback: TwoArgCallback<Stats> | TwoArgCallback<BigIntStats> = nop): void {
 	callback = typeof options == 'function' ? options : callback;
 	promises
 		.lstat(path, typeof options != 'function' ? options : ({} as object))
@@ -82,9 +82,9 @@ export function lstat(path: string, options?: StatOptions | TwoArgCallback<Stats
  * @param len
  * @param callback
  */
-export function truncate(path: string, cb?: NoArgCallback): void;
-export function truncate(path: string, len: number, cb?: NoArgCallback): void;
-export function truncate(path: string, arg2: number | NoArgCallback = 0, cb: NoArgCallback = nop): void {
+export function truncate(path: PathLike, cb?: NoArgCallback): void;
+export function truncate(path: PathLike, len: number, cb?: NoArgCallback): void;
+export function truncate(path: PathLike, arg2: number | NoArgCallback = 0, cb: NoArgCallback = nop): void {
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	const len = typeof arg2 === 'number' ? arg2 : 0;
 	promises
@@ -98,7 +98,7 @@ export function truncate(path: string, arg2: number | NoArgCallback = 0, cb: NoA
  * @param path
  * @param callback
  */
-export function unlink(path: string, cb: NoArgCallback = nop): void {
+export function unlink(path: PathLike, cb: NoArgCallback = nop): void {
 	promises
 		.unlink(path)
 		.then(() => cb())
@@ -130,9 +130,9 @@ export function unlink(path: string, cb: NoArgCallback = nop): void {
  * @param mode defaults to `0644`
  * @param callback
  */
-export function open(path: string, flag: string, cb?: TwoArgCallback<number>): void;
-export function open(path: string, flag: string, mode: number | string, cb?: TwoArgCallback<number>): void;
-export function open(path: string, flag: string, arg2?: number | string | TwoArgCallback<number>, cb: TwoArgCallback<number> = nop): void {
+export function open(path: PathLike, flag: string, cb?: TwoArgCallback<number>): void;
+export function open(path: PathLike, flag: string, mode: number | string, cb?: TwoArgCallback<number>): void;
+export function open(path: PathLike, flag: string, arg2?: number | string | TwoArgCallback<number>, cb: TwoArgCallback<number> = nop): void {
 	const mode = normalizeMode(arg2, 0o644);
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	promises
@@ -154,11 +154,11 @@ export function open(path: string, flag: string, arg2?: number | string | TwoArg
  * @option options [String] flag Defaults to `'r'`.
  * @param callback If no encoding is specified, then the raw buffer is returned.
  */
-export function readFile(filename: string, cb: TwoArgCallback<Uint8Array>): void;
-export function readFile(filename: string, options: { flag?: string }, callback?: TwoArgCallback<Uint8Array>): void;
-export function readFile(filename: string, options: { encoding: string; flag?: string }, callback?: TwoArgCallback<string>): void;
-export function readFile(filename: string, encoding: string, cb: TwoArgCallback<string>): void;
-export function readFile(filename: string, arg2: any = {}, cb: TwoArgCallback<string> | TwoArgCallback<Uint8Array> = nop) {
+export function readFile(filename: PathLike, cb: TwoArgCallback<Uint8Array>): void;
+export function readFile(filename: PathLike, options: { flag?: string }, callback?: TwoArgCallback<Uint8Array>): void;
+export function readFile(filename: PathLike, options: { encoding: string; flag?: string }, callback?: TwoArgCallback<string>): void;
+export function readFile(filename: PathLike, encoding: string, cb: TwoArgCallback<string>): void;
+export function readFile(filename: PathLike, arg2: any = {}, cb: TwoArgCallback<string> | TwoArgCallback<Uint8Array> = nop) {
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 
 	promises.readFile(filename, typeof arg2 === 'function' ? null : arg2);
@@ -183,11 +183,11 @@ export function readFile(filename: string, arg2: any = {}, cb: TwoArgCallback<st
  * @option options [String] flag Defaults to `'w'`.
  * @param callback
  */
-export function writeFile(filename: string, data: FileContents, cb?: NoArgCallback): void;
-export function writeFile(filename: string, data: FileContents, encoding?: string, cb?: NoArgCallback): void;
-export function writeFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: string | number; flag?: string }, cb?: NoArgCallback): void;
+export function writeFile(filename: PathLike, data: FileContents, cb?: NoArgCallback): void;
+export function writeFile(filename: PathLike, data: FileContents, encoding?: string, cb?: NoArgCallback): void;
+export function writeFile(filename: PathLike, data: FileContents, options?: { encoding?: string; mode?: string | number; flag?: string }, cb?: NoArgCallback): void;
 export function writeFile(
-	filename: string,
+	filename: PathLike,
 	data: FileContents,
 	arg3: { encoding?: string; mode?: string | number; flag?: string } | string | NoArgCallback = {},
 	cb: NoArgCallback = nop
@@ -213,10 +213,10 @@ export function writeFile(
  * @option options [String] flag Defaults to `'a'`.
  * @param callback
  */
-export function appendFile(filename: string, data: FileContents, cb?: NoArgCallback): void;
-export function appendFile(filename: string, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }, cb?: NoArgCallback): void;
-export function appendFile(filename: string, data: FileContents, encoding?: string, cb?: NoArgCallback): void;
-export function appendFile(filename: string, data: FileContents, arg3?: any, cb: NoArgCallback = nop): void {
+export function appendFile(filename: PathLike, data: FileContents, cb?: NoArgCallback): void;
+export function appendFile(filename: PathLike, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }, cb?: NoArgCallback): void;
+export function appendFile(filename: PathLike, data: FileContents, encoding?: string, cb?: NoArgCallback): void;
+export function appendFile(filename: PathLike, data: FileContents, arg3?: any, cb: NoArgCallback = nop): void {
 	cb = typeof arg3 === 'function' ? arg3 : cb;
 	promises.appendFile(filename, data, typeof arg3 === 'function' ? null : arg3);
 }
@@ -423,7 +423,7 @@ export function futimes(fd: number, atime: number | Date, mtime: number | Date, 
  * @param path
  * @param callback
  */
-export function rmdir(path: string, cb: NoArgCallback = nop): void {
+export function rmdir(path: PathLike, cb: NoArgCallback = nop): void {
 	promises
 		.rmdir(path)
 		.then(() => cb())
@@ -436,7 +436,7 @@ export function rmdir(path: string, cb: NoArgCallback = nop): void {
  * @param mode defaults to `0777`
  * @param callback
  */
-export function mkdir(path: string, mode?: any, cb: NoArgCallback = nop): void {
+export function mkdir(path: PathLike, mode?: any, cb: NoArgCallback = nop): void {
 	promises
 		.mkdir(path, mode)
 		.then(() => cb())
@@ -450,10 +450,10 @@ export function mkdir(path: string, mode?: any, cb: NoArgCallback = nop): void {
  * @param path
  * @param callback
  */
-export function readdir(path: string, cb: TwoArgCallback<string[]>): void;
-export function readdir(path: string, options: { withFileTypes?: false }, cb: TwoArgCallback<string[]>): void;
-export function readdir(path: string, options: { withFileTypes: true }, cb: TwoArgCallback<Dirent[]>): void;
-export function readdir(path: string, _options: { withFileTypes?: boolean } | TwoArgCallback<string[]>, cb: TwoArgCallback<string[]> | TwoArgCallback<Dirent[]> = nop): void {
+export function readdir(path: PathLike, cb: TwoArgCallback<string[]>): void;
+export function readdir(path: PathLike, options: { withFileTypes?: false }, cb: TwoArgCallback<string[]>): void;
+export function readdir(path: PathLike, options: { withFileTypes: true }, cb: TwoArgCallback<Dirent[]>): void;
+export function readdir(path: PathLike, _options: { withFileTypes?: boolean } | TwoArgCallback<string[]>, cb: TwoArgCallback<string[]> | TwoArgCallback<Dirent[]> = nop): void {
 	cb = typeof _options == 'function' ? _options : cb;
 	const options = typeof _options != 'function' ? _options : {};
 	promises
@@ -469,7 +469,7 @@ export function readdir(path: string, _options: { withFileTypes?: boolean } | Tw
  * @param dstpath
  * @param callback
  */
-export function link(srcpath: string, dstpath: string, cb: NoArgCallback = nop): void {
+export function link(srcpath: PathLike, dstpath: PathLike, cb: NoArgCallback = nop): void {
 	promises
 		.link(srcpath, dstpath)
 		.then(() => cb())
@@ -483,9 +483,9 @@ export function link(srcpath: string, dstpath: string, cb: NoArgCallback = nop):
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  * @param callback
  */
-export function symlink(srcpath: string, dstpath: string, cb?: NoArgCallback): void;
-export function symlink(srcpath: string, dstpath: string, type?: _symlink.Type, cb?: NoArgCallback): void;
-export function symlink(srcpath: string, dstpath: string, arg3?: _symlink.Type | NoArgCallback, cb: NoArgCallback = nop): void {
+export function symlink(srcpath: PathLike, dstpath: PathLike, cb?: NoArgCallback): void;
+export function symlink(srcpath: PathLike, dstpath: PathLike, type?: _symlink.Type, cb?: NoArgCallback): void;
+export function symlink(srcpath: PathLike, dstpath: PathLike, arg3?: _symlink.Type | NoArgCallback, cb: NoArgCallback = nop): void {
 	const type = typeof arg3 === 'string' ? arg3 : 'file';
 	cb = typeof arg3 === 'function' ? arg3 : cb;
 	promises
@@ -499,11 +499,16 @@ export function symlink(srcpath: string, dstpath: string, arg3?: _symlink.Type |
  * @param path
  * @param callback
  */
-export function readlink(path: string, cb: TwoArgCallback<string> = nop): void {
+export function readlink(path: PathLike, callback: TwoArgCallback<string> & any): void;
+export function readlink(path: PathLike, options: BufferEncodingOption, callback: TwoArgCallback<Uint8Array>): void;
+export function readlink(path: PathLike, options: BaseEncodingOptions | string, callback: TwoArgCallback<string | Uint8Array>): void;
+export function readlink(path: PathLike, options: BaseEncodingOptions | BufferEncoding, callback: TwoArgCallback<string>): void;
+export function readlink(path: PathLike, options: BufferEncodingOption | BaseEncodingOptions | string | TwoArgCallback<string>, callback: TwoArgCallback<string> | TwoArgCallback<Uint8Array> = nop): void {
+	callback = typeof options == 'function' ? options : callback;
 	promises
 		.readlink(path)
-		.then(result => cb(null, result))
-		.catch(cb);
+		.then(result => callback(null, result as string & Uint8Array))
+		.catch(callback);
 }
 
 /**
@@ -513,7 +518,7 @@ export function readlink(path: string, cb: TwoArgCallback<string> = nop): void {
  * @param gid
  * @param callback
  */
-export function chown(path: string, uid: number, gid: number, cb: NoArgCallback = nop): void {
+export function chown(path: PathLike, uid: number, gid: number, cb: NoArgCallback = nop): void {
 	promises
 		.chown(path, uid, gid)
 		.then(() => cb())
@@ -527,7 +532,7 @@ export function chown(path: string, uid: number, gid: number, cb: NoArgCallback 
  * @param gid
  * @param callback
  */
-export function lchown(path: string, uid: number, gid: number, cb: NoArgCallback = nop): void {
+export function lchown(path: PathLike, uid: number, gid: number, cb: NoArgCallback = nop): void {
 	promises
 		.lchown(path, uid, gid)
 		.then(() => cb())
@@ -540,7 +545,7 @@ export function lchown(path: string, uid: number, gid: number, cb: NoArgCallback
  * @param mode
  * @param callback
  */
-export function chmod(path: string, mode: number | string, cb: NoArgCallback = nop): void {
+export function chmod(path: PathLike, mode: number | string, cb: NoArgCallback = nop): void {
 	promises
 		.chmod(path, mode)
 		.then(() => cb())
@@ -553,7 +558,7 @@ export function chmod(path: string, mode: number | string, cb: NoArgCallback = n
  * @param mode
  * @param callback
  */
-export function lchmod(path: string, mode: number | string, cb: NoArgCallback = nop): void {
+export function lchmod(path: PathLike, mode: number | string, cb: NoArgCallback = nop): void {
 	promises
 		.lchmod(path, mode)
 		.then(() => cb())
@@ -567,7 +572,7 @@ export function lchmod(path: string, mode: number | string, cb: NoArgCallback = 
  * @param mtime
  * @param callback
  */
-export function utimes(path: string, atime: number | Date, mtime: number | Date, cb: NoArgCallback = nop): void {
+export function utimes(path: PathLike, atime: number | Date, mtime: number | Date, cb: NoArgCallback = nop): void {
 	promises
 		.utimes(path, atime, mtime)
 		.then(() => cb())
@@ -581,7 +586,7 @@ export function utimes(path: string, atime: number | Date, mtime: number | Date,
  * @param mtime
  * @param callback
  */
-export function lutimes(path: string, atime: number | Date, mtime: number | Date, cb: NoArgCallback = nop): void {
+export function lutimes(path: PathLike, atime: number | Date, mtime: number | Date, cb: NoArgCallback = nop): void {
 	promises
 		.lutimes(path, atime, mtime)
 		.then(() => cb())
@@ -593,22 +598,17 @@ export function lutimes(path: string, atime: number | Date, mtime: number | Date
  * `(err, resolvedPath)`. May use `process.cwd` to resolve relative paths.
  *
  * @example Usage example
- *   let cache = {'/etc':'/private/etc'};
- *   fs.realpath('/etc/passwd', cache, function (err, resolvedPath) {
+ *   fs.realpath('/etc/passwd', function (err, resolvedPath) {
  *     if (err) throw err;
  *     console.log(resolvedPath);
  *   });
  *
  * @param path
- * @param cache An object literal of mapped paths that can be used to
- *   force a specific path resolution or avoid additional `fs.stat` calls for
- *   known real paths.
  * @param callback
  */
-export function realpath(path: string, cb?: TwoArgCallback<string>): void;
-export function realpath(path: string, cache: { [path: string]: string }, cb: TwoArgCallback<string>): void;
-export function realpath(path: string, arg2?: any, cb: TwoArgCallback<string> = nop): void {
-	const cache = typeof arg2 === 'object' ? arg2 : {};
+export function realpath(path: PathLike, cb?: TwoArgCallback<string>): void;
+export function realpath(path: PathLike, options: BaseEncodingOptions, cb: TwoArgCallback<string>): void;
+export function realpath(path: PathLike, arg2?: TwoArgCallback<string> | BaseEncodingOptions, cb: TwoArgCallback<string> = nop): void {
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	promises
 		.realpath(path, typeof arg2 === 'function' ? null : arg2)
@@ -622,9 +622,9 @@ export function realpath(path: string, arg2?: any, cb: TwoArgCallback<string> = 
  * @param mode
  * @param callback
  */
-export function access(path: string, cb: NoArgCallback): void;
-export function access(path: string, mode: number, cb: NoArgCallback): void;
-export function access(path: string, arg2: any, cb: NoArgCallback = nop): void {
+export function access(path: PathLike, cb: NoArgCallback): void;
+export function access(path: PathLike, mode: number, cb: NoArgCallback): void;
+export function access(path: PathLike, arg2: any, cb: NoArgCallback = nop): void {
 	const mode = typeof arg2 === 'number' ? arg2 : R_OK;
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	promises
@@ -633,24 +633,24 @@ export function access(path: string, arg2: any, cb: NoArgCallback = nop): void {
 		.catch(cb);
 }
 
-export function watchFile(filename: string, listener: (curr: Stats, prev: Stats) => void): void;
-export function watchFile(filename: string, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
-export function watchFile(filename: string, arg2: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
+export function watchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void): void;
+export function watchFile(filename: PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
+export function watchFile(filename: PathLike, arg2: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export function unwatchFile(filename: string, listener: (curr: Stats, prev: Stats) => void = nop): void {
+export function unwatchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void = nop): void {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export function watch(filename: string, listener?: (event: string, filename: string) => any): FSWatcher;
-export function watch(filename: string, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): FSWatcher;
-export function watch(filename: string, arg2: any, listener: (event: string, filename: string) => any = nop): FSWatcher {
+export function watch(filename: PathLike, listener?: (event: string, filename: string) => any): FSWatcher;
+export function watch(filename: PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): FSWatcher;
+export function watch(filename: PathLike, arg2: any, listener: (event: string, filename: string) => any = nop): FSWatcher {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
 export function createReadStream(
-	path: string,
+	path: PathLike,
 	options?: {
 		flags?: string;
 		encoding?: string;
@@ -663,7 +663,7 @@ export function createReadStream(
 }
 
 export function createWriteStream(
-	path: string,
+	path: PathLike,
 	options?: {
 		flags?: string;
 		encoding?: string;
@@ -674,21 +674,21 @@ export function createWriteStream(
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export function rm(path: string) {
+export function rm(path: PathLike) {
 	new ApiError(ErrorCode.ENOTSUP);
 }
 
-export function mkdtemp(path: string) {
+export function mkdtemp(path: PathLike) {
 	new ApiError(ErrorCode.ENOTSUP);
 }
 
-export function copyFile(src: string, dest: string, callback: NoArgCallback): void;
-export function copyFile(src: string, dest: string, flags: number, callback: NoArgCallback): void;
-export function copyFile(src: string, dest: string, flags: number | NoArgCallback, callback?: NoArgCallback): void {
+export function copyFile(src: PathLike, dest: PathLike, callback: NoArgCallback): void;
+export function copyFile(src: PathLike, dest: PathLike, flags: number, callback: NoArgCallback): void;
+export function copyFile(src: PathLike, dest: PathLike, flags: number | NoArgCallback, callback?: NoArgCallback): void {
 	new ApiError(ErrorCode.ENOTSUP);
 }
 
-export function readv(path: string) {
+export function readv(path: PathLike) {
 	new ApiError(ErrorCode.ENOTSUP);
 }
 
@@ -700,6 +700,6 @@ export function writev(fd: number, buffers: Uint8Array[], position: number | wri
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 
-export function opendir(path: string) {
+export function opendir(path: PathLike) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }

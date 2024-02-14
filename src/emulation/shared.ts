@@ -220,3 +220,24 @@ export function initialize(mountMapping: MountMapping): void {
 		mount(point, fs);
 	}
 }
+
+/**
+ * Types supports as path parameters.
+ * 
+ * In the future, maybe support URL?
+ */
+export type PathLike = string;
+
+/**
+ * @internal
+ * 
+ * Converts any Buffer in T to Uint8Array
+ */
+export type BufferToUint8Array<T> = T extends Buffer
+	? Uint8Array
+	: T extends (...args) => unknown
+	? (...args: Parameters<T>) => BufferToUint8Array<ReturnType<T>>
+	: T extends object
+	? { [K in keyof T]: BufferToUint8Array<T[K]> }
+	: T;
+
