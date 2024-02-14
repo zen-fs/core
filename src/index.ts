@@ -40,7 +40,6 @@ async function _configure(config: Configuration): Promise<void> {
 			//should never happen
 			continue;
 		}
-		point = point.toString(); // so linting stops complaining that point should be declared with const, which can't be done since value is assigned to
 
 		if (value instanceof FileSystem) {
 			continue;

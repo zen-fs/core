@@ -6,7 +6,7 @@ import { FileFlag, PreloadFile } from '../file.js';
 import { SynchronousFileSystem } from '../filesystem.js';
 import Inode from '../inode.js';
 import { Stats, FileType } from '../stats.js';
-import { encode, randomUUID, ROOT_NODE_ID } from '../utils.js';
+import { decode, encode, randomUUID, ROOT_NODE_ID } from '../utils.js';
 
 /**
  * Represents a *synchronous* key-value store.
@@ -508,7 +508,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 		if (data === undefined) {
 			throw ApiError.ENOENT(p);
 		}
-		return JSON.parse(data.toString());
+		return JSON.parse(decode(data));
 	}
 
 	/**

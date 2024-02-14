@@ -6,7 +6,7 @@ import { PreloadFile, File, FileFlag } from '../file.js';
 import { BaseFileSystem } from '../filesystem.js';
 import Inode from '../inode.js';
 import { Stats, FileType } from '../stats.js';
-import { ROOT_NODE_ID, randomUUID, encode } from '../utils.js';
+import { ROOT_NODE_ID, randomUUID, encode, decode } from '../utils.js';
 
 class LRUNode {
 	public prev: LRUNode | null = null;
@@ -534,7 +534,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 		}
 		const data = await tx.get(inode.id);
 		try {
-			return JSON.parse(data!.toString());
+			return JSON.parse(decode(data));
 		} catch (e) {
 			// Occurs when data is undefined, or corresponds to something other
 			// than a directory listing. The latter should never occur unless

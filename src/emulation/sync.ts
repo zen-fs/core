@@ -24,9 +24,7 @@ import { Dir, Dirent } from './dir.js';
 import { join } from './path.js';
 
 type FileSystemMethod = {
-	[K in keyof FileSystem]: FileSystem[K] extends (...args: any) => any
-		? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
-		: never;
+	[K in keyof FileSystem]: FileSystem[K] extends (...args) => any ? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]> : never;
 }[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
 
 function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): RT {
@@ -92,12 +90,8 @@ existsSync satisfies typeof Node.existsSync;
 export function statSync(path: PathLike, options?: { bigint: false }): Stats;
 export function statSync(path: PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(path: PathLike, options?: StatOptions): Stats | BigIntStats {
-	const _stats: Stats = doOp('statSync', true, path, cred);
-	let stats: Stats | BigIntStats = _stats;
-	if (options?.bigint) {
-		stats = BigIntStats.clone(stats);
-	}
-	return stats;
+	const stats: Stats = doOp('statSync', true, path, cred);
+	return options?.bigint ? BigIntStats.clone(stats) : stats;
 }
 statSync satisfies typeof Node.statSync;
 
@@ -110,12 +104,8 @@ statSync satisfies typeof Node.statSync;
 export function lstatSync(path: PathLike, options?: { bigint: false }): Stats;
 export function lstatSync(path: PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(path: PathLike, options?: StatOptions): Stats | BigIntStats {
-	const _stats: Stats = doOp('statSync', false, path, cred);
-	let stats: Stats | BigIntStats = _stats;
-	if (options?.bigint) {
-		stats = BigIntStats.clone(stats);
-	}
-	return stats;
+	const stats: Stats = doOp('statSync', false, path, cred);
+	return options?.bigint ? BigIntStats.clone(stats) : stats;
 }
 lstatSync satisfies typeof Node.lstatSync;
 
@@ -252,12 +242,8 @@ appendFileSync satisfies typeof Node.appendFileSync;
 export function fstatSync(fd: number, options?: { bigint?: false }): Stats;
 export function fstatSync(fd: number, options: { bigint: true }): BigIntStats;
 export function fstatSync(fd: number, options?: StatOptions): Stats | BigIntStats {
-	const _stats: Stats = fd2file(fd).statSync();
-	let stats: Stats | BigIntStats = _stats;
-	if (options?.bigint) {
-		stats = BigIntStats.clone(stats);
-	}
-	return stats;
+	const stats: Stats = fd2file(fd).statSync();
+	return options?.bigint ? BigIntStats.clone(stats) : stats;
 }
 fstatSync satisfies typeof Node.fstatSync;
 

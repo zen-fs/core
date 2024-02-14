@@ -1,4 +1,4 @@
-import type { ReadStream, WriteStream, FSWatcher, symlink as _symlink, StatOptions, BaseEncodingOptions, BufferEncodingOption } from 'node:fs';
+import type { ReadStream, WriteStream, FSWatcher, symlink as _symlink, BaseEncodingOptions, BufferEncodingOption, BigIntOptions, StatOptions } from 'node:fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 
 import * as constants from './constants.js';
@@ -30,7 +30,7 @@ type FileSystemMethod = {
  * @param args the rest of the parameters are passed to the FS function. Note that the first parameter is required to be a path
  * @returns
  */
-async function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): Promise<RT> {
+async function doOp<M extends FileSystemMethod, RT extends ReturnType<M> = ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): Promise<RT> {
 	path = normalizePath(path);
 	const { fs, path: resolvedPath } = resolveFS(resolveSymlinks && (await exists(path)) ? await realpath(path) : path);
 	try {
@@ -90,15 +90,11 @@ export async function exists(path: PathLike): Promise<boolean> {
  * @param path
  * @returns Stats
  */
+export async function stat(path: PathLike, options: BigIntOptions): Promise<BigIntStats>;
 export async function stat(path: PathLike, options?: { bigint?: false }): Promise<Stats>;
-export async function stat(path: PathLike, options: { bigint: true }): Promise<BigIntStats>;
 export async function stat(path: PathLike, options?: StatOptions): Promise<Stats | BigIntStats> {
-	const _stats: Stats = await doOp('stat', true, path, cred);
-	let stats: Stats | BigIntStats = _stats;
-	if (options?.bigint) {
-		stats = BigIntStats.clone(stats);
-	}
-	return stats;
+	const stats: Stats = await doOp('stat', true, path, cred);
+	return options?.bigint ? BigIntStats.clone(stats) : stats;
 }
 
 /**
@@ -111,12 +107,8 @@ export async function stat(path: PathLike, options?: StatOptions): Promise<Stats
 export async function lstat(path: PathLike, options?: { bigint?: false }): Promise<Stats>;
 export async function lstat(path: PathLike, options: { bigint: true }): Promise<BigIntStats>;
 export async function lstat(path: PathLike, options?: StatOptions): Promise<Stats | BigIntStats> {
-	const _stats: Stats = await doOp('stat', false, path, cred);
-	let stats: Stats | BigIntStats = _stats;
-	if (options?.bigint) {
-		stats = BigIntStats.clone(stats);
-	}
-	return stats;
+	const stats: Stats = await doOp('stat', false, path, cred);
+	return options?.bigint ? BigIntStats.clone(stats) : stats;
 }
 
 // FILE-ONLY METHODS
@@ -251,12 +243,8 @@ export async function appendFile(filename: PathLike, data: FileContents, arg3?):
 export async function fstat(fd: number, options?: { bigint?: false }): Promise<Stats>;
 export async function fstat(fd: number, options: { bigint: true }): Promise<BigIntStats>;
 export async function fstat(fd: number, options?: StatOptions): Promise<Stats | BigIntStats> {
-	const _stats: Stats = await fd2file(fd).stat();
-	let stats: Stats | BigIntStats = _stats;
-	if (options?.bigint) {
-		stats = BigIntStats.clone(stats);
-	}
-	return stats;
+	const stats: Stats = await fd2file(fd).stat();
+	return options?.bigint ? BigIntStats.clone(stats) : stats;
 }
 
 /**
