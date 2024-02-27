@@ -3,7 +3,7 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { FileFlag, PreloadFile } from '../file.js';
-import { SynchronousFileSystem } from '../filesystem.js';
+import { SynchronousFileSystem, type FileSystemMetadata } from '../filesystem.js';
 import Inode from '../inode.js';
 import { Stats, FileType } from '../stats.js';
 import { decode, encode, randomUUID, ROOT_NODE_ID } from '../utils.js';
@@ -11,11 +11,11 @@ import { decode, encode, randomUUID, ROOT_NODE_ID } from '../utils.js';
 /**
  * Represents a *synchronous* key-value store.
  */
-export interface SyncKeyValueStore {
+export interface SyncStore {
 	/**
 	 * The name of the key-value store.
 	 */
-	name(): string;
+	name: string;
 	/**
 	 * Empties the key-value store completely.
 	 */
@@ -23,18 +23,18 @@ export interface SyncKeyValueStore {
 	/**
 	 * Begins a new read-only transaction.
 	 */
-	beginTransaction(type: 'readonly'): SyncKeyValueROTransaction;
+	beginTransaction(type: 'readonly'): SyncROTransaction;
 	/**
 	 * Begins a new read-write transaction.
 	 */
-	beginTransaction(type: 'readwrite'): SyncKeyValueRWTransaction;
-	beginTransaction(type: string): SyncKeyValueROTransaction;
+	beginTransaction(type: 'readwrite'): SyncRWTransaction;
+	beginTransaction(type: string): SyncROTransaction;
 }
 
 /**
  * A read-only transaction for a synchronous key value store.
  */
-export interface SyncKeyValueROTransaction {
+export interface SyncROTransaction {
 	/**
 	 * Retrieves the data at the given key. Throws an ApiError if an error occurs
 	 * or if the key does not exist.
@@ -47,7 +47,7 @@ export interface SyncKeyValueROTransaction {
 /**
  * A read-write transaction for a synchronous key value store.
  */
-export interface SyncKeyValueRWTransaction extends SyncKeyValueROTransaction {
+export interface SyncRWTransaction extends SyncROTransaction {
 	/**
 	 * Adds the data to the store under the given key.
 	 * @param key The key to add the data under.
@@ -61,7 +61,7 @@ export interface SyncKeyValueRWTransaction extends SyncKeyValueROTransaction {
 	 * Deletes the data at the given key.
 	 * @param key The key to delete from the store.
 	 */
-	del(key: string): void;
+	remove(key: string): void;
 	/**
 	 * Commits the transaction.
 	 */
@@ -79,22 +79,22 @@ export interface SyncKeyValueRWTransaction extends SyncKeyValueROTransaction {
 export interface SimpleSyncStore {
 	get(key: string): Uint8Array | undefined;
 	put(key: string, data: Uint8Array, overwrite: boolean): boolean;
-	del(key: string): void;
+	remove(key: string): void;
 }
 
 /**
  * A simple RW transaction for simple synchronous key-value stores.
  */
-export class SimpleSyncRWTransaction implements SyncKeyValueRWTransaction {
+export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	/**
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	private originalData: { [key: string]: Uint8Array | undefined } = {};
+	private originalData: Map<string, Uint8Array> = new Map();
 	/**
 	 * List of keys modified in this transaction, if any.
 	 */
-	private modifiedKeys: string[] = [];
+	private modifiedKeys: Set<string> = new Set();
 
 	constructor(private store: SimpleSyncStore) {}
 
@@ -109,9 +109,9 @@ export class SimpleSyncRWTransaction implements SyncKeyValueRWTransaction {
 		return this.store.put(key, data, overwrite);
 	}
 
-	public del(key: string): void {
+	public remove(key: string): void {
 		this.markModified(key);
-		this.store.del(key);
+		this.store.remove(key);
 	}
 
 	public commit(): void {
@@ -121,19 +121,15 @@ export class SimpleSyncRWTransaction implements SyncKeyValueRWTransaction {
 	public abort(): void {
 		// Rollback old values.
 		for (const key of this.modifiedKeys) {
-			const value = this.originalData[key];
+			const value = this.originalData.get(key);
 			if (!value) {
 				// Key didn't exist.
-				this.store.del(key);
+				this.store.remove(key);
 			} else {
 				// Key existed. Store old value.
 				this.store.put(key, value, true);
 			}
 		}
-	}
-
-	private _has(key: string) {
-		return Object.prototype.hasOwnProperty.call(this.originalData, key);
 	}
 
 	/**
@@ -144,8 +140,8 @@ export class SimpleSyncRWTransaction implements SyncKeyValueRWTransaction {
 	 */
 	private stashOldValue(key: string, value: Uint8Array | undefined) {
 		// Keep only the earliest value in the transaction.
-		if (!this._has(key)) {
-			this.originalData[key] = value;
+		if (!this.originalData.has(key)) {
+			this.originalData.set(key, value);
 		}
 	}
 
@@ -154,20 +150,18 @@ export class SimpleSyncRWTransaction implements SyncKeyValueRWTransaction {
 	 * stashed already.
 	 */
 	private markModified(key: string) {
-		if (this.modifiedKeys.indexOf(key) === -1) {
-			this.modifiedKeys.push(key);
-			if (!this._has(key)) {
-				this.originalData[key] = this.store.get(key);
-			}
+		this.modifiedKeys.add(key);
+		if (!this.originalData.has(key)) {
+			this.originalData.set(key, this.store.get(key));
 		}
 	}
 }
 
-export interface SyncKeyValueFileSystemOptions {
+export interface SyncFileSystemOptions {
 	/**
 	 * The actual key-value store to read from/write to.
 	 */
-	store: SyncKeyValueStore;
+	store: SyncStore;
 	/**
 	 * Should the file system support properties (mtime/atime/ctime/chmod/etc)?
 	 * Enabling this slightly increases the storage space per file, and adds
@@ -183,8 +177,8 @@ export interface SyncKeyValueFileSystemOptions {
 	supportLinks?: boolean;
 }
 
-export class SyncKeyValueFile extends PreloadFile<SyncKeyValueFileSystem> {
-	constructor(_fs: SyncKeyValueFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+export class SyncFile extends PreloadFile<SyncFileSystem> {
+	constructor(_fs: SyncFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -209,34 +203,30 @@ export class SyncKeyValueFile extends PreloadFile<SyncKeyValueFileSystem> {
  * @todo Introduce Node ID caching.
  * @todo Check modes.
  */
-export class SyncKeyValueFileSystem extends SynchronousFileSystem {
+export class SyncFileSystem extends SynchronousFileSystem {
 	public static isAvailable(): boolean {
 		return true;
 	}
 
-	private store: SyncKeyValueStore;
+	private store: SyncStore;
 
-	constructor(options: SyncKeyValueFileSystemOptions) {
+	constructor(options: SyncFileSystemOptions) {
 		super();
 		this.store = options.store;
 		// INVARIANT: Ensure that the root exists.
 		this.makeRootDirectory();
 	}
 
-	public getName(): string {
-		return this.store.name();
-	}
-	public isReadOnly(): boolean {
-		return false;
-	}
-	public supportsSymlinks(): boolean {
-		return false;
-	}
-	public supportsProps(): boolean {
-		return true;
-	}
-	public supportsSynch(): boolean {
-		return true;
+	public get metadata(): FileSystemMetadata {
+		return {
+			name: this.store.name,
+			readonly: false,
+			supportsLinks: false,
+			supportsProperties: true,
+			synchronous: true,
+			freeSpace: 0,
+			totalSpace: 0,
+		};
 	}
 
 	/**
@@ -301,8 +291,8 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 			const newNameNode = this.getINode(tx, newPath, newDirList[newName]);
 			if (newNameNode.isFile()) {
 				try {
-					tx.del(newNameNode.id);
-					tx.del(newDirList[newName]);
+					tx.remove(newNameNode.id);
+					tx.remove(newDirList[newName]);
 				} catch (e) {
 					tx.abort();
 					throw e;
@@ -335,15 +325,15 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 		return stats;
 	}
 
-	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncKeyValueFile {
+	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncFile {
 		const tx = this.store.beginTransaction('readwrite'),
 			data = new Uint8Array(0),
 			newFile = this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
 		// Open the file.
-		return new SyncKeyValueFile(this, p, flag, newFile.toStats(), data);
+		return new SyncFile(this, p, flag, newFile.toStats(), data);
 	}
 
-	public openFileSync(p: string, flag: FileFlag, cred: Cred): SyncKeyValueFile {
+	public openFileSync(p: string, flag: FileFlag, cred: Cred): SyncFile {
 		const tx = this.store.beginTransaction('readonly'),
 			node = this.findINode(tx, p),
 			data = tx.get(node.id);
@@ -353,7 +343,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 		if (data === undefined) {
 			throw ApiError.ENOENT(p);
 		}
-		return new SyncKeyValueFile(this, p, flag, node.toStats(), data);
+		return new SyncFile(this, p, flag, node.toStats(), data);
 	}
 
 	public unlinkSync(p: string, cred: Cred): void {
@@ -442,7 +432,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 *   the parent.
 	 * @return string The ID of the file's inode in the file system.
 	 */
-	private _findINode(tx: SyncKeyValueROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): string {
+	private _findINode(tx: SyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): string {
 		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ApiError(ErrorCode.EIO, 'Infinite loop detected while finding inode', currentPath);
@@ -478,7 +468,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * @return The Inode of the path p.
 	 * @todo memoize/cache
 	 */
-	private findINode(tx: SyncKeyValueROTransaction, p: string): Inode {
+	private findINode(tx: SyncROTransaction, p: string): Inode {
 		return this.getINode(tx, p, this._findINode(tx, dirname(p), basename(p)));
 	}
 
@@ -488,7 +478,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * @param p The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private getINode(tx: SyncKeyValueROTransaction, p: string, id: string): Inode {
+	private getINode(tx: SyncROTransaction, p: string, id: string): Inode {
 		const inode = tx.get(id);
 		if (inode === undefined) {
 			throw ApiError.ENOENT(p);
@@ -500,7 +490,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * Given the Inode of a directory, retrieves the corresponding directory
 	 * listing.
 	 */
-	private getDirListing(tx: SyncKeyValueROTransaction, p: string, inode: Inode): { [fileName: string]: string } {
+	private getDirListing(tx: SyncROTransaction, p: string, inode: Inode): { [fileName: string]: string } {
 		if (!inode.isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
@@ -516,7 +506,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * the exceedingly unlikely chance that we try to reuse a random GUID.
 	 * @return The GUID that the data was stored under.
 	 */
-	private addNewNode(tx: SyncKeyValueRWTransaction, data: Uint8Array): string {
+	private addNewNode(tx: SyncRWTransaction, data: Uint8Array): string {
 		const retries = 0;
 		let currId: string;
 		while (retries < 5) {
@@ -541,7 +531,7 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	private commitNewFile(tx: SyncKeyValueRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Inode {
+	private commitNewFile(tx: SyncRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Inode {
 		const parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = this.findINode(tx, parentDir),
@@ -620,9 +610,9 @@ export class SyncKeyValueFileSystem extends SynchronousFileSystem {
 
 		try {
 			// Delete data.
-			tx.del(fileNode.id);
+			tx.remove(fileNode.id);
 			// Delete node.
-			tx.del(fileNodeId);
+			tx.remove(fileNodeId);
 			// Update directory listing.
 			tx.put(parentNode.id, encode(JSON.stringify(parentListing)), true);
 		} catch (e) {

@@ -101,11 +101,11 @@ class LRUCache {
 /**
  * Represents an *asynchronous* key-value store.
  */
-export interface AsyncKeyValueStore {
+export interface AsyncStore {
 	/**
 	 * The name of the key-value store.
 	 */
-	name(): string;
+	name: string;
 	/**
 	 * Empties the key-value store completely.
 	 */
@@ -113,18 +113,18 @@ export interface AsyncKeyValueStore {
 	/**
 	 * Begins a read-write transaction.
 	 */
-	beginTransaction(type: 'readwrite'): AsyncKeyValueRWTransaction;
+	beginTransaction(type: 'readwrite'): AsyncRWTransaction;
 	/**
 	 * Begins a read-only transaction.
 	 */
-	beginTransaction(type: 'readonly'): AsyncKeyValueROTransaction;
-	beginTransaction(type: string): AsyncKeyValueROTransaction;
+	beginTransaction(type: 'readonly'): AsyncROTransaction;
+	beginTransaction(type: string): AsyncROTransaction;
 }
 
 /**
  * Represents an asynchronous read-only transaction.
  */
-export interface AsyncKeyValueROTransaction {
+export interface AsyncROTransaction {
 	/**
 	 * Retrieves the data at the given key.
 	 * @param key The key to look under for data.
@@ -135,7 +135,7 @@ export interface AsyncKeyValueROTransaction {
 /**
  * Represents an asynchronous read-write transaction.
  */
-export interface AsyncKeyValueRWTransaction extends AsyncKeyValueROTransaction {
+export interface AsyncRWTransaction extends AsyncROTransaction {
 	/**
 	 * Adds the data to the store under the given key. Overwrites any existing
 	 * data.
@@ -149,7 +149,7 @@ export interface AsyncKeyValueRWTransaction extends AsyncKeyValueROTransaction {
 	 * Deletes the data at the given key.
 	 * @param key The key to delete from the store.
 	 */
-	del(key: string): Promise<void>;
+	remove(key: string): Promise<void>;
 	/**
 	 * Commits the transaction.
 	 */
@@ -160,8 +160,8 @@ export interface AsyncKeyValueRWTransaction extends AsyncKeyValueROTransaction {
 	abort(): Promise<void>;
 }
 
-export class AsyncKeyValueFile extends PreloadFile<AsyncKeyValueFileSystem> implements File {
-	constructor(_fs: AsyncKeyValueFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+export class AsyncFile extends PreloadFile<AsyncFileSystem> implements File {
+	constructor(_fs: AsyncFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -184,12 +184,8 @@ export class AsyncKeyValueFile extends PreloadFile<AsyncKeyValueFileSystem> impl
  * An "Asynchronous key-value file system". Stores data to/retrieves data from
  * an underlying asynchronous key-value store.
  */
-export class AsyncKeyValueFileSystem extends BaseFileSystem {
-	public static isAvailable(): boolean {
-		return true;
-	}
-
-	protected store: AsyncKeyValueStore;
+export class AsyncFileSystem extends BaseFileSystem {
+	protected store: AsyncStore;
 	private _cache: LRUCache | null = null;
 
 	constructor(cacheSize: number) {
@@ -203,25 +199,10 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * Initializes the file system. Typically called by subclasses' async
 	 * constructors.
 	 */
-	public async init(store: AsyncKeyValueStore) {
+	public async init(store: AsyncStore) {
 		this.store = store;
 		// INVARIANT: Ensure that the root exists.
 		await this.makeRootDirectory();
-	}
-	public getName(): string {
-		return this.store.name();
-	}
-	public isReadOnly(): boolean {
-		return false;
-	}
-	public supportsSymlinks(): boolean {
-		return false;
-	}
-	public supportsProps(): boolean {
-		return true;
-	}
-	public supportsSynch(): boolean {
-		return false;
 	}
 
 	/**
@@ -303,8 +284,8 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 				const newNameNode = await this.getINode(tx, newPath, newDirList[newName]);
 				if (newNameNode.isFile()) {
 					try {
-						await tx.del(newNameNode.id);
-						await tx.del(newDirList[newName]);
+						await tx.remove(newNameNode.id);
+						await tx.remove(newDirList[newName]);
 					} catch (e) {
 						await tx.abort();
 						throw e;
@@ -347,7 +328,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 			data = new Uint8Array(0),
 			newFile = await this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
 		// Open the file.
-		return new AsyncKeyValueFile(this, p, flag, newFile.toStats(), data);
+		return new AsyncFile(this, p, flag, newFile.toStats(), data);
 	}
 
 	public async openFile(p: string, flag: FileFlag, cred: Cred): Promise<File> {
@@ -360,7 +341,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 		if (data === undefined) {
 			throw ApiError.ENOENT(p);
 		}
-		return new AsyncKeyValueFile(this, p, flag, node.toStats(), data);
+		return new AsyncFile(this, p, flag, node.toStats(), data);
 	}
 
 	public async unlink(p: string, cred: Cred): Promise<void> {
@@ -448,7 +429,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * @param filename The filename of the inode we are attempting to find, minus
 	 *   the parent.
 	 */
-	private async _findINode(tx: AsyncKeyValueROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): Promise<string> {
+	private async _findINode(tx: AsyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): Promise<string> {
 		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ApiError(ErrorCode.EIO, 'Infinite loop detected while finding inode', currentPath);
@@ -505,7 +486,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * @param p The path to look up.
 	 * @todo memoize/cache
 	 */
-	private async findINode(tx: AsyncKeyValueROTransaction, p: string, visited: Set<string> = new Set<string>()): Promise<Inode> {
+	private async findINode(tx: AsyncROTransaction, p: string, visited: Set<string> = new Set<string>()): Promise<Inode> {
 		const id = await this._findINode(tx, dirname(p), basename(p), visited);
 		return this.getINode(tx, p, id!);
 	}
@@ -516,7 +497,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * @param p The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private async getINode(tx: AsyncKeyValueROTransaction, p: string, id: string): Promise<Inode> {
+	private async getINode(tx: AsyncROTransaction, p: string, id: string): Promise<Inode> {
 		const data = await tx.get(id);
 		if (!data) {
 			throw ApiError.ENOENT(p);
@@ -528,7 +509,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * Given the Inode of a directory, retrieves the corresponding directory
 	 * listing.
 	 */
-	private async getDirListing(tx: AsyncKeyValueROTransaction, p: string, inode: Inode): Promise<{ [fileName: string]: string }> {
+	private async getDirListing(tx: AsyncROTransaction, p: string, inode: Inode): Promise<{ [fileName: string]: string }> {
 		if (!inode.isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
@@ -547,7 +528,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * Adds a new node under a random ID. Retries 5 times before giving up in
 	 * the exceedingly unlikely chance that we try to reuse a random GUID.
 	 */
-	private async addNewNode(tx: AsyncKeyValueRWTransaction, data: Uint8Array): Promise<string> {
+	private async addNewNode(tx: AsyncRWTransaction, data: Uint8Array): Promise<string> {
 		let retries = 0;
 		const reroll = async () => {
 			if (++retries === 5) {
@@ -577,7 +558,7 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 	 * @param cred The UID/GID to create the file with
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNewFile(tx: AsyncKeyValueRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
+	private async commitNewFile(tx: AsyncRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
 		const parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = await this.findINode(tx, parentDir),
@@ -664,9 +645,9 @@ export class AsyncKeyValueFileSystem extends BaseFileSystem {
 
 		try {
 			// Delete data.
-			await tx.del(fileNode.id);
+			await tx.remove(fileNode.id);
 			// Delete node.
-			await tx.del(fileNodeId);
+			await tx.remove(fileNodeId);
 			// Update directory listing.
 			await tx.put(parentNode.id, encode(JSON.stringify(parentListing)), true);
 		} catch (e) {
