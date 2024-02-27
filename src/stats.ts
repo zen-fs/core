@@ -80,16 +80,32 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		return new Date(Number(this.atimeMs));
 	}
 
+	public set atime(value: Date) {
+		this.atimeMs = this._convert(value.getTime());
+	}
+
 	public get mtime(): Date {
 		return new Date(Number(this.mtimeMs));
+	}
+
+	public set mtime(value: Date) {
+		this.mtimeMs = this._convert(value.getTime());
 	}
 
 	public get ctime(): Date {
 		return new Date(Number(this.ctimeMs));
 	}
 
+	public set ctime(value: Date) {
+		this.ctimeMs = this._convert(value.getTime());
+	}
+
 	public get birthtime(): Date {
 		return new Date(Number(this.birthtimeMs));
+	}
+
+	public set birthtime(value: Date) {
+		this.birthtimeMs = this._convert(value.getTime());
 	}
 
 	/**
@@ -175,7 +191,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @param mode The request access as 4 bits (unused, read, write, execute)
 	 * @param uid The requesting UID
 	 * @param gid The requesting GID
-	 * @returns [Boolean] True if the request has access, false if the request does not
+	 * @returns True if the request has access, false if the request does not
 	 */
 	public hasAccess(mode: number, cred: Cred): boolean {
 		if (cred.euid === 0 || cred.egid === 0) {
