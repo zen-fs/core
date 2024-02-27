@@ -1,4 +1,4 @@
-import type { StatsBase, Stats as _Stats, BigIntStats as _BigIntStats } from 'fs';
+import type * as Node from 'fs';
 import { Cred } from './cred.js';
 
 import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from './emulation/constants.js';
@@ -15,7 +15,7 @@ export enum FileType {
 /**
  * Common code used by both Stats and BigIntStats
  */
-export abstract class StatsCommon<T extends number | bigint> implements StatsBase<T> {
+export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T> {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): StatsCommon<number> | StatsCommon<bigint> {
 		throw new ReferenceError('Called static abstract method: StatsCommon.Deserialize()');
@@ -261,7 +261,7 @@ export abstract class StatsCommon<T extends number | bigint> implements StatsBas
  * @see http://nodejs.org/api/fs.html#fs_class_fs_stats
  * @see http://man7.org/linux/man-pages/man2/stat.2.html
  */
-export class Stats extends StatsCommon<number> {
+export class Stats extends StatsCommon<number> implements Node.Stats {
 	protected _isBigint = false;
 
 	/**
@@ -297,13 +297,13 @@ export class Stats extends StatsCommon<number> {
 		return data;
 	}
 }
-const $typecheck$Stats: typeof _Stats = Stats; // eslint-disable-line @typescript-eslint/no-unused-vars
+Stats satisfies typeof Node.Stats;
 
 /**
  * Stats with bigint
  * @todo Implement with bigint instead of wrapping Stats
  */
-export class BigIntStats extends StatsCommon<bigint> implements _BigIntStats {
+export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats {
 	protected _isBigint = true;
 
 	public atimeNs: bigint;
@@ -354,4 +354,4 @@ export class BigIntStats extends StatsCommon<bigint> implements _BigIntStats {
 		return data;
 	}
 }
-const $typecheck$BigIntStats: typeof _BigIntStats = BigIntStats; // eslint-disable-line @typescript-eslint/no-unused-vars
+BigIntStats satisfies typeof Node.BigIntStats;
