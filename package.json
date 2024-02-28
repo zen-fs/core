@@ -14,7 +14,7 @@
 	"author": "John Vilk <jvilk@cs.umass.edu>",
 	"contributors": [
 		{
-			"name": "dr-vortex",
+			"name": "James P.",
 			"email": "jp@drvortex.dev",
 			"url": "https://drvortex.dev"
 		}
@@ -43,9 +43,9 @@
 	"scripts": {
 		"format": "prettier --write src test",
 		"format:check": "prettier --check src test",
-		"lint": "eslint src test",
+		"lint": "eslint src test && tsc -p tsconfig.json --noEmit",
 		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
-		"build": "node scripts/build.mjs",
+		"build": "tsc -p tsconfig.json && node scripts/build.js",
 		"build:docs": "typedoc --out docs --name BrowserFS src/index.ts",
 		"prepublishOnly": "npm run build"
 	},

@@ -1,6 +1,5 @@
 import { context } from 'esbuild';
 import { parseArgs } from 'node:util';
-import { execSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 
 const options = parseArgs({
@@ -26,11 +25,6 @@ const ctx = await context({
 				rmSync('dist', { force: true, recursive: true });
 			}
 
-			try {
-				execSync('tsc -p tsconfig.json');
-			} catch (e) {
-				console.error(e);
-			}
 		});
 	} }],
 });
