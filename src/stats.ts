@@ -32,7 +32,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	protected _convert(arg: number | bigint | string | boolean): T {
-		return (this._isBigint ? BigInt(arg) : Number(arg)) as T;
+		return <T>(this._isBigint ? BigInt(arg) : Number(arg));
 	}
 
 	public blocks: T;
@@ -69,12 +69,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Some file systems stash data on stats objects.
 	 */
-	public fileData: Uint8Array | null = null;
+	public fileData?: Uint8Array = null;
+
 	public atimeMs: T;
-	public mtimeMs: T;
-	public ctimeMs: T;
-	public birthtimeMs: T;
-	public size: T;
 
 	public get atime(): Date {
 		return new Date(Number(this.atimeMs));
@@ -84,6 +81,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.atimeMs = this._convert(value.getTime());
 	}
 
+	public mtimeMs: T;
+
 	public get mtime(): Date {
 		return new Date(Number(this.mtimeMs));
 	}
@@ -91,6 +90,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public set mtime(value: Date) {
 		this.mtimeMs = this._convert(value.getTime());
 	}
+
+	public ctimeMs: T;
 
 	public get ctime(): Date {
 		return new Date(Number(this.ctimeMs));
@@ -100,6 +101,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.ctimeMs = this._convert(value.getTime());
 	}
 
+	public birthtimeMs: T;
+
 	public get birthtime(): Date {
 		return new Date(Number(this.birthtimeMs));
 	}
@@ -107,6 +110,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public set birthtime(value: Date) {
 		this.birthtimeMs = this._convert(value.getTime());
 	}
+
+	public size: T;
 
 	/**
 	 * Provides information about a particular entry in the file system.
@@ -133,7 +138,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		birthtimeMs?: number | bigint
 	) {
 		const currentTime = Date.now();
-		const resolveT = (v: number | bigint, def: number) => (typeof v == this._typename ? v : this._convert(typeof v == this._typename_inverse ? v : def)) as T;
+		const resolveT = (v: number | bigint, def: number) => <T>(typeof v == this._typename ? v : this._convert(typeof v == this._typename_inverse ? v : def));
 		this.atimeMs = resolveT(atimeMs, currentTime);
 		this.mtimeMs = resolveT(mtimeMs, currentTime);
 		this.ctimeMs = resolveT(ctimeMs, currentTime);
