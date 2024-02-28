@@ -4,10 +4,11 @@ import * as path from 'path';
 import type { FileContents } from '../../../src/filesystem';
 import { jest } from '@jest/globals';
 import { promisify } from 'node:util';
+import { encode } from '../../../src/';
 
 describe.each(backends)('%s appendFile tests', (name, options) => {
 	const configured = configure({ fs: name, options });
-	let tmpFile: string = path.join(tmpDir, 'append.txt');
+	const tmpFile: string = path.join(tmpDir, 'append.txt');
 
 	afterEach(() => {
 		jest.restoreAllMocks();
@@ -18,15 +19,9 @@ describe.each(backends)('%s appendFile tests', (name, options) => {
 		const filename = path.join(tmpFile, 'append.txt');
 		const content = 'Sample content';
 
-		jest.spyOn(fs, 'appendFile').mockImplementation(async (file, data, mode) => {
+		jest.spyOn(fs, 'appendFile').mockImplementation((file, data, mode) => {
 			expect(file).toBe(filename);
 			expect(data).toBe(content);
-		});
-
-		jest.spyOn(fs, 'readFile').mockImplementation(async (file, options) => {
-			expect(file).toBe(filename);
-			expect(options).toBe('utf8');
-			return content;
 		});
 
 		await appendFileAndVerify(filename, content);
@@ -35,20 +30,13 @@ describe.each(backends)('%s appendFile tests', (name, options) => {
 	it('should append data to a non-empty file', async () => {
 		await configured;
 		const filename = path.join(tmpFile, 'append2.txt');
-		const currentFileData = 'ABCD';
 		const content = 'Sample content';
 
-		await promisify<string, string, void>(fs.writeFile)(filename, currentFileData);
+		await promisify<string, string, void>(fs.writeFile)(filename, 'ABCD');
 
-		jest.spyOn(fs, 'appendFile').mockImplementation(async (file, data, mode) => {
+		jest.spyOn(fs, 'appendFile').mockImplementation((file, data, mode) => {
 			expect(file).toBe(filename);
 			expect(data).toBe(content);
-		});
-
-		jest.spyOn(fs, 'readFile').mockImplementation(async (file, options) => {
-			expect(file).toBe(filename);
-			expect(options).toBe('utf8');
-			return currentFileData + content;
 		});
 
 		await appendFileAndVerify(filename, content);
@@ -58,25 +46,17 @@ describe.each(backends)('%s appendFile tests', (name, options) => {
 		await configured;
 		const filename = path.join(tmpFile, 'append3.txt');
 		const currentFileData = 'ABCD';
-		const content = Buffer.from('Sample content', 'utf8');
+		const content = encode('Sample content', 'utf8');
 
 		await promisify<string, string, void>(fs.writeFile)(filename, currentFileData);
 
-		jest.spyOn(fs, 'appendFile').mockImplementation(async (file, data, mode) => {
+		jest.spyOn(fs, 'appendFile').mockImplementation((file, data, mode) => {
 			expect(file).toBe(filename);
 			expect(data).toBe(content);
 		});
 
-		jest.spyOn(fs, 'readFile').mockImplementation(async (file, options) => {
-			expect(file).toBe(filename);
-			expect(options).toBe('utf8');
-			return currentFileData + content;
-		});
-
 		await appendFileAndVerify(filename, content);
 	});
-
-	// Additional tests can be added here
 
 	async function appendFileAndVerify(filename: string, content: FileContents): Promise<void> {
 		await promisify<string, FileContents, void>(fs.appendFile)(filename, content);

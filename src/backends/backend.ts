@@ -97,11 +97,11 @@ export function CreateBackend<FS extends BaseBackendConstructor>(
 
 	// Promise
 	if (typeof cb != 'function') {
-		return fs.whenReady();
+		return fs.ready();
 	}
 
 	// Callback
-	fs.whenReady()
+	fs.ready()
 		.then(fs => cb(null, fs))
 		.catch(err => cb(err));
 }

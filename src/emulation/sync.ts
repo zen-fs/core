@@ -139,7 +139,7 @@ unlinkSync satisfies typeof Node.unlinkSync;
  * @param mode defaults to `0644`
  * @returns file descriptor
  */
-export function openSync(path: PathLike, flag: string, mode: number | string = 0o644): number {
+export function openSync(path: PathLike, flag: string, mode?: number | string): number {
 	const file: File = doOp('openSync', true, path, FileFlag.getFileFlag(flag), normalizeMode(mode, 0o644), cred);
 	return getFdForFile(file);
 }
@@ -312,7 +312,7 @@ export function writeSync(fd: number, arg2: Uint8Array | string, arg3?: number, 
 	if (typeof arg2 === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]])
 		position = typeof arg3 === 'number' ? arg3 : null;
-		const encoding = (typeof arg4 === 'string' ? arg4 : 'utf8') as BufferEncoding;
+		const encoding = <BufferEncoding>(typeof arg4 === 'string' ? arg4 : 'utf8');
 		offset = 0;
 		buffer = encode(arg2);
 		length = buffer.length;
@@ -326,7 +326,7 @@ export function writeSync(fd: number, arg2: Uint8Array | string, arg3?: number, 
 
 	const file = fd2file(fd);
 	if (position === undefined || position === null) {
-		position = file.getPos()!;
+		position = file.position!;
 	}
 	return file.writeSync(buffer, offset, length, position);
 }
@@ -354,7 +354,7 @@ export function readSync(fd: number, buffer: Uint8Array, opts?: ReadSyncOptions 
 	}
 
 	if (isNaN(+position)) {
-		position = file.getPos()!;
+		position = file.position!;
 	}
 
 	return file.readSync(buffer, offset, length, position);

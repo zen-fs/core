@@ -132,7 +132,7 @@ export async function checkOptions(backend: BaseBackendConstructor, opts: object
 
 	// Check for required options.
 	for (const optName in optsInfo) {
-		if (Object.prototype.hasOwnProperty.call(optsInfo, optName)) {
+		if (Object.hasOwn(optsInfo, optName)) {
 			const opt = optsInfo[optName];
 			const providedValue = opts && opts[optName];
 

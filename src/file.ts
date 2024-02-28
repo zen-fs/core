@@ -1,7 +1,6 @@
 import { ApiError, ErrorCode } from './ApiError.js';
 import { Stats } from './stats.js';
-import { FileSystem } from './filesystem.js';
-import { getMount } from './emulation/shared.js';
+import { FileSystem, type SyncFileSystem } from './filesystem.js';
 import { O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_TRUNC, O_APPEND, O_SYNC } from './emulation/constants.js';
 
 export enum ActionType {
@@ -194,45 +193,45 @@ export class FileFlag {
 	}
 }
 
-export interface File {
+export abstract class File {
 	/**
-	 * **Core**: Get the current file position.
+	 * Get the current file position.
 	 */
-	getPos(): number | undefined;
+	public abstract position?: number;
 	/**
-	 * **Core**: Asynchronous `stat`.
+	 * Asynchronous `stat`.
 	 */
-	stat(): Promise<Stats>;
+	public abstract stat(): Promise<Stats>;
 	/**
-	 * **Core**: Synchronous `stat`.
+	 * Synchronous `stat`.
 	 */
-	statSync(): Stats;
+	public abstract statSync(): Stats;
 	/**
-	 * **Core**: Asynchronous close.
+	 * Asynchronous close.
 	 */
-	close(): Promise<void>;
+	public abstract close(): Promise<void>;
 	/**
-	 * **Core**: Synchronous close.
+	 * Synchronous close.
 	 */
-	closeSync(): void;
+	public abstract closeSync(): void;
 	/**
-	 * **Core**: Asynchronous truncate.
+	 * Asynchronous truncate.
 	 */
-	truncate(len: number): Promise<void>;
+	public abstract truncate(len: number): Promise<void>;
 	/**
-	 * **Core**: Synchronous truncate.
+	 * Synchronous truncate.
 	 */
-	truncateSync(len: number): void;
+	public abstract truncateSync(len: number): void;
 	/**
-	 * **Core**: Asynchronous sync.
+	 * Asynchronous sync.
 	 */
-	sync(): Promise<void>;
+	public abstract sync(): Promise<void>;
 	/**
-	 * **Core**: Synchronous sync.
+	 * Synchronous sync.
 	 */
-	syncSync(): void;
+	public abstract syncSync(): void;
 	/**
-	 * **Core**: Write buffer to the file.
+	 * Write buffer to the file.
 	 * Note that it is unsafe to use fs.write multiple times on the same file
 	 * without waiting for the callback.
 	 * @param buffer Uint8Array containing the data to write to
@@ -244,9 +243,9 @@ export interface File {
 	 *   the current position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	write(buffer: Uint8Array, offset: number, length: number, position: number | null): Promise<number>;
+	public abstract write(buffer: Uint8Array, offset: number, length: number, position?: number): Promise<number>;
 	/**
-	 * **Core**: Write buffer to the file.
+	 * Write buffer to the file.
 	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
 	 * without waiting for it to return.
 	 * @param buffer Uint8Array containing the data to write to
@@ -257,9 +256,9 @@ export interface File {
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
 	 */
-	writeSync(buffer: Uint8Array, offset: number, length: number, position: number | null): number;
+	public abstract writeSync(buffer: Uint8Array, offset: number, length: number, position?: number): number;
 	/**
-	 * **Core**: Read data from the file.
+	 * Read data from the file.
 	 * @param buffer The buffer that the data will be
 	 *   written to.
 	 * @param offset The offset within the buffer where writing will
@@ -270,9 +269,9 @@ export interface File {
 	 *   position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	read(buffer: Uint8Array, offset: number, length: number, position: number | null): Promise<{ bytesRead: number; buffer: Uint8Array }>;
+	public abstract read<TBuffer extends Uint8Array>(buffer: TBuffer, offset: number, length: number, position: number | null): Promise<{ bytesRead: number; buffer: TBuffer }>;
 	/**
-	 * **Core**: Read data from the file.
+	 * Read data from the file.
 	 * @param buffer The buffer that the data will be written to.
 	 * @param offset The offset within the buffer where writing will start.
 	 * @param length An integer specifying the number of bytes to read.
@@ -280,80 +279,47 @@ export interface File {
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
 	 */
-	readSync(buffer: Uint8Array, offset: number, length: number, position: number): number;
+	public abstract readSync(buffer: Uint8Array, offset: number, length: number, position: number): number;
 	/**
-	 * **Supplementary**: Asynchronous `datasync`.
+	 * Asynchronous `datasync`.
 	 *
 	 * Default implementation maps to `sync`.
 	 */
-	datasync(): Promise<void>;
+	public datasync(): Promise<void> {
+		return this.sync();
+	}
 	/**
-	 * **Supplementary**: Synchronous `datasync`.
+	 * Synchronous `datasync`.
 	 *
 	 * Default implementation maps to `syncSync`.
 	 */
-	datasyncSync(): void;
-	/**
-	 * **Optional**: Asynchronous `chown`.
-	 */
-	chown(uid: number, gid: number): Promise<void>;
-	/**
-	 * **Optional**: Synchronous `chown`.
-	 */
-	chownSync(uid: number, gid: number): void;
-	/**
-	 * **Optional**: Asynchronous `fchmod`.
-	 */
-	chmod(mode: number): Promise<void>;
-	/**
-	 * **Optional**: Synchronous `fchmod`.
-	 */
-	chmodSync(mode: number): void;
-	/**
-	 * **Optional**: Change the file timestamps of the file.
-	 */
-	utimes(atime: Date, mtime: Date): Promise<void>;
-	/**
-	 * **Optional**: Change the file timestamps of the file.
-	 */
-	utimesSync(atime: Date, mtime: Date): void;
-}
-
-/**
- * Base class that contains shared implementations of functions for the file
- * object.
- */
-export class BaseFile {
-	public async sync(): Promise<void> {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-	public syncSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-	public async datasync(): Promise<void> {
-		return this.sync();
-	}
 	public datasyncSync(): void {
 		return this.syncSync();
 	}
-	public async chown(uid: number, gid: number): Promise<void> {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-	public chownSync(uid: number, gid: number): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-	public async chmod(mode: number): Promise<void> {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-	public chmodSync(mode: number): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-	public async utimes(atime: Date, mtime: Date): Promise<void> {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-	public utimesSync(atime: Date, mtime: Date): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
+	/**
+	 * Asynchronous `chown`.
+	 */
+	public abstract chown(uid: number, gid: number): Promise<void>;
+	/**
+	 * Synchronous `chown`.
+	 */
+	public abstract chownSync(uid: number, gid: number): void;
+	/**
+	 * Asynchronous `fchmod`.
+	 */
+	public abstract chmod(mode: number): Promise<void>;
+	/**
+	 * Synchronous `fchmod`.
+	 */
+	public abstract chmodSync(mode: number): void;
+	/**
+	 * Change the file timestamps of the file.
+	 */
+	public abstract utimes(atime: Date, mtime: Date): Promise<void>;
+	/**
+	 * Change the file timestamps of the file.
+	 */
+	public abstract utimesSync(atime: Date, mtime: Date): void;
 }
 
 /**
@@ -365,12 +331,8 @@ export class BaseFile {
  * extend this class and implement those two methods.
  * @todo 'close' lever that disables functionality once closed.
  */
-export class PreloadFile<T extends FileSystem> extends BaseFile {
-	protected _fs: T;
-	protected _pos: number = 0;
-	protected _path: string;
-	protected _stat: Stats;
-	protected _flag: FileFlag;
+export abstract class PreloadFile<T extends FileSystem> extends File {
+	protected _position: number = 0;
 	protected _buffer: Uint8Array;
 	protected _dirty: boolean = false;
 	/**
@@ -387,12 +349,8 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 *   contents of the file. PreloadFile will mutate this buffer. If not
 	 *   specified, we assume it is a new file.
 	 */
-	constructor(_fs: T, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+	constructor(protected _fs: T, protected _path: string, protected _flag: FileFlag, protected _stat: Stats, contents?: Uint8Array) {
 		super();
-		this._fs = _fs;
-		this._path = _path;
-		this._flag = _flag;
-		this._stat = _stat;
 		this._buffer = contents ? contents : new Uint8Array(0);
 		// Note: This invariant is *not* maintained once the file starts getting
 		// modified.
@@ -406,26 +364,26 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	/**
 	 * NONSTANDARD: Get the underlying buffer for this file. !!DO NOT MUTATE!! Will mess up dirty tracking.
 	 */
-	public getBuffer(): Uint8Array {
+	public get buffer(): Uint8Array {
 		return this._buffer;
 	}
 
 	/**
 	 * NONSTANDARD: Get underlying stats for this file. !!DO NOT MUTATE!!
 	 */
-	public getStats(): Stats {
+	public get stats(): Readonly<Stats> {
 		return this._stat;
 	}
 
-	public getFlag(): FileFlag {
+	public get flag(): FileFlag {
 		return this._flag;
 	}
 
 	/**
 	 * Get the path to this file.
-	 * @return [String] The path to the file.
+	 * @return The path to the file.
 	 */
-	public getPath(): string {
+	public get path(): string {
 		return this._path;
 	}
 
@@ -436,66 +394,25 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 * > On Linux, positional writes don't work when the file is opened in append
 	 *   mode. The kernel ignores the position argument and always appends the data
 	 *   to the end of the file.
-	 * @return [Number] The current file position.
+	 * @return The current file position.
 	 */
-	public getPos(): number {
+	public get position(): number {
 		if (this._flag.isAppendable()) {
 			return this._stat.size;
 		}
-		return this._pos;
-	}
-
-	/**
-	 * Advance the current file position by the indicated number of positions.
-	 * @param [Number] delta
-	 */
-	public advancePos(delta: number): number {
-		return (this._pos += delta);
+		return this._position;
 	}
 
 	/**
 	 * Set the file position.
-	 * @param [Number] newPos
+	 * @param newPos new position
 	 */
-	public setPos(newPos: number): number {
-		return (this._pos = newPos);
-	}
-
-	/**
-	 * **Core**: Asynchronous sync. Must be implemented by subclasses of this
-	 * class.
-	 * @param [Function(BrowserFS.ApiError)] cb
-	 */
-	public async sync(): Promise<void> {
-		this.syncSync();
-	}
-
-	/**
-	 * **Core**: Synchronous sync.
-	 */
-	public syncSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-
-	/**
-	 * **Core**: Asynchronous close. Must be implemented by subclasses of this
-	 * class.
-	 * @param [Function(BrowserFS.ApiError)] cb
-	 */
-	public async close(): Promise<void> {
-		this.closeSync();
-	}
-
-	/**
-	 * **Core**: Synchronous close.
-	 */
-	public closeSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
+	public set position(newPos: number) {
+		this._position = newPos;
 	}
 
 	/**
 	 * Asynchronous `stat`.
-	 * @param [Function(BrowserFS.ApiError, BrowserFS.node.fs.Stats)] cb
 	 */
 	public async stat(): Promise<Stats> {
 		return Stats.clone(this._stat);
@@ -510,19 +427,18 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 
 	/**
 	 * Asynchronous truncate.
-	 * @param [Number] len
-	 * @param [Function(BrowserFS.ApiError)] cb
+	 * @param len
 	 */
 	public truncate(len: number): Promise<void> {
 		this.truncateSync(len);
-		if (this._flag.isSynchronous() && !getMount('/')!.metadata.synchronous) {
+		if (this._flag.isSynchronous() && !this._fs!.metadata.synchronous) {
 			return this.sync();
 		}
 	}
 
 	/**
 	 * Synchronous truncate.
-	 * @param [Number] len
+	 * @param len
 	 */
 	public truncateSync(len: number): void {
 		this._dirty = true;
@@ -534,7 +450,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 			const buf = new Uint8Array(len - this._buffer.length);
 			// Write will set @_stat.size for us.
 			this.writeSync(buf, 0, buf.length, this._buffer.length);
-			if (this._flag.isSynchronous() && getMount('/')!.metadata.synchronous) {
+			if (this._flag.isSynchronous() && this._fs!.metadata.synchronous) {
 				this.syncSync();
 			}
 			return;
@@ -542,7 +458,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 		this._stat.size = len;
 		// Truncate buffer to 'len'.
 		this._buffer = this._buffer.subarray(0, len);
-		if (this._flag.isSynchronous() && getMount('/')!.metadata.synchronous) {
+		if (this._flag.isSynchronous() && this._fs!.metadata.synchronous) {
 			this.syncSync();
 		}
 	}
@@ -551,15 +467,13 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 * Write buffer to the file.
 	 * Note that it is unsafe to use fs.write multiple times on the same file
 	 * without waiting for the callback.
-	 * @param [BrowserFS.node.Uint8Array] buffer Uint8Array containing the data to write to
+	 * @param buffer Uint8Array containing the data to write to
 	 *  the file.
-	 * @param [Number] offset Offset in the buffer to start reading data from.
-	 * @param [Number] length The amount of bytes to write to the file.
-	 * @param [Number] position Offset from the beginning of the file where this
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
-	 * @param [Function(BrowserFS.ApiError, Number, BrowserFS.node.Uint8Array)]
-	 *   cb The number specifies the number of bytes written into the file.
 	 */
 	public async write(buffer: Uint8Array, offset: number, length: number, position: number): Promise<number> {
 		return this.writeSync(buffer, offset, length, position);
@@ -569,20 +483,18 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 	 * Write buffer to the file.
 	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
 	 * without waiting for the callback.
-	 * @param [BrowserFS.node.Uint8Array] buffer Uint8Array containing the data to write to
+	 * @param buffer Uint8Array containing the data to write to
 	 *  the file.
-	 * @param [Number] offset Offset in the buffer to start reading data from.
-	 * @param [Number] length The amount of bytes to write to the file.
-	 * @param [Number] position Offset from the beginning of the file where this
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
-	 * @return [Number]
+	 * @returns bytes written
 	 */
-	public writeSync(buffer: Uint8Array, offset: number, length: number, position: number): number {
+	public writeSync(buffer: Uint8Array, offset: number, length: number, position?: number): number {
 		this._dirty = true;
-		if (position === undefined || position === null) {
-			position = this.getPos();
-		}
+		position ??= this.position;
 		if (!this._flag.isWriteable()) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a writeable mode.');
 		}
@@ -603,59 +515,55 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 			this.syncSync();
 			return len;
 		}
-		this.setPos(position + len);
+		this.position = position + len;
 		return len;
 	}
 
 	/**
 	 * Read data from the file.
-	 * @param [BrowserFS.node.Uint8Array] buffer The buffer that the data will be
+	 * @param buffer The buffer that the data will be
 	 *   written to.
-	 * @param [Number] offset The offset within the buffer where writing will
+	 * @param offset The offset within the buffer where writing will
 	 *   start.
-	 * @param [Number] length An integer specifying the number of bytes to read.
-	 * @param [Number] position An integer specifying where to begin reading from
+	 * @param length An integer specifying the number of bytes to read.
+	 * @param position An integer specifying where to begin reading from
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
-	 * @param [Function(BrowserFS.ApiError, Number, BrowserFS.node.Uint8Array)] cb The
-	 *   number is the number of bytes read
 	 */
-	public async read(buffer: Uint8Array, offset: number, length: number, position: number): Promise<{ bytesRead: number; buffer: Uint8Array }> {
+	public async read<TBuffer extends Uint8Array>(buffer: TBuffer, offset: number, length: number, position: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		return { bytesRead: this.readSync(buffer, offset, length, position), buffer };
 	}
 
 	/**
 	 * Read data from the file.
-	 * @param [BrowserFS.node.Uint8Array] buffer The buffer that the data will be
+	 * @param buffer The buffer that the data will be
 	 *   written to.
-	 * @param [Number] offset The offset within the buffer where writing will
+	 * @param offset The offset within the buffer where writing will
 	 *   start.
-	 * @param [Number] length An integer specifying the number of bytes to read.
-	 * @param [Number] position An integer specifying where to begin reading from
+	 * @param length An integer specifying the number of bytes to read.
+	 * @param position An integer specifying where to begin reading from
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
-	 * @return [Number]
+	 * @returns number of bytes written
 	 */
 	public readSync(buffer: Uint8Array, offset: number, length: number, position: number): number {
 		if (!this._flag.isReadable()) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a readable mode.');
 		}
-		if (position === undefined || position === null) {
-			position = this.getPos();
-		}
+		position ??= this.position;
 		const endRead = position + length;
 		if (endRead > this._stat.size) {
 			length = this._stat.size - position;
 		}
 		this._buffer.set(buffer.slice(offset, offset + length), position);
 		this._stat.atimeMs = Date.now();
-		this._pos = position + length;
+		this._position = position + length;
 		return this._buffer.length;
 	}
 
 	/**
 	 * Asynchronous `fchmod`.
-	 * @param [Number|String] mode
+	 * @param mode the mode
 	 */
 	public async chmod(mode: number): Promise<void> {
 		this.chmodSync(mode);
@@ -663,7 +571,7 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 
 	/**
 	 * Synchronous `fchmod`.
-	 * @param [Number] mode
+	 * @param mode
 	 */
 	public chmodSync(mode: number): void {
 		if (!this._fs.metadata.supportsProperties) {
@@ -676,8 +584,8 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 
 	/**
 	 * Asynchronous `fchown`.
-	 * @param [Number] uid
-	 * @param [Number] gid
+	 * @param uid
+	 * @param gid
 	 */
 	public async chown(uid: number, gid: number): Promise<void> {
 		this.chownSync(uid, gid);
@@ -685,8 +593,8 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 
 	/**
 	 * Synchronous `fchown`.
-	 * @param [Number] uid
-	 * @param [Number] gid
+	 * @param uid
+	 * @param gid
 	 */
 	public chownSync(uid: number, gid: number): void {
 		if (!this._fs.metadata.supportsProperties) {
@@ -694,6 +602,20 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 		}
 		this._dirty = true;
 		this._stat.chown(uid, gid);
+		this.syncSync();
+	}
+
+	public async utimes(atime: Date, mtime: Date): Promise<void> {
+		this.utimesSync(atime, mtime);
+	}
+
+	public utimesSync(atime: Date, mtime: Date): void {
+		if (!this._fs.metadata.supportsProperties) {
+			throw new ApiError(ErrorCode.ENOTSUP);
+		}
+		this._dirty = true;
+		this._stat.atime = atime;
+		this._stat.mtime = mtime;
 		this.syncSync();
 	}
 
@@ -710,16 +632,42 @@ export class PreloadFile<T extends FileSystem> extends BaseFile {
 }
 
 /**
- * File class for the InMemory and XHR file systems.
- * Doesn't sync to anything, so it works nicely for memory-only files.
+ * For synchronous file systems
  */
-export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> implements File {
+export class SyncFile<FS extends SyncFileSystem> extends PreloadFile<SyncFileSystem> {
+	constructor(_fs: SyncFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+		super(_fs, _path, _flag, _stat, contents);
+	}
+
+	public async sync(): Promise<void> {
+		this.syncSync();
+	}
+
+	public syncSync(): void {
+		if (this.isDirty()) {
+			this._fs.syncSync(this.path, this.buffer, this.stats);
+			this.resetDirty();
+		}
+	}
+
+	public async close(): Promise<void> {
+		this.closeSync();
+	}
+
+	public closeSync(): void {
+		this.syncSync();
+	}
+}
+
+/**
+ * For the filesystems which do not sync to anything..
+ */
+export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 	constructor(_fs: T, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 	/**
 	 * Asynchronous sync. Doesn't do anything, simply calls the cb.
-	 * @param [Function(BrowserFS.ApiError)] cb
 	 */
 	public async sync(): Promise<void> {
 		return;
@@ -732,7 +680,6 @@ export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> implements 
 	}
 	/**
 	 * Asynchronous close. Doesn't do anything, simply calls the cb.
-	 * @param [Function(BrowserFS.ApiError)] cb
 	 */
 	public async close(): Promise<void> {
 		return;

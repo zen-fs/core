@@ -3,7 +3,7 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { PreloadFile, File, FileFlag } from '../file.js';
-import { BaseFileSystem } from '../filesystem.js';
+import { AsyncFileSystem } from '../filesystem.js';
 import Inode from '../inode.js';
 import { Stats, FileType } from '../stats.js';
 import { ROOT_NODE_ID, randomUUID, encode, decode } from '../utils.js';
@@ -160,8 +160,8 @@ export interface AsyncRWTransaction extends AsyncROTransaction {
 	abort(): Promise<void>;
 }
 
-export class AsyncFile extends PreloadFile<AsyncFileSystem> implements File {
-	constructor(_fs: AsyncFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+export class AsyncFile extends PreloadFile<AsyncStoreFileSystem> implements File {
+	constructor(_fs: AsyncStoreFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -170,13 +170,21 @@ export class AsyncFile extends PreloadFile<AsyncFileSystem> implements File {
 			return;
 		}
 
-		await this._fs._sync(this.getPath(), this.getBuffer(), this.getStats());
+		await this._fs._sync(this.path, this.buffer, this.stats);
 
 		this.resetDirty();
 	}
 
+	public syncSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
 	public async close(): Promise<void> {
 		this.sync();
+	}
+
+	public closeSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
 	}
 }
 
@@ -184,9 +192,15 @@ export class AsyncFile extends PreloadFile<AsyncFileSystem> implements File {
  * An "Asynchronous key-value file system". Stores data to/retrieves data from
  * an underlying asynchronous key-value store.
  */
-export class AsyncFileSystem extends BaseFileSystem {
+export class AsyncStoreFileSystem extends AsyncFileSystem {
 	protected store: AsyncStore;
 	private _cache: LRUCache | null = null;
+
+	protected _ready: Promise<this>;
+
+	public ready() {
+		return this._ready;
+	}
 
 	constructor(cacheSize: number) {
 		super();
@@ -215,17 +229,6 @@ export class AsyncFileSystem extends BaseFileSystem {
 		await this.store.clear();
 		// INVARIANT: Root always exists.
 		await this.makeRootDirectory();
-	}
-
-	public async access(p: string, mode: number, cred: Cred): Promise<void> {
-		const tx = this.store.beginTransaction('readonly');
-		const inode = await this.findINode(tx, p);
-		if (!inode) {
-			throw ApiError.ENOENT(p);
-		}
-		if (!inode.toStats().hasAccess(mode, cred)) {
-			throw ApiError.EACCES(p);
-		}
 	}
 
 	/**
@@ -316,7 +319,10 @@ export class AsyncFileSystem extends BaseFileSystem {
 	public async stat(p: string, cred: Cred): Promise<Stats> {
 		const tx = this.store.beginTransaction('readonly');
 		const inode = await this.findINode(tx, p);
-		const stats = inode!.toStats();
+		if (!inode) {
+			throw ApiError.ENOENT(p);
+		}
+		const stats = inode.toStats();
 		if (!stats.hasAccess(R_OK, cred)) {
 			throw ApiError.EACCES(p);
 		}
@@ -382,7 +388,7 @@ export class AsyncFileSystem extends BaseFileSystem {
 		await fd.chown(new_uid, new_gid);
 	}
 
-	public async _sync(p: string, data: Uint8Array, stats: Stats): Promise<void> {
+	public async _sync(p: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		// @todo Ensure mtime updates properly, and use that to determine if a data
 		//       update is required.
 		const tx = this.store.beginTransaction('readwrite'),

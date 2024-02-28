@@ -4,9 +4,9 @@ import { resolve } from './path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { FileSystem } from '../filesystem.js';
-import { File } from '../file.js';
 import { InMemoryFileSystem } from '../backends/InMemory.js';
 import { BackendConstructor } from '../backends/backend.js';
+import type { File } from '../file.js';
 
 /**
  * converts Date or number to a fractional UNIX timestamp
@@ -21,7 +21,7 @@ export function _toUnixTimestamp(time: Date | number): number {
 	throw new Error('Cannot parse time: ' + time);
 }
 
-export function normalizeMode(mode: unknown, def: number): number {
+export function normalizeMode(mode: string | number | unknown, def?: number): number {
 	switch (typeof mode) {
 		case 'number':
 			// (path, flag, mode, cb?)
@@ -32,23 +32,29 @@ export function normalizeMode(mode: unknown, def: number): number {
 			if (!isNaN(trueMode)) {
 				return trueMode;
 			}
-			// Invalid string.
-			return def;
-		default:
-			return def;
 	}
+
+	if (typeof def == 'number') {
+		return def;
+	}
+
+	throw new ApiError(ErrorCode.EINVAL, 'Invalid mode: ' + mode.toString());
 }
 
-export function normalizeTime(time: number | Date): Date {
+export function normalizeTime(time: string | number | Date): Date {
 	if (time instanceof Date) {
 		return time;
 	}
 
-	if (typeof time === 'number') {
+	if (typeof time == 'number') {
 		return new Date(time * 1000);
 	}
 
-	throw new ApiError(ErrorCode.EINVAL, `Invalid time.`);
+	if (typeof time == 'string') {
+		return new Date(time);
+	}
+
+	throw new ApiError(ErrorCode.EINVAL, 'Invalid time.');
 }
 
 export function normalizePath(p: string): string {
@@ -111,7 +117,7 @@ export function getFdForFile(file: File): number {
 }
 export function fd2file(fd: number): File {
 	if (!fdMap.has(fd)) {
-		throw new ApiError(ErrorCode.EBADF, 'Invalid file descriptor.');
+		throw new ApiError(ErrorCode.EBADF);
 	}
 	return fdMap.get(fd);
 }
@@ -125,10 +131,8 @@ export const mounts: Map<string, FileSystem> = new Map();
 
 /*
 Set a default root.
-There is a very small but not 0 change that initialize() will try to unmount the default before it is mounted.
-This can be fixed by using a top-level await, which is not done to maintain ES6 compatibility.
 */
-InMemoryFileSystem.Create().then(fs => mount('/', fs));
+mount('/', await InMemoryFileSystem.Create());
 
 /**
  * Gets the file system mounted at `mountPoint`
@@ -233,12 +237,14 @@ export type PathLike = string;
 /**
  * @internal
  *
- * Converts any Buffer in T to Uint8Array
+ * Recursivly converts `From` in `Target` to `To`
  */
-export type BufferToUint8Array<T> = T extends Buffer
-	? Uint8Array
-	: T extends (...args) => unknown
-	? (...args: Parameters<T>) => BufferToUint8Array<ReturnType<T>>
-	: T extends object
-	? { [K in keyof T]: BufferToUint8Array<T[K]> }
-	: T;
+export type Convert<Target, From, To> = Target extends From
+	? To
+	: Target extends (...args) => unknown
+	? (...args: Convert<Parameters<Target>, From, To> & Array<unknown>) => Convert<ReturnType<Target>, From, To>
+	: Target extends object
+	? { [K in keyof Target]: Convert<Target[K], From, To> }
+	: Target;
+
+export type BufferToUint8Array<T> = Convert<T, Buffer, Uint8Array>;

@@ -1,39 +1,41 @@
 import { Stats, FileType } from '../src/stats';
-import { configure as _configure, fs } from '../src/index';
-import * as path from 'node:path';
-import * as _fs from 'node:fs';
+import { type Configuration, configure as _configure, fs } from '../src/index';
+import * as path from 'path';
+import { statSync, readFileSync, readdirSync } from 'fs';
 
 export const tmpDir = 'tmp/';
 export const fixturesDir = 'test/fixtures/files/node';
 
-function copy(srcFS: typeof _fs, dstFS: typeof fs, _p: string) {
-	const p = path.posix.resolve(_p);
-	const stats = srcFS.statSync(p);
+function copy(_fs: typeof fs, _p: string) {
+	const p = path.posix.resolve('/', path.posix.relative(fixturesDir, _p));
+	const stats = statSync(_p);
 
 	if (!stats.isDirectory()) {
-		dstFS.writeFileSync(p, srcFS.readFileSync(_p));
+		_fs.writeFileSync(p, readFileSync(_p));
 		return;
 	}
 
-	dstFS.mkdirSync(p);
-	for (const file of srcFS.readdirSync(_p)) {
-		copy(srcFS, dstFS, path.posix.join(p, file));
+	if (p != '/') {
+		_fs.mkdirSync(p);
+	}
+	for (const file of readdirSync(_p)) {
+		copy(_fs, path.join(_p, file));
 	}
 }
 
-export async function configure(config) {
+export async function configure(config: Configuration) {
 	const result = await _configure(config);
-	copy(_fs, fs, fixturesDir);
+	copy(fs, fixturesDir);
 	return result;
 }
 
 export { fs };
 
-export function createMockStats(mode): Stats {
+export function createMockStats(mode: number | bigint): Stats {
 	return new Stats(FileType.FILE, -1, mode);
 }
 
-const tests = {
+const tests: { [s: string]: Configuration } = {
 	AsyncMirror: { sync: { fs: 'InMemory' }, async: { fs: 'InMemory' } },
 	FolderAdapter: { wrapped: { fs: 'InMemory' }, folder: '/example' },
 	InMemory: {},

@@ -1,4 +1,4 @@
-import { SyncStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncRWTransaction, SyncFileSystem } from './SyncStore.js';
+import { SyncStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncRWTransaction, SyncStoreFileSystem } from './SyncStore.js';
 import { CreateBackend, type BackendOptions } from './backend.js';
 
 /**
@@ -38,7 +38,7 @@ export class InMemoryStore implements SyncStore, SimpleSyncStore {
  * A simple in-memory file system backed by an InMemoryStore.
  * Files are not persisted across page loads.
  */
-export class InMemoryFileSystem extends SyncFileSystem {
+export class InMemoryFileSystem extends SyncStoreFileSystem {
 	public static readonly Name = 'InMemory';
 
 	public static Create = CreateBackend.bind(this);

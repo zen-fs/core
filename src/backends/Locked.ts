@@ -15,34 +15,27 @@ import { Cred } from '../cred.js';
  * multiple requests interleaving.
  */
 export default class LockedFS<T extends FileSystem> implements FileSystem {
-	private _fs: T;
-	private _mu: Mutex;
+	private _mu: Mutex = new Mutex();
 
-	protected _ready: Promise<this> = Promise.resolve(this);
-
-	constructor(fs: T) {
-		this._fs = fs;
-		this._mu = new Mutex();
+	constructor(public readonly fs: T) {
+		this.fs = fs;
 	}
 
-	whenReady(): Promise<this> {
-		return this._ready;
+	public async ready(): Promise<this> {
+		await this.fs.ready();
+		return this;
 	}
 
 	public get metadata(): FileSystemMetadata {
 		return {
-			...this._fs.metadata,
-			name: 'LockedFS<' + this._fs.metadata.name + '>',
+			...this.fs.metadata,
+			name: 'Locked<' + this.fs.metadata.name + '>',
 		};
-	}
-
-	public get fs(): T {
-		return this._fs;
 	}
 
 	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
 		await this._mu.lock(oldPath);
-		await this._fs.rename(oldPath, newPath, cred);
+		await this.fs.rename(oldPath, newPath, cred);
 		this._mu.unlock(oldPath);
 	}
 
@@ -50,12 +43,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(oldPath)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.renameSync(oldPath, newPath, cred);
+		return this.fs.renameSync(oldPath, newPath, cred);
 	}
 
 	public async stat(p: string, cred: Cred): Promise<Stats> {
 		await this._mu.lock(p);
-		const stats = await this._fs.stat(p, cred);
+		const stats = await this.fs.stat(p, cred);
 		this._mu.unlock(p);
 		return stats;
 	}
@@ -64,25 +57,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.statSync(p, cred);
-	}
-
-	public async access(p: string, mode: number, cred: Cred): Promise<void> {
-		await this._mu.lock(p);
-		await this._fs.access(p, mode, cred);
-		this._mu.unlock(p);
-	}
-
-	public accessSync(p: string, mode: number, cred: Cred): void {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
-		}
-		return this._fs.accessSync(p, mode, cred);
+		return this.fs.statSync(p, cred);
 	}
 
 	public async open(p: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
 		await this._mu.lock(p);
-		const fd = await this._fs.open(p, flag, mode, cred);
+		const fd = await this.fs.open(p, flag, mode, cred);
 		this._mu.unlock(p);
 		return fd;
 	}
@@ -91,12 +71,40 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.openSync(p, flag, mode, cred);
+		return this.fs.openSync(p, flag, mode, cred);
+	}
+
+	public async openFile(path: string, flag: FileFlag, cred: Cred): Promise<File> {
+		await this._mu.lock(path);
+		const fd = await this.fs.openFile(path, flag, cred);
+		this._mu.unlock(path);
+		return fd;
+	}
+
+	public openFileSync(path: string, flag: FileFlag, cred: Cred): File {
+		if (this._mu.isLocked(path)) {
+			throw new Error('invalid sync call');
+		}
+		return this.fs.openFileSync(path, flag, cred);
+	}
+
+	public async createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
+		await this._mu.lock(path);
+		const fd = await this.fs.createFile(path, flag, mode, cred);
+		this._mu.unlock(path);
+		return fd;
+	}
+
+	public createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File {
+		if (this._mu.isLocked(path)) {
+			throw new Error('invalid sync call');
+		}
+		return this.fs.createFileSync(path, flag, mode, cred);
 	}
 
 	public async unlink(p: string, cred: Cred): Promise<void> {
 		await this._mu.lock(p);
-		await this._fs.unlink(p, cred);
+		await this.fs.unlink(p, cred);
 		this._mu.unlock(p);
 	}
 
@@ -104,12 +112,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.unlinkSync(p, cred);
+		return this.fs.unlinkSync(p, cred);
 	}
 
 	public async rmdir(p: string, cred: Cred): Promise<void> {
 		await this._mu.lock(p);
-		await this._fs.rmdir(p, cred);
+		await this.fs.rmdir(p, cred);
 		this._mu.unlock(p);
 	}
 
@@ -117,12 +125,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.rmdirSync(p, cred);
+		return this.fs.rmdirSync(p, cred);
 	}
 
 	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
 		await this._mu.lock(p);
-		await this._fs.mkdir(p, mode, cred);
+		await this.fs.mkdir(p, mode, cred);
 		this._mu.unlock(p);
 	}
 
@@ -130,12 +138,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.mkdirSync(p, mode, cred);
+		return this.fs.mkdirSync(p, mode, cred);
 	}
 
 	public async readdir(p: string, cred: Cred): Promise<string[]> {
 		await this._mu.lock(p);
-		const files = await this._fs.readdir(p, cred);
+		const files = await this.fs.readdir(p, cred);
 		this._mu.unlock(p);
 		return files;
 	}
@@ -144,12 +152,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.readdirSync(p, cred);
+		return this.fs.readdirSync(p, cred);
 	}
 
 	public async exists(p: string, cred: Cred): Promise<boolean> {
 		await this._mu.lock(p);
-		const exists = await this._fs.exists(p, cred);
+		const exists = await this.fs.exists(p, cred);
 		this._mu.unlock(p);
 		return exists;
 	}
@@ -158,12 +166,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.existsSync(p, cred);
+		return this.fs.existsSync(p, cred);
 	}
 
 	public async realpath(p: string, cred: Cred): Promise<string> {
 		await this._mu.lock(p);
-		const resolvedPath = await this._fs.realpath(p, cred);
+		const resolvedPath = await this.fs.realpath(p, cred);
 		this._mu.unlock(p);
 		return resolvedPath;
 	}
@@ -172,12 +180,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.realpathSync(p, cred);
+		return this.fs.realpathSync(p, cred);
 	}
 
 	public async truncate(p: string, len: number, cred: Cred): Promise<void> {
 		await this._mu.lock(p);
-		await this._fs.truncate(p, len, cred);
+		await this.fs.truncate(p, len, cred);
 		this._mu.unlock(p);
 	}
 
@@ -185,12 +193,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.truncateSync(p, len, cred);
+		return this.fs.truncateSync(p, len, cred);
 	}
 
 	public async readFile(fname: string, flag: FileFlag, cred: Cred): Promise<Uint8Array> {
 		await this._mu.lock(fname);
-		const data = await this._fs.readFile(fname, flag, cred);
+		const data = await this.fs.readFile(fname, flag, cred);
 		this._mu.unlock(fname);
 		return data;
 	}
@@ -199,12 +207,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(fname)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.readFileSync(fname, flag, cred);
+		return this.fs.readFileSync(fname, flag, cred);
 	}
 
 	public async writeFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
 		await this._mu.lock(fname);
-		await this._fs.writeFile(fname, data, flag, mode, cred);
+		await this.fs.writeFile(fname, data, flag, mode, cred);
 		this._mu.unlock(fname);
 	}
 
@@ -212,12 +220,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(fname)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.writeFileSync(fname, data, flag, mode, cred);
+		return this.fs.writeFileSync(fname, data, flag, mode, cred);
 	}
 
 	public async appendFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
 		await this._mu.lock(fname);
-		await this._fs.appendFile(fname, data, flag, mode, cred);
+		await this.fs.appendFile(fname, data, flag, mode, cred);
 		this._mu.unlock(fname);
 	}
 
@@ -225,12 +233,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(fname)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.appendFileSync(fname, data, flag, mode, cred);
+		return this.fs.appendFileSync(fname, data, flag, mode, cred);
 	}
 
 	public async chmod(p: string, mode: number, cred: Cred): Promise<void> {
 		await this._mu.lock(p);
-		await this._fs.chmod(p, mode, cred);
+		await this.fs.chmod(p, mode, cred);
 		this._mu.unlock(p);
 	}
 
@@ -238,12 +246,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.chmodSync(p, mode, cred);
+		return this.fs.chmodSync(p, mode, cred);
 	}
 
 	public async chown(p: string, new_uid: number, new_gid: number, cred: Cred): Promise<void> {
 		await this._mu.lock(p);
-		await this._fs.chown(p, new_uid, new_gid, cred);
+		await this.fs.chown(p, new_uid, new_gid, cred);
 		this._mu.unlock(p);
 	}
 
@@ -251,12 +259,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.chownSync(p, new_uid, new_gid, cred);
+		return this.fs.chownSync(p, new_uid, new_gid, cred);
 	}
 
 	public async utimes(p: string, atime: Date, mtime: Date, cred: Cred): Promise<void> {
 		await this._mu.lock(p);
-		await this._fs.utimes(p, atime, mtime, cred);
+		await this.fs.utimes(p, atime, mtime, cred);
 		this._mu.unlock(p);
 	}
 
@@ -264,12 +272,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.utimesSync(p, atime, mtime, cred);
+		return this.fs.utimesSync(p, atime, mtime, cred);
 	}
 
 	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
 		await this._mu.lock(srcpath);
-		await this._fs.link(srcpath, dstpath, cred);
+		await this.fs.link(srcpath, dstpath, cred);
 		this._mu.unlock(srcpath);
 	}
 
@@ -277,12 +285,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(srcpath)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.linkSync(srcpath, dstpath, cred);
+		return this.fs.linkSync(srcpath, dstpath, cred);
 	}
 
 	public async symlink(srcpath: string, dstpath: string, type: string, cred: Cred): Promise<void> {
 		await this._mu.lock(srcpath);
-		await this._fs.symlink(srcpath, dstpath, type, cred);
+		await this.fs.symlink(srcpath, dstpath, type, cred);
 		this._mu.unlock(srcpath);
 	}
 
@@ -290,12 +298,12 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(srcpath)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.symlinkSync(srcpath, dstpath, type, cred);
+		return this.fs.symlinkSync(srcpath, dstpath, type, cred);
 	}
 
 	public async readlink(p: string, cred: Cred): Promise<string> {
 		await this._mu.lock(p);
-		const linkString = await this._fs.readlink(p, cred);
+		const linkString = await this.fs.readlink(p, cred);
 		this._mu.unlock(p);
 		return linkString;
 	}
@@ -304,6 +312,19 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		if (this._mu.isLocked(p)) {
 			throw new Error('invalid sync call');
 		}
-		return this._fs.readlinkSync(p, cred);
+		return this.fs.readlinkSync(p, cred);
+	}
+
+	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		await this._mu.lock(path);
+		await this.fs.sync(path, data, stats);
+		this._mu.unlock(path);
+	}
+
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		if (this._mu.isLocked(path)) {
+			throw new Error('invalid sync call');
+		}
+		return this.fs.syncSync(path, data, stats);
 	}
 }

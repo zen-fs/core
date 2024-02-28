@@ -1,4 +1,4 @@
-import { type FileSystem, SynchronousFileSystem, FileSystemMetadata } from '../filesystem.js';
+import { type FileSystem, SyncFileSystem, FileSystemMetadata } from '../filesystem.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { File, FileFlag, PreloadFile } from '../file.js';
 import { Stats } from '../stats.js';
@@ -22,11 +22,19 @@ class MirrorFile extends PreloadFile<AsyncMirror> implements File {
 		super(fs, path, flag, stat, data);
 	}
 
+	public async sync(): Promise<void> {
+		this.syncSync();
+	}
+
 	public syncSync(): void {
 		if (this.isDirty()) {
 			this._fs._syncSync(this);
 			this.resetDirty();
 		}
+	}
+
+	public async close(): Promise<void> {
+		this.closeSync();
 	}
 
 	public closeSync(): void {
@@ -62,36 +70,8 @@ export namespace AsyncMirror {
  * The two stores will be kept in sync. The most common use-case is to pair a synchronous
  * in-memory filesystem with an asynchronous backing store.
  *
- * Example: Mirroring an IndexedDB file system to an in memory file system. Now, you can use
- * IndexedDB synchronously.
- *
- * ```javascript
- * BrowserFS.configure({
- *   fs: "AsyncMirror",
- *   options: {
- *     sync: { fs: "InMemory" },
- *     async: { fs: "IndexedDB" }
- *   }
- * }, function(e) {
- *   // BrowserFS is initialized and ready-to-use!
- * });
- * ```
- *
- * Or, alternatively:
- *
- * ```javascript
- * BrowserFS.Backend.IndexedDB.Create(function(e, idbfs) {
- *   BrowserFS.Backend.InMemory.Create(function(e, inMemory) {
- *     BrowserFS.Backend.AsyncMirror({
- *       sync: inMemory, async: idbfs
- *     }, function(e, mirrored) {
- *       BrowserFS.initialize(mirrored);
- *     });
- *   });
- * });
- * ```
  */
-export class AsyncMirror extends SynchronousFileSystem {
+export class AsyncMirror extends SyncFileSystem {
 	public static readonly Name = 'AsyncMirror';
 
 	public static Create = CreateBackend.bind(this);
@@ -126,6 +106,13 @@ export class AsyncMirror extends SynchronousFileSystem {
 	private _isInitialized: boolean = false;
 	private _initializeCallbacks: ((e?: ApiError) => void)[] = [];
 
+	private _ready = this._initialize();
+
+	public async ready(): Promise<this> {
+		await this._ready;
+		return this;
+	}
+
 	/**
 	 *
 	 * Mirrors the synchronous file system into the asynchronous file system.
@@ -137,7 +124,6 @@ export class AsyncMirror extends SynchronousFileSystem {
 		super();
 		this._sync = sync;
 		this._async = async;
-		this._ready = this._initialize();
 	}
 
 	public get metadata(): FileSystemMetadata {
@@ -150,11 +136,11 @@ export class AsyncMirror extends SynchronousFileSystem {
 	}
 
 	public _syncSync(fd: PreloadFile<AsyncMirror>) {
-		const stats = fd.getStats();
-		this._sync.writeFileSync(fd.getPath(), fd.getBuffer(), FileFlag.getFileFlag('w'), stats.mode, stats.getCred(0, 0));
+		const stats = fd.stats;
+		this._sync.writeFileSync(fd.path, fd.buffer, FileFlag.getFileFlag('w'), stats.mode, stats.getCred(0, 0));
 		this.enqueueOp({
 			apiMethod: 'writeFile',
-			arguments: [fd.getPath(), fd.getBuffer(), fd.getFlag(), stats.mode, stats.getCred(0, 0)],
+			arguments: [fd.path, fd.buffer, fd.flag, stats.mode, stats.getCred(0, 0)],
 		});
 	}
 

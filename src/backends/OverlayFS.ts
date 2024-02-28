@@ -1,4 +1,4 @@
-import { type FileSystem, BaseFileSystem, FileSystemMetadata } from '../filesystem.js';
+import { FileSystem, FileSystemMetadata } from '../filesystem.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { File, FileFlag, ActionType, PreloadFile } from '../file.js';
 import { Stats } from '../stats.js';
@@ -82,9 +82,9 @@ export namespace OverlayFS {
  * Core OverlayFS class that contains no locking whatsoever. We wrap these objects
  * in a LockedFS to prevent races.
  */
-export class UnlockedOverlayFS extends BaseFileSystem {
-	public static isAvailable(): boolean {
-		return true;
+export class UnlockedOverlayFS extends FileSystem {
+	async ready(): Promise<this> {
+		return this;
 	}
 
 	private _writable: FileSystem;
@@ -126,15 +126,15 @@ export class UnlockedOverlayFS extends BaseFileSystem {
 	}
 
 	public async _syncAsync(file: PreloadFile<UnlockedOverlayFS>): Promise<void> {
-		const stats = file.getStats();
-		await this.createParentDirectoriesAsync(file.getPath(), stats.getCred(0, 0));
-		return this._writable.writeFile(file.getPath(), file.getBuffer(), getFlag('w'), stats.mode, stats.getCred(0, 0));
+		const stats = file.stats;
+		await this.createParentDirectoriesAsync(file.path, stats.getCred(0, 0));
+		return this._writable.writeFile(file.path, file.buffer, getFlag('w'), stats.mode, stats.getCred(0, 0));
 	}
 
 	public _syncSync(file: PreloadFile<UnlockedOverlayFS>): void {
-		const stats = file.getStats();
-		this.createParentDirectories(file.getPath(), stats.getCred(0, 0));
-		this._writable.writeFileSync(file.getPath(), file.getBuffer(), getFlag('w'), stats.mode, stats.getCred(0, 0));
+		const stats = file.stats;
+		this.createParentDirectories(file.path, stats.getCred(0, 0));
+		this._writable.writeFileSync(file.path, file.buffer, getFlag('w'), stats.mode, stats.getCred(0, 0));
 	}
 
 	/**
@@ -740,6 +740,12 @@ export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
 
 	public static isAvailable(): boolean {
 		return UnlockedOverlayFS.isAvailable();
+	}
+
+	protected _ready: Promise<this>;
+
+	public ready() {
+		return this._ready;
 	}
 
 	/**

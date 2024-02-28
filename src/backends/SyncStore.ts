@@ -3,7 +3,7 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { FileFlag, PreloadFile } from '../file.js';
-import { SynchronousFileSystem, type FileSystemMetadata } from '../filesystem.js';
+import { SyncFileSystem, type FileSystemMetadata } from '../filesystem.js';
 import Inode from '../inode.js';
 import { Stats, FileType } from '../stats.js';
 import { decode, encode, randomUUID, ROOT_NODE_ID } from '../utils.js';
@@ -90,13 +90,13 @@ export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	private originalData: Map<string, Uint8Array> = new Map();
+	protected originalData: Map<string, Uint8Array> = new Map();
 	/**
 	 * List of keys modified in this transaction, if any.
 	 */
-	private modifiedKeys: Set<string> = new Set();
+	protected modifiedKeys: Set<string> = new Set();
 
-	constructor(private store: SimpleSyncStore) {}
+	constructor(protected store: SimpleSyncStore) {}
 
 	public get(key: string): Uint8Array | undefined {
 		const val = this.store.get(key);
@@ -138,7 +138,7 @@ export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	 * prevent needless `get` requests if the program modifies the data later
 	 * on during the transaction.
 	 */
-	private stashOldValue(key: string, value: Uint8Array | undefined) {
+	protected stashOldValue(key: string, value: Uint8Array | undefined) {
 		// Keep only the earliest value in the transaction.
 		if (!this.originalData.has(key)) {
 			this.originalData.set(key, value);
@@ -149,7 +149,7 @@ export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	 * Marks the given key as modified, and stashes its value if it has not been
 	 * stashed already.
 	 */
-	private markModified(key: string) {
+	protected markModified(key: string) {
 		this.modifiedKeys.add(key);
 		if (!this.originalData.has(key)) {
 			this.originalData.set(key, this.store.get(key));
@@ -177,16 +177,24 @@ export interface SyncFileSystemOptions {
 	supportLinks?: boolean;
 }
 
-export class SyncFile extends PreloadFile<SyncFileSystem> {
-	constructor(_fs: SyncFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+export class SyncFile extends PreloadFile<SyncStoreFileSystem> {
+	constructor(_fs: SyncStoreFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
+	}
+
+	public async sync(): Promise<void> {
+		this.syncSync();
 	}
 
 	public syncSync(): void {
 		if (this.isDirty()) {
-			this._fs._syncSync(this.getPath(), this.getBuffer(), this.getStats());
+			this._fs.syncSync(this.path, this.buffer, this.stats);
 			this.resetDirty();
 		}
+	}
+
+	public async close(): Promise<void> {
+		this.closeSync();
 	}
 
 	public closeSync(): void {
@@ -203,12 +211,12 @@ export class SyncFile extends PreloadFile<SyncFileSystem> {
  * @todo Introduce Node ID caching.
  * @todo Check modes.
  */
-export class SyncFileSystem extends SynchronousFileSystem {
+export class SyncStoreFileSystem extends SyncFileSystem {
 	public static isAvailable(): boolean {
 		return true;
 	}
 
-	private store: SyncStore;
+	protected store: SyncStore;
 
 	constructor(options: SyncFileSystemOptions) {
 		super();
@@ -236,14 +244,6 @@ export class SyncFileSystem extends SynchronousFileSystem {
 		this.store.clear();
 		// INVARIANT: Root always exists.
 		this.makeRootDirectory();
-	}
-
-	public accessSync(p: string, mode: number, cred: Cred): void {
-		const tx = this.store.beginTransaction('readonly'),
-			node = this.findINode(tx, p);
-		if (!node.toStats().hasAccess(mode, cred)) {
-			throw ApiError.EACCES(p);
-		}
 	}
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
@@ -326,11 +326,8 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	}
 
 	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncFile {
-		const tx = this.store.beginTransaction('readwrite'),
-			data = new Uint8Array(0),
-			newFile = this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
-		// Open the file.
-		return new SyncFile(this, p, flag, newFile.toStats(), data);
+		this.commitNewFile(this.store.beginTransaction('readwrite'), p, FileType.FILE, mode, cred);
+		return this.openFileSync(p, flag, cred);
 	}
 
 	public openFileSync(p: string, flag: FileFlag, cred: Cred): SyncFile {
@@ -340,7 +337,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 		if (!node.toStats().hasAccess(flag.getMode(), cred)) {
 			throw ApiError.EACCES(p);
 		}
-		if (data === undefined) {
+		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
 		return new SyncFile(this, p, flag, node.toStats(), data);
@@ -375,16 +372,14 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	}
 
 	public chmodSync(p: string, mode: number, cred: Cred): void {
-		const fd = this.openFileSync(p, FileFlag.getFileFlag('r+'), cred);
-		fd.chmodSync(mode);
+		this.openFileSync(p, FileFlag.getFileFlag('r+'), cred).chmodSync(mode);
 	}
 
-	public chownSync(p: string, new_uid: number, new_gid: number, cred: Cred): void {
-		const fd = this.openFileSync(p, FileFlag.getFileFlag('r+'), cred);
-		fd.chownSync(new_uid, new_gid);
+	public chownSync(p: string, uid: number, gid: number, cred: Cred): void {
+		this.openFileSync(p, FileFlag.getFileFlag('r+'), cred).chownSync(uid, gid);
 	}
 
-	public _syncSync(p: string, data: Uint8Array, stats: Stats): void {
+	public syncSync(p: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		// @todo Ensure mtime updates properly, and use that to determine if a data
 		//       update is required.
 		const tx = this.store.beginTransaction('readwrite'),
@@ -410,7 +405,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	/**
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
-	private makeRootDirectory() {
+	protected makeRootDirectory() {
 		const tx = this.store.beginTransaction('readwrite');
 		if (tx.get(ROOT_NODE_ID) === undefined) {
 			// Create new inode.
@@ -432,7 +427,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	 *   the parent.
 	 * @return string The ID of the file's inode in the file system.
 	 */
-	private _findINode(tx: SyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): string {
+	protected _findINode(tx: SyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): string {
 		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ApiError(ErrorCode.EIO, 'Infinite loop detected while finding inode', currentPath);
@@ -468,7 +463,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	 * @return The Inode of the path p.
 	 * @todo memoize/cache
 	 */
-	private findINode(tx: SyncROTransaction, p: string): Inode {
+	protected findINode(tx: SyncROTransaction, p: string): Inode {
 		return this.getINode(tx, p, this._findINode(tx, dirname(p), basename(p)));
 	}
 
@@ -478,7 +473,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	 * @param p The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private getINode(tx: SyncROTransaction, p: string, id: string): Inode {
+	protected getINode(tx: SyncROTransaction, p: string, id: string): Inode {
 		const inode = tx.get(id);
 		if (inode === undefined) {
 			throw ApiError.ENOENT(p);
@@ -490,7 +485,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	 * Given the Inode of a directory, retrieves the corresponding directory
 	 * listing.
 	 */
-	private getDirListing(tx: SyncROTransaction, p: string, inode: Inode): { [fileName: string]: string } {
+	protected getDirListing(tx: SyncROTransaction, p: string, inode: Inode): { [fileName: string]: string } {
 		if (!inode.isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
@@ -506,7 +501,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	 * the exceedingly unlikely chance that we try to reuse a random GUID.
 	 * @return The GUID that the data was stored under.
 	 */
-	private addNewNode(tx: SyncRWTransaction, data: Uint8Array): string {
+	protected addNewNode(tx: SyncRWTransaction, data: Uint8Array): string {
 		const retries = 0;
 		let currId: string;
 		while (retries < 5) {
@@ -531,7 +526,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	private commitNewFile(tx: SyncRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Inode {
+	protected commitNewFile(tx: SyncRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
 		const parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = this.findINode(tx, parentDir),
@@ -579,7 +574,7 @@ export class SyncFileSystem extends SynchronousFileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
 	 */
-	private removeEntry(p: string, isDir: boolean, cred: Cred): void {
+	protected removeEntry(p: string, isDir: boolean, cred: Cred): void {
 		const tx = this.store.beginTransaction('readwrite'),
 			parent: string = dirname(p),
 			parentNode = this.findINode(tx, parent),
