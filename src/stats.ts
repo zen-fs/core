@@ -42,30 +42,37 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * ID of device containing file
 	 */
 	public dev: T = this._convert(0);
+
 	/**
 	 * inode number
 	 */
 	public ino: T = this._convert(0);
+
 	/**
 	 * device ID (if special file)
 	 */
 	public rdev: T = this._convert(0);
+
 	/**
 	 * number of hard links
 	 */
 	public nlink: T = this._convert(1);
+
 	/**
 	 * blocksize for file system I/O
 	 */
 	public blksize: T = this._convert(4096);
+
 	/**
 	 * user ID of owner
 	 */
 	public uid: T = this._convert(0);
+
 	/**
 	 * group ID of owner
 	 */
 	public gid: T = this._convert(0);
+
 	/**
 	 * Some file systems stash data on stats objects.
 	 */
@@ -168,27 +175,43 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		}
 	}
 
-	public abstract serialize(): Uint8Array;
-
 	/**
-	 * @return [Boolean] True if this item is a file.
+	 * @returns true if this item is a file.
 	 */
 	public isFile(): boolean {
 		return (this.mode & S_IFMT) === S_IFREG;
 	}
 
 	/**
-	 * @return [Boolean] True if this item is a directory.
+	 * @returns True if this item is a directory.
 	 */
 	public isDirectory(): boolean {
 		return (this.mode & S_IFMT) === S_IFDIR;
 	}
 
 	/**
-	 * @return [Boolean] True if this item is a symbolic link (only valid through lstat)
+	 * @returns true if this item is a symbolic link
 	 */
 	public isSymbolicLink(): boolean {
 		return (this.mode & S_IFMT) === S_IFLNK;
+	}
+
+	// Currently unsupported
+
+	public isSocket(): boolean {
+		return false;
+	}
+
+	public isBlockDevice(): boolean {
+		return false;
+	}
+
+	public isCharacterDevice(): boolean {
+		return false;
+	}
+
+	public isFIFO(): boolean {
+		return false;
 	}
 
 	/**
@@ -197,6 +220,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @param uid The requesting UID
 	 * @param gid The requesting GID
 	 * @returns True if the request has access, false if the request does not
+	 * @internal
 	 */
 	public hasAccess(mode: number, cred: Cred): boolean {
 		if (cred.euid === 0 || cred.egid === 0) {
@@ -221,13 +245,16 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		/*
         Result = 0b0xxx (read, write, execute)
         If any bits are set that means the request does not have that permission.
-    */
+    	*/
 		const result = uMode & gMode & wMode;
 		return !result;
 	}
 
+	public abstract serialize(): Uint8Array;
+
 	/**
 	 * Convert the current stats object into a cred object
+	 * @internal
 	 */
 	public getCred(uid: number = Number(this.uid), gid: number = Number(this.gid)): Cred {
 		return new Cred(uid, gid, Number(this.uid), Number(this.gid), uid, gid);
@@ -236,6 +263,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Change the mode of the file. We use this helper function to prevent messing
 	 * up the type of the file, which is encoded in mode.
+	 * @internal
 	 */
 	public chmod(mode: number): void {
 		this.mode = this._convert((this.mode & S_IFMT) | mode);
@@ -244,6 +272,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Change the owner user/group of the file.
 	 * This function makes sure it is a valid UID/GID (that is, a 32 unsigned int)
+	 * @internal
 	 */
 	public chown(uid: number | bigint, gid: number | bigint): void {
 		uid = Number(uid);
@@ -254,24 +283,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		if (!isNaN(gid) && 0 <= gid && gid < 2 ** 32) {
 			this.gid = this._convert(gid);
 		}
-	}
-
-	// We don't support the following types of files.
-
-	public isSocket(): boolean {
-		return false;
-	}
-
-	public isBlockDevice(): boolean {
-		return false;
-	}
-
-	public isCharacterDevice(): boolean {
-		return false;
-	}
-
-	public isFIFO(): boolean {
-		return false;
 	}
 }
 

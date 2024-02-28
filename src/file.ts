@@ -634,8 +634,8 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 /**
  * For synchronous file systems
  */
-export class SyncFile<FS extends SyncFileSystem> extends PreloadFile<SyncFileSystem> {
-	constructor(_fs: SyncFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+export class SyncFile<FS extends SyncFileSystem> extends PreloadFile<FS> {
+	constructor(_fs: FS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 

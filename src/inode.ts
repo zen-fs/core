@@ -1,3 +1,4 @@
+import { S_IFMT } from './emulation/constants.js';
 import { Stats, FileType } from './stats.js';
 import { decode, encode } from './utils.js';
 
@@ -38,7 +39,7 @@ export default class Inode {
 	 */
 	public toStats(): Stats {
 		return new Stats(
-			(this.mode & 0xf000) === FileType.DIRECTORY ? FileType.DIRECTORY : FileType.FILE,
+			(this.mode & S_IFMT) === FileType.DIRECTORY ? FileType.DIRECTORY : FileType.FILE,
 			this.size,
 			this.mode,
 			this.atime,
@@ -121,22 +122,5 @@ export default class Inode {
 		}
 
 		return hasChanged;
-	}
-
-	// XXX: Copied from Stats. Should reconcile these two into something more
-	//      compact.
-
-	/**
-	 * @return [Boolean] True if this item is a file.
-	 */
-	public isFile(): boolean {
-		return (this.mode & 0xf000) === FileType.FILE;
-	}
-
-	/**
-	 * @return [Boolean] True if this item is a directory.
-	 */
-	public isDirectory(): boolean {
-		return (this.mode & 0xf000) === FileType.DIRECTORY;
 	}
 }

@@ -96,7 +96,7 @@ export const O_NONBLOCK = 0o4000;
 // File Type Constants
 
 /** Constant for fs.Stats mode property for determining a file's type. Bit mask used to extract the file type code. */
-export const S_IFMT = 0o170000;
+export const S_IFMT = 0xf000;
 
 /** Constant for fs.Stats mode property for determining a file's type. File type constant for a regular file. */
 export const S_IFREG = 0o100000;

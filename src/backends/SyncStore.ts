@@ -177,7 +177,7 @@ export interface SyncFileSystemOptions {
 	supportLinks?: boolean;
 }
 
-export class SyncFile extends PreloadFile<SyncStoreFileSystem> {
+export class SyncStoreFile extends PreloadFile<SyncStoreFileSystem> {
 	constructor(_fs: SyncStoreFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
@@ -289,7 +289,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		if (newDirList[newName]) {
 			// If it's a file, delete it.
 			const newNameNode = this.getINode(tx, newPath, newDirList[newName]);
-			if (newNameNode.isFile()) {
+			if (newNameNode.toStats().isFile()) {
 				try {
 					tx.remove(newNameNode.id);
 					tx.remove(newDirList[newName]);
@@ -325,12 +325,12 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		return stats;
 	}
 
-	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncFile {
+	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncStoreFile {
 		this.commitNewFile(this.store.beginTransaction('readwrite'), p, FileType.FILE, mode, cred);
 		return this.openFileSync(p, flag, cred);
 	}
 
-	public openFileSync(p: string, flag: FileFlag, cred: Cred): SyncFile {
+	public openFileSync(p: string, flag: FileFlag, cred: Cred): SyncStoreFile {
 		const tx = this.store.beginTransaction('readonly'),
 			node = this.findINode(tx, p),
 			data = tx.get(node.id);
@@ -340,7 +340,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
-		return new SyncFile(this, p, flag, node.toStats(), data);
+		return new SyncStoreFile(this, p, flag, node.toStats(), data);
 	}
 
 	public unlinkSync(p: string, cred: Cred): void {
@@ -486,7 +486,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	 * listing.
 	 */
 	protected getDirListing(tx: SyncROTransaction, p: string, inode: Inode): { [fileName: string]: string } {
-		if (!inode.isDirectory()) {
+		if (!inode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
 		const data = tx.get(inode.id);
@@ -597,9 +597,9 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		// Remove from directory listing of parent.
 		delete parentListing[fileName];
 
-		if (!isDir && fileNode.isDirectory()) {
+		if (!isDir && fileNode.toStats().isDirectory()) {
 			throw ApiError.EISDIR(p);
-		} else if (isDir && !fileNode.isDirectory()) {
+		} else if (isDir && !fileNode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
 

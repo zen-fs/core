@@ -285,7 +285,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			if (newDirList[newName]) {
 				// If it's a file, delete it.
 				const newNameNode = await this.getINode(tx, newPath, newDirList[newName]);
-				if (newNameNode.isFile()) {
+				if (newNameNode.toStats().isFile()) {
 					try {
 						await tx.remove(newNameNode.id);
 						await tx.remove(newDirList[newName]);
@@ -516,7 +516,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	 * listing.
 	 */
 	private async getDirListing(tx: AsyncROTransaction, p: string, inode: Inode): Promise<{ [fileName: string]: string }> {
-		if (!inode.isDirectory()) {
+		if (!inode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
 		const data = await tx.get(inode.id);
@@ -643,9 +643,9 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		// Remove from directory listing of parent.
 		delete parentListing[fileName];
 
-		if (!isDir && fileNode.isDirectory()) {
+		if (!isDir && fileNode.toStats().isDirectory()) {
 			throw ApiError.EISDIR(p);
-		} else if (isDir && !fileNode.isDirectory()) {
+		} else if (isDir && !fileNode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
 
