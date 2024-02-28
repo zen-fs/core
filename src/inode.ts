@@ -84,7 +84,7 @@ export default class Inode {
 	 *   file system.
 	 * @return True if any changes have occurred.
 	 */
-	public update(stats: Stats): boolean {
+	public update(stats: Readonly<Stats>): boolean {
 		let hasChanged = false;
 		if (this.size !== stats.size) {
 			this.size = stats.size;
@@ -96,21 +96,17 @@ export default class Inode {
 			hasChanged = true;
 		}
 
-		const atimeMs = stats.atime.getTime();
-		if (this.atime !== atimeMs) {
-			this.atime = atimeMs;
+		if (this.atime !== stats.atimeMs) {
+			this.atime = stats.atimeMs;
+			hasChanged = true;
+		}
+		if (this.mtime !== stats.mtimeMs) {
+			this.mtime = stats.mtimeMs;
 			hasChanged = true;
 		}
 
-		const mtimeMs = stats.mtime.getTime();
-		if (this.mtime !== mtimeMs) {
-			this.mtime = mtimeMs;
-			hasChanged = true;
-		}
-
-		const ctimeMs = stats.ctime.getTime();
-		if (this.ctime !== ctimeMs) {
-			this.ctime = ctimeMs;
+		if (this.ctime !== stats.ctimeMs) {
+			this.ctime = stats.ctimeMs;
 			hasChanged = true;
 		}
 
