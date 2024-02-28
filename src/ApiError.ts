@@ -6,20 +6,65 @@ import { decode, encode } from './utils.js';
  * @url http://www.gnu.org/software/libc/manual/html_node/Error-Codes.html
  */
 export enum ErrorCode {
+	/**
+	 * Operation not permitted
+	 */
 	EPERM = 1,
+	/**
+	 * No such file or directory
+	 */
 	ENOENT = 2,
+	/**
+	 * Input/output error
+	 */
 	EIO = 5,
+	/**
+	 * Bad file descriptor
+	 */
 	EBADF = 9,
+	/**
+	 * Permission denied
+	 */
 	EACCES = 13,
+	/**
+	 * Resource busy or locked
+	 */
 	EBUSY = 16,
+	/**
+	 * File exists
+	 */
 	EEXIST = 17,
+	/**
+	 * File is not a directory
+	 */
 	ENOTDIR = 20,
+	/**
+	 * File is a directory
+	 */
 	EISDIR = 21,
+	/**
+	 * Invalid argument
+	 */
 	EINVAL = 22,
+	/**
+	 * File is too big
+	 */
 	EFBIG = 27,
+	/**
+	 * No space left on disk
+	 */
 	ENOSPC = 28,
+	/**
+	 * Cannot modify a read-only file system
+	 */
 	EROFS = 30,
+	/**
+	 * Directory is not empty
+	 */
 	ENOTEMPTY = 39,
+	/**
+	 * Operation is not supported
+	 */
 	ENOTSUP = 95,
 }
 
@@ -121,7 +166,7 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 	 * what Node returns.
 	 * @constructor ApiError
 	 * @param type The type of the error.
-	 * @param [message] A descriptive error message.
+	 * @param message A descriptive error message.
 	 */
 	constructor(type: ErrorCode, message: string = ErrorStrings[type], path?: string) {
 		super(message);
