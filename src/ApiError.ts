@@ -1,5 +1,3 @@
-import { decode, encode } from './utils.js';
-
 /**
  * Standard libc error codes. More will be added to this enum and ErrorStrings as they are
  * needed.
@@ -110,17 +108,8 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 		return err;
 	}
 
-	/**
-	 * Creates an ApiError object from a buffer.
-	 */
-	public static Derserialize(data: ArrayBufferLike | ArrayBufferView, i: number = 0): ApiError {
-		const view = new DataView('buffer' in data ? data.buffer : data);
-		const dataText = decode(view.buffer.slice(i + 4, i + 4 + view.getUint32(i, true)));
-		return ApiError.fromJSON(JSON.parse(dataText));
-	}
-
-	public static FileError(code: ErrorCode, p: string): ApiError {
-		return new ApiError(code, ErrorStrings[code], p);
+	public static FileError(code: ErrorCode, path: string): ApiError {
+		return new ApiError(code, ErrorStrings[code], path);
 	}
 
 	public static EACCES(path: string): ApiError {
@@ -183,7 +172,7 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 		return this.message;
 	}
 
-	public toJSON(): any {
+	public toJSON(): ApiErrorJSON {
 		return {
 			errno: this.errno,
 			code: this.code,
@@ -191,18 +180,6 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 			stack: this.stack,
 			message: this.message,
 		};
-	}
-
-	/**
-	 * Writes the API error into a buffer.
-	 */
-	public serialize(data: ArrayBufferLike | ArrayBufferView = new Uint8Array(this.bufferSize()), i: number = 0): Uint8Array {
-		const view = new DataView('buffer' in data ? data.buffer : data),
-			buffer = new Uint8Array(view.buffer);
-		const newData = encode(JSON.stringify(this.toJSON()));
-		buffer.set(newData);
-		view.setUint32(i, newData.byteLength, true);
-		return buffer;
 	}
 
 	/**
