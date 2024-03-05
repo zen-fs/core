@@ -45,8 +45,9 @@
 		"format:check": "prettier --check src test",
 		"lint": "eslint src test && tsc -p tsconfig.json --noEmit",
 		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
-		"build": "tsc -p tsconfig.json && node scripts/build.js",
+		"build": "node scripts/build.js",
 		"build:docs": "typedoc --out docs --name BrowserFS src/index.ts",
+		"dev": "node scripts/build.js --watch",
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {

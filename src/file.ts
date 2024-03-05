@@ -611,8 +611,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 * Read data from the file.
 	 * @param buffer The buffer that the data will be
 	 *   written to.
-	 * @param offset The offset within the buffer where writing will
-	 *   start.
+	 * @param offset The offset within the buffer where writing will start.
 	 * @param length An integer specifying the number of bytes to read.
 	 * @param position An integer specifying where to begin reading from
 	 *   in the file. If position is null, data will be read from the current file
@@ -628,7 +627,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 		if (endRead > this.stats.size) {
 			length = this.stats.size - position;
 		}
-		this._buffer.set(buffer.slice(offset, offset + length), position);
+		buffer.set(this._buffer.slice(position, position + length), offset);
 		this.stats.atimeMs = Date.now();
 		this._position = position + length;
 		return this.buffer.length;

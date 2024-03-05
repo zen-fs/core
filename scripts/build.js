@@ -1,13 +1,15 @@
-import { context } from 'esbuild';
+import { build, context } from 'esbuild';
+import { execSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 
 const options = parseArgs({
 	config: {
 		watch: { short: 'w', type: 'boolean', default: false },
 	},
+	strict: false,
 }).values;
 
-const ctx = await context({
+const config = {
 	entryPoints: ['src/index.ts'],
 	target: 'esnext',
 	globalName: 'BrowserFS',
@@ -17,17 +19,24 @@ const ctx = await context({
 	bundle: true,
 	minify: true,
 	platform: 'browser',
-});
+	plugins: [
+		{
+			name: 'tsc',
+			setup({ onStart }) {
+				onStart(async () => {
+					try {
+						execSync('npx tsc -p tsconfig.json', { stdio: 'inherit' });
+					} finally {}
+				});
+			}
+		}
+	]
+};
 
-try {
-	if (options.watch) {
-		console.log('Watching for changes...');
-		await ctx.watch();
-	} else {
-		await ctx.rebuild();
-	}
-} catch (e) {
-	console.error(e.message);
-} finally {
-	await ctx.dispose();
+if (options.watch) {
+	console.log('Watching for changes...');
+	const ctx = await context(config);
+	await ctx.watch();
+} else {
+	await build(config);
 }

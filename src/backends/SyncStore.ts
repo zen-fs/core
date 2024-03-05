@@ -6,7 +6,7 @@ import { FileFlag, PreloadFile } from '../file.js';
 import { SyncFileSystem, type FileSystemMetadata } from '../filesystem.js';
 import Inode, { randomIno, type Ino } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
-import { decode, encode } from '../utils.js';
+import { decodeDirListing, encode, encodeDirListing } from '../utils.js';
 import { rootIno } from '../inode.js';
 
 /**
@@ -290,8 +290,8 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 
 		// Commit the two changed directory listings.
 		try {
-			tx.put(oldDirNode.ino, encode(JSON.stringify(oldDirList)), true);
-			tx.put(newDirNode.ino, encode(JSON.stringify(newDirList)), true);
+			tx.put(oldDirNode.ino, encodeDirListing(oldDirList), true);
+			tx.put(newDirNode.ino, encodeDirListing(newDirList), true);
 		} catch (e) {
 			tx.abort();
 			throw e;
@@ -407,7 +407,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		node.nlink++;
 		dst_listing[basename(dstpath)] = node.ino;
 		tx.put(ino, node.data, true);
-		tx.put(dst_node.ino, encode(JSON.stringify(dst_listing)), false);
+		tx.put(dst_node.ino, encodeDirListing(dst_listing), false);
 	}
 
 	/**
@@ -500,7 +500,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
-		return JSON.parse(decode(data), (k, v) => BigInt(v));
+		return decodeDirListing(data);
 	}
 
 	/**
@@ -567,7 +567,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			fileNode.gid = cred.gid;
 			// Update and commit parent directory listing.
 			dirListing[fname] = this.addNewNode(tx, fileNode.data);
-			tx.put(parentNode.ino, encode(JSON.stringify(dirListing)), true);
+			tx.put(parentNode.ino, encodeDirListing(dirListing), true);
 		} catch (e) {
 			tx.abort();
 			throw e;
@@ -619,7 +619,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			// Delete node.
 			tx.remove(fileNodeId);
 			// Update directory listing.
-			tx.put(parentNode.ino, encode(JSON.stringify(parentListing)), true);
+			tx.put(parentNode.ino, encodeDirListing(parentListing), true);
 		} catch (e) {
 			tx.abort();
 			throw e;

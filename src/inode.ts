@@ -18,6 +18,27 @@ export type Ino = bigint;
 export const size_max = 2 ** 32 - 1;
 
 /**
+ * @internal
+ */
+export const rootIno: Ino = 0n;
+
+/**
+ * Generates a random 32 bit integer, then converts to a hex string
+ */
+function _random() {
+	return Math.round(Math.random()*(2**32)).toString(16);
+}
+
+/**
+ * Generate 4 random bits at a time
+ *
+ * @internal
+ */
+export function randomIno(): Ino {
+	return BigInt('0x' + _random() + _random());
+}
+
+/**
  * Generic inode definition that can easily be serialized.
  */
 export default class Inode {
@@ -197,18 +218,4 @@ export default class Inode {
 
 		return hasChanged;
 	}
-}
-
-/**
- * @internal
- */
-export const rootIno: Ino = 0n;
-
-/**
- * see https://stackoverflow.com/q/70677751
- *
- * @internal
- */
-export function randomIno(): Ino {
-	return BigInt(Math.random() * 10 ** 45);
 }

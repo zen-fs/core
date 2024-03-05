@@ -6,7 +6,7 @@ import { PreloadFile, File, FileFlag } from '../file.js';
 import { AsyncFileSystem } from '../filesystem.js';
 import Inode, { randomIno, type Ino } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
-import { encode, decode } from '../utils.js';
+import { encode, decodeDirListing, encodeDirListing } from '../utils.js';
 import { rootIno } from '../inode.js';
 
 interface LRUNode<K, V> {
@@ -259,8 +259,8 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			newDirList[newName] = nodeId;
 			// Commit the two changed directory listings.
 			try {
-				await tx.put(oldDirNode.ino, encode(JSON.stringify(oldDirList)), true);
-				await tx.put(newDirNode.ino, encode(JSON.stringify(newDirList)), true);
+				await tx.put(oldDirNode.ino, encodeDirListing(oldDirList), true);
+				await tx.put(newDirNode.ino, encodeDirListing(newDirList), true);
 			} catch (e) {
 				await tx.abort();
 				throw e;
@@ -392,7 +392,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		node.nlink++;
 		dst_listing[basename(dstpath)] = node.ino;
 		await tx.put(ino, node.data, true);
-		await tx.put(dst_node.ino, encode(JSON.stringify(dst_listing)), false);
+		await tx.put(dst_node.ino, encodeDirListing(dst_listing), false);
 	}
 
 	/**
@@ -503,9 +503,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			throw ApiError.ENOTDIR(p);
 		}
 		const data = await tx.get(inode.ino);
-		try {
-			return JSON.parse(decode(data), (k, v) => BigInt(v));
-		} catch (e) {
+		if (!data) {
 			/*
 				Occurs when data is undefined, or corresponds to something other
 				than a directory listing. The latter should never occur unless
@@ -513,6 +511,8 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			 */
 			throw ApiError.ENOENT(p);
 		}
+
+		return decodeDirListing(data);
 	}
 
 	/**
@@ -584,7 +584,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 
 			// Update and commit parent directory listing.
 			dirListing[fname] = await this.addNewNode(tx, inode.data);
-			await tx.put(parentNode.ino, encode(JSON.stringify(dirListing)), true);
+			await tx.put(parentNode.ino, encodeDirListing(dirListing), true);
 			await tx.commit();
 			return inode;
 		} catch (e) {
@@ -643,7 +643,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			// Delete node.
 			await tx.remove(fileNodeId);
 			// Update directory listing.
-			await tx.put(parentNode.ino, encode(JSON.stringify(parentListing)), true);
+			await tx.put(parentNode.ino, encodeDirListing(parentListing), true);
 		} catch (e) {
 			await tx.abort();
 			throw e;

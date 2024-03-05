@@ -233,13 +233,13 @@ export function readFileSync(filename: string, options?: { flag?: string }): Uin
 export function readFileSync(filename: string, options: { encoding: string; flag?: string }): string;
 export function readFileSync(filename: string, encoding: string): string;
 export function readFileSync(filename: string, arg2: { encoding: string; flag?: string } | { flag?: string } | string = {}): FileContents {
-	const options = normalizeOptions(arg2, null, 'r', null);
+	const options = normalizeOptions(arg2, null, 'r', 0o644);
 	const flag = FileFlag.FromString(options.flag);
 	if (!flag.isReadable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
 	const data: Uint8Array = _readFileSync(filename, options.flag, true);
-	return decode(data, options.encoding);
+	return options.encoding ? decode(data, options.encoding) : data;
 }
 readFileSync satisfies BufferToUint8Array<typeof Node.readFileSync>;
 

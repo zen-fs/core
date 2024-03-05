@@ -38,7 +38,7 @@ export function normalizeMode(mode: string | number | unknown, def?: number): nu
 		return def;
 	}
 
-	throw new ApiError(ErrorCode.EINVAL, 'Invalid mode: ' + mode.toString());
+	throw new ApiError(ErrorCode.EINVAL, 'Invalid mode: ' + mode?.toString());
 }
 
 export function normalizeTime(time: string | number | Date): Date {

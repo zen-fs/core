@@ -167,3 +167,33 @@ export function decode(input?: { [Symbol.iterator](): IterableIterator<number> }
 	}
 	return [...input].map(v => String.fromCharCode(v)).join('');
 }
+
+/**
+ * Decodes a directory listing
+ * @internal
+ */
+export function decodeDirListing(data: Uint8Array): Record<string, bigint> {
+	return JSON.parse(decode(data), (k, v) => {
+		if (k == '') {
+			return v;
+		}
+
+		return BigInt(v);
+	});
+}
+
+/**
+ * Encodes a directory listing
+ * @internal
+ */
+export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
+	return encode(
+		JSON.stringify(data, (k, v) => {
+			if (k == '') {
+				return v;
+			}
+
+			return v.toString();
+		})
+	);
+}
