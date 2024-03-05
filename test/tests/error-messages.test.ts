@@ -48,20 +48,15 @@ describe.each(backends)('%s Error tests', (name, options) => {
 			await expectError(fs.promises.open, fn, 'r');
 			await expectError(fs.promises.readdir, fn);
 			await expectError(fs.promises.unlink, fn);
-
-			if (fs.getMount('/').metadata.supportsLinks) {
-				await expectError(fs.promises.link, fn, 'foo');
-			}
+			await expectError(fs.promises.link, fn, 'foo');
 
 			if (fs.getMount('/').metadata.supportsProperties) {
 				await expectError(fs.promises.chmod, fn, 0o666);
 			}
 		}
 
-		if (fs.getMount('/').metadata.supportsLinks) {
-			await expectError(fs.promises.lstat, fn);
-			await expectError(fs.promises.readlink, fn);
-		}
+		await expectError(fs.promises.lstat, fn);
+		await expectError(fs.promises.readlink, fn);
 	});
 
 	// Sync operations
@@ -81,20 +76,15 @@ describe.each(backends)('%s Error tests', (name, options) => {
 				expectSyncError(fs.openSync, fn, 'r');
 				expectSyncError(fs.readdirSync, fn);
 				expectSyncError(fs.unlinkSync, fn);
+				expectSyncError(fs.linkSync, fn, 'foo');
 
 				if (fs.getMount('/').metadata.supportsProperties) {
 					expectSyncError(fs.chmodSync, fn, 0o666);
 				}
-
-				if (fs.getMount('/').metadata.supportsLinks) {
-					expectSyncError(fs.linkSync, fn, 'foo');
-				}
 			}
 
-			if (fs.getMount('/').metadata.supportsLinks) {
-				expectSyncError(fs.lstatSync, fn);
-				expectSyncError(fs.readlinkSync, fn);
-			}
+			expectSyncError(fs.lstatSync, fn);
+			expectSyncError(fs.readlinkSync, fn);
 		});
 	}
 });

@@ -39,11 +39,6 @@ export interface FileSystemMetadata {
 	supportsProperties: boolean;
 
 	/**
-	 * Does the FS support links
-	 */
-	supportsLinks: boolean;
-
-	/**
 	 * The total space
 	 */
 	totalSpace: number;
@@ -75,7 +70,6 @@ export abstract class FileSystem {
 			readonly: false,
 			synchronous: false,
 			supportsProperties: false,
-			supportsLinks: false,
 			totalSpace: 0,
 			freeSpace: 0,
 		};
@@ -196,57 +190,6 @@ export abstract class FileSystem {
 			return true;
 		} catch (e) {
 			return false;
-		}
-	}
-
-	/**
-	 * Asynchronous `realpath`.
-	 *
-	 * Note that the Node API will resolve `path` to an absolute path.
-	 */
-	public async realpath(path: string, cred: Cred): Promise<string> {
-		if (this.metadata.supportsLinks) {
-			// The path could contain symlinks. Split up the path,
-			// resolve any symlinks, return the resolved string.
-			const splitPath = path.split(sep);
-			// TODO: Simpler to just pass through file, find sep and such.
-			for (let i = 0; i < splitPath.length; i++) {
-				const addPaths = splitPath.slice(0, i + 1);
-				splitPath[i] = join(...addPaths);
-			}
-			return splitPath.join(sep);
-		} else {
-			// No symlinks. We just need to verify that it exists.
-			if (!(await this.exists(path, cred))) {
-				throw ApiError.ENOENT(path);
-			}
-			return path;
-		}
-	}
-
-	/**
-	 * Synchronous `realpath`.
-	 *
-	 * Note that the Node API will resolve `path` to an absolute path.
-	 */
-	public realpathSync(path: string, cred: Cred): string {
-		if (this.metadata.supportsLinks) {
-			// The path could contain symlinks. Split up the path,
-			// resolve any symlinks, return the resolved string.
-			const splitPath = path.split(sep);
-			// TODO: Simpler to just pass through file, find sep and such.
-			for (let i = 0; i < splitPath.length; i++) {
-				const addPaths = splitPath.slice(0, i + 1);
-				splitPath[i] = join(...addPaths);
-			}
-			return splitPath.join(sep);
-		} else {
-			// No symlinks. We just need to verify that it exists.
-			if (this.existsSync(path, cred)) {
-				return path;
-			} else {
-				throw ApiError.ENOENT(path);
-			}
 		}
 	}
 

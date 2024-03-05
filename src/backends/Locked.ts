@@ -153,20 +153,6 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		return this.fs.existsSync(p, cred);
 	}
 
-	public async realpath(p: string, cred: Cred): Promise<string> {
-		await this._mu.lock(p);
-		const resolvedPath = await this.fs.realpath(p, cred);
-		this._mu.unlock(p);
-		return resolvedPath;
-	}
-
-	public realpathSync(p: string, cred: Cred): string {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.realpathSync(p, cred);
-	}
-
 	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
 		await this._mu.lock(srcpath);
 		await this.fs.link(srcpath, dstpath, cred);

@@ -213,7 +213,6 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		return {
 			name: this.store.name,
 			readonly: false,
-			supportsLinks: false,
 			supportsProperties: true,
 			synchronous: true,
 			freeSpace: 0,

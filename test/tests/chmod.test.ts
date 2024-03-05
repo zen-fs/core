@@ -1,4 +1,4 @@
-import { fs, createMockStats, backends, configure, tmpDir, fixturesDir } from '../common';
+import { fs, createMockStats, fixturesDir } from '../common';
 import * as path from 'path';
 import { jest } from '@jest/globals';
 
@@ -6,15 +6,9 @@ const isWindows = process.platform === 'win32';
 const asyncMode = 0o777;
 const modeSync = 0o644;
 
-describe.each(backends)('%s chmod tests', (name, options) => {
-	const configured = configure(options);
-
-	afterEach(() => {
-		jest.restoreAllMocks();
-	});
+describe('chmod tests', () => {
 
 	it('should change file mode using chmod', async () => {
-		await configured;
 		const file1 = path.join(fixturesDir, 'a.js');
 
 		jest.spyOn(fs, 'chmod').mockImplementation(async (path, mode) => {
@@ -33,7 +27,6 @@ describe.each(backends)('%s chmod tests', (name, options) => {
 	});
 
 	it('should change file mode using fchmod', async () => {
-		await configured;
 		const file2 = path.join(fixturesDir, 'a1.js');
 
 		jest.spyOn(fs, 'open').mockImplementation(async (path, flags, mode) => {
@@ -58,8 +51,7 @@ describe.each(backends)('%s chmod tests', (name, options) => {
 	});
 
 	it('should change symbolic link mode using lchmod', async () => {
-		await configured;
-		const link = path.join(tmpDir, 'symbolic-link');
+		const link = path.join('symbolic-link');
 		const file2 = path.join(fixturesDir, 'a1.js');
 
 		jest.spyOn(fs, 'unlinkSync').mockImplementation(path => {

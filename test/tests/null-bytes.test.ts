@@ -37,14 +37,11 @@ describe.each(backends)('%s fs path validation', (name, options) => {
 	check(fs.promises.truncate, fs.truncateSync, 'foo\u0000bar');
 	check(fs.promises.unlink, fs.unlinkSync, 'foo\u0000bar');
 	check(fs.promises.writeFile, fs.writeFileSync, 'foo\u0000bar');
-
-	if (fs.getMount('/').metadata.supportsLinks) {
-		check(fs.promises.link, fs.linkSync, 'foo\u0000bar', 'foobar');
-		check(fs.promises.link, fs.linkSync, 'foobar', 'foo\u0000bar');
-		check(fs.promises.readlink, fs.readlinkSync, 'foo\u0000bar');
-		check(fs.promises.symlink, fs.symlinkSync, 'foo\u0000bar', 'foobar');
-		check(fs.promises.symlink, fs.symlinkSync, 'foobar', 'foo\u0000bar');
-	}
+	check(fs.promises.link, fs.linkSync, 'foo\u0000bar', 'foobar');
+	check(fs.promises.link, fs.linkSync, 'foobar', 'foo\u0000bar');
+	check(fs.promises.readlink, fs.readlinkSync, 'foo\u0000bar');
+	check(fs.promises.symlink, fs.symlinkSync, 'foo\u0000bar', 'foobar');
+	check(fs.promises.symlink, fs.symlinkSync, 'foobar', 'foo\u0000bar');
 
 	if (fs.getMount('/').metadata.supportsProperties) {
 		check(fs.promises.chmod, fs.chmodSync, 'foo\u0000bar', '0644');
