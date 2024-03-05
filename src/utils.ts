@@ -2,13 +2,15 @@
  * Grab bag of utility functions used across the code.
  */
 import { FileSystem } from './filesystem.js';
-import { ApiError } from './ApiError.js';
+import { ApiError, ErrorCode } from './ApiError.js';
 import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
 
-declare const globalThis: {
-	setImmediate?: (callback: () => unknown) => void;
-};
+declare global {
+	function setImmediate(callback: () => unknown): void;
+	function atob(data: string): string;
+	function btoa(data: string): string;
+}
 
 /**
  * Synchronous recursive makedir.
@@ -144,28 +146,78 @@ export function toPromise(fn: (...fnArgs: unknown[]) => unknown) {
  */
 export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : cb => setTimeout(cb, 0);
 
-const utf8regex = /utf-?8/;
-
 /**
  * Encodes a string into a buffer
  * @internal
  */
-export function encode(input: string, encoding = 'utf8'): Uint8Array {
-	if (!utf8regex.test(encoding)) {
-		console.warn('Unsupported encoding: "' + encoding + '" (ignoring)');
+export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8Array {
+	switch (encoding) {
+		case 'ascii':
+		case 'utf8':
+		case 'utf-8':
+		case 'latin1':
+		case 'binary':
+			return new Uint8Array([...input].map(v => v.charCodeAt(0)));
+		case 'utf16le':
+		case 'ucs2':
+		case 'ucs-2':
+			return new Uint8Array([...input].map(char => char.charCodeAt(0)).flatMap(code => [code & 0xff, (code >> 8) & 0xff]));
+		case 'base64':
+			return new Uint8Array([...btoa(input)].map(v => v.charCodeAt(0)));
+		case 'base64url':
+			return new Uint8Array([...btoa(input).replace('/', '_').replace('+', '-')].map(v => v.charCodeAt(0)));
+		case 'hex':
+			const hexBytes = [];
+			for (let i = 0; i < input.length; i += 2) {
+				hexBytes.push(parseInt(input.slice(i, 2), 16));
+			}
+			return new Uint8Array(hexBytes);
+		default:
+			throw new ApiError(ErrorCode.EINVAL, 'Invalid encoding: ' + encoding);
 	}
-	return new Uint8Array([...input].map(v => v.charCodeAt(0)));
 }
 
 /**
  * Decodes a string from a buffer
  * @internal
  */
-export function decode(input?: { [Symbol.iterator](): IterableIterator<number> }, encoding = 'utf8'): string {
-	if (!utf8regex.test(encoding)) {
-		console.warn('Unsupported encoding: "' + encoding + '" (ignoring)');
+export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): string {
+	switch (encoding) {
+		case 'ascii':
+		case 'utf8':
+		case 'utf-8':
+		case 'latin1':
+		case 'binary':
+			return [...input].map(v => String.fromCharCode(v)).join('');
+		case 'utf16le':
+		case 'ucs2':
+		case 'ucs-2':
+			let utf16leString = '';
+			for (let i = 0; i < input.length; i += 2) {
+				const code = input[i] | (input[i + 1] << 8);
+				utf16leString += String.fromCharCode(code);
+			}
+			return utf16leString;
+		case 'base64':
+			return atob([...input].map(v => String.fromCharCode(v)).join(''));
+		case 'base64url':
+			return atob(
+				[...input]
+					.map(v => String.fromCharCode(v))
+					.join('')
+					.replace('_', '/')
+					.replace('-', '+')
+			);
+		case 'hex':
+			let hexString = '';
+			for (let i = 0; i < input.length; i += 2) {
+				const byte = (input[i] << 4) | input[i + 1];
+				hexString += String.fromCharCode(byte);
+			}
+			return hexString;
+		default:
+			throw new ApiError(ErrorCode.EINVAL, 'Invalid encoding: ' + encoding);
 	}
-	return [...input].map(v => String.fromCharCode(v)).join('');
 }
 
 /**
