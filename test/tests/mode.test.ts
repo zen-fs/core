@@ -1,9 +1,8 @@
-import { backends, fs, configure } from '../../common';
+import { backends, fs, configure } from '../common';
 import * as path from 'path';
-import { promisify } from 'node:util';
 
 describe.each(backends)('%s PermissionsTest', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 	const testFileContents = Buffer.from('this is a test file, plz ignore.');
 
 	function is_writable(mode: number) {
@@ -19,9 +18,9 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 	}
 
 	async function process_file(p: string, fileMode: number): Promise<void> {
-		const readFileAsync = promisify(fs.readFile);
-		const openAsync = promisify<string, string, number>(fs.open);
-		const closeAsync = promisify(fs.close);
+		const readFileAsync = fs.promises.readFile;
+		const openAsync = fs.promises.open;
+		const closeAsync = fs.promises.close;
 
 		try {
 			const data = await readFileAsync(p);
@@ -52,9 +51,9 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 	}
 
 	async function process_directory(p: string, dirMode: number): Promise<void> {
-		const readdirAsync = promisify(fs.readdir);
-		const writeFileAsync = promisify<string, Buffer, void>(fs.writeFile);
-		const unlinkAsync = promisify(fs.unlink);
+		const readdirAsync = fs.promises.readdir;
+		const writeFileAsync = fs.promises.writeFile;
+		const unlinkAsync = fs.promises.unlink;
 
 		try {
 			const dirs = await readdirAsync(p);
@@ -86,7 +85,7 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 	}
 
 	async function process_item(p: string, parentMode: number): Promise<void> {
-		const statAsync = promisify(fs.stat);
+		const statAsync = fs.promises.stat;
 
 		const isReadOnly = fs.getMount('/').metadata.readonly;
 

@@ -1,13 +1,11 @@
 /**
  * BrowserFS's main module. This is exposed in the browser via the BrowserFS global.
  */
-
-import fs from './emulation/fs.js';
+import * as fs from './emulation/index.js';
 import { FileSystem } from './filesystem.js';
 import { backends } from './backends/index.js';
-import { ErrorCode, ApiError } from './ApiError.js';
 import { Cred } from './cred.js';
-import type { Backend } from './backends/backend.js';
+import { isBackend, type Backend, type BackendConfig, resolveBackendConfig } from './backends/backend.js';
 import { type MountMapping, setCred } from './emulation/shared.js';
 
 /**
@@ -19,75 +17,16 @@ export function initialize(mounts: { [point: string]: FileSystem }, uid: number 
 }
 
 /**
- * Specifies a file system backend type and its options.
- *
- * Individual options can recursively contain FileSystemConfiguration objects for
- * option values that require file systems.
- *
- * For example, to mirror Dropbox to Storage with AsyncMirror, use the following
- * object:
- *
- * ```javascript
- * var config = {
- *   fs: "AsyncMirror",
- *   options: {
- *     sync: {fs: "Storage"},
- *     async: {fs: "Dropbox", options: {client: anAuthenticatedDropboxSDKClient }}
- *   }
- * };
- * ```
- *
- * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
- */
-export interface BackendConfiguration {
-	backend: Backend;
-	options?: object;
-}
-
-/**
- * Retrieve a file system with the given configuration.
- * @param config A FileSystemConfiguration object. See FileSystemConfiguration for details.
- */
-async function getFileSystem({ backend, options = {} }: BackendConfiguration): Promise<FileSystem> {
-	if (!backend) {
-		throw new ApiError(ErrorCode.EPERM, 'Missing backend');
-	}
-
-	if (typeof options !== 'object' || options == null) {
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on configuration object.');
-	}
-
-	const props = Object.keys(options).filter(k => k != 'backend');
-
-	for (const prop of props) {
-		const opt = options[prop];
-		if (opt === null || typeof opt !== 'object' || !('fs' in opt)) {
-			continue;
-		}
-
-		const fs = await getFileSystem(opt);
-		options[prop] = fs;
-	}
-
-	const fsc = backend;
-	if (!fsc) {
-		throw new ApiError(ErrorCode.EPERM, `File system ${backend} is not available in BrowserFS.`);
-	} else {
-		return fsc.create(options);
-	}
-}
-
-/**
  * Defines a mapping of mount points to their configurations
  */
 export interface ConfigMapping {
-	[mountPoint: string]: FileSystem | BackendConfiguration | keyof typeof backends | Backend;
+	[mountPoint: string]: FileSystem | BackendConfig | keyof typeof backends | Backend;
 }
 
 /**
  * A configuration for BrowserFS
  */
-export type Configuration = FileSystem | BackendConfiguration | ConfigMapping;
+export type Configuration = FileSystem | BackendConfig | ConfigMapping;
 
 /**
  * Creates filesystems with the given configuration, and initializes BrowserFS with it.
@@ -112,11 +51,11 @@ export async function configure(config: Configuration): Promise<void> {
 			value = { backend: backends[value] };
 		}
 
-		if ('isAvailable' in value) {
+		if (isBackend(value)) {
 			value = { backend: value };
 		}
 
-		config[point] = await getFileSystem(value);
+		config[point] = await resolveBackendConfig(value);
 	}
 	return initialize(config as MountMapping);
 }

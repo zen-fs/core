@@ -1,8 +1,8 @@
-import { backends, fs, configure, fixturesDir } from '../../common';
+import { backends, fs, configure, fixturesDir } from '../common';
 import * as path from 'path';
 
 import { promisify } from 'util';
-import type { ApiError } from '../../../src/ApiError';
+import type { ApiError } from '../../src/ApiError';
 
 const existingFile = path.join(fixturesDir, 'exit.js');
 
@@ -33,7 +33,7 @@ const expectSyncError = (fn, p: string, ...args) => {
 };
 
 describe.each(backends)('%s File System Tests', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	it('should handle async operations with error', async () => {
 		await configured;

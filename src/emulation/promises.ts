@@ -11,22 +11,18 @@ import { Dirent } from './dir.js';
 import { dirname, join } from './path.js';
 
 export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> {
-	private file: File;
-
 	public constructor(
 		/**
 		 * Gets the file descriptor for this file handle.
 		 */
 		public readonly fd: number
-	) {
-		this.file = fd2file(fd);
-	}
+	) {}
 
 	/**
 	 * Asynchronous fchown(2) - Change ownership of a file.
 	 */
 	public chown(uid: number, gid: number): Promise<void> {
-		return this.file.chown(uid, gid);
+		return fd2file(this.fd).chown(uid, gid);
 	}
 
 	/**
@@ -38,21 +34,21 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 		if (numMode < 0) {
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid mode.');
 		}
-		return this.file.chmod(numMode);
+		return fd2file(this.fd).chmod(numMode);
 	}
 
 	/**
 	 * Asynchronous fdatasync(2) - synchronize a file's in-core state with storage device.
 	 */
 	public datasync(): Promise<void> {
-		return this.file.datasync();
+		return fd2file(this.fd).datasync();
 	}
 
 	/**
 	 * Asynchronous fsync(2) - synchronize a file's in-core state with the underlying storage device.
 	 */
 	public sync(): Promise<void> {
-		return this.file.sync();
+		return fd2file(this.fd).sync();
 	}
 
 	/**
@@ -63,7 +59,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 		if (len < 0) {
 			throw new ApiError(ErrorCode.EINVAL);
 		}
-		return this.file.truncate(len);
+		return fd2file(this.fd).truncate(len);
 	}
 
 	/**
@@ -72,7 +68,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * @param mtime The last modified time. If a string is provided, it will be coerced to number.
 	 */
 	public utimes(atime: string | number | Date, mtime: string | number | Date): Promise<void> {
-		return this.file.utimes(normalizeTime(atime), normalizeTime(mtime));
+		return fd2file(this.fd).utimes(normalizeTime(atime), normalizeTime(mtime));
 	}
 
 	/**
@@ -86,7 +82,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * If `flag` is not supplied, the default of `'a'` is used.
 	 */
 	public appendFile(data: string | Uint8Array, options?: { encoding?: BufferEncoding; mode?: Node.Mode; flag?: Node.OpenMode } | BufferEncoding): Promise<void> {
-		return appendFile(this.file.path, data, options);
+		return appendFile(fd2file(this.fd).path, data, options);
 	}
 
 	/**
@@ -99,9 +95,9 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 */
 	public read<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		if (isNaN(+position)) {
-			position = this.file.position!;
+			position = fd2file(this.fd).position!;
 		}
-		return this.file.read(buffer, offset, length, position);
+		return fd2file(this.fd).read(buffer, offset, length, position);
 	}
 
 	/**
@@ -113,7 +109,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	public readFile(options?: { flag?: Node.OpenMode }): Promise<Uint8Array>;
 	public readFile(options: { encoding: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string>;
 	public readFile(options?: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string | Uint8Array> {
-		return readFile(this.file.path, options);
+		return readFile(fd2file(this.fd).path, options);
 	}
 
 	/**
@@ -122,7 +118,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	public stat(opts: Node.BigIntOptions): Promise<BigIntStats>;
 	public stat(opts?: Node.StatOptions & { bigint?: false }): Promise<Stats>;
 	public stat(opts?: Node.StatOptions): Promise<Stats | BigIntStats> {
-		return stat(this.file.path, opts);
+		return stat(fd2file(this.fd).path, opts);
 	}
 
 	async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }>;
@@ -167,8 +163,8 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 			position = typeof position === 'number' ? position : null;
 		}
 
-		position ??= this.file.position!;
-		const bytesWritten = await this.file.write(buffer, offset, length, position);
+		position ??= fd2file(this.fd).position!;
+		const bytesWritten = await fd2file(this.fd).write(buffer, offset, length, position);
 		return { buffer, bytesWritten };
 	}
 
@@ -184,7 +180,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * If `flag` is not supplied, the default of `'w'` is used.
 	 */
 	writeFile(data: string | Uint8Array, options?: Node.WriteFileOptions): Promise<void> {
-		return writeFile(this.file.path, data, options);
+		return writeFile(fd2file(this.fd).path, data, options);
 	}
 
 	/**
@@ -205,7 +201,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * Asynchronous close(2) - close a `FileHandle`.
 	 */
 	async close(): Promise<void> {
-		await this.file.close();
+		await fd2file(this.fd).close();
 		fdMap.delete(this.fd);
 	}
 }

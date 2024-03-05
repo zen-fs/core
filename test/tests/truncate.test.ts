@@ -1,10 +1,8 @@
-import { backends, fs, configure, tmpDir, fixturesDir } from '../../common';
+import { backends, fs, configure, tmpDir, fixturesDir } from '../common';
 import * as path from 'path';
 
-import { promisify } from 'node:util';
-
 describe.each(backends)('%s Truncate Tests', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 	let filename: string;
 	const data = Buffer.alloc(1024 * 16, 'x');
 	let success: number;
@@ -19,7 +17,7 @@ describe.each(backends)('%s Truncate Tests', (name, options) => {
 	});
 
 	afterEach(async () => {
-		await promisify(fs.unlink)(filename);
+		await fs.promises.unlink(filename);
 	});
 
 	it('Truncate Sync', () => {
@@ -58,30 +56,30 @@ describe.each(backends)('%s Truncate Tests', (name, options) => {
 			return;
 		}
 
-		const stat = promisify(fs.stat);
+		const stat = fs.promises.stat;
 
-		await promisify<string, Buffer, void>(fs.writeFile)(filename, data);
+		await fs.promises.writeFile(filename, data);
 		expect((await stat(filename)).size).toBe(1024 * 16);
 
-		await promisify<string, number, void>(fs.truncate)(filename, 1024);
+		await fs.promises.truncate(filename, 1024);
 		expect((await stat(filename)).size).toBe(1024);
 
-		await promisify(fs.truncate)(filename);
+		await fs.promises.truncate(filename);
 		expect((await stat(filename)).size).toBe(0);
 
-		await promisify<string, Buffer, void>(fs.writeFile)(filename, data);
+		await fs.promises.writeFile(filename, data);
 		expect((await stat(filename)).size).toBe(1024 * 16);
 
-		const fd = await promisify<string, string, number>(fs.open)(filename, 'w');
+		const fd = await fs.promises.open(filename, 'w');
 
-		await promisify<number, number, void>(fs.ftruncate)(fd, 1024);
-		await promisify(fs.fsync)(fd);
+		await fs.promises.ftruncate(fd, 1024);
+		await fs.promises.fsync(fd);
 		expect((await stat(filename)).size).toBe(1024);
 
-		await promisify(fs.ftruncate)(fd);
-		await promisify(fs.fsync)(fd);
+		await fs.promises.ftruncate(fd);
+		await fs.promises.fsync(fd);
 		expect((await stat(filename)).size).toBe(0);
 
-		await promisify(fs.close)(fd);
+		await fs.promises.close(fd);
 	});
 });

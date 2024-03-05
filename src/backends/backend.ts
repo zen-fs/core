@@ -70,6 +70,13 @@ export interface Backend<FS extends FileSystem = FileSystem, OC extends BackendO
 }
 
 /**
+ * @internal
+ */
+export function isBackend(arg: unknown): arg is Backend {
+	return arg != null && typeof arg == 'object' && 'isAvailable' in arg && typeof arg.isAvailable == 'function' && 'create' in arg && typeof arg.create == 'function';
+}
+
+/**
  * Checks that the given options object is valid for the file system options.
  * @internal
  */
@@ -126,4 +133,55 @@ export function createBackend<B extends Backend>(backend: B, options?: object): 
 	checkOptions(backend, options);
 	const fs = <ReturnType<B['create']>>backend.create(options);
 	return fs.ready();
+}
+
+/**
+ * Specifies a file system backend type and its options.
+ *
+ * Individual options can recursively contain BackendConfig objects for
+ * option values that require file systems.
+ *
+ * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
+ */
+export interface BackendConfig {
+	backend: Backend;
+	[key: string]: unknown;
+}
+
+/**
+ * @internal
+ */
+export function isBackendConfig(arg: unknown): arg is BackendConfig {
+	return arg != null && typeof arg == 'object' && 'backend' in arg;
+}
+
+/**
+ * Retrieve a file system with the given configuration.
+ * @param config A BackendConfig object.
+ */
+export async function resolveBackendConfig(options: BackendConfig): Promise<FileSystem> {
+	const { backend } = options;
+	if (!backend) {
+		throw new ApiError(ErrorCode.EPERM, 'Missing backend');
+	}
+
+	if (typeof options !== 'object' || options == null) {
+		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on configuration object.');
+	}
+
+	const props = Object.keys(options).filter(k => k != 'backend');
+
+	for (const prop of props) {
+		const opts = options[prop];
+		if (!isBackendConfig(opts)) {
+			continue;
+		}
+
+		options[prop] = await resolveBackendConfig(opts);
+	}
+
+	if (!backend) {
+		throw new ApiError(ErrorCode.EPERM, `Backend "${backend}" is not available`);
+	}
+	return backend.create(options);
 }

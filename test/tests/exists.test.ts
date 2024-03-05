@@ -1,8 +1,8 @@
-import { backends, fs, configure, fixturesDir } from '../../common';
+import { backends, fs, configure, fixturesDir } from '../common';
 import * as path from 'path';
 
 describe.each(backends)('%s fs.exists', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 	let exists: boolean;
 	let doesNotExist: boolean;
 	const f = path.join(fixturesDir, 'x.txt');

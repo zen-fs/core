@@ -1,8 +1,8 @@
-import { backends, fs, configure, tmpDir, fixturesDir } from '../../common';
+import { backends, fs, configure, tmpDir, fixturesDir } from '../common';
 import * as path from 'path';
 
 describe.each(backends)('%s fs.writeSync', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 	it('should write file synchronously with specified content', async () => {
 		await configured;
 

@@ -1,9 +1,8 @@
-import { backends, fs, configure } from '../../common';
-import { tmpDir, fixturesDir } from '../../common';
-import { promisify } from 'node:util';
+import { backends, fs, configure } from '../common';
+import { tmpDir, fixturesDir } from '../common';
 
 describe.each(backends)('%s fs.mkdir', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	if (!fs.getMount('/').metadata.readonly) {
 		const pathname1 = tmpDir + '/mkdir-test1';
@@ -11,8 +10,8 @@ describe.each(backends)('%s fs.mkdir', (name, options) => {
 		it('should create a directory and verify its existence', async () => {
 			await configured;
 
-			await promisify(fs.mkdir)(pathname1);
-			const exists = await promisify(fs.exists)(pathname1);
+			await fs.promises.mkdir(pathname1);
+			const exists = await fs.promises.exists(pathname1);
 			expect(exists).toBe(true);
 		});
 
@@ -21,8 +20,8 @@ describe.each(backends)('%s fs.mkdir', (name, options) => {
 		it('should create a directory with custom permissions and verify its existence', async () => {
 			await configured;
 
-			await promisify<string, number, void>(fs.mkdir)(pathname2, 0o777);
-			const exists = await promisify(fs.exists)(pathname2);
+			await fs.promises.mkdir(pathname2, 0o777);
+			const exists = await fs.promises.exists(pathname2);
 			expect(exists).toBe(true);
 		});
 
@@ -32,7 +31,7 @@ describe.each(backends)('%s fs.mkdir', (name, options) => {
 			await configured;
 
 			try {
-				await promisify<string, number, void>(fs.mkdir)(pathname3, 0o777);
+				await fs.promises.mkdir(pathname3, 0o777);
 			} catch (err) {
 				expect(err).not.toBeNull();
 			}

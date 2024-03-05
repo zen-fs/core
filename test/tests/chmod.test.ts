@@ -1,13 +1,11 @@
-import { fs, createMockStats, backends, configure, tmpDir, fixturesDir } from '../../common';
+import { fs, createMockStats, backends, configure, tmpDir, fixturesDir } from '../common';
 import * as path from 'path';
-
 import { jest } from '@jest/globals';
-import { promisify } from 'node:util';
 
 const isWindows = process.platform === 'win32';
 
 describe.each(backends)('%s chmod tests', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	afterEach(() => {
 		jest.restoreAllMocks();
@@ -94,9 +92,9 @@ describe.each(backends)('%s chmod tests', (name, options) => {
 });
 
 async function changeFileMode(file: string, modeAsync: number, modeSync: number): Promise<void> {
-	await promisify(fs.chmod)(file, modeAsync.toString(8));
+	await fs.promises.chmod(file, modeAsync.toString(8));
 
-	const statAsync = promisify(fs.stat);
+	const statAsync = fs.promises.stat;
 	const statResult = await statAsync(file);
 	expect(statResult.mode & 0o777).toBe(isWindows ? modeAsync & 0o777 : modeAsync);
 
@@ -106,11 +104,11 @@ async function changeFileMode(file: string, modeAsync: number, modeSync: number)
 }
 
 async function changeSymbolicLinkMode(link: string, target: string, modeAsync: number, modeSync: number): Promise<void> {
-	await promisify(fs.unlink)(link);
-	await promisify(fs.symlink)(target, link);
+	await fs.promises.unlink(link);
+	await fs.promises.symlink(target, link);
 
-	await promisify(fs.lchmod)(link, modeAsync);
-	const lstatAsync = promisify(fs.lstat);
+	await fs.promises.lchmod(link, modeAsync);
+	const lstatAsync = fs.promises.lstat;
 	const lstatResult = await lstatAsync(link);
 	expect(lstatResult.mode & 0o777).toBe(isWindows ? modeAsync & 0o777 : modeAsync);
 

@@ -1,9 +1,8 @@
-import { backends, fs, configure } from '../../common';
+import { backends, fs, configure } from '../common';
 import * as path from 'path';
-import { promisify } from 'node:util';
 
 describe.each(backends)('%s File and Directory Rename Tests', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	/**
 	 * Creates the following directory structure within the given dir:
@@ -16,9 +15,9 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 		const file1 = path.resolve(dir, 'file.dat');
 		const file2 = path.resolve(dir1, 'lol.txt');
 
-		await promisify(fs.mkdir)(dir1);
-		await promisify<string, Buffer, void>(fs.writeFile)(file1, Buffer.from('filedata'));
-		await promisify<string, Buffer, void>(fs.writeFile)(file2, Buffer.from('lololol'));
+		await fs.promises.mkdir(dir1);
+		await fs.promises.writeFile(file1, Buffer.from('filedata'));
+		await fs.promises.writeFile(file2, Buffer.from('lololol'));
 	}
 
 	/**
@@ -29,16 +28,16 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 		const file1 = path.resolve(dir, 'file.dat');
 		const file2 = path.resolve(dir1, 'lol.txt');
 
-		const contents = await promisify(fs.readdir)(dir);
+		const contents = await fs.promises.readdir(dir);
 		expect(contents.length).toBe(2);
 
-		const contentsDir1 = await promisify(fs.readdir)(dir1);
+		const contentsDir1 = await fs.promises.readdir(dir1);
 		expect(contentsDir1.length).toBe(1);
 
-		const existsFile1 = await promisify(fs.exists)(file1);
+		const existsFile1 = await fs.promises.exists(file1);
 		expect(existsFile1).toBe(true);
 
-		const existsFile2 = await promisify(fs.exists)(file2);
+		const existsFile2 = await fs.promises.exists(file2);
 		expect(existsFile2).toBe(true);
 	}
 
@@ -50,26 +49,26 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 		const oldDir = '/rename_test';
 		const newDir = '/rename_test2';
 
-		await promisify(fs.mkdir)(oldDir);
+		await fs.promises.mkdir(oldDir);
 
 		await populate_directory(oldDir);
 
-		await promisify(fs.rename)(oldDir, oldDir);
+		await fs.promises.rename(oldDir, oldDir);
 
 		await check_directory(oldDir);
 
-		await promisify(fs.mkdir)(newDir);
-		await promisify(fs.rmdir)(newDir);
-		await promisify(fs.rename)(oldDir, newDir);
+		await fs.promises.mkdir(newDir);
+		await fs.promises.rmdir(newDir);
+		await fs.promises.rename(oldDir, newDir);
 
 		await check_directory(newDir);
 
-		const exists = await promisify(fs.exists)(oldDir);
+		const exists = await fs.promises.exists(oldDir);
 		expect(exists).toBe(false);
 
-		await promisify(fs.mkdir)(oldDir);
+		await fs.promises.mkdir(oldDir);
 		await populate_directory(oldDir);
-		await promisify(fs.rename)(oldDir, path.resolve(newDir, 'newDir'));
+		await fs.promises.rename(oldDir, path.resolve(newDir, 'newDir'));
 	});
 
 	it('File Rename', async () => {
@@ -81,18 +80,18 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 		const file1 = path.resolve(fileDir, 'fun.js');
 		const file2 = path.resolve(fileDir, 'fun2.js');
 
-		await promisify(fs.mkdir)(fileDir);
-		await promisify<string, Buffer, void>(fs.writeFile)(file1, Buffer.from('while(1) alert("Hey! Listen!");'));
-		await promisify(fs.rename)(file1, file1);
-		await promisify(fs.rename)(file1, file2);
+		await fs.promises.mkdir(fileDir);
+		await fs.promises.writeFile(file1, Buffer.from('while(1) alert("Hey! Listen!");'));
+		await fs.promises.rename(file1, file1);
+		await fs.promises.rename(file1, file2);
 
-		await promisify<string, Buffer, void>(fs.writeFile)(file1, Buffer.from('hey'));
-		await promisify(fs.rename)(file1, file2);
+		await fs.promises.writeFile(file1, Buffer.from('hey'));
+		await fs.promises.rename(file1, file2);
 
-		const contents = await promisify(fs.readFile)(file2);
+		const contents = await fs.promises.readFile(file2);
 		expect(contents.toString()).toBe('hey');
 
-		const exists = await promisify(fs.exists)(file1);
+		const exists = await fs.promises.exists(file1);
 		expect(exists).toBe(false);
 	});
 
@@ -104,11 +103,11 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 		const dir = '/rename_filedir_test';
 		const file = '/rename_filedir_test.txt';
 
-		await promisify(fs.mkdir)(dir);
-		await promisify<string, Buffer, void>(fs.writeFile)(file, Buffer.from('file contents go here'));
+		await fs.promises.mkdir(dir);
+		await fs.promises.writeFile(file, Buffer.from('file contents go here'));
 
 		try {
-			await promisify(fs.rename)(file, dir);
+			await fs.promises.rename(file, dir);
 		} catch (e) {
 			// Some *native* file systems throw EISDIR, others throw EPERM.... accept both.
 			expect(e.code === 'EISDIR' || e.code === 'EPERM').toBe(true);
@@ -133,10 +132,10 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 		const renDir1 = '/renamedir_1';
 		const renDir2 = '/renamedir_1/lol';
 
-		await promisify(fs.mkdir)(renDir1);
+		await fs.promises.mkdir(renDir1);
 
 		try {
-			await promisify(fs.rename)(renDir1, renDir2);
+			await fs.promises.rename(renDir1, renDir2);
 		} catch (e) {
 			expect(e.code).toBe('EBUSY');
 		}

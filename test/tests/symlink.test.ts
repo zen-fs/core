@@ -1,11 +1,9 @@
-import { backends, fs, configure, tmpDir, fixturesDir } from '../../common';
+import { backends, fs, configure, tmpDir, fixturesDir } from '../common';
 import * as path from 'path';
 
-import { promisify } from 'node:util';
-
 describe.each(backends)('%s Link and Symlink Test', (name, options) => {
-	const configured = configure({ fs: name, options });
-	const readFileAsync = promisify<string, string, string>(fs.readFile);
+	const configured = configure(options);
+	const readFileAsync = fs.promises.readFile;
 
 	it('should create and read symbolic link', async () => {
 		await configured;
@@ -15,13 +13,13 @@ describe.each(backends)('%s Link and Symlink Test', (name, options) => {
 
 			// Delete previously created link
 			try {
-				await promisify(fs.unlink)(linkPath);
+				await fs.promises.unlink(linkPath);
 			} catch (e) {}
 
-			await promisify(fs.symlink)(linkData, linkPath);
+			await fs.promises.symlink(linkData, linkPath);
 			console.log('symlink done');
 
-			const destination = await promisify(fs.readlink)(linkPath);
+			const destination = await fs.promises.readlink(linkPath);
 			expect(destination).toBe(linkData);
 		}
 	});
@@ -34,10 +32,10 @@ describe.each(backends)('%s Link and Symlink Test', (name, options) => {
 
 			// Delete previously created link
 			try {
-				await promisify(fs.unlink)(dstPath);
+				await fs.promises.unlink(dstPath);
 			} catch (e) {}
 
-			await promisify(fs.link)(srcPath, dstPath);
+			await fs.promises.link(srcPath, dstPath);
 			console.log('hard link done');
 
 			const srcContent = await readFileAsync(srcPath, 'utf8');
@@ -48,14 +46,14 @@ describe.each(backends)('%s Link and Symlink Test', (name, options) => {
 });
 
 describe.each(backends)('%s Symbolic Link Test', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	// test creating and reading symbolic link
 	const linkData = path.join(fixturesDir, 'cycles/');
 	const linkPath = path.join(tmpDir, 'cycles_link');
 
-	const unlinkAsync = promisify(fs.unlink);
-	const existsAsync = promisify(fs.existsSync);
+	const unlinkAsync = fs.promises.unlink;
+	const existsAsync = fs.promises.existsSync;
 
 	beforeAll(async () => {
 		await configured;
@@ -66,7 +64,7 @@ describe.each(backends)('%s Symbolic Link Test', (name, options) => {
 		console.log('linkData: ' + linkData);
 		console.log('linkPath: ' + linkPath);
 
-		await promisify<string, string, string, void>(fs.symlink)(linkData, linkPath, 'junction');
+		await fs.promises.symlink(linkData, linkPath, 'junction');
 		return;
 	});
 
@@ -76,7 +74,7 @@ describe.each(backends)('%s Symbolic Link Test', (name, options) => {
 			return;
 		}
 
-		const stats = await promisify(fs.lstat)(linkPath);
+		const stats = await fs.promises.lstat(linkPath);
 		expect(stats.isSymbolicLink()).toBe(true);
 	});
 
@@ -85,7 +83,7 @@ describe.each(backends)('%s Symbolic Link Test', (name, options) => {
 		if (fs.getMount('/').metadata.readonly || !fs.getMount('/').metadata.supportsLinks) {
 			return;
 		}
-		const destination = await promisify(fs.readlink)(linkPath);
+		const destination = await fs.promises.readlink(linkPath);
 		expect(destination).toBe(linkData);
 	});
 

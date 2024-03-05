@@ -1,10 +1,8 @@
-import { backends, fs, configure, fixturesDir } from '../../common';
+import { backends, fs, configure, fixturesDir } from '../common';
 import * as path from 'path';
 
-import { promisify } from 'node:util';
-
 describe.each(backends)('%s Directory Reading', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	it('Cannot call readdir on a file (synchronous)', () => {
 		let wasThrown = false;
@@ -35,7 +33,7 @@ describe.each(backends)('%s Directory Reading', (name, options) => {
 	it('Cannot call readdir on a file (asynchronous)', async () => {
 		await configured;
 		try {
-			await promisify(fs.readdir)(path.join(fixturesDir, 'a.js'));
+			await fs.promises.readdir(path.join(fixturesDir, 'a.js'));
 		} catch (err) {
 			expect(err).toBeTruthy();
 			expect(err.code).toBe('ENOTDIR');
@@ -45,7 +43,7 @@ describe.each(backends)('%s Directory Reading', (name, options) => {
 	it('Cannot call readdir on a non-existent directory (asynchronous)', async () => {
 		await configured;
 		try {
-			await promisify(fs.readdir)('/does/not/exist');
+			await fs.promises.readdir('/does/not/exist');
 		} catch (err) {
 			expect(err).toBeTruthy();
 			expect(err.code).toBe('ENOENT');

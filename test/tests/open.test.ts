@@ -1,10 +1,8 @@
-import { backends, fs, configure, fixturesDir } from '../../common';
+import { backends, fs, configure, fixturesDir } from '../common';
 import path from 'path';
 
-import { promisify } from 'node:util';
-
 describe.each(backends)('%s fs file opening', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 	const filename = path.join(fixturesDir, 'a.js');
 
 	it('should throw ENOENT when opening non-existent file (sync)', async () => {
@@ -25,7 +23,7 @@ describe.each(backends)('%s fs file opening', (name, options) => {
 	it('should throw ENOENT when opening non-existent file (async)', async () => {
 		await configured;
 		try {
-			await promisify(fs.open)('/path/to/file/that/does/not/exist', 'r');
+			await fs.promises.open('/path/to/file/that/does/not/exist', 'r');
 		} catch (e) {
 			expect(e?.code).toBe('ENOENT');
 		}
@@ -33,13 +31,13 @@ describe.each(backends)('%s fs file opening', (name, options) => {
 
 	it('should open file with mode "r"', async () => {
 		await configured;
-		const fd = await promisify(fs.open)(filename, 'r');
+		const fd = await fs.promises.open(filename, 'r');
 		expect(fd).toBeGreaterThanOrEqual(-Infinity);
 	});
 
 	it('should open file with mode "rs"', async () => {
 		await configured;
-		const fd = await promisify(fs.open)(filename, 'rs');
+		const fd = await fs.promises.open(filename, 'rs');
 		expect(fd).toBeGreaterThanOrEqual(-Infinity);
 	});
 });

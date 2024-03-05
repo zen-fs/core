@@ -1,8 +1,7 @@
-import { promisify } from 'node:util';
-import { backends, fs, configure } from '../../common';
+import { backends, fs, configure } from '../common';
 
 describe.each(backends)('%s fs path validation', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	function check(asyncFn: Function, syncFn: Function, ...args: any[]): void {
 		const expected = /Path must be a string without null bytes./;
@@ -55,7 +54,7 @@ describe.each(backends)('%s fs path validation', (name, options) => {
 
 	it('should return false for non-existing path', async () => {
 		await configured;
-		await expect(await promisify(fs.exists)('foo\u0000bar')).toEqual(false);
+		await expect(await fs.promises.exists('foo\u0000bar')).toEqual(false);
 	});
 
 	it('should return false for non-existing path (sync)', async () => {

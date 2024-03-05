@@ -1,8 +1,8 @@
-import { backends, fs, configure, fixturesDir } from '../../common';
+import { backends, fs, configure, fixturesDir } from '../common';
 import path from 'path';
 
 describe.each(backends)('%s fs file reading', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	const filepath = path.join(fixturesDir, 'elipses.txt');
 

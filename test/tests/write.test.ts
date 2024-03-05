@@ -1,16 +1,14 @@
-import { backends, fs, configure, tmpDir, fixturesDir } from '../../common';
+import { backends, fs, configure, tmpDir, fixturesDir } from '../common';
 import * as path from 'path';
 
-import { promisify } from 'node:util';
-
-const open = promisify<string, string, number, number>(fs.open);
-const write = promisify<number, string, number, string, number>(fs.write);
-const close = promisify(fs.close);
-const readFile = promisify<string, string, string>(fs.readFile);
-const unlink = promisify(fs.unlink);
+const open = fs.promises.open;
+const write = fs.promises.write;
+const close = fs.promises.close;
+const readFile = fs.promises.readFile;
+const unlink = fs.promises.unlink;
 
 describe.each(backends)('%s fs.write', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 	it('should write file with specified content asynchronously', async () => {
 		await configured;
 		if (fs.getMount('/').metadata.readonly) {
@@ -52,17 +50,17 @@ describe.each(backends)('%s fs.write', (name, options) => {
 		const filename = path.join(tmpDir, 'write.txt');
 		const expected = Buffer.from('hello');
 
-		const fd = await promisify<string, string, number, number>(fs.open)(filename, 'w', 0o644);
+		const fd = await fs.promises.open(filename, 'w', 0o644);
 
-		const written = await promisify<number, Buffer, number, number, number | null, number>(fs.write)(fd, expected, 0, expected.length, null);
+		const written = await fs.promises.write(fd, expected, 0, expected.length, null);
 
 		expect(expected.length).toBe(written);
 
-		await promisify(fs.close)(fd);
+		await fs.promises.close(fd);
 
-		const found = await promisify<string, string, string>(fs.readFile)(filename, 'utf8');
+		const found = await fs.promises.readFile(filename, 'utf8');
 		expect(expected.toString()).toBe(found);
 
-		await promisify(fs.unlink)(filename);
+		await fs.promises.unlink(filename);
 	});
 });

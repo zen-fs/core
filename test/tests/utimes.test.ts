@@ -1,10 +1,8 @@
-import { backends, fs, configure, fixturesDir } from '../../common';
+import { backends, fs, configure, fixturesDir } from '../common';
 import * as path from 'path';
 
-import { promisify } from 'node:util';
-
 describe.each(backends)('%s Utimes Tests', (name, options) => {
-	const configured = configure({ fs: name, options });
+	const configured = configure(options);
 
 	const filename = path.join(fixturesDir, 'x.txt');
 
@@ -24,20 +22,20 @@ describe.each(backends)('%s Utimes Tests', (name, options) => {
 	async function runTest(atime: Date | number, mtime: Date | number): Promise<void> {
 		await configured;
 
-		await promisify(fs.utimes)(filename, atime, mtime);
+		await fs.promises.utimes(filename, atime, mtime);
 		expect_ok('utimes', filename, atime, mtime);
 
-		await promisify(fs.utimes)('foobarbaz', atime, mtime).catch(err => {
+		await fs.promises.utimes('foobarbaz', atime, mtime).catch(err => {
 			expect_errno('utimes', 'foobarbaz', err, 'ENOENT');
 		});
 
 		// don't close this fd
-		const fd = await promisify<string, string, number>(fs.open)(filename, 'r');
+		const fd = await fs.promises.open(filename, 'r');
 
-		await promisify(fs.futimes)(fd, atime, mtime);
+		await fs.promises.futimes(fd, atime, mtime);
 		expect_ok('futimes', fd, atime, mtime);
 
-		await promisify(fs.futimes)(-1, atime, mtime).catch(err => {
+		await fs.promises.futimes(-1, atime, mtime).catch(err => {
 			expect_errno('futimes', -1, err, 'EBADF');
 		});
 
