@@ -140,9 +140,8 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 		return this.FileError(ErrorCode.ENOTEMPTY, path);
 	}
 
-	public errno: ErrorCode;
 	public code: string;
-	public path?: string;
+
 	// Unsupported.
 	public syscall: string = '';
 	public stack?: string;
@@ -157,12 +156,10 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 	 * @param type The type of the error.
 	 * @param message A descriptive error message.
 	 */
-	constructor(type: ErrorCode, message: string = ErrorStrings[type], path?: string) {
+	constructor(public errno: ErrorCode, message: string = ErrorStrings[errno], public path?: string) {
 		super(message);
-		this.errno = type;
-		this.code = ErrorCode[type];
-		this.path = path;
-		this.message = `Error: ${this.code}: ${message}${this.path ? `, '${this.path}'` : ''}`;
+		this.code = ErrorCode[errno];
+		this.message = `${this.code}: ${message}${this.path ? `, '${this.path}'` : ''}`;
 	}
 
 	/**

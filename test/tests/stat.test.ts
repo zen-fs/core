@@ -32,18 +32,18 @@ describe.each(backends)('%s File Stat Test', (name, options) => {
 		const fd = await fs.promises.open(existing_file, 'r');
 		expect(fd).toBeTruthy();
 
-		const stats = await fs.promises.fstat(fd);
+		const stats = await fd.stat();
 		expect(stats.mtime).toBeInstanceOf(Date);
-		await fs.promises.close(fd);
+		await fd.close();
 	});
 
 	if (fs.getMount('/').metadata.synchronous) {
 		it('should fstatSync existing file', async () => {
 			await configured;
-			const fd = await fs.promises.open(existing_file, 'r');
+			const fd = fs.openSync(existing_file, 'r');
 			const stats = fs.fstatSync(fd);
 			expect(stats.mtime).toBeInstanceOf(Date);
-			await fs.promises.close(fd);
+			fs.close(fd);
 		});
 	}
 

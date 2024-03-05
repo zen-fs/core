@@ -3,7 +3,6 @@ import * as path from 'path';
 
 describe.each(backends)('%s Link and Symlink Test', (name, options) => {
 	const configured = configure(options);
-	const readFileAsync = fs.promises.readFile;
 
 	it('should create and read symbolic link', async () => {
 		await configured;
@@ -38,8 +37,8 @@ describe.each(backends)('%s Link and Symlink Test', (name, options) => {
 			await fs.promises.link(srcPath, dstPath);
 			console.log('hard link done');
 
-			const srcContent = await readFileAsync(srcPath, 'utf8');
-			const dstContent = await readFileAsync(dstPath, 'utf8');
+			const srcContent = await fs.promises.readFile(srcPath, 'utf8');
+			const dstContent = await fs.promises.readFile(dstPath, 'utf8');
 			expect(srcContent).toBe(dstContent);
 		}
 	});
@@ -52,14 +51,11 @@ describe.each(backends)('%s Symbolic Link Test', (name, options) => {
 	const linkData = path.join(fixturesDir, 'cycles/');
 	const linkPath = path.join(tmpDir, 'cycles_link');
 
-	const unlinkAsync = fs.promises.unlink;
-	const existsAsync = fs.promises.existsSync;
-
 	beforeAll(async () => {
 		await configured;
 
 		// Delete previously created link
-		await unlinkAsync(linkPath);
+		await fs.promises.unlink(linkPath);
 
 		console.log('linkData: ' + linkData);
 		console.log('linkPath: ' + linkPath);
@@ -92,8 +88,8 @@ describe.each(backends)('%s Symbolic Link Test', (name, options) => {
 		if (fs.getMount('/').metadata.readonly || !fs.getMount('/').metadata.supportsLinks) {
 			return;
 		}
-		await unlinkAsync(linkPath);
-		expect(await existsAsync(linkPath)).toBe(false);
-		expect(await existsAsync(linkData)).toBe(true);
+		await fs.promises.unlink(linkPath);
+		expect(await fs.promises.exists(linkPath)).toBe(false);
+		expect(await fs.promises.exists(linkData)).toBe(true);
 	});
 });

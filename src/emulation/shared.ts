@@ -8,14 +8,15 @@ import { InMemory } from '../backends/InMemory.js';
 import type { File } from '../file.js';
 
 /**
- * converts Date or number to a fractional UNIX timestamp
+ * converts Date or number to a integer UNIX timestamp
  * Grabbed from NodeJS sources (lib/fs.js)
  */
 export function _toUnixTimestamp(time: Date | number): number {
 	if (typeof time === 'number') {
-		return time;
-	} else if (time instanceof Date) {
-		return time.getTime() / 1000;
+		return Math.floor(time);
+	}
+	if (time instanceof Date) {
+		return Math.floor(time.getTime() / 1000);
 	}
 	throw new Error('Cannot parse time: ' + time);
 }

@@ -18,12 +18,8 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 	}
 
 	async function process_file(p: string, fileMode: number): Promise<void> {
-		const readFileAsync = fs.promises.readFile;
-		const openAsync = fs.promises.open;
-		const closeAsync = fs.promises.close;
-
 		try {
-			const data = await readFileAsync(p);
+			const data = await fs.promises.readFile(p);
 			// Invariant 2: We can only read a file if we have read permissions on the file.
 			expect(is_readable(fileMode)).toBe(true);
 		} catch (err) {
@@ -36,10 +32,10 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 		}
 
 		try {
-			const fd = await openAsync(p, 'a');
+			const fd = await fs.promises.open(p, 'a');
 			// Invariant 3: We can only write to a file if we have write permissions on the file.
 			expect(is_writable(fileMode)).toBe(true);
-			await closeAsync(fd);
+			await fd.close();
 		} catch (err) {
 			if (err.code === 'EPERM') {
 				// Invariant 3: We can only write to a file if we have write permissions on the file.
@@ -51,12 +47,8 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 	}
 
 	async function process_directory(p: string, dirMode: number): Promise<void> {
-		const readdirAsync = fs.promises.readdir;
-		const writeFileAsync = fs.promises.writeFile;
-		const unlinkAsync = fs.promises.unlink;
-
 		try {
-			const dirs = await readdirAsync(p);
+			const dirs = await fs.promises.readdir(p);
 			// Invariant 2: We can only readdir if we have read permissions on the directory.
 			expect(is_readable(dirMode)).toBe(true);
 
@@ -69,9 +61,9 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 
 			// Try to write a file into the directory.
 			const testFile = path.resolve(p, '__test_file_plz_ignore.txt');
-			await writeFileAsync(testFile, testFileContents);
+			await fs.promises.writeFile(testFile, testFileContents);
 			// Clean up.
-			await unlinkAsync(testFile);
+			await fs.promises.unlink(testFile);
 		} catch (err) {
 			if (err.code === 'EPERM') {
 				// Invariant 2: We can only readdir if we have read permissions on the directory.
@@ -85,12 +77,10 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 	}
 
 	async function process_item(p: string, parentMode: number): Promise<void> {
-		const statAsync = fs.promises.stat;
-
 		const isReadOnly = fs.getMount('/').metadata.readonly;
 
 		try {
-			const stat = await statAsync(p);
+			const stat = await fs.promises.stat(p);
 			// Invariant 4: Ensure we have execute permissions on parent directory.
 			expect(is_executable(parentMode)).toBe(true);
 

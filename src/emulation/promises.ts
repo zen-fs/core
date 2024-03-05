@@ -357,7 +357,8 @@ async function _open(_path: PathLike, _flag: string, _mode: Node.Mode = 0o644, r
 				await file.sync();
 				return file;
 			case ActionType.NOP:
-				return doOp('openFile', resolveSymlinks, path, flag, cred);
+				// Must await so thrown errors are caught by the catch below
+				return await doOp('openFile', resolveSymlinks, path, flag, cred);
 			default:
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid file flag');
 		}

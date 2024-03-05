@@ -71,6 +71,9 @@ export namespace OverlayFS {
  */
 export class UnlockedOverlayFS extends FileSystem {
 	async ready(): Promise<this> {
+		await this._readable.ready();
+		await this._writable.ready();
+		await this._ready;
 		return this;
 	}
 
@@ -87,6 +90,8 @@ export class UnlockedOverlayFS extends FileSystem {
 	// If there was an error updating the delete log...
 	private _deleteLogError?: ApiError;
 
+	private _ready: Promise<void>;
+
 	constructor({ writable, readable }: OverlayFS.Options) {
 		super();
 		this._writable = writable;
@@ -94,6 +99,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		if (this._writable.metadata.readonly) {
 			throw new ApiError(ErrorCode.EINVAL, 'Writable file system must be writable.');
 		}
+		this._ready = this._initialize();
 	}
 
 	public get metadata(): FileSystemMetadata {
@@ -125,12 +131,10 @@ export class UnlockedOverlayFS extends FileSystem {
 	}
 
 	/**
-	 *
 	 * Called once to load up metadata stored on the writable file system.
 	 * @internal
 	 */
 	public async _initialize(): Promise<void> {
-		// if we're already initialized, immediately invoke the callback
 		if (this._isInitialized) {
 			return;
 		}
@@ -570,10 +574,9 @@ export class UnlockedOverlayFS extends FileSystem {
  * file system.
  */
 export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
-	protected _ready: Promise<this>;
-
-	public ready() {
-		return this._ready;
+	public async ready() {
+		await super.ready();
+		return this;
 	}
 
 	/**
@@ -581,7 +584,6 @@ export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
 	 */
 	constructor(options: OverlayFS.Options) {
 		super(new UnlockedOverlayFS(options));
-		this._ready = this._initialize();
 	}
 
 	public getOverlayedFileSystems(): OverlayFS.Options {
@@ -598,11 +600,6 @@ export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
 
 	public unwrap(): UnlockedOverlayFS {
 		return super.fs;
-	}
-
-	private async _initialize(): Promise<this> {
-		await super.fs._initialize();
-		return this;
 	}
 }
 

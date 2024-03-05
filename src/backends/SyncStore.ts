@@ -238,7 +238,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			newName = basename(newPath),
 			// Remove oldPath from parent's directory listing.
 			oldDirNode = this.findINode(tx, oldParent),
-			oldDirList = this.getDirListing(tx, oldParent, oldDirNode);
+			oldDirList = this.getDirListing(tx, oldDirNode, oldParent);
 
 		if (!oldDirNode.toStats().hasAccess(W_OK, cred)) {
 			throw ApiError.EACCES(oldPath);
@@ -267,12 +267,12 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			newDirList = oldDirList;
 		} else {
 			newDirNode = this.findINode(tx, newParent);
-			newDirList = this.getDirListing(tx, newParent, newDirNode);
+			newDirList = this.getDirListing(tx, newDirNode, newParent);
 		}
 
 		if (newDirList[newName]) {
 			// If it's a file, delete it.
-			const newNameNode = this.getINode(tx, newPath, newDirList[newName]);
+			const newNameNode = this.getINode(tx, newDirList[newName], newPath);
 			if (newNameNode.toStats().isFile()) {
 				try {
 					tx.remove(newNameNode.ino);
@@ -321,7 +321,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		if (!node.toStats().hasAccess(flag.mode, cred)) {
 			throw ApiError.EACCES(p);
 		}
-		if (!data) {
+		if (data === null) {
 			throw ApiError.ENOENT(p);
 		}
 		return new SyncStoreFile(this, p, flag, node.toStats(), data);
@@ -350,7 +350,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		if (!node.toStats().hasAccess(R_OK, cred)) {
 			throw ApiError.EACCES(p);
 		}
-		return Object.keys(this.getDirListing(tx, p, node));
+		return Object.keys(this.getDirListing(tx, node, p));
 	}
 
 	public syncSync(p: string, data: Uint8Array, stats: Readonly<Stats>): void {
@@ -359,7 +359,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		const tx = this.store.beginTransaction('readwrite'),
 			// We use the _findInode helper because we actually need the INode id.
 			fileInodeId = this._findINode(tx, dirname(p), basename(p)),
-			fileInode = this.getINode(tx, p, fileInodeId),
+			fileInode = this.getINode(tx, fileInodeId, p),
 			inodeChanged = fileInode.update(stats);
 
 		try {
@@ -385,7 +385,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			throw ApiError.EACCES(src_dir);
 		}
 
-		const ino = this.getDirListing(tx, src_dir, src_node)[basename(srcpath)];
+		const ino = this.getDirListing(tx, src_node, src_dir)[basename(srcpath)];
 
 		if (!ino) {
 			throw ApiError.ENOENT(basename(srcpath));
@@ -393,7 +393,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 
 		const dst_dir: string = dirname(srcpath),
 			dst_node = this.findINode(tx, dst_dir),
-			dst_listing = this.getDirListing(tx, dst_dir, dst_node);
+			dst_listing = this.getDirListing(tx, dst_node, dst_dir);
 
 		if (!dst_node.toStats().hasAccess(W_OK, cred)) {
 			throw ApiError.EACCES(dst_dir);
@@ -441,23 +441,24 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		}
 
 		visited.add(currentPath);
-		const readDirectory = (inode: Inode): Ino => {
-			// Get the root's directory listing.
-			const dir = this.getDirListing(tx, parent, inode);
-			// Get the file's ID.
-			if (filename in dir) {
-				return dir[filename];
-			}
-			throw ApiError.ENOENT(resolve(parent, filename));
-		};
 
 		if (parent != '/') {
-			return readDirectory(this.getINode(tx, parent + sep + filename, this._findINode(tx, dirname(parent), basename(parent), visited)));
+			const ino = this._findINode(tx, dirname(parent), basename(parent), visited);
+			const dir = this.getDirListing(tx, this.getINode(tx, ino, parent + sep + filename), parent);
+			if (!(filename in dir)) {
+				throw new ApiError(ErrorCode.ENOENT, resolve(parent, filename));
+			}
+
+			return dir[filename];
 		}
 
 		if (filename != '') {
 			// Find the item in the root node.
-			return readDirectory(this.getINode(tx, parent, rootIno));
+			const dir = this.getDirListing(tx, this.getINode(tx, rootIno, parent), parent);
+			if (!(filename in dir)) {
+				throw new ApiError(ErrorCode.ENOENT, resolve(parent, filename));
+			}
+			return dir[filename];
 		}
 
 		// Return the root's ID.
@@ -471,7 +472,8 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	 * @todo memoize/cache
 	 */
 	protected findINode(tx: SyncROTransaction, p: string): Inode {
-		return this.getINode(tx, p, this._findINode(tx, dirname(p), basename(p)));
+		const ino = this._findINode(tx, dirname(p), basename(p));
+		return this.getINode(tx, ino, p);
 	}
 
 	/**
@@ -480,7 +482,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	 * @param p The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	protected getINode(tx: SyncROTransaction, p: string, id: Ino): Inode {
+	protected getINode(tx: SyncROTransaction, id: Ino, p?: string): Inode {
 		const data = tx.get(id);
 		if (!data) {
 			throw ApiError.ENOENT(p);
@@ -489,10 +491,9 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	}
 
 	/**
-	 * Given the Inode of a directory, retrieves the corresponding directory
-	 * listing.
+	 * Given the Inode of a directory, retrieves the corresponding directory listing.
 	 */
-	protected getDirListing(tx: SyncROTransaction, p: string, inode: Inode): { [fileName: string]: Ino } {
+	protected getDirListing(tx: SyncROTransaction, inode: Inode, p?: string): { [fileName: string]: Ino } {
 		if (!inode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
@@ -537,7 +538,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = this.findINode(tx, parentDir),
-			dirListing = this.getDirListing(tx, parentDir, parentNode);
+			dirListing = this.getDirListing(tx, parentNode, parentDir);
 
 		//Check that the creater has correct access
 		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
@@ -557,7 +558,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			throw ApiError.EEXIST(p);
 		}
 
-		const fileNode: Inode = new Inode();
+		const fileNode = new Inode();
 		try {
 			// Commit data.
 			fileNode.ino = this.addNewNode(tx, data);
@@ -586,17 +587,16 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		const tx = this.store.beginTransaction('readwrite'),
 			parent: string = dirname(p),
 			parentNode = this.findINode(tx, parent),
-			parentListing = this.getDirListing(tx, parent, parentNode),
-			fileName: string = basename(p);
+			parentListing = this.getDirListing(tx, parentNode, parent),
+			fileName: string = basename(p),
+			fileIno: Ino = parentListing[fileName];
 
-		if (!parentListing[fileName]) {
+		if (!fileIno) {
 			throw ApiError.ENOENT(p);
 		}
 
-		const fileNodeId = parentListing[fileName];
-
 		// Get file inode.
-		const fileNode = this.getINode(tx, p, fileNodeId);
+		const fileNode = this.getINode(tx, fileIno, p);
 
 		if (!fileNode.toStats().hasAccess(W_OK, cred)) {
 			throw ApiError.EACCES(p);
@@ -617,7 +617,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			// Delete data.
 			tx.remove(fileNode.ino);
 			// Delete node.
-			tx.remove(fileNodeId);
+			tx.remove(fileIno);
 			// Update directory listing.
 			tx.put(parentNode.ino, encodeDirListing(parentListing), true);
 		} catch (e) {

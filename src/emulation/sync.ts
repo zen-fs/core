@@ -523,7 +523,7 @@ mkdirSync satisfies typeof Node.mkdirSync;
  * Synchronous `readdir`. Reads the contents of a directory.
  * @param path
  */
-export function readdirSync(path: PathLike, options: { encoding?: BufferEncoding; withFileTypes?: false } | BufferEncoding): string[];
+export function readdirSync(path: PathLike, options?: { encoding?: BufferEncoding; withFileTypes?: false } | BufferEncoding): string[];
 export function readdirSync(path: PathLike, options: { encoding: 'buffer'; withFileTypes?: false } | 'buffer'): Uint8Array[];
 export function readdirSync(path: PathLike, options: { withFileTypes: true }): Dirent[];
 export function readdirSync(path: PathLike, options?: { encoding?: BufferEncoding | 'buffer'; withFileTypes?: boolean } | string): string[] | Dirent[] | Uint8Array[] {

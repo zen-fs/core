@@ -47,7 +47,7 @@ describe.each(backends)('%s Read and Unlink File Test', (name, options) => {
 		if (fs.getMount('/').metadata.readonly) {
 			return;
 		}
-		const data: Buffer = await fs.promises.readFile(fileName);
+		const data: Uint8Array = await fs.promises.readFile(fileName);
 		expect(data.length).toBe(buf.length);
 		expect(data[0]).toBe(42);
 	});
@@ -68,7 +68,7 @@ describe.each(backends)('%s Read File Test', (name, options) => {
 
 	it('should read file asynchronously', async () => {
 		await configured;
-		const data: Buffer = await fs.promises.readFile(fn);
+		const data: Uint8Array = await fs.promises.readFile(fn);
 		expect(data).toBeDefined();
 	});
 
@@ -81,7 +81,7 @@ describe.each(backends)('%s Read File Test', (name, options) => {
 	if (fs.getMount('/').metadata.synchronous) {
 		it('should read file synchronously', async () => {
 			await configured;
-			const data: Buffer = fs.readFileSync(fn);
+			const data: Uint8Array = fs.readFileSync(fn);
 			expect(data).toBeDefined();
 		});
 

@@ -1,15 +1,14 @@
 import { backends, fs, configure, fixturesDir } from '../common';
 import * as path from 'path';
 
-import { promisify } from 'util';
 import type { ApiError } from '../../src/ApiError';
 
 const existingFile = path.join(fixturesDir, 'exit.js');
 
-const expectAsyncError = async (fn, p: string, ...args) => {
+const expectError = async (fn: (...args) => Promise<unknown>, p: string, ...args) => {
 	let error: ApiError;
 	try {
-		await promisify(fn)(p, ...args);
+		await fn(p, ...args);
 	} catch (err) {
 		error = err;
 	}
@@ -19,7 +18,7 @@ const expectAsyncError = async (fn, p: string, ...args) => {
 	return error;
 };
 
-const expectSyncError = (fn, p: string, ...args) => {
+const expectSyncError = (fn: (...args) => unknown, p: string, ...args) => {
 	let error: ApiError;
 	try {
 		fn(p, ...args);
@@ -32,36 +31,36 @@ const expectSyncError = (fn, p: string, ...args) => {
 	return error;
 };
 
-describe.each(backends)('%s File System Tests', (name, options) => {
+describe.each(backends)('%s Error tests', (name, options) => {
 	const configured = configure(options);
 
 	it('should handle async operations with error', async () => {
 		await configured;
 		const fn = path.join(fixturesDir, 'non-existent');
 
-		await expectAsyncError(fs.stat, fn);
+		await expectError(fs.promises.stat, fn);
 
 		if (!fs.getMount('/').metadata.readonly) {
-			await expectAsyncError(fs.mkdir, existingFile, 0o666);
-			await expectAsyncError(fs.rmdir, fn);
-			await expectAsyncError(fs.rmdir, existingFile);
-			await expectAsyncError(fs.rename, fn, 'foo');
-			await expectAsyncError(fs.open, fn, 'r');
-			await expectAsyncError(fs.readdir, fn);
-			await expectAsyncError(fs.unlink, fn);
+			await expectError(fs.promises.mkdir, existingFile, 0o666);
+			await expectError(fs.promises.rmdir, fn);
+			await expectError(fs.promises.rmdir, existingFile);
+			await expectError(fs.promises.rename, fn, 'foo');
+			await expectError(fs.promises.open, fn, 'r');
+			await expectError(fs.promises.readdir, fn);
+			await expectError(fs.promises.unlink, fn);
 
 			if (fs.getMount('/').metadata.supportsLinks) {
-				await expectAsyncError(fs.link, fn, 'foo');
+				await expectError(fs.promises.link, fn, 'foo');
 			}
 
 			if (fs.getMount('/').metadata.supportsProperties) {
-				await expectAsyncError(fs.chmod, fn, 0o666);
+				await expectError(fs.promises.chmod, fn, 0o666);
 			}
 		}
 
 		if (fs.getMount('/').metadata.supportsLinks) {
-			await expectAsyncError(fs.lstat, fn);
-			await expectAsyncError(fs.readlink, fn);
+			await expectError(fs.promises.lstat, fn);
+			await expectError(fs.promises.readlink, fn);
 		}
 	});
 

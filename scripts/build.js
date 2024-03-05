@@ -22,11 +22,16 @@ const config = {
 	plugins: [
 		{
 			name: 'tsc',
-			setup({ onStart }) {
+			setup({ onStart, onEnd }) {
+				let buildCount = 0;
 				onStart(async () => {
 					try {
+						console.log(`------------ Building #${++buildCount}`);
 						execSync('npx tsc -p tsconfig.json', { stdio: 'inherit' });
 					} finally {}
+				});
+				onEnd(() => {
+					console.log(`--------------- Built #${buildCount}`);
 				});
 			}
 		}

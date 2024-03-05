@@ -172,12 +172,15 @@ export async function resolveBackendConfig(options: BackendConfig): Promise<File
 	const props = Object.keys(options).filter(k => k != 'backend');
 
 	for (const prop of props) {
-		const opts = options[prop];
-		if (!isBackendConfig(opts)) {
-			continue;
+		let option = options[prop];
+
+		if (isBackend(option)) {
+			option = { backend: option };
 		}
 
-		options[prop] = await resolveBackendConfig(opts);
+		if (isBackendConfig(option)) {
+			options[prop] = await resolveBackendConfig(option);
+		}
 	}
 
 	if (!backend) {

@@ -17,9 +17,7 @@ import { Cred } from '../cred.js';
 export default class LockedFS<T extends FileSystem> implements FileSystem {
 	private _mu: Mutex = new Mutex();
 
-	constructor(public readonly fs: T) {
-		this.fs = fs;
-	}
+	constructor(public readonly fs: T) {}
 
 	public async ready(): Promise<this> {
 		await this.fs.ready();

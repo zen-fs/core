@@ -90,7 +90,7 @@ export class AsyncMirrorFS extends SyncFileSystem {
 	private _async: FileSystem;
 	private _isInitialized: boolean = false;
 
-	private _ready = this._initialize();
+	private _ready: Promise<void>;
 
 	public async ready(): Promise<this> {
 		await this._ready;
@@ -108,6 +108,7 @@ export class AsyncMirrorFS extends SyncFileSystem {
 		super();
 		this._sync = sync;
 		this._async = async;
+		this._ready = this._initialize();
 	}
 
 	public get metadata(): FileSystemMetadata {
@@ -252,9 +253,9 @@ export class AsyncMirrorFS extends SyncFileSystem {
 	/**
 	 * Called once to load up files from async storage into sync storage.
 	 */
-	protected async _initialize(): Promise<this> {
+	protected async _initialize(): Promise<void> {
 		if (this._isInitialized) {
-			return this;
+			return;
 		}
 
 		try {
@@ -264,8 +265,6 @@ export class AsyncMirrorFS extends SyncFileSystem {
 			this._isInitialized = false;
 			throw e;
 		}
-
-		return this;
 	}
 
 	/**

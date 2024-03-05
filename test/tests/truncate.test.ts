@@ -1,19 +1,14 @@
-import { backends, fs, configure, tmpDir, fixturesDir } from '../common';
+import { backends, fs, configure, tmpDir } from '../common';
 import * as path from 'path';
 
 describe.each(backends)('%s Truncate Tests', (name, options) => {
 	const configured = configure(options);
 	let filename: string;
 	const data = Buffer.alloc(1024 * 16, 'x');
-	let success: number;
 
 	beforeAll(() => {
 		const tmp = tmpDir;
 		filename = path.resolve(tmp, 'truncate-file.txt');
-	});
-
-	beforeEach(() => {
-		success = 0;
 	});
 
 	afterEach(async () => {
@@ -35,18 +30,16 @@ describe.each(backends)('%s Truncate Tests', (name, options) => {
 		fs.writeFileSync(filename, data);
 		expect(fs.statSync(filename).size).toBe(1024 * 16);
 
-		/* once fs.ftruncateSync is supported.
 		const fd = fs.openSync(filename, 'r+');
 		fs.ftruncateSync(fd, 1024);
-		stat = fs.statSync(filename);
+		let stat = fs.statSync(filename);
 		expect(stat.size).toBe(1024);
 
 		fs.ftruncateSync(fd);
 		stat = fs.statSync(filename);
 		expect(stat.size).toBe(0);
-		
+
 		fs.closeSync(fd);
-		*/
 	});
 
 	it('Truncate Async', async () => {
@@ -70,16 +63,16 @@ describe.each(backends)('%s Truncate Tests', (name, options) => {
 		await fs.promises.writeFile(filename, data);
 		expect((await stat(filename)).size).toBe(1024 * 16);
 
-		const fd = await fs.promises.open(filename, 'w');
+		const handle = await fs.promises.open(filename, 'w');
 
-		await fs.promises.ftruncate(fd, 1024);
-		await fs.promises.fsync(fd);
+		await handle.truncate(1024);
+		await handle.sync();
 		expect((await stat(filename)).size).toBe(1024);
 
-		await fs.promises.ftruncate(fd);
-		await fs.promises.fsync(fd);
+		await handle.truncate();
+		await handle.sync();
 		expect((await stat(filename)).size).toBe(0);
 
-		await fs.promises.close(fd);
+		await handle.close();
 	});
 });

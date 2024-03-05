@@ -1,10 +1,9 @@
-import { Stats, FileType } from '../src/stats';
+import { Stats, FileType, type BigIntStats } from '../src/stats';
 import { configure as _configure, fs, InMemory, AsyncMirror, Overlay } from '../src/index';
 import * as path from 'path';
 import { statSync, readFileSync, readdirSync } from 'fs';
 import type { BackendConfig } from '../src/backends/backend';
 
-export const tmpDir = 'tmp/';
 export const fixturesDir = 'test/fixtures/files/node';
 
 function copy(_fs: typeof fs, _p: string) {
@@ -31,7 +30,7 @@ export async function configure(config: BackendConfig): Promise<void> {
 
 export { fs };
 
-export function createMockStats(mode: number | bigint): Stats {
+export function createMockStats(mode: number | bigint): Stats | BigIntStats {
 	return new Stats(FileType.FILE, -1, mode);
 }
 
