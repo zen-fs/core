@@ -1,11 +1,7 @@
-import { backends, fs, configure } from '../common';
+import { fs } from '../common';
 
-describe.each(backends)('%s Directory Removal', (name, options) => {
-	const configured = configure(options);
-
+describe('Directory Removal', () => {
 	it('Cannot remove non-empty directories', async () => {
-		await configured;
-
 		await fs.promises.mkdir('/rmdirTest');
 		await fs.promises.mkdir('/rmdirTest/rmdirTest2');
 

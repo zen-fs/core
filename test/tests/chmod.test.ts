@@ -1,4 +1,4 @@
-import { fs, createMockStats, fixturesDir } from '../common';
+import { fs, createMockStats } from '../common';
 import * as path from 'path';
 import { jest } from '@jest/globals';
 
@@ -8,7 +8,7 @@ const modeSync = 0o644;
 
 describe('chmod tests', () => {
 	it('should change file mode using chmod', async () => {
-		const file1 = path.join(fixturesDir, 'a.js');
+		const file1 = 'a.js';
 
 		jest.spyOn(fs, 'chmod').mockImplementation(async (path, mode) => {
 			expect(path).toBe(file1);
@@ -26,7 +26,7 @@ describe('chmod tests', () => {
 	});
 
 	it('should change file mode using fchmod', async () => {
-		const file2 = path.join(fixturesDir, 'a1.js');
+		const file2 = 'a1.js';
 
 		jest.spyOn(fs, 'open').mockImplementation(async (path, flags, mode) => {
 			expect(path).toBe(file2);
@@ -51,7 +51,7 @@ describe('chmod tests', () => {
 
 	it('should change symbolic link mode using lchmod', async () => {
 		const link = path.join('symbolic-link');
-		const file2 = path.join(fixturesDir, 'a1.js');
+		const file2 = 'a1.js';
 
 		jest.spyOn(fs, 'unlinkSync').mockImplementation(path => {
 			expect(path).toBe(link);

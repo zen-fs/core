@@ -1,18 +1,13 @@
-import { backends, fs, configure, tmpDir, fixturesDir } from '../common';
-import * as path from 'path';
-
+import { fs } from '../common';
 import { jest } from '@jest/globals';
 
-describe.each(backends)('%s File Writing with Custom Mode', (name, options) => {
-	const configured = configure(options);
+describe('File Writing with Custom Mode', () => {
 	afterEach(() => {
 		jest.restoreAllMocks();
 	});
 
 	it('should write file synchronously with custom mode', async () => {
-		await configured;
-
-		const file = path.join(tmpDir, 'testWriteFileSync.txt');
+		const file = 'testWriteFileSync.txt';
 		const mode = 0o755;
 
 		jest.spyOn(fs, 'openSync').mockImplementation((...args) => {
@@ -28,18 +23,14 @@ describe.each(backends)('%s File Writing with Custom Mode', (name, options) => {
 		const content = fs.readFileSync(file, { encoding: 'utf8' });
 		expect(content).toBe('123');
 
-		if (fs.getMount('/').metadata.supportsProperties) {
-			const actual = fs.statSync(file).mode & 0o777;
-			expect(actual).toBe(mode);
-		}
+		const actual = fs.statSync(file).mode & 0o777;
+		expect(actual).toBe(mode);
 
 		fs.unlinkSync(file);
 	});
 
 	it('should append to a file synchronously with custom mode', async () => {
-		await configured;
-
-		const file = path.join(tmpDir, 'testAppendFileSync.txt');
+		const file = 'testAppendFileSync.txt';
 		const mode = 0o755;
 
 		jest.spyOn(fs, 'openSync').mockImplementation((...args) => {
@@ -55,9 +46,7 @@ describe.each(backends)('%s File Writing with Custom Mode', (name, options) => {
 		const content = fs.readFileSync(file, { encoding: 'utf8' });
 		expect(content).toBe('abc');
 
-		if (fs.getMount('/').metadata.supportsProperties) {
-			expect(fs.statSync(file).mode & mode).toBe(mode);
-		}
+		expect(fs.statSync(file).mode & mode).toBe(mode);
 
 		fs.unlinkSync(file);
 	});

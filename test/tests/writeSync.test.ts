@@ -1,16 +1,8 @@
-import { backends, fs, configure, tmpDir, fixturesDir } from '../common';
-import * as path from 'path';
+import { fs } from '../common';
 
-describe.each(backends)('%s fs.writeSync', (name, options) => {
-	const configured = configure(options);
+describe('fs.writeSync', () => {
 	it('should write file synchronously with specified content', async () => {
-		await configured;
-
-		if (fs.getMount('/').metadata.readonly || !fs.getMount('/').metadata.synchronous) {
-			return;
-		}
-
-		const fn = path.join(tmpDir, 'write.txt');
+		const fn = 'write.txt';
 		const foo = 'foo';
 		const fd = fs.openSync(fn, 'w');
 

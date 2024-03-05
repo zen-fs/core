@@ -1,18 +1,15 @@
-import { backends, fs, configure, fixturesDir } from '../common';
-import * as path from 'path';
+import { fs } from '../common';
 
-describe.each(backends)('%s read', (name, options) => {
-	const configured = configure(options);
+describe('read', () => {
 	let filepath: string;
 	let expected: string;
 
 	beforeEach(() => {
-		filepath = path.join(fixturesDir, 'x.txt');
+		filepath = 'x.txt';
 		expected = 'xyz\n';
 	});
 
 	it('should read file asynchronously', async () => {
-		await configured;
 		const fd = await fs.promises.open(filepath, 'r');
 		const buffer = Buffer.alloc(expected.length);
 		const bytesRead = await fs.promises.read(fd, buffer, 0, expected.length, 0);
@@ -21,45 +18,35 @@ describe.each(backends)('%s read', (name, options) => {
 		expect(bytesRead).toEqual(expected.length);
 	});
 
-	if (fs.getMount('/').metadata.synchronous) {
-		it('should read file synchronously', async () => {
-			await configured;
-			const fd = fs.openSync(filepath, 'r');
-			const buffer = Buffer.alloc(expected.length);
-			const bytesRead = fs.readSync(fd, buffer, 0, expected.length, 0);
+	it('should read file synchronously', async () => {
+		const fd = fs.openSync(filepath, 'r');
+		const buffer = Buffer.alloc(expected.length);
+		const bytesRead = fs.readSync(fd, buffer, 0, expected.length, 0);
 
-			expect(buffer.toString()).toEqual(expected);
-			expect(bytesRead).toEqual(expected.length);
-		});
-	}
+		expect(buffer.toString()).toEqual(expected);
+		expect(bytesRead).toEqual(expected.length);
+	});
 });
 
-describe.each(backends)('%s read binary', (name, options) => {
-	const configured = configure(options);
-
+describe('read binary', () => {
 	it('Read a file and check its binary bytes (asynchronous)', async () => {
-		await configured;
-		const buff = await fs.promises.readFile(path.join(fixturesDir, 'elipses.txt'));
+		const buff = await fs.promises.readFile('elipses.txt');
 		expect((buff[1] << 8) | buff[0]).toBe(32994);
 	});
 
 	it('Read a file and check its binary bytes (synchronous)', () => {
-		if (fs.getMount('/').metadata.synchronous) {
-			const buff = fs.readFileSync(path.join(fixturesDir, 'elipses.txt'));
-			expect((buff[1] << 8) | buff[0]).toBe(32994);
-		}
+		const buff = fs.readFileSync('elipses.txt');
+		expect((buff[1] << 8) | buff[0]).toBe(32994);
 	});
 });
 
-describe.each(backends)('%s read buffer', (name, options) => {
-	const configured = configure(options);
-	const filepath = path.join(fixturesDir, 'x.txt');
+describe('read buffer', () => {
+	const filepath = 'x.txt';
 	const expected = 'xyz\n';
 	const bufferAsync = Buffer.alloc(expected.length);
 	const bufferSync = Buffer.alloc(expected.length);
 
 	it('should read file asynchronously', async () => {
-		await configured;
 		const fd = await fs.promises.open(filepath, 'r');
 		const bytesRead = await fs.promises.read(fd, bufferAsync, 0, expected.length, 0);
 
@@ -68,13 +55,10 @@ describe.each(backends)('%s read buffer', (name, options) => {
 	});
 
 	it('should read file synchronously', async () => {
-		await configured;
-		if (fs.getMount('/').metadata.synchronous) {
-			const fd = fs.openSync(filepath, 'r');
-			const bytesRead = fs.readSync(fd, bufferSync, 0, expected.length, 0);
+		const fd = fs.openSync(filepath, 'r');
+		const bytesRead = fs.readSync(fd, bufferSync, 0, expected.length, 0);
 
-			expect(bufferSync.toString()).toBe(expected);
-			expect(bytesRead).toBe(expected.length);
-		}
+		expect(bufferSync.toString()).toBe(expected);
+		expect(bytesRead).toBe(expected.length);
 	});
 });

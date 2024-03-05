@@ -1,39 +1,33 @@
-import { backends, fs, configure, fixturesDir } from '../common';
-import * as path from 'path';
+import { fs } from '../common';
 
-describe.each(backends)('%s Directory Reading', (name, options) => {
-	const configured = configure(options);
-
+describe('Directory Reading', () => {
 	it('Cannot call readdir on a file (synchronous)', () => {
 		let wasThrown = false;
-		if (fs.getMount('/').metadata.synchronous) {
-			try {
-				fs.readdirSync(path.join(fixturesDir, 'a.js'));
-			} catch (e) {
-				wasThrown = true;
-				expect(e.code).toBe('ENOTDIR');
-			}
-			expect(wasThrown).toBeTruthy();
+
+		try {
+			fs.readdirSync('a.js');
+		} catch (e) {
+			wasThrown = true;
+			expect(e.code).toBe('ENOTDIR');
 		}
+		expect(wasThrown).toBeTruthy();
 	});
 
 	it('Cannot call readdir on a non-existent directory (synchronous)', () => {
 		let wasThrown = false;
-		if (fs.getMount('/').metadata.synchronous) {
-			try {
-				fs.readdirSync('/does/not/exist');
-			} catch (e) {
-				wasThrown = true;
-				expect(e.code).toBe('ENOENT');
-			}
-			expect(wasThrown).toBeTruthy();
+
+		try {
+			fs.readdirSync('/does/not/exist');
+		} catch (e) {
+			wasThrown = true;
+			expect(e.code).toBe('ENOENT');
 		}
+		expect(wasThrown).toBeTruthy();
 	});
 
 	it('Cannot call readdir on a file (asynchronous)', async () => {
-		await configured;
 		try {
-			await fs.promises.readdir(path.join(fixturesDir, 'a.js'));
+			await fs.promises.readdir('a.js');
 		} catch (err) {
 			expect(err).toBeTruthy();
 			expect(err.code).toBe('ENOTDIR');
@@ -41,7 +35,6 @@ describe.each(backends)('%s Directory Reading', (name, options) => {
 	});
 
 	it('Cannot call readdir on a non-existent directory (asynchronous)', async () => {
-		await configured;
 		try {
 			await fs.promises.readdir('/does/not/exist');
 		} catch (err) {

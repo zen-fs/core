@@ -1,53 +1,35 @@
-import { backends, fs, configure, tmpDir, fixturesDir } from '../common';
-import * as path from 'path';
+import { fs } from '../common';
 
-const open = fs.promises.open;
-const write = fs.promises.write;
-const close = fs.promises.close;
-const readFile = fs.promises.readFile;
-const unlink = fs.promises.unlink;
-
-describe.each(backends)('%s fs.write', (name, options) => {
-	const configured = configure(options);
+describe('fs.write', () => {
 	it('should write file with specified content asynchronously', async () => {
-		await configured;
-		if (fs.getMount('/').metadata.readonly) {
-			return;
-		}
-
-		const fn = path.join(tmpDir, 'write.txt');
-		const fn2 = path.join(tmpDir, 'write2.txt');
+		const fn = 'write.txt';
+		const fn2 = 'write2.txt';
 		const expected = 'ümlaut.';
 
-		const fd = await open(fn, 'w', 0o644);
-		await write(fd, '', 0, 'utf8');
-		const written = await write(fd, expected, 0, 'utf8');
+		const fd = await fs.promises.open(fn, 'w', 0o644);
+		await fs.promises.write(fd, '', 0, 'utf8');
+		const written = await fs.promises.write(fd, expected, 0, 'utf8');
 		expect(written).toBe(Buffer.byteLength(expected));
-		await close(fd);
+		await fd.close();
 
-		const data = await readFile(fn, 'utf8');
+		const data = await fs.promises.readFile(fn, 'utf8');
 		expect(data).toBe(expected);
 
-		await unlink(fn);
-		const fd2 = await open(fn2, 'w', 0o644);
-		await write(fd2, '', 0, 'utf8');
-		const written2 = await write(fd2, expected, 0, 'utf8');
+		await fs.promises.unlink(fn);
+		const fd2 = await fs.promises.open(fn2, 'w', 0o644);
+		await fs.promises.write(fd2, '', 0, 'utf8');
+		const written2 = await fs.promises.write(fd2, expected, 0, 'utf8');
 		expect(written2).toBe(Buffer.byteLength(expected));
-		await close(fd2);
+		await fd2.close();
 
-		const data2 = await readFile(fn2, 'utf8');
+		const data2 = await fs.promises.readFile(fn2, 'utf8');
 		expect(data2).toBe(expected);
 
-		await unlink(fn2);
+		await fs.promises.unlink(fn2);
 	});
 
 	it('should write a buffer to a file asynchronously', async () => {
-		await configured;
-		if (fs.getMount('/').metadata.readonly) {
-			return;
-		}
-
-		const filename = path.join(tmpDir, 'write.txt');
+		const filename = 'write.txt';
 		const expected = Buffer.from('hello');
 
 		const fd = await fs.promises.open(filename, 'w', 0o644);
@@ -56,7 +38,7 @@ describe.each(backends)('%s fs.write', (name, options) => {
 
 		expect(expected.length).toBe(written);
 
-		await fs.promises.close(fd);
+		await fd.close();
 
 		const found = await fs.promises.readFile(filename, 'utf8');
 		expect(expected.toString()).toBe(found);

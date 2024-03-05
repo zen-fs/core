@@ -1,16 +1,9 @@
-import { backends, fs, configure, fixturesDir } from '../common';
-import path from 'path';
+import { fs } from '../common';
 
-describe.each(backends)('%s fs file reading', (name, options) => {
-	const configured = configure(options);
-
-	const filepath = path.join(fixturesDir, 'elipses.txt');
+describe('fs file reading', () => {
+	const filepath = 'elipses.txt';
 
 	it('should read file synchronously and verify the content', async () => {
-		await configured;
-		if (!fs.getMount('/').metadata.synchronous) {
-			return;
-		}
 		const content = fs.readFileSync(filepath, 'utf8');
 
 		for (let i = 0; i < content.length; i++) {

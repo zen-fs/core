@@ -1,9 +1,7 @@
-import { backends, fs, configure } from '../common';
+import { fs } from '../common';
 import * as path from 'path';
 
-describe.each(backends)('%s File and Directory Rename Tests', (name, options) => {
-	const configured = configure(options);
-
+describe('File and Directory Rename Tests', () => {
 	/**
 	 * Creates the following directory structure within the given dir:
 	 * - _rename_me
@@ -42,10 +40,6 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 	}
 
 	it('Directory Rename', async () => {
-		await configured;
-		if (fs.getMount('/').metadata.readonly) {
-			return;
-		}
 		const oldDir = '/rename_test';
 		const newDir = '/rename_test2';
 
@@ -72,10 +66,6 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 	});
 
 	it('File Rename', async () => {
-		await configured;
-		if (fs.getMount('/').metadata.readonly) {
-			return;
-		}
 		const fileDir = '/rename_file_test';
 		const file1 = path.resolve(fileDir, 'fun.js');
 		const file2 = path.resolve(fileDir, 'fun2.js');
@@ -96,10 +86,6 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 	});
 
 	it('File to Directory and Directory to File Rename', async () => {
-		await configured;
-		if (fs.getMount('/').metadata.readonly) {
-			return;
-		}
 		const dir = '/rename_filedir_test';
 		const file = '/rename_filedir_test.txt';
 
@@ -125,10 +111,6 @@ describe.each(backends)('%s File and Directory Rename Tests', (name, options) =>
 	});
 
 	it('Cannot Rename a Directory Inside Itself', async () => {
-		await configured;
-		if (fs.getMount('/').metadata.readonly) {
-			return;
-		}
 		const renDir1 = '/renamedir_1';
 		const renDir2 = '/renamedir_1/lol';
 

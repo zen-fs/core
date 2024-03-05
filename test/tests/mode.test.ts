@@ -1,20 +1,19 @@
-import { backends, fs, configure } from '../common';
+import { fs } from '../common';
 import * as path from 'path';
 
-describe.each(backends)('%s PermissionsTest', (name, options) => {
-	const configured = configure(options);
+describe('permissions test', () => {
 	const testFileContents = Buffer.from('this is a test file, plz ignore.');
 
 	function is_writable(mode: number) {
-		return (mode & 146) > 0;
+		return (mode & 0o222) > 0;
 	}
 
 	function is_readable(mode: number) {
-		return (mode & 0x124) > 0;
+		return (mode & 0o444) > 0;
 	}
 
 	function is_executable(mode: number) {
-		return (mode & 0x49) > 0;
+		return (mode & 0o111) > 0;
 	}
 
 	async function process_file(p: string, fileMode: number): Promise<void> {
@@ -77,17 +76,10 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 	}
 
 	async function process_item(p: string, parentMode: number): Promise<void> {
-		const isReadOnly = fs.getMount('/').metadata.readonly;
-
 		try {
 			const stat = await fs.promises.stat(p);
 			// Invariant 4: Ensure we have execute permissions on parent directory.
 			expect(is_executable(parentMode)).toBe(true);
-
-			if (isReadOnly) {
-				// Invariant 1: RO FS do not support write permissions.
-				expect(is_writable(stat.mode)).toBe(false);
-			}
 
 			// Invariant 4: Ensure we have execute permissions on parent directory.
 			expect(is_executable(parentMode)).toBe(true);
@@ -108,7 +100,6 @@ describe.each(backends)('%s PermissionsTest', (name, options) => {
 	}
 
 	it('should satisfy the permissions invariants', async () => {
-		await configured;
 		await process_item('/', 0o777);
 	});
 });
