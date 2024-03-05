@@ -26,7 +26,7 @@ export const rootIno: Ino = 0n;
  * Generates a random 32 bit integer, then converts to a hex string
  */
 function _random() {
-	return Math.round(Math.random()*(2**32)).toString(16);
+	return Math.round(Math.random() * 2 ** 32).toString(16);
 }
 
 /**

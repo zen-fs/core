@@ -438,7 +438,7 @@ export async function readFile(filename: PathLike, _options?: { encoding?: Buffe
 	}
 
 	const data: Uint8Array = await _readFile(filename, options.flag, true);
-	return options.encoding ? decode(data, options.encoding) : data
+	return options.encoding ? decode(data, options.encoding) : data;
 }
 readFile satisfies BufferToUint8Array<typeof Node.promises.readFile>;
 
