@@ -7,7 +7,6 @@ const asyncMode = 0o777;
 const modeSync = 0o644;
 
 describe('chmod tests', () => {
-
 	it('should change file mode using chmod', async () => {
 		const file1 = path.join(fixturesDir, 'a.js');
 

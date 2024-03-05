@@ -108,36 +108,36 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 		return err;
 	}
 
-	public static FileError(code: ErrorCode, path: string): ApiError {
+	public static OnPath(code: ErrorCode, path: string): ApiError {
 		return new ApiError(code, ErrorStrings[code], path);
 	}
 
 	public static EACCES(path: string): ApiError {
-		return this.FileError(ErrorCode.EACCES, path);
+		return this.OnPath(ErrorCode.EACCES, path);
 	}
 
 	public static ENOENT(path: string): ApiError {
-		return this.FileError(ErrorCode.ENOENT, path);
+		return this.OnPath(ErrorCode.ENOENT, path);
 	}
 
 	public static EEXIST(path: string): ApiError {
-		return this.FileError(ErrorCode.EEXIST, path);
+		return this.OnPath(ErrorCode.EEXIST, path);
 	}
 
 	public static EISDIR(path: string): ApiError {
-		return this.FileError(ErrorCode.EISDIR, path);
+		return this.OnPath(ErrorCode.EISDIR, path);
 	}
 
 	public static ENOTDIR(path: string): ApiError {
-		return this.FileError(ErrorCode.ENOTDIR, path);
+		return this.OnPath(ErrorCode.ENOTDIR, path);
 	}
 
 	public static EPERM(path: string): ApiError {
-		return this.FileError(ErrorCode.EPERM, path);
+		return this.OnPath(ErrorCode.EPERM, path);
 	}
 
 	public static ENOTEMPTY(path: string): ApiError {
-		return this.FileError(ErrorCode.ENOTEMPTY, path);
+		return this.OnPath(ErrorCode.ENOTEMPTY, path);
 	}
 
 	public code: string;

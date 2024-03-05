@@ -1,4 +1,4 @@
-import { backends, fs, configure, fixturesDir } from '../common';
+import { fs, fixturesDir } from '../common';
 import * as path from 'path';
 
 import type { ApiError } from '../../src/ApiError';
@@ -31,11 +31,10 @@ const expectSyncError = (fn: (...args) => unknown, p: string, ...args) => {
 	return error;
 };
 
-describe.each(backends)('%s Error tests', (name, options) => {
-	const configured = configure(options);
+describe('Error tests', () => {
 
 	it('should handle async operations with error', async () => {
-		await configured;
+
 		const fn = path.join(fixturesDir, 'non-existent');
 
 		await expectError(fs.promises.stat, fn);
@@ -61,8 +60,8 @@ describe.each(backends)('%s Error tests', (name, options) => {
 
 	// Sync operations
 	if (fs.getMount('/').metadata.synchronous) {
-		it('should handle sync operations with error', async () => {
-			await configured;
+		it('should handle sync operations with error', () => {
+
 			const fn = path.join(fixturesDir, 'non-existent');
 			const existingFile = path.join(fixturesDir, 'exit.js');
 

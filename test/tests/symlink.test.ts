@@ -2,7 +2,6 @@ import { backends, fs, fixturesDir } from '../common';
 import * as path from 'path';
 
 describe.each(backends)('%s Link and Symlink Test', (name, options) => {
-
 	it('should create and read symbolic link', async () => {
 		const linkData = path.join(fixturesDir, '/cycles/root.js');
 		const linkPath = 'symlink1.js';
