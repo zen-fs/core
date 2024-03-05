@@ -3,11 +3,11 @@
  */
 
 import fs from './emulation/fs.js';
-import { FileSystem, type NoArgCallback, type TwoArgCallback } from './filesystem.js';
+import { FileSystem } from './filesystem.js';
 import { backends } from './backends/index.js';
 import { ErrorCode, ApiError } from './ApiError.js';
 import { Cred } from './cred.js';
-import type { BackendConstructor } from './backends/backend.js';
+import type { Backend } from './backends/backend.js';
 import { type MountMapping, setCred } from './emulation/shared.js';
 
 /**
@@ -17,67 +17,6 @@ export function initialize(mounts: { [point: string]: FileSystem }, uid: number 
 	setCred(new Cred(uid, gid, uid, gid, uid, gid));
 	return fs.initialize(mounts);
 }
-
-/**
- * Defines a mapping of mount points to their configurations
- */
-export interface ConfigMapping {
-	[mountPoint: string]: FileSystem | FileSystemConfiguration | keyof typeof backends;
-}
-
-/**
- * A configuration for BrowserFS
- */
-export type Configuration = FileSystem | FileSystemConfiguration | ConfigMapping;
-
-async function _configure(config: Configuration): Promise<void> {
-	if ('fs' in config || config instanceof FileSystem) {
-		// single FS
-		config = { '/': config } as ConfigMapping;
-	}
-	for (let [point, value] of Object.entries(config)) {
-		if (typeof value == 'number') {
-			//should never happen
-			continue;
-		}
-
-		if (value instanceof FileSystem) {
-			continue;
-		}
-
-		if (typeof value == 'string') {
-			value = { fs: value };
-		}
-
-		config[point] = await getFileSystem(value);
-	}
-	return initialize(config as MountMapping);
-}
-
-/**
- * Creates a file system with the given configuration, and initializes BrowserFS with it.
- * See the FileSystemConfiguration type for more info on the configuration object.
- */
-export function configure(config: Configuration): Promise<void>;
-export function configure(config: Configuration, cb: NoArgCallback): void;
-export function configure(config: Configuration, cb?: NoArgCallback): Promise<void> | void {
-	// Promise version
-	if (typeof cb != 'function') {
-		return _configure(config);
-	}
-
-	// Callback version
-	_configure(config)
-		.then(() => cb())
-		.catch(err => cb(err));
-	return;
-}
-
-/**
- * Asynchronously creates a file system with the given configuration, and initializes BrowserFS with it.
- * See the FileSystemConfiguration type for more info on the configuration object.
- * Note: unlike configure, the .then is provided with the file system
- */
 
 /**
  * Specifies a file system backend type and its options.
@@ -100,21 +39,25 @@ export function configure(config: Configuration, cb?: NoArgCallback): Promise<vo
  *
  * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
  */
-export interface FileSystemConfiguration {
-	fs: string;
+export interface BackendConfiguration {
+	backend: Backend;
 	options?: object;
 }
 
-async function _getFileSystem({ fs: fsName, options = {} }: FileSystemConfiguration): Promise<FileSystem> {
-	if (!fsName) {
-		throw new ApiError(ErrorCode.EPERM, 'Missing "fs" property on configuration object.');
+/**
+ * Retrieve a file system with the given configuration.
+ * @param config A FileSystemConfiguration object. See FileSystemConfiguration for details.
+ */
+async function getFileSystem({ backend, options = {} }: BackendConfiguration): Promise<FileSystem> {
+	if (!backend) {
+		throw new ApiError(ErrorCode.EPERM, 'Missing backend');
 	}
 
-	if (typeof options !== 'object' || options === null) {
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid "options" property on configuration object.');
+	if (typeof options !== 'object' || options == null) {
+		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on configuration object.');
 	}
 
-	const props = Object.keys(options).filter(k => k != 'fs');
+	const props = Object.keys(options).filter(k => k != 'backend');
 
 	for (const prop of props) {
 		const opt = options[prop];
@@ -122,36 +65,60 @@ async function _getFileSystem({ fs: fsName, options = {} }: FileSystemConfigurat
 			continue;
 		}
 
-		const fs = await _getFileSystem(opt);
+		const fs = await getFileSystem(opt);
 		options[prop] = fs;
 	}
 
-	const fsc = <BackendConstructor | undefined>(<any>backends)[fsName];
+	const fsc = backend;
 	if (!fsc) {
-		throw new ApiError(ErrorCode.EPERM, `File system ${fsName} is not available in BrowserFS.`);
+		throw new ApiError(ErrorCode.EPERM, `File system ${backend} is not available in BrowserFS.`);
 	} else {
-		return fsc.Create(options);
+		return fsc.create(options);
 	}
 }
 
 /**
- * Retrieve a file system with the given configuration. Will return a promise if invoked without a callback
- * @param config A FileSystemConfiguration object. See FileSystemConfiguration for details.
- * @param cb Called when the file system is constructed, or when an error occurs.
+ * Defines a mapping of mount points to their configurations
  */
-export function getFileSystem(config: FileSystemConfiguration): Promise<FileSystem>;
-export function getFileSystem(config: FileSystemConfiguration, cb: TwoArgCallback<FileSystem>): void;
-export function getFileSystem(config: FileSystemConfiguration, cb?: TwoArgCallback<FileSystem>): Promise<FileSystem> | void {
-	// Promise version
-	if (typeof cb != 'function') {
-		return _getFileSystem(config);
-	}
+export interface ConfigMapping {
+	[mountPoint: string]: FileSystem | BackendConfiguration | keyof typeof backends | Backend;
+}
 
-	// Callback version
-	_getFileSystem(config)
-		.then(fs => cb(null, fs))
-		.catch(err => cb(err));
-	return;
+/**
+ * A configuration for BrowserFS
+ */
+export type Configuration = FileSystem | BackendConfiguration | ConfigMapping;
+
+/**
+ * Creates filesystems with the given configuration, and initializes BrowserFS with it.
+ * See the Configuration type for more info on the configuration object.
+ */
+export async function configure(config: Configuration): Promise<void> {
+	if ('backend' in config || config instanceof FileSystem) {
+		// single FS
+		config = <ConfigMapping>{ '/': config };
+	}
+	for (let [point, value] of Object.entries(config)) {
+		if (typeof value == 'number') {
+			//should never happen
+			continue;
+		}
+
+		if (value instanceof FileSystem) {
+			continue;
+		}
+
+		if (typeof value == 'string') {
+			value = { backend: backends[value] };
+		}
+
+		if ('isAvailable' in value) {
+			value = { backend: value };
+		}
+
+		config[point] = await getFileSystem(value);
+	}
+	return initialize(config as MountMapping);
 }
 
 export * from './backends/index.js';

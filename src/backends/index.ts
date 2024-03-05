@@ -1,16 +1,16 @@
 import { AsyncMirror } from './AsyncMirror.js';
-import { InMemoryFileSystem as InMemory } from './InMemory.js';
-import { OverlayFS } from './OverlayFS.js';
-import { BackendConstructor } from './backend.js';
+import { InMemory } from './InMemory.js';
+import { Overlay } from './OverlayFS.js';
+import { Backend } from './backend.js';
 
-export const backends: { [backend: string]: BackendConstructor } = {};
+export const backends: { [backend: string]: Backend } = {};
 export default backends;
-export { AsyncMirror, InMemory, OverlayFS };
+export { AsyncMirror, InMemory, Overlay };
 
-export function registerBackend(..._backends: BackendConstructor[]) {
+export function registerBackend(..._backends: Backend[]) {
 	for (const backend of _backends) {
-		backends[backend.Name] = backend;
+		backends[backend.name] = backend;
 	}
 }
 
-registerBackend(AsyncMirror, InMemory, OverlayFS);
+registerBackend(AsyncMirror, InMemory, Overlay);

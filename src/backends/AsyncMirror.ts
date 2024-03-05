@@ -4,21 +4,30 @@ import { File, FileFlag, PreloadFile } from '../file.js';
 import { Stats } from '../stats.js';
 import { join } from '../emulation/path.js';
 import { Cred } from '../cred.js';
-import { CreateBackend, type BackendOptions } from './backend.js';
+import type { Backend } from './backend.js';
 
 /**
  * @internal
  */
-interface AsyncOperation {
-	apiMethod: string;
-	arguments: any[];
-}
+type AsyncMethodName = {
+	[K in keyof FileSystem]: FileSystem[K] extends (...args) => Promise<unknown> ? K : never;
+}[keyof FileSystem];
+
+/**
+ * @internal
+ */
+type AsyncOperation = {
+	[K in AsyncMethodName]: {
+		apiMethod: K;
+		arguments: [] extends Parameters<FileSystem[K]> ? [null] : Parameters<FileSystem[K]>;
+	};
+}[AsyncMethodName];
 
 /**
  * We define our own file to interpose on syncSync() for mirroring purposes.
  */
-class MirrorFile extends PreloadFile<AsyncMirror> implements File {
-	constructor(fs: AsyncMirror, path: string, flag: FileFlag, stat: Stats, data: Uint8Array) {
+class MirrorFile extends PreloadFile<AsyncMirrorFS> {
+	constructor(fs: AsyncMirrorFS, path: string, flag: FileFlag, stat: Stats, data: Uint8Array) {
 		super(fs, path, flag, stat, data);
 	}
 
@@ -28,7 +37,7 @@ class MirrorFile extends PreloadFile<AsyncMirror> implements File {
 
 	public syncSync(): void {
 		if (this.isDirty()) {
-			this._fs._syncSync(this);
+			this.fs.syncSync(this.path, this._buffer, this.stats);
 			this.resetDirty();
 		}
 	}
@@ -71,31 +80,7 @@ export namespace AsyncMirror {
  * in-memory filesystem with an asynchronous backing store.
  *
  */
-export class AsyncMirror extends SyncFileSystem {
-	public static readonly Name = 'AsyncMirror';
-
-	public static Create = CreateBackend.bind(this);
-
-	public static readonly Options: BackendOptions = {
-		sync: {
-			type: 'object',
-			description: 'The synchronous file system to mirror the asynchronous file system to.',
-			validator: async (v: FileSystem): Promise<void> => {
-				if (!v?.metadata.synchronous) {
-					throw new ApiError(ErrorCode.EINVAL, `'sync' option must be a file system that supports synchronous operations`);
-				}
-			},
-		},
-		async: {
-			type: 'object',
-			description: 'The asynchronous file system to mirror.',
-		},
-	};
-
-	public static isAvailable(): boolean {
-		return true;
-	}
-
+export class AsyncMirrorFS extends SyncFileSystem {
 	/**
 	 * Queue of pending asynchronous operations.
 	 */
@@ -104,7 +89,6 @@ export class AsyncMirror extends SyncFileSystem {
 	private _sync: FileSystem;
 	private _async: FileSystem;
 	private _isInitialized: boolean = false;
-	private _initializeCallbacks: ((e?: ApiError) => void)[] = [];
 
 	private _ready = this._initialize();
 
@@ -129,24 +113,58 @@ export class AsyncMirror extends SyncFileSystem {
 	public get metadata(): FileSystemMetadata {
 		return {
 			...super.metadata,
-			name: AsyncMirror.Name,
+			name: AsyncMirrorFS.name,
 			synchronous: true,
 			supportsProperties: this._sync.metadata.supportsProperties && this._async.metadata.supportsProperties,
 		};
 	}
 
-	public _syncSync(fd: PreloadFile<AsyncMirror>) {
-		const stats = fd.stats;
-		this._sync.writeFileSync(fd.path, fd.buffer, FileFlag.getFileFlag('w'), stats.mode, stats.getCred(0, 0));
-		this.enqueueOp({
+	/*public _syncSync(file: PreloadFile<AsyncMirror>, cred: Cred) {
+		const sync = this._sync.openFileSync(file.path, FileFlag.FromString('w'), cred);
+		sync.writeSync(file.buffer);
+
+		this.enqueue({
 			apiMethod: 'writeFile',
-			arguments: [fd.path, fd.buffer, fd.flag, stats.mode, stats.getCred(0, 0)],
+			arguments: [file.path, file.buffer, file.flag, file.stats.mode, cred],
+		});
+	}*/
+
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		this._sync.syncSync(path, data, stats);
+
+		this.enqueue({
+			apiMethod: 'sync',
+			arguments: [path, data, stats],
+		});
+	}
+
+	public openFileSync(path: string, flag: FileFlag, cred: Cred): File {
+		return this._sync.openFileSync(path, flag, cred);
+	}
+
+	public createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): MirrorFile {
+		const file = this._sync.createFileSync(path, flag, mode, cred);
+		this.enqueue({
+			apiMethod: 'createFile',
+			arguments: [path, flag, mode, cred],
+		});
+		const stats = file.statSync();
+		const buffer = new Uint8Array(stats.size);
+		file.readSync(buffer);
+		return new MirrorFile(this, path, flag, stats, buffer);
+	}
+
+	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
+		this._sync.linkSync(srcpath, dstpath, cred);
+		this.enqueue({
+			apiMethod: 'link',
+			arguments: [srcpath, dstpath, cred],
 		});
 	}
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
 		this._sync.renameSync(oldPath, newPath, cred);
-		this.enqueueOp({
+		this.enqueue({
 			apiMethod: 'rename',
 			arguments: [oldPath, newPath, cred],
 		});
@@ -156,16 +174,9 @@ export class AsyncMirror extends SyncFileSystem {
 		return this._sync.statSync(p, cred);
 	}
 
-	public openSync(p: string, flag: FileFlag, mode: number, cred: Cred): File {
-		// Sanity check: Is this open/close permitted?
-		const fd = this._sync.openSync(p, flag, mode, cred);
-		fd.closeSync();
-		return new MirrorFile(this, p, flag, this._sync.statSync(p, cred), this._sync.readFileSync(p, FileFlag.getFileFlag('r'), cred));
-	}
-
 	public unlinkSync(p: string, cred: Cred): void {
 		this._sync.unlinkSync(p, cred);
-		this.enqueueOp({
+		this.enqueue({
 			apiMethod: 'unlink',
 			arguments: [p, cred],
 		});
@@ -173,7 +184,7 @@ export class AsyncMirror extends SyncFileSystem {
 
 	public rmdirSync(p: string, cred: Cred): void {
 		this._sync.rmdirSync(p, cred);
-		this.enqueueOp({
+		this.enqueue({
 			apiMethod: 'rmdir',
 			arguments: [p, cred],
 		});
@@ -181,7 +192,7 @@ export class AsyncMirror extends SyncFileSystem {
 
 	public mkdirSync(p: string, mode: number, cred: Cred): void {
 		this._sync.mkdirSync(p, mode, cred);
-		this.enqueueOp({
+		this.enqueue({
 			apiMethod: 'mkdir',
 			arguments: [p, mode, cred],
 		});
@@ -195,86 +206,125 @@ export class AsyncMirror extends SyncFileSystem {
 		return this._sync.existsSync(p, cred);
 	}
 
-	public chmodSync(p: string, mode: number, cred: Cred): void {
-		this._sync.chmodSync(p, mode, cred);
-		this.enqueueOp({
-			apiMethod: 'chmod',
-			arguments: [p, mode, cred],
-		});
+	/**
+	 * @internal
+	 */
+	protected async crossCopyDirectory(p: string, mode: number): Promise<void> {
+		if (p !== '/') {
+			const stats = await this._async.stat(p, Cred.Root);
+			this._sync.mkdirSync(p, mode, stats.getCred());
+		}
+		const files = await this._async.readdir(p, Cred.Root);
+		for (const file of files) {
+			await this.crossCopy(join(p, file));
+		}
 	}
 
-	public chownSync(p: string, new_uid: number, new_gid: number, cred: Cred): void {
-		this._sync.chownSync(p, new_uid, new_gid, cred);
-		this.enqueueOp({
-			apiMethod: 'chown',
-			arguments: [p, new_uid, new_gid, cred],
-		});
+	/**
+	 * @internal
+	 */
+	protected async crossCopyFile(p: string, mode: number): Promise<void> {
+		const asyncFile = await this._async.openFile(p, FileFlag.FromString('r'), Cred.Root);
+		const syncFile = this._sync.createFileSync(p, FileFlag.FromString('w'), mode, Cred.Root);
+		try {
+			const { size } = await asyncFile.stat();
+			const buffer = new Uint8Array(size);
+			await asyncFile.read(buffer);
+			syncFile.writeSync(buffer);
+		} finally {
+			await asyncFile.close();
+			syncFile.closeSync();
+		}
 	}
 
-	public utimesSync(p: string, atime: Date, mtime: Date, cred: Cred): void {
-		this._sync.utimesSync(p, atime, mtime, cred);
-		this.enqueueOp({
-			apiMethod: 'utimes',
-			arguments: [p, atime, mtime, cred],
-		});
+	/**
+	 * @internal
+	 */
+	protected async crossCopy(p: string): Promise<void> {
+		const stats = await this._async.stat(p, Cred.Root);
+		if (stats.isDirectory()) {
+			await this.crossCopyDirectory(p, stats.mode);
+		} else {
+			await this.crossCopyFile(p, stats.mode);
+		}
 	}
 
 	/**
 	 * Called once to load up files from async storage into sync storage.
 	 */
-	private async _initialize(): Promise<this> {
-		if (!this._isInitialized) {
-			// First call triggers initialization, the rest wait.
-			const copyDirectory = async (p: string, mode: number): Promise<void> => {
-					if (p !== '/') {
-						const stats = await this._async.stat(p, Cred.Root);
-						this._sync.mkdirSync(p, mode, stats.getCred());
-					}
-					const files = await this._async.readdir(p, Cred.Root);
-					for (const file of files) {
-						await copyItem(join(p, file));
-					}
-				},
-				copyFile = async (p: string, mode: number): Promise<void> => {
-					const data = await this._async.readFile(p, FileFlag.getFileFlag('r'), Cred.Root);
-					this._sync.writeFileSync(p, data, FileFlag.getFileFlag('w'), mode, Cred.Root);
-				},
-				copyItem = async (p: string): Promise<void> => {
-					const stats = await this._async.stat(p, Cred.Root);
-					if (stats.isDirectory()) {
-						await copyDirectory(p, stats.mode);
-					} else {
-						await copyFile(p, stats.mode);
-					}
-				};
-			try {
-				await copyDirectory('/', 0);
-				this._isInitialized = true;
-			} catch (e) {
-				this._isInitialized = false;
-				throw e;
-			}
+	protected async _initialize(): Promise<this> {
+		if (this._isInitialized) {
+			return this;
 		}
+
+		try {
+			await this.crossCopy('/');
+			this._isInitialized = true;
+		} catch (e) {
+			this._isInitialized = false;
+			throw e;
+		}
+
 		return this;
 	}
 
-	private enqueueOp(op: AsyncOperation) {
-		this._queue.push(op);
-		if (!this._queueRunning) {
-			this._queueRunning = true;
-			const doNextOp = (err?: ApiError) => {
-				if (err) {
-					throw new Error(`WARNING: File system has desynchronized. Received following error: ${err}\n$`);
-				}
-				if (this._queue.length > 0) {
-					const op = this._queue.shift()!;
-					op.arguments.push(doNextOp);
-					(<Function>this._async[op.apiMethod]).apply(this._async, op.arguments);
-				} else {
-					this._queueRunning = false;
-				}
-			};
-			doNextOp();
+	/**
+	 * @internal
+	 */
+	private async _next(): Promise<void> {
+		if (this._queue.length == 0) {
+			this._queueRunning = false;
+			return;
 		}
+
+		const op = this._queue.shift()!;
+		try {
+			// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
+			await this._async[op.apiMethod](...op.arguments);
+		} catch (e) {
+			throw new ApiError(ErrorCode.EIO, 'AsyncMirror desync: ' + e);
+		}
+		await this._next();
+	}
+
+	/**
+	 * @internal
+	 */
+	private enqueue(op: AsyncOperation) {
+		this._queue.push(op);
+		if (this._queueRunning) {
+			return;
+		}
+
+		this._queueRunning = true;
+		this._next();
 	}
 }
+
+export const AsyncMirror: Backend = {
+	name: 'AsyncMirror',
+
+	options: {
+		sync: {
+			type: 'object',
+			description: 'The synchronous file system to mirror the asynchronous file system to.',
+			validator: async (v: FileSystem): Promise<void> => {
+				if (!v?.metadata.synchronous) {
+					throw new ApiError(ErrorCode.EINVAL, `'sync' option must be a file system that supports synchronous operations`);
+				}
+			},
+		},
+		async: {
+			type: 'object',
+			description: 'The asynchronous file system to mirror.',
+		},
+	},
+
+	isAvailable(): boolean {
+		return true;
+	},
+
+	create(options: AsyncMirror.Options): AsyncMirrorFS {
+		return new AsyncMirrorFS(options);
+	},
+};

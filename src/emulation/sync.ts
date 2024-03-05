@@ -1,7 +1,7 @@
 import { ApiError, ErrorCode } from '../ApiError.js';
-import { File, FileFlag } from '../file.js';
+import { ActionType, File, FileFlag } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
-import { BigIntStats, Stats } from '../stats.js';
+import { BigIntStats, FileType, Stats } from '../stats.js';
 import type { symlink, ReadSyncOptions, StatOptions, BaseEncodingOptions, BufferEncodingOption } from 'fs';
 import type * as Node from 'fs';
 import {
@@ -21,7 +21,7 @@ import {
 } from './shared.js';
 import { decode, encode } from '../utils.js';
 import { Dir, Dirent } from './dir.js';
-import { join } from './path.js';
+import { dirname, join } from './path.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args) => any ? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]> : never;
@@ -115,10 +115,12 @@ lstatSync satisfies typeof Node.lstatSync;
  * @param len
  */
 export function truncateSync(path: PathLike, len: number = 0): void {
-	if (len < 0) {
-		throw new ApiError(ErrorCode.EINVAL);
+	const fd = openSync(path, 'r+');
+	try {
+		ftruncateSync(fd, len);
+	} finally {
+		closeSync(fd);
 	}
-	return doOp('truncateSync', true, path, len, cred);
 }
 truncateSync satisfies typeof Node.truncateSync;
 
@@ -131,19 +133,93 @@ export function unlinkSync(path: PathLike): void {
 }
 unlinkSync satisfies typeof Node.unlinkSync;
 
+function _openSync(_path: PathLike, _flag: string, _mode: Node.Mode, resolveSymlinks: boolean): File {
+	const path = normalizePath(_path),
+		mode = normalizeMode(_mode, 0o644),
+		flag = FileFlag.FromString(_flag);
+	// Check if the path exists, and is a file.
+	let stats: Stats;
+	try {
+		stats = doOp('statSync', resolveSymlinks, path, cred);
+	} catch (e) {
+		// File does not exist.
+		switch (flag.pathNotExistsAction()) {
+			case ActionType.CREATE:
+				// Ensure parent exists.
+				const parentStats: Stats = doOp('statSync', resolveSymlinks, dirname(path), cred);
+				if (!parentStats.isDirectory()) {
+					throw ApiError.ENOTDIR(dirname(path));
+				}
+				return doOp('createFileSync', resolveSymlinks, path, flag, mode, cred);
+			case ActionType.THROW:
+				throw ApiError.ENOENT(path);
+			default:
+				throw new ApiError(ErrorCode.EINVAL, 'Invalid FileFlag object.');
+		}
+	}
+	if (!stats.hasAccess(mode, cred)) {
+		throw ApiError.EACCES(path);
+	}
+
+	// File exists.
+	switch (flag.pathExistsAction()) {
+		case ActionType.THROW:
+			throw ApiError.EEXIST(path);
+		case ActionType.TRUNCATE:
+			// Delete file.
+			doOp('unlinkSync', resolveSymlinks, path, cred);
+			/*
+				Create file. Use the same mode as the old file.
+				Node itself modifies the ctime when this occurs, so this action
+				will preserve that behavior if the underlying file system
+				supports those properties.
+			*/
+			return doOp('createFileSync', resolveSymlinks, path, flag, stats.mode, cred);
+		case ActionType.NOP:
+			return doOp('openFileSync', resolveSymlinks, path, flag, cred);
+		default:
+			throw new ApiError(ErrorCode.EINVAL, 'Invalid FileFlag object.');
+	}
+}
+
 /**
  * Synchronous file open.
  * @see http://www.manpagez.com/man/2/open/
- * @param path
- * @param flags
- * @param mode defaults to `0644`
- * @returns file descriptor
+ * @param flags Handles the complexity of the various file
+ *   modes. See its API for more details.
+ * @param mode Mode to use to open the file. Can be ignored if the
+ *   filesystem doesn't support permissions.
  */
-export function openSync(path: PathLike, flag: string, mode?: number | string): number {
-	const file: File = doOp('openSync', true, path, FileFlag.getFileFlag(flag), normalizeMode(mode, 0o644), cred);
-	return getFdForFile(file);
+export function openSync(path: PathLike, flag: string, mode?: Node.Mode): number {
+	return getFdForFile(_openSync(path, flag, mode, true));
 }
 openSync satisfies typeof Node.openSync;
+
+/**
+ * Opens a file or symlink
+ * @internal
+ */
+export function lopenSync(path: PathLike, flag: string, mode?: Node.Mode): number {
+	return getFdForFile(_openSync(path, flag, mode, false));
+}
+
+/**
+ * Synchronously reads the entire contents of a file.
+ */
+function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): Uint8Array {
+	// Get file.
+	const file = _openSync(fname, flag, 0o644, resolveSymlinks);
+	try {
+		const stat = file.statSync();
+		// Allocate buffer.
+		const data = new Uint8Array(stat.size);
+		file.readSync(data, 0, stat.size, 0);
+		file.closeSync();
+		return data;
+	} finally {
+		file.closeSync();
+	}
+}
 
 /**
  * Synchronously reads the entire contents of a file.
@@ -158,20 +234,29 @@ export function readFileSync(filename: string, options: { encoding: string; flag
 export function readFileSync(filename: string, encoding: string): string;
 export function readFileSync(filename: string, arg2: { encoding: string; flag?: string } | { flag?: string } | string = {}): FileContents {
 	const options = normalizeOptions(arg2, null, 'r', null);
-	const flag = FileFlag.getFileFlag(options.flag);
+	const flag = FileFlag.FromString(options.flag);
 	if (!flag.isReadable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	const data: Uint8Array = doOp('readFileSync', true, filename, flag, cred);
-	switch (options.encoding) {
-		case 'utf8':
-		case 'utf-8':
-			return decode(data);
-		default:
-			return data;
-	}
+	const data: Uint8Array = _readFileSync(filename, options.flag, true);
+	return decode(data, options.encoding);
 }
 readFileSync satisfies BufferToUint8Array<typeof Node.readFileSync>;
+
+/**
+ * Synchronously writes data to a file, replacing the file
+ * if it already exists.
+ *
+ * The encoding option is ignored if data is a buffer.
+ */
+function _writeFileSync(fname: string, data: Uint8Array, flag: string, resolveSymlinks: boolean): void {
+	const file = _openSync(fname, flag, 0o644, resolveSymlinks);
+	try {
+		file.writeSync(data, 0, data.length, 0);
+	} finally {
+		file.closeSync();
+	}
+}
 
 /**
  * Synchronously writes data to a file, replacing the file if it already
@@ -189,7 +274,7 @@ export function writeFileSync(filename: string, data: FileContents, options?: No
 export function writeFileSync(filename: string, data: FileContents, encoding?: string): void;
 export function writeFileSync(filename: string, data: FileContents, arg3?: Node.WriteFileOptions | string): void {
 	const options = normalizeOptions(arg3, 'utf8', 'w', 0o644);
-	const flag = FileFlag.getFileFlag(options.flag);
+	const flag = FileFlag.FromString(options.flag);
 	if (!flag.isWriteable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to writeFile must allow for writing.');
 	}
@@ -197,9 +282,22 @@ export function writeFileSync(filename: string, data: FileContents, arg3?: Node.
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? encode(data) : data;
-	return doOp('writeFileSync', true, filename, encodedData, flag, options.mode, cred);
+	_writeFileSync(filename, encodedData, options.flag, true);
 }
 writeFileSync satisfies typeof Node.writeFileSync;
+
+/**
+ * Synchronously append data to a file, creating the file if
+ * it not yet exists.
+ */
+function _appendFileSync(fname: string, data: Uint8Array, flag: string, resolveSymlinks: boolean): void {
+	const file = _openSync(fname, flag, 0o644, resolveSymlinks);
+	try {
+		file.writeSync(data, 0, data.length, null);
+	} finally {
+		file.closeSync();
+	}
+}
 
 /**
  * Asynchronously append data to a file, creating the file if it not yet
@@ -221,7 +319,7 @@ export function appendFileSync(filename: string, data: FileContents, options?: N
 export function appendFileSync(filename: string, data: FileContents, encoding?: string): void;
 export function appendFileSync(filename: string, data: FileContents, arg3?: Node.WriteFileOptions | string): void {
 	const options = normalizeOptions(arg3, 'utf8', 'a', 0o644);
-	const flag = FileFlag.getFileFlag(options.flag);
+	const flag = FileFlag.FromString(options.flag);
 	if (!flag.isAppendable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}
@@ -229,7 +327,7 @@ export function appendFileSync(filename: string, data: FileContents, arg3?: Node
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? encode(data) : data;
-	return doOp('appendFileSync', true, filename, encodedData, flag, options.mode, cred);
+	_appendFileSync(filename, encodedData, options.flag, true);
 }
 appendFileSync satisfies typeof Node.appendFileSync;
 
@@ -263,11 +361,10 @@ closeSync satisfies typeof Node.closeSync;
  * @param len
  */
 export function ftruncateSync(fd: number, len: number = 0): void {
-	const file = fd2file(fd);
 	if (len < 0) {
 		throw new ApiError(ErrorCode.EINVAL);
 	}
-	file.truncateSync(len);
+	fd2file(fd).truncateSync(len);
 }
 ftruncateSync satisfies typeof Node.ftruncateSync;
 
@@ -378,7 +475,10 @@ fchownSync satisfies typeof Node.fchownSync;
  * @param mode
  */
 export function fchmodSync(fd: number, mode: number | string): void {
-	const numMode = typeof mode === 'string' ? parseInt(mode, 8) : mode;
+	const numMode = normalizeMode(mode, -1);
+	if (numMode < 0) {
+		throw new ApiError(ErrorCode.EINVAL, `Invalid mode.`);
+	}
 	fd2file(fd).chmodSync(numMode);
 }
 fchmodSync satisfies typeof Node.fchmodSync;
@@ -390,12 +490,10 @@ fchmodSync satisfies typeof Node.fchmodSync;
  * @param atime
  * @param mtime
  */
-export function futimesSync(fd: number, atime: number | Date, mtime: number | Date): void {
+export function futimesSync(fd: number, atime: string | number | Date, mtime: string | number | Date): void {
 	fd2file(fd).utimesSync(normalizeTime(atime), normalizeTime(mtime));
 }
 futimesSync satisfies typeof Node.futimesSync;
-
-// DIRECTORY-ONLY METHODS
 
 /**
  * Synchronous `rmdir`.
@@ -479,8 +577,13 @@ export function symlinkSync(srcpath: PathLike, dstpath: PathLike, type?: symlink
 	if (!['file', 'dir', 'junction'].includes(type)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid type: ' + type);
 	}
-	dstpath = normalizePath(dstpath);
-	return doOp('symlinkSync', false, srcpath, dstpath, type, cred);
+	if (existsSync(srcpath)) {
+		throw ApiError.EEXIST(srcpath);
+	}
+
+	writeFileSync(srcpath, dstpath);
+	const file = _openSync(srcpath, 'r+', 0o644, false);
+	file._setTypeSync(FileType.SYMLINK);
 }
 symlinkSync satisfies typeof Node.symlinkSync;
 
@@ -490,9 +593,13 @@ symlinkSync satisfies typeof Node.symlinkSync;
  */
 export function readlinkSync(path: PathLike, options?: BufferEncodingOption): Uint8Array;
 export function readlinkSync(path: PathLike, options: BaseEncodingOptions | BufferEncoding): string;
-export function readlinkSync(path: PathLike, options?: BaseEncodingOptions | string | BufferEncodingOption): Uint8Array | string {
-	const value: string = doOp('readlinkSync', false, path, cred);
-	return encode(value, typeof options == 'object' ? options.encoding : options);
+export function readlinkSync(path: PathLike, options?: BaseEncodingOptions | BufferEncoding | BufferEncodingOption): Uint8Array | string {
+	const value: Uint8Array = _readFileSync(path, 'r', false);
+	const encoding: BufferEncoding | 'buffer' = typeof options == 'object' ? options.encoding : options;
+	if (encoding == 'buffer') {
+		return value;
+	}
+	return decode(value, encoding);
 }
 readlinkSync satisfies BufferToUint8Array<typeof Node.readlinkSync>;
 
@@ -505,7 +612,9 @@ readlinkSync satisfies BufferToUint8Array<typeof Node.readlinkSync>;
  * @param gid
  */
 export function chownSync(path: PathLike, uid: number, gid: number): void {
-	doOp('chownSync', true, path, uid, gid, cred);
+	const fd = openSync(path, 'r+');
+	fchownSync(fd, uid, gid);
+	closeSync(fd);
 }
 chownSync satisfies typeof Node.chownSync;
 
@@ -516,7 +625,9 @@ chownSync satisfies typeof Node.chownSync;
  * @param gid
  */
 export function lchownSync(path: PathLike, uid: number, gid: number): void {
-	doOp('chownSync', false, path, uid, gid, cred);
+	const fd = lopenSync(path, 'r+');
+	fchownSync(fd, uid, gid);
+	closeSync(fd);
 }
 lchownSync satisfies typeof Node.lchownSync;
 
@@ -525,12 +636,10 @@ lchownSync satisfies typeof Node.lchownSync;
  * @param path
  * @param mode
  */
-export function chmodSync(path: PathLike, mode: string | number): void {
-	const numMode = normalizeMode(mode, -1);
-	if (numMode < 0) {
-		throw new ApiError(ErrorCode.EINVAL, `Invalid mode.`);
-	}
-	doOp('chmodSync', true, path, numMode, cred);
+export function chmodSync(path: PathLike, mode: Node.Mode): void {
+	const fd = openSync(path, 'r+');
+	fchmodSync(fd, mode);
+	closeSync(fd);
 }
 chmodSync satisfies typeof Node.chmodSync;
 
@@ -540,11 +649,9 @@ chmodSync satisfies typeof Node.chmodSync;
  * @param mode
  */
 export function lchmodSync(path: PathLike, mode: number | string): void {
-	const numMode = normalizeMode(mode, -1);
-	if (numMode < 1) {
-		throw new ApiError(ErrorCode.EINVAL, `Invalid mode.`);
-	}
-	doOp('chmodSync', false, path, numMode, cred);
+	const fd = lopenSync(path, 'r+');
+	fchmodSync(fd, mode);
+	closeSync(fd);
 }
 lchmodSync satisfies typeof Node.lchmodSync;
 
@@ -554,8 +661,10 @@ lchmodSync satisfies typeof Node.lchmodSync;
  * @param atime
  * @param mtime
  */
-export function utimesSync(path: PathLike, atime: number | Date, mtime: number | Date): void {
-	doOp('utimesSync', true, path, normalizeTime(atime), normalizeTime(mtime), cred);
+export function utimesSync(path: PathLike, atime: string | number | Date, mtime: string | number | Date): void {
+	const fd = openSync(path, 'r+');
+	futimesSync(fd, atime, mtime);
+	closeSync(fd);
 }
 utimesSync satisfies typeof Node.utimesSync;
 
@@ -565,8 +674,10 @@ utimesSync satisfies typeof Node.utimesSync;
  * @param atime
  * @param mtime
  */
-export function lutimesSync(path: PathLike, atime: number | Date, mtime: number | Date): void {
-	doOp('utimesSync', false, path, normalizeTime(atime), normalizeTime(mtime), cred);
+export function lutimesSync(path: PathLike, atime: string | number | Date, mtime: string | number | Date): void {
+	const fd = lopenSync(path, 'r+');
+	futimesSync(fd, atime, mtime);
+	closeSync(fd);
 }
 lutimesSync satisfies typeof Node.lutimesSync;
 
@@ -588,7 +699,7 @@ export function realpathSync(path: PathLike, options?: BaseEncodingOptions | Buf
 		if (!stats.isSymbolicLink()) {
 			return path;
 		}
-		const dst = normalizePath(mountPoint + fs.readlinkSync(resolvedPath, cred));
+		const dst = normalizePath(mountPoint + decode(_readFileSync(resolvedPath, 'r+', false)));
 		return realpathSync(dst);
 	} catch (e) {
 		throw fixError(e, { [resolvedPath]: path });
@@ -602,7 +713,10 @@ realpathSync satisfies BufferToUint8Array<typeof Node.realpathSync>;
  * @param mode
  */
 export function accessSync(path: PathLike, mode: number = 0o600): void {
-	return doOp('accessSync', true, path, mode, cred);
+	const stats = statSync(path);
+	if (!stats.hasAccess(mode, cred)) {
+		throw new ApiError(ErrorCode.EACCES);
+	}
 }
 accessSync satisfies typeof Node.accessSync;
 

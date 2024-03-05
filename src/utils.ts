@@ -2,15 +2,11 @@
  * Grab bag of utility functions used across the code.
  */
 import { FileSystem } from './filesystem.js';
-import { ErrorCode, ApiError } from './ApiError.js';
+import { ApiError } from './ApiError.js';
 import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
-import type { BaseBackendConstructor } from './backends/backend.js';
-import type { TextEncoder, TextDecoder } from 'node:util';
 
 declare const globalThis: {
-	TextEncoder: typeof TextEncoder;
-	TextDecoder: typeof TextDecoder;
 	setImmediate?: (callback: () => unknown) => void;
 };
 
@@ -36,10 +32,9 @@ function _min(d0: number, d1: number, d2: number, bx: number, ay: number): numbe
 
 /**
  * Calculates levenshtein distance.
- * @param a
- * @param b
+ * @internal
  */
-function levenshtein(a: string, b: string): number {
+export function levenshtein(a: string, b: string): number {
 	if (a === b) {
 		return 0;
 	}
@@ -118,96 +113,6 @@ function levenshtein(a: string, b: string): number {
 	return dd;
 }
 
-/**
- * Checks that the given options object is valid for the file system options.
- * @internal
- */
-export async function checkOptions(backend: BaseBackendConstructor, opts: object): Promise<void> {
-	const optsInfo = backend.Options;
-	const fsName = backend.Name;
-
-	let pendingValidators = 0;
-	let callbackCalled = false;
-	let loopEnded = false;
-
-	// Check for required options.
-	for (const optName in optsInfo) {
-		if (Object.hasOwn(optsInfo, optName)) {
-			const opt = optsInfo[optName];
-			const providedValue = opts && opts[optName];
-
-			if (providedValue === undefined || providedValue === null) {
-				if (!opt.optional) {
-					// Required option, not provided.
-					// Any incorrect options provided? Which ones are close to the provided one?
-					// (edit distance 5 === close)
-					const incorrectOptions = Object.keys(opts)
-						.filter(o => !(o in optsInfo))
-						.map((a: string) => {
-							return { str: a, distance: levenshtein(optName, a) };
-						})
-						.filter(o => o.distance < 5)
-						.sort((a, b) => a.distance - b.distance);
-					// Validators may be synchronous.
-					if (callbackCalled) {
-						return;
-					}
-					callbackCalled = true;
-					throw new ApiError(
-						ErrorCode.EINVAL,
-						`[${fsName}] Required option '${optName}' not provided.${
-							incorrectOptions.length > 0 ? ` You provided unrecognized option '${incorrectOptions[0].str}'; perhaps you meant to type '${optName}'.` : ''
-						}\nOption description: ${opt.description}`
-					);
-				}
-				// Else: Optional option, not provided. That is OK.
-			} else {
-				// Option provided! Check type.
-				let typeMatches = false;
-				if (Array.isArray(opt.type)) {
-					typeMatches = opt.type.indexOf(typeof providedValue) !== -1;
-				} else {
-					typeMatches = typeof providedValue === opt.type;
-				}
-				if (!typeMatches) {
-					// Validators may be synchronous.
-					if (callbackCalled) {
-						return;
-					}
-					callbackCalled = true;
-					throw new ApiError(
-						ErrorCode.EINVAL,
-						`[${fsName}] Value provided for option ${optName} is not the proper type. Expected ${
-							Array.isArray(opt.type) ? `one of {${opt.type.join(', ')}}` : opt.type
-						}, but received ${typeof providedValue}\nOption description: ${opt.description}`
-					);
-				} else if (opt.validator) {
-					pendingValidators++;
-					try {
-						await opt.validator(providedValue);
-					} catch (e) {
-						if (!callbackCalled) {
-							if (e) {
-								callbackCalled = true;
-								throw e;
-							}
-							pendingValidators--;
-							if (pendingValidators === 0 && loopEnded) {
-								return;
-							}
-						}
-					}
-				}
-				// Otherwise: All good!
-			}
-		}
-	}
-	loopEnded = true;
-	if (pendingValidators === 0 && !callbackCalled) {
-		return;
-	}
-}
-
 /** Waits n ms.  */
 export function wait(ms: number): Promise<void> {
 	return new Promise(resolve => {
@@ -239,41 +144,26 @@ export function toPromise(fn: (...fnArgs: unknown[]) => unknown) {
  */
 export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : cb => setTimeout(cb, 0);
 
-/**
- * @internal
- */
-export const ROOT_NODE_ID: string = '/';
+const utf8regex = /utf-?8/;
 
 /**
+ * Encodes a string into a buffer
  * @internal
- * Used for caching text decoders
  */
-
-const decoderCache: Map<string, TextDecoder['decode']> = new Map();
-
-const textEncoder = new globalThis.TextEncoder();
-
 export function encode(input: string, encoding = 'utf8'): Uint8Array {
-	return textEncoder.encode(input);
-}
-
-export function decode(input?: NodeJS.ArrayBufferView | ArrayBuffer, encoding = 'utf8'): string {
-	if (!decoderCache.has(encoding)) {
-		const textDecoder = new globalThis.TextDecoder(encoding);
-		decoderCache.set(encoding, textDecoder.decode.bind(textDecoder));
+	if (!utf8regex.test(encoding)) {
+		console.warn('Unsupported encoding: "' + encoding + '" (ignoring)');
 	}
-	return decoderCache.get(encoding)(input);
+	return new Uint8Array([...input].map(v => v.charCodeAt(0)));
 }
 
 /**
- * Generates a random ID.
+ * Decodes a string from a buffer
  * @internal
  */
-export function randomUUID(): string {
-	// From http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-		const r = (Math.random() * 16) | 0;
-		const v = c === 'x' ? r : (r & 0x3) | 0x8;
-		return v.toString(16);
-	});
+export function decode(input?: { [Symbol.iterator](): IterableIterator<number> }, encoding = 'utf8'): string {
+	if (!utf8regex.test(encoding)) {
+		console.warn('Unsupported encoding: "' + encoding + '" (ignoring)');
+	}
+	return [...input].map(v => String.fromCharCode(v)).join('');
 }

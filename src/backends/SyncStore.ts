@@ -4,9 +4,10 @@ import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { FileFlag, PreloadFile } from '../file.js';
 import { SyncFileSystem, type FileSystemMetadata } from '../filesystem.js';
-import Inode from '../inode.js';
+import Inode, { randomIno, type Ino } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
-import { decode, encode, randomUUID, ROOT_NODE_ID } from '../utils.js';
+import { decode, encode } from '../utils.js';
+import { rootIno } from '../inode.js';
 
 /**
  * Represents a *synchronous* key-value store.
@@ -38,10 +39,10 @@ export interface SyncROTransaction {
 	/**
 	 * Retrieves the data at the given key. Throws an ApiError if an error occurs
 	 * or if the key does not exist.
-	 * @param key The key to look under for data.
+	 * @param ino The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	get(key: string): Uint8Array | undefined;
+	get(ino: Ino): Uint8Array | undefined;
 }
 
 /**
@@ -50,18 +51,18 @@ export interface SyncROTransaction {
 export interface SyncRWTransaction extends SyncROTransaction {
 	/**
 	 * Adds the data to the store under the given key.
-	 * @param key The key to add the data under.
+	 * @param ino The key to add the data under.
 	 * @param data The data to add to the store.
 	 * @param overwrite If 'true', overwrite any existing data. If 'false',
 	 *   avoids storing the data if the key exists.
 	 * @return True if storage succeeded, false otherwise.
 	 */
-	put(key: string, data: Uint8Array, overwrite: boolean): boolean;
+	put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean;
 	/**
 	 * Deletes the data at the given key.
-	 * @param key The key to delete from the store.
+	 * @param ino The key to delete from the store.
 	 */
-	remove(key: string): void;
+	remove(ino: Ino): void;
 	/**
 	 * Commits the transaction.
 	 */
@@ -77,9 +78,9 @@ export interface SyncRWTransaction extends SyncROTransaction {
  * support for transactions and such.
  */
 export interface SimpleSyncStore {
-	get(key: string): Uint8Array | undefined;
-	put(key: string, data: Uint8Array, overwrite: boolean): boolean;
-	remove(key: string): void;
+	get(ino: Ino): Uint8Array | undefined;
+	put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean;
+	remove(ino: Ino): void;
 }
 
 /**
@@ -90,28 +91,28 @@ export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	protected originalData: Map<string, Uint8Array> = new Map();
+	protected originalData: Map<Ino, Uint8Array> = new Map();
 	/**
 	 * List of keys modified in this transaction, if any.
 	 */
-	protected modifiedKeys: Set<string> = new Set();
+	protected modifiedKeys: Set<Ino> = new Set();
 
 	constructor(protected store: SimpleSyncStore) {}
 
-	public get(key: string): Uint8Array | undefined {
-		const val = this.store.get(key);
-		this.stashOldValue(key, val);
+	public get(ino: Ino): Uint8Array | undefined {
+		const val = this.store.get(ino);
+		this.stashOldValue(ino, val);
 		return val;
 	}
 
-	public put(key: string, data: Uint8Array, overwrite: boolean): boolean {
-		this.markModified(key);
-		return this.store.put(key, data, overwrite);
+	public put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean {
+		this.markModified(ino);
+		return this.store.put(ino, data, overwrite);
 	}
 
-	public remove(key: string): void {
-		this.markModified(key);
-		this.store.remove(key);
+	public remove(ino: Ino): void {
+		this.markModified(ino);
+		this.store.remove(ino);
 	}
 
 	public commit(): void {
@@ -138,10 +139,10 @@ export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	 * prevent needless `get` requests if the program modifies the data later
 	 * on during the transaction.
 	 */
-	protected stashOldValue(key: string, value: Uint8Array | undefined) {
+	protected stashOldValue(ino: Ino, value: Uint8Array | undefined) {
 		// Keep only the earliest value in the transaction.
-		if (!this.originalData.has(key)) {
-			this.originalData.set(key, value);
+		if (!this.originalData.has(ino)) {
+			this.originalData.set(ino, value);
 		}
 	}
 
@@ -149,10 +150,10 @@ export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	 * Marks the given key as modified, and stashes its value if it has not been
 	 * stashed already.
 	 */
-	protected markModified(key: string) {
-		this.modifiedKeys.add(key);
-		if (!this.originalData.has(key)) {
-			this.originalData.set(key, this.store.get(key));
+	protected markModified(ino: Ino) {
+		this.modifiedKeys.add(ino);
+		if (!this.originalData.has(ino)) {
+			this.originalData.set(ino, this.store.get(ino));
 		}
 	}
 }
@@ -162,19 +163,6 @@ export interface SyncFileSystemOptions {
 	 * The actual key-value store to read from/write to.
 	 */
 	store: SyncStore;
-	/**
-	 * Should the file system support properties (mtime/atime/ctime/chmod/etc)?
-	 * Enabling this slightly increases the storage space per file, and adds
-	 * atime updates every time a file is accessed, mtime updates every time
-	 * a file is modified, and permission checks on every operation.
-	 *
-	 * Defaults to *false*.
-	 */
-	supportProps?: boolean;
-	/**
-	 * Should the file system support links?
-	 */
-	supportLinks?: boolean;
 }
 
 export class SyncStoreFile extends PreloadFile<SyncStoreFileSystem> {
@@ -188,7 +176,7 @@ export class SyncStoreFile extends PreloadFile<SyncStoreFileSystem> {
 
 	public syncSync(): void {
 		if (this.isDirty()) {
-			this._fs.syncSync(this.path, this.buffer, this.stats);
+			this.fs.syncSync(this.path, this._buffer, this.stats);
 			this.resetDirty();
 		}
 	}
@@ -212,10 +200,6 @@ export class SyncStoreFile extends PreloadFile<SyncStoreFileSystem> {
  * @todo Check modes.
  */
 export class SyncStoreFileSystem extends SyncFileSystem {
-	public static isAvailable(): boolean {
-		return true;
-	}
-
 	protected store: SyncStore;
 
 	constructor(options: SyncFileSystemOptions) {
@@ -263,14 +247,14 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		if (!oldDirList[oldName]) {
 			throw ApiError.ENOENT(oldPath);
 		}
-		const nodeId: string = oldDirList[oldName];
+		const ino: Ino = oldDirList[oldName];
 		delete oldDirList[oldName];
 
 		// Invariant: Can't move a folder inside itself.
 		// This funny little hack ensures that the check passes only if oldPath
 		// is a subpath of newParent. We append '/' to avoid matching folders that
 		// are a substring of the bottom-most folder in the path.
-		if ((newParent + '/').indexOf(oldPath + '/') === 0) {
+		if ((newParent + '/').indexOf(oldPath + '/') == 0) {
 			throw new ApiError(ErrorCode.EBUSY, oldParent);
 		}
 
@@ -291,7 +275,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			const newNameNode = this.getINode(tx, newPath, newDirList[newName]);
 			if (newNameNode.toStats().isFile()) {
 				try {
-					tx.remove(newNameNode.id);
+					tx.remove(newNameNode.ino);
 					tx.remove(newDirList[newName]);
 				} catch (e) {
 					tx.abort();
@@ -302,12 +286,12 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 				throw ApiError.EPERM(newPath);
 			}
 		}
-		newDirList[newName] = nodeId;
+		newDirList[newName] = ino;
 
 		// Commit the two changed directory listings.
 		try {
-			tx.put(oldDirNode.id, encode(JSON.stringify(oldDirList)), true);
-			tx.put(newDirNode.id, encode(JSON.stringify(newDirList)), true);
+			tx.put(oldDirNode.ino, encode(JSON.stringify(oldDirList)), true);
+			tx.put(newDirNode.ino, encode(JSON.stringify(newDirList)), true);
 		} catch (e) {
 			tx.abort();
 			throw e;
@@ -326,15 +310,15 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	}
 
 	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncStoreFile {
-		this.commitNewFile(this.store.beginTransaction('readwrite'), p, FileType.FILE, mode, cred);
+		this.commitNewFile(p, FileType.FILE, mode, cred);
 		return this.openFileSync(p, flag, cred);
 	}
 
 	public openFileSync(p: string, flag: FileFlag, cred: Cred): SyncStoreFile {
 		const tx = this.store.beginTransaction('readonly'),
 			node = this.findINode(tx, p),
-			data = tx.get(node.id);
-		if (!node.toStats().hasAccess(flag.getMode(), cred)) {
+			data = tx.get(node.ino);
+		if (!node.toStats().hasAccess(flag.mode, cred)) {
 			throw ApiError.EACCES(p);
 		}
 		if (!data) {
@@ -357,9 +341,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	}
 
 	public mkdirSync(p: string, mode: number, cred: Cred): void {
-		const tx = this.store.beginTransaction('readwrite'),
-			data = encode('{}');
-		this.commitNewFile(tx, p, FileType.DIRECTORY, mode, cred, data);
+		this.commitNewFile(p, FileType.DIRECTORY, mode, cred, encode('{}'));
 	}
 
 	public readdirSync(p: string, cred: Cred): string[] {
@@ -369,14 +351,6 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			throw ApiError.EACCES(p);
 		}
 		return Object.keys(this.getDirListing(tx, p, node));
-	}
-
-	public chmodSync(p: string, mode: number, cred: Cred): void {
-		this.openFileSync(p, FileFlag.getFileFlag('r+'), cred).chmodSync(mode);
-	}
-
-	public chownSync(p: string, uid: number, gid: number, cred: Cred): void {
-		this.openFileSync(p, FileFlag.getFileFlag('r+'), cred).chownSync(uid, gid);
 	}
 
 	public syncSync(p: string, data: Uint8Array, stats: Readonly<Stats>): void {
@@ -390,10 +364,10 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 
 		try {
 			// Sync data.
-			tx.put(fileInode.id, data, true);
+			tx.put(fileInode.ino, data, true);
 			// Sync metadata.
 			if (inodeChanged) {
-				tx.put(fileInodeId, fileInode.serialize(), true);
+				tx.put(fileInodeId, fileInode.data, true);
 			}
 		} catch (e) {
 			tx.abort();
@@ -402,22 +376,55 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		tx.commit();
 	}
 
+	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
+		const tx = this.store.beginTransaction('readwrite'),
+			src_dir: string = dirname(dstpath),
+			src_node = this.findINode(tx, src_dir);
+
+		if (!src_node.toStats().hasAccess(R_OK, cred)) {
+			throw ApiError.EACCES(src_dir);
+		}
+
+		const ino = this.getDirListing(tx, src_dir, src_node)[basename(srcpath)];
+
+		if (!ino) {
+			throw ApiError.ENOENT(basename(srcpath));
+		}
+
+		const dst_dir: string = dirname(srcpath),
+			dst_node = this.findINode(tx, dst_dir),
+			dst_listing = this.getDirListing(tx, dst_dir, dst_node);
+
+		if (!dst_node.toStats().hasAccess(W_OK, cred)) {
+			throw ApiError.EACCES(dst_dir);
+		}
+
+		const node = this.findINode(tx, srcpath);
+
+		if (!node.toStats().hasAccess(W_OK, cred)) {
+			throw ApiError.EACCES(dstpath);
+		}
+		node.nlink++;
+		dst_listing[basename(dstpath)] = node.ino;
+		tx.put(ino, node.data, true);
+		tx.put(dst_node.ino, encode(JSON.stringify(dst_listing)), false);
+	}
+
 	/**
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
 	protected makeRootDirectory() {
 		const tx = this.store.beginTransaction('readwrite');
-		if (tx.get(ROOT_NODE_ID) === undefined) {
-			// Create new inode.
-			const currTime = new Date().getTime(),
-				// Mode 0666, owned by root:root
-				dirInode = new Inode(randomUUID(), 4096, 511 | FileType.DIRECTORY, currTime, currTime, currTime, 0, 0);
-			// If the root doesn't exist, the first random ID shouldn't exist,
-			// either.
-			tx.put(dirInode.id, encode('{}'), false);
-			tx.put(ROOT_NODE_ID, dirInode.serialize(), false);
-			tx.commit();
+		if (tx.get(rootIno)) {
+			return;
 		}
+		// Create new inode, mode o777, owned by root:root
+		const inode = new Inode();
+		inode.mode = 0o777 | FileType.DIRECTORY;
+		// If the root doesn't exist, the first random ID shouldn't exist either.
+		tx.put(inode.ino, encode('{}'), false);
+		tx.put(rootIno, inode.data, false);
+		tx.commit();
 	}
 
 	/**
@@ -427,34 +434,34 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	 *   the parent.
 	 * @return string The ID of the file's inode in the file system.
 	 */
-	protected _findINode(tx: SyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): string {
+	protected _findINode(tx: SyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set()): Ino {
 		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ApiError(ErrorCode.EIO, 'Infinite loop detected while finding inode', currentPath);
 		}
 
 		visited.add(currentPath);
-		const readDirectory = (inode: Inode): string => {
+		const readDirectory = (inode: Inode): Ino => {
 			// Get the root's directory listing.
-			const dirList = this.getDirListing(tx, parent, inode);
+			const dir = this.getDirListing(tx, parent, inode);
 			// Get the file's ID.
-			if (dirList[filename]) {
-				return dirList[filename];
-			} else {
-				throw ApiError.ENOENT(resolve(parent, filename));
+			if (filename in dir) {
+				return dir[filename];
 			}
+			throw ApiError.ENOENT(resolve(parent, filename));
 		};
-		if (parent === '/') {
-			if (filename === '') {
-				// Return the root's ID.
-				return ROOT_NODE_ID;
-			} else {
-				// Find the item in the root node.
-				return readDirectory(this.getINode(tx, parent, ROOT_NODE_ID));
-			}
-		} else {
+
+		if (parent != '/') {
 			return readDirectory(this.getINode(tx, parent + sep + filename, this._findINode(tx, dirname(parent), basename(parent), visited)));
 		}
+
+		if (filename != '') {
+			// Find the item in the root node.
+			return readDirectory(this.getINode(tx, parent, rootIno));
+		}
+
+		// Return the root's ID.
+		return rootIno;
 	}
 
 	/**
@@ -473,27 +480,27 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	 * @param p The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	protected getINode(tx: SyncROTransaction, p: string, id: string): Inode {
-		const inode = tx.get(id);
-		if (inode === undefined) {
+	protected getINode(tx: SyncROTransaction, p: string, id: Ino): Inode {
+		const data = tx.get(id);
+		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
-		return Inode.Deserialize(inode);
+		return new Inode(data.buffer);
 	}
 
 	/**
 	 * Given the Inode of a directory, retrieves the corresponding directory
 	 * listing.
 	 */
-	protected getDirListing(tx: SyncROTransaction, p: string, inode: Inode): { [fileName: string]: string } {
+	protected getDirListing(tx: SyncROTransaction, p: string, inode: Inode): { [fileName: string]: Ino } {
 		if (!inode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
-		const data = tx.get(inode.id);
-		if (data === undefined) {
+		const data = tx.get(inode.ino);
+		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
-		return JSON.parse(decode(data));
+		return JSON.parse(decode(data), (k, v) => BigInt(v));
 	}
 
 	/**
@@ -501,14 +508,14 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	 * the exceedingly unlikely chance that we try to reuse a random GUID.
 	 * @return The GUID that the data was stored under.
 	 */
-	protected addNewNode(tx: SyncRWTransaction, data: Uint8Array): string {
+	protected addNewNode(tx: SyncRWTransaction, data: Uint8Array): Ino {
 		const retries = 0;
-		let currId: string;
+		let ino: Ino;
 		while (retries < 5) {
 			try {
-				currId = randomUUID();
-				tx.put(currId, data, false);
-				return currId;
+				ino = randomIno();
+				tx.put(ino, data, false);
+				return ino;
 			} catch (e) {
 				// Ignore and reroll.
 			}
@@ -517,8 +524,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	}
 
 	/**
-	 * Commits a new file (well, a FILE or a DIRECTORY) to the file system with
-	 * the given mode.
+	 * Commits a new file (well, a FILE or a DIRECTORY) to the file system with the given mode.
 	 * Note: This will commit the transaction.
 	 * @param p The path to the new file.
 	 * @param type The type of the new file.
@@ -526,21 +532,22 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	protected commitNewFile(tx: SyncRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
-		const parentDir = dirname(p),
+	protected commitNewFile(p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
+		const tx = this.store.beginTransaction('readwrite'),
+			parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = this.findINode(tx, parentDir),
-			dirListing = this.getDirListing(tx, parentDir, parentNode),
-			currTime = new Date().getTime();
+			dirListing = this.getDirListing(tx, parentDir, parentNode);
 
 		//Check that the creater has correct access
-		if (!parentNode.toStats().hasAccess(0b0100 /* Write */, cred)) {
+		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
 			throw ApiError.EACCES(p);
 		}
 
-		// Invariant: The root always exists.
-		// If we don't check this prior to taking steps below, we will create a
-		// file with name '' in root should p == '/'.
+		/* Invariant: The root always exists.
+		If we don't check this prior to taking steps below,
+		we will create a file with name '' in root should p == '/'.
+		*/
 		if (p === '/') {
 			throw ApiError.EEXIST(p);
 		}
@@ -550,16 +557,17 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			throw ApiError.EEXIST(p);
 		}
 
-		let fileNode: Inode;
+		const fileNode: Inode = new Inode();
 		try {
 			// Commit data.
-			const dataId = this.addNewNode(tx, data);
-			fileNode = new Inode(dataId, data.length, mode | type, currTime, currTime, currTime, cred.uid, cred.gid);
-			// Commit file node.
-			const fileNodeId = this.addNewNode(tx, fileNode.serialize());
+			fileNode.ino = this.addNewNode(tx, data);
+			fileNode.size = data.length;
+			fileNode.mode = mode | type;
+			fileNode.uid = cred.uid;
+			fileNode.gid = cred.gid;
 			// Update and commit parent directory listing.
-			dirListing[fname] = fileNodeId;
-			tx.put(parentNode.id, encode(JSON.stringify(dirListing)), true);
+			dirListing[fname] = this.addNewNode(tx, fileNode.data);
+			tx.put(parentNode.ino, encode(JSON.stringify(dirListing)), true);
 		} catch (e) {
 			tx.abort();
 			throw e;
@@ -599,17 +607,19 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 
 		if (!isDir && fileNode.toStats().isDirectory()) {
 			throw ApiError.EISDIR(p);
-		} else if (isDir && !fileNode.toStats().isDirectory()) {
+		}
+
+		if (isDir && !fileNode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
 
 		try {
 			// Delete data.
-			tx.remove(fileNode.id);
+			tx.remove(fileNode.ino);
 			// Delete node.
 			tx.remove(fileNodeId);
 			// Update directory listing.
-			tx.put(parentNode.id, encode(JSON.stringify(parentListing)), true);
+			tx.put(parentNode.ino, encode(JSON.stringify(parentListing)), true);
 		} catch (e) {
 			tx.abort();
 			throw e;

@@ -4,97 +4,55 @@ import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { PreloadFile, File, FileFlag } from '../file.js';
 import { AsyncFileSystem } from '../filesystem.js';
-import Inode from '../inode.js';
+import Inode, { randomIno, type Ino } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
-import { ROOT_NODE_ID, randomUUID, encode, decode } from '../utils.js';
+import { encode, decode } from '../utils.js';
+import { rootIno } from '../inode.js';
 
-class LRUNode {
-	public prev: LRUNode | null = null;
-	public next: LRUNode | null = null;
-	constructor(public key: string, public value: string) {}
+interface LRUNode<K, V> {
+	key: K;
+	value: V;
 }
 
-// Adapted from https://chrisrng.svbtle.com/lru-cache-in-javascript
-class LRUCache {
-	private size = 0;
-	private map: { [id: string]: LRUNode } = {};
-	private head: LRUNode | null = null;
-	private tail: LRUNode | null = null;
+/**
+ * Last Recently Used cache
+ */
+class LRUCache<K, V> {
+	private cache: LRUNode<K, V>[] = [];
+
 	constructor(public readonly limit: number) {}
 
-	/**
-	 * Change or add a new value in the cache
-	 * We overwrite the entry if it already exists
-	 */
-	public set(key: string, value: string): void {
-		const node = new LRUNode(key, value);
-		if (this.map[key]) {
-			this.map[key].value = node.value;
-			this.remove(node.key);
-		} else {
-			if (this.size >= this.limit) {
-				delete this.map[this.tail!.key];
-				this.size--;
-				this.tail = this.tail!.prev;
-				this.tail!.next = null;
-			}
+	public set(key: K, value: V): void {
+		const existingIndex = this.cache.findIndex(node => node.key === key);
+		if (existingIndex != -1) {
+			this.cache.splice(existingIndex, 1);
+		} else if (this.cache.length >= this.limit) {
+			this.cache.shift();
 		}
-		this.setHead(node);
+
+		this.cache.push({ key, value });
 	}
 
-	/* Retrieve a single entry from the cache */
-	public get(key: string): string | null {
-		if (this.map[key]) {
-			const value = this.map[key].value;
-			const node = new LRUNode(key, value);
-			this.remove(key);
-			this.setHead(node);
-			return value;
-		} else {
-			return null;
-		}
-	}
-
-	/* Remove a single entry from the cache */
-	public remove(key: string): void {
-		const node = this.map[key];
+	public get(key: K): V | null {
+		const node = this.cache.find(n => n.key === key);
 		if (!node) {
 			return;
 		}
-		if (node.prev !== null) {
-			node.prev.next = node.next;
-		} else {
-			this.head = node.next;
-		}
-		if (node.next !== null) {
-			node.next.prev = node.prev;
-		} else {
-			this.tail = node.prev;
-		}
-		delete this.map[key];
-		this.size--;
+
+		// Move the accessed item to the end of the cache (most recently used)
+		this.set(key, node.value);
+		return node.value;
 	}
 
-	/* Resets the entire cache - Argument limit is optional to be reset */
-	public removeAll() {
-		this.size = 0;
-		this.map = {};
-		this.head = null;
-		this.tail = null;
+	public remove(key: K): void {
+		const index = this.cache.findIndex(node => node.key === key);
+		if (index !== -1) {
+			this.cache.splice(index, 1);
+		}
 	}
 
-	private setHead(node: LRUNode): void {
-		node.next = this.head;
-		node.prev = null;
-		if (this.head !== null) {
-			this.head.prev = node;
-		}
-		this.head = node;
-		if (this.tail === null) {
-			this.tail = node;
-		}
-		this.size++;
-		this.map[node.key] = node;
+	public reset(): void {
+		this.cache = [];
 	}
 }
 
@@ -129,7 +87,7 @@ export interface AsyncROTransaction {
 	 * Retrieves the data at the given key.
 	 * @param key The key to look under for data.
 	 */
-	get(key: string): Promise<Uint8Array>;
+	get(key: Ino): Promise<Uint8Array>;
 }
 
 /**
@@ -144,12 +102,12 @@ export interface AsyncRWTransaction extends AsyncROTransaction {
 	 * @param overwrite If 'true', overwrite any existing data. If 'false',
 	 *   avoids writing the data if the key exists.
 	 */
-	put(key: string, data: Uint8Array, overwrite: boolean): Promise<boolean>;
+	put(key: Ino, data: Uint8Array, overwrite: boolean): Promise<boolean>;
 	/**
 	 * Deletes the data at the given key.
 	 * @param key The key to delete from the store.
 	 */
-	remove(key: string): Promise<void>;
+	remove(key: Ino): Promise<void>;
 	/**
 	 * Commits the transaction.
 	 */
@@ -160,7 +118,7 @@ export interface AsyncRWTransaction extends AsyncROTransaction {
 	abort(): Promise<void>;
 }
 
-export class AsyncFile extends PreloadFile<AsyncStoreFileSystem> implements File {
+export class AsyncFile extends PreloadFile<AsyncStoreFileSystem> {
 	constructor(_fs: AsyncStoreFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
@@ -170,7 +128,7 @@ export class AsyncFile extends PreloadFile<AsyncStoreFileSystem> implements File
 			return;
 		}
 
-		await this._fs._sync(this.path, this.buffer, this.stats);
+		await this.fs.sync(this.path, this._buffer, this.stats);
 
 		this.resetDirty();
 	}
@@ -194,7 +152,7 @@ export class AsyncFile extends PreloadFile<AsyncStoreFileSystem> implements File
  */
 export class AsyncStoreFileSystem extends AsyncFileSystem {
 	protected store: AsyncStore;
-	private _cache: LRUCache | null = null;
+	private _cache?: LRUCache<string, Ino>;
 
 	protected _ready: Promise<this>;
 
@@ -224,7 +182,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	 */
 	public async empty(): Promise<void> {
 		if (this._cache) {
-			this._cache.removeAll();
+			this._cache.reset();
 		}
 		await this.store.clear();
 		// INVARIANT: Root always exists.
@@ -239,7 +197,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		if (this._cache) {
 			// Clear and disable cache during renaming process.
 			this._cache = null;
-			c.removeAll();
+			c.reset();
 		}
 
 		try {
@@ -259,7 +217,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			if (!oldDirList[oldName]) {
 				throw ApiError.ENOENT(oldPath);
 			}
-			const nodeId: string = oldDirList[oldName];
+			const nodeId: Ino = oldDirList[oldName];
 			delete oldDirList[oldName];
 
 			// Invariant: Can't move a folder inside itself.
@@ -287,7 +245,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 				const newNameNode = await this.getINode(tx, newPath, newDirList[newName]);
 				if (newNameNode.toStats().isFile()) {
 					try {
-						await tx.remove(newNameNode.id);
+						await tx.remove(newNameNode.ino);
 						await tx.remove(newDirList[newName]);
 					} catch (e) {
 						await tx.abort();
@@ -301,8 +259,8 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			newDirList[newName] = nodeId;
 			// Commit the two changed directory listings.
 			try {
-				await tx.put(oldDirNode.id, encode(JSON.stringify(oldDirList)), true);
-				await tx.put(newDirNode.id, encode(JSON.stringify(newDirList)), true);
+				await tx.put(oldDirNode.ino, encode(JSON.stringify(oldDirList)), true);
+				await tx.put(newDirNode.ino, encode(JSON.stringify(newDirList)), true);
 			} catch (e) {
 				await tx.abort();
 				throw e;
@@ -340,11 +298,11 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	public async openFile(p: string, flag: FileFlag, cred: Cred): Promise<File> {
 		const tx = this.store.beginTransaction('readonly'),
 			node = await this.findINode(tx, p),
-			data = await tx.get(node.id);
-		if (!node.toStats().hasAccess(flag.getMode(), cred)) {
+			data = await tx.get(node.ino);
+		if (!node.toStats().hasAccess(flag.mode, cred)) {
 			throw ApiError.EACCES(p);
 		}
-		if (data === undefined) {
+		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
 		return new AsyncFile(this, p, flag, node.toStats(), data);
@@ -378,19 +336,11 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		return Object.keys(await this.getDirListing(tx, p, node));
 	}
 
-	public async chmod(p: string, mode: number, cred: Cred): Promise<void> {
-		const fd = await this.openFile(p, FileFlag.getFileFlag('r+'), cred);
-		await fd.chmod(mode);
-	}
-
-	public async chown(p: string, new_uid: number, new_gid: number, cred: Cred): Promise<void> {
-		const fd = await this.openFile(p, FileFlag.getFileFlag('r+'), cred);
-		await fd.chown(new_uid, new_gid);
-	}
-
-	public async _sync(p: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		// @todo Ensure mtime updates properly, and use that to determine if a data
-		//       update is required.
+	/**
+	 * Updated the inode and data node at the given path
+	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
+	 */
+	public async sync(p: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		const tx = this.store.beginTransaction('readwrite'),
 			// We use the _findInode helper because we actually need the INode id.
 			fileInodeId = await this._findINode(tx, dirname(p), basename(p)),
@@ -399,10 +349,10 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 
 		try {
 			// Sync data.
-			await tx.put(fileInode.id, data, true);
+			await tx.put(fileInode.ino, data, true);
 			// Sync metadata.
 			if (inodeChanged) {
-				await tx.put(fileInodeId, fileInode.serialize(), true);
+				await tx.put(fileInodeId, fileInode.data, true);
 			}
 		} catch (e) {
 			await tx.abort();
@@ -411,20 +361,53 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		await tx.commit();
 	}
 
+	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
+		const tx = this.store.beginTransaction('readwrite'),
+			src_dir: string = dirname(dstpath),
+			src_node = await this.findINode(tx, src_dir);
+
+		if (!src_node.toStats().hasAccess(R_OK, cred)) {
+			throw ApiError.EACCES(src_dir);
+		}
+
+		const ino = await this.getDirListing(tx, src_dir, src_node)[basename(srcpath)];
+
+		if (!ino) {
+			throw ApiError.ENOENT(basename(srcpath));
+		}
+
+		const dst_dir: string = dirname(srcpath),
+			dst_node = await this.findINode(tx, dst_dir),
+			dst_listing = await this.getDirListing(tx, dst_dir, dst_node);
+
+		if (!dst_node.toStats().hasAccess(W_OK, cred)) {
+			throw ApiError.EACCES(dst_dir);
+		}
+
+		const node = await this.findINode(tx, srcpath);
+
+		if (!node.toStats().hasAccess(W_OK, cred)) {
+			throw ApiError.EACCES(dstpath);
+		}
+		node.nlink++;
+		dst_listing[basename(dstpath)] = node.ino;
+		await tx.put(ino, node.data, true);
+		await tx.put(dst_node.ino, encode(JSON.stringify(dst_listing)), false);
+	}
+
 	/**
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
 	private async makeRootDirectory(): Promise<void> {
 		const tx = this.store.beginTransaction('readwrite');
-		if ((await tx.get(ROOT_NODE_ID)) === undefined) {
-			// Create new inode.
-			const currTime = new Date().getTime(),
-				// Mode 0666, owned by root:root
-				dirInode = new Inode(randomUUID(), 4096, 511 | FileType.DIRECTORY, currTime, currTime, currTime, 0, 0);
+		if ((await tx.get(rootIno)) === undefined) {
+			// Create new inode. o777, owned by root:root
+			const dirInode = new Inode();
+			dirInode.mode = 0o777 | FileType.DIRECTORY;
 			// If the root doesn't exist, the first random ID shouldn't exist,
 			// either.
-			await tx.put(dirInode.id, encode('{}'), false);
-			await tx.put(ROOT_NODE_ID, dirInode.serialize(), false);
+			await tx.put(dirInode.ino, encode('{}'), false);
+			await tx.put(rootIno, dirInode.data, false);
 			await tx.commit();
 		}
 	}
@@ -435,7 +418,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	 * @param filename The filename of the inode we are attempting to find, minus
 	 *   the parent.
 	 */
-	private async _findINode(tx: AsyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): Promise<string> {
+	private async _findINode(tx: AsyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): Promise<Ino> {
 		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ApiError(ErrorCode.EIO, 'Infinite loop detected while finding inode', currentPath);
@@ -453,12 +436,12 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			if (filename === '') {
 				// BASE CASE #1: Return the root's ID.
 				if (this._cache) {
-					this._cache.set(currentPath, ROOT_NODE_ID);
+					this._cache.set(currentPath, rootIno);
 				}
-				return ROOT_NODE_ID;
+				return rootIno;
 			} else {
 				// BASE CASE #2: Find the item in the root node.
-				const inode = await this.getINode(tx, parent, ROOT_NODE_ID);
+				const inode = await this.getINode(tx, parent, rootIno);
 				const dirList = await this.getDirListing(tx, parent, inode!);
 				if (dirList![filename]) {
 					const id = dirList![filename];
@@ -503,51 +486,53 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	 * @param p The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private async getINode(tx: AsyncROTransaction, p: string, id: string): Promise<Inode> {
+	private async getINode(tx: AsyncROTransaction, p: string, id: Ino): Promise<Inode> {
 		const data = await tx.get(id);
 		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
-		return Inode.Deserialize(data);
+		return new Inode(data.buffer);
 	}
 
 	/**
 	 * Given the Inode of a directory, retrieves the corresponding directory
 	 * listing.
 	 */
-	private async getDirListing(tx: AsyncROTransaction, p: string, inode: Inode): Promise<{ [fileName: string]: string }> {
+	private async getDirListing(tx: AsyncROTransaction, p: string, inode: Inode): Promise<{ [fileName: string]: Ino }> {
 		if (!inode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
-		const data = await tx.get(inode.id);
+		const data = await tx.get(inode.ino);
 		try {
-			return JSON.parse(decode(data));
+			return JSON.parse(decode(data), (k, v) => BigInt(v));
 		} catch (e) {
-			// Occurs when data is undefined, or corresponds to something other
-			// than a directory listing. The latter should never occur unless
-			// the file system is corrupted.
+			/*
+				Occurs when data is undefined, or corresponds to something other
+				than a directory listing. The latter should never occur unless
+				the file system is corrupted.
+			 */
 			throw ApiError.ENOENT(p);
 		}
 	}
 
 	/**
 	 * Adds a new node under a random ID. Retries 5 times before giving up in
-	 * the exceedingly unlikely chance that we try to reuse a random GUID.
+	 * the exceedingly unlikely chance that we try to reuse a random ino.
 	 */
-	private async addNewNode(tx: AsyncRWTransaction, data: Uint8Array): Promise<string> {
+	private async addNewNode(tx: AsyncRWTransaction, data: Uint8Array): Promise<Ino> {
 		let retries = 0;
-		const reroll = async () => {
+		const reroll = async (): Promise<Ino> => {
 			if (++retries === 5) {
 				// Max retries hit. Return with an error.
 				throw new ApiError(ErrorCode.EIO, 'Unable to commit data to key-value store.');
 			} else {
 				// Try again.
-				const currId = randomUUID();
-				const committed = await tx.put(currId, data, false);
+				const ino = randomIno();
+				const committed = await tx.put(ino, data, false);
 				if (!committed) {
 					return reroll();
 				} else {
-					return currId;
+					return ino;
 				}
 			}
 		};
@@ -568,8 +553,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		const parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = await this.findINode(tx, parentDir),
-			dirListing = await this.getDirListing(tx, parentDir, parentNode),
-			currTime = new Date().getTime();
+			dirListing = await this.getDirListing(tx, parentDir, parentNode);
 
 		//Check that the creater has correct access
 		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
@@ -590,15 +574,19 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		}
 		try {
 			// Commit data.
-			const dataId = await this.addNewNode(tx, data);
-			const fileNode = new Inode(dataId, data.length, mode | type, currTime, currTime, currTime, cred.uid, cred.gid);
-			// Commit file node.
-			const fileNodeId = await this.addNewNode(tx, fileNode.serialize());
+
+			const inode = new Inode();
+			inode.ino = await this.addNewNode(tx, data);
+			inode.mode = mode | type;
+			inode.uid = cred.uid;
+			inode.gid = cred.gid;
+			inode.size = data.length;
+
 			// Update and commit parent directory listing.
-			dirListing[fname] = fileNodeId;
-			await tx.put(parentNode.id, encode(JSON.stringify(dirListing)), true);
+			dirListing[fname] = await this.addNewNode(tx, inode.data);
+			await tx.put(parentNode.ino, encode(JSON.stringify(dirListing)), true);
 			await tx.commit();
-			return fileNode;
+			return inode;
 		} catch (e) {
 			tx.abort();
 			throw e;
@@ -651,11 +639,11 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 
 		try {
 			// Delete data.
-			await tx.remove(fileNode.id);
+			await tx.remove(fileNode.ino);
 			// Delete node.
 			await tx.remove(fileNodeId);
 			// Update directory listing.
-			await tx.put(parentNode.id, encode(JSON.stringify(parentListing)), true);
+			await tx.put(parentNode.ino, encode(JSON.stringify(parentListing)), true);
 		} catch (e) {
 			await tx.abort();
 			throw e;

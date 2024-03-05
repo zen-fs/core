@@ -1,38 +1,125 @@
 import { S_IFMT } from './emulation/constants.js';
 import { Stats, FileType } from './stats.js';
-import { decode, encode } from './utils.js';
+
+enum Offset {
+	ino = 0,
+	size = 8, // offsets with a 64-bit size
+	mode = 12, // 16
+	nlink = 14, // 18
+	uid = 18, // 22
+	gid = 22, // 26
+	atime = 26, // 30
+	mtime = 34, // 38
+	ctime = 42, // 46
+}
+
+export type Ino = bigint;
+
+export const size_max = 2 ** 32 - 1;
 
 /**
  * Generic inode definition that can easily be serialized.
  */
 export default class Inode {
-	/**
-	 * Converts the buffer into an Inode.
-	 */
-	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): Inode {
-		const view = new DataView('buffer' in data ? data.buffer : data);
-		return new Inode(
-			decode(view.buffer.slice(38)),
-			view.getUint32(0, true),
-			view.getUint16(4, true),
-			view.getFloat64(6, true),
-			view.getFloat64(14, true),
-			view.getFloat64(22, true),
-			view.getUint32(30, true),
-			view.getUint32(34, true)
-		);
+	public readonly buffer: ArrayBufferLike;
+
+	public get data(): Uint8Array {
+		return new Uint8Array(this.buffer);
 	}
 
-	constructor(
-		public id: string,
-		public size: number,
-		public mode: number,
-		public atime: number,
-		public mtime: number,
-		public ctime: number,
-		public uid: number,
-		public gid: number
-	) {}
+	protected view: DataView;
+
+	constructor(buffer?: ArrayBufferLike) {
+		const setDefaults = !buffer;
+		buffer ??= new ArrayBuffer(50);
+		this.view = new DataView(buffer);
+		this.buffer = buffer;
+
+		if (!setDefaults) {
+			return;
+		}
+
+		// set defaults on a fresh inode
+		this.ino = randomIno();
+		this.nlink = 1;
+		this.size = 4096;
+		const now = Date.now();
+		this.atime = now;
+		this.mtime = now;
+		this.ctime = now;
+	}
+
+	public get ino(): Ino {
+		return this.view.getBigUint64(Offset.ino, true);
+	}
+
+	public set ino(value: Ino) {
+		this.view.setBigUint64(Offset.ino, value, true);
+	}
+
+	public get size(): number {
+		return this.view.getUint32(Offset.size, true);
+	}
+
+	public set size(value: number) {
+		this.view.setUint32(Offset.size, value, true);
+	}
+
+	public get mode(): number {
+		return this.view.getUint16(Offset.mode, true);
+	}
+
+	public set mode(value: number) {
+		this.view.setUint16(Offset.mode, value, true);
+	}
+
+	public get nlink(): number {
+		return this.view.getUint32(Offset.nlink, true);
+	}
+
+	public set nlink(value: number) {
+		this.view.setUint32(Offset.nlink, value, true);
+	}
+
+	public get uid(): number {
+		return this.view.getUint32(Offset.uid, true);
+	}
+
+	public set uid(value: number) {
+		this.view.setUint32(Offset.uid, value, true);
+	}
+
+	public get gid(): number {
+		return this.view.getUint32(Offset.gid, true);
+	}
+
+	public set gid(value: number) {
+		this.view.setUint32(Offset.gid, value, true);
+	}
+
+	public get atime(): number {
+		return this.view.getFloat64(Offset.atime, true);
+	}
+
+	public set atime(value: number) {
+		this.view.setFloat64(Offset.atime, value, true);
+	}
+
+	public get mtime(): number {
+		return this.view.getFloat64(Offset.mtime, true);
+	}
+
+	public set mtime(value: number) {
+		this.view.setFloat64(Offset.mtime, value, true);
+	}
+
+	public get ctime(): number {
+		return this.view.getFloat64(Offset.ctime, true);
+	}
+
+	public set ctime(value: number) {
+		this.view.setFloat64(Offset.ctime, value, true);
+	}
 
 	/**
 	 * Handy function that converts the Inode to a Node Stats object.
@@ -53,26 +140,8 @@ export default class Inode {
 	/**
 	 * Get the size of this Inode, in bytes.
 	 */
-	public getSize(): number {
-		// ASSUMPTION: ID is 1 byte per char.
-		return 38 + this.id.length;
-	}
-
-	/**
-	 * Writes the inode into the start of the buffer.
-	 */
-	public serialize(data: ArrayBufferLike | ArrayBufferView = new Uint8Array(this.getSize())): Uint8Array {
-		const view = new DataView('buffer' in data ? data.buffer : data);
-		view.setUint32(0, this.size, true);
-		view.setUint16(4, this.mode, true);
-		view.setFloat64(6, this.atime, true);
-		view.setFloat64(14, this.mtime, true);
-		view.setFloat64(22, this.ctime, true);
-		view.setUint32(30, this.uid, true);
-		view.setUint32(34, this.gid, true);
-		const buffer = new Uint8Array(view.buffer);
-		buffer.set(encode(this.id), 38);
-		return buffer;
+	public sizeof(): number {
+		return this.buffer.byteLength;
 	}
 
 	/**
@@ -97,6 +166,21 @@ export default class Inode {
 			hasChanged = true;
 		}
 
+		if (this.nlink !== stats.nlink) {
+			this.nlink = stats.nlink;
+			hasChanged = true;
+		}
+
+		if (this.uid !== stats.uid) {
+			this.uid = stats.uid;
+			hasChanged = true;
+		}
+
+		if (this.uid !== stats.uid) {
+			this.uid = stats.uid;
+			hasChanged = true;
+		}
+
 		if (this.atime !== stats.atimeMs) {
 			this.atime = stats.atimeMs;
 			hasChanged = true;
@@ -111,16 +195,20 @@ export default class Inode {
 			hasChanged = true;
 		}
 
-		if (this.uid !== stats.uid) {
-			this.uid = stats.uid;
-			hasChanged = true;
-		}
-
-		if (this.uid !== stats.uid) {
-			this.uid = stats.uid;
-			hasChanged = true;
-		}
-
 		return hasChanged;
 	}
+}
+
+/**
+ * @internal
+ */
+export const rootIno: Ino = 0n;
+
+/**
+ * see https://stackoverflow.com/q/70677751
+ *
+ * @internal
+ */
+export function randomIno(): Ino {
+	return BigInt(Math.random() * 10 ** 45);
 }

@@ -1,34 +1,62 @@
 import { ApiError, ErrorCode } from './ApiError.js';
-import { Stats } from './stats.js';
+import { Stats, type FileType } from './stats.js';
 import { FileSystem, type SyncFileSystem } from './filesystem.js';
-import { O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_TRUNC, O_APPEND, O_SYNC } from './emulation/constants.js';
+import { O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_TRUNC, O_APPEND, O_SYNC, S_IFMT } from './emulation/constants.js';
+import { size_max } from './inode.js';
+
+/*
+	Typescript does not include a type declaration for resizable array buffers. 
+	It has been standardized into ECMAScript though
+	Remove this if TS adds them to lib declarations
+*/
+declare global {
+	interface ArrayBuffer {
+		readonly resizable: boolean;
+
+		readonly maxByteLength?: number;
+
+		resize(newLength: number): void;
+	}
+
+	interface SharedArrayBuffer {
+		readonly resizable: boolean;
+
+		readonly maxByteLength?: number;
+
+		resize(newLength: number): void;
+	}
+
+	interface ArrayBufferConstructor {
+		new (byteLength: number, options: { maxByteLength?: number }): ArrayBuffer;
+	}
+}
 
 export enum ActionType {
 	// Indicates that the code should not do anything.
 	NOP = 0,
 	// Indicates that the code should throw an exception.
-	THROW_EXCEPTION = 1,
+	THROW = 1,
 	// Indicates that the code should truncate the file, but only if it is a file.
-	TRUNCATE_FILE = 2,
+	TRUNCATE = 2,
 	// Indicates that the code should create the file.
-	CREATE_FILE = 3,
+	CREATE = 3,
 }
 
 /**
  * Represents one of the following file flags. A convenience object.
  *
- * * `'r'` - Open file for reading. An exception occurs if the file does not exist.
- * * `'r+'` - Open file for reading and writing. An exception occurs if the file does not exist.
- * * `'rs'` - Open file for reading in synchronous mode. Instructs the filesystem to not cache writes.
- * * `'rs+'` - Open file for reading and writing, and opens the file in synchronous mode.
- * * `'w'` - Open file for writing. The file is created (if it does not exist) or truncated (if it exists).
- * * `'wx'` - Like 'w' but opens the file in exclusive mode.
- * * `'w+'` - Open file for reading and writing. The file is created (if it does not exist) or truncated (if it exists).
- * * `'wx+'` - Like 'w+' but opens the file in exclusive mode.
- * * `'a'` - Open file for appending. The file is created if it does not exist.
- * * `'ax'` - Like 'a' but opens the file in exclusive mode.
- * * `'a+'` - Open file for reading and appending. The file is created if it does not exist.
- * * `'ax+'` - Like 'a+' but opens the file in exclusive mode.
+ * - r: 	Open file for reading. An exception occurs if the file does not exist.
+ * - r+: 	Open file for reading and writing. An exception occurs if the file does not exist.
+ * - rs: 	Open file for reading in synchronous mode. Instructs the filesystem to not cache writes.
+ * - rs+: 	Open file for reading and writing, and opens the file in synchronous mode.
+ * - w: 	Open file for writing. The file is created (if it does not exist) or truncated (if it exists).
+ * - wx: 	Like 'w' but opens the file in exclusive mode.
+ * - w+: 	Open file for reading and writing. The file is created (if it does not exist) or truncated (if it exists).
+ * - wx+: 	Like 'w+' but opens the file in exclusive mode.
+ * - a: 	Open file for appending. The file is created if it does not exist.
+ * - ax: 	Like 'a' but opens the file in exclusive mode.
+ * - a+: 	Open file for reading and appending. The file is created if it does not exist.
+ * - ax+: 	Like 'a+' but opens the file in exclusive mode.
  *
  * Exclusive mode ensures that the file path is newly created.
  */
@@ -44,7 +72,7 @@ export class FileFlag {
 	 * @return The FileFlag object representing the flag
 	 * @throw when the flag string is invalid
 	 */
-	public static getFileFlag(flag: string | number): FileFlag {
+	public static FromString(flag: string | number): FileFlag {
 		// Check cache first.
 		if (!FileFlag.flagCache.has(flag)) {
 			FileFlag.flagCache.set(flag, new FileFlag(flag));
@@ -60,7 +88,7 @@ export class FileFlag {
 	 */
 	constructor(flag: string | number) {
 		if (typeof flag === 'number') {
-			flag = FileFlag.StringFromNumber(flag);
+			flag = FileFlag.NumberToString(flag);
 		}
 		if (FileFlag.validFlagStrs.indexOf(flag) < 0) {
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
@@ -73,7 +101,7 @@ export class FileFlag {
 	 * @return The string representing the flag
 	 * @throw when the flag number is invalid
 	 */
-	public static StringFromNumber(flag: number): string {
+	public static NumberToString(flag: number): string {
 		// based on https://github.com/nodejs/node/blob/abbdc3efaa455e6c907ebef5409ac8b0f222f969/lib/internal/fs/utils.js#L619
 		switch (flag) {
 			case O_RDONLY:
@@ -113,7 +141,7 @@ export class FileFlag {
 	/**
 	 * Get the underlying flag string for this flag.
 	 */
-	public getFlagString(): string {
+	public toString(): string {
 		return this.flagStr;
 	}
 
@@ -121,7 +149,7 @@ export class FileFlag {
 	 * Get the equivalent mode (0b0xxx: read, write, execute)
 	 * Note: Execute will always be 0
 	 */
-	public getMode(): number {
+	public get mode(): number {
 		let mode = 0;
 		mode <<= 1;
 		mode += +this.isReadable();
@@ -173,12 +201,14 @@ export class FileFlag {
 	 */
 	public pathExistsAction(): ActionType {
 		if (this.isExclusive()) {
-			return ActionType.THROW_EXCEPTION;
-		} else if (this.isTruncating()) {
-			return ActionType.TRUNCATE_FILE;
-		} else {
-			return ActionType.NOP;
+			return ActionType.THROW;
 		}
+
+		if (this.isTruncating()) {
+			return ActionType.TRUNCATE;
+		}
+
+		return ActionType.NOP;
 	}
 	/**
 	 * Returns one of the static fields on this object that indicates the
@@ -186,9 +216,9 @@ export class FileFlag {
 	 */
 	public pathNotExistsAction(): ActionType {
 		if ((this.isWriteable() || this.isAppendable()) && this.flagStr !== 'r+') {
-			return ActionType.CREATE_FILE;
+			return ActionType.CREATE;
 		} else {
-			return ActionType.THROW_EXCEPTION;
+			return ActionType.THROW;
 		}
 	}
 }
@@ -198,38 +228,52 @@ export abstract class File {
 	 * Get the current file position.
 	 */
 	public abstract position?: number;
+
+	/**
+	 * The path to the file
+	 */
+	public abstract readonly path?: string;
+
 	/**
 	 * Asynchronous `stat`.
 	 */
 	public abstract stat(): Promise<Stats>;
+
 	/**
 	 * Synchronous `stat`.
 	 */
 	public abstract statSync(): Stats;
+
 	/**
 	 * Asynchronous close.
 	 */
 	public abstract close(): Promise<void>;
+
 	/**
 	 * Synchronous close.
 	 */
 	public abstract closeSync(): void;
+
 	/**
 	 * Asynchronous truncate.
 	 */
 	public abstract truncate(len: number): Promise<void>;
+
 	/**
 	 * Synchronous truncate.
 	 */
 	public abstract truncateSync(len: number): void;
+
 	/**
 	 * Asynchronous sync.
 	 */
 	public abstract sync(): Promise<void>;
+
 	/**
 	 * Synchronous sync.
 	 */
 	public abstract syncSync(): void;
+
 	/**
 	 * Write buffer to the file.
 	 * Note that it is unsafe to use fs.write multiple times on the same file
@@ -243,7 +287,8 @@ export abstract class File {
 	 *   the current position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	public abstract write(buffer: Uint8Array, offset: number, length: number, position?: number): Promise<number>;
+	public abstract write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number>;
+
 	/**
 	 * Write buffer to the file.
 	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
@@ -256,7 +301,8 @@ export abstract class File {
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
 	 */
-	public abstract writeSync(buffer: Uint8Array, offset: number, length: number, position?: number): number;
+	public abstract writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number;
+
 	/**
 	 * Read data from the file.
 	 * @param buffer The buffer that the data will be
@@ -269,7 +315,8 @@ export abstract class File {
 	 *   position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	public abstract read<TBuffer extends Uint8Array>(buffer: TBuffer, offset: number, length: number, position: number | null): Promise<{ bytesRead: number; buffer: TBuffer }>;
+	public abstract read<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }>;
+
 	/**
 	 * Read data from the file.
 	 * @param buffer The buffer that the data will be written to.
@@ -279,7 +326,8 @@ export abstract class File {
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
 	 */
-	public abstract readSync(buffer: Uint8Array, offset: number, length: number, position: number): number;
+	public abstract readSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number;
+
 	/**
 	 * Asynchronous `datasync`.
 	 *
@@ -288,6 +336,7 @@ export abstract class File {
 	public datasync(): Promise<void> {
 		return this.sync();
 	}
+
 	/**
 	 * Synchronous `datasync`.
 	 *
@@ -296,30 +345,48 @@ export abstract class File {
 	public datasyncSync(): void {
 		return this.syncSync();
 	}
+
 	/**
 	 * Asynchronous `chown`.
 	 */
 	public abstract chown(uid: number, gid: number): Promise<void>;
+
 	/**
 	 * Synchronous `chown`.
 	 */
 	public abstract chownSync(uid: number, gid: number): void;
+
 	/**
 	 * Asynchronous `fchmod`.
 	 */
 	public abstract chmod(mode: number): Promise<void>;
+
 	/**
 	 * Synchronous `fchmod`.
 	 */
 	public abstract chmodSync(mode: number): void;
+
 	/**
 	 * Change the file timestamps of the file.
 	 */
 	public abstract utimes(atime: Date, mtime: Date): Promise<void>;
+
 	/**
 	 * Change the file timestamps of the file.
 	 */
 	public abstract utimesSync(atime: Date, mtime: Date): void;
+
+	/**
+	 * Set the file type
+	 * @internal
+	 */
+	public abstract _setType(type: FileType): Promise<void>;
+
+	/**
+	 * Set the file type
+	 * @internal
+	 */
+	public abstract _setTypeSync(type: FileType): void;
 }
 
 /**
@@ -333,58 +400,55 @@ export abstract class File {
  */
 export abstract class PreloadFile<T extends FileSystem> extends File {
 	protected _position: number = 0;
-	protected _buffer: Uint8Array;
 	protected _dirty: boolean = false;
 	/**
 	 * Creates a file with the given path and, optionally, the given contents. Note
 	 * that, if contents is specified, it will be mutated by the file!
-	 * @param _fs The file system that created the file.
-	 * @param _path
 	 * @param _mode The mode that the file was opened using.
 	 *   Dictates permissions and where the file pointer starts.
-	 * @param _stat The stats object for the given file.
+	 * @param stats The stats object for the given file.
 	 *   PreloadFile will mutate this object. Note that this object must contain
 	 *   the appropriate mode that the file was opened as.
-	 * @param contents A buffer containing the entire
+	 * @param buffer A buffer containing the entire
 	 *   contents of the file. PreloadFile will mutate this buffer. If not
 	 *   specified, we assume it is a new file.
 	 */
-	constructor(protected _fs: T, protected _path: string, protected _flag: FileFlag, protected _stat: Stats, contents?: Uint8Array) {
+	constructor(
+		/**
+		 * The file system that created the file.
+		 */
+		protected fs: T,
+		/**
+		 * Path to the file
+		 */
+		public readonly path: string,
+		public readonly flag: FileFlag,
+		public readonly stats: Stats,
+		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, { maxByteLength: size_max }))
+	) {
 		super();
-		this._buffer = contents ? contents : new Uint8Array(0);
-		// Note: This invariant is *not* maintained once the file starts getting
-		// modified.
-		// Note: Only actually matters if file is readable, as writeable modes may
-		// truncate/append to file.
-		if (this._stat.size !== this._buffer.length && this._flag.isReadable()) {
-			throw new Error(`Invalid buffer: Uint8Array is ${this._buffer.length} long, yet Stats object specifies that file is ${this._stat.size} long.`);
+
+		/*
+			Note: 
+			This invariant is *not* maintained once the file starts getting modified.
+			It only actually matters if file is readable, as writeable modes may truncate/append to file.
+		*/
+		if (this.stats.size == _buffer.byteLength) {
+			return;
 		}
+
+		if (this.flag.isReadable()) {
+			throw new Error(`Size mismatch: buffer length ${_buffer.byteLength}, stats size ${this.stats.size}`);
+		}
+
+		this._dirty = true;
 	}
 
 	/**
-	 * NONSTANDARD: Get the underlying buffer for this file. !!DO NOT MUTATE!! Will mess up dirty tracking.
+	 * Get the underlying buffer for this file. Mutating not recommended and will mess up dirty tracking.
 	 */
 	public get buffer(): Uint8Array {
 		return this._buffer;
-	}
-
-	/**
-	 * NONSTANDARD: Get underlying stats for this file. !!DO NOT MUTATE!!
-	 */
-	public get stats(): Readonly<Stats> {
-		return this._stat;
-	}
-
-	public get flag(): FileFlag {
-		return this._flag;
-	}
-
-	/**
-	 * Get the path to this file.
-	 * @return The path to the file.
-	 */
-	public get path(): string {
-		return this._path;
 	}
 
 	/**
@@ -397,8 +461,8 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 * @return The current file position.
 	 */
 	public get position(): number {
-		if (this._flag.isAppendable()) {
-			return this._stat.size;
+		if (this.flag.isAppendable()) {
+			return this.stats.size;
 		}
 		return this._position;
 	}
@@ -415,14 +479,14 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 * Asynchronous `stat`.
 	 */
 	public async stat(): Promise<Stats> {
-		return Stats.clone(this._stat);
+		return Stats.clone(this.stats);
 	}
 
 	/**
 	 * Synchronous `stat`.
 	 */
 	public statSync(): Stats {
-		return Stats.clone(this._stat);
+		return Stats.clone(this.stats);
 	}
 
 	/**
@@ -431,7 +495,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 */
 	public truncate(len: number): Promise<void> {
 		this.truncateSync(len);
-		if (this._flag.isSynchronous() && !this._fs!.metadata.synchronous) {
+		if (this.flag.isSynchronous() && !this.fs!.metadata.synchronous) {
 			return this.sync();
 		}
 	}
@@ -442,23 +506,23 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 */
 	public truncateSync(len: number): void {
 		this._dirty = true;
-		if (!this._flag.isWriteable()) {
+		if (!this.flag.isWriteable()) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a writeable mode.');
 		}
-		this._stat.mtimeMs = Date.now();
+		this.stats.mtimeMs = Date.now();
 		if (len > this._buffer.length) {
 			const buf = new Uint8Array(len - this._buffer.length);
-			// Write will set @_stat.size for us.
+			// Write will set stats.size for us.
 			this.writeSync(buf, 0, buf.length, this._buffer.length);
-			if (this._flag.isSynchronous() && this._fs!.metadata.synchronous) {
+			if (this.flag.isSynchronous() && this.fs!.metadata.synchronous) {
 				this.syncSync();
 			}
 			return;
 		}
-		this._stat.size = len;
+		this.stats.size = len;
 		// Truncate buffer to 'len'.
 		this._buffer = this._buffer.subarray(0, len);
-		if (this._flag.isSynchronous() && this._fs!.metadata.synchronous) {
+		if (this.flag.isSynchronous() && this.fs!.metadata.synchronous) {
 			this.syncSync();
 		}
 	}
@@ -475,7 +539,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
 	 */
-	public async write(buffer: Uint8Array, offset: number, length: number, position: number): Promise<number> {
+	public async write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): Promise<number> {
 		return this.writeSync(buffer, offset, length, position);
 	}
 
@@ -492,26 +556,30 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 *   the current position.
 	 * @returns bytes written
 	 */
-	public writeSync(buffer: Uint8Array, offset: number, length: number, position?: number): number {
+	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
 		this._dirty = true;
 		position ??= this.position;
-		if (!this._flag.isWriteable()) {
+		if (!this.flag.isWriteable()) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a writeable mode.');
 		}
 		const endFp = position + length;
-		if (endFp > this._stat.size) {
-			this._stat.size = endFp;
-			if (endFp > this._buffer.length) {
-				// Extend the buffer!
-				const newBuffer = new Uint8Array(endFp);
-				newBuffer.set(this._buffer);
-				this._buffer = newBuffer;
+		if (endFp > this.stats.size) {
+			this.stats.size = endFp;
+			if (endFp > this._buffer.byteLength) {
+				if (this._buffer.buffer.resizable && this._buffer.buffer.maxByteLength <= endFp) {
+					this._buffer.buffer.resize(endFp);
+				} else {
+					// Extend the buffer!
+					const newBuffer = new Uint8Array(new ArrayBuffer(endFp, { maxByteLength: size_max }));
+					newBuffer.set(this._buffer);
+					this._buffer = newBuffer;
+				}
 			}
 		}
 		this._buffer.set(buffer.slice(offset, offset + length), position);
-		const len = this._buffer.length;
-		this._stat.mtimeMs = Date.now();
-		if (this._flag.isSynchronous()) {
+		const len = this._buffer.byteOffset;
+		this.stats.mtimeMs = Date.now();
+		if (this.flag.isSynchronous()) {
 			this.syncSync();
 			return len;
 		}
@@ -530,7 +598,12 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
 	 */
-	public async read<TBuffer extends Uint8Array>(buffer: TBuffer, offset: number, length: number, position: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
+	public async read<TBuffer extends Uint8Array>(
+		buffer: TBuffer,
+		offset: number = 0,
+		length: number = this.stats.size,
+		position: number = 0
+	): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		return { bytesRead: this.readSync(buffer, offset, length, position), buffer };
 	}
 
@@ -546,19 +619,19 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 *   position.
 	 * @returns number of bytes written
 	 */
-	public readSync(buffer: Uint8Array, offset: number, length: number, position: number): number {
-		if (!this._flag.isReadable()) {
+	public readSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
+		if (!this.flag.isReadable()) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a readable mode.');
 		}
 		position ??= this.position;
 		const endRead = position + length;
-		if (endRead > this._stat.size) {
-			length = this._stat.size - position;
+		if (endRead > this.stats.size) {
+			length = this.stats.size - position;
 		}
 		this._buffer.set(buffer.slice(offset, offset + length), position);
-		this._stat.atimeMs = Date.now();
+		this.stats.atimeMs = Date.now();
 		this._position = position + length;
-		return this._buffer.length;
+		return this.buffer.length;
 	}
 
 	/**
@@ -574,11 +647,11 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 * @param mode
 	 */
 	public chmodSync(mode: number): void {
-		if (!this._fs.metadata.supportsProperties) {
+		if (!this.fs.metadata.supportsProperties) {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 		this._dirty = true;
-		this._stat.chmod(mode);
+		this.stats.chmod(mode);
 		this.syncSync();
 	}
 
@@ -597,11 +670,11 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 * @param gid
 	 */
 	public chownSync(uid: number, gid: number): void {
-		if (!this._fs.metadata.supportsProperties) {
+		if (!this.fs.metadata.supportsProperties) {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 		this._dirty = true;
-		this._stat.chown(uid, gid);
+		this.stats.chown(uid, gid);
 		this.syncSync();
 	}
 
@@ -610,12 +683,12 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	}
 
 	public utimesSync(atime: Date, mtime: Date): void {
-		if (!this._fs.metadata.supportsProperties) {
+		if (!this.fs.metadata.supportsProperties) {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 		this._dirty = true;
-		this._stat.atime = atime;
-		this._stat.mtime = mtime;
+		this.stats.atime = atime;
+		this.stats.mtime = mtime;
 		this.syncSync();
 	}
 
@@ -628,6 +701,18 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 */
 	protected resetDirty() {
 		this._dirty = false;
+	}
+
+	public _setType(type: FileType): Promise<void> {
+		this._dirty = true;
+		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
+		return this.sync();
+	}
+
+	public _setTypeSync(type: FileType): void {
+		this._dirty = true;
+		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
+		this.syncSync();
 	}
 }
 
@@ -645,7 +730,7 @@ export class SyncFile<FS extends SyncFileSystem> extends PreloadFile<FS> {
 
 	public syncSync(): void {
 		if (this.isDirty()) {
-			this._fs.syncSync(this.path, this.buffer, this.stats);
+			this.fs.syncSync(this.path, this._buffer, this.stats);
 			this.resetDirty();
 		}
 	}

@@ -1,17 +1,15 @@
 import { context } from 'esbuild';
 import { parseArgs } from 'node:util';
-import { rmSync } from 'node:fs';
 
 const options = parseArgs({
 	config: {
-		keep: { short: 'k', type: 'boolean', default: false },
 		watch: { short: 'w', type: 'boolean', default: false },
 	},
 }).values;
 
 const ctx = await context({
 	entryPoints: ['src/index.ts'],
-	target: 'es2020',
+	target: 'esnext',
 	globalName: 'BrowserFS',
 	outfile: 'dist/browser.min.js',
 	sourcemap: true,
@@ -19,20 +17,17 @@ const ctx = await context({
 	bundle: true,
 	minify: true,
 	platform: 'browser',
-	plugins: [{ name: 'watcher', setup(build) {
-		build.onStart(() => {
-			if(!options.keep) {
-				rmSync('dist', { force: true, recursive: true });
-			}
-
-		});
-	} }],
 });
 
-if(options.watch) {
-	console.log('Watching for changes...');
-	await ctx.watch();
-} else {
-	await ctx.rebuild();
+try {
+	if (options.watch) {
+		console.log('Watching for changes...');
+		await ctx.watch();
+	} else {
+		await ctx.rebuild();
+	}
+} catch (e) {
+	console.error(e.message);
+} finally {
 	await ctx.dispose();
 }

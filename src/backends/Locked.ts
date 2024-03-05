@@ -60,20 +60,6 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		return this.fs.statSync(p, cred);
 	}
 
-	public async open(p: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
-		await this._mu.lock(p);
-		const fd = await this.fs.open(p, flag, mode, cred);
-		this._mu.unlock(p);
-		return fd;
-	}
-
-	public openSync(p: string, flag: FileFlag, mode: number, cred: Cred): File {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.openSync(p, flag, mode, cred);
-	}
-
 	public async openFile(path: string, flag: FileFlag, cred: Cred): Promise<File> {
 		await this._mu.lock(path);
 		const fd = await this.fs.openFile(path, flag, cred);
@@ -183,98 +169,6 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 		return this.fs.realpathSync(p, cred);
 	}
 
-	public async truncate(p: string, len: number, cred: Cred): Promise<void> {
-		await this._mu.lock(p);
-		await this.fs.truncate(p, len, cred);
-		this._mu.unlock(p);
-	}
-
-	public truncateSync(p: string, len: number, cred: Cred): void {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.truncateSync(p, len, cred);
-	}
-
-	public async readFile(fname: string, flag: FileFlag, cred: Cred): Promise<Uint8Array> {
-		await this._mu.lock(fname);
-		const data = await this.fs.readFile(fname, flag, cred);
-		this._mu.unlock(fname);
-		return data;
-	}
-
-	public readFileSync(fname: string, flag: FileFlag, cred: Cred): Uint8Array {
-		if (this._mu.isLocked(fname)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.readFileSync(fname, flag, cred);
-	}
-
-	public async writeFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
-		await this._mu.lock(fname);
-		await this.fs.writeFile(fname, data, flag, mode, cred);
-		this._mu.unlock(fname);
-	}
-
-	public writeFileSync(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): void {
-		if (this._mu.isLocked(fname)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.writeFileSync(fname, data, flag, mode, cred);
-	}
-
-	public async appendFile(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): Promise<void> {
-		await this._mu.lock(fname);
-		await this.fs.appendFile(fname, data, flag, mode, cred);
-		this._mu.unlock(fname);
-	}
-
-	public appendFileSync(fname: string, data: Uint8Array, flag: FileFlag, mode: number, cred: Cred): void {
-		if (this._mu.isLocked(fname)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.appendFileSync(fname, data, flag, mode, cred);
-	}
-
-	public async chmod(p: string, mode: number, cred: Cred): Promise<void> {
-		await this._mu.lock(p);
-		await this.fs.chmod(p, mode, cred);
-		this._mu.unlock(p);
-	}
-
-	public chmodSync(p: string, mode: number, cred: Cred): void {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.chmodSync(p, mode, cred);
-	}
-
-	public async chown(p: string, new_uid: number, new_gid: number, cred: Cred): Promise<void> {
-		await this._mu.lock(p);
-		await this.fs.chown(p, new_uid, new_gid, cred);
-		this._mu.unlock(p);
-	}
-
-	public chownSync(p: string, new_uid: number, new_gid: number, cred: Cred): void {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.chownSync(p, new_uid, new_gid, cred);
-	}
-
-	public async utimes(p: string, atime: Date, mtime: Date, cred: Cred): Promise<void> {
-		await this._mu.lock(p);
-		await this.fs.utimes(p, atime, mtime, cred);
-		this._mu.unlock(p);
-	}
-
-	public utimesSync(p: string, atime: Date, mtime: Date, cred: Cred): void {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.utimesSync(p, atime, mtime, cred);
-	}
-
 	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
 		await this._mu.lock(srcpath);
 		await this.fs.link(srcpath, dstpath, cred);
@@ -286,33 +180,6 @@ export default class LockedFS<T extends FileSystem> implements FileSystem {
 			throw new Error('invalid sync call');
 		}
 		return this.fs.linkSync(srcpath, dstpath, cred);
-	}
-
-	public async symlink(srcpath: string, dstpath: string, type: string, cred: Cred): Promise<void> {
-		await this._mu.lock(srcpath);
-		await this.fs.symlink(srcpath, dstpath, type, cred);
-		this._mu.unlock(srcpath);
-	}
-
-	public symlinkSync(srcpath: string, dstpath: string, type: string, cred: Cred): void {
-		if (this._mu.isLocked(srcpath)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.symlinkSync(srcpath, dstpath, type, cred);
-	}
-
-	public async readlink(p: string, cred: Cred): Promise<string> {
-		await this._mu.lock(p);
-		const linkString = await this.fs.readlink(p, cred);
-		this._mu.unlock(p);
-		return linkString;
-	}
-
-	public readlinkSync(p: string, cred: Cred): string {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
-		}
-		return this.fs.readlinkSync(p, cred);
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {

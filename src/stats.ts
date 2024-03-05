@@ -16,11 +16,6 @@ export enum FileType {
  * Common code used by both Stats and BigIntStats
  */
 export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T> {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): StatsCommon<number> | StatsCommon<bigint> {
-		throw new ReferenceError('Called static abstract method: StatsCommon.Deserialize()');
-	}
-
 	protected abstract _isBigint: boolean;
 
 	protected get _typename(): string {
@@ -36,6 +31,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	public blocks: T;
+
 	public mode: T;
 
 	/**
@@ -168,10 +164,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		}
 		// number of 512B blocks allocated
 		this.blocks = this._convert(Math.ceil(Number(size) / 512));
-		// Check if mode also includes top-most bits, which indicate the file's
-		// type.
+		// Check if mode also includes top-most bits, which indicate the file's type.
 		if ((this.mode & S_IFMT) == 0) {
-			this.mode = (this.mode | this._convert(itemType)) as T;
+			this.mode = <T>(this.mode | this._convert(itemType));
 		}
 	}
 
@@ -250,8 +245,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		return !result;
 	}
 
-	public abstract serialize(): Uint8Array;
-
 	/**
 	 * Convert the current stats object into a cred object
 	 * @internal
@@ -302,32 +295,6 @@ export class Stats extends StatsCommon<number> implements Node.Stats {
 	public static clone(s: Stats): Stats {
 		return new Stats(s.mode & S_IFMT, s.size, s.mode & ~S_IFMT, s.atimeMs, s.mtimeMs, s.ctimeMs, s.uid, s.gid, s.birthtimeMs);
 	}
-
-	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): Stats {
-		const view = new DataView('buffer' in data ? data.buffer : data);
-		const size = view.getUint32(0, true),
-			mode = view.getUint32(4, true),
-			atime = view.getFloat64(8, true),
-			mtime = view.getFloat64(16, true),
-			ctime = view.getFloat64(24, true),
-			uid = view.getUint32(32, true),
-			gid = view.getUint32(36, true);
-
-		return new Stats(mode & S_IFMT, size, mode & ~S_IFMT, atime, mtime, ctime, uid, gid);
-	}
-
-	public serialize(): Uint8Array {
-		const data = new Uint8Array(32),
-			view = new DataView(data.buffer);
-		view.setUint32(0, this.size, true);
-		view.setUint32(4, this.mode, true);
-		view.setFloat64(8, this.atime.getTime(), true);
-		view.setFloat64(16, this.mtime.getTime(), true);
-		view.setFloat64(24, this.ctime.getTime(), true);
-		view.setUint32(32, this.uid, true);
-		view.setUint32(36, this.gid, true);
-		return data;
-	}
 }
 Stats satisfies typeof Node.Stats;
 
@@ -358,32 +325,6 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
 			BigInt(s.gid),
 			BigInt(s.birthtimeMs)
 		);
-	}
-
-	public static Deserialize(data: ArrayBufferLike | ArrayBufferView): Stats {
-		const view = new DataView('buffer' in data ? data.buffer : data);
-		const size = view.getBigUint64(0, true),
-			mode = view.getBigUint64(4, true),
-			atime = view.getFloat64(8, true),
-			mtime = view.getFloat64(16, true),
-			ctime = view.getFloat64(24, true),
-			uid = view.getBigUint64(32, true),
-			gid = view.getBigUint64(36, true);
-
-		return new Stats(Number(mode) & S_IFMT, size, mode & BigInt(~S_IFMT), atime, mtime, ctime, uid, gid);
-	}
-
-	public serialize(): Uint8Array {
-		const data = new Uint8Array(32),
-			view = new DataView(data.buffer);
-		view.setBigUint64(0, this.size, true);
-		view.setBigUint64(4, this.mode, true);
-		view.setFloat64(8, this.atime.getTime(), true);
-		view.setFloat64(16, this.mtime.getTime(), true);
-		view.setFloat64(24, this.ctime.getTime(), true);
-		view.setBigUint64(32, this.uid, true);
-		view.setBigUint64(36, this.gid, true);
-		return data;
 	}
 }
 BigIntStats satisfies typeof Node.BigIntStats;

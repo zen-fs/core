@@ -4,8 +4,8 @@ import { resolve } from './path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { FileSystem } from '../filesystem.js';
-import { InMemoryFileSystem } from '../backends/InMemory.js';
-import { BackendConstructor } from '../backends/backend.js';
+import { InMemory } from '../backends/InMemory.js';
+import { Backend } from '../backends/backend.js';
 import type { File } from '../file.js';
 
 /**
@@ -124,7 +124,7 @@ export function fd2file(fd: number): File {
 
 // mounting
 export interface MountMapping {
-	[point: string]: InstanceType<BackendConstructor>;
+	[point: string]: FileSystem;
 }
 
 export const mounts: Map<string, FileSystem> = new Map();
@@ -132,7 +132,7 @@ export const mounts: Map<string, FileSystem> = new Map();
 /*
 Set a default root.
 */
-mount('/', await InMemoryFileSystem.Create());
+mount('/', InMemory.create({ name: 'root' }));
 
 /**
  * Gets the file system mounted at `mountPoint`
@@ -180,6 +180,7 @@ export function umount(mountPoint: string): void {
  * Gets the internal FileSystem for the path, then returns it along with the path relative to the FS' root
  */
 export function resolveFS(path: string): { fs: FileSystem; path: string; mountPoint: string } {
+	path = normalizePath(path);
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // decending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
@@ -214,15 +215,10 @@ export function fixError<E extends Error>(e: E, paths: { [from: string]: string 
 }
 
 export function initialize(mountMapping: MountMapping): void {
-	if (mountMapping['/']) {
+	if ('/' in mountMapping) {
 		umount('/');
 	}
 	for (const [point, fs] of Object.entries(mountMapping)) {
-		const FS = fs.constructor as unknown as BackendConstructor;
-		if (!FS.isAvailable()) {
-			throw new ApiError(ErrorCode.EINVAL, `Can not mount "${point}" since the filesystem is unavailable.`);
-		}
-
 		mount(point, fs);
 	}
 }

@@ -1,27 +1,27 @@
+import type { Ino } from '../inode.js';
 import { SyncStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncRWTransaction, SyncStoreFileSystem } from './SyncStore.js';
-import { CreateBackend, type BackendOptions } from './backend.js';
+import { createBackend, type Backend } from './backend.js';
 
 /**
- * A simple in-memory key-value store backed by a JavaScript object.
+ * A simple in-memory store
  */
 export class InMemoryStore implements SyncStore, SimpleSyncStore {
-	private store: Map<string, Uint8Array> = new Map<string, Uint8Array>();
+	private store: Map<Ino, Uint8Array> = new Map();
 
-	public name = InMemoryFileSystem.Name;
-
+	constructor(public name: string = 'tmp') {}
 	public clear() {
 		this.store.clear();
 	}
 
-	public beginTransaction(type: string): SyncRWTransaction {
+	public beginTransaction(): SyncRWTransaction {
 		return new SimpleSyncRWTransaction(this);
 	}
 
-	public get(key: string): Uint8Array {
+	public get(key: Ino) {
 		return this.store.get(key);
 	}
 
-	public put(key: string, data: Uint8Array, overwrite: boolean): boolean {
+	public put(key: Ino, data: Uint8Array, overwrite: boolean): boolean {
 		if (!overwrite && this.store.has(key)) {
 			return false;
 		}
@@ -29,21 +29,39 @@ export class InMemoryStore implements SyncStore, SimpleSyncStore {
 		return true;
 	}
 
-	public remove(key: string): void {
+	public remove(key: Ino): void {
 		this.store.delete(key);
 	}
 }
+
+export const InMemory: Backend = {
+	name: 'InMemory',
+	isAvailable(): boolean {
+		return true;
+	},
+	options: {
+		name: {
+			type: 'string',
+			description: 'The name of the store',
+		},
+	},
+	create({ name }: { name: string }) {
+		return new SyncStoreFileSystem({ store: new InMemoryStore(name) });
+	},
+};
 
 /**
  * A simple in-memory file system backed by an InMemoryStore.
  * Files are not persisted across page loads.
  */
-export class InMemoryFileSystem extends SyncStoreFileSystem {
-	public static readonly Name = 'InMemory';
+export class _InMemory extends SyncStoreFileSystem {
+	public static isAvailable(): boolean {
+		return true;
+	}
 
-	public static Create = CreateBackend.bind(this);
+	public static create = createBackend.bind(this);
 
-	public static readonly Options: BackendOptions = {};
+	public static readonly options = {};
 
 	public constructor() {
 		super({ store: new InMemoryStore() });
