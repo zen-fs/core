@@ -553,12 +553,12 @@ readdirSync satisfies BufferToUint8Array<typeof Node.readdirSync>;
 
 /**
  * Synchronous `link`.
- * @param srcpath
- * @param dstpath
+ * @param existing
+ * @param newpath
  */
-export function linkSync(srcpath: PathLike, dstpath: PathLike): void {
-	dstpath = normalizePath(dstpath);
-	return doOp('linkSync', false, srcpath, dstpath, cred);
+export function linkSync(existing: PathLike, newpath: PathLike): void {
+	newpath = normalizePath(newpath);
+	return doOp('linkSync', false, existing, newpath, cred);
 }
 linkSync satisfies typeof Node.linkSync;
 

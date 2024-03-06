@@ -1,48 +1,37 @@
 import { fs } from '../common';
 
 describe('Link and Symlink Test', () => {
-	it('should create and read symbolic link', async () => {
-		const target = 'a1.js',
-			link = 'symlink1.js';
 
-		await fs.promises.symlink(target, link);
+	const target = 'a1.js',
+			symlink = 'symlink1.js',
+			hardlink = 'link1.js';
 
-		const destination = await fs.promises.realpath(await fs.promises.readlink(link));
-		expect(destination).toBe(target);
+	test('symlink', async () => {
+		await fs.promises.symlink(target, symlink);
 	});
 
-	it('should create and read hard link', async () => {
-		const src = 'cycles/root.js',
-			dst = 'link1.js';
-
-		await fs.promises.link(src, dst);
-
-		const srcContent = await fs.promises.readFile(src, 'utf8');
-		const dstContent = await fs.promises.readFile(dst, 'utf8');
-		expect(srcContent).toBe(dstContent);
-	});
-
-	// test creating and reading symbolic link
-	const linkData = 'cycles/',
-		linkPath = 'cycles_link';
-
-	it('should lstat symbolic link', async () => {
-		await fs.promises.symlink(linkData, linkPath, 'junction');
-		const stats = await fs.promises.lstat(linkPath);
+	test('lstat', async () => {
+		const stats = await fs.promises.lstat(symlink);
 		expect(stats.isSymbolicLink()).toBe(true);
 	});
 
-	it('should readlink symbolic link', async () => {
-		await fs.promises.unlink(linkPath);
-		await fs.promises.symlink(linkData, linkPath, 'junction');
-		const destination = await fs.promises.readlink(linkPath);
-		expect(destination).toBe(linkData);
+	test('readlink', async () => {
+		const destination = await fs.promises.readlink(symlink);
+		expect(destination).toBe(target);
 	});
 
-	it('should unlink symbolic link', async () => {
-		await fs.promises.unlink(linkPath);
-		await fs.promises.symlink(linkData, linkPath, 'junction');
-		expect(await fs.promises.exists(linkPath)).toBe(false);
-		expect(await fs.promises.exists(linkData)).toBe(true);
+	test('unlink', async () => {
+		await fs.promises.unlink(symlink);
+		expect(await fs.promises.exists(symlink)).toBe(false);
+		expect(await fs.promises.exists(target)).toBe(true);
 	});
+
+	test('link', async () => {
+		await fs.promises.link(target, hardlink);
+		const targetContent = await fs.promises.readFile(target, 'utf8');
+		const linkContent = await fs.promises.readFile(hardlink, 'utf8');
+		expect(targetContent).toBe(linkContent);
+	});
+
+	
 });

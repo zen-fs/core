@@ -482,13 +482,13 @@ readdir satisfies Omit<typeof Node.readdir, '__promisify__'>;
 
 /**
  * Asynchronous `link`.
- * @param srcpath
- * @param dstpath
+ * @param existing
+ * @param newpath
  * @param callback
  */
-export function link(srcpath: PathLike, dstpath: PathLike, cb: NoArgCallback = nop): void {
+export function link(existing: PathLike, newpath: PathLike, cb: NoArgCallback = nop): void {
 	promises
-		.link(srcpath, dstpath)
+		.link(existing, newpath)
 		.then(() => cb())
 		.catch(cb);
 }

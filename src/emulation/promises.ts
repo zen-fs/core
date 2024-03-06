@@ -651,12 +651,12 @@ readdir satisfies BufferToUint8Array<typeof Node.promises.readdir>;
 
 /**
  * `link`.
- * @param srcpath
- * @param dstpath
+ * @param existing
+ * @param newpath
  */
-export async function link(srcpath: PathLike, dstpath: PathLike): Promise<void> {
-	dstpath = normalizePath(dstpath);
-	return doOp('link', false, srcpath, dstpath, cred);
+export async function link(existing: PathLike, newpath: PathLike): Promise<void> {
+	newpath = normalizePath(newpath);
+	return doOp('link', false, existing, newpath, cred);
 }
 link satisfies typeof Node.promises.link;
 
