@@ -623,14 +623,19 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a readable mode.');
 		}
 		position ??= this.position;
-		const endRead = position + length;
-		if (endRead > this.stats.size) {
-			length = this.stats.size - position;
+		let end = position + length;
+		if (end > this.stats.size) {
+			end = position + Math.max(this.stats.size - position, 0);
 		}
-		buffer.set(this._buffer.slice(position, position + length), offset);
 		this.stats.atimeMs = Date.now();
-		this._position = position + length;
-		return this.buffer.length;
+		this._position = end;
+		const bytesRead = end - position;
+		if (bytesRead == 0) {
+			// No copy/read. Return immediatly for better performance
+			return bytesRead;
+		}
+		buffer.set(this._buffer.slice(position, end), offset);
+		return bytesRead;
 	}
 
 	/**

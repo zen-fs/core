@@ -303,11 +303,6 @@ function _appendFileSync(fname: string, data: Uint8Array, flag: string, mode: nu
  * Asynchronously append data to a file, creating the file if it not yet
  * exists.
  *
- * @example Usage example
- *   fs.appendFile('message.txt', 'data to append', function (err) {
- *     if (err) throw err;
- *     console.log('The "data to append" was appended to file!');
- *   });
  * @param filename
  * @param data
  * @param options

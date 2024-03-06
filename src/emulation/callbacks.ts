@@ -146,11 +146,6 @@ open satisfies Omit<typeof Node.open, '__promisify__'>;
 
 /**
  * Asynchronously reads the entire contents of a file.
- * @example Usage example
- *   fs.readFile('/etc/passwd', function (err, data) {
- *     if (err) throw err;
- *     console.log(data);
- *   });
  * @param filename
  * @param options
  * @option options encoding The string encoding for the file contents. Defaults to `null`.
@@ -631,12 +626,6 @@ lutimes satisfies Omit<typeof Node.lutimes, '__promisify__'>;
 /**
  * Asynchronous `realpath`. The callback gets two arguments
  * `(err, resolvedPath)`. May use `process.cwd` to resolve relative paths.
- *
- * @example Usage example
- *   fs.realpath('/etc/passwd', function (err, resolvedPath) {
- *     if (err) throw err;
- *     console.log(resolvedPath);
- *   });
  *
  * @param path
  * @param callback
