@@ -564,20 +564,20 @@ linkSync satisfies typeof Node.linkSync;
 
 /**
  * Synchronous `symlink`.
- * @param srcpath
- * @param dstpath
+ * @param target target path
+ * @param path link path
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
-export function symlinkSync(srcpath: PathLike, dstpath: PathLike, type: symlink.Type = 'file'): void {
+export function symlinkSync(target: PathLike, path: PathLike, type: symlink.Type = 'file'): void {
 	if (!['file', 'dir', 'junction'].includes(type)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid type: ' + type);
 	}
-	if (existsSync(srcpath)) {
-		throw ApiError.EEXIST(srcpath);
+	if (existsSync(path)) {
+		throw ApiError.EEXIST(path);
 	}
 
-	writeFileSync(srcpath, dstpath);
-	const file = _openSync(srcpath, 'r+', 0o644, false);
+	writeFileSync(path, target);
+	const file = _openSync(path, 'r+', 0o644, false);
 	file._setTypeSync(FileType.SYMLINK);
 }
 symlinkSync satisfies typeof Node.symlinkSync;

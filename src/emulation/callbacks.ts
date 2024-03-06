@@ -496,18 +496,18 @@ link satisfies Omit<typeof Node.link, '__promisify__'>;
 
 /**
  * Asynchronous `symlink`.
- * @param srcpath
- * @param dstpath
+ * @param target target path
+ * @param path link path
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  * @param callback
  */
-export function symlink(srcpath: PathLike, dstpath: PathLike, cb?: NoArgCallback): void;
-export function symlink(srcpath: PathLike, dstpath: PathLike, type?: Node.symlink.Type, cb?: NoArgCallback): void;
-export function symlink(srcpath: PathLike, dstpath: PathLike, arg3?: Node.symlink.Type | NoArgCallback, cb: NoArgCallback = nop): void {
-	const type = typeof arg3 === 'string' ? arg3 : 'file';
-	cb = typeof arg3 === 'function' ? arg3 : cb;
+export function symlink(target: PathLike, path: PathLike, cb?: NoArgCallback): void;
+export function symlink(target: PathLike, path: PathLike, type?: Node.symlink.Type, cb?: NoArgCallback): void;
+export function symlink(target: PathLike, path: PathLike, typeOrCB?: Node.symlink.Type | NoArgCallback, cb: NoArgCallback = nop): void {
+	const type = typeof typeOrCB === 'string' ? typeOrCB : 'file';
+	cb = typeof typeOrCB === 'function' ? typeOrCB : cb;
 	promises
-		.symlink(srcpath, dstpath, typeof arg3 === 'function' ? null : arg3)
+		.symlink(target, path, type)
 		.then(() => cb())
 		.catch(cb);
 }

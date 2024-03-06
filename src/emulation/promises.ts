@@ -662,21 +662,21 @@ link satisfies typeof Node.promises.link;
 
 /**
  * `symlink`.
- * @param srcpath link path
- * @param dstpath target path
+ * @param target target path
+ * @param path link path
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
-export async function symlink(srcpath: PathLike, dstpath: PathLike, type: Node.symlink.Type = 'file'): Promise<void> {
+export async function symlink(target: PathLike, path: PathLike, type: Node.symlink.Type = 'file'): Promise<void> {
 	if (!['file', 'dir', 'junction'].includes(type)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid symlink type: ' + type);
 	}
 
-	if (await exists(srcpath)) {
-		throw ApiError.EEXIST(srcpath);
+	if (await exists(path)) {
+		throw ApiError.EEXIST(path);
 	}
 
-	await writeFile(srcpath, dstpath);
-	const file = await _open(srcpath, 'r+', 0o644, false);
+	await writeFile(path, target);
+	const file = await _open(path, 'r+', 0o644, false);
 	await file._setType(FileType.SYMLINK);
 }
 symlink satisfies typeof Node.promises.symlink;

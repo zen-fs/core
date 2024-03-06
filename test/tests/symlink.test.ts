@@ -2,67 +2,46 @@ import { fs } from '../common';
 
 describe('Link and Symlink Test', () => {
 	it('should create and read symbolic link', async () => {
-		const linkData = '/cycles/root.js';
-		const linkPath = 'symlink1.js';
+		const target = 'a1.js',
+			link = 'symlink1.js';
 
-		// Delete previously created link
-		try {
-			await fs.promises.unlink(linkPath);
-		} catch (e) {}
+		await fs.promises.symlink(target, link);
 
-		await fs.promises.symlink(linkData, linkPath);
-		console.log('symlink done');
-
-		const destination = await fs.promises.readlink(linkPath);
-		expect(destination).toBe(linkData);
+		const destination = await fs.promises.realpath(await fs.promises.readlink(link));
+		expect(destination).toBe(target);
 	});
 
 	it('should create and read hard link', async () => {
-		const srcPath = 'cycles/root.js';
-		const dstPath = 'link1.js';
+		const src = 'cycles/root.js',
+			dst = 'link1.js';
 
-		// Delete previously created link
-		try {
-			await fs.promises.unlink(dstPath);
-		} catch (e) {}
+		await fs.promises.link(src, dst);
 
-		await fs.promises.link(srcPath, dstPath);
-		console.log('hard link done');
-
-		const srcContent = await fs.promises.readFile(srcPath, 'utf8');
-		const dstContent = await fs.promises.readFile(dstPath, 'utf8');
+		const srcContent = await fs.promises.readFile(src, 'utf8');
+		const dstContent = await fs.promises.readFile(dst, 'utf8');
 		expect(srcContent).toBe(dstContent);
 	});
-});
 
-describe('Symbolic Link Test', () => {
 	// test creating and reading symbolic link
-	const linkData = 'cycles/';
-	const linkPath = 'cycles_link';
-
-	beforeAll(async () => {
-		// Delete previously created link
-		await fs.promises.unlink(linkPath);
-
-		console.log('linkData: ' + linkData);
-		console.log('linkPath: ' + linkPath);
-
-		await fs.promises.symlink(linkData, linkPath, 'junction');
-		return;
-	});
+	const linkData = 'cycles/',
+		linkPath = 'cycles_link';
 
 	it('should lstat symbolic link', async () => {
+		await fs.promises.symlink(linkData, linkPath, 'junction');
 		const stats = await fs.promises.lstat(linkPath);
 		expect(stats.isSymbolicLink()).toBe(true);
 	});
 
 	it('should readlink symbolic link', async () => {
+		await fs.promises.unlink(linkPath);
+		await fs.promises.symlink(linkData, linkPath, 'junction');
 		const destination = await fs.promises.readlink(linkPath);
 		expect(destination).toBe(linkData);
 	});
 
 	it('should unlink symbolic link', async () => {
 		await fs.promises.unlink(linkPath);
+		await fs.promises.symlink(linkData, linkPath, 'junction');
 		expect(await fs.promises.exists(linkPath)).toBe(false);
 		expect(await fs.promises.exists(linkData)).toBe(true);
 	});
