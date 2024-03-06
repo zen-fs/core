@@ -249,8 +249,8 @@ readFileSync satisfies BufferToUint8Array<typeof Node.readFileSync>;
  *
  * The encoding option is ignored if data is a buffer.
  */
-function _writeFileSync(fname: string, data: Uint8Array, flag: string, resolveSymlinks: boolean): void {
-	const file = _openSync(fname, flag, 0o644, resolveSymlinks);
+function _writeFileSync(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): void {
+	const file = _openSync(fname, flag, mode, resolveSymlinks);
 	try {
 		file.writeSync(data, 0, data.length, 0);
 	} finally {
@@ -271,9 +271,9 @@ function _writeFileSync(fname: string, data: Uint8Array, flag: string, resolveSy
  * @option options flag Defaults to `'w'`.
  */
 export function writeFileSync(filename: string, data: FileContents, options?: Node.WriteFileOptions): void;
-export function writeFileSync(filename: string, data: FileContents, encoding?: string): void;
-export function writeFileSync(filename: string, data: FileContents, arg3?: Node.WriteFileOptions | string): void {
-	const options = normalizeOptions(arg3, 'utf8', 'w', 0o644);
+export function writeFileSync(filename: string, data: FileContents, encoding?: BufferEncoding): void;
+export function writeFileSync(filename: string, data: FileContents, _options?: Node.WriteFileOptions | BufferEncoding): void {
+	const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
 	const flag = FileFlag.FromString(options.flag);
 	if (!flag.isWriteable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to writeFile must allow for writing.');
@@ -282,7 +282,7 @@ export function writeFileSync(filename: string, data: FileContents, arg3?: Node.
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? encode(data) : data;
-	_writeFileSync(filename, encodedData, options.flag, true);
+	_writeFileSync(filename, encodedData, options.flag, options.mode, true);
 }
 writeFileSync satisfies typeof Node.writeFileSync;
 
@@ -290,8 +290,8 @@ writeFileSync satisfies typeof Node.writeFileSync;
  * Synchronously append data to a file, creating the file if
  * it not yet exists.
  */
-function _appendFileSync(fname: string, data: Uint8Array, flag: string, resolveSymlinks: boolean): void {
-	const file = _openSync(fname, flag, 0o644, resolveSymlinks);
+function _appendFileSync(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): void {
+	const file = _openSync(fname, flag, mode, resolveSymlinks);
 	try {
 		file.writeSync(data, 0, data.length, null);
 	} finally {
@@ -327,7 +327,7 @@ export function appendFileSync(filename: string, data: FileContents, arg3?: Node
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? encode(data) : data;
-	_appendFileSync(filename, encodedData, options.flag, true);
+	_appendFileSync(filename, encodedData, options.flag, options.mode, true);
 }
 appendFileSync satisfies typeof Node.appendFileSync;
 
@@ -573,7 +573,7 @@ linkSync satisfies typeof Node.linkSync;
  * @param dstpath
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
-export function symlinkSync(srcpath: PathLike, dstpath: PathLike, type?: symlink.Type): void {
+export function symlinkSync(srcpath: PathLike, dstpath: PathLike, type: symlink.Type = 'file'): void {
 	if (!['file', 'dir', 'junction'].includes(type)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid type: ' + type);
 	}

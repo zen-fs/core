@@ -9,7 +9,7 @@ describe('fs.write', () => {
 		const fd = await fs.promises.open(fn, 'w', 0o644);
 		await fs.promises.write(fd, '', 0, 'utf8');
 		const written = await fs.promises.write(fd, expected, 0, 'utf8');
-		expect(written).toBe(Buffer.byteLength(expected));
+		expect(written.bytesWritten).toBe(expected.length);
 		await fd.close();
 
 		const data = await fs.promises.readFile(fn, 'utf8');
@@ -19,7 +19,7 @@ describe('fs.write', () => {
 		const fd2 = await fs.promises.open(fn2, 'w', 0o644);
 		await fs.promises.write(fd2, '', 0, 'utf8');
 		const written2 = await fs.promises.write(fd2, expected, 0, 'utf8');
-		expect(written2).toBe(Buffer.byteLength(expected));
+		expect(written2.bytesWritten).toBe(Buffer.byteLength(expected));
 		await fd2.close();
 
 		const data2 = await fs.promises.readFile(fn2, 'utf8');
@@ -36,7 +36,7 @@ describe('fs.write', () => {
 
 		const written = await fs.promises.write(fd, expected, 0, expected.length, null);
 
-		expect(expected.length).toBe(written);
+		expect(expected.length).toBe(written.bytesWritten);
 
 		await fd.close();
 

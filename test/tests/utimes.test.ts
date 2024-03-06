@@ -1,4 +1,4 @@
-import { ErrorCode } from '../../src/ApiError';
+import type { ApiError } from '../../src/ApiError';
 import { fs } from '../common';
 
 describe('utimes', () => {
@@ -15,8 +15,8 @@ describe('utimes', () => {
 		await fs.promises.utimes(filename, atime, mtime);
 		expect_ok(filename, atime, mtime);
 
-		await fs.promises.utimes('foobarbaz', atime, mtime).catch(err => {
-			expect(err.code).toEqual(ErrorCode.ENOENT);
+		await fs.promises.utimes('foobarbaz', atime, mtime).catch((err: ApiError) => {
+			expect(err.code).toEqual('ENOENT');
 		});
 
 		// don't close this fd
@@ -25,8 +25,8 @@ describe('utimes', () => {
 		await fs.promises.futimes(handle, atime, mtime);
 		expect_ok(handle.fd, atime, mtime);
 
-		fs.futimes(-1, atime, mtime, err => {
-			expect(err.code).toEqual(ErrorCode.EBADF);
+		fs.futimes(-1, atime, mtime, (err: ApiError) => {
+			expect(err.code).toEqual('EBADF');
 		});
 
 		fs.utimesSync(filename, atime, mtime);
@@ -38,19 +38,19 @@ describe('utimes', () => {
 			fs.futimesSync(handle.fd, atime, mtime);
 			expect_ok(handle.fd, atime, mtime);
 		} catch (err) {
-			expect(err.code).toEqual(ErrorCode.ENOTSUP);
+			expect(err.code).toEqual('ENOTSUP');
 		}
 
 		try {
 			fs.utimesSync('foobarbaz', atime, mtime);
 		} catch (err) {
-			expect(err.code).toEqual(ErrorCode.ENOENT);
+			expect(err.code).toEqual('ENOENT');
 		}
 
 		try {
 			fs.futimesSync(-1, atime, mtime);
 		} catch (err) {
-			expect(err.code).toEqual(ErrorCode.EBADF);
+			expect(err.code).toEqual('EBADF');
 		}
 	}
 

@@ -23,12 +23,12 @@ describe('fs file opening', () => {
 	});
 
 	it('should open file with mode "r"', async () => {
-		const fd = await fs.promises.open(filename, 'r');
+		const { fd } = await fs.promises.open(filename, 'r');
 		expect(fd).toBeGreaterThanOrEqual(-Infinity);
 	});
 
 	it('should open file with mode "rs"', async () => {
-		const fd = await fs.promises.open(filename, 'rs');
+		const { fd } = await fs.promises.open(filename, 'rs');
 		expect(fd).toBeGreaterThanOrEqual(-Infinity);
 	});
 });

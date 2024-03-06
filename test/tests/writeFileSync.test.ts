@@ -1,18 +1,15 @@
 import { fs } from '../common';
 
 describe('File Writing with Custom Mode', () => {
-
 	it('should write file synchronously with custom mode', async () => {
 		const file = 'testWriteFileSync.txt';
 		const mode = 0o755;
 
-		fs.writeFileSync(file, '123', { mode: mode });
+		fs.writeFileSync(file, '123', { mode });
 
-		const content = fs.readFileSync(file, { encoding: 'utf8' });
+		const content = fs.readFileSync(file, 'utf8');
 		expect(content).toBe('123');
-
-		const actual = fs.statSync(file).mode & 0o777;
-		expect(actual).toBe(mode);
+		expect(fs.statSync(file).mode & 0o777).toBe(mode);
 
 		fs.unlinkSync(file);
 	});
@@ -21,12 +18,12 @@ describe('File Writing with Custom Mode', () => {
 		const file = 'testAppendFileSync.txt';
 		const mode = 0o755;
 
-		fs.appendFileSync(file, 'abc', { mode: mode });
+		fs.appendFileSync(file, 'abc', { mode });
 
 		const content = fs.readFileSync(file, { encoding: 'utf8' });
 		expect(content).toBe('abc');
 
-		expect(fs.statSync(file).mode & mode).toBe(mode);
+		expect(fs.statSync(file).mode & 0o777).toBe(mode);
 
 		fs.unlinkSync(file);
 	});

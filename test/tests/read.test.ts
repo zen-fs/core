@@ -12,7 +12,7 @@ describe('read', () => {
 	it('should read file asynchronously', async () => {
 		const fd = await fs.promises.open(filepath, 'r');
 		const buffer = Buffer.alloc(expected.length);
-		const bytesRead = await fs.promises.read(fd, buffer, 0, expected.length, 0);
+		const { bytesRead } = await fs.promises.read(fd, buffer, 0, expected.length, 0);
 
 		expect(buffer.toString()).toEqual(expected);
 		expect(bytesRead).toEqual(expected.length);
@@ -48,7 +48,7 @@ describe('read buffer', () => {
 
 	it('should read file asynchronously', async () => {
 		const fd = await fs.promises.open(filepath, 'r');
-		const bytesRead = await fs.promises.read(fd, bufferAsync, 0, expected.length, 0);
+		const { bytesRead } = await fs.promises.read(fd, bufferAsync, 0, expected.length, 0);
 
 		expect(bytesRead).toBe(expected.length);
 		expect(bufferAsync.toString()).toBe(expected);

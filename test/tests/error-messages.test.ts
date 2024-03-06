@@ -13,7 +13,6 @@ const expectError = async (fn: (...args) => Promise<unknown>, p: string, ...args
 	expect(error).toBeDefined();
 	expect(error.path).toBe(p);
 	expect(error.message).toContain(p);
-	return error;
 };
 
 const expectSyncError = (fn: (...args) => unknown, p: string, ...args) => {
@@ -26,7 +25,6 @@ const expectSyncError = (fn: (...args) => unknown, p: string, ...args) => {
 	expect(error).toBeDefined();
 	expect(error.path).toBe(p);
 	expect(error.message).toContain(p);
-	return error;
 };
 
 describe('Error tests', () => {

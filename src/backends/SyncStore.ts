@@ -445,7 +445,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			const ino = this._findINode(tx, dirname(parent), basename(parent), visited);
 			const dir = this.getDirListing(tx, this.getINode(tx, ino, parent + sep + filename), parent);
 			if (!(filename in dir)) {
-				throw new ApiError(ErrorCode.ENOENT, resolve(parent, filename));
+				throw ApiError.ENOENT(resolve(parent, filename));
 			}
 
 			return dir[filename];
@@ -455,7 +455,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			// Find the item in the root node.
 			const dir = this.getDirListing(tx, this.getINode(tx, rootIno, parent), parent);
 			if (!(filename in dir)) {
-				throw new ApiError(ErrorCode.ENOENT, resolve(parent, filename));
+				throw ApiError.ENOENT(resolve(parent, filename));
 			}
 			return dir[filename];
 		}

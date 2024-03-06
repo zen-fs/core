@@ -16,7 +16,7 @@ describe('File Reading', () => {
 	it('Reading past the end of a file should not be an error', async () => {
 		const fd = await fs.promises.open('a.js', 'r');
 		const buffData = Buffer.alloc(10);
-		const bytesRead = await fs.promises.read(fd, buffData, 0, 10, 10000);
+		const { bytesRead } = await fs.promises.read(fd, buffData, 0, 10, 10000);
 		expect(bytesRead).toBe(0);
 	});
 });

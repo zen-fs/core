@@ -445,8 +445,8 @@ readFile satisfies BufferToUint8Array<typeof Node.promises.readFile>;
  *
  * The encoding option is ignored if data is a buffer.
  */
-async function _writeFile(fname: string, data: Uint8Array, flag: string, resolveSymlinks: boolean): Promise<void> {
-	const file = await _open(fname, flag, 0o644, resolveSymlinks);
+async function _writeFile(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): Promise<void> {
+	const file = await _open(fname, flag, mode, resolveSymlinks);
 	try {
 		await file.write(data, 0, data.length, 0);
 	} finally {
@@ -475,7 +475,7 @@ export async function writeFile(filename: PathLike, data: FileContents, _options
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? encode(data, options.encoding) : data;
-	await _writeFile(filename, encodedData, options.flag, true);
+	await _writeFile(filename, encodedData, options.flag, options.mode, true);
 }
 writeFile satisfies typeof Node.promises.writeFile;
 
@@ -483,8 +483,8 @@ writeFile satisfies typeof Node.promises.writeFile;
  * Asynchronously append data to a file, creating the file if
  * it not yet exists.
  */
-async function _appendFile(fname: string, data: Uint8Array, flag: string, resolveSymlinks: boolean): Promise<void> {
-	const file = await _open(fname, flag, 0o644, resolveSymlinks);
+async function _appendFile(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): Promise<void> {
+	const file = await _open(fname, flag, mode, resolveSymlinks);
 	try {
 		await file.write(data, 0, data.length, null);
 	} finally {
@@ -516,7 +516,7 @@ export async function appendFile(
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? encode(data) : data;
-	await _appendFile(filename, encodedData, options.flag, true);
+	await _appendFile(filename, encodedData, options.flag, options.mode, true);
 }
 appendFile satisfies typeof Node.promises.appendFile;
 
