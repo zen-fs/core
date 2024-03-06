@@ -281,7 +281,10 @@ export function writeFileSync(filename: string, data: FileContents, _options?: N
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? encode(data) : data;
+	const encodedData = typeof data == 'string' ? encode(data, options.encoding) : data;
+	if (encodedData === undefined) {
+		throw new ApiError(ErrorCode.EINVAL, 'Data not specified');
+	}
 	_writeFileSync(filename, encodedData, options.flag, options.mode, true);
 }
 writeFileSync satisfies typeof Node.writeFileSync;

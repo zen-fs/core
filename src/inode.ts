@@ -41,7 +41,7 @@ export function randomIno(): Ino {
 /**
  * Generic inode definition that can easily be serialized.
  */
-export default class Inode {
+export class Inode {
 	public readonly buffer: ArrayBufferLike;
 
 	public get data(): Uint8Array {

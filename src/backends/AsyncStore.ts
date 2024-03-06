@@ -4,7 +4,7 @@ import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { PreloadFile, File, FileFlag } from '../file.js';
 import { AsyncFileSystem } from '../filesystem.js';
-import Inode, { randomIno, type Ino } from '../inode.js';
+import { randomIno, type Ino, Inode } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
 import { encode, decodeDirListing, encodeDirListing } from '../utils.js';
 import { rootIno } from '../inode.js';
@@ -208,7 +208,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 				newName = basename(newPath),
 				// Remove oldPath from parent's directory listing.
 				oldDirNode = await this.findINode(tx, oldParent),
-				oldDirList = await this.getDirListing(tx, oldParent, oldDirNode);
+				oldDirList = await this.getDirListing(tx, oldDirNode, oldParent);
 
 			if (!oldDirNode.toStats().hasAccess(W_OK, cred)) {
 				throw ApiError.EACCES(oldPath);
@@ -237,12 +237,12 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 				newDirList = oldDirList;
 			} else {
 				newDirNode = await this.findINode(tx, newParent);
-				newDirList = await this.getDirListing(tx, newParent, newDirNode);
+				newDirList = await this.getDirListing(tx, newDirNode, newParent);
 			}
 
 			if (newDirList[newName]) {
 				// If it's a file, delete it.
-				const newNameNode = await this.getINode(tx, newPath, newDirList[newName]);
+				const newNameNode = await this.getINode(tx, newDirList[newName], newPath);
 				if (newNameNode.toStats().isFile()) {
 					try {
 						await tx.remove(newNameNode.ino);
@@ -333,7 +333,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		if (!node.toStats().hasAccess(R_OK, cred)) {
 			throw ApiError.EACCES(p);
 		}
-		return Object.keys(await this.getDirListing(tx, p, node));
+		return Object.keys(await this.getDirListing(tx, node, p));
 	}
 
 	/**
@@ -344,7 +344,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		const tx = this.store.beginTransaction('readwrite'),
 			// We use the _findInode helper because we actually need the INode id.
 			fileInodeId = await this._findINode(tx, dirname(p), basename(p)),
-			fileInode = await this.getINode(tx, p, fileInodeId),
+			fileInode = await this.getINode(tx, fileInodeId, p),
 			inodeChanged = fileInode.update(stats);
 
 		try {
@@ -361,38 +361,40 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		await tx.commit();
 	}
 
-	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
+	public async link(existing: string, newpath: string, cred: Cred): Promise<void> {
 		const tx = this.store.beginTransaction('readwrite'),
-			src_dir: string = dirname(dstpath),
-			src_node = await this.findINode(tx, src_dir);
+			existingDir: string = dirname(existing),
+			existingDirNode = await this.findINode(tx, existingDir);
 
-		if (!src_node.toStats().hasAccess(R_OK, cred)) {
-			throw ApiError.EACCES(src_dir);
+		if (!existingDirNode.toStats().hasAccess(R_OK, cred)) {
+			throw ApiError.EACCES(existingDir);
 		}
 
-		const ino = await this.getDirListing(tx, src_dir, src_node)[basename(srcpath)];
+		const newDir: string = dirname(newpath),
+			newDirNode = await this.findINode(tx, newDir),
+			newListing = await this.getDirListing(tx, newDirNode, newDir);
 
-		if (!ino) {
-			throw ApiError.ENOENT(basename(srcpath));
+		if (!newDirNode.toStats().hasAccess(W_OK, cred)) {
+			throw ApiError.EACCES(newDir);
 		}
 
-		const dst_dir: string = dirname(srcpath),
-			dst_node = await this.findINode(tx, dst_dir),
-			dst_listing = await this.getDirListing(tx, dst_dir, dst_node);
-
-		if (!dst_node.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(dst_dir);
-		}
-
-		const node = await this.findINode(tx, srcpath);
+		const ino = await this._findINode(tx, existingDir, basename(existing));
+		const node = await this.getINode(tx, ino, existing);
 
 		if (!node.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(dstpath);
+			throw ApiError.EACCES(newpath);
 		}
+
 		node.nlink++;
-		dst_listing[basename(dstpath)] = node.ino;
-		await tx.put(ino, node.data, true);
-		await tx.put(dst_node.ino, encodeDirListing(dst_listing), false);
+		newListing[basename(newpath)] = ino;
+		try {
+			tx.put(ino, node.data, true);
+			tx.put(newDirNode.ino, encodeDirListing(newListing), true);
+		} catch (e) {
+			tx.abort();
+			throw e;
+		}
+		tx.commit();
 	}
 
 	/**
@@ -441,8 +443,8 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 				return rootIno;
 			} else {
 				// BASE CASE #2: Find the item in the root node.
-				const inode = await this.getINode(tx, parent, rootIno);
-				const dirList = await this.getDirListing(tx, parent, inode!);
+				const inode = await this.getINode(tx, rootIno, parent);
+				const dirList = await this.getDirListing(tx, inode!, parent);
 				if (dirList![filename]) {
 					const id = dirList![filename];
 					if (this._cache) {
@@ -457,7 +459,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			// Get the parent directory's INode, and find the file in its directory
 			// listing.
 			const inode = await this.findINode(tx, parent, visited);
-			const dirList = await this.getDirListing(tx, parent, inode!);
+			const dirList = await this.getDirListing(tx, inode!, parent);
 			if (dirList![filename]) {
 				const id = dirList![filename];
 				if (this._cache) {
@@ -477,7 +479,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	 */
 	private async findINode(tx: AsyncROTransaction, p: string, visited: Set<string> = new Set<string>()): Promise<Inode> {
 		const id = await this._findINode(tx, dirname(p), basename(p), visited);
-		return this.getINode(tx, p, id!);
+		return this.getINode(tx, id!, p);
 	}
 
 	/**
@@ -486,7 +488,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	 * @param p The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private async getINode(tx: AsyncROTransaction, p: string, id: Ino): Promise<Inode> {
+	private async getINode(tx: AsyncROTransaction, id: Ino, p: string): Promise<Inode> {
 		const data = await tx.get(id);
 		if (!data) {
 			throw ApiError.ENOENT(p);
@@ -498,7 +500,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	 * Given the Inode of a directory, retrieves the corresponding directory
 	 * listing.
 	 */
-	private async getDirListing(tx: AsyncROTransaction, p: string, inode: Inode): Promise<{ [fileName: string]: Ino }> {
+	private async getDirListing(tx: AsyncROTransaction, inode: Inode, p: string): Promise<{ [fileName: string]: Ino }> {
 		if (!inode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
@@ -553,7 +555,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		const parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = await this.findINode(tx, parentDir),
-			dirListing = await this.getDirListing(tx, parentDir, parentNode);
+			dirListing = await this.getDirListing(tx, parentNode, parentDir);
 
 		//Check that the creater has correct access
 		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
@@ -612,7 +614,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		const tx = this.store.beginTransaction('readwrite'),
 			parent: string = dirname(p),
 			parentNode = await this.findINode(tx, parent),
-			parentListing = await this.getDirListing(tx, parent, parentNode),
+			parentListing = await this.getDirListing(tx, parentNode, parent),
 			fileName: string = basename(p);
 
 		if (!parentListing[fileName]) {
@@ -622,7 +624,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		const fileIno = parentListing[fileName];
 
 		// Get file inode.
-		const fileNode = await this.getINode(tx, p, fileIno);
+		const fileNode = await this.getINode(tx, fileIno, p);
 
 		if (!fileNode.toStats().hasAccess(W_OK, cred)) {
 			throw ApiError.EACCES(p);

@@ -4,7 +4,7 @@ import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { FileFlag, PreloadFile } from '../file.js';
 import { SyncFileSystem, type FileSystemMetadata } from '../filesystem.js';
-import Inode, { randomIno, type Ino } from '../inode.js';
+import { randomIno, type Ino, Inode } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
 import { decodeDirListing, encode, encodeDirListing } from '../utils.js';
 import { rootIno } from '../inode.js';
@@ -377,36 +377,37 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 
 	public linkSync(existing: string, newpath: string, cred: Cred): void {
 		const tx = this.store.beginTransaction('readwrite'),
-			src_dir: string = dirname(newpath),
-			src_node = this.findINode(tx, src_dir);
+			existingDir: string = dirname(existing),
+			existingDirNode = this.findINode(tx, existingDir);
 
-		if (!src_node.toStats().hasAccess(R_OK, cred)) {
-			throw ApiError.EACCES(src_dir);
+		if (!existingDirNode.toStats().hasAccess(R_OK, cred)) {
+			throw ApiError.EACCES(existingDir);
 		}
 
-		const ino = this.getDirListing(tx, src_node, src_dir)[basename(existing)];
+		const newDir: string = dirname(newpath),
+			newDirNode = this.findINode(tx, newDir),
+			newListing = this.getDirListing(tx, newDirNode, newDir);
 
-		if (!ino) {
-			throw ApiError.ENOENT(basename(existing));
+		if (!newDirNode.toStats().hasAccess(W_OK, cred)) {
+			throw ApiError.EACCES(newDir);
 		}
 
-		const dst_dir: string = dirname(existing),
-			dst_node = this.findINode(tx, dst_dir),
-			dst_listing = this.getDirListing(tx, dst_node, dst_dir);
-
-		if (!dst_node.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(dst_dir);
-		}
-
-		const node = this.findINode(tx, existing);
+		const ino = this._findINode(tx, existingDir, basename(existing));
+		const node = this.getINode(tx, ino, existing);
 
 		if (!node.toStats().hasAccess(W_OK, cred)) {
 			throw ApiError.EACCES(newpath);
 		}
 		node.nlink++;
-		dst_listing[basename(newpath)] = node.ino;
-		tx.put(ino, node.data, true);
-		tx.put(dst_node.ino, encodeDirListing(dst_listing), false);
+		newListing[basename(newpath)] = ino;
+		try {
+			tx.put(ino, node.data, true);
+			tx.put(newDirNode.ino, encodeDirListing(newListing), true);
+		} catch (e) {
+			tx.abort();
+			throw e;
+		}
+		tx.commit();
 	}
 
 	/**
