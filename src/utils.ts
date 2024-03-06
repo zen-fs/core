@@ -171,11 +171,12 @@ export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8A
 		case 'base64url':
 			return new Uint8Array(Array.from(btoa(input).replace('/', '_').replace('+', '-')).map(v => v.charCodeAt(0)));
 		case 'hex':
-			const hexBytes = [];
-			for (let i = 0; i < input.length; i += 2) {
-				hexBytes.push(parseInt(input.slice(i, 2), 16));
-			}
-			return new Uint8Array(hexBytes);
+			return new Uint8Array(
+				Array.from(input).flatMap(v => {
+					const byte = (v.charCodeAt(0) & 0xff).toString(16).padStart(2, '0');
+					return Array.from(byte).map(v => v.charCodeAt(0));
+				})
+			);
 		default:
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid encoding: ' + encoding);
 	}
@@ -221,8 +222,8 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 		case 'hex':
 			let hexString = '';
 			for (let i = 0; i < input.length; i += 2) {
-				const byte = (input[i] << 4) | input[i + 1];
-				hexString += String.fromCharCode(byte);
+				const byte = String.fromCharCode(input[i], input[i + 1]);
+				hexString += String.fromCharCode(parseInt('0x' + byte));
 			}
 			return hexString;
 		default:
