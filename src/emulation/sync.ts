@@ -24,7 +24,9 @@ import { Dir, Dirent } from './dir.js';
 import { dirname, join } from './path.js';
 
 type FileSystemMethod = {
-	[K in keyof FileSystem]: FileSystem[K] extends (...args) => any ? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]> : never;
+	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
+		? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
+		: never;
 }[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
 
 function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): RT {
@@ -389,7 +391,7 @@ fdatasyncSync satisfies typeof Node.fdatasyncSync;
  * Note that it is unsafe to use fs.write multiple times on the same file
  * without waiting for it to return.
  * @param fd
- * @param buffer Uint8Array containing the data to write to
+ * @param data Uint8Array containing the data to write to
  *   the file.
  * @param offset Offset in the buffer to start reading data from.
  * @param length The amount of bytes to write to the file.
@@ -397,26 +399,26 @@ fdatasyncSync satisfies typeof Node.fdatasyncSync;
  *   data should be written. If position is null, the data will be written at
  *   the current position.
  */
-export function writeSync(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number | null): number;
-export function writeSync(fd: number, data: string, position?: number | null, encoding?: BufferEncoding): number;
-export function writeSync(fd: number, arg2: Uint8Array | string, arg3?: number, arg4?: BufferEncoding | number, arg5?: number): number {
+export function writeSync(fd: number, data: Uint8Array, offset: number, length: number, position?: number): number;
+export function writeSync(fd: number, data: string, position?: number, encoding?: BufferEncoding): number;
+export function writeSync(fd: number, data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, pos?: number): number {
 	let buffer: Uint8Array,
 		offset: number = 0,
 		length: number,
-		position: number | null;
-	if (typeof arg2 === 'string') {
+		position: number;
+	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]])
-		position = typeof arg3 === 'number' ? arg3 : null;
-		const encoding = <BufferEncoding>(typeof arg4 === 'string' ? arg4 : 'utf8');
+		position = typeof posOrOff === 'number' ? posOrOff : null;
+		const encoding = <BufferEncoding>(typeof lenOrEnc === 'string' ? lenOrEnc : 'utf8');
 		offset = 0;
-		buffer = encode(arg2);
+		buffer = encode(data, encoding);
 		length = buffer.length;
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?)
-		buffer = arg2;
-		offset = arg3;
-		length = arg4 as number;
-		position = typeof arg5 === 'number' ? arg5 : null;
+		buffer = data;
+		offset = posOrOff;
+		length = lenOrEnc as number;
+		position = typeof pos === 'number' ? pos : null;
 	}
 
 	const file = fd2file(fd);

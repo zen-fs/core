@@ -157,15 +157,19 @@ export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8A
 		case 'utf-8':
 		case 'latin1':
 		case 'binary':
-			return new Uint8Array([...input].map(v => v.charCodeAt(0)));
+			return new Uint8Array(Array.from(input).map(v => v.charCodeAt(0)));
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':
-			return new Uint8Array([...input].map(char => char.charCodeAt(0)).flatMap(code => [code & 0xff, (code >> 8) & 0xff]));
+			return new Uint8Array(
+				Array.from(input)
+					.map(char => char.charCodeAt(0))
+					.flatMap(code => [code & 0xff, (code >> 8) & 0xff])
+			);
 		case 'base64':
-			return new Uint8Array([...btoa(input)].map(v => v.charCodeAt(0)));
+			return new Uint8Array(Array.from(btoa(input)).map(v => v.charCodeAt(0)));
 		case 'base64url':
-			return new Uint8Array([...btoa(input).replace('/', '_').replace('+', '-')].map(v => v.charCodeAt(0)));
+			return new Uint8Array(Array.from(btoa(input).replace('/', '_').replace('+', '-')).map(v => v.charCodeAt(0)));
 		case 'hex':
 			const hexBytes = [];
 			for (let i = 0; i < input.length; i += 2) {
@@ -188,7 +192,9 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 		case 'utf-8':
 		case 'latin1':
 		case 'binary':
-			return [...input].map(v => String.fromCharCode(v)).join('');
+			return Array.from(input)
+				.map(v => String.fromCharCode(v))
+				.join('');
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':
@@ -199,10 +205,14 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 			}
 			return utf16leString;
 		case 'base64':
-			return atob([...input].map(v => String.fromCharCode(v)).join(''));
+			return atob(
+				Array.from(input)
+					.map(v => String.fromCharCode(v))
+					.join('')
+			);
 		case 'base64url':
 			return atob(
-				[...input]
+				Array.from(input)
 					.map(v => String.fromCharCode(v))
 					.join('')
 					.replace('_', '/')
