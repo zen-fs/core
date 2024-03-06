@@ -1,10 +1,9 @@
 import { fs } from '../common';
 
 describe('Link and Symlink Test', () => {
-
 	const target = 'a1.js',
-			symlink = 'symlink1.js',
-			hardlink = 'link1.js';
+		symlink = 'symlink1.js',
+		hardlink = 'link1.js';
 
 	test('symlink', async () => {
 		await fs.promises.symlink(target, symlink);
@@ -32,6 +31,4 @@ describe('Link and Symlink Test', () => {
 		const linkContent = await fs.promises.readFile(hardlink, 'utf8');
 		expect(targetContent).toBe(linkContent);
 	});
-
-	
 });

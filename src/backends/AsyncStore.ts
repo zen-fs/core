@@ -619,10 +619,10 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 			throw ApiError.ENOENT(p);
 		}
 
-		const fileNodeId = parentListing[fileName];
+		const fileIno = parentListing[fileName];
 
 		// Get file inode.
-		const fileNode = await this.getINode(tx, p, fileNodeId);
+		const fileNode = await this.getINode(tx, p, fileIno);
 
 		if (!fileNode.toStats().hasAccess(W_OK, cred)) {
 			throw ApiError.EACCES(p);
@@ -633,21 +633,25 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 
 		if (!isDir && fileNode.toStats().isDirectory()) {
 			throw ApiError.EISDIR(p);
-		} else if (isDir && !fileNode.toStats().isDirectory()) {
+		}
+
+		if (isDir && !fileNode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
 
 		try {
-			// Delete data.
-			await tx.remove(fileNode.ino);
-			// Delete node.
-			await tx.remove(fileNodeId);
-			// Update directory listing.
 			await tx.put(parentNode.ino, encodeDirListing(parentListing), true);
+
+			if (--fileNode.nlink < 1) {
+				// remove file
+				await tx.remove(fileNode.ino);
+				await tx.remove(fileIno);
+			}
 		} catch (e) {
 			await tx.abort();
 			throw e;
 		}
+
 		// Success.
 		await tx.commit();
 	}

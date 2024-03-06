@@ -375,22 +375,22 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		tx.commit();
 	}
 
-	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
+	public linkSync(existing: string, newpath: string, cred: Cred): void {
 		const tx = this.store.beginTransaction('readwrite'),
-			src_dir: string = dirname(dstpath),
+			src_dir: string = dirname(newpath),
 			src_node = this.findINode(tx, src_dir);
 
 		if (!src_node.toStats().hasAccess(R_OK, cred)) {
 			throw ApiError.EACCES(src_dir);
 		}
 
-		const ino = this.getDirListing(tx, src_node, src_dir)[basename(srcpath)];
+		const ino = this.getDirListing(tx, src_node, src_dir)[basename(existing)];
 
 		if (!ino) {
-			throw ApiError.ENOENT(basename(srcpath));
+			throw ApiError.ENOENT(basename(existing));
 		}
 
-		const dst_dir: string = dirname(srcpath),
+		const dst_dir: string = dirname(existing),
 			dst_node = this.findINode(tx, dst_dir),
 			dst_listing = this.getDirListing(tx, dst_node, dst_dir);
 
@@ -398,13 +398,13 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 			throw ApiError.EACCES(dst_dir);
 		}
 
-		const node = this.findINode(tx, srcpath);
+		const node = this.findINode(tx, existing);
 
 		if (!node.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(dstpath);
+			throw ApiError.EACCES(newpath);
 		}
 		node.nlink++;
-		dst_listing[basename(dstpath)] = node.ino;
+		dst_listing[basename(newpath)] = node.ino;
 		tx.put(ino, node.data, true);
 		tx.put(dst_node.ino, encodeDirListing(dst_listing), false);
 	}
@@ -613,12 +613,14 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		}
 
 		try {
-			// Delete data.
-			tx.remove(fileNode.ino);
-			// Delete node.
-			tx.remove(fileIno);
 			// Update directory listing.
 			tx.put(parentNode.ino, encodeDirListing(parentListing), true);
+
+			if (--fileNode.nlink < 1) {
+				// remove file
+				tx.remove(fileNode.ino);
+				tx.remove(fileIno);
+			}
 		} catch (e) {
 			tx.abort();
 			throw e;
