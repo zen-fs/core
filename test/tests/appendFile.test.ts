@@ -13,7 +13,6 @@ describe('appendFile', () => {
 			throw e.message;
 		}
 		const data = await fs.promises.readFile(filename, 'utf8');
-		console.log(filename, content, data);
 		expect(data).toEqual(content);
 	});
 
