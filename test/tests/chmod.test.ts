@@ -1,104 +1,47 @@
-import { fs, createMockStats } from '../common';
-import * as path from 'path';
-import { jest } from '@jest/globals';
+import { fs } from '../common';
 
-const isWindows = process.platform === 'win32';
 const asyncMode = 0o777;
-const modeSync = 0o644;
+const syncMode = 0o644;
 
 describe('chmod tests', () => {
-	it('should change file mode using chmod', async () => {
+	test('chmod', async () => {
 		const file1 = 'a.js';
 
-		jest.spyOn(fs, 'chmod').mockImplementation(async (path, mode) => {
-			expect(path).toBe(file1);
-			expect(mode).toBe(asyncMode.toString(8));
-		});
+		await fs.promises.chmod(file1, asyncMode.toString(8));
 
-		jest.spyOn(fs, 'chmodSync').mockImplementation((path, mode) => {
-			expect(path).toBe(file1);
-			expect(mode).toBe(modeSync);
-		});
+		const stats = await fs.promises.stat(file1);
+		expect(stats.mode & 0o777).toBe(asyncMode);
 
-		jest.spyOn(fs, 'statSync').mockReturnValue(createMockStats(isWindows ? asyncMode & 0o777 : asyncMode));
-
-		await changeFileMode(file1);
+		fs.chmodSync(file1, syncMode);
+		expect(fs.statSync(file1).mode & 0o777).toBe(syncMode);
 	});
 
-	it('should change file mode using fchmod', async () => {
+	test('fchmod', async () => {
 		const file2 = 'a1.js';
 
-		jest.spyOn(fs, 'open').mockImplementation(async (path, flags, mode) => {
-			expect(path).toBe(file2);
-			expect(flags).toBe('a');
-			return 123;
-		});
+		const handle = await fs.promises.open(file2, 'a', 0o644);
 
-		jest.spyOn(fs, 'fchmod').mockImplementation(async (fd, mode) => {
-			expect(fd).toBe(123);
-			expect(mode).toBe(asyncMode.toString(8));
-		});
+		await handle.chmod(asyncMode);
+		const stats = await handle.stat();
 
-		jest.spyOn(fs, 'fchmodSync').mockImplementation((fd, mode) => {
-			expect(fd).toBe(123);
-			expect(mode).toBe(modeSync);
-		});
+		expect(stats.mode & 0o777).toBe(asyncMode);
 
-		jest.spyOn(fs, 'fstatSync').mockReturnValue(createMockStats(isWindows ? asyncMode & 0o777 : asyncMode));
-
-		await changeFileMode(file2);
+		fs.fchmodSync(handle.fd, syncMode);
+		expect(fs.statSync(file2).mode & 0o777).toBe(syncMode);
 	});
 
-	it('should change symbolic link mode using lchmod', async () => {
-		const link = path.join('symbolic-link');
-		const file2 = 'a1.js';
+	test('lchmod', async () => {
+		const link = 'symbolic-link';
+		const target = 'a1.js';
 
-		jest.spyOn(fs, 'unlinkSync').mockImplementation(path => {
-			expect(path).toBe(link);
-		});
+		await fs.promises.unlink(link);
+		await fs.promises.symlink(target, link);
+		await fs.promises.lchmod(link, asyncMode);
 
-		jest.spyOn(fs, 'symlinkSync').mockImplementation((target, path) => {
-			expect(target).toBe(file2);
-			expect(path).toBe(link);
-		});
+		const stats = await fs.promises.lstat(link);
+		expect(stats.mode & 0o777).toBe(asyncMode);
 
-		jest.spyOn(fs, 'lchmod').mockImplementation(async (path, mode) => {
-			expect(path).toBe(link);
-			expect(mode).toBe(asyncMode);
-		});
-
-		jest.spyOn(fs, 'lchmodSync').mockImplementation((path, mode) => {
-			expect(path).toBe(link);
-			expect(mode).toBe(modeSync);
-		});
-
-		jest.spyOn(fs, 'lstatSync').mockReturnValue(createMockStats(isWindows ? asyncMode & 0o777 : asyncMode));
-
-		await changeSymbolicLinkMode(link, file2);
+		fs.lchmodSync(link, syncMode);
+		expect(fs.lstatSync(link).mode & 0o777).toBe(syncMode);
 	});
 });
-
-async function changeFileMode(file: string): Promise<void> {
-	await fs.promises.chmod(file, asyncMode.toString(8));
-
-	const statResult = await fs.promises.stat(file);
-	expect(statResult.mode & 0o777).toBe(isWindows ? asyncMode & 0o777 : asyncMode);
-
-	fs.chmodSync(file, modeSync);
-	const statSyncResult = fs.statSync(file);
-	expect(statSyncResult.mode & 0o777).toBe(isWindows ? modeSync & 0o777 : modeSync);
-}
-
-async function changeSymbolicLinkMode(link: string, target: string): Promise<void> {
-	await fs.promises.unlink(link);
-	await fs.promises.symlink(target, link);
-
-	await fs.promises.lchmod(link, asyncMode);
-
-	const lstatResult = await fs.promises.lstat(link);
-	expect(lstatResult.mode & 0o777).toBe(isWindows ? asyncMode & 0o777 : asyncMode);
-
-	fs.lchmodSync(link, modeSync);
-	const lstatSyncResult = fs.lstatSync(link);
-	expect(lstatSyncResult.mode & 0o777).toBe(isWindows ? modeSync & 0o777 : modeSync);
-}

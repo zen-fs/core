@@ -1,4 +1,3 @@
-import { Stats, FileType, type BigIntStats } from '../src/stats';
 import { fs } from '../src/index';
 import * as path from 'path';
 import { statSync, readFileSync, readdirSync } from 'fs';
@@ -25,7 +24,3 @@ function copy(_p: string) {
 copy(fixturesDir);
 
 export { fs };
-
-export function createMockStats(mode: number | bigint): Stats | BigIntStats {
-	return new Stats(FileType.FILE, -1, mode);
-}
