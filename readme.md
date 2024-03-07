@@ -60,7 +60,7 @@ You can use multiple backends by passing an object to `configure` which maps pat
 
 ```js
 import { configure } from '@browserfs/core';
-import { IndexedDD } from '@browserfs/fs-dom';
+import { IndexedDB } from '@browserfs/fs-dom';
 import { Zip } from '@browserfs/fs-zip';
 
 const zipData = await (await fetch('mydata.zip')).arrayBuffer();
