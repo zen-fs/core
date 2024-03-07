@@ -150,7 +150,7 @@ export interface AsyncStoreFileSystemOptions {
 	/**
 	 * Promise that resolves to the store
 	 */
-	store: Promise<AsyncStore>;
+	store: Promise<AsyncStore> | AsyncStore;
 
 	/**
 	 * The size of the cache. If not provided, no cache will be used
@@ -184,7 +184,7 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 	 * Initializes the file system. Typically called by subclasses' async
 	 * constructors.
 	 */
-	protected async _initialize(store: Promise<AsyncStore>): Promise<this> {
+	protected async _initialize(store: Promise<AsyncStore> | AsyncStore): Promise<this> {
 		this.store = await store;
 		// INVARIANT: Ensure that the root exists.
 		await this.makeRootDirectory();
