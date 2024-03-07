@@ -7,14 +7,13 @@ BrowserFS is an in-browser file system that emulates the [Node JS file system AP
 BrowserFS is highly extensible, and includes many builtin filesystem backends:
 
 -   `InMemory`: Stores files in-memory. It is a temporary file store that clears when the user navigates away.
--   `OverlayFS`: Mount a read-only file system as read-write by overlaying a writable file system on top of it. Like Docker's overlayfs, it will only write changed files to the writable file system.
+-   `Overlay`: Mount a read-only file system as read-write by overlaying a writable file system on top of it. Like Docker's overlayfs, it will only write changed files to the writable file system.
 -   `AsyncMirror`: Use an asynchronous backend synchronously. Invaluable for Emscripten; let your Emscripten applications write to larger file stores with no additional effort!
     -   `AsyncMirror` loads the entire contents of the async file system into a synchronous backend during construction. It performs operations synchronous file system and then queues them to be mirrored onto the asynchronous backend.
--   `FolderAdapter`: Wraps a file system, and scopes all interactions to a subfolder of that file system.
 
 More backends can be defined by separate libraries, so long as they extend they implement `BrowserFS.FileSystem`. Multiple backends can be active at once at different locations in the directory hierarchy.
 
-BrowserFS supports a number of other backends (as `@browserfs/fs-[name]`).
+BrowserFS supports a number of other backends (many are provided as seperate packages under `@browserfs`).
 
 For more information, see the [API documentation for BrowserFS](https://browser-fs.github.io/core).
 
@@ -23,13 +22,6 @@ For more information, see the [API documentation for BrowserFS](https://browser-
 ```sh
 npm install @browserfs/core
 ```
-
-## Building
-
--   Make sure you have Node and NPM installed. You must have Node v18 or newer.
--   Install dependencies with `npm install`
--   Build using `npm run build`
--   You can find the built code in `dist`.
 
 ## Usage
 
@@ -113,8 +105,8 @@ await configure({
 	'/': {
 		backend: 'AsyncMirror',
 		sync: 'InMemory',
-		async: IndexedDB
-	}
+		async: IndexedDB,
+	},
 });
 
 fs.writeFileSync('/persistant.txt', 'My persistant data'); // This fails if you configure with only IndexedDB
@@ -129,12 +121,12 @@ If you would like to create backends without configure, you may do so by importi
 ```js
 import { configure, backends, InMemory } from '@browserfs/core';
 
-console.log(backends.InMemory === InMemory) // they are the same
+console.log(backends.InMemory === InMemory); // they are the same
 
-const internalInMemoryFS = createBackend(InMemory);
+const internalInMemoryFS = await createBackend(InMemory);
 ```
 
-> ⚠ Instances of backends follow the ***internal*** BrowserFS API. You should never use a backend's methods unless you are extending a backend.
+> ⚠ Instances of backends follow the **_internal_** BrowserFS API. You should never use a backend's methods unless you are extending a backend.
 
 ```js
 import { configure, InMemory } from '@browserfs/core';
@@ -150,9 +142,9 @@ If you would like to mount and unmount backends, you can do so using the `mount`
 ```js
 import { fs, InMemory } from '@browserfs/core';
 
-const inMemoryFS = await InMemory.Create(); // create an FS instance
+const internalInMemoryFS = await createBackend(InMemory); // create an FS instance
 
-fs.mount('/tmp', inMemoryFS); // mount
+fs.mount('/tmp', internalInMemoryFS); // mount
 
 fs.umount('/tmp'); // unmount /tmp
 ```
@@ -160,10 +152,8 @@ fs.umount('/tmp'); // unmount /tmp
 This could be used in the "multiple backends" example like so:
 
 ```js
-import { IndexedDBFileSystem } from '@browserfs/fs-dom';
-import { ZipFS } from '@browserfs/fs-zip';
-import Buffer from 'buffer';
-registerBackend(IndexedDBFileSystem);
+import { IndexedDB  } from '@browserfs/fs-dom';
+import { Zip } from '@browserfs/fs-zip';
 
 await configure({
 	'/tmp': 'InMemory',
@@ -173,8 +163,7 @@ await configure({
 fs.mkdirSync('/mnt');
 
 const res = await fetch('mydata.zip');
-const zipData = Buffer.from(await res.arrayBuffer());
-const zipFs = await ZipFS.Create({ zipData });
+const zipFs = await createBackend(Zip, { zipData: await res.arrayBuffer() });
 fs.mount('/mnt/zip', zipFs);
 
 // do stuff with the mounted zip
@@ -186,64 +175,12 @@ fs.umount('/mnt/zip'); // finished using the zip
 
 BrowserFS exports a drop-in for Node's `fs` module (up to the version of `@types/node` in package.json), so you can use it for your bundler of preference using the default export.
 
-#### ESBuild
+## Building
 
-tsconfig.json
-
-```json
-{
-	...
-	"paths": {
-		"fs": ["node_modules/browserfs/dist/index.js"]
-	}
-	...
-}
-```
-
-[Why tsconfig.json?](https://stackoverflow.com/a/71935037/17637456)
-
-Webpack:
-
-```js
-module.exports = {
-	// ...
-	resolve: {
-		alias: {
-			fs: require.resolve('browserfs'),
-		},
-	},
-	// ...
-};
-```
-
-Rollup:
-
-```js
-import alias from '@rollup/plugin-alias';
-
-export default {
-	// ...
-	plugins: [
-		alias({
-			entries: [{ find: 'fs', replacement: 'browserfs' }],
-		}),
-	],
-	// ...
-};
-```
-
-## Using with Emscripten
-
-You can use any _synchronous_ BrowserFS file systems with Emscripten.
-
-```js
-import { EmscriptenFSPlugin } from '@browserfs/fs-emscripten';
-const BFS = new EmscriptenFSPlugin(); // Create a BrowserFS Emscripten FS plugin.
-FS.createFolder(FS.root, 'data', true, true); // Create the folder to turn into a mount point.
-FS.mount(BFS, { root: '/' }, '/data'); // Mount BFS's root folder into /data.
-```
-
-If you want to use an asynchronous backend, you must wrap it in an `AsyncMirror`.
+-   Make sure you have Node and NPM installed. You must have Node v18 or newer.
+-   Install dependencies with `npm install`
+-   Build using `npm run build`
+-   You can find the built code in `dist`.
 
 ### Testing
 
