@@ -5,11 +5,14 @@ import { FileSystem } from './filesystem.js';
 import { ApiError, ErrorCode } from './ApiError.js';
 import * as path from './emulation/path.js';
 import { Cred } from './cred.js';
+import type { TextDecoder as _TextDecoder, TextEncoder as _TextEncoder } from 'node:util';
 
 declare global {
 	function setImmediate(callback: () => unknown): void;
 	function atob(data: string): string;
 	function btoa(data: string): string;
+	const TextDecoder: typeof _TextDecoder;
+	const TextEncoder: typeof _TextEncoder;
 }
 
 /**
@@ -153,30 +156,19 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
 export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8Array {
 	switch (encoding) {
 		case 'ascii':
-		case 'utf8':
-		case 'utf-8':
+			return new TextEncoder().encode(input).map(v => v & 0x7f);
 		case 'latin1':
 		case 'binary':
-			return new Uint8Array(Array.from(input).map(v => v.charCodeAt(0)));
+		case 'utf8':
+		case 'utf-8':
+		case 'base64':
+		case 'base64url':
+		case 'hex':
+			return new TextEncoder().encode(input);
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':
-			return new Uint8Array(
-				Array.from(input)
-					.map(char => char.charCodeAt(0))
-					.flatMap(code => [code & 0xff, (code >> 8) & 0xff])
-			);
-		case 'base64':
-			return new Uint8Array(Array.from(btoa(input)).map(v => v.charCodeAt(0)));
-		case 'base64url':
-			return new Uint8Array(Array.from(btoa(input).replace('/', '_').replace('+', '-')).map(v => v.charCodeAt(0)));
-		case 'hex':
-			return new Uint8Array(
-				Array.from(input).flatMap(v => {
-					const byte = (v.charCodeAt(0) & 0xff).toString(16).padStart(2, '0');
-					return Array.from(byte).map(v => v.charCodeAt(0));
-				})
-			);
+			return new TextEncoder().encode(input).slice(0, -1);
 		default:
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid encoding: ' + encoding);
 	}
@@ -191,11 +183,10 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 		case 'ascii':
 		case 'utf8':
 		case 'utf-8':
+			return new TextDecoder().decode(input);
 		case 'latin1':
 		case 'binary':
-			return Array.from(input)
-				.map(v => String.fromCharCode(v))
-				.join('');
+			return new TextDecoder('latin1').decode(input);
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':
@@ -206,26 +197,17 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 			}
 			return utf16leString;
 		case 'base64':
-			return atob(
+			return btoa(
 				Array.from(input)
 					.map(v => String.fromCharCode(v))
 					.join('')
 			);
 		case 'base64url':
-			return atob(
-				Array.from(input)
-					.map(v => String.fromCharCode(v))
-					.join('')
-					.replace('_', '/')
-					.replace('-', '+')
-			);
+			return decode(input, 'base64').replace('/', '_').replace('+', '-');
 		case 'hex':
-			let hexString = '';
-			for (let i = 0; i < input.length; i += 2) {
-				const byte = String.fromCharCode(input[i], input[i + 1]);
-				hexString += String.fromCharCode(parseInt('0x' + byte));
-			}
-			return hexString;
+			return Array.from(input)
+				.map(e => e.toString(16))
+				.join('');
 		default:
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid encoding: ' + encoding);
 	}
