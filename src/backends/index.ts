@@ -1,6 +1,6 @@
 import { AsyncMirror } from './AsyncMirror.js';
 import { InMemory } from './InMemory.js';
-import { Overlay } from './OverlayFS.js';
+import { Overlay } from './Overlay.js';
 import { Backend } from './backend.js';
 
 export const backends: { [backend: string]: Backend } = {};

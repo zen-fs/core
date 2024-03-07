@@ -65,7 +65,6 @@ export * from './backends/AsyncStore.js';
 export * from './backends/SyncStore.js';
 export * from './ApiError.js';
 export * from './cred.js';
-export * from './FileIndex.js';
 export * from './file.js';
 export * from './filesystem.js';
 export * from './inode.js';

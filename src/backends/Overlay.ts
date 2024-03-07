@@ -45,11 +45,10 @@ class OverlayFile extends PreloadFile<UnlockedOverlayFS> implements File {
 	}
 }
 
-export namespace OverlayFS {
-	/**
+/**
 	 * Configuration options for OverlayFS instances.
 	 */
-	export interface Options {
+	export interface OverlayOptions {
 		/**
 		 * The file system to write modified files to.
 		 */
@@ -59,7 +58,7 @@ export namespace OverlayFS {
 		 */
 		readable: FileSystem;
 	}
-}
+
 
 /**
  * OverlayFS makes a read-only filesystem writable by storing writes on a second, writable file system.
@@ -92,7 +91,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 	private _ready: Promise<void>;
 
-	constructor({ writable, readable }: OverlayFS.Options) {
+	constructor({ writable, readable }: OverlayOptions) {
 		super();
 		this._writable = writable;
 		this._readable = readable;
@@ -111,7 +110,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		};
 	}
 
-	public getOverlayedFileSystems(): OverlayFS.Options {
+	public getOverlayedFileSystems(): OverlayOptions {
 		return {
 			readable: this._readable,
 			writable: this._writable,
@@ -367,7 +366,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
-		let contents: string[] = [];
+		const contents: string[] = [];
 		try {
 			contents.push(...(await this._writable.readdir(p, cred)));
 		} catch (e) {
@@ -582,11 +581,11 @@ export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
 	/**
 	 * @param options The options to initialize the OverlayFS with
 	 */
-	constructor(options: OverlayFS.Options) {
+	constructor(options: OverlayOptions) {
 		super(new UnlockedOverlayFS(options));
 	}
 
-	public getOverlayedFileSystems(): OverlayFS.Options {
+	public getOverlayedFileSystems(): OverlayOptions {
 		return super.fs.getOverlayedFileSystems();
 	}
 
@@ -609,10 +608,12 @@ export const Overlay: Backend = {
 	options: {
 		writable: {
 			type: 'object',
+			required: true,
 			description: 'The file system to write modified files to.',
 		},
 		readable: {
 			type: 'object',
+			required: true,
 			description: 'The file system that initially populates this file system.',
 		},
 	},
@@ -621,7 +622,7 @@ export const Overlay: Backend = {
 		return true;
 	},
 
-	create(options: OverlayFS.Options) {
+	create(options: OverlayOptions) {
 		return new OverlayFS(options);
 	},
 };

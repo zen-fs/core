@@ -14,8 +14,7 @@ export interface OptionConfig<T> {
 	type: OptionType | OptionType[];
 
 	/**
-	 * Whether or not the option is required (optional can be set to null or undefined).
-	 * Defaults to false.
+	 * Whether or not the option is required (optional can be set to null or undefined). Defaults to false.
 	 */
 	required?: boolean;
 
