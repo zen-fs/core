@@ -146,6 +146,18 @@ export class AsyncFile extends PreloadFile<AsyncStoreFileSystem> {
 	}
 }
 
+export interface AsyncStoreFileSystemOptions {
+	/**
+	 * Promise that resolves to the store
+	 */
+	store: Promise<AsyncStore>;
+
+	/**
+	 * The size of the cache. If not provided, no cache will be used
+	 */
+	cacheSize?: number;
+}
+
 /**
  * An "Asynchronous key-value file system". Stores data to/retrieves data from
  * an underlying asynchronous key-value store.
@@ -160,21 +172,23 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 		return this._ready;
 	}
 
-	constructor(cacheSize: number) {
+	constructor({ store, cacheSize }: AsyncStoreFileSystemOptions) {
 		super();
 		if (cacheSize > 0) {
 			this._cache = new LRUCache(cacheSize);
 		}
+		this._ready = this._initialize(store);
 	}
 
 	/**
 	 * Initializes the file system. Typically called by subclasses' async
 	 * constructors.
 	 */
-	public async init(store: AsyncStore) {
-		this.store = store;
+	protected async _initialize(store: Promise<AsyncStore>): Promise<this> {
+		this.store = await store;
 		// INVARIANT: Ensure that the root exists.
 		await this.makeRootDirectory();
+		return this;
 	}
 
 	/**

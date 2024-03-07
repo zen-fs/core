@@ -158,7 +158,7 @@ export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	}
 }
 
-export interface SyncFileSystemOptions {
+export interface SyncStoreFileSystemOptions {
 	/**
 	 * The actual key-value store to read from/write to.
 	 */
@@ -202,7 +202,7 @@ export class SyncStoreFile extends PreloadFile<SyncStoreFileSystem> {
 export class SyncStoreFileSystem extends SyncFileSystem {
 	protected store: SyncStore;
 
-	constructor(options: SyncFileSystemOptions) {
+	constructor(options: SyncStoreFileSystemOptions) {
 		super();
 		this.store = options.store;
 		// INVARIANT: Ensure that the root exists.
