@@ -46,19 +46,18 @@ class OverlayFile extends PreloadFile<UnlockedOverlayFS> implements File {
 }
 
 /**
-	 * Configuration options for OverlayFS instances.
+ * Configuration options for OverlayFS instances.
+ */
+export interface OverlayOptions {
+	/**
+	 * The file system to write modified files to.
 	 */
-	export interface OverlayOptions {
-		/**
-		 * The file system to write modified files to.
-		 */
-		writable: FileSystem;
-		/**
-		 * The file system that initially populates this file system.
-		 */
-		readable: FileSystem;
-	}
-
+	writable: FileSystem;
+	/**
+	 * The file system that initially populates this file system.
+	 */
+	readable: FileSystem;
+}
 
 /**
  * OverlayFS makes a read-only filesystem writable by storing writes on a second, writable file system.
