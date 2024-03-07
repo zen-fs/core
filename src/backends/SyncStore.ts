@@ -211,12 +211,8 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 
 	public get metadata(): FileSystemMetadata {
 		return {
+			...super.metadata,
 			name: this.store.name,
-			readonly: false,
-			supportsProperties: true,
-			synchronous: true,
-			freeSpace: 0,
-			totalSpace: 0,
 		};
 	}
 

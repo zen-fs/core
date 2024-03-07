@@ -3,7 +3,7 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { PreloadFile, File, FileFlag } from '../file.js';
-import { AsyncFileSystem } from '../filesystem.js';
+import { AsyncFileSystem, type FileSystemMetadata } from '../filesystem.js';
 import { randomIno, type Ino, Inode } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
 import { encode, decodeDirListing, encodeDirListing } from '../utils.js';
@@ -170,6 +170,13 @@ export class AsyncStoreFileSystem extends AsyncFileSystem {
 
 	public ready() {
 		return this._ready;
+	}
+
+	public get metadata(): FileSystemMetadata {
+		return {
+			...super.metadata,
+			name: this.store.name,
+		};
 	}
 
 	constructor({ store, cacheSize }: AsyncStoreFileSystemOptions) {
