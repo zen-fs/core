@@ -49,12 +49,10 @@ console.log(contents);
 A `InMemory` backend is created by default. If you would like to use a different one, you must configure BrowserFS. It is recommended to do so using the `configure` function. Here is an example using the `Storage` backend from `@browserfs/fs-dom`:
 
 ```js
-import { configure, fs, registerBackend } from '@browserfs/core';
-import { StorageFileSystem } from '@browserfs/fs-dom';
-registerBackend(StorageFileSystem);
+import { configure, fs } from '@browserfs/core';
+import { StorageStore } from '@browserfs/fs-dom';
 
-// you can also add a callback as the last parameter instead of using promises
-await configure({ fs: 'Storage' });
+await configure({ backend: StorageStore });
 
 if (!fs.existsSync('/test.txt')) {
 	fs.writeFileSync('/test.txt', 'This will persist across reloads!');
@@ -69,23 +67,19 @@ console.log(contents);
 You can use multiple backends by passing an object to `configure` which maps paths to file systems. The following example mounts a zip file to `/zip`, in-memory storage to `/tmp`, and IndexedDB storage to `/home` (note that `/` has the default in-memory backend):
 
 ```js
-import { configure, registerBackend } from '@browserfs/core';
-import { IndexedDBFileSystem } from '@browserfs/fs-dom';
-import { ZipFS } from '@browserfs/fs-zip';
-import Buffer from 'buffer';
-registerBackend(IndexedDBFileSystem, ZipFS);
+import { configure } from '@browserfs/core';
+import { IndexedDD } from '@browserfs/fs-dom';
+import { Zip } from '@browserfs/fs-zip';
 
 const zipData = await (await fetch('mydata.zip')).arrayBuffer();
 
 await configure({
 	'/mnt/zip': {
-		fs: 'ZipFS',
-		options: {
-			zipData: Buffer.from(zipData)
-		}
+		backend: Zip,
+		zipData: zipData,
 	},
 	'/tmp': 'InMemory',
-	'/home': 'IndexedDB',
+	'/home': IndexedDB,
 };
 ```
 
@@ -94,11 +88,10 @@ await configure({
 The FS promises API is exposed as `promises`.
 
 ```js
-import { configure, promises, registerBackend } from '@browserfs/core';
-import { IndexedDBFileSystem } from '@browserfs/fs-dom';
-registerBackend(IndexedDBFileSystem);
+import { configure, promises } from '@browserfs/core';
+import { IndexedDB } from '@browserfs/fs-dom';
 
-await configure({ '/': 'IndexedDB' });
+await configure({ '/': IndexedDB });
 
 const exists = await promises.exists('/myfile.txt');
 if (!exists) {
@@ -106,46 +99,48 @@ if (!exists) {
 }
 ```
 
-BrowserFS does _not_ provide a seperate method for importing promises in its built form. If you are using Typescript, you can import the promises API from source code (perhaps to reduce you bundle size). Doing so it not recommended as the files may be moved without notice.
+BrowserFS does _not_ provide a seperate public import for importing promises in its built form. If you are using ESM, you can import promises functions from `dist/emulation/promises`, though this may change at any time and is not recommended.
 
 #### Using asynchronous backends synchronously
 
-You may have noticed that attempting to use a synchronous method on an asynchronous backend (e.g. IndexedDB) results in a "not supplied" error (`ENOTSUP`). If you wish to use an asynchronous backend synchronously you need to wrap it in an `AsyncMirror`:
+You may have noticed that attempting to use a synchronous function on an asynchronous backend (e.g. IndexedDB) results in a "not supplied" error (`ENOTSUP`). If you wish to use an asynchronous backend synchronously you need to wrap it in an `AsyncMirror`:
 
 ```js
 import { configure, fs } from '@browserfs/core';
-import { IndexedDBFileSystem } from '@browserfs/fs-dom';
-registerBackend(IndexedDBFileSystem);
+import { IndexedDB } from '@browserfs/fs-dom';
 
 await configure({
-	'/': { fs: 'AsyncMirror', options: { sync: { fs: 'InMemory' }, async: { fs: 'IndexedDB' } } }
+	'/': {
+		backend: 'AsyncMirror',
+		sync: 'InMemory',
+		async: IndexedDB
+	}
 });
 
-fs.writeFileSync('/persistant.txt', 'My persistant data'); // This fails if you configure the FS as IndexedDB
+fs.writeFileSync('/persistant.txt', 'My persistant data'); // This fails if you configure with only IndexedDB
 ```
 
 ### Advanced usage
 
 #### Creating backends
 
-If you would like to create backends without configure, you may do so by importing the backend's class and calling its `Create` method. You can import the backend directly or with `backends`:
+If you would like to create backends without configure, you may do so by importing the backend and calling `createBackend` with it. You can import the backend directly or with `backends`:
 
 ```js
 import { configure, backends, InMemory } from '@browserfs/core';
 
 console.log(backends.InMemory === InMemory) // they are the same
 
-const inMemoryFS = await InMemory.Create();
+const internalInMemoryFS = createBackend(InMemory);
 ```
 
-> ⚠ Instances of backends follow the ***internal*** BrowserFS API. You should never use a backend's method unless you are extending a backend.
+> ⚠ Instances of backends follow the ***internal*** BrowserFS API. You should never use a backend's methods unless you are extending a backend.
 
-Coming soon:
 ```js
 import { configure, InMemory } from '@browserfs/core';
 
-const inMemoryFS = new InMemory();
-await inMemoryFS.whenReady();
+const internalInMemoryFS = new InMemory();
+await internalInMemoryFS.ready();
 ```
 
 #### Mounting

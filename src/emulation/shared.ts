@@ -10,6 +10,8 @@ import type { File } from '../file.js';
 /**
  * converts Date or number to a integer UNIX timestamp
  * Grabbed from NodeJS sources (lib/fs.js)
+ *
+ * @internal
  */
 export function _toUnixTimestamp(time: Date | number): number {
 	if (typeof time === 'number') {
@@ -21,6 +23,10 @@ export function _toUnixTimestamp(time: Date | number): number {
 	throw new Error('Cannot parse time: ' + time);
 }
 
+/**
+ * Normalizes a mode
+ * @internal
+ */
 export function normalizeMode(mode: string | number | unknown, def?: number): number {
 	switch (typeof mode) {
 		case 'number':
@@ -41,6 +47,10 @@ export function normalizeMode(mode: string | number | unknown, def?: number): nu
 	throw new ApiError(ErrorCode.EINVAL, 'Invalid mode: ' + mode?.toString());
 }
 
+/**
+ * Normalizes a time
+ * @internal
+ */
 export function normalizeTime(time: string | number | Date): Date {
 	if (time instanceof Date) {
 		return time;
@@ -57,6 +67,10 @@ export function normalizeTime(time: string | number | Date): Date {
 	throw new ApiError(ErrorCode.EINVAL, 'Invalid time.');
 }
 
+/**
+ * Normalizes a path
+ * @internal
+ */
 export function normalizePath(p: string): string {
 	// Node doesn't allow null characters in paths.
 	if (p.indexOf('\u0000') >= 0) {
@@ -69,7 +83,11 @@ export function normalizePath(p: string): string {
 	return resolve(p);
 }
 
-export function normalizeOptions(options: any, defEnc: string | null, defFlag: string, defMode: number | null): { encoding: BufferEncoding; flag: string; mode: number } {
+/**
+ * Normalizes options
+ * @internal
+ */
+export function normalizeOptions(options: unknown, defEnc: string | null, defFlag: string, defMode: number | null): { encoding: BufferEncoding; flag: string; mode: number } {
 	// typeof null === 'object' so special-case handing is needed.
 	switch (options === null ? 'null' : typeof options) {
 		case 'object':
@@ -80,7 +98,7 @@ export function normalizeOptions(options: any, defEnc: string | null, defFlag: s
 			};
 		case 'string':
 			return {
-				encoding: options,
+				encoding: <BufferEncoding>options,
 				flag: defFlag,
 				mode: defMode!,
 			};
@@ -88,7 +106,7 @@ export function normalizeOptions(options: any, defEnc: string | null, defFlag: s
 		case 'undefined':
 		case 'function':
 			return {
-				encoding: defEnc! as BufferEncoding,
+				encoding: <BufferEncoding>defEnc!,
 				flag: defFlag,
 				mode: defMode!,
 			};
@@ -97,6 +115,10 @@ export function normalizeOptions(options: any, defEnc: string | null, defFlag: s
 	}
 }
 
+/**
+ * Do nothing
+ * @internal
+ */
 export function nop() {
 	// do nothing
 }
@@ -127,26 +149,16 @@ export interface MountMapping {
 	[point: string]: FileSystem;
 }
 
+/**
+ * The map of mount points
+ * @internal
+ */
 export const mounts: Map<string, FileSystem> = new Map();
 
 /*
 Set a default root.
 */
 mount('/', InMemory.create({ name: 'root' }));
-
-/**
- * Gets the file system mounted at `mountPoint`
- */
-export function getMount(mountPoint: string): FileSystem {
-	return mounts.get(mountPoint);
-}
-
-/**
- * Gets an object of mount points (keys) and filesystems (values)
- */
-export function getMounts(): MountMapping {
-	return Object.fromEntries(mounts.entries());
-}
 
 /**
  * Mounts the file system at the given mount point.

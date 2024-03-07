@@ -13,7 +13,7 @@ import { type MountMapping, setCred } from './emulation/shared.js';
  */
 export function initialize(mounts: { [point: string]: FileSystem }, uid: number = 0, gid: number = 0) {
 	setCred(new Cred(uid, gid, uid, gid, uid, gid));
-	return fs.initialize(mounts);
+	fs.initialize(mounts);
 }
 
 /**
@@ -57,7 +57,7 @@ export async function configure(config: Configuration): Promise<void> {
 
 		config[point] = await resolveBackendConfig(value);
 	}
-	return initialize(config as MountMapping);
+	initialize(<MountMapping>config);
 }
 
 export * from './backends/index.js';

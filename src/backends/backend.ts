@@ -186,5 +186,8 @@ export async function resolveBackendConfig(options: BackendConfig): Promise<File
 	if (!backend) {
 		throw new ApiError(ErrorCode.EPERM, `Backend "${backend}" is not available`);
 	}
-	return backend.create(options);
+	checkOptions(backend, options);
+	const fs = backend.create(options);
+	await fs.ready();
+	return fs;
 }

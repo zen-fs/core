@@ -34,6 +34,10 @@ export class InMemoryStore implements SyncStore, SimpleSyncStore {
 	}
 }
 
+/**
+ * A simple in-memory file system backed by an InMemoryStore.
+ * Files are not persisted across page loads.
+ */
 export const InMemory: Backend = {
 	name: 'InMemory',
 	isAvailable(): boolean {
@@ -49,21 +53,3 @@ export const InMemory: Backend = {
 		return new SyncStoreFileSystem({ store: new InMemoryStore(name) });
 	},
 };
-
-/**
- * A simple in-memory file system backed by an InMemoryStore.
- * Files are not persisted across page loads.
- */
-export class _InMemory extends SyncStoreFileSystem {
-	public static isAvailable(): boolean {
-		return true;
-	}
-
-	public static create = createBackend.bind(this);
-
-	public static readonly options = {};
-
-	public constructor() {
-		super({ store: new InMemoryStore() });
-	}
-}
