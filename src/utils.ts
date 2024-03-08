@@ -1,6 +1,3 @@
-/**
- * Grab bag of utility functions used across the code.
- */
 import { FileSystem } from './filesystem.js';
 import { ApiError, ErrorCode } from './ApiError.js';
 import * as path from './emulation/path.js';
