@@ -61,7 +61,7 @@ You can use multiple backends by passing an object to `configure` which maps pat
 ```js
 import { configure } from '@browserfs/core';
 import { IndexedDB } from '@browserfs/fs-dom';
-import { Zip } from '@browserfs/fs-zip';
+import { Zip } from '@browserfs/zip';
 
 const zipData = await (await fetch('mydata.zip')).arrayBuffer();
 
@@ -153,7 +153,7 @@ This could be used in the "multiple backends" example like so:
 
 ```js
 import { IndexedDB  } from '@browserfs/fs-dom';
-import { Zip } from '@browserfs/fs-zip';
+import { Zip } from '@browserfs/zip';
 
 await configure({
 	'/tmp': 'InMemory',
