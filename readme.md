@@ -38,11 +38,11 @@ console.log(contents);
 
 #### Using different backends
 
-A `InMemory` backend is created by default. If you would like to use a different one, you must configure BrowserFS. It is recommended to do so using the `configure` function. Here is an example using the `Storage` backend from `@browserfs/fs-dom`:
+A `InMemory` backend is created by default. If you would like to use a different one, you must configure BrowserFS. It is recommended to do so using the `configure` function. Here is an example using the `Storage` backend from `@browserfs/dom`:
 
 ```js
 import { configure, fs } from '@browserfs/core';
-import { StorageStore } from '@browserfs/fs-dom';
+import { StorageStore } from '@browserfs/dom';
 
 await configure({ backend: StorageStore });
 
@@ -60,7 +60,7 @@ You can use multiple backends by passing an object to `configure` which maps pat
 
 ```js
 import { configure } from '@browserfs/core';
-import { IndexedDB } from '@browserfs/fs-dom';
+import { IndexedDB } from '@browserfs/dom';
 import { Zip } from '@browserfs/zip';
 
 const zipData = await (await fetch('mydata.zip')).arrayBuffer();
@@ -81,7 +81,7 @@ The FS promises API is exposed as `promises`.
 
 ```js
 import { configure, promises } from '@browserfs/core';
-import { IndexedDB } from '@browserfs/fs-dom';
+import { IndexedDB } from '@browserfs/dom';
 
 await configure({ '/': IndexedDB });
 
@@ -99,7 +99,7 @@ You may have noticed that attempting to use a synchronous function on an asynchr
 
 ```js
 import { configure, fs } from '@browserfs/core';
-import { IndexedDB } from '@browserfs/fs-dom';
+import { IndexedDB } from '@browserfs/dom';
 
 await configure({
 	'/': {
@@ -152,7 +152,7 @@ fs.umount('/tmp'); // unmount /tmp
 This could be used in the "multiple backends" example like so:
 
 ```js
-import { IndexedDB  } from '@browserfs/fs-dom';
+import { IndexedDB  } from '@browserfs/dom';
 import { Zip } from '@browserfs/zip';
 
 await configure({
