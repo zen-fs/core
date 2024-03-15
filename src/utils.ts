@@ -5,11 +5,14 @@ import { Cred } from './cred.js';
 import type { TextDecoder as _TextDecoder, TextEncoder as _TextEncoder } from 'node:util';
 
 declare global {
-	function setImmediate(callback: () => unknown): void;
 	function atob(data: string): string;
 	function btoa(data: string): string;
-	const TextDecoder: typeof _TextDecoder;
-	const TextEncoder: typeof _TextEncoder;
+}
+
+declare const globalThis: {
+	TextDecoder?: typeof _TextDecoder;
+	TextEncoder?: typeof _TextEncoder;
+	setImmediate?: (callback: () => unknown) => void;	
 }
 
 /**
@@ -153,7 +156,7 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
 export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8Array {
 	switch (encoding) {
 		case 'ascii':
-			return new TextEncoder().encode(input).map(v => v & 0x7f);
+			return new globalThis.TextEncoder().encode(input).map(v => v & 0x7f);
 		case 'latin1':
 		case 'binary':
 		case 'utf8':
@@ -161,11 +164,11 @@ export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8A
 		case 'base64':
 		case 'base64url':
 		case 'hex':
-			return new TextEncoder().encode(input);
+			return new globalThis.TextEncoder().encode(input);
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':
-			return new TextEncoder().encode(input).slice(0, -1);
+			return new globalThis.TextEncoder().encode(input).slice(0, -1);
 		default:
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid encoding: ' + encoding);
 	}
@@ -180,10 +183,10 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 		case 'ascii':
 		case 'utf8':
 		case 'utf-8':
-			return new TextDecoder().decode(input);
+			return new globalThis.TextDecoder().decode(input);
 		case 'latin1':
 		case 'binary':
-			return new TextDecoder('latin1').decode(input);
+			return new globalThis.TextDecoder('latin1').decode(input);
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':
