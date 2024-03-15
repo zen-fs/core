@@ -1,12 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// disable no-unused-vars since BaseFileSystem uses them a lot
-
 import { ApiError, ErrorCode } from './ApiError.js';
 import { Stats } from './stats.js';
-import { File, FileFlag, ActionType } from './file.js';
-import { dirname, sep, join } from './emulation/path.js';
+import { File, FileFlag } from './file.js';
 import { Cred } from './cred.js';
-import { encode } from './utils.js';
 
 export type NoArgCallback = (e?: ApiError) => unknown;
 export type TwoArgCallback<T> = (e?: ApiError, rv?: T) => unknown;
@@ -71,6 +66,7 @@ export abstract class FileSystem {
 		};
 	}
 
+	/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 	public constructor(options?: object) {
 		// unused
 	}
@@ -279,6 +275,7 @@ export function Sync<T extends abstract new (...args) => FileSystem>(FS: T) {
 
 export function Async<T extends abstract new (...args) => FileSystem>(FS: T) {
 	abstract class AsyncFileSystem extends FS {
+		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public renameSync(oldPath: string, newPath: string, cred: Cred): void {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
@@ -319,11 +316,13 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T) {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 	}
+	/* eslint-enable @typescript-eslint/no-unused-vars */
 	return AsyncFileSystem;
 }
 
 export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T) {
 	abstract class ReadonlyFileSystem extends FS {
+		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
 			throw new ApiError(ErrorCode.EROFS);
 		}
@@ -379,6 +378,7 @@ export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T) 
 		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 			throw new ApiError(ErrorCode.EROFS);
 		}
+		/* eslint-enable @typescript-eslint/no-unused-vars */
 	}
 	return ReadonlyFileSystem;
 }
