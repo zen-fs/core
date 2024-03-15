@@ -267,6 +267,36 @@ export abstract class SyncFileSystem extends FileSystem {
 	}
 }
 
+export abstract class ReadonlySyncFileSystem extends SyncFileSystem {
+	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public unlinkSync(path: string, cred: Cred): void {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public rmdirSync(path: string, cred: Cred): void {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public mkdirSync(path: string, mode: number, cred: Cred): void {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+}
+
 export abstract class AsyncFileSystem extends FileSystem {
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
 		throw new ApiError(ErrorCode.ENOTSUP);
@@ -310,5 +340,35 @@ export abstract class AsyncFileSystem extends FileSystem {
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+}
+
+export abstract class ReadonlyAsyncFileSystem extends AsyncFileSystem {
+	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public async createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public async unlink(path: string, cred: Cred): Promise<void> {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public async rmdir(path: string, cred: Cred): Promise<void> {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
+		throw new ApiError(ErrorCode.EROFS);
+	}
+
+	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		throw new ApiError(ErrorCode.EROFS);
 	}
 }
