@@ -1,4 +1,4 @@
-import { type FileSystem, SyncFileSystem, FileSystemMetadata } from '../filesystem.js';
+import { FileSystem, Sync, FileSystemMetadata } from '../filesystem.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { File, FileFlag, PreloadFile } from '../file.js';
 import { Stats } from '../stats.js';
@@ -80,7 +80,7 @@ export namespace AsyncMirror {
  * in-memory filesystem with an asynchronous backing store.
  *
  */
-export class AsyncMirrorFS extends SyncFileSystem {
+export class AsyncMirrorFS extends Sync(FileSystem) {
 	/**
 	 * Queue of pending asynchronous operations.
 	 */
@@ -111,6 +111,7 @@ export class AsyncMirrorFS extends SyncFileSystem {
 		this._ready = this._initialize();
 	}
 
+	// @ts-expect-error 2611
 	public get metadata(): FileSystemMetadata {
 		return {
 			...super.metadata,
@@ -119,16 +120,6 @@ export class AsyncMirrorFS extends SyncFileSystem {
 			supportsProperties: this._sync.metadata.supportsProperties && this._async.metadata.supportsProperties,
 		};
 	}
-
-	/*public _syncSync(file: PreloadFile<AsyncMirror>, cred: Cred) {
-		const sync = this._sync.openFileSync(file.path, FileFlag.FromString('w'), cred);
-		sync.writeSync(file.buffer);
-
-		this.enqueue({
-			apiMethod: 'writeFile',
-			arguments: [file.path, file.buffer, file.flag, file.stats.mode, cred],
-		});
-	}*/
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		this._sync.syncSync(path, data, stats);

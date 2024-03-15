@@ -1,8 +1,8 @@
 import { ApiError, ErrorCode } from './ApiError.js';
-import { Stats, type FileType } from './stats.js';
-import { FileSystem, type SyncFileSystem } from './filesystem.js';
-import { O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_TRUNC, O_APPEND, O_SYNC, S_IFMT } from './emulation/constants.js';
+import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT } from './emulation/constants.js';
+import type { FileSystem } from './filesystem.js';
 import { size_max } from './inode.js';
+import { Stats, type FileType } from './stats.js';
 
 /*
 	Typescript does not include a type declaration for resizable array buffers. 
@@ -723,7 +723,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 /**
  * For synchronous file systems
  */
-export class SyncFile<FS extends SyncFileSystem> extends PreloadFile<FS> {
+export class SyncFile<FS extends FileSystem> extends PreloadFile<FS> {
 	constructor(_fs: FS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}

@@ -2,7 +2,7 @@ import { ApiError, ErrorCode } from './ApiError.js';
 import type { Cred } from './cred.js';
 import * as path from './emulation/path.js';
 import { NoSyncFile, type FileFlag } from './file.js';
-import { ReadonlyAsyncFileSystem, ReadonlySyncFileSystem } from './filesystem.js';
+import { FileSystem, Sync, Async, Readonly } from './filesystem.js';
 import { FileType, Stats } from './stats.js';
 
 /**
@@ -369,7 +369,7 @@ export function isIndexDirInode<T>(inode?: IndexInode<T>): inode is IndexDirInod
 	return inode?.isDir();
 }
 
-export abstract class SyncFileIndexFS<TIndex> extends ReadonlySyncFileSystem {
+export abstract class SyncFileIndexFS<TIndex> extends Readonly(Sync(FileSystem)) {
 	protected _index: FileIndex<TIndex>;
 
 	protected loadIndex(index: ListingTree): void {
@@ -437,7 +437,7 @@ export abstract class SyncFileIndexFS<TIndex> extends ReadonlySyncFileSystem {
 	}
 }
 
-export abstract class AsyncFileIndexFS<TIndex> extends ReadonlyAsyncFileSystem {
+export abstract class AsyncFileIndexFS<TIndex> extends Readonly(Async(FileSystem)) {
 	protected _index: FileIndex<TIndex>;
 
 	protected loadIndex(index: ListingTree): void {

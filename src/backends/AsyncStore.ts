@@ -3,7 +3,7 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { PreloadFile, File, FileFlag } from '../file.js';
-import { AsyncFileSystem, type FileSystemMetadata } from '../filesystem.js';
+import { Async, FileSystem, type FileSystemMetadata } from '../filesystem.js';
 import { randomIno, type Ino, Inode } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
 import { encode, decodeDirListing, encodeDirListing } from '../utils.js';
@@ -162,7 +162,7 @@ export interface AsyncStoreFileSystemOptions {
  * An "Asynchronous key-value file system". Stores data to/retrieves data from
  * an underlying asynchronous key-value store.
  */
-export class AsyncStoreFileSystem extends AsyncFileSystem {
+export class AsyncStoreFileSystem extends Async(FileSystem) {
 	protected store: AsyncStore;
 	private _cache?: LRUCache<string, Ino>;
 

@@ -3,7 +3,7 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { FileFlag, PreloadFile } from '../file.js';
-import { SyncFileSystem, type FileSystemMetadata } from '../filesystem.js';
+import { type FileSystemMetadata, FileSystem, Sync } from '../filesystem.js';
 import { randomIno, type Ino, Inode } from '../inode.js';
 import { Stats, FileType } from '../stats.js';
 import { decodeDirListing, encode, encodeDirListing } from '../utils.js';
@@ -199,7 +199,7 @@ export class SyncStoreFile extends PreloadFile<SyncStoreFileSystem> {
  * @todo Introduce Node ID caching.
  * @todo Check modes.
  */
-export class SyncStoreFileSystem extends SyncFileSystem {
+export class SyncStoreFileSystem extends Sync(FileSystem) {
 	protected store: SyncStore;
 
 	constructor(options: SyncStoreFileSystemOptions) {
@@ -209,6 +209,7 @@ export class SyncStoreFileSystem extends SyncFileSystem {
 		this.makeRootDirectory();
 	}
 
+	// @ts-expect-error 2611
 	public get metadata(): FileSystemMetadata {
 		return {
 			...super.metadata,
