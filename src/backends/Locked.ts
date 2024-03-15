@@ -14,7 +14,7 @@ import { Cred } from '../cred.js';
  * LockedFS to avoid having to reason about the correctness of
  * multiple requests interleaving.
  */
-export default class LockedFS<T extends FileSystem> implements FileSystem {
+export class LockedFS<T extends FileSystem> implements FileSystem {
 	private _mu: Mutex = new Mutex();
 
 	constructor(public readonly fs: T) {}
