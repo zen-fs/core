@@ -10,7 +10,10 @@ import { FileType, Stats } from './stats.js';
  */
 export type ListingTree = { [key: string]: ListingTree | null };
 
-interface ListingQueueNode<T> {
+/**
+ * @internal
+ */
+export interface ListingQueueNode<T> {
 	pwd: string;
 	tree: ListingTree;
 	parent: IndexDirInode<T>;
