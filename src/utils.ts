@@ -12,8 +12,8 @@ declare global {
 declare const globalThis: {
 	TextDecoder?: typeof _TextDecoder;
 	TextEncoder?: typeof _TextEncoder;
-	setImmediate?: (callback: () => unknown) => void;	
-}
+	setImmediate?: (callback: () => unknown) => void;
+};
 
 /**
  * Synchronous recursive makedir.
