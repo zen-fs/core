@@ -9,6 +9,7 @@ BrowserFS is highly extensible, and includes a few built-in backends:
 -   `InMemory`: Stores files in-memory. It is a temporary file store that clears when the user navigates away.
 -   `Overlay`: Mount a read-only file system as read-write by overlaying a writable file system on top of it. Like Docker's overlayfs, it will only write changed files to the writable file system.
 -   `AsyncMirror`: Use an asynchronous backend synchronously. Invaluable for Emscripten; let your Emscripten applications write to larger file stores with no additional effort!
+
     > [!NOTE]
     > When constructed, `AsyncMirror` loads the entire contents of the async file system into a synchronous backend. It performs operations synchronous file system and then queues them to be mirrored onto the asynchronous backend.
 
