@@ -1,6 +1,6 @@
 import { ApiError, ErrorCode } from './ApiError.js';
 import type { Cred } from './cred.js';
-import * as path from './emulation/path.js';
+import { basename, dirname, join } from './emulation/path.js';
 import { NoSyncFile, type FileFlag } from './file.js';
 import { FileSystem, Sync, Async, Readonly } from './filesystem.js';
 import { FileType, Stats } from './stats.js';
@@ -77,7 +77,7 @@ export class FileIndex<T> {
 		// _index is a single-level key,value store that maps *directory* paths to
 		// DirInodes. File information is only contained in DirInodes themselves.
 		// Create the root directory.
-		this.addPath('/', new IndexDirInode());
+		this.add('/', new IndexDirInode());
 	}
 
 	public files(): IndexFileInode<T>[] {
@@ -108,11 +108,11 @@ export class FileIndex<T> {
 	 * @todo If adding fails and implicitly creates directories, we do not clean up
 	 *   the new empty directories.
 	 */
-	public addPath(path: string, inode: IndexInode<T>): boolean {
+	public add(path: string, inode: IndexInode<T>): boolean {
 		if (!inode) {
 			throw new Error('Inode must be specified');
 		}
-		if (path[0] !== '/') {
+		if (!path.startsWith('/')) {
 			throw new Error('Path must be absolute, got: ' + path);
 		}
 
@@ -121,27 +121,26 @@ export class FileIndex<T> {
 			return this._index.get(path) === inode;
 		}
 
-		const splitPath = this.splitPath(path);
-		const dirpath = splitPath[0];
-		const itemname = splitPath[1];
+		const dirpath = dirname(path);
+
 		// Try to add to its parent directory first.
 		let parent = this._index.get(dirpath);
-		if (!parent && path !== '/') {
+		if (!parent && path != '/') {
 			// Create parent.
 			parent = new IndexDirInode<T>();
-			if (!this.addPath(dirpath, parent)) {
+			if (!this.add(dirpath, parent)) {
 				return false;
 			}
 		}
-		// Add myself to my parent.
-		if (path !== '/') {
-			if (!parent.add(itemname, inode)) {
-				return false;
-			}
+
+		// Add to parent.
+		if (path != '/' && !parent.add(basename(path), inode)) {
+			return false;
 		}
-		// If I'm a directory, add myself to the index.
-		if (isIndexDirInode<T>(inode)) {
-			this._index[path] = inode;
+
+		// If a directory, add to the index.
+		if (inode.isDirectory()) {
+			this._index.set(path, inode);
 		}
 		return true;
 	}
@@ -151,25 +150,22 @@ export class FileIndex<T> {
 	 * The path is added without special treatment (no joining of adjacent separators, etc).
 	 * Creates any needed parent directories.
 	 * @param path The path to add to the index.
-	 * @param inode The inode for the
-	 *   path to add.
+	 * @param inode The inode for the path to add.
 	 * @return 'True' if it was added or already exists, 'false' if there
 	 *   was an issue adding it (e.g. item in path is a file, item exists but is
 	 *   different).
-	 * @todo If adding fails and implicitly creates directories, we do not clean up
-	 *   the new empty directories.
+	 * @todo If adding fails and implicitly creates directories, we do not clean up the new empty directories.
 	 */
-	public addPathFast(path: string, inode: IndexInode<T>): boolean {
-		const itemNameMark = path.lastIndexOf('/');
-		const parentPath = itemNameMark === 0 ? '/' : path.substring(0, itemNameMark);
-		const itemName = path.substring(itemNameMark + 1);
+	public addFast(path: string, inode: IndexInode<T>): boolean {
+		const parentPath = dirname(path);
+		const itemName = basename(path);
 
 		// Try to add to its parent directory first.
 		let parent = this._index.get(parentPath);
 		if (!parent) {
 			// Create parent.
 			parent = new IndexDirInode<T>();
-			this.addPathFast(parentPath, parent);
+			this.addFast(parentPath, parent);
 		}
 
 		if (!parent.add(itemName, inode)) {
@@ -177,8 +173,8 @@ export class FileIndex<T> {
 		}
 
 		// If adding a directory, add to the index as well.
-		if (inode.isDir()) {
-			this._index[path] = <IndexDirInode<T>>inode;
+		if (inode.isDirectory()) {
+			this._index.set(path, <IndexDirInode<T>>inode);
 		}
 		return true;
 	}
@@ -188,32 +184,31 @@ export class FileIndex<T> {
 	 * @return The removed item,
 	 *   or null if it did not exist.
 	 */
-	public removePath(path: string): IndexInode<T> | null {
-		const splitPath = this.splitPath(path);
-		const dirpath = splitPath[0];
-		const itemname = splitPath[1];
+	public remove(path: string): IndexInode<T> | null {
+		const dirpath = dirname(path);
 
 		// Try to remove it from its parent directory first.
-		const parent = this._index[dirpath];
+		const parent = this._index.get(dirpath);
 		if (!parent) {
 			return;
 		}
-		// Remove myself from my parent.
-		const inode = parent.remove(itemname);
+		// Remove from parent.
+		const inode = parent.remove(basename(path));
 		if (!inode) {
 			return;
 		}
-		// If I'm a directory, remove myself from the index, and remove my children.
-		if (!isIndexDirInode(inode)) {
+
+		if (!inode.isDirectory()) {
 			return inode;
 		}
+		// If a directory, remove from the index, and remove children.
 		const children = inode.listing;
 		for (const child of children) {
-			this.removePath(path + '/' + child);
+			this.remove(join(path, child));
 		}
 
 		// Remove the directory from the index, unless it's the root.
-		if (path !== '/') {
+		if (path != '/') {
 			this._index.delete(path);
 		}
 	}
@@ -230,24 +225,16 @@ export class FileIndex<T> {
 	 * Returns the inode of the given item.
 	 * @return Returns null if the item does not exist.
 	 */
-	public getInode(path: string): IndexInode<T> | null {
-		const [dirpath, itemname] = this.splitPath(path);
+	public get(path: string): IndexInode<T> | null {
+		const dirpath = dirname(path);
+
 		// Retrieve from its parent directory.
 		const parent = this._index.get(dirpath);
 		// Root case
-		if (dirpath === path) {
+		if (dirpath == path) {
 			return parent;
 		}
-		return parent?.get(itemname);
-	}
-
-	/**
-	 * Split into a (directory path, item name) pair
-	 */
-	protected splitPath(p: string): string[] {
-		const dirpath = path.dirname(p);
-		const itemname = p.slice(dirpath.length + (dirpath === '/' ? 0 : 1));
-		return [dirpath, itemname];
+		return parent?.get(basename(path));
 	}
 }
 
@@ -257,11 +244,15 @@ export class FileIndex<T> {
  */
 export abstract class IndexInode<T> {
 	constructor(public data?: T) {}
-	// Is this an inode for a file?
-	abstract isFile(): boolean;
-	// Is this an inode for a directory?
-	abstract isDir(): boolean;
-	//compatibility with other Inode types
+	/**
+	 * Whether this inode is for a file
+	 */
+	abstract isFile(): this is IndexFileInode<T>;
+	/**
+	 * Whether this inode is for a directory
+	 */
+	abstract isDirectory(): this is IndexDirInode<T>;
+
 	abstract toStats(): Stats;
 }
 
@@ -269,10 +260,10 @@ export abstract class IndexInode<T> {
  * Inode for a file. Stores an arbitrary (filesystem-specific) data payload.
  */
 export class IndexFileInode<T> extends IndexInode<T> {
-	public isFile(): boolean {
+	public isFile() {
 		return true;
 	}
-	public isDir(): boolean {
+	public isDirectory() {
 		return false;
 	}
 
@@ -293,7 +284,8 @@ export class IndexDirInode<T> extends IndexInode<T> {
 	public isFile(): boolean {
 		return false;
 	}
-	public isDir(): boolean {
+
+	public isDirectory(): boolean {
 		return true;
 	}
 
@@ -322,24 +314,24 @@ export class IndexDirInode<T> extends IndexInode<T> {
 
 	/**
 	 * Returns the inode for the indicated item, or null if it does not exist.
-	 * @param p Name of item in this directory.
+	 * @param path Name of item in this directory.
 	 */
-	public get(p: string): IndexInode<T> | null {
-		return this._listing.get(p);
+	public get(path: string): IndexInode<T> | null {
+		return this._listing.get(path);
 	}
 	/**
 	 * Add the given item to the directory listing. Note that the given inode is
 	 * not copied, and will be mutated by the DirInode if it is a DirInode.
-	 * @param p Item name to add to the directory listing.
+	 * @param path Item name to add to the directory listing.
 	 * @param inode The inode for the
 	 *   item to add to the directory inode.
 	 * @return True if it was added, false if it already existed.
 	 */
-	public add(p: string, inode: IndexInode<T>): boolean {
-		if (this._listing.has(p)) {
+	public add(path: string, inode: IndexInode<T>): boolean {
+		if (this._listing.has(path)) {
 			return false;
 		}
-		this._listing.set(p, inode);
+		this._listing.set(path, inode);
 		return true;
 	}
 	/**
@@ -350,121 +342,55 @@ export class IndexDirInode<T> extends IndexInode<T> {
 	 */
 	public remove(p: string): IndexInode<T> | null {
 		const item = this._listing.get(p);
-		if (item === undefined) {
-			return null;
+		if (!item) {
+			return;
 		}
 		this._listing.delete(p);
 		return item;
 	}
 }
 
-/**
- * @internal
- */
-export function isIndexFileInode<T>(inode?: IndexInode<T>): inode is IndexFileInode<T> {
-	return inode?.isFile();
-}
-
-/**
- * @internal
- */
-export function isIndexDirInode<T>(inode?: IndexInode<T>): inode is IndexDirInode<T> {
-	return inode?.isDir();
-}
-
-export abstract class SyncFileIndexFS<TIndex> extends Readonly(Sync(FileSystem)) {
+export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 	protected _index: FileIndex<TIndex>;
 
-	protected loadIndex(index: ListingTree): void {
-		this._index = FileIndex.FromListing<TIndex>(index);
-	}
-
-	public statSync(path: string): Stats {
-		const inode = this._index.getInode(path);
-		if (!inode) {
-			throw ApiError.ENOENT(path);
-		}
-
-		if (isIndexDirInode<TIndex>(inode)) {
-			return inode.stats;
-		}
-
-		if (isIndexFileInode<TIndex>(inode)) {
-			return this.statFileInode(inode);
-		}
-
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid inode.');
-	}
-
-	protected abstract statFileInode(inode: IndexFileInode<TIndex>): Stats;
-
-	public openFileSync(path: string, flag: FileFlag, cred: Cred): NoSyncFile<this> {
-		if (flag.isWriteable()) {
-			// You can't write to files on this file system.
-			throw new ApiError(ErrorCode.EPERM, path);
-		}
-
-		// Check if the path exists, and is a file.
-		const inode = this._index.getInode(path);
-
-		if (!inode) {
-			throw ApiError.ENOENT(path);
-		}
-
-		if (!inode.toStats().hasAccess(flag.mode, cred)) {
-			throw ApiError.EACCES(path);
-		}
-
-		if (isIndexDirInode<TIndex>(inode)) {
-			const stats = inode.stats;
-			return new NoSyncFile(this, path, flag, stats, stats.fileData);
-		}
-
-		return this.fileForFileInode(inode);
-	}
-
-	protected abstract fileForFileInode(inode: IndexFileInode<TIndex>): NoSyncFile<this>;
-
-	public readdirSync(path: string): string[] {
-		// Check if it exists.
-		const inode = this._index.getInode(path);
-		if (!inode) {
-			throw ApiError.ENOENT(path);
-		}
-
-		if (isIndexDirInode(inode)) {
-			return inode.listing;
-		}
-
-		throw ApiError.ENOTDIR(path);
-	}
-}
-
-export abstract class AsyncFileIndexFS<TIndex> extends Readonly(Async(FileSystem)) {
-	protected _index: FileIndex<TIndex>;
-
-	protected loadIndex(index: ListingTree): void {
+	constructor(index: ListingTree) {
+		super();
 		this._index = FileIndex.FromListing<TIndex>(index);
 	}
 
 	public async stat(path: string): Promise<Stats> {
-		const inode = this._index.getInode(path);
+		const inode = this._index.get(path);
 		if (!inode) {
 			throw ApiError.ENOENT(path);
 		}
 
-		if (isIndexDirInode<TIndex>(inode)) {
+		if (inode.isDirectory()) {
 			return inode.stats;
 		}
 
-		if (isIndexFileInode<TIndex>(inode)) {
+		if (inode.isFile()) {
 			return this.statFileInode(inode);
 		}
 
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid inode.');
 	}
 
-	protected abstract statFileInode(inode: IndexFileInode<TIndex>): Promise<Stats>;
+	public statSync(path: string): Stats {
+		const inode = this._index.get(path);
+		if (!inode) {
+			throw ApiError.ENOENT(path);
+		}
+
+		if (inode.isDirectory()) {
+			return inode.stats;
+		}
+
+		if (inode.isFile()) {
+			return this.statFileInodeSync(inode);
+		}
+
+		throw new ApiError(ErrorCode.EINVAL, 'Invalid inode.');
+	}
 
 	public async openFile(path: string, flag: FileFlag, cred: Cred): Promise<NoSyncFile<this>> {
 		if (flag.isWriteable()) {
@@ -473,7 +399,7 @@ export abstract class AsyncFileIndexFS<TIndex> extends Readonly(Async(FileSystem
 		}
 
 		// Check if the path exists, and is a file.
-		const inode = this._index.getInode(path);
+		const inode = this._index.get(path);
 
 		if (!inode) {
 			throw ApiError.ENOENT(path);
@@ -483,7 +409,7 @@ export abstract class AsyncFileIndexFS<TIndex> extends Readonly(Async(FileSystem
 			throw ApiError.EACCES(path);
 		}
 
-		if (isIndexDirInode<TIndex>(inode)) {
+		if (inode.isDirectory()) {
 			const stats = inode.stats;
 			return new NoSyncFile(this, path, flag, stats, stats.fileData);
 		}
@@ -491,19 +417,84 @@ export abstract class AsyncFileIndexFS<TIndex> extends Readonly(Async(FileSystem
 		return this.fileForFileInode(inode);
 	}
 
-	protected abstract fileForFileInode(inode: IndexFileInode<TIndex>): Promise<NoSyncFile<this>>;
+	public openFileSync(path: string, flag: FileFlag, cred: Cred): NoSyncFile<this> {
+		if (flag.isWriteable()) {
+			// You can't write to files on this file system.
+			throw new ApiError(ErrorCode.EPERM, path);
+		}
 
-	public async readdir(path: string): Promise<string[]> {
-		// Check if it exists.
-		const inode = this._index.getInode(path);
+		// Check if the path exists, and is a file.
+		const inode = this._index.get(path);
+
 		if (!inode) {
 			throw ApiError.ENOENT(path);
 		}
 
-		if (isIndexDirInode(inode)) {
+		if (!inode.toStats().hasAccess(flag.mode, cred)) {
+			throw ApiError.EACCES(path);
+		}
+
+		if (inode.isDirectory()) {
+			const stats = inode.stats;
+			return new NoSyncFile(this, path, flag, stats, stats.fileData);
+		}
+
+		return this.fileForFileInodeSync(inode);
+	}
+
+	public async readdir(path: string): Promise<string[]> {
+		// Check if it exists.
+		const inode = this._index.get(path);
+		if (!inode) {
+			throw ApiError.ENOENT(path);
+		}
+
+		if (inode.isDirectory()) {
 			return inode.listing;
 		}
 
 		throw ApiError.ENOTDIR(path);
+	}
+
+	public readdirSync(path: string): string[] {
+		// Check if it exists.
+		const inode = this._index.get(path);
+		if (!inode) {
+			throw ApiError.ENOENT(path);
+		}
+
+		if (inode.isDirectory()) {
+			return inode.listing;
+		}
+
+		throw ApiError.ENOTDIR(path);
+	}
+
+	protected abstract statFileInode(inode: IndexFileInode<TIndex>): Promise<Stats>;
+
+	protected abstract fileForFileInode(inode: IndexFileInode<TIndex>): Promise<NoSyncFile<this>>;
+
+	protected abstract statFileInodeSync(inode: IndexFileInode<TIndex>): Stats;
+
+	protected abstract fileForFileInodeSync(inode: IndexFileInode<TIndex>): NoSyncFile<this>;
+}
+
+export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>) {
+	protected async statFileInode(inode: IndexFileInode<TIndex>): Promise<Stats> {
+		return this.statFileInodeSync(inode);
+	}
+
+	protected async fileForFileInode(inode: IndexFileInode<TIndex>): Promise<NoSyncFile<this>> {
+		return this.fileForFileInodeSync(inode);
+	}
+}
+
+export abstract class AsyncFileIndexFS<TIndex> extends Async(FileIndexFS<unknown>) {
+	protected statFileInodeSync(): Stats {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	protected fileForFileInodeSync(): NoSyncFile<this> {
+		throw new ApiError(ErrorCode.ENOTSUP);
 	}
 }
