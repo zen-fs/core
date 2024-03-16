@@ -495,7 +495,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 */
 	public truncate(len: number): Promise<void> {
 		this.truncateSync(len);
-		if (this.flag.isSynchronous() && !this.fs!.metadata.synchronous) {
+		if (this.flag.isSynchronous() && !this.fs!.metadata().synchronous) {
 			return this.sync();
 		}
 	}
@@ -514,7 +514,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 			const buf = new Uint8Array(len - this._buffer.length);
 			// Write will set stats.size for us.
 			this.writeSync(buf, 0, buf.length, this._buffer.length);
-			if (this.flag.isSynchronous() && this.fs!.metadata.synchronous) {
+			if (this.flag.isSynchronous() && this.fs!.metadata().synchronous) {
 				this.syncSync();
 			}
 			return;
@@ -522,7 +522,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 		this.stats.size = len;
 		// Truncate buffer to 'len'.
 		this._buffer = this._buffer.subarray(0, len);
-		if (this.flag.isSynchronous() && this.fs!.metadata.synchronous) {
+		if (this.flag.isSynchronous() && this.fs!.metadata().synchronous) {
 			this.syncSync();
 		}
 	}
@@ -651,7 +651,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 * @param mode
 	 */
 	public chmodSync(mode: number): void {
-		if (!this.fs.metadata.supportsProperties) {
+		if (!this.fs.metadata().supportsProperties) {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 		this._dirty = true;
@@ -674,7 +674,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	 * @param gid
 	 */
 	public chownSync(uid: number, gid: number): void {
-		if (!this.fs.metadata.supportsProperties) {
+		if (!this.fs.metadata().supportsProperties) {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 		this._dirty = true;
@@ -687,7 +687,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 	}
 
 	public utimesSync(atime: Date, mtime: Date): void {
-		if (!this.fs.metadata.supportsProperties) {
+		if (!this.fs.metadata().supportsProperties) {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 		this._dirty = true;

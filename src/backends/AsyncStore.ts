@@ -118,8 +118,8 @@ export interface AsyncRWTransaction extends AsyncROTransaction {
 	abort(): Promise<void>;
 }
 
-export class AsyncFile extends PreloadFile<AsyncStoreFileSystem> {
-	constructor(_fs: AsyncStoreFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+export class AsyncFile extends PreloadFile<AsyncStoreFS> {
+	constructor(_fs: AsyncStoreFS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -146,7 +146,7 @@ export class AsyncFile extends PreloadFile<AsyncStoreFileSystem> {
 	}
 }
 
-export interface AsyncStoreFileSystemOptions {
+export interface AsyncStoreOptions {
 	/**
 	 * Promise that resolves to the store
 	 */
@@ -162,7 +162,7 @@ export interface AsyncStoreFileSystemOptions {
  * An "Asynchronous key-value file system". Stores data to/retrieves data from
  * an underlying asynchronous key-value store.
  */
-export class AsyncStoreFileSystem extends Async(FileSystem) {
+export class AsyncStoreFS extends Async(FileSystem) {
 	protected store: AsyncStore;
 	private _cache?: LRUCache<string, Ino>;
 
@@ -172,15 +172,14 @@ export class AsyncStoreFileSystem extends Async(FileSystem) {
 		return this._ready;
 	}
 
-	// @ts-expect-error 2611
-	public get metadata(): FileSystemMetadata {
+	public metadata(): FileSystemMetadata {
 		return {
-			...super.metadata,
+			...super.metadata(),
 			name: this.store.name,
 		};
 	}
 
-	constructor({ store, cacheSize }: AsyncStoreFileSystemOptions) {
+	constructor({ store, cacheSize }: AsyncStoreOptions) {
 		super();
 		if (cacheSize > 0) {
 			this._cache = new LRUCache(cacheSize);

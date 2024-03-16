@@ -1,6 +1,6 @@
 import type { Ino } from '../inode.js';
 import type { Backend } from './backend.js';
-import { SyncStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncRWTransaction, SyncStoreFileSystem } from './SyncStore.js';
+import { SyncStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncRWTransaction, SyncStoreFS } from './SyncStore.js';
 /**
  * A simple in-memory store
  */
@@ -49,6 +49,6 @@ export const InMemory: Backend = {
 		},
 	},
 	create({ name }: { name: string }) {
-		return new SyncStoreFileSystem({ store: new InMemoryStore(name) });
+		return new SyncStoreFS({ store: new InMemoryStore(name) });
 	},
 };

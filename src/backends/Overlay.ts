@@ -94,18 +94,18 @@ export class UnlockedOverlayFS extends FileSystem {
 		super();
 		this._writable = writable;
 		this._readable = readable;
-		if (this._writable.metadata.readonly) {
+		if (this._writable.metadata().readonly) {
 			throw new ApiError(ErrorCode.EINVAL, 'Writable file system must be writable.');
 		}
 		this._ready = this._initialize();
 	}
 
-	public get metadata(): FileSystemMetadata {
+	public metadata(): FileSystemMetadata {
 		return {
-			...super.metadata,
+			...super.metadata(),
 			name: OverlayFS.name,
-			synchronous: this._readable.metadata.synchronous && this._writable.metadata.synchronous,
-			supportsProperties: this._readable.metadata.supportsProperties && this._writable.metadata.supportsProperties,
+			synchronous: this._readable.metadata().synchronous && this._writable.metadata().synchronous,
+			supportsProperties: this._readable.metadata().supportsProperties && this._writable.metadata().supportsProperties,
 		};
 	}
 

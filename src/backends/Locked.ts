@@ -24,10 +24,10 @@ export class LockedFS<T extends FileSystem> implements FileSystem {
 		return this;
 	}
 
-	public get metadata(): FileSystemMetadata {
+	public metadata(): FileSystemMetadata {
 		return {
-			...this.fs.metadata,
-			name: 'Locked<' + this.fs.metadata.name + '>',
+			...this.fs.metadata(),
+			name: 'Locked<' + this.fs.metadata().name + '>',
 		};
 	}
 

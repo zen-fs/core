@@ -51,20 +51,18 @@ class MirrorFile extends PreloadFile<AsyncMirrorFS> {
 	}
 }
 
-export namespace AsyncMirror {
+/**
+ * Configuration options for the AsyncMirror file system.
+ */
+export interface AsyncMirrorOptions {
 	/**
-	 * Configuration options for the AsyncMirror file system.
+	 * The synchronous file system to mirror the asynchronous file system to.
 	 */
-	export interface Options {
-		/**
-		 * The synchronous file system to mirror the asynchronous file system to.
-		 */
-		sync: FileSystem;
-		/**
-		 * The asynchronous file system to mirror.
-		 */
-		async: FileSystem;
-	}
+	sync: FileSystem;
+	/**
+	 * The asynchronous file system to mirror.
+	 */
+	async: FileSystem;
 }
 
 /**
@@ -104,20 +102,19 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	 * @param sync The synchronous file system to mirror the asynchronous file system to.
 	 * @param async The asynchronous file system to mirror.
 	 */
-	constructor({ sync, async }: AsyncMirror.Options) {
+	constructor({ sync, async }: AsyncMirrorOptions) {
 		super();
 		this._sync = sync;
 		this._async = async;
 		this._ready = this._initialize();
 	}
 
-	// @ts-expect-error 2611
-	public get metadata(): FileSystemMetadata {
+	public metadata(): FileSystemMetadata {
 		return {
-			...super.metadata,
+			...super.metadata(),
 			name: AsyncMirrorFS.name,
 			synchronous: true,
-			supportsProperties: this._sync.metadata.supportsProperties && this._async.metadata.supportsProperties,
+			supportsProperties: this._sync.metadata().supportsProperties && this._async.metadata().supportsProperties,
 		};
 	}
 
@@ -299,7 +296,7 @@ export const AsyncMirror: Backend = {
 			type: 'object',
 			description: 'The synchronous file system to mirror the asynchronous file system to.',
 			validator: async (v: FileSystem): Promise<void> => {
-				if (!v?.metadata.synchronous) {
+				if (!v?.metadata().synchronous) {
 					throw new ApiError(ErrorCode.EINVAL, `'sync' option must be a file system that supports synchronous operations`);
 				}
 			},
@@ -314,7 +311,7 @@ export const AsyncMirror: Backend = {
 		return true;
 	},
 
-	create(options: AsyncMirror.Options): AsyncMirrorFS {
+	create(options: AsyncMirrorOptions): AsyncMirrorFS {
 		return new AsyncMirrorFS(options);
 	},
 };

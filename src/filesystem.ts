@@ -55,7 +55,7 @@ export interface FileSystemMetadata {
  * - All arguments are present. Any optional arguments at the Node API level have been passed in with their default values.
  */
 export abstract class FileSystem {
-	public get metadata(): FileSystemMetadata {
+	public metadata(): FileSystemMetadata {
 		return {
 			name: this.constructor.name,
 			readonly: false,
@@ -210,7 +210,7 @@ export abstract class FileSystem {
  * @internal
  */
 declare abstract class SyncFileSystem extends FileSystem {
-	get metadata(): FileSystemMetadata;
+	metadata(): FileSystemMetadata;
 	ready(): Promise<this>;
 	exists(path: string, cred: Cred): Promise<boolean>;
 	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
@@ -233,8 +233,8 @@ export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (ab
 	 * Implements the asynchronous API in terms of the synchronous API.
 	 */
 	abstract class _SyncFileSystem extends FS implements SyncFileSystem {
-		public get metadata(): FileSystemMetadata {
-			return { ...super.metadata, synchronous: true };
+		public metadata(): FileSystemMetadata {
+			return { ...super.metadata(), synchronous: true };
 		}
 
 		public async ready(): Promise<this> {
@@ -292,7 +292,7 @@ export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (ab
  * @internal
  */
 declare abstract class AsyncFileSystem {
-	get metadata(): FileSystemMetadata;
+	metadata(): FileSystemMetadata;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
 	statSync(path: string, cred: Cred): Stats;
 	createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File;
@@ -307,8 +307,8 @@ declare abstract class AsyncFileSystem {
 
 export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => AsyncFileSystem) & T {
 	abstract class _AsyncFileSystem extends FS implements AsyncFileSystem {
-		public get metadata(): FileSystemMetadata {
-			return { ...super.metadata, synchronous: false };
+		public metadata(): FileSystemMetadata {
+			return { ...super.metadata(), synchronous: false };
 		}
 		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public renameSync(oldPath: string, newPath: string, cred: Cred): void {
@@ -359,7 +359,7 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
  * @internal
  */
 declare abstract class ReadonlyFileSystem {
-	get metadata(): FileSystemMetadata;
+	metadata(): FileSystemMetadata;
 	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
 	createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File>;
@@ -378,8 +378,8 @@ declare abstract class ReadonlyFileSystem {
 
 export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => ReadonlyFileSystem) & T {
 	abstract class _ReadonlyFileSystem extends FS implements ReadonlyFileSystem {
-		public get metadata(): FileSystemMetadata {
-			return { ...super.metadata, readonly: true };
+		public metadata(): FileSystemMetadata {
+			return { ...super.metadata(), readonly: true };
 		}
 		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {

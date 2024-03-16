@@ -158,15 +158,15 @@ export class SimpleSyncRWTransaction implements SyncRWTransaction {
 	}
 }
 
-export interface SyncStoreFileSystemOptions {
+export interface SyncStoreOptions {
 	/**
 	 * The actual key-value store to read from/write to.
 	 */
 	store: SyncStore;
 }
 
-export class SyncStoreFile extends PreloadFile<SyncStoreFileSystem> {
-	constructor(_fs: SyncStoreFileSystem, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+export class SyncStoreFile extends PreloadFile<SyncStoreFS> {
+	constructor(_fs: SyncStoreFS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -199,20 +199,19 @@ export class SyncStoreFile extends PreloadFile<SyncStoreFileSystem> {
  * @todo Introduce Node ID caching.
  * @todo Check modes.
  */
-export class SyncStoreFileSystem extends Sync(FileSystem) {
+export class SyncStoreFS extends Sync(FileSystem) {
 	protected store: SyncStore;
 
-	constructor(options: SyncStoreFileSystemOptions) {
+	constructor(options: SyncStoreOptions) {
 		super();
 		this.store = options.store;
 		// INVARIANT: Ensure that the root exists.
 		this.makeRootDirectory();
 	}
 
-	// @ts-expect-error 2611
-	public get metadata(): FileSystemMetadata {
+	public metadata(): FileSystemMetadata {
 		return {
-			...super.metadata,
+			...super.metadata(),
 			name: this.store.name,
 		};
 	}
