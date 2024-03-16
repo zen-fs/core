@@ -414,7 +414,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 			return new NoSyncFile(this, path, flag, stats, stats.fileData);
 		}
 
-		return this.fileForFileInode(inode);
+		return this.fileForFileInode(inode, path, flag);
 	}
 
 	public openFileSync(path: string, flag: FileFlag, cred: Cred): NoSyncFile<this> {
@@ -439,7 +439,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 			return new NoSyncFile(this, path, flag, stats, stats.fileData);
 		}
 
-		return this.fileForFileInodeSync(inode);
+		return this.fileForFileInodeSync(inode, path, flag);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -472,11 +472,11 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 
 	protected abstract statFileInode(inode: IndexFileInode<TIndex>): Promise<Stats>;
 
-	protected abstract fileForFileInode(inode: IndexFileInode<TIndex>): Promise<NoSyncFile<this>>;
-
 	protected abstract statFileInodeSync(inode: IndexFileInode<TIndex>): Stats;
 
-	protected abstract fileForFileInodeSync(inode: IndexFileInode<TIndex>): NoSyncFile<this>;
+	protected abstract fileForFileInode(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): Promise<NoSyncFile<this>>;
+
+	protected abstract fileForFileInodeSync(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): NoSyncFile<this>;
 }
 
 export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>) {
@@ -484,8 +484,8 @@ export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>)
 		return this.statFileInodeSync(inode);
 	}
 
-	protected async fileForFileInode(inode: IndexFileInode<TIndex>): Promise<NoSyncFile<this>> {
-		return this.fileForFileInodeSync(inode);
+	protected async fileForFileInode(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): Promise<NoSyncFile<this>> {
+		return this.fileForFileInodeSync(inode, path, flag);
 	}
 }
 
