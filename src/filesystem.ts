@@ -207,17 +207,32 @@ export abstract class FileSystem {
 }
 
 /**
- * Implements the asynchronous API in terms of the synchronous API.
- *
- * @example ```ts
- * class SyncFS extends Sync(FileSystem) {}
- * ```
+ * @internal
  */
-export function Sync<T extends abstract new (...args) => FileSystem>(FS: T) {
+declare abstract class SyncFileSystem extends FileSystem {
+	get metadata(): FileSystemMetadata;
+	ready(): Promise<this>;
+	exists(path: string, cred: Cred): Promise<boolean>;
+	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
+	stat(path: string, cred: Cred): Promise<Stats>;
+	createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File>;
+	openFile(path: string, flag: FileFlag, cred: Cred): Promise<File>;
+	unlink(path: string, cred: Cred): Promise<void>;
+	rmdir(path: string, cred: Cred): Promise<void>;
+	mkdir(path: string, mode: number, cred: Cred): Promise<void>;
+	readdir(path: string, cred: Cred): Promise<string[]>;
+	link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
+	sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
+}
+
+/**
+ * Implements the asynchronous API in terms of the synchronous API.
+ */
+export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => SyncFileSystem) & T {
 	/**
 	 * Implements the asynchronous API in terms of the synchronous API.
 	 */
-	abstract class SyncFileSystem extends FS {
+	abstract class _SyncFileSystem extends FS implements SyncFileSystem {
 		public get metadata(): FileSystemMetadata {
 			return { ...super.metadata, synchronous: true };
 		}
@@ -270,11 +285,31 @@ export function Sync<T extends abstract new (...args) => FileSystem>(FS: T) {
 			return this.syncSync(path, data, stats);
 		}
 	}
-	return SyncFileSystem;
+	return _SyncFileSystem;
 }
 
-export function Async<T extends abstract new (...args) => FileSystem>(FS: T) {
-	abstract class AsyncFileSystem extends FS {
+/**
+ * @internal
+ */
+declare abstract class AsyncFileSystem {
+	get metadata(): FileSystemMetadata;
+	renameSync(oldPath: string, newPath: string, cred: Cred): void;
+	statSync(path: string, cred: Cred): Stats;
+	createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File;
+	openFileSync(path: string, flag: FileFlag, cred: Cred): File;
+	unlinkSync(path: string, cred: Cred): void;
+	rmdirSync(path: string, cred: Cred): void;
+	mkdirSync(path: string, mode: number, cred: Cred): void;
+	readdirSync(path: string, cred: Cred): string[];
+	linkSync(srcpath: string, dstpath: string, cred: Cred): void;
+	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+}
+
+export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => AsyncFileSystem) & T {
+	abstract class _AsyncFileSystem extends FS implements AsyncFileSystem {
+		public get metadata(): FileSystemMetadata {
+			return { ...super.metadata, synchronous: false };
+		}
 		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public renameSync(oldPath: string, newPath: string, cred: Cred): void {
 			throw new ApiError(ErrorCode.ENOTSUP);
@@ -317,11 +352,35 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T) {
 		}
 	}
 	/* eslint-enable @typescript-eslint/no-unused-vars */
-	return AsyncFileSystem;
+	return _AsyncFileSystem;
 }
 
-export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T) {
-	abstract class ReadonlyFileSystem extends FS {
+/**
+ * @internal
+ */
+declare abstract class ReadonlyFileSystem {
+	get metadata(): FileSystemMetadata;
+	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
+	renameSync(oldPath: string, newPath: string, cred: Cred): void;
+	createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File>;
+	createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File;
+	unlink(path: string, cred: Cred): Promise<void>;
+	unlinkSync(path: string, cred: Cred): void;
+	rmdir(path: string, cred: Cred): Promise<void>;
+	rmdirSync(path: string, cred: Cred): void;
+	mkdir(path: string, mode: number, cred: Cred): Promise<void>;
+	mkdirSync(path: string, mode: number, cred: Cred): void;
+	link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
+	linkSync(srcpath: string, dstpath: string, cred: Cred): void;
+	sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
+	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+}
+
+export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => ReadonlyFileSystem) & T {
+	abstract class _ReadonlyFileSystem extends FS implements ReadonlyFileSystem {
+		public get metadata(): FileSystemMetadata {
+			return { ...super.metadata, readonly: true };
+		}
 		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
 			throw new ApiError(ErrorCode.EROFS);
@@ -380,5 +439,5 @@ export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T) 
 		}
 		/* eslint-enable @typescript-eslint/no-unused-vars */
 	}
-	return ReadonlyFileSystem;
+	return _ReadonlyFileSystem;
 }

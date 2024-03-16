@@ -172,6 +172,7 @@ export class AsyncStoreFileSystem extends Async(FileSystem) {
 		return this._ready;
 	}
 
+	// @ts-expect-error 2611
 	public get metadata(): FileSystemMetadata {
 		return {
 			...super.metadata,
