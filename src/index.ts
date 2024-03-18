@@ -67,6 +67,7 @@ export * from './ApiError.js';
 export * from './cred.js';
 export * from './file.js';
 export * from './filesystem.js';
+export * from './FileIndex.js';
 export * from './inode.js';
 export * from './mutex.js';
 export * from './stats.js';
