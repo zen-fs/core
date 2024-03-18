@@ -369,7 +369,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 		}
 
 		if (inode.isFile()) {
-			return this.statFileInode(inode);
+			return this.statFileInode(inode, path);
 		}
 
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid inode.');
@@ -386,7 +386,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 		}
 
 		if (inode.isFile()) {
-			return this.statFileInodeSync(inode);
+			return this.statFileInodeSync(inode, path);
 		}
 
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid inode.');
@@ -414,7 +414,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 			return new NoSyncFile(this, path, flag, stats, stats.fileData);
 		}
 
-		return this.fileForFileInode(inode, path, flag);
+		return this.openFileInode(inode, path, flag);
 	}
 
 	public openFileSync(path: string, flag: FileFlag, cred: Cred): NoSyncFile<this> {
@@ -439,7 +439,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 			return new NoSyncFile(this, path, flag, stats, stats.fileData);
 		}
 
-		return this.fileForFileInodeSync(inode, path, flag);
+		return this.openFileInodeSync(inode, path, flag);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -470,22 +470,22 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 		throw ApiError.ENOTDIR(path);
 	}
 
-	protected abstract statFileInode(inode: IndexFileInode<TIndex>): Promise<Stats>;
+	protected abstract statFileInode(inode: IndexFileInode<TIndex>, path: string): Promise<Stats>;
 
-	protected abstract statFileInodeSync(inode: IndexFileInode<TIndex>): Stats;
+	protected abstract statFileInodeSync(inode: IndexFileInode<TIndex>, path: string): Stats;
 
-	protected abstract fileForFileInode(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): Promise<NoSyncFile<this>>;
+	protected abstract openFileInode(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): Promise<NoSyncFile<this>>;
 
-	protected abstract fileForFileInodeSync(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): NoSyncFile<this>;
+	protected abstract openFileInodeSync(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): NoSyncFile<this>;
 }
 
 export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>) {
-	protected async statFileInode(inode: IndexFileInode<TIndex>): Promise<Stats> {
-		return this.statFileInodeSync(inode);
+	protected async statFileInode(inode: IndexFileInode<TIndex>, path: string): Promise<Stats> {
+		return this.statFileInodeSync(inode, path);
 	}
 
-	protected async fileForFileInode(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): Promise<NoSyncFile<this>> {
-		return this.fileForFileInodeSync(inode, path, flag);
+	protected async openFileInode(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): Promise<NoSyncFile<this>> {
+		return this.openFileInodeSync(inode, path, flag);
 	}
 }
 
@@ -494,7 +494,7 @@ export abstract class AsyncFileIndexFS<TIndex> extends Async(FileIndexFS<unknown
 		throw new ApiError(ErrorCode.ENOTSUP);
 	}
 
-	protected fileForFileInodeSync(): NoSyncFile<this> {
+	protected openFileInodeSync(): NoSyncFile<this> {
 		throw new ApiError(ErrorCode.ENOTSUP);
 	}
 }
