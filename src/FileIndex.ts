@@ -480,6 +480,8 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 }
 
 export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>) {
+	declare _index: FileIndex<TIndex>;
+
 	protected async statFileInode(inode: IndexFileInode<TIndex>, path: string): Promise<Stats> {
 		return this.statFileInodeSync(inode, path);
 	}
@@ -490,6 +492,8 @@ export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>)
 }
 
 export abstract class AsyncFileIndexFS<TIndex> extends Async(FileIndexFS<unknown>) {
+	declare _index: FileIndex<TIndex>;
+
 	protected statFileInodeSync(): Stats {
 		throw new ApiError(ErrorCode.ENOTSUP);
 	}
