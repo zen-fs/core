@@ -15,7 +15,7 @@ BrowserFS is highly extensible, and includes a few built-in backends:
 
 More backends can be defined by separate libraries, as long as they implement `FileSystem`.
 
-BrowserFS supports a number of other backends (many are provided as seperate packages under `@browserfs`).
+BrowserFS supports a number of other backends. Many are provided as seperate packages under `@browserfs`.
 
 For more information, see the [API documentation for BrowserFS](https://browser-fs.github.io/core).
 
