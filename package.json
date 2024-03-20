@@ -9,6 +9,9 @@
 		"node",
 		"storage"
 	],
+	"bin": {
+		"make-listing": "./scripts/make-listing.js"
+	},
 	"type": "module",
 	"homepage": "https://github.com/browser-fs/core",
 	"author": "John Vilk <jvilk@cs.umass.edu>",
