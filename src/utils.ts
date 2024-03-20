@@ -26,8 +26,6 @@ export function mkdirpSync(p: string, mode: number, cred: Cred, fs: FileSystem):
 	}
 }
 
-
-
 function _min(d0: number, d1: number, d2: number, bx: number, ay: number): number {
 	return Math.min(d0 + 1, d1 + 1, d2 + 1, bx === ay ? d1 : d1 + 1);
 }
