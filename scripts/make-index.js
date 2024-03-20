@@ -3,6 +3,7 @@ import { parseArgs } from 'util';
 import { statSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path/posix';
 import { resolve } from 'path';
+import { minimatch } from 'minimatch';
 
 const {
 	values: options,
@@ -24,11 +25,12 @@ if (options.help) {
 	path: The path to create a listing for
 
 	options:
-		--help, -h:				Outputs this help message
-		--output, -o <path>:	Path to the output file. Defaults to listing.
-		--quiet, -q: 			Do not output messages about individual files
-		--verbose:				Output verbose messages
-		--ignore, -i <pattern>:	Ignores files which match <pattern>. Can be passed multiple times.
+		--help, -h				Outputs this help message
+		--quiet, -q 			Do not output messages about individual files
+		--verbose				Output verbose messages
+
+		--output, -o <path>		Path to the output file. Defaults to listing.
+		--ignore, -i <pattern>	Ignores files which match the glob <pattern>. Can be passed multiple times.
 	`);
 	process.exit();
 }
@@ -77,7 +79,7 @@ function makeListing(path, seen = new Set()) {
 		let entries = {};
 		for (const file of readdirSync(path)) {
 			const full = join(path, file);
-			if (options.ignore.some(pattern => full.match(pattern))) {
+			if (options.ignore.some(pattern => minimatch(full, pattern))) {
 				if (!options.quiet) console.log(`${color('yellow', 'skip')} ${full}`);
 				continue;
 			}
