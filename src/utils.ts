@@ -1,6 +1,6 @@
 import { FileSystem } from './filesystem.js';
 import { ApiError, ErrorCode } from './ApiError.js';
-import * as path from './emulation/path.js';
+import { dirname } from './emulation/path.js';
 import { Cred } from './cred.js';
 import type { TextDecoder as _TextDecoder, TextEncoder as _TextEncoder } from 'node:util';
 
@@ -17,11 +17,11 @@ declare const globalThis: {
 
 /**
  * Synchronous recursive makedir.
- * @internal
+ * @hidden
  */
 export function mkdirpSync(p: string, mode: number, cred: Cred, fs: FileSystem): void {
 	if (!fs.existsSync(p, cred)) {
-		mkdirpSync(path.dirname(p), mode, cred, fs);
+		mkdirpSync(dirname(p), mode, cred, fs);
 		fs.mkdirSync(p, mode, cred);
 	}
 }
@@ -123,7 +123,7 @@ export function wait(ms: number): Promise<void> {
 }
 
 /**
- * @internal
+ * @hidden
  */
 export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : cb => setTimeout(cb, 0);
 
