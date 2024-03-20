@@ -64,7 +64,10 @@ await configure({
 ```
 
 > [!TIP]
-> When configuring a mount point, you can pass in 1. A string that maps to a built-in backend 2. A `Backend` object, if the backend has no required options 3. An object that has a `backend` property which is a `Backend` or a string that maps to a built-in backend and the options accepted by the backend
+> When configuring a mount point, you can pass in
+> 1. A string that maps to a built-in backend
+> 2. A `Backend` object, if the backend has no required options
+> 3. An object that has a `backend` property which is a `Backend` or a string that maps to a built-in backend and the options accepted by the backend
 
 Here is an example that mounts the `Storage` backend from `@browserfs/dom` on `/`:
 
