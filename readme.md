@@ -39,7 +39,7 @@ const contents = fs.readFileSync('/test.txt', 'utf-8');
 console.log(contents);
 ```
 
-#### Using different and/or different backends
+#### Using different and/or multiple backends
 
 A single `InMemory` backend is created by default, mounted on `/`.
 
