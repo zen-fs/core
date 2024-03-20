@@ -26,10 +26,7 @@ export function mkdirpSync(p: string, mode: number, cred: Cred, fs: FileSystem):
 	}
 }
 
-/*
- * Levenshtein distance, from the `js-levenshtein` NPM module.
- * Copied here to avoid complexity of adding another CommonJS module dependency.
- */
+
 
 function _min(d0: number, d1: number, d2: number, bx: number, ay: number): number {
 	return Math.min(d0 + 1, d1 + 1, d2 + 1, bx === ay ? d1 : d1 + 1);
@@ -37,7 +34,7 @@ function _min(d0: number, d1: number, d2: number, bx: number, ay: number): numbe
 
 /**
  * Calculates levenshtein distance.
- * @internal
+ * @hidden
  */
 export function levenshtein(a: string, b: string): number {
 	if (a === b) {
@@ -123,25 +120,6 @@ export function wait(ms: number): Promise<void> {
 	return new Promise(resolve => {
 		setTimeout(resolve, ms);
 	});
-}
-
-/**
- * Converts a callback into a promise. Assumes last parameter is the callback
- * @todo Look at changing resolve value from cbArgs[0] to include other callback arguments?
- */
-export function toPromise(fn: (...fnArgs: unknown[]) => unknown) {
-	return function (...args: unknown[]): Promise<unknown> {
-		return new Promise((resolve, reject) => {
-			args.push((e: ApiError, ...cbArgs: unknown[]) => {
-				if (e) {
-					reject(e);
-				} else {
-					resolve(cbArgs[0]);
-				}
-			});
-			fn(...args);
-		});
-	};
 }
 
 /**

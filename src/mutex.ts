@@ -1,11 +1,9 @@
-export type MutexCallback = () => void;
-
 /**
  * Non-recursive mutex
  * @internal
  */
 export default class Mutex {
-	private _locks: Map<string, MutexCallback[]> = new Map();
+	private _locks: Map<string, (() => void)[]> = new Map();
 
 	public lock(path: string): Promise<void> {
 		return new Promise(resolve => {
