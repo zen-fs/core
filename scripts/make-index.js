@@ -11,7 +11,7 @@ const {
 	options: {
 		help: { short: 'h', type: 'boolean', default: false },
 		ignore: { short: 'i', type: 'string', multiple: true, default: [] },
-		output: { short: 'o', type: 'string', default: 'listing.json' },
+		output: { short: 'o', type: 'string', default: 'index.json' },
 		quiet: { short: 'q', type: 'boolean', default: false },
 		verbose: { type: 'boolean', default: false },
 	},
