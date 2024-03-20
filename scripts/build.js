@@ -28,14 +28,15 @@ const config = {
 					try {
 						console.log(`------------ Building #${++buildCount}`);
 						execSync('npx tsc -p tsconfig.json', { stdio: 'inherit' });
-					} finally {}
+					} finally {
+					}
 				});
 				onEnd(() => {
 					console.log(`--------------- Built #${buildCount}`);
 				});
-			}
-		}
-	]
+			},
+		},
+	],
 };
 
 if (options.watch) {
