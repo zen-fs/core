@@ -118,6 +118,9 @@ export interface AsyncRWTransaction extends AsyncROTransaction {
 	abort(): Promise<void>;
 }
 
+/**
+ * Async preload file for usage with AsyncStore
+ */
 export class AsyncFile extends PreloadFile<AsyncStoreFS> {
 	constructor(_fs: AsyncStoreFS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
@@ -159,8 +162,8 @@ export interface AsyncStoreOptions {
 }
 
 /**
- * An "Asynchronous key-value file system". Stores data to/retrieves data from
- * an underlying asynchronous key-value store.
+ * An asynchronous file system which uses an async store to store its data.
+ * @see AsyncStore
  */
 export class AsyncStoreFS extends Async(FileSystem) {
 	protected store: AsyncStore;

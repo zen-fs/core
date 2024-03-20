@@ -398,7 +398,7 @@ export abstract class File {
  * extend this class and implement those two methods.
  * @todo 'close' lever that disables functionality once closed.
  */
-export abstract class PreloadFile<T extends FileSystem> extends File {
+export abstract class PreloadFile<FS extends FileSystem> extends File {
 	protected _position: number = 0;
 	protected _dirty: boolean = false;
 	/**
@@ -417,7 +417,7 @@ export abstract class PreloadFile<T extends FileSystem> extends File {
 		/**
 		 * The file system that created the file.
 		 */
-		protected fs: T,
+		protected fs: FS,
 		/**
 		 * Path to the file
 		 */
