@@ -1,24 +1,20 @@
 import { Stats, type StatsLike } from './stats.js';
 
-enum Offset {
-	ino = 0,
-	size = 8, // offsets with a 64-bit size
-	mode = 12, // 16
-	nlink = 14, // 18
-	uid = 18, // 22
-	gid = 22, // 26
-	atime = 26, // 30
-	birthtime = 34, // 38
-	mtime = 42, // 46
-	ctime = 50, // 54
-}
-
+/**
+ * Alias for an ino.
+ * This will be helpful if in the future inode numbers/IDs are changed to strings or numbers.
+ */
 export type Ino = bigint;
 
+/**
+ * Max 32-bit integer
+ * @hidden
+ */
 export const size_max = 2 ** 32 - 1;
 
 /**
- * @internal
+ * Room inode
+ * @hidden
  */
 export const rootIno: Ino = 0n;
 
@@ -30,12 +26,27 @@ function _random() {
 }
 
 /**
- * Generate 4 random bits at a time
- *
+ * Generate a random ino
  * @internal
  */
 export function randomIno(): Ino {
 	return BigInt('0x' + _random() + _random());
+}
+
+/**
+ * Offsets for inode members
+ */
+enum Offset {
+	ino = 0,
+	size = 8, // offsets with a 64-bit size
+	mode = 12, // 16
+	nlink = 14, // 18
+	uid = 18, // 22
+	gid = 22, // 26
+	atime = 26, // 30
+	birthtime = 34, // 38
+	mtime = 42, // 46
+	ctime = 50, // 54
 }
 
 /**

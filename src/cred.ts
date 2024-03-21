@@ -1,5 +1,5 @@
 /**
- * Credentials used for FS ops.
+ * Credentials used for various operations.
  * Similar to Linux's cred struct. See https://github.com/torvalds/linux/blob/master/include/linux/cred.h
  */
 export class Cred {
