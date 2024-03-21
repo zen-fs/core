@@ -1,6 +1,6 @@
 import type { Dirent as _Dirent, Dir as _Dir } from 'fs';
-import { NoArgCallback, TwoArgCallback } from '../filesystem.js';
-import { Stats } from '../stats.js';
+import type { NoArgCallback, TwoArgCallback } from '../filesystem.js';
+import type { Stats } from '../stats.js';
 import { readdir } from './promises.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { readdirSync } from './sync.js';

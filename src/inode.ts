@@ -1,5 +1,4 @@
-import { S_IFMT } from './emulation/constants.js';
-import { Stats, FileType } from './stats.js';
+import { Stats, type StatsLike } from './stats.js';
 
 enum Offset {
 	ino = 0,
@@ -9,8 +8,9 @@ enum Offset {
 	uid = 18, // 22
 	gid = 22, // 26
 	atime = 26, // 30
-	mtime = 34, // 38
-	ctime = 42, // 46
+	birthtime = 34, // 38
+	mtime = 42, // 46
+	ctime = 50, // 54
 }
 
 export type Ino = bigint;
@@ -41,7 +41,7 @@ export function randomIno(): Ino {
 /**
  * Generic inode definition that can easily be serialized.
  */
-export class Inode {
+export class Inode implements StatsLike {
 	public readonly buffer: ArrayBufferLike;
 
 	public get data(): Uint8Array {
@@ -52,7 +52,7 @@ export class Inode {
 
 	constructor(buffer?: ArrayBufferLike) {
 		const setDefaults = !buffer;
-		buffer ??= new ArrayBuffer(50);
+		buffer ??= new ArrayBuffer(58);
 		this.view = new DataView(buffer);
 		this.buffer = buffer;
 
@@ -65,9 +65,10 @@ export class Inode {
 		this.nlink = 1;
 		this.size = 4096;
 		const now = Date.now();
-		this.atime = now;
-		this.mtime = now;
-		this.ctime = now;
+		this.atimeMs = now;
+		this.mtimeMs = now;
+		this.ctimeMs = now;
+		this.birthtimeMs = now;
 	}
 
 	public get ino(): Ino {
@@ -118,27 +119,35 @@ export class Inode {
 		this.view.setUint32(Offset.gid, value, true);
 	}
 
-	public get atime(): number {
+	public get atimeMs(): number {
 		return this.view.getFloat64(Offset.atime, true);
 	}
 
-	public set atime(value: number) {
+	public set atimeMs(value: number) {
 		this.view.setFloat64(Offset.atime, value, true);
 	}
 
-	public get mtime(): number {
+	public get birthtimeMs(): number {
+		return this.view.getFloat64(Offset.birthtime, true);
+	}
+
+	public set birthtimeMs(value: number) {
+		this.view.setFloat64(Offset.birthtime, value, true);
+	}
+
+	public get mtimeMs(): number {
 		return this.view.getFloat64(Offset.mtime, true);
 	}
 
-	public set mtime(value: number) {
+	public set mtimeMs(value: number) {
 		this.view.setFloat64(Offset.mtime, value, true);
 	}
 
-	public get ctime(): number {
+	public get ctimeMs(): number {
 		return this.view.getFloat64(Offset.ctime, true);
 	}
 
-	public set ctime(value: number) {
+	public set ctimeMs(value: number) {
 		this.view.setFloat64(Offset.ctime, value, true);
 	}
 
@@ -146,16 +155,7 @@ export class Inode {
 	 * Handy function that converts the Inode to a Node Stats object.
 	 */
 	public toStats(): Stats {
-		return new Stats(
-			(this.mode & S_IFMT) === FileType.DIRECTORY ? FileType.DIRECTORY : FileType.FILE,
-			this.size,
-			this.mode,
-			this.atime,
-			this.mtime,
-			this.ctime,
-			this.uid,
-			this.gid
-		);
+		return new Stats(this);
 	}
 
 	/**
@@ -202,17 +202,17 @@ export class Inode {
 			hasChanged = true;
 		}
 
-		if (this.atime !== stats.atimeMs) {
-			this.atime = stats.atimeMs;
+		if (this.atimeMs !== stats.atimeMs) {
+			this.atimeMs = stats.atimeMs;
 			hasChanged = true;
 		}
-		if (this.mtime !== stats.mtimeMs) {
-			this.mtime = stats.mtimeMs;
+		if (this.mtimeMs !== stats.mtimeMs) {
+			this.mtimeMs = stats.mtimeMs;
 			hasChanged = true;
 		}
 
-		if (this.ctime !== stats.ctimeMs) {
-			this.ctime = stats.ctimeMs;
+		if (this.ctimeMs !== stats.ctimeMs) {
+			this.ctimeMs = stats.ctimeMs;
 			hasChanged = true;
 		}
 

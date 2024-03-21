@@ -198,9 +198,8 @@ export class UnlockedOverlayFS extends FileSystem {
 			if (this._deletedFiles.has(p)) {
 				throw ApiError.ENOENT(p);
 			}
-			const oldStat = Stats.clone(await this._readable.stat(p, cred));
-			// Make the oldStat's mode writable. Preserve the topmost part of the
-			// mode, which specifies if it is a file or a directory.
+			const oldStat = new Stats(await this._readable.stat(p, cred));
+			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type
 			oldStat.mode |= 0o222;
 			return oldStat;
 		}
@@ -214,9 +213,8 @@ export class UnlockedOverlayFS extends FileSystem {
 			if (this._deletedFiles.has(p)) {
 				throw ApiError.ENOENT(p);
 			}
-			const oldStat = Stats.clone(this._readable.statSync(p, cred));
-			// Make the oldStat's mode writable. Preserve the topmost part of the
-			// mode, which specifies if it is a file or a directory.
+			const oldStat = new Stats(this._readable.statSync(p, cred));
+			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type.
 			oldStat.mode |= 0o222;
 			return oldStat;
 		}
@@ -228,7 +226,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 		// Create an OverlayFile.
 		const file = await this._readable.openFile(path, FileFlag.FromString('r'), cred);
-		const stats = Stats.clone(await file.stat());
+		const stats = new Stats(await file.stat());
 		const { buffer } = await file.read(new Uint8Array(stats.size));
 		return new OverlayFile(this, path, flag, stats, buffer);
 	}

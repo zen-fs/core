@@ -1,7 +1,7 @@
 import type * as Node from 'fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { TwoArgCallback, NoArgCallback, ThreeArgCallback, FileContents } from '../filesystem.js';
-import { BigIntStats, Stats } from '../stats.js';
+import { BigIntStats, type Stats } from '../stats.js';
 import { fd2file, nop, normalizeMode, PathLike } from './shared.js';
 import * as promises from './promises.js';
 import { R_OK } from './constants.js';
@@ -231,7 +231,7 @@ export function fstat(fd: number, options?: Node.StatOptions | TwoArgCallback<St
 
 	fd2file(fd)
 		.stat()
-		.then(stats => cb(null, <Stats & BigIntStats>(typeof options == 'object' && options?.bigint ? BigIntStats.clone(stats) : stats)))
+		.then(stats => cb(null, <Stats & BigIntStats>(typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : stats)))
 		.catch(cb);
 }
 fstat satisfies Omit<typeof Node.fstat, '__promisify__'>;

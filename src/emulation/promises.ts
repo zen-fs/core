@@ -5,7 +5,7 @@ import { ActionType, File, FileFlag } from '../file.js';
 import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared.js';
 import type { PathLike, BufferToUint8Array } from './shared.js';
 import { FileContents, FileSystem } from '../filesystem.js';
-import { BigIntStats, FileType, Stats } from '../stats.js';
+import { BigIntStats, FileType, type Stats } from '../stats.js';
 import { decode, encode } from '../utils.js';
 import { Dirent } from './dir.js';
 import { dirname, join } from './path.js';
@@ -284,7 +284,7 @@ export async function stat(path: PathLike, options?: { bigint?: false }): Promis
 export async function stat(path: PathLike, options?: Node.StatOptions): Promise<Stats | BigIntStats>;
 export async function stat(path: PathLike, options?: Node.StatOptions): Promise<Stats | BigIntStats> {
 	const stats: Stats = await doOp('stat', true, path, cred);
-	return options?.bigint ? BigIntStats.clone(stats) : stats;
+	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 stat satisfies typeof Node.promises.stat;
 
@@ -299,7 +299,7 @@ export async function lstat(path: PathLike, options?: { bigint?: false }): Promi
 export async function lstat(path: PathLike, options: { bigint: true }): Promise<BigIntStats>;
 export async function lstat(path: PathLike, options?: Node.StatOptions): Promise<Stats | BigIntStats> {
 	const stats: Stats = await doOp('stat', false, path, cred);
-	return options?.bigint ? BigIntStats.clone(stats) : stats;
+	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 lstat satisfies typeof Node.promises.lstat;
 

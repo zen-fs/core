@@ -479,14 +479,14 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 * Asynchronous `stat`.
 	 */
 	public async stat(): Promise<Stats> {
-		return Stats.clone(this.stats);
+		return new Stats(this.stats);
 	}
 
 	/**
 	 * Synchronous `stat`.
 	 */
 	public statSync(): Stats {
-		return Stats.clone(this.stats);
+		return new Stats(this.stats);
 	}
 
 	/**

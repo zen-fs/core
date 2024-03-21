@@ -2,7 +2,7 @@
  * Non-recursive mutex
  * @internal
  */
-export default class Mutex {
+export class Mutex {
 	private _locks: Map<string, (() => void)[]> = new Map();
 
 	public lock(path: string): Promise<void> {

@@ -1,11 +1,11 @@
 import { dirname, basename, join, resolve } from '../emulation/path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
-import { Cred } from '../cred.js';
+import type { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
 import { PreloadFile, File, FileFlag } from '../file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '../filesystem.js';
 import { randomIno, type Ino, Inode } from '../inode.js';
-import { Stats, FileType } from '../stats.js';
+import { type Stats, FileType } from '../stats.js';
 import { encode, decodeDirListing, encodeDirListing } from '../utils.js';
 import { rootIno } from '../inode.js';
 

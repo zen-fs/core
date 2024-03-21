@@ -5,7 +5,7 @@ import { W_OK, R_OK } from '../emulation/constants.js';
 import { FileFlag, PreloadFile } from '../file.js';
 import { type FileSystemMetadata, FileSystem, Sync } from '../filesystem.js';
 import { randomIno, type Ino, Inode } from '../inode.js';
-import { Stats, FileType } from '../stats.js';
+import { type Stats, FileType } from '../stats.js';
 import { decodeDirListing, encode, encodeDirListing } from '../utils.js';
 import { rootIno } from '../inode.js';
 

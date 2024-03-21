@@ -13,7 +13,48 @@ export enum FileType {
 }
 
 /**
- * Common code used by both Stats and BigIntStats
+ *
+ */
+export interface StatsLike {
+	/**
+	 * Size of the item in bytes.
+	 * For directories/symlinks, this is normally the size of the struct that represents the item.
+	 */
+	size: number | bigint;
+	/**
+	 * Unix-style file mode (e.g. 0o644) that includes the item type
+	 * Type of the item can be FILE, DIRECTORY, SYMLINK, or SOCKET
+	 */
+	mode: number | bigint;
+	/**
+	 * time of last access, in milliseconds since epoch
+	 */
+	atimeMs: number | bigint;
+	/**
+	 * time of last modification, in milliseconds since epoch
+	 */
+	mtimeMs: number | bigint;
+	/**
+	 * time of last time file status was changed, in milliseconds since epoch
+	 */
+	ctimeMs: number | bigint;
+	/**
+	 * time of file creation, in milliseconds since epoch
+	 */
+	birthtimeMs: number | bigint;
+	/**
+	 * the id of the user that owns the file
+	 */
+	uid: number | bigint;
+	/**
+	 * the id of the group that owns the file
+	 */
+	gid: number | bigint;
+}
+
+/**
+ * Provides information about a particular entry in the file system.
+ * Common code used by both Stats and BigIntStats.
  */
 export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T> {
 	protected abstract _isBigint: boolean;
@@ -32,6 +73,10 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	public blocks: T;
 
+	/**
+	 * Unix-style file mode (e.g. 0o644) that includes the type of the item.
+	 * Type of the item can be FILE, DIRECTORY, SYMLINK, or SOCKET
+	 */
 	public mode: T;
 
 	/**
@@ -74,6 +119,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 */
 	public fileData?: Uint8Array = null;
 
+	/**
+	 * time of last access, in milliseconds since epoch
+	 */
 	public atimeMs: T;
 
 	public get atime(): Date {
@@ -84,6 +132,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.atimeMs = this._convert(value.getTime());
 	}
 
+	/**
+	 * time of last modification, in milliseconds since epoch
+	 */
 	public mtimeMs: T;
 
 	public get mtime(): Date {
@@ -94,6 +145,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.mtimeMs = this._convert(value.getTime());
 	}
 
+	/**
+	 * time of last time file status was changed, in milliseconds since epoch
+	 */
 	public ctimeMs: T;
 
 	public get ctime(): Date {
@@ -104,6 +158,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.ctimeMs = this._convert(value.getTime());
 	}
 
+	/**
+	 * time of file creation, in milliseconds since epoch
+	 */
 	public birthtimeMs: T;
 
 	public get birthtime(): Date {
@@ -114,34 +171,18 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.birthtimeMs = this._convert(value.getTime());
 	}
 
+	/**
+	 * Size of the item in bytes.
+	 * For directories/symlinks, this is normally the size of the struct that represents the item.
+	 */
 	public size: T;
 
 	/**
-	 * Provides information about a particular entry in the file system.
-	 * @param itemType Type of the item (FILE, DIRECTORY, SYMLINK, or SOCKET)
-	 * @param size Size of the item in bytes. For directories/symlinks,
-	 *   this is normally the size of the struct that represents the item.
-	 * @param mode Unix-style file mode (e.g. 0o644)
-	 * @param atimeMs time of last access, in milliseconds since epoch
-	 * @param mtimeMs time of last modification, in milliseconds since epoch
-	 * @param ctimeMs time of last time file status was changed, in milliseconds since epoch
-	 * @param uid the id of the user that owns the file
-	 * @param gid the id of the group that owns the file
-	 * @param birthtimeMs time of file creation, in milliseconds since epoch
+	 * Creates a new stats instance from a stats-like object. Can be used to copy stats (note)
 	 */
-	constructor(
-		itemType: FileType = FileType.FILE,
-		size: number | bigint = -1,
-		mode?: number | bigint,
-		atimeMs?: number | bigint,
-		mtimeMs?: number | bigint,
-		ctimeMs?: number | bigint,
-		uid?: number | bigint,
-		gid?: number | bigint,
-		birthtimeMs?: number | bigint
-	) {
+	constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode }: Partial<StatsLike> = {}) {
 		const currentTime = Date.now();
-		const resolveT = (v: number | bigint, def: number) => <T>(typeof v == this._typename ? v : this._convert(typeof v == this._typename_inverse ? v : def));
+		const resolveT = (val: number | bigint, _default: number) => <T>(typeof val == this._typename ? val : this._convert(typeof val == this._typename_inverse ? val : _default));
 		this.atimeMs = resolveT(atimeMs, currentTime);
 		this.mtimeMs = resolveT(mtimeMs, currentTime);
 		this.ctimeMs = resolveT(ctimeMs, currentTime);
@@ -149,6 +190,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.uid = resolveT(uid, 0);
 		this.gid = resolveT(gid, 0);
 		this.size = this._convert(size);
+		const itemType: FileType = Number(mode) & S_IFMT || FileType.FILE;
 
 		if (mode) {
 			this.mode = this._convert(mode);
@@ -291,9 +333,10 @@ export class Stats extends StatsCommon<number> implements Node.Stats {
 
 	/**
 	 * Clones the stats object.
+	 * @deprecated use `new Stats(stats)`
 	 */
-	public static clone(s: Stats): Stats {
-		return new Stats(s.mode & S_IFMT, s.size, s.mode & ~S_IFMT, s.atimeMs, s.mtimeMs, s.ctimeMs, s.uid, s.gid, s.birthtimeMs);
+	public static clone(stats: Stats): Stats {
+		return new Stats(stats);
 	}
 }
 Stats satisfies typeof Node.Stats;
@@ -312,19 +355,10 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
 
 	/**
 	 * Clone a stats object.
+	 * @deprecated use `new BigIntStats(stats)`
 	 */
-	public static clone(s: BigIntStats | Stats): BigIntStats {
-		return new BigIntStats(
-			Number(s.mode) & S_IFMT,
-			BigInt(s.size),
-			BigInt(s.mode) & BigInt(~S_IFMT),
-			BigInt(s.atimeMs),
-			BigInt(s.mtimeMs),
-			BigInt(s.ctimeMs),
-			BigInt(s.uid),
-			BigInt(s.gid),
-			BigInt(s.birthtimeMs)
-		);
+	public static clone(stats: BigIntStats | Stats): BigIntStats {
+		return new BigIntStats(stats);
 	}
 }
 BigIntStats satisfies typeof Node.BigIntStats;

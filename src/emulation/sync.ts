@@ -1,7 +1,7 @@
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, FileFlag } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
-import { BigIntStats, FileType, Stats } from '../stats.js';
+import { BigIntStats, FileType, type Stats } from '../stats.js';
 import type { symlink, ReadSyncOptions, StatOptions, BaseEncodingOptions, BufferEncodingOption } from 'fs';
 import type * as Node from 'fs';
 import {
@@ -93,7 +93,7 @@ export function statSync(path: PathLike, options?: { bigint: false }): Stats;
 export function statSync(path: PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(path: PathLike, options?: StatOptions): Stats | BigIntStats {
 	const stats: Stats = doOp('statSync', true, path, cred);
-	return options?.bigint ? BigIntStats.clone(stats) : stats;
+	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 statSync satisfies typeof Node.statSync;
 
@@ -107,7 +107,7 @@ export function lstatSync(path: PathLike, options?: { bigint: false }): Stats;
 export function lstatSync(path: PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(path: PathLike, options?: StatOptions): Stats | BigIntStats {
 	const stats: Stats = doOp('statSync', false, path, cred);
-	return options?.bigint ? BigIntStats.clone(stats) : stats;
+	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 lstatSync satisfies typeof Node.lstatSync;
 
@@ -341,7 +341,7 @@ export function fstatSync(fd: number, options?: { bigint?: false }): Stats;
 export function fstatSync(fd: number, options: { bigint: true }): BigIntStats;
 export function fstatSync(fd: number, options?: StatOptions): Stats | BigIntStats {
 	const stats: Stats = fd2file(fd).statSync();
-	return options?.bigint ? BigIntStats.clone(stats) : stats;
+	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 fstatSync satisfies typeof Node.fstatSync;
 

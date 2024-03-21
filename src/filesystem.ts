@@ -1,7 +1,7 @@
 import { ApiError, ErrorCode } from './ApiError.js';
-import { Stats } from './stats.js';
-import { File, FileFlag } from './file.js';
-import { Cred } from './cred.js';
+import type { Stats } from './stats.js';
+import type { File, FileFlag } from './file.js';
+import type { Cred } from './cred.js';
 
 export type NoArgCallback = (e?: ApiError) => unknown;
 export type TwoArgCallback<T> = (e?: ApiError, rv?: T) => unknown;

@@ -56,7 +56,7 @@ export class FileIndex<T> {
 					queue.push({ pwd: path, tree: children, parent: inode });
 				} else {
 					// This inode doesn't have correct size information, noted with -1.
-					inode = new IndexFileInode<Stats>(new Stats(FileType.FILE, -1, 0o555));
+					inode = new IndexFileInode<Stats>(new Stats({ mode: FileType.FILE | 0o555 }));
 				}
 				if (!parent) {
 					continue;
@@ -268,7 +268,7 @@ export class IndexFileInode<T> extends IndexInode<T> {
 	}
 
 	public toStats(): Stats {
-		return new Stats(FileType.FILE, 4096, 0o666);
+		return new Stats({ mode: FileType.FILE | 0o666, size: 4096 });
 	}
 }
 
@@ -294,7 +294,7 @@ export class IndexDirInode<T> extends IndexInode<T> {
 	 * @todo Should probably remove this at some point. This isn't the responsibility of the FileIndex.
 	 */
 	public get stats(): Stats {
-		return new Stats(FileType.DIRECTORY, 4096, 0o555);
+		return new Stats({ mode: FileType.DIRECTORY | 0o555, size: 4096 });
 	}
 	/**
 	 * Alias of getStats()

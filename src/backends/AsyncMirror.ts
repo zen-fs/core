@@ -1,7 +1,7 @@
 import { FileSystem, Sync, FileSystemMetadata } from '../filesystem.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { File, FileFlag, PreloadFile } from '../file.js';
-import { Stats } from '../stats.js';
+import type { Stats } from '../stats.js';
 import { join } from '../emulation/path.js';
 import { Cred } from '../cred.js';
 import type { Backend } from './backend.js';
