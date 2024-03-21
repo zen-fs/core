@@ -139,7 +139,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 		// Read deletion log, process into metadata.
 		try {
-			const file = await this._writable.openFile(deletionLogPath, FileFlag.FromString('r'), Cred.Root);
+			const file = await this._writable.openFile(deletionLogPath, FileFlag.Get('r'), Cred.Root);
 			const { size } = await file.stat();
 			const { buffer } = await file.read(new Uint8Array(size));
 			this._deleteLog = decode(buffer);
@@ -225,7 +225,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return this._writable.openFile(path, flag, cred);
 		}
 		// Create an OverlayFile.
-		const file = await this._readable.openFile(path, FileFlag.FromString('r'), cred);
+		const file = await this._readable.openFile(path, FileFlag.Get('r'), cred);
 		const stats = new Stats(await file.stat());
 		const { buffer } = await file.read(new Uint8Array(stats.size));
 		return new OverlayFile(this, path, flag, stats, buffer);
@@ -236,7 +236,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return this._writable.openFileSync(path, flag, cred);
 		}
 		// Create an OverlayFile.
-		const file = this._readable.openFileSync(path, FileFlag.FromString('r'), cred);
+		const file = this._readable.openFileSync(path, FileFlag.Get('r'), cred);
 		const stats = Stats.clone(file.statSync());
 		const data = new Uint8Array(stats.size);
 		file.readSync(data);
@@ -421,7 +421,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return;
 		}
 		this._deleteLogUpdatePending = true;
-		const log = await this._writable.openFile(deletionLogPath, FileFlag.FromString('w'), cred);
+		const log = await this._writable.openFile(deletionLogPath, FileFlag.Get('w'), cred);
 		try {
 			await log.write(encode(this._deleteLog));
 			if (this._deleteLogUpdateNeeded) {
@@ -539,10 +539,10 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = this._readable.openFileSync(p, FileFlag.FromString('r'), cred);
+		const readable = this._readable.openFileSync(p, FileFlag.Get('r'), cred);
 		readable.readSync(data);
 		readable.closeSync();
-		const writable = this._writable.openFileSync(p, FileFlag.FromString('w'), cred);
+		const writable = this._writable.openFileSync(p, FileFlag.Get('w'), cred);
 		writable.writeSync(data);
 		writable.closeSync();
 	}
@@ -555,10 +555,10 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = await this._readable.openFile(p, FileFlag.FromString('r'), cred);
+		const readable = await this._readable.openFile(p, FileFlag.Get('r'), cred);
 		await readable.read(data);
 		await readable.close();
-		const writable = await this._writable.openFile(p, FileFlag.FromString('w'), cred);
+		const writable = await this._writable.openFile(p, FileFlag.Get('w'), cred);
 		await writable.write(data);
 		await writable.close();
 	}

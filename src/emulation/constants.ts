@@ -1,20 +1,23 @@
 /*
 FS Constants
 See https://nodejs.org/api/fs.html#file-access-constants
+
+Note: Many of these are pulled from
+https://github.com/torvalds/linux/blob/master/include/uapi/linux/stat.h
 */
 
 // File Access Constants
 
-/** Constant for fs.access(). File is visible to the calling process. */
+/** File is visible to the calling process. */
 export const F_OK = 0;
 
-/** Constant for fs.access(). File can be read by the calling process. */
+/** File can be read by the calling process. */
 export const R_OK = 4;
 
-/** Constant for fs.access(). File can be written by the calling process. */
+/** File can be written by the calling process. */
 export const W_OK = 2;
 
-/** Constant for fs.access(). File can be executed by the calling process. */
+/** File can be executed by the calling process. */
 export const X_OK = 1;
 
 // File Copy Constants
@@ -36,36 +39,36 @@ export const COPYFILE_FICLONE_FORCE = 4;
 
 // File Open Constants
 
-/** Constant for fs.open(). Flag indicating to open a file for read-only access. */
+/** Flag indicating to open a file for read-only access. */
 export const O_RDONLY = 0;
 
-/** Constant for fs.open(). Flag indicating to open a file for write-only access. */
+/** Flag indicating to open a file for write-only access. */
 export const O_WRONLY = 1;
 
-/** Constant for fs.open(). Flag indicating to open a file for read-write access. */
+/** Flag indicating to open a file for read-write access. */
 export const O_RDWR = 2;
 
-/** Constant for fs.open(). Flag indicating to create the file if it does not already exist. */
-export const O_CREAT = 0o100; // Node internal is
+/** Flag indicating to create the file if it does not already exist. */
+export const O_CREAT = 0x40; // bit 6
 
-/** Constant for fs.open(). Flag indicating that opening a file should fail if the O_CREAT flag is set and the file already exists. */
-export const O_EXCL = 0o200;
+/** Flag indicating that opening a file should fail if the O_CREAT flag is set and the file already exists. */
+export const O_EXCL = 0x80; // bit 7
 
 /**
- * Constant for fs.open(). Flag indicating that if path identifies a terminal device,
+ * Flag indicating that if path identifies a terminal device,
  * opening the path shall not cause that terminal to become the controlling terminal for the process
  * (if the process does not already have one).
  */
-export const O_NOCTTY = 0o400;
+export const O_NOCTTY = 0x100; // bit 8
 
-/** Constant for fs.open(). Flag indicating that if the file exists and is a regular file, and the file is opened successfully for write access, its length shall be truncated to zero. */
-export const O_TRUNC = 0o1000;
+/** Flag indicating that if the file exists and is a regular file, and the file is opened successfully for write access, its length shall be truncated to zero. */
+export const O_TRUNC = 0x200; // bit 9
 
-/** Constant for fs.open(). Flag indicating that data will be appended to the end of the file. */
-export const O_APPEND = 0o2000;
+/** Flag indicating that data will be appended to the end of the file. */
+export const O_APPEND = 0x400; // bit 10
 
-/** Constant for fs.open(). Flag indicating that the open should fail if the path is not a directory. */
-export const O_DIRECTORY = 0o200000;
+/** Flag indicating that the open should fail if the path is not a directory. */
+export const O_DIRECTORY = 0x10000; // bit 16
 
 /**
  * constant for fs.open().
@@ -73,86 +76,95 @@ export const O_DIRECTORY = 0o200000;
  * an update to the atime information associated with the file.
  * This flag is available on Linux operating systems only.
  */
-export const O_NOATIME = 0o1000000;
+export const O_NOATIME = 0x40000; // bit 18
 
-/** Constant for fs.open(). Flag indicating that the open should fail if the path is a symbolic link. */
-export const O_NOFOLLOW = 0o400000;
+/** Flag indicating that the open should fail if the path is a symbolic link. */
+export const O_NOFOLLOW = 0x20000; // bit 17
 
-/** Constant for fs.open(). Flag indicating that the file is opened for synchronous I/O. */
-export const O_SYNC = 0o4010000;
+/** Flag indicating that the file is opened for synchronous I/O. */
+export const O_SYNC = 0x101000; // bit 20 and bit 12
 
-/** Constant for fs.open(). Flag indicating that the file is opened for synchronous I/O with write operations waiting for data integrity. */
-export const O_DSYNC = 0o10000;
+/** Flag indicating that the file is opened for synchronous I/O with write operations waiting for data integrity. */
+export const O_DSYNC = 0x1000; // bit 12
 
-/** Constant for fs.open(). Flag indicating to open the symbolic link itself rather than the resource it is pointing to. */
-export const O_SYMLINK = 0o100000;
+/** Flag indicating to open the symbolic link itself rather than the resource it is pointing to. */
+export const O_SYMLINK = 0x8000; // bit 15
 
-/** Constant for fs.open(). When set, an attempt will be made to minimize caching effects of file I/O. */
-export const O_DIRECT = 0o40000;
+/** When set, an attempt will be made to minimize caching effects of file I/O. */
+export const O_DIRECT = 0x4000; // bit 14
 
-/** Constant for fs.open(). Flag indicating to open the file in nonblocking mode when possible. */
-export const O_NONBLOCK = 0o4000;
+/** Flag indicating to open the file in nonblocking mode when possible. */
+export const O_NONBLOCK = 0x800; // bit 11
 
 // File Type Constants
 
-/** Constant for fs.Stats mode property for determining a file's type. Bit mask used to extract the file type code. */
+/** Bit mask used to extract the file type from mode. */
 export const S_IFMT = 0xf000;
 
-/** Constant for fs.Stats mode property for determining a file's type. File type constant for a regular file. */
-export const S_IFREG = 0o100000;
+/** File type constant for a socket. */
+export const S_IFSOCK = 0xc000;
 
-/** Constant for fs.Stats mode property for determining a file's type. File type constant for a directory. */
-export const S_IFDIR = 0o40000;
+/** File type constant for a symbolic link. */
+export const S_IFLNK = 0xa000;
 
-/** Constant for fs.Stats mode property for determining a file's type. File type constant for a character-oriented device file. */
-export const S_IFCHR = 0o20000;
+/** File type constant for a regular file. */
+export const S_IFREG = 0x8000;
 
-/** Constant for fs.Stats mode property for determining a file's type. File type constant for a block-oriented device file. */
-export const S_IFBLK = 0o60000;
+/** File type constant for a block-oriented device file. */
+export const S_IFBLK = 0x6000;
 
-/** Constant for fs.Stats mode property for determining a file's type. File type constant for a FIFO/pipe. */
-export const S_IFIFO = 0o10000;
+/** File type constant for a directory. */
+export const S_IFDIR = 0x4000;
 
-/** Constant for fs.Stats mode property for determining a file's type. File type constant for a symbolic link. */
-export const S_IFLNK = 0o120000;
+/** File type constant for a character-oriented device file. */
+export const S_IFCHR = 0x2000;
 
-/** Constant for fs.Stats mode property for determining a file's type. File type constant for a socket. */
-export const S_IFSOCK = 0o140000;
+/** File type constant for a FIFO/pipe. */
+export const S_IFIFO = 0x1000;
+
+/** Set user id */
+export const S_ISUID = 0o4000;
+
+/** Set group id */
+export const S_ISGID = 0o2000;
+
+/** Sticky bit */
+export const S_ISVTX = 0o1000;
 
 // File Mode Constants
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating readable, writable and executable by owner. */
+/** File mode indicating readable, writable and executable by owner. */
 export const S_IRWXU = 0o700;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating readable by owner. */
+/** File mode indicating readable by owner. */
 export const S_IRUSR = 0o400;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating writable by owner. */
+/** File mode indicating writable by owner. */
 export const S_IWUSR = 0o200;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating executable by owner. */
+/** File mode indicating executable by owner. */
 export const S_IXUSR = 0o100;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating readable, writable and executable by group. */
+/** File mode indicating readable, writable and executable by group. */
 export const S_IRWXG = 0o70;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating readable by group. */
+/** File mode indicating readable by group. */
 export const S_IRGRP = 0o40;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating writable by group. */
+/** File mode indicating writable by group. */
 export const S_IWGRP = 0o20;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating executable by group. */
+/** File mode indicating executable by group. */
 export const S_IXGRP = 0o10;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating readable, writable and executable by others. */
+/** File mode indicating readable, writable and executable by others. */
 export const S_IRWXO = 7;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating readable by others. */
+/** File mode indicating readable by others. */
 export const S_IROTH = 4;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating writable by others. */
+/** File mode indicating writable by others. */
 export const S_IWOTH = 2;
 
-/** Constant for fs.Stats mode property for determining access permissions for a file. File mode indicating executable by others. */
+/** File mode indicating executable by others. */
 export const S_IXOTH = 1;

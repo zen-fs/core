@@ -213,8 +213,8 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	 * @internal
 	 */
 	protected async crossCopyFile(p: string, mode: number): Promise<void> {
-		const asyncFile = await this._async.openFile(p, FileFlag.FromString('r'), Cred.Root);
-		const syncFile = this._sync.createFileSync(p, FileFlag.FromString('w'), mode, Cred.Root);
+		const asyncFile = await this._async.openFile(p, FileFlag.Get('r'), Cred.Root);
+		const syncFile = this._sync.createFileSync(p, FileFlag.Get('w'), mode, Cred.Root);
 		try {
 			const { size } = await asyncFile.stat();
 			const buffer = new Uint8Array(size);

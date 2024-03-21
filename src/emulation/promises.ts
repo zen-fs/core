@@ -336,7 +336,7 @@ unlink satisfies typeof Node.promises.unlink;
 async function _open(_path: PathLike, _flag: string, _mode: Node.Mode = 0o644, resolveSymlinks: boolean): Promise<File> {
 	const path = normalizePath(_path),
 		mode = normalizeMode(_mode, 0o644),
-		flag = FileFlag.FromString(_flag);
+		flag = FileFlag.Get(_flag);
 
 	try {
 		switch (flag.pathExistsAction()) {
@@ -429,7 +429,7 @@ export async function readFile(filename: PathLike, options?: { flag?: Node.OpenM
 export async function readFile(filename: PathLike, options: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string>;
 export async function readFile(filename: PathLike, _options?: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<Uint8Array | string> {
 	const options = normalizeOptions(_options, null, 'r', null);
-	const flag = FileFlag.FromString(options.flag);
+	const flag = FileFlag.Get(options.flag);
 	if (!flag.isReadable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
 	}
@@ -467,7 +467,7 @@ async function _writeFile(fname: string, data: Uint8Array, flag: string, mode: n
  */
 export async function writeFile(filename: PathLike, data: FileContents, _options?: Node.WriteFileOptions): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
-	const flag = FileFlag.FromString(options.flag);
+	const flag = FileFlag.Get(options.flag);
 	if (!flag.isWriteable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for writing.');
 	}
@@ -508,7 +508,7 @@ export async function appendFile(
 	_options?: BufferEncoding | (Node.BaseEncodingOptions & { mode?: Node.Mode; flag?: Node.OpenMode })
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
-	const flag = FileFlag.FromString(options.flag);
+	const flag = FileFlag.Get(options.flag);
 	if (!flag.isAppendable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}

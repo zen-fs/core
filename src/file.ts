@@ -31,6 +31,9 @@ declare global {
 	}
 }
 
+/**
+ * @hidden
+ */
 export enum ActionType {
 	// Indicates that the code should not do anything.
 	NOP = 0,
@@ -61,10 +64,15 @@ export enum ActionType {
  * Exclusive mode ensures that the file path is newly created.
  */
 export class FileFlag {
-	// Contains cached FileMode instances.
-	private static flagCache: Map<string | number, FileFlag> = new Map();
-	// Array of valid mode strings.
-	private static validFlagStrs = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
+	/**
+	 * Contains cached FileMode instances.
+	 */
+	protected static cache: Map<string | number, FileFlag> = new Map();
+
+	/**
+	 * Array of valid mode strings.
+	 */
+	protected static validStrings = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
 
 	/**
 	 * Get an object representing the given file flag.
@@ -72,36 +80,36 @@ export class FileFlag {
 	 * @return The FileFlag object representing the flag
 	 * @throw when the flag string is invalid
 	 */
-	public static FromString(flag: string | number): FileFlag {
+	public static Get(flag: string | number): FileFlag {
 		// Check cache first.
-		if (!FileFlag.flagCache.has(flag)) {
-			FileFlag.flagCache.set(flag, new FileFlag(flag));
+		if (!FileFlag.cache.has(flag)) {
+			FileFlag.cache.set(flag, new FileFlag(flag));
 		}
-		return FileFlag.flagCache.get(flag);
+		return FileFlag.cache.get(flag);
 	}
 
-	private flagStr: string;
+	protected _flag: string;
+
 	/**
-	 * This should never be called directly.
 	 * @param flag The string or number representing the flag
 	 * @throw when the flag is invalid
 	 */
-	constructor(flag: string | number) {
-		if (typeof flag === 'number') {
-			flag = FileFlag.NumberToString(flag);
+	protected constructor(flag: string | number) {
+		if (typeof flag == 'number') {
+			flag = FileFlag.StringOf(flag);
 		}
-		if (FileFlag.validFlagStrs.indexOf(flag) < 0) {
+		if (!FileFlag.validStrings.includes(flag)) {
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
 		}
-		this.flagStr = flag;
+		this._flag = flag;
 	}
 
 	/**
 	 * @param flag The number representing the flag
-	 * @return The string representing the flag
-	 * @throw when the flag number is invalid
+	 * @returns The string representing the flag
+	 * @throws when the flag number is invalid
 	 */
-	public static NumberToString(flag: number): string {
+	public static StringOf(flag: number): string {
 		// based on https://github.com/nodejs/node/blob/abbdc3efaa455e6c907ebef5409ac8b0f222f969/lib/internal/fs/utils.js#L619
 		switch (flag) {
 			case O_RDONLY:
@@ -112,29 +120,60 @@ export class FileFlag {
 				return 'r+';
 			case O_RDWR | O_SYNC:
 				return 'rs+';
-
 			case O_TRUNC | O_CREAT | O_WRONLY:
 				return 'w';
 			case O_TRUNC | O_CREAT | O_WRONLY | O_EXCL:
 				return 'wx';
-
 			case O_TRUNC | O_CREAT | O_RDWR:
 				return 'w+';
 			case O_TRUNC | O_CREAT | O_RDWR | O_EXCL:
 				return 'wx+';
-
 			case O_APPEND | O_CREAT | O_WRONLY:
 				return 'a';
 			case O_APPEND | O_CREAT | O_WRONLY | O_EXCL:
 				return 'ax';
-
 			case O_APPEND | O_CREAT | O_RDWR:
 				return 'a+';
 			case O_APPEND | O_CREAT | O_RDWR | O_EXCL:
 				return 'ax+';
-
 			default:
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid flag number: ' + flag);
+		}
+	}
+
+	/**
+	 * @param flag The string representing the flag
+	 * @returns The number representing the flag
+	 * @throws when the flag string is invalid
+	 */
+	public static NumberOf(flag: string): number {
+		switch (flag) {
+			case 'r':
+				return O_RDONLY;
+			case 'rs':
+				return O_RDONLY | O_SYNC;
+			case 'r+':
+				return O_RDWR;
+			case 'rs+':
+				return O_RDWR | O_SYNC;
+			case 'w':
+				return O_TRUNC | O_CREAT | O_WRONLY;
+			case 'wx':
+				return O_TRUNC | O_CREAT | O_WRONLY | O_EXCL;
+			case 'w+':
+				return O_TRUNC | O_CREAT | O_RDWR;
+			case 'wx+':
+				return O_TRUNC | O_CREAT | O_RDWR | O_EXCL;
+			case 'a':
+				return O_APPEND | O_CREAT | O_WRONLY;
+			case 'ax':
+				return O_APPEND | O_CREAT | O_WRONLY | O_EXCL;
+			case 'a+':
+				return O_APPEND | O_CREAT | O_RDWR;
+			case 'ax+':
+				return O_APPEND | O_CREAT | O_RDWR | O_EXCL;
+			default:
+				throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
 		}
 	}
 
@@ -142,7 +181,7 @@ export class FileFlag {
 	 * Get the underlying flag string for this flag.
 	 */
 	public toString(): string {
-		return this.flagStr;
+		return this._flag;
 	}
 
 	/**
@@ -163,38 +202,42 @@ export class FileFlag {
 	 * Returns true if the file is readable.
 	 */
 	public isReadable(): boolean {
-		return this.flagStr.indexOf('r') !== -1 || this.flagStr.indexOf('+') !== -1;
+		return this._flag.indexOf('r') != -1 || this._flag.indexOf('+') != -1;
 	}
+
 	/**
 	 * Returns true if the file is writeable.
 	 */
 	public isWriteable(): boolean {
-		return this.flagStr.indexOf('w') !== -1 || this.flagStr.indexOf('a') !== -1 || this.flagStr.indexOf('+') !== -1;
+		return this._flag.indexOf('w') != -1 || this._flag.indexOf('a') != -1 || this._flag.indexOf('+') != -1;
 	}
+
 	/**
 	 * Returns true if the file mode should truncate.
 	 */
 	public isTruncating(): boolean {
-		return this.flagStr.indexOf('w') !== -1;
+		return this._flag.indexOf('w') !== -1;
 	}
 	/**
 	 * Returns true if the file is appendable.
 	 */
 	public isAppendable(): boolean {
-		return this.flagStr.indexOf('a') !== -1;
+		return this._flag.indexOf('a') !== -1;
 	}
 	/**
 	 * Returns true if the file is open in synchronous mode.
 	 */
 	public isSynchronous(): boolean {
-		return this.flagStr.indexOf('s') !== -1;
+		return this._flag.indexOf('s') !== -1;
 	}
+
 	/**
 	 * Returns true if the file is open in exclusive mode.
 	 */
 	public isExclusive(): boolean {
-		return this.flagStr.indexOf('x') !== -1;
+		return this._flag.indexOf('x') !== -1;
 	}
+
 	/**
 	 * Returns one of the static fields on this object that indicates the
 	 * appropriate response to the path existing.
@@ -215,11 +258,10 @@ export class FileFlag {
 	 * appropriate response to the path not existing.
 	 */
 	public pathNotExistsAction(): ActionType {
-		if ((this.isWriteable() || this.isAppendable()) && this.flagStr !== 'r+') {
+		if ((this.isWriteable() || this.isAppendable()) && this._flag != 'r+') {
 			return ActionType.CREATE;
-		} else {
-			return ActionType.THROW;
 		}
+		return ActionType.THROW;
 	}
 }
 

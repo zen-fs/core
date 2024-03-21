@@ -138,7 +138,7 @@ unlinkSync satisfies typeof Node.unlinkSync;
 function _openSync(_path: PathLike, _flag: string, _mode: Node.Mode, resolveSymlinks: boolean): File {
 	const path = normalizePath(_path),
 		mode = normalizeMode(_mode, 0o644),
-		flag = FileFlag.FromString(_flag);
+		flag = FileFlag.Get(_flag);
 	// Check if the path exists, and is a file.
 	let stats: Stats;
 	try {
@@ -236,7 +236,7 @@ export function readFileSync(filename: string, options: { encoding: string; flag
 export function readFileSync(filename: string, encoding: string): string;
 export function readFileSync(filename: string, arg2: { encoding: string; flag?: string } | { flag?: string } | string = {}): FileContents {
 	const options = normalizeOptions(arg2, null, 'r', 0o644);
-	const flag = FileFlag.FromString(options.flag);
+	const flag = FileFlag.Get(options.flag);
 	if (!flag.isReadable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
@@ -276,7 +276,7 @@ export function writeFileSync(filename: string, data: FileContents, options?: No
 export function writeFileSync(filename: string, data: FileContents, encoding?: BufferEncoding): void;
 export function writeFileSync(filename: string, data: FileContents, _options?: Node.WriteFileOptions | BufferEncoding): void {
 	const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
-	const flag = FileFlag.FromString(options.flag);
+	const flag = FileFlag.Get(options.flag);
 	if (!flag.isWriteable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to writeFile must allow for writing.');
 	}
@@ -319,7 +319,7 @@ export function appendFileSync(filename: string, data: FileContents, options?: N
 export function appendFileSync(filename: string, data: FileContents, encoding?: string): void;
 export function appendFileSync(filename: string, data: FileContents, arg3?: Node.WriteFileOptions | string): void {
 	const options = normalizeOptions(arg3, 'utf8', 'a', 0o644);
-	const flag = FileFlag.FromString(options.flag);
+	const flag = FileFlag.Get(options.flag);
 	if (!flag.isAppendable()) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}
