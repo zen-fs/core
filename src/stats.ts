@@ -56,7 +56,7 @@ export interface StatsLike {
  * Provides information about a particular entry in the file system.
  * Common code used by both Stats and BigIntStats.
  */
-export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T> {
+export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T>, StatsLike {
 	protected abstract _isBigint: boolean;
 
 	protected get _typename(): string {
