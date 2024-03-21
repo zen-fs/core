@@ -61,6 +61,7 @@ export async function configure(config: Configuration): Promise<void> {
 }
 
 export * from './backends/index.js';
+export type { Backend, BackendConfig } from './backends/backend.js';
 export * from './backends/AsyncStore.js';
 export * from './backends/SyncStore.js';
 export * from './ApiError.js';
