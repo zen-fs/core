@@ -328,7 +328,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
  * @see http://nodejs.org/api/fs.html#fs_class_fs_stats
  * @see http://man7.org/linux/man-pages/man2/stat.2.html
  */
-export class Stats extends StatsCommon<number> implements Node.Stats {
+export class Stats extends StatsCommon<number> implements Node.Stats, StatsLike {
 	protected _isBigint = false;
 
 	/**
@@ -345,7 +345,7 @@ Stats satisfies typeof Node.Stats;
  * Stats with bigint
  * @todo Implement with bigint instead of wrapping Stats
  */
-export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats {
+export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats, StatsLike {
 	protected _isBigint = true;
 
 	public atimeNs: bigint;
