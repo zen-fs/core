@@ -66,9 +66,9 @@ await configure({
 > [!TIP]
 > When configuring a mount point, you can pass in
 >
-> 1. A string that maps to a built-in backend
-> 2. A `Backend` object, if the backend has no required options
-> 3. An object that has the options accepted by the backend and a `backend` property which is (1) or (2)
+> 1. A `Backend` object, if the backend has no required options
+> 2. An object that has the options accepted by the backend and a `backend` property which is a `Backend` object
+> 3. A `FileSystem` instance (_not recommended_)
 
 Here is an example that mounts the `Storage` backend from `@zenfs/dom` on `/`:
 
