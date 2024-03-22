@@ -86,7 +86,7 @@ export async function checkOptions(backend: Backend, opts: object): Promise<void
 
 	// Check for required options.
 	for (const [optName, opt] of Object.entries(backend.options)) {
-		const providedValue = opts && opt;
+		const providedValue = opts?.[optName];
 
 		if (providedValue === undefined || providedValue === null) {
 			if (!opt.required) {
@@ -117,7 +117,7 @@ export async function checkOptions(backend: Backend, opts: object): Promise<void
 				ErrorCode.EINVAL,
 				`${backend.name}: Value provided for option ${optName} is not the proper type. Expected ${
 					Array.isArray(opt.type) ? `one of {${opt.type.join(', ')}}` : opt.type
-				}, but received ${typeof providedValue}\nOption description: ${opt.description}`
+				}, but received ${typeof providedValue}`
 			);
 		}
 
@@ -132,6 +132,14 @@ export function createBackend<B extends Backend>(backend: B, options?: object): 
 	checkOptions(backend, options);
 	const fs = <ReturnType<B['create']>>backend.create(options);
 	return fs.ready();
+}
+
+export const backends: { [backend: string]: Backend } = {};
+
+export function registerBackend(..._backends: Backend[]) {
+	for (const backend of _backends) {
+		backends[backend.name] = backend;
+	}
 }
 
 /**
@@ -159,13 +167,13 @@ export function isBackendConfig(arg: unknown): arg is BackendConfig {
  * @param config A BackendConfig object.
  */
 export async function resolveBackendConfig(options: BackendConfig): Promise<FileSystem> {
-	const { backend } = options;
-	if (!backend) {
-		throw new ApiError(ErrorCode.EPERM, 'Missing backend');
-	}
-
 	if (typeof options !== 'object' || options == null) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on configuration object.');
+	}
+
+	let { backend } = options;
+	if (!backend) {
+		throw new ApiError(ErrorCode.EPERM, 'Missing backend');
 	}
 
 	const props = Object.keys(options).filter(k => k != 'backend');
@@ -182,8 +190,16 @@ export async function resolveBackendConfig(options: BackendConfig): Promise<File
 		}
 	}
 
-	if (!backend) {
-		throw new ApiError(ErrorCode.EPERM, `Backend "${backend}" is not available`);
+	if (typeof backend == 'string') {
+		if (!Object.hasOwn(backends, backend)) {
+			throw new ApiError(ErrorCode.EINVAL, 'Unknown backend: ' + backend);
+		}
+
+		backend = backends[backend];
+	}
+
+	if (!backend.isAvailable()) {
+		throw new ApiError(ErrorCode.EPERM, 'Backend not available: ' + backend);
 	}
 	checkOptions(backend, options);
 	const fs = backend.create(options);

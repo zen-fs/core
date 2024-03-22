@@ -295,9 +295,9 @@ export const AsyncMirror: Backend = {
 		sync: {
 			type: 'object',
 			description: 'The synchronous file system to mirror the asynchronous file system to.',
-			validator: async (v: FileSystem): Promise<void> => {
-				if (!v?.metadata().synchronous) {
-					throw new ApiError(ErrorCode.EINVAL, `'sync' option must be a file system that supports synchronous operations`);
+			validator: async (backend: FileSystem | Backend): Promise<void> => {
+				if ('metadata' in backend && !backend.metadata().synchronous) {
+					throw new ApiError(ErrorCode.EINVAL, '"sync" option must be a file system that supports synchronous operations');
 				}
 			},
 		},

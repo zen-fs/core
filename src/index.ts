@@ -3,9 +3,8 @@
  */
 import * as fs from './emulation/index.js';
 import { FileSystem } from './filesystem.js';
-import { backends } from './backends/index.js';
 import { Cred } from './cred.js';
-import { isBackend, type Backend, type BackendConfig, resolveBackendConfig } from './backends/backend.js';
+import { isBackend, backends, type Backend, type BackendConfig, resolveBackendConfig } from './backends/backend.js';
 import { type MountMapping, setCred } from './emulation/shared.js';
 
 /**
