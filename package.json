@@ -10,7 +10,7 @@
 		"storage"
 	],
 	"bin": {
-		"make-index": "./scripts/make-index.js"
+		"make-index": "scripts/make-index.js"
 	},
 	"type": "module",
 	"homepage": "https://github.com/browser-fs/core",
