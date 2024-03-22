@@ -97,8 +97,8 @@ interface ApiErrorJSON {
 }
 
 /**
- * Represents a BrowserFS error. Passed back to applications after a failed
- * call to the BrowserFS API.
+ * Represents a ZenFS error. Passed back to applications after a failed
+ * call to the ZenFS API.
  */
 export class ApiError extends Error implements NodeJS.ErrnoException {
 	public static fromJSON(json: ApiErrorJSON): ApiError {
@@ -147,8 +147,8 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 	public stack?: string;
 
 	/**
-	 * Represents a BrowserFS error. Passed back to applications after a failed
-	 * call to the BrowserFS API.
+	 * Represents a ZenFS error. Passed back to applications after a failed
+	 * call to the ZenFS API.
 	 *
 	 * Error codes mirror those returned by regular Unix file operations, which is
 	 * what Node returns.

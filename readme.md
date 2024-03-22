@@ -1,10 +1,10 @@
-# BrowserFS
+# ZenFS
 
-BrowserFS is an in-browser file system that emulates the [Node JS file system API](http://nodejs.org/api/fs.html) and supports storing and retrieving files from various backends. BrowserFS also integrates nicely with other tools.
+ZenFS is an in-browser file system that emulates the [Node JS file system API](http://nodejs.org/api/fs.html) and supports storing and retrieving files from various backends. ZenFS also integrates nicely with other tools.
 
 ## Backends
 
-BrowserFS is highly extensible, and includes a few built-in backends:
+ZenFS is highly extensible, and includes a few built-in backends:
 
 -   `InMemory`: Stores files in-memory. It is a temporary file store that clears when the user navigates away.
 -   `Overlay`: Mount a read-only file system as read-write by overlaying a writable file system on top of it. Like Docker's overlayfs, it will only write changed files to the writable file system.
@@ -15,23 +15,23 @@ BrowserFS is highly extensible, and includes a few built-in backends:
 
 More backends can be defined by separate libraries, as long as they implement `FileSystem`.
 
-BrowserFS supports a number of other backends. Many are provided as seperate packages under `@browserfs`.
+ZenFS supports a number of other backends. Many are provided as seperate packages under `@zenfs`.
 
-For more information, see the [API documentation for BrowserFS](https://browser-fs.github.io/core).
+For more information, see the [API documentation for ZenFS](https://zen-fs.github.io/core).
 
 ## Installing
 
 ```sh
-npm install @browserfs/core
+npm install @zenfs/core
 ```
 
 ## Usage
 
 > [!NOTE]
-> The examples are written in ESM. If you are using CJS, you can `require` the package. If running in a browser you can add a script tag to your HTML pointing to the `browser.min.js` and use BrowserFS via the global `BrowserFS` object.
+> The examples are written in ESM. If you are using CJS, you can `require` the package. If running in a browser you can add a script tag to your HTML pointing to the `browser.min.js` and use ZenFS via the global `ZenFS` object.
 
 ```js
-import fs from '@browserfs/core';
+import fs from '@zenfs/core';
 
 fs.writeFileSync('/test.txt', 'Cool, I can do this in the browser!');
 
@@ -43,16 +43,16 @@ console.log(contents);
 
 A single `InMemory` backend is created by default, mounted on `/`.
 
-You can configure BrowserFS to use a different backend and mount multiple backends. It is strongly recommended to do so using the `configure` function.
+You can configure ZenFS to use a different backend and mount multiple backends. It is strongly recommended to do so using the `configure` function.
 
 You can use multiple backends by passing an object to `configure` which maps paths to file systems.
 
 The following example mounts a zip file to `/zip`, in-memory storage to `/tmp`, and IndexedDB to `/home`. Note that `/` has the default in-memory backend.
 
 ```js
-import { configure, InMemory } from '@browserfs/core';
-import { IndexedDB } from '@browserfs/dom';
-import { Zip } from '@browserfs/zip';
+import { configure, InMemory } from '@zenfs/core';
+import { IndexedDB } from '@zenfs/dom';
+import { Zip } from '@zenfs/zip';
 
 const zipData = await (await fetch('mydata.zip')).arrayBuffer();
 
@@ -70,11 +70,11 @@ await configure({
 > 2. A `Backend` object, if the backend has no required options
 > 3. An object that has the options accepted by the backend and a `backend` property which is (1) or (2)
 
-Here is an example that mounts the `Storage` backend from `@browserfs/dom` on `/`:
+Here is an example that mounts the `Storage` backend from `@zenfs/dom` on `/`:
 
 ```js
-import { configure, fs } from '@browserfs/core';
-import { Storage } from '@browserfs/dom';
+import { configure, fs } from '@zenfs/core';
+import { Storage } from '@zenfs/dom';
 
 await configure({ backend: Storage });
 
@@ -91,8 +91,8 @@ console.log(contents);
 The FS promises API is exposed as `promises`.
 
 ```js
-import { configure, promises } from '@browserfs/core';
-import { IndexedDB } from '@browserfs/dom';
+import { configure, promises } from '@zenfs/core';
+import { IndexedDB } from '@zenfs/dom';
 
 await configure({ '/': IndexedDB });
 
@@ -106,15 +106,15 @@ if (!exists) {
 > You can import the promises API using `promises`, or using `fs.promises` on the exported `fs`.
 
 > [!IMPORTANT]
-> BrowserFS does _not_ provide a seperate public import for importing promises like `fs/promises`. If you are using ESM, you can import promises functions like `fs/promises` from the `dist/emulation/promises.ts` file, though this may change at any time and is **not recommended**.
+> ZenFS does _not_ provide a seperate public import for importing promises like `fs/promises`. If you are using ESM, you can import promises functions like `fs/promises` from the `dist/emulation/promises.ts` file, though this may change at any time and is **not recommended**.
 
 #### Using asynchronous backends synchronously
 
 You may have noticed that attempting to use a synchronous function on an asynchronous backend (e.g. `IndexedDB`) results in a "not supplied" error (`ENOTSUP`). If you would like to use an asynchronous backend synchronously you need to wrap it in an `AsyncMirror`:
 
 ```js
-import { configure, fs, AsyncMirror, InMemory } from '@browserfs/core';
-import { IndexedDB } from '@browserfs/dom';
+import { configure, fs, AsyncMirror, InMemory } from '@zenfs/core';
+import { IndexedDB } from '@zenfs/dom';
 
 await configure({
 	'/': {
@@ -134,9 +134,9 @@ If you would like to create backends without configure (e.g. to do something dyn
 You can then mount and unmount the backend instance by using `mount` and `umount`.
 
 ```js
-import { configure, createBackend, InMemory } from '@browserfs/core';
-import { IndexedDB  } from '@browserfs/dom';
-import { Zip } from '@browserfs/zip';
+import { configure, createBackend, InMemory } from '@zenfs/core';
+import { IndexedDB  } from '@zenfs/dom';
+import { Zip } from '@zenfs/zip';
 
 await configure({
 	'/tmp': InMemory,
@@ -155,11 +155,11 @@ fs.umount('/mnt/zip'); // finished using the zip
 ```
 
 > [!WARNING]
-> Instances of backends follow the **internal** BrowserFS API. You should never use a backend's methods unless you are extending a backend.
+> Instances of backends follow the **internal** ZenFS API. You should never use a backend's methods unless you are extending a backend.
 
 ## Using with bundlers
 
-BrowserFS exports a drop-in for Node's `fs` module (up to the version of `@types/node` in package.json), so you can use it for your bundler of preference using the default export.
+ZenFS exports a drop-in for Node's `fs` module (up to the version of `@types/node` in package.json), so you can use it for your bundler of preference using the default export.
 
 ## Building
 

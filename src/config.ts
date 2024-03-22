@@ -6,7 +6,7 @@ import { setCred, type MountMapping } from './emulation/shared.js';
 import { FileSystem } from './filesystem.js';
 
 /**
- * Initializes BrowserFS with the given file systems.
+ * Initializes ZenFS with the given file systems.
  */
 export function initialize(mounts: { [point: string]: FileSystem }, uid: number = 0, gid: number = 0) {
 	setCred(new Cred(uid, gid, uid, gid, uid, gid));
@@ -21,12 +21,12 @@ export interface ConfigMapping {
 }
 
 /**
- * A configuration for BrowserFS
+ * A configuration for ZenFS
  */
 export type Configuration = FileSystem | BackendConfig | ConfigMapping;
 
 /**
- * Creates filesystems with the given configuration, and initializes BrowserFS with it.
+ * Creates filesystems with the given configuration, and initializes ZenFS with it.
  * See the Configuration type for more info on the configuration object.
  */
 export async function configure(config: Configuration): Promise<void> {

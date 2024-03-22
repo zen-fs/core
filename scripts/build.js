@@ -12,7 +12,7 @@ const options = parseArgs({
 const config = {
 	entryPoints: ['src/index.ts'],
 	target: 'esnext',
-	globalName: 'BrowserFS',
+	globalName: 'ZenFS',
 	outfile: 'dist/browser.min.js',
 	sourcemap: true,
 	keepNames: true,

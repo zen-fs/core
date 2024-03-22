@@ -205,7 +205,7 @@ export function resolveFS(path: string): { fs: FileSystem; path: string; mountPo
 		}
 	}
 
-	throw new ApiError(ErrorCode.EIO, 'BrowserFS not initialized with a file system');
+	throw new ApiError(ErrorCode.EIO, 'ZenFS not initialized with a file system');
 }
 
 /**

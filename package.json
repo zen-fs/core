@@ -1,5 +1,5 @@
 {
-	"name": "@browserfs/core",
+	"name": "@zenfs/core",
 	"version": "0.4.0",
 	"description": "A filesystem in your browser",
 	"main": "dist/index.js",
@@ -13,22 +13,18 @@
 		"make-index": "scripts/make-index.js"
 	},
 	"type": "module",
-	"homepage": "https://github.com/browser-fs/core",
-	"author": "John Vilk <jvilk@cs.umass.edu>",
+	"homepage": "https://github.com/zen-fs/core",
+	"author": "James P. <jp@drvortex.dev> (https://drvortex.dev)",
 	"contributors": [
-		{
-			"name": "James P.",
-			"email": "jp@drvortex.dev",
-			"url": "https://drvortex.dev"
-		}
+		"John Vilk <jvilk@cs.umass.edu>"
 	],
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/browser-fs/core.git"
+		"url": "git+https://github.com/zen-fs/core.git"
 	},
 	"bugs": {
-		"url": "https://github.com/browser-fs/core/issues"
+		"url": "https://github.com/zen-fs/core/issues"
 	},
 	"engines": {
 		"node": ">= 18"
@@ -49,7 +45,7 @@
 		"lint": "eslint src test && tsc -p tsconfig.json --noEmit",
 		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
 		"build": "node scripts/build.js",
-		"build:docs": "typedoc --out docs --name BrowserFS src/index.ts",
+		"build:docs": "typedoc --out docs --name ZenFS src/index.ts",
 		"dev": "node scripts/build.js --watch",
 		"prepublishOnly": "npm run build"
 	},

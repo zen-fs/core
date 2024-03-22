@@ -1,7 +1,8 @@
-BrowserFS's license follows:
+ZenFS's license follows:
 
 ====
 
+CopyRight (c) 2024 James P. and other ZenFS contributors.
 Copyright (c) 2013-2023 John Vilk and other BrowserFS contributors.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -24,7 +25,7 @@ SOFTWARE.
 
 ====
 
-This license applies to all parts of BrowserFS, except for the following items:
+This license applies to all parts of ZenFS, except for the following items:
 
 - The test fixtures located in `test/fixtures/files/node`. Their license follows:
   """
