@@ -1,6 +1,10 @@
 # ZenFS
 
-ZenFS is an in-browser file system that emulates the [Node JS file system API](http://nodejs.org/api/fs.html) and supports storing and retrieving files from various backends. ZenFS also integrates nicely with other tools.
+ZenFS is a file system that emulates the [Node JS file system API](http://nodejs.org/api/fs.html).
+
+It works using a system of backends, which are used by ZenFS to store and retrieve. ZenFS can also integrate nicely with other tools.
+
+ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS).
 
 ## Backends
 
@@ -33,7 +37,7 @@ npm install @zenfs/core
 ```js
 import fs from '@zenfs/core';
 
-fs.writeFileSync('/test.txt', 'Cool, I can do this in the browser!');
+fs.writeFileSync('/test.txt', 'Cool, I can do this in any JS environment (including browsers)!');
 
 const contents = fs.readFileSync('/test.txt', 'utf-8');
 console.log(contents);
