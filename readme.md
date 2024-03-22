@@ -50,7 +50,7 @@ You can use multiple backends by passing an object to `configure` which maps pat
 The following example mounts a zip file to `/zip`, in-memory storage to `/tmp`, and IndexedDB to `/home`. Note that `/` has the default in-memory backend.
 
 ```js
-import { configure } from '@browserfs/core';
+import { configure, InMemory } from '@browserfs/core';
 import { IndexedDB } from '@browserfs/dom';
 import { Zip } from '@browserfs/zip';
 
@@ -58,13 +58,14 @@ const zipData = await (await fetch('mydata.zip')).arrayBuffer();
 
 await configure({
 	'/mnt/zip': { backend: Zip, zipData },
-	'/tmp': 'InMemory',
+	'/tmp': InMemory,
 	'/home': IndexedDB,
 };
 ```
 
 > [!TIP]
 > When configuring a mount point, you can pass in
+>
 > 1. A string that maps to a built-in backend
 > 2. A `Backend` object, if the backend has no required options
 > 3. An object that has the options accepted by the backend and a `backend` property which is (1) or (2)
@@ -112,13 +113,13 @@ if (!exists) {
 You may have noticed that attempting to use a synchronous function on an asynchronous backend (e.g. `IndexedDB`) results in a "not supplied" error (`ENOTSUP`). If you would like to use an asynchronous backend synchronously you need to wrap it in an `AsyncMirror`:
 
 ```js
-import { configure, fs } from '@browserfs/core';
+import { configure, fs, AsyncMirror, InMemory } from '@browserfs/core';
 import { IndexedDB } from '@browserfs/dom';
 
 await configure({
 	'/': {
-		backend: 'AsyncMirror',
-		sync: 'InMemory',
+		backend: AsyncMirror,
+		sync: InMemory,
 		async: IndexedDB,
 	},
 });
@@ -133,12 +134,12 @@ If you would like to create backends without configure (e.g. to do something dyn
 You can then mount and unmount the backend instance by using `mount` and `umount`.
 
 ```js
-import { configure, createBackend } from '@browserfs/core';
+import { configure, createBackend, InMemory } from '@browserfs/core';
 import { IndexedDB  } from '@browserfs/dom';
 import { Zip } from '@browserfs/zip';
 
 await configure({
-	'/tmp': 'InMemory',
+	'/tmp': InMemory,
 	'/home': IndexedDB,
 };
 
