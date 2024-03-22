@@ -4,7 +4,7 @@
 import * as fs from './emulation/index.js';
 import { FileSystem } from './filesystem.js';
 import { Cred } from './cred.js';
-import { isBackend, backends, type Backend, type BackendConfig, resolveBackendConfig } from './backends/backend.js';
+import { isBackend, type Backend, type BackendConfig, resolveBackendConfig } from './backends/backend.js';
 import { type MountMapping, setCred } from './emulation/shared.js';
 
 /**
@@ -19,7 +19,7 @@ export function initialize(mounts: { [point: string]: FileSystem }, uid: number 
  * Defines a mapping of mount points to their configurations
  */
 export interface ConfigMapping {
-	[mountPoint: string]: FileSystem | BackendConfig | keyof typeof backends | Backend;
+	[mountPoint: string]: FileSystem | BackendConfig | Backend;
 }
 
 /**
@@ -46,10 +46,6 @@ export async function configure(config: Configuration): Promise<void> {
 			continue;
 		}
 
-		if (typeof value == 'string') {
-			value = { backend: backends[value] };
-		}
-
 		if (isBackend(value)) {
 			value = { backend: value };
 		}
@@ -59,7 +55,6 @@ export async function configure(config: Configuration): Promise<void> {
 	initialize(<MountMapping>config);
 }
 
-export * from './backends/index.js';
 export type { Backend, BackendConfig } from './backends/backend.js';
 export * from './backends/AsyncStore.js';
 export * from './backends/SyncStore.js';

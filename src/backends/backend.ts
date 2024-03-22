@@ -134,14 +134,6 @@ export function createBackend<B extends Backend>(backend: B, options?: object): 
 	return fs.ready();
 }
 
-export const backends: { [backend: string]: Backend } = {};
-
-export function registerBackend(..._backends: Backend[]) {
-	for (const backend of _backends) {
-		backends[backend.name] = backend;
-	}
-}
-
 /**
  * Specifies a file system backend type and its options.
  *
@@ -171,9 +163,9 @@ export async function resolveBackendConfig(options: BackendConfig): Promise<File
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on configuration object.');
 	}
 
-	let { backend } = options;
-	if (!backend) {
-		throw new ApiError(ErrorCode.EPERM, 'Missing backend');
+	const { backend } = options;
+	if (!isBackend(backend)) {
+		throw new ApiError(ErrorCode.EINVAL, 'Missing or invalid backend');
 	}
 
 	const props = Object.keys(options).filter(k => k != 'backend');
@@ -188,14 +180,6 @@ export async function resolveBackendConfig(options: BackendConfig): Promise<File
 		if (isBackendConfig(option)) {
 			options[prop] = await resolveBackendConfig(option);
 		}
-	}
-
-	if (typeof backend == 'string') {
-		if (!Object.hasOwn(backends, backend)) {
-			throw new ApiError(ErrorCode.EINVAL, 'Unknown backend: ' + backend);
-		}
-
-		backend = backends[backend];
 	}
 
 	if (!backend.isAvailable()) {
