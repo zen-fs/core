@@ -132,17 +132,31 @@ export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8A
 	}
 	switch (encoding) {
 		case 'ascii':
-			return new Uint8Array(
-				Array.from(input).flatMap(char => {
-					const code = char.charCodeAt(0);
-					return code > 0x7f ? [0x7f, code & 0x7f] : code;
-				})
-			);
-		case 'utf8':
-		case 'utf-8':
 		case 'latin1':
 		case 'binary':
 			return new Uint8Array(Array.from(input).map(char => char.charCodeAt(0)));
+		case 'utf8':
+		case 'utf-8':
+			return new Uint8Array(
+				Array.from(input).flatMap(char => {
+					const code = char.charCodeAt(0);
+					if (code < 0x80) {
+						return code;
+					}
+
+					const a = (code & 0x3f) | 0x80;
+					if (code < 0x800) {
+						return [(code >> 6) | 0xc0, a];
+					}
+
+					const b = ((code >> 6) & 0x3f) | 0x80;
+					if (code < 0x10000) {
+						return [(code >> 12) | 0xe0, b, a];
+					}
+
+					return [(code >> 18) | 0xf0, ((code >> 12) & 0x3f) | 0x80, b, a];
+				})
+			);
 		case 'base64':
 			return encode(atob(input), 'utf-8');
 		case 'base64url':
@@ -172,22 +186,30 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 	}
 	switch (encoding) {
 		case 'ascii':
-			let asciiString = '';
-			for (let i = 0; i < input.length; i++) {
-				let code = input[i];
-				if (code == 0x7f) {
-					code += input[++i];
-				}
-				asciiString += String.fromCharCode(code);
-			}
-			return asciiString;
-		case 'utf8':
-		case 'utf-8':
 		case 'latin1':
 		case 'binary':
 			return Array.from(input)
 				.map(char => String.fromCharCode(char))
 				.join('');
+		case 'utf8':
+		case 'utf-8':
+			let utf8String = '';
+			for (let i = 0; i < input.length; i++) {
+				let code;
+
+				if (input[i] < 0x80) {
+					code = input[i];
+				} else if (input[i] < 0xe0) {
+					code = ((input[i] & 0x1f) << 6) | (input[++i] & 0x3f);
+				} else if (input[i] < 0xf0) {
+					code = ((input[i] & 0x0f) << 12) | ((input[++i] & 0x3f) << 6) | (input[++i] & 0x3f);
+				} else {
+					code = ((input[i] & 0x07) << 18) | ((input[++i] & 0x3f) << 12) | ((input[++i] & 0x3f) << 6) | (input[++i] & 0x3f);
+				}
+
+				utf8String += String.fromCharCode(code);
+			}
+			return utf8String;
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':

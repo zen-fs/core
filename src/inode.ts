@@ -47,6 +47,7 @@ enum Offset {
 	birthtime = 34, // 38
 	mtime = 42, // 46
 	ctime = 50, // 54
+	end = 58, // 62
 }
 
 /**
@@ -63,7 +64,10 @@ export class Inode implements StatsLike {
 
 	constructor(buffer?: ArrayBufferLike) {
 		const setDefaults = !buffer;
-		buffer ??= new ArrayBuffer(58);
+		buffer ??= new ArrayBuffer(Offset.end);
+		if (buffer?.byteLength < Offset.end) {
+			throw new RangeError(`Can not create an inode from a buffer less than ${Offset.end} bytes`);
+		}
 		this.view = new DataView(buffer);
 		this.buffer = buffer;
 
@@ -167,13 +171,6 @@ export class Inode implements StatsLike {
 	 */
 	public toStats(): Stats {
 		return new Stats(this);
-	}
-
-	/**
-	 * Get the size of this Inode, in bytes.
-	 */
-	public sizeof(): number {
-		return this.buffer.byteLength;
 	}
 
 	/**
