@@ -14,8 +14,9 @@ const deletionLogPath = '/.deleted';
 
 /**
  * Overlays a RO file to make it writable.
+ * @internal
  */
-class OverlayFile extends PreloadFile<UnlockedOverlayFS> implements File {
+export class OverlayFile extends PreloadFile<UnlockedOverlayFS> implements File {
 	constructor(fs: UnlockedOverlayFS, path: string, flag: FileFlag, stats: Stats, data: Uint8Array) {
 		super(fs, path, flag, stats, data);
 	}
@@ -568,6 +569,7 @@ export class UnlockedOverlayFS extends FileSystem {
  * OverlayFS makes a read-only filesystem writable by storing writes on a second,
  * writable file system. Deletes are persisted via metadata stored on the writable
  * file system.
+ * @internal
  */
 export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
 	public async ready() {

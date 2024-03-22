@@ -120,6 +120,7 @@ export interface AsyncRWTransaction extends AsyncROTransaction {
 
 /**
  * Async preload file for usage with AsyncStore
+ * @internal
  */
 export class AsyncFile extends PreloadFile<AsyncStoreFS> {
 	constructor(_fs: AsyncStoreFS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
@@ -164,6 +165,7 @@ export interface AsyncStoreOptions {
 /**
  * An asynchronous file system which uses an async store to store its data.
  * @see AsyncStore
+ * @internal
  */
 export class AsyncStoreFS extends Async(FileSystem) {
 	protected store: AsyncStore;

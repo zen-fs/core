@@ -25,8 +25,9 @@ type AsyncOperation = {
 
 /**
  * We define our own file to interpose on syncSync() for mirroring purposes.
+ * @internal
  */
-class MirrorFile extends PreloadFile<AsyncMirrorFS> {
+export class MirrorFile extends PreloadFile<AsyncMirrorFS> {
 	constructor(fs: AsyncMirrorFS, path: string, flag: FileFlag, stat: Stats, data: Uint8Array) {
 		super(fs, path, flag, stat, data);
 	}

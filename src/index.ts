@@ -56,7 +56,11 @@ export async function configure(config: Configuration): Promise<void> {
 }
 
 export type { Backend, BackendConfig } from './backends/backend.js';
+export * from './backends/AsyncMirror.js';
 export * from './backends/AsyncStore.js';
+export * from './backends/InMemory.js';
+export * from './backends/Locked.js';
+export * from './backends/Overlay.js';
 export * from './backends/SyncStore.js';
 export * from './ApiError.js';
 export * from './cred.js';

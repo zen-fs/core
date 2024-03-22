@@ -12,6 +12,7 @@ import type { Stats } from '../stats.js';
  * are not executed in a single atomic step.  OverlayFS uses this
  * LockedFS to avoid having to reason about the correctness of
  * multiple requests interleaving.
+ * @internal
  */
 export class LockedFS<FS extends FileSystem> implements FileSystem {
 	private _mu: Mutex = new Mutex();

@@ -2,7 +2,6 @@ import { FileSystem } from './filesystem.js';
 import { ApiError, ErrorCode } from './ApiError.js';
 import { dirname } from './emulation/path.js';
 import { Cred } from './cred.js';
-import type { TextDecoder as _TextDecoder, TextEncoder as _TextEncoder } from 'node:util';
 
 declare global {
 	function atob(data: string): string;
@@ -10,8 +9,6 @@ declare global {
 }
 
 declare const globalThis: {
-	TextDecoder?: typeof _TextDecoder;
-	TextEncoder?: typeof _TextEncoder;
 	setImmediate?: (callback: () => unknown) => void;
 };
 
@@ -130,21 +127,36 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
  * @internal
  */
 export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8Array {
+	if (typeof input != 'string') {
+		throw new ApiError(ErrorCode.EINVAL, 'Can not encode a non-string');
+	}
 	switch (encoding) {
 		case 'ascii':
-			return new globalThis.TextEncoder().encode(input).map(v => v & 0x7f);
-		case 'latin1':
-		case 'binary':
+			return new Uint8Array(
+				Array.from(input).flatMap(char => {
+					const code = char.charCodeAt(0);
+					return code > 0x7f ? [0x7f, code & 0x7f] : code;
+				})
+			);
 		case 'utf8':
 		case 'utf-8':
+		case 'latin1':
+		case 'binary':
+			return new Uint8Array(Array.from(input).map(char => char.charCodeAt(0)));
 		case 'base64':
+			return encode(atob(input), 'utf-8');
 		case 'base64url':
+			return encode(input.replace('_', '/').replace('-', '+'), 'base64');
 		case 'hex':
-			return new globalThis.TextEncoder().encode(input);
+			return new Uint8Array(input.match(/.{1,2}/g).map(e => parseInt(e, 16)));
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':
-			return new globalThis.TextEncoder().encode(input).slice(0, -1);
+			const u16 = new Uint16Array(new ArrayBuffer(input.length * 2));
+			for (let i = 0; i < input.length; i++) {
+				u16[i] = input.charCodeAt(i);
+			}
+			return new Uint8Array(u16.buffer);
 		default:
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid encoding: ' + encoding);
 	}
@@ -155,14 +167,27 @@ export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8A
  * @internal
  */
 export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): string {
+	if (!(input instanceof Uint8Array)) {
+		throw new ApiError(ErrorCode.EINVAL, 'Can not decode a non-Uint8Array');
+	}
 	switch (encoding) {
 		case 'ascii':
+			let asciiString = '';
+			for (let i = 0; i < input.length; i++) {
+				let code = input[i];
+				if (code == 0x7f) {
+					code += input[++i];
+				}
+				asciiString += String.fromCharCode(code);
+			}
+			return asciiString;
 		case 'utf8':
 		case 'utf-8':
-			return new globalThis.TextDecoder().decode(input);
 		case 'latin1':
 		case 'binary':
-			return new globalThis.TextDecoder('latin1').decode(input);
+			return Array.from(input)
+				.map(char => String.fromCharCode(char))
+				.join('');
 		case 'utf16le':
 		case 'ucs2':
 		case 'ucs-2':
@@ -173,16 +198,12 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 			}
 			return utf16leString;
 		case 'base64':
-			return btoa(
-				Array.from(input)
-					.map(v => String.fromCharCode(v))
-					.join('')
-			);
+			return btoa(decode(input, 'utf-8'));
 		case 'base64url':
 			return decode(input, 'base64').replace('/', '_').replace('+', '-');
 		case 'hex':
 			return Array.from(input)
-				.map(e => e.toString(16))
+				.map(e => e.toString(16).padStart(2, '0'))
 				.join('');
 		default:
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid encoding: ' + encoding);

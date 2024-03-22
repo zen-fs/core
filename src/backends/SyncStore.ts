@@ -165,6 +165,10 @@ export interface SyncStoreOptions {
 	store: SyncStore;
 }
 
+/**
+ * File backend by a SyncStoreFS
+ * @internal
+ */
 export class SyncStoreFile extends PreloadFile<SyncStoreFS> {
 	constructor(_fs: SyncStoreFS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
@@ -191,13 +195,12 @@ export class SyncStoreFile extends PreloadFile<SyncStoreFS> {
 }
 
 /**
- * A "Synchronous key-value file system". Stores data to/retrieves data from an
- * underlying key-value store.
+ * A synchronous key-value file system. Uses a SyncStore to store the data.
  *
- * We use a unique ID for each node in the file system. The root node has a
- * fixed ID.
+ * We use a unique ID for each node in the file system. The root node has a fixed ID.
  * @todo Introduce Node ID caching.
  * @todo Check modes.
+ * @internal
  */
 export class SyncStoreFS extends Sync(FileSystem) {
 	protected store: SyncStore;
@@ -483,7 +486,8 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		if (!data) {
 			throw ApiError.ENOENT(p);
 		}
-		return new Inode(data.buffer);
+		const inode = new Inode(data.buffer);
+		return inode;
 	}
 
 	/**

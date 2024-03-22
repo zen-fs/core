@@ -1,6 +1,7 @@
 import type { Ino } from '../inode.js';
 import type { Backend } from './backend.js';
 import { SyncStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncRWTransaction, SyncStoreFS } from './SyncStore.js';
+
 /**
  * A simple in-memory store
  */
