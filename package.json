@@ -30,6 +30,7 @@
 		"node": ">= 18"
 	},
 	"exports": {
+		".": "./dist/index.js",
 		"./*": "./dist/*"
 	},
 	"typesVersions": {
