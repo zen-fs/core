@@ -26,7 +26,7 @@
 		"@typescript-eslint/ban-types": "warn",
 		"@typescript-eslint/triple-slash-reference": "warn",
 		"@typescript-eslint/no-non-null-assertion": "off",
-		"@typescript-eslint/no-namespace": "off"
+		"@typescript-eslint/no-namespace": "warn"
 	},
 	"ignorePatterns": ["scripts/*.js", "src/*.config.js", "test/fixtures"],
 	"plugins": ["@typescript-eslint"]

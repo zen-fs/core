@@ -47,13 +47,11 @@ interface WorkerRequest {
 	reject: _executor[1];
 }
 
-export namespace WorkerFS {
-	export interface Options {
-		/**
-		 * The target worker that you want to connect to, or the current worker if in a worker context.
-		 */
-		worker: Worker;
-	}
+export interface WorkerFSOptions {
+	/**
+	 * The target worker that you want to connect to, or the current worker if in a worker context.
+	 */
+	worker: Worker;
 }
 
 type _RPCExtractReturnValue<T extends RPCResponse['method']> = Promise<Extract<RPCResponse, { method: T }>['value']>;
@@ -97,7 +95,7 @@ export class WorkerFS extends Async(FileSystem) {
 	 * Constructs a new WorkerFS instance that connects with ZenFS running on
 	 * the specified worker.
 	 */
-	public constructor({ worker }: WorkerFS.Options) {
+	public constructor({ worker }: WorkerFSOptions) {
 		super();
 		this._worker = worker;
 		this._worker.onmessage = (event: MessageEvent) => {
@@ -206,7 +204,7 @@ export const Worker: Backend = {
 		return typeof importScripts !== 'undefined' || typeof Worker !== 'undefined';
 	},
 
-	create(options: WorkerFS.Options) {
+	create(options: WorkerFSOptions) {
 		return new WorkerFS(options);
 	},
 };
