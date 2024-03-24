@@ -86,7 +86,6 @@ type _RPCExtractReturnValue<T extends RPCResponse['method']> = Promise<Extract<R
  * of the configuration option of the remote FS.
  */
 export class WorkerFS extends Async(FileSystem) {
-
 	private _worker: Worker;
 	private _currentID: number = 0;
 	private _requests: Map<number, WorkerRequest> = new Map();
@@ -210,4 +209,4 @@ export const Worker: Backend = {
 	create(options: WorkerFS.Options) {
 		return new WorkerFS(options);
 	},
-}
+};

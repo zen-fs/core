@@ -1,15 +1,15 @@
 # ZenFS DOM Backends
 
-[ZenFS](https://github.com/zen-fs/core) backends for DOM APIs. DOM APIs are *only* available natively in browsers.
+[ZenFS](https://github.com/zen-fs/core) backends for DOM APIs. DOM APIs are _only_ available natively in browsers.
 
 Please read the ZenFS documentation!
 
 ## Backends
 
-- `HTTPRequest`: Downloads files on-demand from a webserver using `fetch`.
-- `Storage`: Stores files in a `Storage` object, like `localStorage` and `seesionStorage`.
-- `IndexedDB`: Stores files into an `IndexedDB` object database.
-- `WorkerFS`: Lets you mount the ZenFS file system configured in the main thread in a WebWorker, or the other way around!
+-   `HTTPRequest`: Downloads files on-demand from a webserver using `fetch`.
+-   `Storage`: Stores files in a `Storage` object, like `localStorage` and `seesionStorage`.
+-   `IndexedDB`: Stores files into an `IndexedDB` object database.
+-   `WorkerFS`: Lets you mount the ZenFS file system configured in the main thread in a WebWorker, or the other way around!
 
 For more information, see the [API documentation](https://zen-fs.github.io/dom).
 

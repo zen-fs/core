@@ -35,8 +35,8 @@
 		}
 	},
 	"scripts": {
-		"format": "prettier --write src",
-		"format:check": "prettier --check src",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
 		"lint": "tsc -p tsconfig.json --noEmit && eslint src",
 		"build": "node scripts/build.mjs",
 		"build:docs": "typedoc --out docs --name 'ZenFS Worker' src/index.ts",

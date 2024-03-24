@@ -20,22 +20,27 @@ const ctx = await context({
 	bundle: true,
 	minify: true,
 	platform: 'browser',
-	plugins: [{ name: 'watcher', setup(build) {
-		build.onStart(() => {
-			if(!options.keep) {
-				rmSync('dist', { force: true, recursive: true });
-			}
+	plugins: [
+		{
+			name: 'watcher',
+			setup(build) {
+				build.onStart(() => {
+					if (!options.keep) {
+						rmSync('dist', { force: true, recursive: true });
+					}
 
-			try {
-				execSync('npx tsc -p tsconfig.json', { stdio: 'inherit' });
-			} catch (e) {
-				console.error('status' in e ? e.toString() : e);
-			}
-		});
-	} }],
+					try {
+						execSync('npx tsc -p tsconfig.json', { stdio: 'inherit' });
+					} catch (e) {
+						console.error('status' in e ? e.toString() : e);
+					}
+				});
+			},
+		},
+	],
 });
 
-if(options.watch) {
+if (options.watch) {
 	console.log('Watching for changes...');
 	await ctx.watch();
 } else {
