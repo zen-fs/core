@@ -22,9 +22,9 @@ function messageHandler({ worker, fs }: Remote) {
 }
 
 export function attach(worker: Worker | NodeWorker, fs: FileSystem): void {
-	worker['on' in worker ? 'on' : 'addEventListener'](messageHandler({ worker, fs }));
+	worker['on' in worker ? 'on' : 'addEventListener']('message', messageHandler({ worker, fs }));
 }
 
 export function detach(worker: Worker | NodeWorker, fs: FileSystem): void {
-	worker['off' in worker ? 'off' : 'removeEventListener'](messageHandler({ worker, fs }));
+	worker['off' in worker ? 'off' : 'removeEventListener']('message', messageHandler({ worker, fs }));
 }
