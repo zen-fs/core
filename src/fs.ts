@@ -3,7 +3,7 @@ import { File, FileFlag } from '@zenfs/core/file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '@zenfs/core/filesystem.js';
 import { Stats } from '@zenfs/core/stats.js';
 import type { Worker as NodeWorker } from 'worker_threads';
-import { isRPCMessage, type RPCRequest, type RPCResponse, type WorkerRequest } from './rpc.js';
+import { isRPCMessage, type RPCArgs, type RPCMethod, type RPCResponse, type RPCValue, type WorkerRequest } from './rpc.js';
 
 export interface WorkerFSOptions {
 	/**
@@ -11,8 +11,6 @@ export interface WorkerFSOptions {
 	 */
 	worker: Worker | NodeWorker;
 }
-
-type _RPCExtractReturnValue<T extends RPCResponse['method']> = Promise<Extract<RPCResponse, { method: T }>['value']>;
 
 /**
  * WorkerFS lets you access a ZenFS instance that is running in a worker, or the other way around.
@@ -26,15 +24,15 @@ export class WorkerFS extends Async(FileSystem) {
 	protected _requests: Map<number, WorkerRequest> = new Map();
 
 	protected _isInitialized: boolean = false;
-	protected _metadata: FileSystemMetadata;
+	protected _metadata: FileSystemMetadata | Record<string, never> = {};
 
-	private _handleMessage(event: MessageEvent) {
+	private _handleMessage(event: MessageEvent<RPCResponse>) {
 		if (!isRPCMessage(event.data)) {
 			return;
 		}
-		const { id, method, value } = event.data as RPCResponse;
+		const { id, method, value } = event.data;
 
-		if (method === 'metadata') {
+		if (method == 'metadata') {
 			this._metadata = value;
 			this._isInitialized = true;
 			return;
@@ -72,12 +70,12 @@ export class WorkerFS extends Async(FileSystem) {
 		};
 	}
 
-	protected async _rpc<T extends RPCRequest['method']>(method: T, ...args: Extract<RPCRequest, { method: T }>['args']): _RPCExtractReturnValue<T> {
+	protected async _rpc<const T extends RPCMethod>(method: T, ...args: RPCArgs<T>): RPCValue<T> {
 		return new Promise((resolve, reject) => {
 			const id = this._currentID++;
 			this._requests.set(id, { resolve, reject });
 			this._worker.postMessage({
-				isBFS: true,
+				_zenfs: true,
 				id,
 				method,
 				args,
@@ -121,9 +119,5 @@ export class WorkerFS extends Async(FileSystem) {
 	}
 	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
 		return this._rpc('link', srcpath, dstpath, cred);
-	}
-
-	public syncClose(method: string, fd: File): Promise<void> {
-		return this._rpc('syncClose', method, fd);
 	}
 }

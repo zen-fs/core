@@ -1,35 +1,42 @@
-import type { File } from '@zenfs/core/file.js';
 import type { FileSystem, FileSystemMetadata } from '@zenfs/core/filesystem.js';
 
 /**
  * An RPC message
  */
 export interface RPCMessage {
-	isBFS: true;
+	_zenfs: true;
 	id: number;
 }
 
-export type _FSAsyncMethods = {
-	[Method in keyof FileSystem]: Extract<FileSystem[Method], (...args: unknown[]) => Promise<unknown>>;
-};
-
-export type _RPCFSRequests = {
-	[Method in keyof _FSAsyncMethods]: { method: Method; args: Parameters<_FSAsyncMethods[Method]> };
-};
-
-export type _RPCFSResponses = {
-	[Method in keyof _FSAsyncMethods]: { method: Method; value: Awaited<ReturnType<_FSAsyncMethods[Method]>> };
-};
-
 /**
- * @see https://stackoverflow.com/a/60920767/17637456
+ * Extracts an object of properties assignable to P from an object T
  */
-export type RPCRequest = RPCMessage & (_RPCFSRequests[keyof _FSAsyncMethods] | { method: 'metadata'; args: [] } | { method: 'syncClose'; args: [string, File] });
+type ExtractProperties<T, P> = {
+	[K in keyof T as T[K] extends infer Prop ? (Prop extends P ? K : never) : never]: T[K];
+};
 
-export type RPCResponse = RPCMessage & (_RPCFSResponses[keyof _FSAsyncMethods] | { method: 'metadata'; value: FileSystemMetadata } | { method: 'syncClose'; value: null });
+type FSAsyncMethods = ExtractProperties<FileSystem, (...args: unknown[]) => Promise<unknown> | FileSystemMetadata>;
+
+export type RPCMethod = keyof FSAsyncMethods;
+
+export type RPCRequests = {
+	[Method in RPCMethod]: { _zenfs: true; id: number; method: Method; args: Parameters<FSAsyncMethods[Method]> };
+};
+
+export type RPCResponses = {
+	[Method in RPCMethod]: RPCMessage & { method: Method; value: Awaited<ReturnType<FSAsyncMethods[Method]>> };
+};
+
+export type RPCRequest<T extends RPCMethod = RPCMethod> = RPCRequests[T];
+
+export type RPCArgs<T extends RPCMethod = RPCMethod> = RPCRequests[T]['args'];
+
+export type RPCResponse<T extends RPCMethod = RPCMethod> = RPCResponses[T];
+
+export type RPCValue<T extends RPCMethod = RPCMethod> = Promise<RPCResponses[T]['value']>;
 
 export function isRPCMessage(arg: unknown): arg is RPCMessage {
-	return typeof arg == 'object' && 'isBFS' in arg && !!arg.isBFS;
+	return typeof arg == 'object' && '_zenfs' in arg && !!arg._zenfs;
 }
 
 type PromiseExecutor = Parameters<ConstructorParameters<typeof Promise>[0]>;
