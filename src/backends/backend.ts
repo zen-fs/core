@@ -65,7 +65,7 @@ export interface Backend<FS extends FileSystem = FileSystem, OC extends BackendO
 	 *
 	 * Defaults to 'false', as the FileSystem base class isn't usable alone.
 	 */
-	isAvailable(): boolean;
+	isAvailable(): boolean | Promise<boolean>;
 }
 
 /**
@@ -182,7 +182,7 @@ export async function resolveBackendConfig(options: BackendConfig): Promise<File
 		}
 	}
 
-	if (!backend.isAvailable()) {
+	if (!(await backend.isAvailable())) {
 		throw new ApiError(ErrorCode.EPERM, 'Backend not available: ' + backend);
 	}
 	checkOptions(backend, options);
