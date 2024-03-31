@@ -29,6 +29,6 @@
 		"@typescript-eslint/no-namespace": "warn",
 		"@typescript-eslint/prefer-as-const": "warn"
 	},
-	"ignorePatterns": ["scripts/*.js", "src/*.config.js", "test/fixtures"],
+	"ignorePatterns": ["scripts/*.js", "src/*.config.js", "tests/fixtures"],
 	"plugins": ["@typescript-eslint"]
 }
