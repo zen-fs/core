@@ -156,7 +156,11 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 	 * @param type The type of the error.
 	 * @param message A descriptive error message.
 	 */
-	constructor(public errno: ErrorCode, message: string = ErrorStrings[errno], public path?: string) {
+	constructor(
+		public errno: ErrorCode,
+		message: string = ErrorStrings[errno],
+		public path?: string
+	) {
 		super(message);
 		this.code = ErrorCode[errno];
 		this.message = `${this.code}: ${message}${this.path ? `, '${this.path}'` : ''}`;

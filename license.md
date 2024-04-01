@@ -22,8 +22,8 @@ SOFTWARE.
 
 This license applies to all parts of ZenFS, except for the following items:
 
-- The test fixtures located in `test/fixtures/node`. Their license follows:
-  """
+-   The test fixtures located in `test/fixtures/node`. Their license follows:
+    """
     Copyright Joyent, Inc. and other Node contributors. All rights reserved.
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to
@@ -42,4 +42,4 @@ This license applies to all parts of ZenFS, except for the following items:
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
     IN THE SOFTWARE.
-  """
+    """

@@ -6,7 +6,10 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { readdirSync } from './sync.js';
 
 export class Dirent implements _Dirent {
-	constructor(public name: string, protected stats: Stats) {}
+	constructor(
+		public name: string,
+		protected stats: Stats
+	) {}
 
 	isFile(): boolean {
 		return this.stats.isFile();

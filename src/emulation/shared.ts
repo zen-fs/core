@@ -250,9 +250,9 @@ export type PathLike = string;
 export type Convert<Target, From, To> = Target extends From
 	? To
 	: Target extends (...args) => unknown
-	? (...args: Convert<Parameters<Target>, From, To> & Array<unknown>) => Convert<ReturnType<Target>, From, To>
-	: Target extends object
-	? { [K in keyof Target]: Convert<Target[K], From, To> }
-	: Target;
+		? (...args: Convert<Parameters<Target>, From, To> & Array<unknown>) => Convert<ReturnType<Target>, From, To>
+		: Target extends object
+			? { [K in keyof Target]: Convert<Target[K], From, To> }
+			: Target;
 
 export type BufferToUint8Array<T> = Convert<T, Buffer, Uint8Array>;

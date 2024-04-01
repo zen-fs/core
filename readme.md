@@ -12,7 +12,7 @@ ZenFS is modular and extensible. The core includes a few built-in backends:
 
 -   `InMemory`: Stores files in-memory. This is cleared when the runtime ends (e.g. a user navigating away from a web page or a Node process exiting)
 -   `Overlay`: Use read-only file system as read-write by overlaying a writable file system on top of it.
--   `AsyncMirror`: Use an asynchronous backend synchronously. This is very helpful for asynchronous backends 
+-   `AsyncMirror`: Use an asynchronous backend synchronously. This is very helpful for asynchronous backends
 
 > [!NOTE]
 > When constructed, `AsyncMirror` loads the entire contents of the async file system into a synchronous backend. It performs operations on the synchronous file system and then queues them to be mirrored onto the asynchronous backend.
