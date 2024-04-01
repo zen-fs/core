@@ -366,22 +366,22 @@ BigIntStats satisfies typeof Node.BigIntStats;
 /**
  * @returns true if stats is a file.
  */
-export function isFile(stats: StatsCommon<number>): boolean {
-	return (stats.mode & S_IFMT) === S_IFREG;
+export function isFile(stats: StatsLike): boolean {
+	return (Number(stats.mode) & S_IFMT) === S_IFREG;
 }
 
 /**
  * @returns True if stats is a directory.
  */
-export function isDirectory(stats: StatsCommon<number>): boolean {
-	return (stats.mode & S_IFMT) === S_IFDIR;
+export function isDirectory(stats: StatsLike): boolean {
+	return (Number(stats.mode) & S_IFMT) === S_IFDIR;
 }
 
 /**
  * @returns true if stats is a symbolic link
  */
-export function isSymbolicLink(stats: StatsCommon<number>): boolean {
-	return (stats.mode & S_IFMT) === S_IFLNK;
+export function isSymbolicLink(stats: StatsLike): boolean {
+	return (Number(stats.mode) & S_IFMT) === S_IFLNK;
 }
 
 export function isSocket(): boolean {
