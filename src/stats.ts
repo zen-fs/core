@@ -362,3 +362,40 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
 	}
 }
 BigIntStats satisfies typeof Node.BigIntStats;
+
+/**
+ * @returns true if stats is a file.
+ */
+export function isFile(stats: StatsCommon<number>): boolean {
+	return (stats.mode & S_IFMT) === S_IFREG;
+}
+
+/**
+ * @returns True if stats is a directory.
+ */
+export function isDirectory(stats: StatsCommon<number>): boolean {
+	return (stats.mode & S_IFMT) === S_IFDIR;
+}
+
+/**
+ * @returns true if stats is a symbolic link
+ */
+export function isSymbolicLink(stats: StatsCommon<number>): boolean {
+	return (stats.mode & S_IFMT) === S_IFLNK;
+}
+
+export function isSocket(): boolean {
+	return false;
+}
+
+export function isBlockDevice(): boolean {
+	return false;
+}
+
+export function isCharacterDevice(): boolean {
+	return false;
+}
+
+export function isFIFO(): boolean {
+	return false;
+}
