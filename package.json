@@ -38,20 +38,25 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "tsc -p tsconfig.json --noEmit && eslint src",
-		"build": "node scripts/build.mjs",
+		"build": "node scripts/build.js",
 		"build:docs": "typedoc --out docs --name 'ZenFS Worker' src/index.ts",
-		"prepublishOnly": "npm run build"
+		"prepublishOnly": "npm run build",
+		"test": "npm run build && cross-env NODE_OPTIONS=--experimental-vm-modules npx jest"
 	},
 	"devDependencies": {
+		"@types/jest": "^29.5.12",
 		"@typescript-eslint/eslint-plugin": "^5.55.0",
 		"@typescript-eslint/parser": "^5.55.0",
+		"cross-env": "^7.0.3",
 		"esbuild": "^0.17.18",
 		"eslint": "^8.36.0",
+		"jest": "^29.7.0",
 		"prettier": "^3.2.5",
+		"ts-jest": "^29.1.2",
 		"typedoc": "^0.25.1",
 		"typescript": "5.2.2"
 	},
 	"dependencies": {
-		"@zenfs/core": "^0.4.0"
+		"@zenfs/core": "^0.4.1"
 	}
 }

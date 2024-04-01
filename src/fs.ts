@@ -3,7 +3,7 @@ import { File, FileFlag } from '@zenfs/core/file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '@zenfs/core/filesystem.js';
 import { Stats } from '@zenfs/core/stats.js';
 import type { Worker as NodeWorker } from 'worker_threads';
-import { isRPCMessage, type RPCArgs, type RPCMethod, type RPCResponse, type RPCValue, type WorkerRequest } from './rpc.js';
+import { isRPCMessage, type RPCArgs, type RPCMethod, type RPCResponse, type RPCValue, type PromiseResolve } from './rpc.js';
 
 export interface WorkerFSOptions {
 	/**
@@ -21,34 +21,17 @@ export interface WorkerFSOptions {
 export class WorkerFS extends Async(FileSystem) {
 	protected _worker: Worker | NodeWorker;
 	protected _currentID: number = 0;
-	protected _requests: Map<number, WorkerRequest> = new Map();
+	protected _requests: Map<number, PromiseResolve> = new Map();
 
-	protected _isInitialized: boolean = false;
-	protected _metadata: FileSystemMetadata | Record<string, never> = {};
-
-	private _handleMessage(event: MessageEvent<RPCResponse>) {
-		if (!isRPCMessage(event.data)) {
+	protected handleMessage(message: MessageEvent<RPCResponse> | RPCResponse) {
+		const data: RPCResponse = 'data' in message ? message.data : message;
+		if (!isRPCMessage(data)) {
 			return;
 		}
-		const { id, method, value } = event.data;
+		const { id, value } = data;
+		const resolve = this._requests.get(id);
 
-		if (method == 'metadata') {
-			this._metadata = value;
-			this._isInitialized = true;
-			return;
-		}
-
-		const { resolve, reject } = this._requests.get(id);
-		this._requests.delete(id);
-		if (value instanceof Error) {
-			reject(value);
-			return;
-		}
 		resolve(value);
-	}
-
-	protected get handleMessage(): typeof this._handleMessage {
-		return this._handleMessage.bind(this);
 	}
 
 	/**
@@ -58,22 +41,23 @@ export class WorkerFS extends Async(FileSystem) {
 	public constructor({ worker }: WorkerFSOptions) {
 		super();
 		this._worker = worker;
-		worker['on' in worker ? 'on' : 'addEventListener'](this.handleMessage);
+		worker['on' in worker ? 'on' : 'addEventListener']('message', msg => {
+			this.handleMessage(msg);
+		});
 	}
 
 	public metadata(): FileSystemMetadata {
 		return {
 			...super.metadata(),
-			...this._metadata,
 			name: 'WorkerFS',
 			synchronous: false,
 		};
 	}
 
 	protected async _rpc<const T extends RPCMethod>(method: T, ...args: RPCArgs<T>): RPCValue<T> {
-		return new Promise((resolve, reject) => {
+		return new Promise(resolve => {
 			const id = this._currentID++;
-			this._requests.set(id, { resolve, reject });
+			this._requests.set(id, resolve);
 			this._worker.postMessage({
 				_zenfs: true,
 				id,

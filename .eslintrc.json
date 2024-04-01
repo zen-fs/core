@@ -8,6 +8,14 @@
 	"parserOptions": {
 		"ecmaVersion": "latest"
 	},
+	"overrides": [
+		{
+			"files": "tests",
+			"env": {
+				"node": true
+			}
+		}
+	],
 	"rules": {
 		"no-useless-escape": "warn",
 		"no-unused-vars": "off",
