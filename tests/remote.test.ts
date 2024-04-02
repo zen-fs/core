@@ -6,7 +6,6 @@ import { attach } from '../src/remote.js';
 const { port1, port2 } = new MessageChannel();
 
 describe('Remote FS test', () => {
-
 	test('read', async () => {
 		await configure({
 			'/tmp': InMemory,
@@ -19,4 +18,3 @@ describe('Remote FS test', () => {
 		expect(await fs.promises.readFile('/port/test', 'utf8')).toBe(content);
 	});
 });
-
