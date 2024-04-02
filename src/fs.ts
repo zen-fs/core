@@ -102,7 +102,6 @@ export class PortFS extends Async(FileSystem) {
 			return;
 		}
 		const { id, value, method, error, stack } = data;
-		console.log(`[response#${id}]: `, value);
 		const { resolve, reject } = this._requests.get(id);
 		if (error) {
 			const e = <ApiError>(<unknown>value);

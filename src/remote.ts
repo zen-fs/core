@@ -12,7 +12,6 @@ async function handleMessage(port: RPC.Port, fs: FileSystem, message: MessageEve
 		return;
 	}
 	const { method, args, id, scope, stack } = data;
-	console.log(`[request#${id}]: ${scope}.${method}(${args.join(', ')})`);
 
 	let value, error: boolean;
 
