@@ -75,14 +75,23 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * Asynchronously append data to a file, creating the file if it does not exist. The underlying file will _not_ be closed automatically.
 	 * The `FileHandle` must have been opened for appending.
 	 * @param data The data to write. If something other than a `Buffer` or `Uint8Array` is provided, the value is coerced to a string.
-	 * @param options Either the encoding for the file, or an object optionally specifying the encoding, file mode, and flag.
+	 * @param _options Either the encoding for the file, or an object optionally specifying the encoding, file mode, and flag.
 	 * If `encoding` is not supplied, the default of `'utf8'` is used.
 	 * If `mode` is not supplied, the default of `0o666` is used.
 	 * If `mode` is a string, it is parsed as an octal integer.
 	 * If `flag` is not supplied, the default of `'a'` is used.
 	 */
-	public appendFile(data: string | Uint8Array, options?: { encoding?: BufferEncoding; mode?: Node.Mode; flag?: Node.OpenMode } | BufferEncoding): Promise<void> {
-		return appendFile(fd2file(this.fd).path, data, options);
+	public async appendFile(data: string | Uint8Array, _options?: { encoding?: BufferEncoding; mode?: Node.Mode; flag?: Node.OpenMode } | BufferEncoding): Promise<void> {
+		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
+		const flag = parseFlag(options.flag);
+		if (!isAppendable(flag)) {
+			throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
+		}
+		if (typeof data != 'string' && !options.encoding) {
+			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+		}
+		const encodedData = typeof data == 'string' ? encode(data) : data;
+		await fd2file(this.fd).write(encodedData, 0, encodedData.length, null);
 	}
 
 	/**
@@ -103,22 +112,32 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	/**
 	 * Asynchronously reads the entire contents of a file. The underlying file will _not_ be closed automatically.
 	 * The `FileHandle` must have been opened for reading.
-	 * @param options An object that may contain an optional flag.
+	 * @param _options An object that may contain an optional flag.
 	 * If a flag is not provided, it defaults to `'r'`.
 	 */
-	public readFile(options?: { flag?: Node.OpenMode }): Promise<Uint8Array>;
-	public readFile(options: { encoding: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string>;
-	public readFile(options?: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string | Uint8Array> {
-		return readFile(fd2file(this.fd).path, options);
+	public async readFile(_options?: { flag?: Node.OpenMode }): Promise<Uint8Array>;
+	public async readFile(_options: { encoding: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string>;
+	public async readFile(_options?: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string | Uint8Array> {
+		const options = normalizeOptions(_options, null, 'r', null);
+		const flag = parseFlag(options.flag);
+		if (!isReadable(flag)) {
+			throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
+		}
+
+		const { size } = await this.stat();
+		const data = new Uint8Array(size);
+		await fd2file(this.fd).read(data, 0, size, 0);
+		return options.encoding ? decode(data, options.encoding) : data;
 	}
 
 	/**
 	 * Asynchronous fstat(2) - Get file status.
 	 */
-	public stat(opts: Node.BigIntOptions): Promise<BigIntStats>;
-	public stat(opts?: Node.StatOptions & { bigint?: false }): Promise<Stats>;
-	public stat(opts?: Node.StatOptions): Promise<Stats | BigIntStats> {
-		return stat(fd2file(this.fd).path, opts);
+	public async stat(opts: Node.BigIntOptions): Promise<BigIntStats>;
+	public async stat(opts?: Node.StatOptions & { bigint?: false }): Promise<Stats>;
+	public async stat(opts?: Node.StatOptions): Promise<Stats | BigIntStats> {
+		const stats = await fd2file(this.fd).stat();
+		return opts.bigint ? new BigIntStats(stats) : stats;
 	}
 
 	async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }>;
@@ -173,14 +192,23 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * The `FileHandle` must have been opened for writing.
 	 * It is unsafe to call `writeFile()` multiple times on the same file without waiting for the `Promise` to be resolved (or rejected).
 	 * @param data The data to write. If something other than a `Buffer` or `Uint8Array` is provided, the value is coerced to a string.
-	 * @param options Either the encoding for the file, or an object optionally specifying the encoding, file mode, and flag.
+	 * @param _options Either the encoding for the file, or an object optionally specifying the encoding, file mode, and flag.
 	 * If `encoding` is not supplied, the default of `'utf8'` is used.
 	 * If `mode` is not supplied, the default of `0o666` is used.
 	 * If `mode` is a string, it is parsed as an octal integer.
 	 * If `flag` is not supplied, the default of `'w'` is used.
 	 */
-	writeFile(data: string | Uint8Array, options?: Node.WriteFileOptions): Promise<void> {
-		return writeFile(fd2file(this.fd).path, data, options);
+	async writeFile(data: string | Uint8Array, _options?: Node.WriteFileOptions): Promise<void> {
+		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
+		const flag = parseFlag(options.flag);
+		if (!isWriteable(flag)) {
+			throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for writing.');
+		}
+		if (typeof data != 'string' && !options.encoding) {
+			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+		}
+		const encodedData = typeof data == 'string' ? encode(data, options.encoding) : data;
+		await fd2file(this.fd).write(encodedData, 0, encodedData.length, 0);
 	}
 
 	/**
@@ -414,6 +442,7 @@ async function _readFile(fname: string, flag: string, resolveSymlinks: boolean):
 		return data;
 	} catch (e) {
 		await file.close();
+		throw e;
 	}
 }
 
@@ -440,21 +469,6 @@ export async function readFile(filename: PathLike, _options?: { encoding?: Buffe
 readFile satisfies BufferToUint8Array<typeof Node.promises.readFile>;
 
 /**
- * Asynchronously writes data to a file, replacing the file
- * if it already exists.
- *
- * The encoding option is ignored if data is a buffer.
- */
-async function _writeFile(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): Promise<void> {
-	const file = await _open(fname, flag, mode, resolveSymlinks);
-	try {
-		await file.write(data, 0, data.length, 0);
-	} finally {
-		await file.close();
-	}
-}
-
-/**
  * Synchronously writes data to a file, replacing the file if it already exists.
  *
  * The encoding option is ignored if data is a buffer.
@@ -467,15 +481,12 @@ async function _writeFile(fname: string, data: Uint8Array, flag: string, mode: n
  */
 export async function writeFile(filename: PathLike, data: FileContents, _options?: Node.WriteFileOptions): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
-	const flag = parseFlag(options.flag);
-	if (!isWriteable(flag)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for writing.');
+	const handle = await open(filename, options.flag, options.mode);
+	try {
+		await handle.writeFile(data, options);
+	} finally {
+		await handle.close();
 	}
-	if (typeof data != 'string' && !options.encoding) {
-		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
-	}
-	const encodedData = typeof data == 'string' ? encode(data, options.encoding) : data;
-	await _writeFile(filename, encodedData, options.flag, options.mode, true);
 }
 writeFile satisfies typeof Node.promises.writeFile;
 
