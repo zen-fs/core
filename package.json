@@ -1,7 +1,7 @@
 {
-	"name": "@zenfs/worker",
+	"name": "@zenfs/port",
 	"version": "0.0.1",
-	"description": "Worker backend for ZenFS",
+	"description": "Port backend for ZenFS",
 	"main": "dist/index.js",
 	"types": "dist",
 	"keywords": [
@@ -10,15 +10,15 @@
 		"storage"
 	],
 	"type": "module",
-	"homepage": "https://github.com/zen-fs/worker",
+	"homepage": "https://github.com/zen-fs/port",
 	"author": "James P. <jp@drvortex.dev> (https://drvortex.dev)",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/zen-fs/worker.git"
+		"url": "git+https://github.com/zen-fs/port.git"
 	},
 	"bugs": {
-		"url": "https://github.com/zen-fs/worker/issues"
+		"url": "https://github.com/zen-fs/port/issues"
 	},
 	"engines": {
 		"node": ">= 18"
@@ -39,9 +39,9 @@
 		"format:check": "prettier --check .",
 		"lint": "tsc -p tsconfig.json --noEmit && eslint src",
 		"build": "node scripts/build.js",
-		"build:docs": "typedoc --out docs --name 'ZenFS Worker' src/index.ts",
+		"build:docs": "typedoc --out docs --name 'ZenFS Port' src/index.ts",
 		"prepublishOnly": "npm run build",
-		"test": "npm run build && cross-env NODE_OPTIONS=--experimental-vm-modules npx jest"
+		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest"
 	},
 	"devDependencies": {
 		"@types/jest": "^29.5.12",
@@ -57,6 +57,6 @@
 		"typescript": "5.2.2"
 	},
 	"dependencies": {
-		"@zenfs/core": "^0.4.1"
+		"@zenfs/core": "^0.5.0"
 	}
 }

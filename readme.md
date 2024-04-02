@@ -1,55 +1,49 @@
-# ZenFS Worker Backend
+# ZenFS Port Backend
 
-[ZenFS](https://github.com/zen-fs/core) backend for usage with workers.
+[ZenFS](https://github.com/zen-fs/core) backend for usage with ports and workers.
 
 Please read the ZenFS documentation!
 
-For more information, see the [docs](https://zen-fs.github.io/worker).
+For more information, see the [docs](https://zen-fs.github.io/port).
 
 ## Installing
 
 ```sh
-npm install @zenfs/worker
+npm install @zenfs/port
 ```
 
 ## Usage
 
-> 🛈 The examples are written in ESM. If you are using CJS, you can `require` the package. If running in a browser you can add a script tag to your HTML pointing to the `browser.min.js` and use ZenFS DOM via the global `ZenFS_Worker` object.
+> [!NOTE]
+> The examples are written in ESM. If you are using CJS, you can `require` the package. If in a browser you can add a script tag to your HTML pointing to the `browser.min.js` and use ZenFS DOM via the global `ZenFS_Port` object.
 
-You can use DOM backends, though you must register them if you plan on using `configure`:
+#### Example #1: Accessing an FS on a remote Worker from the main thread
 
-Main thread:
+Main:
 
-```js
-import { WorkerFS } from '@zenfs/worker';
-
-// Listen for remote file system requests.
-WorkerFS.attachRemoteListener(workerObject);
-```
-
-Worker thread:
-
-```js
+```ts
 import { configure } from '@zenfs/core';
-import { Worker } from '@zenfs/worker';
+import { Port } from '@zenfs/port';
+import { Worker } from 'node:worker_threads';
 
-// Set the remote file system as the root file system.
+const worker = new Worker('worker.js');
+
 await configure({
-	backend: 'WorkerFS',
-	worker: self,
+	'/worker': {
+		backend: Port,
+		port: worker,
+	},
 });
 ```
 
-```js
-import { configure } from '@zenfs/core';
-import { Worker } from '@zenfs/worker';
+Worker:
 
-await configure({ backend: , worker: seld );
+```ts
+import { fs } from '@zenfs/core';
+import { attach } from '@zenfs/port';
+import { parentPort } from 'node:worker_threads';
 
-if (!fs.existsSync('/test.txt')) {
-	fs.writeFileSync('/test.txt', 'This will persist across reloads!');
-}
-
-const contents = fs.readFileSync('/test.txt', 'utf-8');
-console.log(contents);
+attach(parentPort, fs.mounts.get('/'));
 ```
+
+If you are using using web workers, you would use `self` instead of importing `parentPort` in the worker, and would not need to import `Worker` in the main thread.

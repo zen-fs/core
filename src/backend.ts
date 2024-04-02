@@ -1,19 +1,19 @@
 import { ApiError, ErrorCode } from '@zenfs/core/ApiError.js';
 import type { Backend } from '@zenfs/core/backends/backend.js';
-import { WorkerFS, type WorkerFSOptions } from './fs.js';
-import type { RPCWorker } from './rpc.js';
+import { PortFS, type PortFSOptions } from './fs.js';
+import type { Port as RPCPort } from './rpc.js';
 
-export const Worker: Backend = {
-	name: 'WorkerFS',
+export const Port: Backend = {
+	name: 'Port',
 
 	options: {
-		worker: {
+		port: {
 			type: 'object',
-			description: 'The target worker that you want to connect to, or the current worker if in a worker context.',
-			validator(worker: RPCWorker) {
+			description: 'The target port that you want to connect to',
+			validator(port: RPCPort) {
 				// Check for a `postMessage` function.
-				if (typeof worker?.postMessage != 'function') {
-					throw new ApiError(ErrorCode.EINVAL, 'option must be a worker instance.');
+				if (typeof port?.postMessage != 'function') {
+					throw new ApiError(ErrorCode.EINVAL, 'option must be a port.');
 				}
 			},
 		},
@@ -35,7 +35,7 @@ export const Worker: Backend = {
 		}
 	},
 
-	create(options: WorkerFSOptions) {
-		return new WorkerFS(options);
+	create(options: PortFSOptions) {
+		return new PortFS(options);
 	},
 };

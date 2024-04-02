@@ -1,19 +1,21 @@
+import type { File } from '@zenfs/core';
 import type { FileSystem, FileSystemMetadata } from '@zenfs/core/filesystem.js';
 import type { TransferListItem } from 'worker_threads';
 
 /**
  * An RPC message
  */
-export interface RPCMessage {
+export interface Message {
 	_zenfs: true;
 	id: number;
+	scope: string;
 }
 
-export interface RPCWorker {
+export interface Port {
 	postMessage(value: unknown, transferList?: ReadonlyArray<TransferListItem>): void;
 	on?(event: 'message', listener: (value: unknown) => void): this;
-	addEventListener?(type: 'message', listener: (this: RPCWorker, ev: MessageEvent) => void): void;
-	onmessage?: ((this: Worker, ev: MessageEvent) => void) | null;
+	addEventListener?(type: 'message', listener: (this: Port, ev: MessageEvent) => void): void;
+	onmessage?: ((this: Port, ev: MessageEvent) => void) | null;
 }
 
 /**
@@ -25,26 +27,90 @@ type ExtractProperties<T, P> = {
 
 type FSAsyncMethods = ExtractProperties<FileSystem, (...args: unknown[]) => Promise<unknown> | FileSystemMetadata>;
 
-export type RPCMethod = keyof FSAsyncMethods;
+export type FSMethod = keyof FSAsyncMethods;
 
-export type RPCRequests = {
-	[Method in RPCMethod]: { _zenfs: true; id: number; method: Method; args: Parameters<FSAsyncMethods[Method]> };
+type FSRequests = {
+	[M in FSMethod]: {
+		_zenfs: true;
+		scope: 'fs';
+		id: number;
+		method: M;
+		stack: string;
+		args: Parameters<FSAsyncMethods[M]>;
+	};
 };
 
-export type RPCResponses = {
-	[Method in RPCMethod]: RPCMessage & { method: Method; value: Awaited<ReturnType<FSAsyncMethods[Method]>> };
+type FSResponses = {
+	[M in FSMethod]: {
+		_zenfs: true;
+		scope: 'fs';
+		id: number;
+		error: boolean;
+		method: M;
+		stack: string;
+		value: Awaited<ReturnType<FSAsyncMethods[M]>>;
+	};
 };
 
-export type RPCRequest<T extends RPCMethod = RPCMethod> = RPCRequests[T];
+export type FSRequest<T extends FSMethod = FSMethod> = FSRequests[T];
+export type FSArgs<T extends FSMethod = FSMethod> = FSRequests[T]['args'];
+export type FSResponse<T extends FSMethod = FSMethod> = FSResponses[T]['value'] extends File ? Omit<FSResponses[T], 'value'> & { fd: number } : FSResponses[T];
+export type FSValue<T extends FSMethod = FSMethod> = Promise<FSResponses[T]['value']>;
 
-export type RPCArgs<T extends RPCMethod = RPCMethod> = RPCRequests[T]['args'];
+export interface FileData {
+	fd: number;
+	path: string;
+	position: number;
+}
 
-export type RPCResponse<T extends RPCMethod = RPCMethod> = RPCResponses[T];
+export { FileData as File };
 
-export type RPCValue<T extends RPCMethod = RPCMethod> = Promise<RPCResponses[T]['value']>;
+type FileAsyncMethods = ExtractProperties<File, (...args: unknown[]) => Promise<unknown>>;
 
-export function isRPCMessage(arg: unknown): arg is RPCMessage {
+export type FileMethod = keyof FileAsyncMethods;
+
+type FileRequests = {
+	[M in FileMethod]: {
+		_zenfs: true;
+		scope: 'file';
+		id: number;
+		fd: number;
+		method: M;
+		stack: string;
+		args: Parameters<FileAsyncMethods[M]>;
+	};
+};
+
+type FileResponses = {
+	[M in FileMethod]: {
+		_zenfs: true;
+		scope: 'file';
+		id: number;
+		fd: number;
+		error: boolean;
+		method: M;
+		stack: string;
+		value: Awaited<ReturnType<FileAsyncMethods[M]>>;
+	};
+};
+
+export type FileRequest<T extends FileMethod = FileMethod> = FileRequests[T];
+export type FileArgs<T extends FileMethod = FileMethod> = FileRequests[T]['args'];
+export type FileResponse<T extends FileMethod = FileMethod> = FileResponses[T];
+export type FileValue<T extends FileMethod = FileMethod> = Promise<FileResponses[T]['value']>;
+
+export type Request = FSRequest | FileRequest;
+export type Args = FSRequest['args'] | FileRequest['args'];
+export type Response = FSResponse | FileResponse;
+export type Value = Promise<FSResponse['value']> | Promise<FileResponse['value']>;
+
+export function isMessage(arg: unknown): arg is Message {
 	return typeof arg == 'object' && '_zenfs' in arg && !!arg._zenfs;
 }
 
-export type PromiseResolve = Parameters<ConstructorParameters<typeof Promise>[0]>[0];
+type Executor = Parameters<ConstructorParameters<typeof Promise>[0]>;
+
+export interface RequestPromise {
+	resolve: Executor[0];
+	reject: Executor[1];
+}

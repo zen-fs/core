@@ -1,47 +1,130 @@
 import { Cred } from '@zenfs/core/cred.js';
-import { File, FileFlag } from '@zenfs/core/file.js';
+import { File } from '@zenfs/core/file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '@zenfs/core/filesystem.js';
-import { Stats } from '@zenfs/core/stats.js';
-import type { Worker as NodeWorker } from 'worker_threads';
-import { isRPCMessage, type RPCArgs, type RPCMethod, type RPCResponse, type RPCValue, type PromiseResolve } from './rpc.js';
+import { Stats, type FileType } from '@zenfs/core/stats.js';
+import * as RPC from './rpc.js';
+import { ApiError, ErrorCode } from '@zenfs/core';
 
-export interface WorkerFSOptions {
+export interface PortFSOptions {
 	/**
-	 * The target worker that you want to connect to, or the current worker if in a worker context.
+	 * The target port that you want to connect to, or the current port if in a port context.
 	 */
-	worker: Worker | NodeWorker;
+	port: RPC.Port;
+}
+
+export class PortFile extends File {
+	constructor(
+		public readonly fs: PortFS,
+		public readonly fd: number,
+		public readonly path: string,
+		public position?: number
+	) {
+		super();
+	}
+
+	stat(): Promise<Stats> {
+		return this.fs.fileRPC(this.fd, 'stat');
+	}
+	statSync(): Stats {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+	truncate(len: number): Promise<void> {
+		return this.fs.fileRPC(this.fd, 'truncate', len);
+	}
+	truncateSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+	write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
+		return this.fs.fileRPC(this.fd, 'write', buffer, offset, length, position);
+	}
+	writeSync(): number {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+	read<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
+		return <Promise<{ bytesRead: number; buffer: TBuffer }>>this.fs.fileRPC(this.fd, 'read', buffer, offset, length, position);
+	}
+	readSync(): number {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+	chown(uid: number, gid: number): Promise<void> {
+		return this.fs.fileRPC(this.fd, 'chown', uid, gid);
+	}
+	chownSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+	chmod(mode: number): Promise<void> {
+		return this.fs.fileRPC(this.fd, 'chmod', mode);
+	}
+	chmodSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+	utimes(atime: Date, mtime: Date): Promise<void> {
+		return this.fs.fileRPC(this.fd, 'utimes', atime, mtime);
+	}
+	utimesSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+	_setType(type: FileType): Promise<void> {
+		return this.fs.fileRPC(this.fd, '_setType', type);
+	}
+	_setTypeSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	close(): Promise<void> {
+		return this.fs.fileRPC(this.fd, 'close');
+	}
+	closeSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+	sync(): Promise<void> {
+		return this.fs.fileRPC(this.fd, 'sync');
+	}
+	syncSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
 }
 
 /**
- * WorkerFS lets you access a ZenFS instance that is running in a worker, or the other way around.
+ * PortFS lets you access a ZenFS instance that is running in a port, or the other way around.
  *
- * Note that synchronous operations are not permitted on the WorkerFS, regardless
+ * Note that synchronous operations are not permitted on the PortFS, regardless
  * of the configuration option of the remote FS.
  */
-export class WorkerFS extends Async(FileSystem) {
-	protected _worker: Worker | NodeWorker;
+export class PortFS extends Async(FileSystem) {
+	protected _port: RPC.Port;
 	protected _currentID: number = 0;
-	protected _requests: Map<number, PromiseResolve> = new Map();
+	protected _requests: Map<number, RPC.RequestPromise> = new Map();
 
-	protected handleMessage(message: MessageEvent<RPCResponse> | RPCResponse) {
-		const data: RPCResponse = 'data' in message ? message.data : message;
-		if (!isRPCMessage(data)) {
+	protected handleMessage(message: MessageEvent<RPC.Response> | RPC.Response): void {
+		const data: RPC.Response = 'data' in message ? message.data : message;
+		if (!RPC.isMessage(data)) {
 			return;
 		}
-		const { id, value } = data;
-		const resolve = this._requests.get(id);
+		const { id, value, method, error, stack } = data;
+		console.log(`[response#${id}]: `, value);
+		const { resolve, reject } = this._requests.get(id);
+		if (error) {
+			const e = <ApiError>(<unknown>value);
+			e.stack += stack;
+			return reject(e);
+		}
+		if (method == 'openFile' || method == 'createFile') {
+			const file = new PortFile(this, (<RPC.File>(<unknown>value)).fd, value.path, value.position);
+			return resolve(file);
+		}
 
 		resolve(value);
 	}
 
 	/**
-	 * Constructs a new WorkerFS instance that connects with ZenFS running on
-	 * the specified worker.
+	 * Constructs a new PortFS instance that connects with ZenFS running on
+	 * the specified port.
 	 */
-	public constructor({ worker }: WorkerFSOptions) {
+	public constructor({ port: port }: PortFSOptions) {
 		super();
-		this._worker = worker;
-		worker['on' in worker ? 'on' : 'addEventListener']('message', msg => {
+		this._port = port;
+		port['on' in port ? 'on' : 'addEventListener']('message', (msg: RPC.Response) => {
 			this.handleMessage(msg);
 		});
 	}
@@ -49,23 +132,42 @@ export class WorkerFS extends Async(FileSystem) {
 	public metadata(): FileSystemMetadata {
 		return {
 			...super.metadata(),
-			name: 'WorkerFS',
+			name: 'PortFS',
 			synchronous: false,
 		};
 	}
 
-	protected async _rpc<const T extends RPCMethod>(method: T, ...args: RPCArgs<T>): RPCValue<T> {
-		return new Promise(resolve => {
+	public async fileRPC<const T extends RPC.FileMethod>(fd: number, method: T, ...args: RPC.FileArgs<T>): RPC.FileValue<T> {
+		return new Promise((resolve, reject) => {
 			const id = this._currentID++;
-			this._requests.set(id, resolve);
-			this._worker.postMessage({
+			this._requests.set(id, { resolve, reject });
+			this._port.postMessage({
 				_zenfs: true,
+				scope: 'file',
 				id,
+				fd,
 				method,
+				stack: new Error().stack.slice('Error:'.length),
 				args,
 			});
 		});
 	}
+
+	protected async _rpc<const T extends RPC.FSMethod>(method: T, ...args: RPC.FSArgs<T>): RPC.FSValue<T> {
+		return new Promise((resolve, reject) => {
+			const id = this._currentID++;
+			this._requests.set(id, { resolve, reject });
+			this._port.postMessage({
+				_zenfs: true,
+				scope: 'fs',
+				id,
+				method,
+				stack: new Error().stack.slice('Error:'.length),
+				args,
+			});
+		});
+	}
+
 	public async ready(): Promise<this> {
 		await this._rpc('ready');
 		return this;
@@ -74,16 +176,16 @@ export class WorkerFS extends Async(FileSystem) {
 	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
 		return this._rpc('rename', oldPath, newPath, cred);
 	}
-	public stat(p: string, cred: Cred): Promise<Stats> {
-		return this._rpc('stat', p, cred);
+	public async stat(p: string, cred: Cred): Promise<Stats> {
+		return new Stats(await this._rpc('stat', p, cred));
 	}
 	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		return this._rpc('sync', path, data, stats);
 	}
-	public openFile(p: string, flag: FileFlag, cred: Cred): Promise<File> {
+	public openFile(p: string, flag: string, cred: Cred): Promise<File> {
 		return this._rpc('openFile', p, flag, cred);
 	}
-	public createFile(p: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
+	public createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
 		return this._rpc('createFile', p, flag, mode, cred);
 	}
 	public unlink(p: string, cred: Cred): Promise<void> {

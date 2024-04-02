@@ -1,35 +1,66 @@
 import type { FileSystem } from '@zenfs/core/filesystem.js';
-import type { RPCRequest, RPCWorker } from './rpc.js';
+import * as RPC from './rpc.js';
+import { ApiError, ErrorCode, File } from '@zenfs/core';
 
-export interface Remote {
-	worker: RPCWorker;
-	fs: FileSystem;
-}
+let nextFd = 0;
 
-async function handleMessage(worker: RPCWorker, fs: FileSystem, message: MessageEvent<RPCRequest> | RPCRequest): Promise<void> {
+const descriptors: Map<number, File> = new Map();
+
+async function handleMessage(port: RPC.Port, fs: FileSystem, message: MessageEvent<RPC.Request> | RPC.Request): Promise<void> {
 	const data = 'data' in message ? message.data : message;
-	const { method, args, id } = data;
-	let value;
+	if (!RPC.isMessage(data)) {
+		return;
+	}
+	const { method, args, id, scope, stack } = data;
+	console.log(`[request#${id}]: ${scope}.${method}(${args.join(', ')})`);
+
+	let value, error: boolean;
 
 	try {
-		// @ts-expect-error 2556
-		value = await fs[method](...args);
+		switch (scope) {
+			case 'fs':
+				// @ts-expect-error 2556
+				value = await fs[method](...args);
+				if (value instanceof File) {
+					descriptors.set(++nextFd, value);
+					value = {
+						fd: nextFd,
+						path: value.path,
+						position: value.position,
+					};
+				}
+				break;
+			case 'file':
+				if (!descriptors.has(data.fd)) {
+					throw new ApiError(ErrorCode.EBADF);
+				}
+				// @ts-expect-error 2556
+				value = await descriptors.get(data.fd)[method](...args);
+				if (method == 'close') {
+					descriptors.delete(data.fd);
+				}
+				break;
+		}
 	} catch (e) {
 		value = e;
+		error = true;
 	}
 
-	worker.postMessage({
+	port.postMessage({
 		_zenfs: true,
+		scope,
 		id,
+		error,
 		method,
+		stack,
 		value,
 	});
 }
 
-export function attach(worker: RPCWorker, fs: FileSystem): void {
-	worker['on' in worker ? 'on' : 'addEventListener']('message', (message: any) => handleMessage(worker, fs, message));
+export function attach(port: RPC.Port, fs: FileSystem): void {
+	port['on' in port ? 'on' : 'addEventListener']('message', (message: any) => handleMessage(port, fs, message));
 }
 
-export function detach(worker: RPCWorker, fs: FileSystem): void {
-	worker['off' in worker ? 'off' : 'removeEventListener']('message', event => handleMessage(worker, fs, event));
+export function detach(port: RPC.Port, fs: FileSystem): void {
+	port['off' in port ? 'off' : 'removeEventListener']('message', event => handleMessage(port, fs, event));
 }
