@@ -16,6 +16,7 @@ describe('Remote FS', () => {
 		const content = 'FS is in a port';
 		await fs.promises.writeFile('/test', content);
 
-		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
+		const actual = await fs.promises.readFile('/test', 'utf8');
+		expect(actual).toBe(content);
 	});
 });

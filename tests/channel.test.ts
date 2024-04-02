@@ -15,12 +15,12 @@ describe('MessageChannel', () => {
 		fs.mount('/tmp', await resolveBackendConfig({ backend: InMemory, name: 'tmp' }));
 		attach(port2, fs.mounts.get('/tmp'));
 		fs.mount('/port', await resolveBackendConfig({ backend: Port, port: port1 }));
-		console.log('/port');
 
 		const content = 'FS is in a port';
 
 		await fs.promises.writeFile('/port/test', content);
 		expect(fs.readFileSync('/tmp/test', 'utf8')).toBe(content);
-		expect(await fs.promises.readFile('/port/test', 'utf8')).toBe(content);
+		const actual = await fs.promises.readFile('/port/test', 'utf8');
+		expect(actual).toBe(content);
 	});
 });

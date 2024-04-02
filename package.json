@@ -41,7 +41,7 @@
 		"build": "node scripts/build.js",
 		"build:docs": "typedoc --out docs --name 'ZenFS Port' src/index.ts",
 		"prepublishOnly": "npm run build",
-		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest"
+		"test": "npm run build && cross-env NODE_OPTIONS=--experimental-vm-modules npx jest"
 	},
 	"devDependencies": {
 		"@types/jest": "^29.5.12",
