@@ -137,7 +137,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	public async stat(opts?: Node.StatOptions & { bigint?: false }): Promise<Stats>;
 	public async stat(opts?: Node.StatOptions): Promise<Stats | BigIntStats> {
 		const stats = await fd2file(this.fd).stat();
-		return opts.bigint ? new BigIntStats(stats) : stats;
+		return opts?.bigint ? new BigIntStats(stats) : stats;
 	}
 
 	async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }>;
