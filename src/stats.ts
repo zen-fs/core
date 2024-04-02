@@ -288,11 +288,18 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	/**
-	 * Convert the current stats object into a cred object
+	 * Convert the current stats object into a credentials object
 	 * @internal
 	 */
-	public getCred(uid: number = Number(this.uid), gid: number = Number(this.gid)): Cred {
-		return new Cred(uid, gid, Number(this.uid), Number(this.gid), uid, gid);
+	public cred(uid: number = Number(this.uid), gid: number = Number(this.gid)): Cred {
+		return {
+			uid,
+			gid,
+			suid: Number(this.uid),
+			sgid: Number(this.gid),
+			euid: uid,
+			egid: gid,
+		};
 	}
 
 	/**

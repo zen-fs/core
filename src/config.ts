@@ -1,6 +1,5 @@
 import type { Backend, BackendConfig } from './backends/backend.js';
 import { isBackend, resolveBackendConfig } from './backends/backend.js';
-import { Cred } from './cred.js';
 import * as fs from './emulation/index.js';
 import { setCred, type MountMapping } from './emulation/shared.js';
 import { FileSystem } from './filesystem.js';
@@ -9,7 +8,7 @@ import { FileSystem } from './filesystem.js';
  * Initializes ZenFS with the given file systems.
  */
 export function initialize(mounts: { [point: string]: FileSystem }, uid: number = 0, gid: number = 0) {
-	setCred(new Cred(uid, gid, uid, gid, uid, gid));
+	setCred({ uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 	fs.initialize(mounts);
 }
 

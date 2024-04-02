@@ -202,7 +202,7 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	protected async crossCopyDirectory(p: string, mode: number): Promise<void> {
 		if (p !== '/') {
 			const stats = await this._async.stat(p, rootCred);
-			this._sync.mkdirSync(p, mode, stats.getCred());
+			this._sync.mkdirSync(p, mode, stats.cred());
 		}
 		const files = await this._async.readdir(p, rootCred);
 		for (const file of files) {

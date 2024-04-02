@@ -118,13 +118,13 @@ export class UnlockedOverlayFS extends FileSystem {
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		const cred = stats.getCred(0, 0);
+		const cred = stats.cred(0, 0);
 		await this.createParentDirectories(path, cred);
 		await this._writable.sync(path, data, stats);
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-		const cred = stats.getCred(0, 0);
+		const cred = stats.cred(0, 0);
 		this.createParentDirectoriesSync(path, cred);
 		this._writable.syncSync(path, data, stats);
 	}

@@ -2,15 +2,20 @@
  * Credentials used for various operations.
  * Similar to Linux's cred struct. See https://github.com/torvalds/linux/blob/master/include/linux/cred.h
  */
-export class Cred {
-	constructor(
-		public uid: number,
-		public gid: number,
-		public suid: number,
-		public sgid: number,
-		public euid: number,
-		public egid: number
-	) {}
+export interface Cred {
+	uid: number;
+	gid: number;
+	suid: number;
+	sgid: number;
+	euid: number;
+	egid: number;
 }
 
-export const rootCred = new Cred(0, 0, 0, 0, 0, 0);
+export const rootCred: Cred = {
+	uid: 0,
+	gid: 0,
+	suid: 0,
+	sgid: 0,
+	euid: 0,
+	egid: 0,
+};
