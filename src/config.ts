@@ -1,5 +1,5 @@
 import type { Backend, BackendConfig } from './backends/backend.js';
-import { isBackend, resolveBackendConfig } from './backends/backend.js';
+import { isBackend, resolveBackend } from './backends/backend.js';
 import * as fs from './emulation/index.js';
 import { setCred, type MountMapping } from './emulation/shared.js';
 import { FileSystem } from './filesystem.js';
@@ -47,7 +47,7 @@ export async function configure(config: Configuration): Promise<void> {
 			value = { backend: value };
 		}
 
-		config[point] = await resolveBackendConfig(value);
+		config[point] = await resolveBackend(value);
 	}
 	initialize(<MountMapping>config);
 }

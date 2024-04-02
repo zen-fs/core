@@ -158,7 +158,7 @@ export function isBackendConfig(arg: unknown): arg is BackendConfig {
  * Retrieve a file system with the given configuration.
  * @param config A BackendConfig object.
  */
-export async function resolveBackendConfig(options: BackendConfig): Promise<FileSystem> {
+export async function resolveBackend(options: BackendConfig, _depth = 0): Promise<FileSystem> {
 	if (typeof options !== 'object' || options == null) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on configuration object.');
 	}
@@ -178,7 +178,10 @@ export async function resolveBackendConfig(options: BackendConfig): Promise<File
 		}
 
 		if (isBackendConfig(option)) {
-			options[prop] = await resolveBackendConfig(option);
+			if(_depth > 10) {
+				throw new ApiError(ErrorCode.EINVAL, 'Invalid configuration, too deep and possibly infinite');
+			}
+			options[prop] = await resolveBackend(option, ++_depth);
 		}
 	}
 
