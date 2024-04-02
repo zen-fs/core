@@ -178,7 +178,7 @@ export async function resolveBackend(options: BackendConfig, _depth = 0): Promis
 		}
 
 		if (isBackendConfig(option)) {
-			if(_depth > 10) {
+			if (_depth > 10) {
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid configuration, too deep and possibly infinite');
 			}
 			options[prop] = await resolveBackend(option, ++_depth);
