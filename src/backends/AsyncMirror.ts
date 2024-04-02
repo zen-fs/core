@@ -1,6 +1,6 @@
 import { FileSystem, Sync, FileSystemMetadata } from '../filesystem.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
-import { File, FileFlag, PreloadFile } from '../file.js';
+import { File, PreloadFile, parseFlag } from '../file.js';
 import type { Stats } from '../stats.js';
 import { join } from '../emulation/path.js';
 import { Cred } from '../cred.js';
@@ -28,7 +28,7 @@ type AsyncOperation = {
  * @internal
  */
 export class MirrorFile extends PreloadFile<AsyncMirrorFS> {
-	constructor(fs: AsyncMirrorFS, path: string, flag: FileFlag, stat: Stats, data: Uint8Array) {
+	constructor(fs: AsyncMirrorFS, path: string, flag: string, stat: Stats, data: Uint8Array) {
 		super(fs, path, flag, stat, data);
 	}
 
@@ -128,11 +128,11 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 		});
 	}
 
-	public openFileSync(path: string, flag: FileFlag, cred: Cred): File {
+	public openFileSync(path: string, flag: string, cred: Cred): File {
 		return this._sync.openFileSync(path, flag, cred);
 	}
 
-	public createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): MirrorFile {
+	public createFileSync(path: string, flag: string, mode: number, cred: Cred): MirrorFile {
 		const file = this._sync.createFileSync(path, flag, mode, cred);
 		this.enqueue({
 			apiMethod: 'createFile',
@@ -214,8 +214,8 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	 * @internal
 	 */
 	protected async crossCopyFile(p: string, mode: number): Promise<void> {
-		const asyncFile = await this._async.openFile(p, FileFlag.Get('r'), Cred.Root);
-		const syncFile = this._sync.createFileSync(p, FileFlag.Get('w'), mode, Cred.Root);
+		const asyncFile = await this._async.openFile(p, parseFlag('r'), Cred.Root);
+		const syncFile = this._sync.createFileSync(p, parseFlag('w'), mode, Cred.Root);
 		try {
 			const { size } = await asyncFile.stat();
 			const buffer = new Uint8Array(size);

@@ -1,7 +1,7 @@
 import { ApiError, ErrorCode } from './ApiError.js';
 import type { Cred } from './cred.js';
 import { basename, dirname, join } from './emulation/path.js';
-import { NoSyncFile, type FileFlag } from './file.js';
+import { NoSyncFile, flagToMode, isWriteable } from './file.js';
 import { FileSystem, Sync, Async, Readonly } from './filesystem.js';
 import { FileType, Stats } from './stats.js';
 
@@ -392,8 +392,8 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid inode.');
 	}
 
-	public async openFile(path: string, flag: FileFlag, cred: Cred): Promise<NoSyncFile<this>> {
-		if (flag.isWriteable()) {
+	public async openFile(path: string, flag: string, cred: Cred): Promise<NoSyncFile<this>> {
+		if (isWriteable(flag)) {
 			// You can't write to files on this file system.
 			throw new ApiError(ErrorCode.EPERM, path);
 		}
@@ -405,7 +405,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 			throw ApiError.ENOENT(path);
 		}
 
-		if (!inode.toStats().hasAccess(flag.mode, cred)) {
+		if (!inode.toStats().hasAccess(flagToMode(flag), cred)) {
 			throw ApiError.EACCES(path);
 		}
 
@@ -417,8 +417,8 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 		return this.openFileInode(inode, path, flag);
 	}
 
-	public openFileSync(path: string, flag: FileFlag, cred: Cred): NoSyncFile<this> {
-		if (flag.isWriteable()) {
+	public openFileSync(path: string, flag: string, cred: Cred): NoSyncFile<this> {
+		if (isWriteable(flag)) {
 			// You can't write to files on this file system.
 			throw new ApiError(ErrorCode.EPERM, path);
 		}
@@ -430,7 +430,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 			throw ApiError.ENOENT(path);
 		}
 
-		if (!inode.toStats().hasAccess(flag.mode, cred)) {
+		if (!inode.toStats().hasAccess(flagToMode(flag), cred)) {
 			throw ApiError.EACCES(path);
 		}
 
@@ -474,9 +474,9 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 
 	protected abstract statFileInodeSync(inode: IndexFileInode<TIndex>, path: string): Stats;
 
-	protected abstract openFileInode(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): Promise<NoSyncFile<this>>;
+	protected abstract openFileInode(inode: IndexFileInode<TIndex>, path: string, flag: string): Promise<NoSyncFile<this>>;
 
-	protected abstract openFileInodeSync(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): NoSyncFile<this>;
+	protected abstract openFileInodeSync(inode: IndexFileInode<TIndex>, path: string, flag: string): NoSyncFile<this>;
 }
 
 export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>) {
@@ -486,7 +486,7 @@ export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>)
 		return this.statFileInodeSync(inode, path);
 	}
 
-	protected async openFileInode(inode: IndexFileInode<TIndex>, path: string, flag: FileFlag): Promise<NoSyncFile<this>> {
+	protected async openFileInode(inode: IndexFileInode<TIndex>, path: string, flag: string): Promise<NoSyncFile<this>> {
 		return this.openFileInodeSync(inode, path, flag);
 	}
 }

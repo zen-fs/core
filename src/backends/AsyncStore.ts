@@ -2,7 +2,7 @@ import { dirname, basename, join, resolve } from '../emulation/path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import type { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
-import { PreloadFile, File, FileFlag } from '../file.js';
+import { PreloadFile, File, flagToMode } from '../file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '../filesystem.js';
 import { randomIno, type Ino, Inode } from '../inode.js';
 import { type Stats, FileType } from '../stats.js';
@@ -123,7 +123,7 @@ export interface AsyncRWTransaction extends AsyncROTransaction {
  * @internal
  */
 export class AsyncFile extends PreloadFile<AsyncStoreFS> {
-	constructor(_fs: AsyncStoreFS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+	constructor(_fs: AsyncStoreFS, _path: string, _flag: string, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -313,7 +313,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		return stats;
 	}
 
-	public async createFile(p: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
+	public async createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
 		const tx = this.store.beginTransaction('readwrite'),
 			data = new Uint8Array(0),
 			newFile = await this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
@@ -321,11 +321,11 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		return new AsyncFile(this, p, flag, newFile.toStats(), data);
 	}
 
-	public async openFile(p: string, flag: FileFlag, cred: Cred): Promise<File> {
+	public async openFile(p: string, flag: string, cred: Cred): Promise<File> {
 		const tx = this.store.beginTransaction('readonly'),
 			node = await this.findINode(tx, p),
 			data = await tx.get(node.ino);
-		if (!node.toStats().hasAccess(flag.mode, cred)) {
+		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
 			throw ApiError.EACCES(p);
 		}
 		if (!data) {

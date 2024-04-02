@@ -1,6 +1,6 @@
 import { ApiError, ErrorCode } from './ApiError.js';
 import type { Stats } from './stats.js';
-import type { File, FileFlag } from './file.js';
+import type { File } from './file.js';
 import type { Cred } from './cred.js';
 
 export type NoArgCallback = (e?: ApiError) => unknown;
@@ -98,7 +98,7 @@ export abstract class FileSystem {
 	 * @param p The path to open.
 	 * @param flag The flag to use when opening the file.
 	 */
-	public abstract openFile(path: string, flag: FileFlag, cred: Cred): Promise<File>;
+	public abstract openFile(path: string, flag: string, cred: Cred): Promise<File>;
 
 	/**
 	 * Opens the file at path p with the given flag. The file must exist.
@@ -106,19 +106,19 @@ export abstract class FileSystem {
 	 * @param flag The flag to use when opening the file.
 	 * @return A File object corresponding to the opened file.
 	 */
-	public abstract openFileSync(path: string, flag: FileFlag, cred: Cred): File;
+	public abstract openFileSync(path: string, flag: string, cred: Cred): File;
 
 	/**
 	 * Create the file at path p with the given mode. Then, open it with the given
 	 * flag.
 	 */
-	public abstract createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File>;
+	public abstract createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
 
 	/**
 	 * Create the file at path p with the given mode. Then, open it with the given
 	 * flag.
 	 */
-	public abstract createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File;
+	public abstract createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
 
 	/**
 	 * Asynchronous `unlink`.
@@ -215,8 +215,8 @@ declare abstract class SyncFileSystem extends FileSystem {
 	exists(path: string, cred: Cred): Promise<boolean>;
 	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
 	stat(path: string, cred: Cred): Promise<Stats>;
-	createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File>;
-	openFile(path: string, flag: FileFlag, cred: Cred): Promise<File>;
+	createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
+	openFile(path: string, flag: string, cred: Cred): Promise<File>;
 	unlink(path: string, cred: Cred): Promise<void>;
 	rmdir(path: string, cred: Cred): Promise<void>;
 	mkdir(path: string, mode: number, cred: Cred): Promise<void>;
@@ -253,11 +253,11 @@ export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (ab
 			return this.statSync(path, cred);
 		}
 
-		public async createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
+		public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
 			return this.createFileSync(path, flag, mode, cred);
 		}
 
-		public async openFile(path: string, flag: FileFlag, cred: Cred): Promise<File> {
+		public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
 			return this.openFileSync(path, flag, cred);
 		}
 
@@ -295,8 +295,8 @@ declare abstract class AsyncFileSystem {
 	metadata(): FileSystemMetadata;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
 	statSync(path: string, cred: Cred): Stats;
-	createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File;
-	openFileSync(path: string, flag: FileFlag, cred: Cred): File;
+	createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
+	openFileSync(path: string, flag: string, cred: Cred): File;
 	unlinkSync(path: string, cred: Cred): void;
 	rmdirSync(path: string, cred: Cred): void;
 	mkdirSync(path: string, mode: number, cred: Cred): void;
@@ -319,11 +319,11 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 
-		public createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File {
+		public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 
-		public openFileSync(path: string, flag: FileFlag, cred: Cred): File {
+		public openFileSync(path: string, flag: string, cred: Cred): File {
 			throw new ApiError(ErrorCode.ENOTSUP);
 		}
 
@@ -362,8 +362,8 @@ declare abstract class ReadonlyFileSystem {
 	metadata(): FileSystemMetadata;
 	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
-	createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File>;
-	createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File;
+	createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
+	createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
 	unlink(path: string, cred: Cred): Promise<void>;
 	unlinkSync(path: string, cred: Cred): void;
 	rmdir(path: string, cred: Cred): Promise<void>;
@@ -390,11 +390,11 @@ export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T):
 			throw new ApiError(ErrorCode.EROFS);
 		}
 
-		public async createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
+		public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
 			throw new ApiError(ErrorCode.EROFS);
 		}
 
-		public createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File {
+		public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
 			throw new ApiError(ErrorCode.EROFS);
 		}
 

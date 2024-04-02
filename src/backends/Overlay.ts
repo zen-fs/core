@@ -1,6 +1,6 @@
 import { FileSystem, FileSystemMetadata } from '../filesystem.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
-import { File, FileFlag, PreloadFile } from '../file.js';
+import { File, PreloadFile, parseFlag } from '../file.js';
 import { Stats } from '../stats.js';
 import { LockedFS } from './Locked.js';
 import { dirname } from '../emulation/path.js';
@@ -17,7 +17,7 @@ const deletionLogPath = '/.deleted';
  * @internal
  */
 export class OverlayFile extends PreloadFile<UnlockedOverlayFS> implements File {
-	constructor(fs: UnlockedOverlayFS, path: string, flag: FileFlag, stats: Stats, data: Uint8Array) {
+	constructor(fs: UnlockedOverlayFS, path: string, flag: string, stats: Stats, data: Uint8Array) {
 		super(fs, path, flag, stats, data);
 	}
 
@@ -140,7 +140,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 		// Read deletion log, process into metadata.
 		try {
-			const file = await this._writable.openFile(deletionLogPath, FileFlag.Get('r'), Cred.Root);
+			const file = await this._writable.openFile(deletionLogPath, parseFlag('r'), Cred.Root);
 			const { size } = await file.stat();
 			const { buffer } = await file.read(new Uint8Array(size));
 			this._deleteLog = decode(buffer);
@@ -221,36 +221,36 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 	}
 
-	public async openFile(path: string, flag: FileFlag, cred: Cred): Promise<File> {
+	public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
 		if (await this._writable.exists(path, cred)) {
 			return this._writable.openFile(path, flag, cred);
 		}
 		// Create an OverlayFile.
-		const file = await this._readable.openFile(path, FileFlag.Get('r'), cred);
+		const file = await this._readable.openFile(path, parseFlag('r'), cred);
 		const stats = new Stats(await file.stat());
 		const { buffer } = await file.read(new Uint8Array(stats.size));
 		return new OverlayFile(this, path, flag, stats, buffer);
 	}
 
-	public openFileSync(path: string, flag: FileFlag, cred: Cred): File {
+	public openFileSync(path: string, flag: string, cred: Cred): File {
 		if (this._writable.existsSync(path, cred)) {
 			return this._writable.openFileSync(path, flag, cred);
 		}
 		// Create an OverlayFile.
-		const file = this._readable.openFileSync(path, FileFlag.Get('r'), cred);
+		const file = this._readable.openFileSync(path, parseFlag('r'), cred);
 		const stats = Stats.clone(file.statSync());
 		const data = new Uint8Array(stats.size);
 		file.readSync(data);
 		return new OverlayFile(this, path, flag, stats, data);
 	}
 
-	public async createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
+	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
 		this.checkInitialized();
 		await this._writable.createFile(path, flag, mode, cred);
 		return this.openFile(path, flag, cred);
 	}
 
-	public createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File {
+	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
 		this.checkInitialized();
 		this._writable.createFileSync(path, flag, mode, cred);
 		return this.openFileSync(path, flag, cred);
@@ -422,7 +422,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return;
 		}
 		this._deleteLogUpdatePending = true;
-		const log = await this._writable.openFile(deletionLogPath, FileFlag.Get('w'), cred);
+		const log = await this._writable.openFile(deletionLogPath, parseFlag('w'), cred);
 		try {
 			await log.write(encode(this._deleteLog));
 			if (this._deleteLogUpdateNeeded) {
@@ -540,10 +540,10 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = this._readable.openFileSync(p, FileFlag.Get('r'), cred);
+		const readable = this._readable.openFileSync(p, parseFlag('r'), cred);
 		readable.readSync(data);
 		readable.closeSync();
-		const writable = this._writable.openFileSync(p, FileFlag.Get('w'), cred);
+		const writable = this._writable.openFileSync(p, parseFlag('w'), cred);
 		writable.writeSync(data);
 		writable.closeSync();
 	}
@@ -556,10 +556,10 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = await this._readable.openFile(p, FileFlag.Get('r'), cred);
+		const readable = await this._readable.openFile(p, parseFlag('r'), cred);
 		await readable.read(data);
 		await readable.close();
-		const writable = await this._writable.openFile(p, FileFlag.Get('w'), cred);
+		const writable = await this._writable.openFile(p, parseFlag('w'), cred);
 		await writable.write(data);
 		await writable.close();
 	}

@@ -45,224 +45,131 @@ export enum ActionType {
 	CREATE = 3,
 }
 
-/**
- * Represents one of the following file flags. A convenience object.
- *
- * - r: 	Open file for reading. An exception occurs if the file does not exist.
- * - r+: 	Open file for reading and writing. An exception occurs if the file does not exist.
- * - rs: 	Open file for reading in synchronous mode. Instructs the filesystem to not cache writes.
- * - rs+: 	Open file for reading and writing, and opens the file in synchronous mode.
- * - w: 	Open file for writing. The file is created (if it does not exist) or truncated (if it exists).
- * - wx: 	Like 'w' but opens the file in exclusive mode.
- * - w+: 	Open file for reading and writing. The file is created (if it does not exist) or truncated (if it exists).
- * - wx+: 	Like 'w+' but opens the file in exclusive mode.
- * - a: 	Open file for appending. The file is created if it does not exist.
- * - ax: 	Like 'a' but opens the file in exclusive mode.
- * - a+: 	Open file for reading and appending. The file is created if it does not exist.
- * - ax+: 	Like 'a+' but opens the file in exclusive mode.
- *
- * Exclusive mode ensures that the file path is newly created.
- */
-export class FileFlag {
-	/**
-	 * Contains cached FileMode instances.
-	 */
-	protected static cache: Map<string | number, FileFlag> = new Map();
+const validFlags = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
 
-	/**
-	 * Array of valid mode strings.
-	 */
-	protected static validStrings = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
-
-	/**
-	 * Get an object representing the given file flag.
-	 * @param flag The string or number representing the flag
-	 * @return The FileFlag object representing the flag
-	 * @throw when the flag string is invalid
-	 */
-	public static Get(flag: string | number): FileFlag {
-		// Check cache first.
-		if (!FileFlag.cache.has(flag)) {
-			FileFlag.cache.set(flag, new FileFlag(flag));
-		}
-		return FileFlag.cache.get(flag);
+export function parseFlag(flag: string | number): string {
+	if (typeof flag === 'number') {
+		return flagToString(flag);
 	}
-
-	protected _flag: string;
-
-	/**
-	 * @param flag The string or number representing the flag
-	 * @throw when the flag is invalid
-	 */
-	protected constructor(flag: string | number) {
-		if (typeof flag == 'number') {
-			flag = FileFlag.StringOf(flag);
-		}
-		if (!FileFlag.validStrings.includes(flag)) {
-			throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
-		}
-		this._flag = flag;
+	if (!validFlags.includes(flag)) {
+		throw new Error('Invalid flag string: ' + flag);
 	}
+	return flag;
+}
 
-	/**
-	 * @param flag The number representing the flag
-	 * @returns The string representing the flag
-	 * @throws when the flag number is invalid
-	 */
-	public static StringOf(flag: number): string {
-		// based on https://github.com/nodejs/node/blob/abbdc3efaa455e6c907ebef5409ac8b0f222f969/lib/internal/fs/utils.js#L619
-		switch (flag) {
-			case O_RDONLY:
-				return 'r';
-			case O_RDONLY | O_SYNC:
-				return 'rs';
-			case O_RDWR:
-				return 'r+';
-			case O_RDWR | O_SYNC:
-				return 'rs+';
-			case O_TRUNC | O_CREAT | O_WRONLY:
-				return 'w';
-			case O_TRUNC | O_CREAT | O_WRONLY | O_EXCL:
-				return 'wx';
-			case O_TRUNC | O_CREAT | O_RDWR:
-				return 'w+';
-			case O_TRUNC | O_CREAT | O_RDWR | O_EXCL:
-				return 'wx+';
-			case O_APPEND | O_CREAT | O_WRONLY:
-				return 'a';
-			case O_APPEND | O_CREAT | O_WRONLY | O_EXCL:
-				return 'ax';
-			case O_APPEND | O_CREAT | O_RDWR:
-				return 'a+';
-			case O_APPEND | O_CREAT | O_RDWR | O_EXCL:
-				return 'ax+';
-			default:
-				throw new ApiError(ErrorCode.EINVAL, 'Invalid flag number: ' + flag);
-		}
+export function flagToString(flag: number): string {
+	switch (flag) {
+		case O_RDONLY:
+			return 'r';
+		case O_RDONLY | O_SYNC:
+			return 'rs';
+		case O_RDWR:
+			return 'r+';
+		case O_RDWR | O_SYNC:
+			return 'rs+';
+		case O_TRUNC | O_CREAT | O_WRONLY:
+			return 'w';
+		case O_TRUNC | O_CREAT | O_WRONLY | O_EXCL:
+			return 'wx';
+		case O_TRUNC | O_CREAT | O_RDWR:
+			return 'w+';
+		case O_TRUNC | O_CREAT | O_RDWR | O_EXCL:
+			return 'wx+';
+		case O_APPEND | O_CREAT | O_WRONLY:
+			return 'a';
+		case O_APPEND | O_CREAT | O_WRONLY | O_EXCL:
+			return 'ax';
+		case O_APPEND | O_CREAT | O_RDWR:
+			return 'a+';
+		case O_APPEND | O_CREAT | O_RDWR | O_EXCL:
+			return 'ax+';
+		default:
+			throw new Error('Invalid flag number: ' + flag);
 	}
+}
 
-	/**
-	 * @param flag The string representing the flag
-	 * @returns The number representing the flag
-	 * @throws when the flag string is invalid
-	 */
-	public static NumberOf(flag: string): number {
-		switch (flag) {
-			case 'r':
-				return O_RDONLY;
-			case 'rs':
-				return O_RDONLY | O_SYNC;
-			case 'r+':
-				return O_RDWR;
-			case 'rs+':
-				return O_RDWR | O_SYNC;
-			case 'w':
-				return O_TRUNC | O_CREAT | O_WRONLY;
-			case 'wx':
-				return O_TRUNC | O_CREAT | O_WRONLY | O_EXCL;
-			case 'w+':
-				return O_TRUNC | O_CREAT | O_RDWR;
-			case 'wx+':
-				return O_TRUNC | O_CREAT | O_RDWR | O_EXCL;
-			case 'a':
-				return O_APPEND | O_CREAT | O_WRONLY;
-			case 'ax':
-				return O_APPEND | O_CREAT | O_WRONLY | O_EXCL;
-			case 'a+':
-				return O_APPEND | O_CREAT | O_RDWR;
-			case 'ax+':
-				return O_APPEND | O_CREAT | O_RDWR | O_EXCL;
-			default:
-				throw new ApiError(ErrorCode.EINVAL, 'Invalid flag string: ' + flag);
-		}
+export function flagToNumber(flag: string): number {
+	switch (flag) {
+		case 'r':
+			return O_RDONLY;
+		case 'rs':
+			return O_RDONLY | O_SYNC;
+		case 'r+':
+			return O_RDWR;
+		case 'rs+':
+			return O_RDWR | O_SYNC;
+		case 'w':
+			return O_TRUNC | O_CREAT | O_WRONLY;
+		case 'wx':
+			return O_TRUNC | O_CREAT | O_WRONLY | O_EXCL;
+		case 'w+':
+			return O_TRUNC | O_CREAT | O_RDWR;
+		case 'wx+':
+			return O_TRUNC | O_CREAT | O_RDWR | O_EXCL;
+		case 'a':
+			return O_APPEND | O_CREAT | O_WRONLY;
+		case 'ax':
+			return O_APPEND | O_CREAT | O_WRONLY | O_EXCL;
+		case 'a+':
+			return O_APPEND | O_CREAT | O_RDWR;
+		case 'ax+':
+			return O_APPEND | O_CREAT | O_RDWR | O_EXCL;
+		default:
+			throw new Error('Invalid flag string: ' + flag);
 	}
+}
 
-	/**
-	 * Get the underlying flag string for this flag.
-	 */
-	public toString(): string {
-		return this._flag;
-	}
+export function flagToMode(flag: string): number {
+	let mode = 0;
+	mode <<= 1;
+	mode += +isReadable(flag);
+	mode <<= 1;
+	mode += +isWriteable(flag);
+	mode <<= 1;
+	return mode;
+}
 
-	/**
-	 * Get the equivalent mode (0b0xxx: read, write, execute)
-	 * Note: Execute will always be 0
-	 */
-	public get mode(): number {
-		let mode = 0;
-		mode <<= 1;
-		mode += +this.isReadable();
-		mode <<= 1;
-		mode += +this.isWriteable();
-		mode <<= 1;
-		return mode;
-	}
+export function isReadable(flag: string): boolean {
+	return flag.indexOf('r') !== -1 || flag.indexOf('+') !== -1;
+}
 
-	/**
-	 * Returns true if the file is readable.
-	 */
-	public isReadable(): boolean {
-		return this._flag.indexOf('r') != -1 || this._flag.indexOf('+') != -1;
-	}
+export function isWriteable(flag: string): boolean {
+	return flag.indexOf('w') !== -1 || flag.indexOf('a') !== -1 || flag.indexOf('+') !== -1;
+}
 
-	/**
-	 * Returns true if the file is writeable.
-	 */
-	public isWriteable(): boolean {
-		return this._flag.indexOf('w') != -1 || this._flag.indexOf('a') != -1 || this._flag.indexOf('+') != -1;
-	}
+export function isTruncating(flag: string): boolean {
+	return flag.indexOf('w') !== -1;
+}
 
-	/**
-	 * Returns true if the file mode should truncate.
-	 */
-	public isTruncating(): boolean {
-		return this._flag.indexOf('w') !== -1;
-	}
-	/**
-	 * Returns true if the file is appendable.
-	 */
-	public isAppendable(): boolean {
-		return this._flag.indexOf('a') !== -1;
-	}
-	/**
-	 * Returns true if the file is open in synchronous mode.
-	 */
-	public isSynchronous(): boolean {
-		return this._flag.indexOf('s') !== -1;
-	}
+export function isAppendable(flag: string): boolean {
+	return flag.indexOf('a') !== -1;
+}
 
-	/**
-	 * Returns true if the file is open in exclusive mode.
-	 */
-	public isExclusive(): boolean {
-		return this._flag.indexOf('x') !== -1;
-	}
+export function isSynchronous(flag: string): boolean {
+	return flag.indexOf('s') !== -1;
+}
 
-	/**
-	 * Returns one of the static fields on this object that indicates the
-	 * appropriate response to the path existing.
-	 */
-	public pathExistsAction(): ActionType {
-		if (this.isExclusive()) {
-			return ActionType.THROW;
-		}
+export function isExclusive(flag: string): boolean {
+	return flag.indexOf('x') !== -1;
+}
 
-		if (this.isTruncating()) {
-			return ActionType.TRUNCATE;
-		}
-
-		return ActionType.NOP;
-	}
-	/**
-	 * Returns one of the static fields on this object that indicates the
-	 * appropriate response to the path not existing.
-	 */
-	public pathNotExistsAction(): ActionType {
-		if ((this.isWriteable() || this.isAppendable()) && this._flag != 'r+') {
-			return ActionType.CREATE;
-		}
+export function pathExistsAction(flag: string): ActionType {
+	if (isExclusive(flag)) {
 		return ActionType.THROW;
 	}
+
+	if (isTruncating(flag)) {
+		return ActionType.TRUNCATE;
+	}
+
+	return ActionType.NOP;
+}
+
+export function pathNotExistsAction(flag: string): ActionType {
+	if ((isWriteable(flag) || isAppendable(flag)) && flag !== 'r+') {
+		return ActionType.CREATE;
+	}
+	return ActionType.THROW;
 }
 
 export abstract class File {
@@ -464,7 +371,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 		 * Path to the file
 		 */
 		public readonly path: string,
-		public readonly flag: FileFlag,
+		public readonly flag: string,
 		public readonly stats: Stats,
 		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, { maxByteLength: size_max }))
 	) {
@@ -479,7 +386,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 			return;
 		}
 
-		if (this.flag.isReadable()) {
+		if (isReadable(this.flag)) {
 			throw new Error(`Size mismatch: buffer length ${_buffer.byteLength}, stats size ${this.stats.size}`);
 		}
 
@@ -503,7 +410,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 * @return The current file position.
 	 */
 	public get position(): number {
-		if (this.flag.isAppendable()) {
+		if (isAppendable(this.flag)) {
 			return this.stats.size;
 		}
 		return this._position;
@@ -537,7 +444,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public truncate(len: number): Promise<void> {
 		this.truncateSync(len);
-		if (this.flag.isSynchronous() && !this.fs!.metadata().synchronous) {
+		if (isSynchronous(this.flag) && !this.fs!.metadata().synchronous) {
 			return this.sync();
 		}
 	}
@@ -548,7 +455,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public truncateSync(len: number): void {
 		this._dirty = true;
-		if (!this.flag.isWriteable()) {
+		if (!isWriteable(this.flag)) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a writeable mode.');
 		}
 		this.stats.mtimeMs = Date.now();
@@ -556,7 +463,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 			const buf = new Uint8Array(len - this._buffer.length);
 			// Write will set stats.size for us.
 			this.writeSync(buf, 0, buf.length, this._buffer.length);
-			if (this.flag.isSynchronous() && this.fs!.metadata().synchronous) {
+			if (isSynchronous(this.flag) && this.fs!.metadata().synchronous) {
 				this.syncSync();
 			}
 			return;
@@ -564,7 +471,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 		this.stats.size = len;
 		// Truncate buffer to 'len'.
 		this._buffer = this._buffer.subarray(0, len);
-		if (this.flag.isSynchronous() && this.fs!.metadata().synchronous) {
+		if (isSynchronous(this.flag) && this.fs!.metadata().synchronous) {
 			this.syncSync();
 		}
 	}
@@ -601,7 +508,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
 		this._dirty = true;
 		position ??= this.position;
-		if (!this.flag.isWriteable()) {
+		if (!isWriteable(this.flag)) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a writeable mode.');
 		}
 		const endFp = position + length;
@@ -621,7 +528,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 		this._buffer.set(buffer.slice(offset, offset + length), position);
 		const len = this._buffer.byteOffset;
 		this.stats.mtimeMs = Date.now();
-		if (this.flag.isSynchronous()) {
+		if (isSynchronous(this.flag)) {
 			this.syncSync();
 			return len;
 		}
@@ -661,7 +568,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 * @returns number of bytes written
 	 */
 	public readSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
-		if (!this.flag.isReadable()) {
+		if (!isReadable(this.flag)) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a readable mode.');
 		}
 		position ??= this.position;
@@ -766,7 +673,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
  * For synchronous file systems
  */
 export class SyncFile<FS extends FileSystem> extends PreloadFile<FS> {
-	constructor(_fs: FS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+	constructor(_fs: FS, _path: string, _flag: string, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -794,7 +701,7 @@ export class SyncFile<FS extends FileSystem> extends PreloadFile<FS> {
  * For the filesystems which do not sync to anything..
  */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
-	constructor(_fs: T, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+	constructor(_fs: T, _path: string, _flag: string, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 	/**

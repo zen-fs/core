@@ -2,7 +2,7 @@ import { dirname, basename, join, resolve, sep } from '../emulation/path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
-import { FileFlag, PreloadFile } from '../file.js';
+import { PreloadFile, flagToMode } from '../file.js';
 import { type FileSystemMetadata, FileSystem, Sync } from '../filesystem.js';
 import { randomIno, type Ino, Inode } from '../inode.js';
 import { type Stats, FileType } from '../stats.js';
@@ -170,7 +170,7 @@ export interface SyncStoreOptions {
  * @internal
  */
 export class SyncStoreFile extends PreloadFile<SyncStoreFS> {
-	constructor(_fs: SyncStoreFS, _path: string, _flag: FileFlag, _stat: Stats, contents?: Uint8Array) {
+	constructor(_fs: SyncStoreFS, _path: string, _flag: string, _stat: Stats, contents?: Uint8Array) {
 		super(_fs, _path, _flag, _stat, contents);
 	}
 
@@ -307,16 +307,16 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		return stats;
 	}
 
-	public createFileSync(p: string, flag: FileFlag, mode: number, cred: Cred): SyncStoreFile {
+	public createFileSync(p: string, flag: string, mode: number, cred: Cred): SyncStoreFile {
 		this.commitNewFile(p, FileType.FILE, mode, cred);
 		return this.openFileSync(p, flag, cred);
 	}
 
-	public openFileSync(p: string, flag: FileFlag, cred: Cred): SyncStoreFile {
+	public openFileSync(p: string, flag: string, cred: Cred): SyncStoreFile {
 		const tx = this.store.beginTransaction('readonly'),
 			node = this.findINode(tx, p),
 			data = tx.get(node.ino);
-		if (!node.toStats().hasAccess(flag.mode, cred)) {
+		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
 			throw ApiError.EACCES(p);
 		}
 		if (data === null) {

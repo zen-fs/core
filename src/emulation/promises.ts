@@ -1,7 +1,7 @@
 import type * as Node from 'node:fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 export * as constants from './constants.js';
-import { ActionType, File, FileFlag } from '../file.js';
+import { ActionType, File, isReadable, isWriteable, isAppendable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared.js';
 import type { PathLike, BufferToUint8Array } from './shared.js';
 import { FileContents, FileSystem } from '../filesystem.js';
@@ -336,10 +336,10 @@ unlink satisfies typeof Node.promises.unlink;
 async function _open(_path: PathLike, _flag: string, _mode: Node.Mode = 0o644, resolveSymlinks: boolean): Promise<File> {
 	const path = normalizePath(_path),
 		mode = normalizeMode(_mode, 0o644),
-		flag = FileFlag.Get(_flag);
+		flag = parseFlag(_flag);
 
 	try {
-		switch (flag.pathExistsAction()) {
+		switch (pathExistsAction(flag)) {
 			case ActionType.THROW:
 				throw ApiError.EEXIST(path);
 			case ActionType.TRUNCATE:
@@ -363,7 +363,7 @@ async function _open(_path: PathLike, _flag: string, _mode: Node.Mode = 0o644, r
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid file flag');
 		}
 	} catch (e) {
-		switch (flag.pathNotExistsAction()) {
+		switch (pathNotExistsAction(flag)) {
 			case ActionType.CREATE:
 				// Ensure parent exists.
 				const parentStats: Stats = await doOp('stat', resolveSymlinks, dirname(path), cred);
@@ -429,8 +429,8 @@ export async function readFile(filename: PathLike, options?: { flag?: Node.OpenM
 export async function readFile(filename: PathLike, options: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string>;
 export async function readFile(filename: PathLike, _options?: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<Uint8Array | string> {
 	const options = normalizeOptions(_options, null, 'r', null);
-	const flag = FileFlag.Get(options.flag);
-	if (!flag.isReadable()) {
+	const flag = parseFlag(options.flag);
+	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
 	}
 
@@ -467,8 +467,8 @@ async function _writeFile(fname: string, data: Uint8Array, flag: string, mode: n
  */
 export async function writeFile(filename: PathLike, data: FileContents, _options?: Node.WriteFileOptions): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
-	const flag = FileFlag.Get(options.flag);
-	if (!flag.isWriteable()) {
+	const flag = parseFlag(options.flag);
+	if (!isWriteable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for writing.');
 	}
 	if (typeof data != 'string' && !options.encoding) {
@@ -508,8 +508,8 @@ export async function appendFile(
 	_options?: BufferEncoding | (Node.BaseEncodingOptions & { mode?: Node.Mode; flag?: Node.OpenMode })
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
-	const flag = FileFlag.Get(options.flag);
-	if (!flag.isAppendable()) {
+	const flag = parseFlag(options.flag);
+	if (!isAppendable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}
 	if (typeof data != 'string' && !options.encoding) {

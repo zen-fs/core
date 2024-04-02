@@ -1,5 +1,5 @@
 import type { Cred } from '../cred.js';
-import type { File, FileFlag } from '../file.js';
+import type { File } from '../file.js';
 import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
 import { Mutex } from '../mutex.js';
 import type { Stats } from '../stats.js';
@@ -58,28 +58,28 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 		return this.fs.statSync(p, cred);
 	}
 
-	public async openFile(path: string, flag: FileFlag, cred: Cred): Promise<File> {
+	public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
 		await this._mu.lock(path);
 		const fd = await this.fs.openFile(path, flag, cred);
 		this._mu.unlock(path);
 		return fd;
 	}
 
-	public openFileSync(path: string, flag: FileFlag, cred: Cred): File {
+	public openFileSync(path: string, flag: string, cred: Cred): File {
 		if (this._mu.isLocked(path)) {
 			throw new Error('invalid sync call');
 		}
 		return this.fs.openFileSync(path, flag, cred);
 	}
 
-	public async createFile(path: string, flag: FileFlag, mode: number, cred: Cred): Promise<File> {
+	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
 		await this._mu.lock(path);
 		const fd = await this.fs.createFile(path, flag, mode, cred);
 		this._mu.unlock(path);
 		return fd;
 	}
 
-	public createFileSync(path: string, flag: FileFlag, mode: number, cred: Cred): File {
+	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
 		if (this._mu.isLocked(path)) {
 			throw new Error('invalid sync call');
 		}

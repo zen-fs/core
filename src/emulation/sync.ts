@@ -1,5 +1,5 @@
 import { ApiError, ErrorCode } from '../ApiError.js';
-import { ActionType, File, FileFlag } from '../file.js';
+import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type Stats } from '../stats.js';
 import type { symlink, ReadSyncOptions, StatOptions, BaseEncodingOptions, BufferEncodingOption } from 'fs';
@@ -138,14 +138,14 @@ unlinkSync satisfies typeof Node.unlinkSync;
 function _openSync(_path: PathLike, _flag: string, _mode: Node.Mode, resolveSymlinks: boolean): File {
 	const path = normalizePath(_path),
 		mode = normalizeMode(_mode, 0o644),
-		flag = FileFlag.Get(_flag);
+		flag = parseFlag(_flag);
 	// Check if the path exists, and is a file.
 	let stats: Stats;
 	try {
 		stats = doOp('statSync', resolveSymlinks, path, cred);
 	} catch (e) {
 		// File does not exist.
-		switch (flag.pathNotExistsAction()) {
+		switch (pathNotExistsAction(flag)) {
 			case ActionType.CREATE:
 				// Ensure parent exists.
 				const parentStats: Stats = doOp('statSync', resolveSymlinks, dirname(path), cred);
@@ -164,7 +164,7 @@ function _openSync(_path: PathLike, _flag: string, _mode: Node.Mode, resolveSyml
 	}
 
 	// File exists.
-	switch (flag.pathExistsAction()) {
+	switch (pathExistsAction(flag)) {
 		case ActionType.THROW:
 			throw ApiError.EEXIST(path);
 		case ActionType.TRUNCATE:
@@ -236,8 +236,8 @@ export function readFileSync(filename: string, options: { encoding: string; flag
 export function readFileSync(filename: string, encoding: string): string;
 export function readFileSync(filename: string, arg2: { encoding: string; flag?: string } | { flag?: string } | string = {}): FileContents {
 	const options = normalizeOptions(arg2, null, 'r', 0o644);
-	const flag = FileFlag.Get(options.flag);
-	if (!flag.isReadable()) {
+	const flag = parseFlag(options.flag);
+	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
 	const data: Uint8Array = _readFileSync(filename, options.flag, true);
@@ -276,8 +276,8 @@ export function writeFileSync(filename: string, data: FileContents, options?: No
 export function writeFileSync(filename: string, data: FileContents, encoding?: BufferEncoding): void;
 export function writeFileSync(filename: string, data: FileContents, _options?: Node.WriteFileOptions | BufferEncoding): void {
 	const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
-	const flag = FileFlag.Get(options.flag);
-	if (!flag.isWriteable()) {
+	const flag = parseFlag(options.flag);
+	if (!isWriteable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to writeFile must allow for writing.');
 	}
 	if (typeof data != 'string' && !options.encoding) {
@@ -319,8 +319,8 @@ export function appendFileSync(filename: string, data: FileContents, options?: N
 export function appendFileSync(filename: string, data: FileContents, encoding?: string): void;
 export function appendFileSync(filename: string, data: FileContents, arg3?: Node.WriteFileOptions | string): void {
 	const options = normalizeOptions(arg3, 'utf8', 'a', 0o644);
-	const flag = FileFlag.Get(options.flag);
-	if (!flag.isAppendable()) {
+	const flag = parseFlag(options.flag);
+	if (!isAppendable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}
 	if (typeof data != 'string' && !options.encoding) {
