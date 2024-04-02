@@ -1,4 +1,6 @@
-Copyright (c) 2013-2023 John Vilk and other ZenFS contributors.
+Copyright (c) 2023-2024 James P. and other ZenFS contributors.
+
+Copyright (c) 2013-2023 John Vilk and other BrowserFS contributors.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
