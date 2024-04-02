@@ -412,7 +412,7 @@ async function _readFile(fname: string, flag: string, resolveSymlinks: boolean):
 		await file.read(data, 0, stat.size, 0);
 		await file.close();
 		return data;
-	} finally {
+	} catch (e) {
 		await file.close();
 	}
 }
