@@ -13,7 +13,7 @@ const options = parseArgs({
 const ctx = await context({
 	entryPoints: ['src/index.ts'],
 	target: 'es2020',
-	globalName: 'ZenFS_Worker',
+	globalName: 'ZenFS_Port',
 	outfile: 'dist/browser.min.js',
 	sourcemap: true,
 	keepNames: true,
