@@ -2,7 +2,7 @@
 
 import { resolve } from './path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
-import { Cred } from '../cred.js';
+import { Cred, rootCred } from '../cred.js';
 import { FileSystem } from '../filesystem.js';
 import { InMemory } from '../backends/InMemory.js';
 import type { File } from '../file.js';
@@ -124,7 +124,7 @@ export function nop() {
 }
 
 // credentials
-export let cred: Cred = Cred.Root;
+export let cred: Cred = rootCred;
 export function setCred(val: Cred): void {
 	cred = val;
 }

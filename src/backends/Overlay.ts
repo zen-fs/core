@@ -4,7 +4,7 @@ import { File, PreloadFile, parseFlag } from '../file.js';
 import { Stats } from '../stats.js';
 import { LockedFS } from './Locked.js';
 import { dirname } from '../emulation/path.js';
-import { Cred } from '../cred.js';
+import { Cred, rootCred } from '../cred.js';
 import { decode, encode } from '../utils.js';
 import type { Backend } from './backend.js';
 /**
@@ -140,7 +140,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 		// Read deletion log, process into metadata.
 		try {
-			const file = await this._writable.openFile(deletionLogPath, parseFlag('r'), Cred.Root);
+			const file = await this._writable.openFile(deletionLogPath, parseFlag('r'), rootCred);
 			const { size } = await file.stat();
 			const { buffer } = await file.read(new Uint8Array(size));
 			this._deleteLog = decode(buffer);

@@ -3,7 +3,7 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { File, PreloadFile, parseFlag } from '../file.js';
 import type { Stats } from '../stats.js';
 import { join } from '../emulation/path.js';
-import { Cred } from '../cred.js';
+import { Cred, rootCred } from '../cred.js';
 import type { Backend } from './backend.js';
 
 /**
@@ -201,10 +201,10 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	 */
 	protected async crossCopyDirectory(p: string, mode: number): Promise<void> {
 		if (p !== '/') {
-			const stats = await this._async.stat(p, Cred.Root);
+			const stats = await this._async.stat(p, rootCred);
 			this._sync.mkdirSync(p, mode, stats.getCred());
 		}
-		const files = await this._async.readdir(p, Cred.Root);
+		const files = await this._async.readdir(p, rootCred);
 		for (const file of files) {
 			await this.crossCopy(join(p, file));
 		}
@@ -214,8 +214,8 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	 * @internal
 	 */
 	protected async crossCopyFile(p: string, mode: number): Promise<void> {
-		const asyncFile = await this._async.openFile(p, parseFlag('r'), Cred.Root);
-		const syncFile = this._sync.createFileSync(p, parseFlag('w'), mode, Cred.Root);
+		const asyncFile = await this._async.openFile(p, parseFlag('r'), rootCred);
+		const syncFile = this._sync.createFileSync(p, parseFlag('w'), mode, rootCred);
 		try {
 			const { size } = await asyncFile.stat();
 			const buffer = new Uint8Array(size);
@@ -231,7 +231,7 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	 * @internal
 	 */
 	protected async crossCopy(p: string): Promise<void> {
-		const stats = await this._async.stat(p, Cred.Root);
+		const stats = await this._async.stat(p, rootCred);
 		if (stats.isDirectory()) {
 			await this.crossCopyDirectory(p, stats.mode);
 		} else {

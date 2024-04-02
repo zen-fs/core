@@ -11,6 +11,6 @@ export class Cred {
 		public euid: number,
 		public egid: number
 	) {}
-
-	public static Root = new Cred(0, 0, 0, 0, 0, 0);
 }
+
+export const rootCred = new Cred(0, 0, 0, 0, 0, 0);
