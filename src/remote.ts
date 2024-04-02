@@ -57,9 +57,9 @@ async function handleMessage(port: RPC.Port, fs: FileSystem, message: MessageEve
 }
 
 export function attach(port: RPC.Port, fs: FileSystem): void {
-	port['on' in port ? 'on' : 'addEventListener']('message', (message: any) => handleMessage(port, fs, message));
+	port['on' in port ? 'on' : 'addEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleMessage(port, fs, message));
 }
 
 export function detach(port: RPC.Port, fs: FileSystem): void {
-	port['off' in port ? 'off' : 'removeEventListener']('message', event => handleMessage(port, fs, event));
+	port['off' in port ? 'off' : 'removeEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleMessage(port, fs, message));
 }

@@ -1,20 +1,21 @@
-import { MessageChannel } from 'node:worker_threads';
-import { fs, configure, InMemory } from '@zenfs/core';
+import { fs, configure } from '@zenfs/core';
 import { Port } from '../src/backend.js';
-import { attach } from '../src/remote.js';
+import { Worker } from 'node:worker_threads';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const { port1, port2 } = new MessageChannel();
+const __dirname = resolve(fileURLToPath(import.meta.url), '..');
 
-describe('Remote FS test', () => {
-	test('read', async () => {
-		await configure({
-			'/tmp': InMemory,
-			'/port': { backend: Port, port: port1 },
-		});
-		attach(port2, fs.mounts.get('/tmp'));
+describe('Remote FS', () => {
+	const port = new Worker(__dirname + '/worker.js');
+
+	afterAll(() => port.terminate());
+
+	test('read/write', async () => {
+		await configure({ backend: Port, port });
 		const content = 'FS is in a port';
-		await fs.promises.writeFile('/port/test', content);
-		expect(fs.readFileSync('/tmp/test', 'utf8')).toBe(content);
-		expect(await fs.promises.readFile('/port/test', 'utf8')).toBe(content);
+		await fs.promises.writeFile('/test', content);
+
+		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
 	});
 });

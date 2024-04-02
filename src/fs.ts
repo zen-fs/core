@@ -10,6 +10,11 @@ export interface PortFSOptions {
 	 * The target port that you want to connect to, or the current port if in a port context.
 	 */
 	port: RPC.Port;
+
+	/**
+	 * How long to wait for a message to resolve
+	 */
+	timeout?: number;
 }
 
 export class PortFile extends File {
@@ -95,6 +100,7 @@ export class PortFS extends Async(FileSystem) {
 	protected _port: RPC.Port;
 	protected _currentID: number = 0;
 	protected _requests: Map<number, RPC.RequestPromise> = new Map();
+	protected _timeout: number = 1000;
 
 	protected handleMessage(message: MessageEvent<RPC.Response> | RPC.Response): void {
 		const data: RPC.Response = 'data' in message ? message.data : message;
@@ -106,23 +112,30 @@ export class PortFS extends Async(FileSystem) {
 		if (error) {
 			const e = <ApiError>(<unknown>value);
 			e.stack += stack;
-			return reject(e);
+			reject(e);
+			this._requests.delete(id);
+			return;
 		}
 		if (method == 'openFile' || method == 'createFile') {
 			const file = new PortFile(this, (<RPC.File>(<unknown>value)).fd, value.path, value.position);
-			return resolve(file);
+			resolve(file);
+			this._requests.delete(id);
+			return;
 		}
 
 		resolve(value);
+		this._requests.delete(id);
+		return;
 	}
 
 	/**
 	 * Constructs a new PortFS instance that connects with ZenFS running on
 	 * the specified port.
 	 */
-	public constructor({ port: port }: PortFSOptions) {
+	public constructor({ port, timeout = 1000 }: PortFSOptions) {
 		super();
 		this._port = port;
+		this._timeout = timeout;
 		port['on' in port ? 'on' : 'addEventListener']('message', (msg: RPC.Response) => {
 			this.handleMessage(msg);
 		});
@@ -164,6 +177,9 @@ export class PortFS extends Async(FileSystem) {
 				stack: new Error().stack.slice('Error:'.length),
 				args,
 			});
+			setTimeout(() => {
+				reject(new ApiError(ErrorCode.EIO, 'RPC Failed'));
+			}, this._timeout);
 		});
 	}
 
