@@ -57,6 +57,10 @@ export enum ErrorCode {
 	 */
 	EROFS = 30,
 	/**
+	 * Resource deadlock would occur
+	 */
+	EDEADLK = 35,
+	/**
 	 * Directory is not empty
 	 */
 	ENOTEMPTY = 39,
@@ -84,6 +88,7 @@ export const ErrorStrings: { [code in ErrorCode]: string } = {
 	[ErrorCode.EFBIG]: 'File is too big.',
 	[ErrorCode.ENOSPC]: 'No space left on disk.',
 	[ErrorCode.EROFS]: 'Cannot modify a read-only file system.',
+	[ErrorCode.EDEADLK]: 'Resource deadlock would occur',
 	[ErrorCode.ENOTEMPTY]: 'Directory is not empty.',
 	[ErrorCode.ENOTSUP]: 'Operation is not supported.',
 };
