@@ -1,9 +1,6 @@
-import { ApiError, ErrorCode, type File } from '@zenfs/core';
-import type { FileSystem, FileSystemMetadata } from '@zenfs/core/filesystem.js';
+import { ApiError, ErrorCode } from '@zenfs/core';
 import type { TransferListItem } from 'worker_threads';
-import { PortFile } from './file.js';
-import { type PortFS } from './fs.js';
-import type { ExtractProperties } from './utils.js';
+import { PortFile, type PortFS } from './fs.js';
 
 /**
  * An RPC message
@@ -16,11 +13,11 @@ export interface Message<TScope extends string, TMethod extends string> {
 	stack: string;
 }
 
-export interface BaseRequest<TScope extends string, TMethod extends string, TArgs extends unknown[]> extends Message<TScope, TMethod> {
+export interface Request<TScope extends string = string, TMethod extends string = string, TArgs extends unknown[] = unknown[]> extends Message<TScope, TMethod> {
 	args: TArgs;
 }
 
-export interface BaseResponse<TScope extends string, TMethod extends string, TValue> extends Message<TScope, TMethod> {
+export interface Response<TScope extends string = string, TMethod extends string = string, TValue = unknown> extends Message<TScope, TMethod> {
 	error: boolean;
 	value: Awaited<TValue>;
 }
@@ -31,18 +28,6 @@ export interface Port {
 	addEventListener?(type: 'message', listener: (this: Port, ev: MessageEvent) => void): void;
 	onmessage?: ((this: Port, ev: MessageEvent) => void) | null;
 }
-
-// Remote file system
-
-type FSAsyncMethods = ExtractProperties<FileSystem, (...args: unknown[]) => Promise<unknown> | FileSystemMetadata>;
-
-export type FSMethod = keyof FSAsyncMethods;
-export type FSArgs<TMethod extends FSMethod = FSMethod> = Parameters<FSAsyncMethods[TMethod]>;
-export type FSRequest<TMethod extends FSMethod = FSMethod> = BaseRequest<'fs', TMethod, FSArgs<TMethod>>;
-export type FSValue<TMethod extends FSMethod = FSMethod> = Awaited<ReturnType<FSAsyncMethods[TMethod]>>;
-export type FSResponse<TMethod extends FSMethod = FSMethod> = BaseResponse<'fs', TMethod, FSValue<TMethod> extends File ? FileData : FSValue<TMethod>>;
-
-// Remote file
 
 export interface FileData {
 	fd: number;
@@ -56,24 +41,7 @@ function isFileData(value: unknown): value is FileData {
 
 export { FileData as File };
 
-type FileAsyncMethods = ExtractProperties<File, (...args: unknown[]) => Promise<unknown>>;
-
-export type FileMethod = keyof FileAsyncMethods;
-export type FileArgs<TMethod extends FileMethod = FileMethod> = Parameters<FileAsyncMethods[TMethod]>;
-export interface FileRequest<TMethod extends FileMethod = FileMethod> extends BaseRequest<'file', TMethod, FileArgs<TMethod>> {
-	fd: number;
-}
-export type FileValue<TMethod extends FileMethod = FileMethod> = Awaited<ReturnType<FileAsyncMethods[TMethod]>>;
-export interface FileResponse<TMethod extends FileMethod = FileMethod> extends BaseResponse<'file', TMethod, FileValue<TMethod>> {
-	fd: number;
-}
-
 // general types
-
-export type Request = FSRequest | FileRequest;
-export type Args = FSArgs | FileArgs;
-export type Response = FSResponse | FileResponse;
-export type Value = FSValue | FileValue;
 
 export function isMessage(arg: unknown): arg is Message<string, string> {
 	return typeof arg == 'object' && '_zenfs' in arg && !!arg._zenfs;
@@ -94,7 +62,7 @@ export interface Options {
 	timeout: number;
 }
 
-export function request<const TRequest extends BaseRequest<string, string, unknown[]>, TValue>(
+export function request<const TRequest extends Request, TValue>(
 	port: Port,
 	request: Omit<TRequest, 'id' | 'stack' | '_zenfs'>,
 	{ timeout = 1000 }: Partial<Options> = {}
@@ -114,7 +82,7 @@ export function request<const TRequest extends BaseRequest<string, string, unkno
 	});
 }
 
-export function handleResponse<const TResponse extends BaseResponse<string, string, unknown>>(response: MessageEvent<TResponse> | TResponse, fs?: PortFS): TResponse {
+export function handleResponse<const TResponse extends Response>(response: MessageEvent<TResponse> | TResponse, fs?: PortFS): TResponse {
 	const data: TResponse = 'data' in response ? response.data : response;
 	if (!isMessage(data)) {
 		return;

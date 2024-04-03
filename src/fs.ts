@@ -1,8 +1,128 @@
+import { ApiError, ErrorCode } from '@zenfs/core';
 import { Cred } from '@zenfs/core/cred.js';
 import { File } from '@zenfs/core/file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '@zenfs/core/filesystem.js';
+import type { FileType } from '@zenfs/core/stats.js';
 import { Stats } from '@zenfs/core/stats.js';
 import * as RPC from './rpc.js';
+import type { ExtractProperties } from './utils.js';
+
+type FileAsyncMethods = ExtractProperties<File, (...args: unknown[]) => Promise<unknown>>;
+type FileMethod = keyof FileAsyncMethods;
+type FileArgs<TMethod extends FileMethod = FileMethod> = Parameters<FileAsyncMethods[TMethod]>;
+interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request<'file', TMethod, FileArgs<TMethod>> {
+	fd: number;
+}
+type FileValue<TMethod extends FileMethod = FileMethod> = Awaited<ReturnType<FileAsyncMethods[TMethod]>>;
+interface FileResponse<TMethod extends FileMethod = FileMethod> extends RPC.Response<'file', TMethod, FileValue<TMethod>> {
+	fd: number;
+}
+
+export class PortFile extends File {
+	constructor(
+		public readonly fs: PortFS,
+		public readonly fd: number,
+		public readonly path: string,
+		public position?: number
+	) {
+		super();
+	}
+
+	public rpc<const T extends FileMethod>(method: T, ...args: FileArgs<T>): Promise<FileValue<T>> {
+		return RPC.request<FileRequest<T>, FileValue<T>>(this.fs.port, {
+			scope: 'file',
+			fd: this.fd,
+			method,
+			args,
+		});
+	}
+
+	public stat(): Promise<Stats> {
+		return this.rpc('stat');
+	}
+
+	public statSync(): Stats {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public truncate(len: number): Promise<void> {
+		return this.rpc('truncate', len);
+	}
+
+	public truncateSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
+		return this.rpc('write', buffer, offset, length, position);
+	}
+
+	public writeSync(): number {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public read<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
+		return <Promise<{ bytesRead: number; buffer: TBuffer }>>this.rpc('read', buffer, offset, length, position);
+	}
+
+	public readSync(): number {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public chown(uid: number, gid: number): Promise<void> {
+		return this.rpc('chown', uid, gid);
+	}
+
+	public chownSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public chmod(mode: number): Promise<void> {
+		return this.rpc('chmod', mode);
+	}
+
+	public chmodSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public utimes(atime: Date, mtime: Date): Promise<void> {
+		return this.rpc('utimes', atime, mtime);
+	}
+
+	public utimesSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public _setType(type: FileType): Promise<void> {
+		return this.rpc('_setType', type);
+	}
+
+	public _setTypeSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public close(): Promise<void> {
+		return this.rpc('close');
+	}
+
+	public closeSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public sync(): Promise<void> {
+		return this.rpc('sync');
+	}
+
+	public syncSync(): void {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+}
+
+type FSAsyncMethods = ExtractProperties<FileSystem, (...args: unknown[]) => Promise<unknown> | FileSystemMetadata>;
+type FSMethod = keyof FSAsyncMethods;
+type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Request<'fs', TMethod, Parameters<FSAsyncMethods[TMethod]>>;
+type FSValue<TMethod extends FSMethod = FSMethod> = Awaited<ReturnType<FSAsyncMethods[TMethod]>>;
+type FSResponse<TMethod extends FSMethod = FSMethod> = RPC.Response<'fs', TMethod, FSValue<TMethod> extends File ? RPC.FileData : FSValue<TMethod>>;
 
 export interface PortFSOptions extends Partial<RPC.Options> {
 	/**
@@ -42,8 +162,8 @@ export class PortFS extends Async(FileSystem) {
 		};
 	}
 
-	protected rpc<const T extends RPC.FSMethod>(method: T, ...args: RPC.FSArgs<T>): Promise<RPC.FSValue<T>> {
-		return RPC.request<RPC.FSRequest<T>, RPC.FSValue<T>>(this.port, {
+	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSAsyncMethods[T]>): Promise<ReturnType<FSAsyncMethods[T]>> {
+		return RPC.request<FSRequest<T>, ReturnType<FSAsyncMethods[T]>>(this.port, {
 			scope: 'fs',
 			method,
 			args,
@@ -55,37 +175,98 @@ export class PortFS extends Async(FileSystem) {
 		return this;
 	}
 
-	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-		return this.rpc('rename', oldPath, newPath, cred);
+	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
+		return await this.rpc('rename', oldPath, newPath, cred);
 	}
 	public async stat(p: string, cred: Cred): Promise<Stats> {
 		return new Stats(await this.rpc('stat', p, cred));
 	}
-	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		return this.rpc('sync', path, data, stats);
+	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		return await this.rpc('sync', path, data, stats);
 	}
-	public openFile(p: string, flag: string, cred: Cred): Promise<File> {
-		return this.rpc('openFile', p, flag, cred);
+	public async openFile(p: string, flag: string, cred: Cred): Promise<File> {
+		return await this.rpc('openFile', p, flag, cred);
 	}
-	public createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
-		return this.rpc('createFile', p, flag, mode, cred);
+	public async createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
+		return await this.rpc('createFile', p, flag, mode, cred);
 	}
-	public unlink(p: string, cred: Cred): Promise<void> {
-		return this.rpc('unlink', p, cred);
+	public async unlink(p: string, cred: Cred): Promise<void> {
+		return await this.rpc('unlink', p, cred);
 	}
-	public rmdir(p: string, cred: Cred): Promise<void> {
-		return this.rpc('rmdir', p, cred);
+	public async rmdir(p: string, cred: Cred): Promise<void> {
+		return await this.rpc('rmdir', p, cred);
 	}
-	public mkdir(p: string, mode: number, cred: Cred): Promise<void> {
-		return this.rpc('mkdir', p, mode, cred);
+	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
+		return await this.rpc('mkdir', p, mode, cred);
 	}
-	public readdir(p: string, cred: Cred): Promise<string[]> {
-		return this.rpc('readdir', p, cred);
+	public async readdir(p: string, cred: Cred): Promise<string[]> {
+		return await this.rpc('readdir', p, cred);
 	}
-	public exists(p: string, cred: Cred): Promise<boolean> {
-		return this.rpc('exists', p, cred);
+	public async exists(p: string, cred: Cred): Promise<boolean> {
+		return await this.rpc('exists', p, cred);
 	}
-	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
-		return this.rpc('link', srcpath, dstpath, cred);
+	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
+		return await this.rpc('link', srcpath, dstpath, cred);
 	}
+}
+
+let nextFd = 0;
+
+const descriptors: Map<number, File> = new Map();
+
+async function handleMessage(port: RPC.Port, fs: FileSystem, message: MessageEvent<RPC.Request> | RPC.Request): Promise<void> {
+	const data = 'data' in message ? message.data : message;
+	if (!RPC.isMessage(data)) {
+		return;
+	}
+	const { method, args, id, scope, stack } = data;
+
+	let value, error: boolean;
+
+	try {
+		switch (scope) {
+			case 'fs':
+				value = await fs[method](...args);
+				if (value instanceof File) {
+					descriptors.set(++nextFd, value);
+					value = {
+						fd: nextFd,
+						path: value.path,
+						position: value.position,
+					};
+				}
+				break;
+			case 'file':
+				const { fd } = <FileRequest>data;
+				if (!descriptors.has(fd)) {
+					throw new ApiError(ErrorCode.EBADF);
+				}
+				value = await descriptors.get(fd)[method](...args);
+				if (method == 'close') {
+					descriptors.delete(fd);
+				}
+				break;
+		}
+	} catch (e) {
+		value = e;
+		error = true;
+	}
+
+	port.postMessage({
+		_zenfs: true,
+		scope,
+		id,
+		error,
+		method,
+		stack,
+		value,
+	});
+}
+
+export function attachFS(port: RPC.Port, fs: FileSystem): void {
+	port['on' in port ? 'on' : 'addEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleMessage(port, fs, message));
+}
+
+export function detachFS(port: RPC.Port, fs: FileSystem): void {
+	port['off' in port ? 'off' : 'removeEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleMessage(port, fs, message));
 }
