@@ -96,11 +96,11 @@ const executors: Map<number, Executor> = new Map();
 
 let next = 0;
 
-export interface RequestOptions {
+export interface Options {
 	timeout: number;
 }
 
-export function request<const TRequest extends BaseRequest<string, string, unknown[]>, TValue>(port: Port, request: Omit<TRequest, 'id' | 'stack'>, { timeout = 1000 }: Partial<RequestOptions> = {}): Promise<TValue> {
+export function request<const TRequest extends BaseRequest<string, string, unknown[]>, TValue>(port: Port, request: Omit<TRequest, 'id' | 'stack'>, { timeout = 1000 }: Partial<Options> = {}): Promise<TValue> {
 	return new Promise<TValue>((resolve, reject) => {
 		const id = next++;
 		executors.set(id, { resolve, reject });

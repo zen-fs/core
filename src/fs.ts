@@ -4,7 +4,7 @@ import { Async, FileSystem, type FileSystemMetadata } from '@zenfs/core/filesyst
 import { Stats } from '@zenfs/core/stats.js';
 import * as RPC from './rpc.js';
 
-export interface PortFSOptions extends Partial<RPC.RequestOptions> {
+export interface PortFSOptions extends Partial<RPC.Options> {
 	/**
 	 * The target port that you want to connect to, or the current port if in a port context.
 	 */
@@ -19,7 +19,7 @@ export interface PortFSOptions extends Partial<RPC.RequestOptions> {
  */
 export class PortFS extends Async(FileSystem) {
 	public readonly port: RPC.Port;
-	public readonly options: Partial<RPC.RequestOptions>;
+	public readonly options: Partial<RPC.Options>;
 
 	/**
 	 * Constructs a new PortFS instance that connects with ZenFS running on
@@ -40,16 +40,6 @@ export class PortFS extends Async(FileSystem) {
 			name: 'PortFS',
 			synchronous: false,
 		};
-	}
-
-	public fileRPC<const T extends RPC.FileMethod>(fd: number, method: T, ...args: RPC.FileArgs<T>): Promise<RPC.FileValue<T>> {
-		return RPC.request<RPC.FileRequest<T>, RPC.FileValue<T>>(this.port, {
-			_zenfs: true,
-			scope: 'file',
-			fd,
-			method,
-			args,
-		});
 	}
 
 	protected rpc<const T extends RPC.FSMethod>(method: T, ...args: RPC.FSArgs<T>): Promise<RPC.FSValue<T>> {
