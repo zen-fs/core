@@ -85,12 +85,11 @@ let nextTx = 0;
 
 const transactions: Map<number, AsyncTransaction | SyncTransaction> = new Map();
 
-async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, request: MessageEvent<RPC.Request> | RPC.Request): Promise<void> {
-	const data = 'data' in request ? request.data : request;
-	if (!RPC.isMessage(data)) {
+async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, request: RPC.Request): Promise<void> {
+	if (!RPC.isMessage(request)) {
 		return;
 	}
-	const { method, args, id, scope, stack } = data;
+	const { method, args, id, scope, stack } = request;
 
 	let value, error: boolean;
 
@@ -108,7 +107,7 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 				}
 				break;
 			case 'transaction':
-				const { tx } = <TxRequest>data;
+				const { tx } = <TxRequest>request;
 				if (!transactions.has(tx)) {
 					throw new ApiError(ErrorCode.EBADF);
 				}
@@ -117,6 +116,8 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 					transactions.delete(tx);
 				}
 				break;
+			default:
+				return;
 		}
 	} catch (e) {
 		value = e;
@@ -135,11 +136,11 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 }
 
 export function attachStore(port: RPC.Port, store: SyncStore | AsyncStore): void {
-	port['on' in port ? 'on' : 'addEventListener']('message', (request: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, store, request));
+	RPC.attach(port, (request: RPC.Request) => handleRequest(port, store, request));
 }
 
 export function detachStore(port: RPC.Port, store: SyncStore | AsyncStore): void {
-	port['off' in port ? 'off' : 'removeEventListener']('message', (request: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, store, request));
+	RPC.detach(port, (request: RPC.Request) => handleRequest(port, store, request));
 }
 
 export const PortStoreBackend: Backend = {

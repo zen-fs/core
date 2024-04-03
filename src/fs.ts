@@ -128,19 +128,15 @@ type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Request<'fs', TMethod,
  */
 export class PortFS extends Async(FileSystem) {
 	public readonly port: RPC.Port;
-	public readonly options: Partial<RPC.Options>;
 
 	/**
 	 * Constructs a new PortFS instance that connects with ZenFS running on
 	 * the specified port.
 	 */
-	public constructor({ port, ...options }: RPC.Options) {
+	public constructor(public readonly options: RPC.Options) {
 		super();
-		this.port = port;
-		this.options = options;
-		port['on' in port ? 'on' : 'addEventListener']('message', (message: RPC.Response) => {
-			RPC.handleResponse(message);
-		});
+		this.port = options.port;
+		RPC.attach(this.port, RPC.handleResponse);
 	}
 
 	public metadata(): FileSystemMetadata {
@@ -158,7 +154,7 @@ export class PortFS extends Async(FileSystem) {
 				method,
 				args,
 			},
-			this.options
+			{ ...this.options, fs: this }
 		);
 	}
 
@@ -208,12 +204,11 @@ let nextFd = 0;
 
 const descriptors: Map<number, File> = new Map();
 
-async function handleRequest(port: RPC.Port, fs: FileSystem, request: MessageEvent<RPC.Request> | RPC.Request): Promise<void> {
-	const data = 'data' in request ? request.data : request;
-	if (!RPC.isMessage(data)) {
+async function handleRequest(port: RPC.Port, fs: FileSystem, request: RPC.Request): Promise<void> {
+	if (!RPC.isMessage(request)) {
 		return;
 	}
-	const { method, args, id, scope, stack } = data;
+	const { method, args, id, scope, stack } = request;
 
 	let value, error: boolean;
 
@@ -231,7 +226,7 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: MessageEve
 				}
 				break;
 			case 'file':
-				const { fd } = <FileRequest>data;
+				const { fd } = <FileRequest>request;
 				if (!descriptors.has(fd)) {
 					throw new ApiError(ErrorCode.EBADF);
 				}
@@ -240,6 +235,8 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: MessageEve
 					descriptors.delete(fd);
 				}
 				break;
+			default:
+				return;
 		}
 	} catch (e) {
 		value = e;
@@ -258,11 +255,11 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: MessageEve
 }
 
 export function attachFS(port: RPC.Port, fs: FileSystem): void {
-	port['on' in port ? 'on' : 'addEventListener']('message', (request: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, fs, request));
+	RPC.attach(port, (request: RPC.Request) => handleRequest(port, fs, request));
 }
 
 export function detachFS(port: RPC.Port, fs: FileSystem): void {
-	port['off' in port ? 'off' : 'removeEventListener']('message', (request: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, fs, request));
+	RPC.detach(port, (request: RPC.Request) => handleRequest(port, fs, request));
 }
 
 export const Port: Backend = {
