@@ -24,12 +24,15 @@ export class PortFile extends File {
 	}
 
 	public rpc<const T extends FileMethod>(method: T, ...args: Parameters<FileMethods[T]>): Promise<Awaited<ReturnType<FileMethods[T]>>> {
-		return RPC.request<FileRequest<T>, Awaited<ReturnType<FileMethods[T]>>>({
-			scope: 'file',
-			fd: this.fd,
-			method,
-			args,
-		}, this.fs.options);
+		return RPC.request<FileRequest<T>, Awaited<ReturnType<FileMethods[T]>>>(
+			{
+				scope: 'file',
+				fd: this.fd,
+				method,
+				args,
+			},
+			this.fs.options
+		);
 	}
 
 	public stat(): Promise<Stats> {
@@ -149,11 +152,14 @@ export class PortFS extends Async(FileSystem) {
 	}
 
 	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSMethods[T]>): Promise<Awaited<ReturnType<FSMethods[T]>>> {
-		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>({
-			scope: 'fs',
-			method,
-			args,
-		}, this.options);
+		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>(
+			{
+				scope: 'fs',
+				method,
+				args,
+			},
+			this.options
+		);
 	}
 
 	public async ready(): Promise<this> {

@@ -11,7 +11,7 @@ describe('Store with MessageChannel', () => {
 	});
 
 	test('read/write', async () => {
-		const tmpfs = await resolveBackend({ backend: InMemory, name: 'tmp' }) as SyncStoreFS & { store: InMemoryStore };
+		const tmpfs = (await resolveBackend({ backend: InMemory, name: 'tmp' })) as SyncStoreFS & { store: InMemoryStore };
 		fs.mount('/tmp', tmpfs);
 		attachStore(port2, tmpfs.store);
 		fs.mount('/port', await resolveBackend({ backend: PortStoreBackend, port: port1 }));
