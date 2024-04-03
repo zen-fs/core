@@ -16,7 +16,6 @@ export class PortFile extends File {
 
 	public rpc<const T extends RPC.FileMethod>(method: T, ...args: RPC.FileArgs<T>): Promise<RPC.FileValue<T>> {
 		return RPC.request<RPC.FileRequest<T>, RPC.FileValue<T>>(this.fs.port, {
-			_zenfs: true,
 			scope: 'file',
 			fd: this.fd,
 			method,

@@ -44,7 +44,6 @@ export class PortFS extends Async(FileSystem) {
 
 	protected rpc<const T extends RPC.FSMethod>(method: T, ...args: RPC.FSArgs<T>): Promise<RPC.FSValue<T>> {
 		return RPC.request<RPC.FSRequest<T>, RPC.FSValue<T>>(this.port, {
-			_zenfs: true,
 			scope: 'fs',
 			method,
 			args,

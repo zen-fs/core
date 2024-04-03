@@ -1,4 +1,3 @@
-
 /**
  * Extracts an object of properties assignable to P from an object T
  */

@@ -94,14 +94,19 @@ export interface Options {
 	timeout: number;
 }
 
-export function request<const TRequest extends BaseRequest<string, string, unknown[]>, TValue>(port: Port, request: Omit<TRequest, 'id' | 'stack'>, { timeout = 1000 }: Partial<Options> = {}): Promise<TValue> {
+export function request<const TRequest extends BaseRequest<string, string, unknown[]>, TValue>(
+	port: Port,
+	request: Omit<TRequest, 'id' | 'stack' | '_zenfs'>,
+	{ timeout = 1000 }: Partial<Options> = {}
+): Promise<TValue> {
 	return new Promise<TValue>((resolve, reject) => {
 		const id = next++;
 		executors.set(id, { resolve, reject });
 		port.postMessage({
 			...request,
+			_zenfs: true,
 			id,
-			stack:  new Error().stack.slice('Error:'.length),
+			stack: new Error().stack.slice('Error:'.length),
 		});
 		setTimeout(() => {
 			reject(new ApiError(ErrorCode.EIO, 'RPC Failed'));
