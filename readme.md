@@ -17,7 +17,7 @@ ZenFS is modular and extensible. The core includes a few built-in backends:
 > [!NOTE]
 > When constructed, `AsyncMirror` loads the entire contents of the async file system into a synchronous backend. It performs operations on the synchronous file system and then queues them to be mirrored onto the asynchronous backend.
 
-ZenFS supports a number of other backends. Many are provided as seperate packages under `@zenfs`. More backends can be defined by separate libraries by extending the `FileSystem` class and/or providing a `Backend` object.
+ZenFS supports a number of other backends. Many are provided as separate packages under `@zenfs`. More backends can be defined by separate libraries by extending the `FileSystem` class and/or providing a `Backend` object.
 
 For more information, see the [docs](https://zen-fs.github.io/core).
 
@@ -110,7 +110,7 @@ if (!exists) {
 > You can import the promises API using `promises`, or using `fs.promises` on the exported `fs`.
 
 > [!IMPORTANT]
-> ZenFS does _not_ provide a seperate public import for importing promises like `fs/promises`. If you are using ESM, you can import promises functions like `fs/promises` from the `dist/emulation/promises.ts` file, though this may change at any time and is **not recommended**.
+> ZenFS does _not_ provide a separate public import for importing promises like `fs/promises`. If you are using ESM, you can import promises functions like `fs/promises` from the `dist/emulation/promises.ts` file, though this may change at any time and is **not recommended**.
 
 #### Using asynchronous backends synchronously
 
