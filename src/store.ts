@@ -5,14 +5,14 @@ import type { ExtractProperties } from './utils.js';
 
 export class PortStore implements AsyncStore {
 	public readonly port: RPC.Port;
-	constructor(
+	public constructor(
 		public readonly options: RPC.Options,
 		public readonly name: string = 'port'
 	) {
 		this.port = options.port;
 	}
 
-	clear(): Promise<void> {
+	public clear(): Promise<void> {
 		return RPC.request(
 			{
 				scope: 'store',
@@ -23,7 +23,7 @@ export class PortStore implements AsyncStore {
 		);
 	}
 
-	beginTransaction(): PortTransaction {
+	public beginTransaction(): PortTransaction {
 		const id = RPC.request<RPC.Request, number>(
 			{
 				scope: 'store',
