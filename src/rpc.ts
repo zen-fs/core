@@ -1,8 +1,9 @@
 import { ApiError, ErrorCode, type File } from '@zenfs/core';
 import type { FileSystem, FileSystemMetadata } from '@zenfs/core/filesystem.js';
 import type { TransferListItem } from 'worker_threads';
-import { type PortFS } from './fs.js';
 import { PortFile } from './file.js';
+import { type PortFS } from './fs.js';
+import type { ExtractProperties } from './utils.js';
 
 /**
  * An RPC message
@@ -30,13 +31,6 @@ export interface Port {
 	addEventListener?(type: 'message', listener: (this: Port, ev: MessageEvent) => void): void;
 	onmessage?: ((this: Port, ev: MessageEvent) => void) | null;
 }
-
-/**
- * Extracts an object of properties assignable to P from an object T
- */
-export type ExtractProperties<T, P> = {
-	[K in keyof T as T[K] extends infer Prop ? (Prop extends P ? K : never) : never]: T[K];
-};
 
 // Remote file system
 
