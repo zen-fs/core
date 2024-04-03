@@ -52,6 +52,7 @@ type _Executor = Parameters<ConstructorParameters<typeof Promise>[0]>;
 export interface Executor {
 	resolve: _Executor[0];
 	reject: _Executor[1];
+	fs?: PortFS;
 }
 
 const executors: Map<number, Executor> = new Map();
@@ -59,17 +60,23 @@ const executors: Map<number, Executor> = new Map();
 let next = 0;
 
 export interface Options {
+	/**
+	 * The target port that you want to connect to, or the current port if in a port context.
+	 */
+	port: Port;
+	/**
+	 * How long to wait for a request to complete
+	 */
 	timeout: number;
 }
 
 export function request<const TRequest extends Request, TValue>(
-	port: Port,
 	request: Omit<TRequest, 'id' | 'stack' | '_zenfs'>,
-	{ timeout = 1000 }: Partial<Options> = {}
+	{ port, timeout = 1000, fs }: Partial<Options> & { fs?: PortFS } = {}
 ): Promise<TValue> {
 	return new Promise<TValue>((resolve, reject) => {
 		const id = next++;
-		executors.set(id, { resolve, reject });
+		executors.set(id, { resolve, reject, fs });
 		port.postMessage({
 			...request,
 			_zenfs: true,
@@ -82,13 +89,13 @@ export function request<const TRequest extends Request, TValue>(
 	});
 }
 
-export function handleResponse<const TResponse extends Response>(response: MessageEvent<TResponse> | TResponse, fs?: PortFS): TResponse {
+export function handleResponse<const TResponse extends Response>(response: MessageEvent<TResponse> | TResponse): TResponse {
 	const data: TResponse = 'data' in response ? response.data : response;
 	if (!isMessage(data)) {
 		return;
 	}
 	const { id, value, error, stack } = data;
-	const { resolve, reject } = executors.get(id);
+	const { resolve, reject, fs } = executors.get(id);
 	if (error) {
 		const e = <ApiError>(<unknown>value);
 		e.stack += stack;

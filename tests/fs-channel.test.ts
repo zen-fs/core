@@ -1,9 +1,8 @@
 import { InMemory, fs, resolveBackend } from '@zenfs/core';
 import { MessageChannel } from 'node:worker_threads';
-import { Port } from '../src/backend.js';
-import { attach } from '../src/remote.js';
+import { Port, attachFS } from '../src/fs.js';
 
-describe('MessageChannel', () => {
+describe('FS with MessageChannel', () => {
 	const { port1, port2 } = new MessageChannel();
 
 	afterAll(() => {
@@ -13,7 +12,7 @@ describe('MessageChannel', () => {
 
 	test('read/write', async () => {
 		fs.mount('/tmp', await resolveBackend({ backend: InMemory, name: 'tmp' }));
-		attach(port2, fs.mounts.get('/tmp'));
+		attachFS(port2, fs.mounts.get('/tmp'));
 		fs.mount('/port', await resolveBackend({ backend: Port, port: port1 }));
 
 		const content = 'FS is in a port';

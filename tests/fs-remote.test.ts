@@ -1,8 +1,8 @@
 import { fs, configure } from '@zenfs/core';
-import { Port } from '../src/backend.js';
 import { Worker } from 'node:worker_threads';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Port } from '../src/fs.js';
 
 const __dirname = resolve(fileURLToPath(import.meta.url), '..');
 

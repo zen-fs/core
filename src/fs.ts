@@ -1,4 +1,4 @@
-import { ApiError, ErrorCode } from '@zenfs/core';
+import { ApiError, ErrorCode, type Backend } from '@zenfs/core';
 import { Cred } from '@zenfs/core/cred.js';
 import { File } from '@zenfs/core/file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '@zenfs/core/filesystem.js';
@@ -10,9 +10,6 @@ import type { ExtractProperties } from './utils.js';
 type FileMethods = ExtractProperties<File, (...args: unknown[]) => Promise<unknown>>;
 type FileMethod = keyof FileMethods;
 interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request<'file', TMethod, Parameters<FileMethods[TMethod]>> {
-	fd: number;
-}
-interface FileResponse<TMethod extends FileMethod = FileMethod> extends RPC.Response<'file', TMethod, ReturnType<FileMethods[TMethod]>> {
 	fd: number;
 }
 
@@ -27,12 +24,12 @@ export class PortFile extends File {
 	}
 
 	public rpc<const T extends FileMethod>(method: T, ...args: Parameters<FileMethods[T]>): Promise<Awaited<ReturnType<FileMethods[T]>>> {
-		return RPC.request<FileRequest<T>, Awaited<ReturnType<FileMethods[T]>>>(this.fs.port, {
+		return RPC.request<FileRequest<T>, Awaited<ReturnType<FileMethods[T]>>>({
 			scope: 'file',
 			fd: this.fd,
 			method,
 			args,
-		});
+		}, this.fs.options);
 	}
 
 	public stat(): Promise<Stats> {
@@ -120,13 +117,6 @@ type FSMethods = ExtractProperties<FileSystem, (...args: unknown[]) => Promise<u
 type FSMethod = keyof FSMethods;
 type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Request<'fs', TMethod, Parameters<FSMethods[TMethod]>>;
 
-export interface PortFSOptions extends Partial<RPC.Options> {
-	/**
-	 * The target port that you want to connect to, or the current port if in a port context.
-	 */
-	port: RPC.Port;
-}
-
 /**
  * PortFS lets you access a ZenFS instance that is running in a port, or the other way around.
  *
@@ -141,12 +131,12 @@ export class PortFS extends Async(FileSystem) {
 	 * Constructs a new PortFS instance that connects with ZenFS running on
 	 * the specified port.
 	 */
-	public constructor({ port, ...options }: PortFSOptions) {
+	public constructor({ port, ...options }: RPC.Options) {
 		super();
 		this.port = port;
 		this.options = options;
 		port['on' in port ? 'on' : 'addEventListener']('message', (message: RPC.Response) => {
-			RPC.handleResponse(message, this);
+			RPC.handleResponse(message);
 		});
 	}
 
@@ -159,11 +149,11 @@ export class PortFS extends Async(FileSystem) {
 	}
 
 	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSMethods[T]>): Promise<Awaited<ReturnType<FSMethods[T]>>> {
-		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>(this.port, {
+		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>({
 			scope: 'fs',
 			method,
 			args,
-		});
+		}, this.options);
 	}
 
 	public async ready(): Promise<this> {
@@ -212,8 +202,8 @@ let nextFd = 0;
 
 const descriptors: Map<number, File> = new Map();
 
-async function handleRequest(port: RPC.Port, fs: FileSystem, message: MessageEvent<RPC.Request> | RPC.Request): Promise<void> {
-	const data = 'data' in message ? message.data : message;
+async function handleRequest(port: RPC.Port, fs: FileSystem, request: MessageEvent<RPC.Request> | RPC.Request): Promise<void> {
+	const data = 'data' in request ? request.data : request;
 	if (!RPC.isMessage(data)) {
 		return;
 	}
@@ -262,9 +252,46 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, message: MessageEve
 }
 
 export function attachFS(port: RPC.Port, fs: FileSystem): void {
-	port['on' in port ? 'on' : 'addEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, fs, message));
+	port['on' in port ? 'on' : 'addEventListener']('message', (request: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, fs, request));
 }
 
 export function detachFS(port: RPC.Port, fs: FileSystem): void {
-	port['off' in port ? 'off' : 'removeEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, fs, message));
+	port['off' in port ? 'off' : 'removeEventListener']('message', (request: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, fs, request));
 }
+
+export const Port: Backend = {
+	name: 'Port',
+
+	options: {
+		port: {
+			type: 'object',
+			description: 'The target port that you want to connect to',
+			validator(port: RPC.Port) {
+				// Check for a `postMessage` function.
+				if (typeof port?.postMessage != 'function') {
+					throw new ApiError(ErrorCode.EINVAL, 'option must be a port.');
+				}
+			},
+		},
+	},
+
+	async isAvailable(): Promise<boolean> {
+		if ('WorkerGlobalScope' in globalThis && globalThis instanceof globalThis.WorkerGlobalScope) {
+			// Web Worker
+			return true;
+		}
+
+		try {
+			const worker_threads = await import('node:worker_threads');
+
+			// NodeJS worker
+			return 'Worker' in worker_threads;
+		} catch (e) {
+			return false;
+		}
+	},
+
+	create(options: RPC.Options) {
+		return new PortFS(options);
+	},
+};

@@ -1,6 +1,6 @@
 import { ApiError, InMemory, configure } from '@zenfs/core';
 import { MessageChannel } from 'node:worker_threads';
-import { Port } from '../src/backend.js';
+import { Port } from '../src/fs.js';
 
 /**
  * Tests a mis-configured PortFS using a MessageChannel

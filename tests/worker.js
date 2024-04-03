@@ -1,5 +1,9 @@
-import { fs } from '@zenfs/core';
+import { InMemory, fs, resolveBackend } from '@zenfs/core';
 import { parentPort } from 'node:worker_threads';
-import { attach } from '../dist/remote.js';
+import { attachFS } from '../dist/fs.js';
+import { attachStore } from '../dist/store.js';
 
-attach(parentPort, fs.mounts.get('/'));
+attachFS(parentPort, fs.mounts.get('/'));
+const tmpfs = await resolveBackend({ backend: InMemory, name: 'tmp' });
+fs.mount('/tmp', tmpfs);
+attachStore(parentPort, tmpfs.store);
