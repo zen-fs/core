@@ -1,4 +1,4 @@
-import { ApiError, ErrorCode } from '@zenfs/core';
+import { ApiError, ErrorCode, type File } from '@zenfs/core';
 import type { TransferListItem } from 'worker_threads';
 import { PortFile, type PortFS } from './fs.js';
 
@@ -19,7 +19,7 @@ export interface Request<TScope extends string = string, TMethod extends string 
 
 export interface Response<TScope extends string = string, TMethod extends string = string, TValue = unknown> extends Message<TScope, TMethod> {
 	error: boolean;
-	value: Awaited<TValue>;
+	value: Awaited<TValue> extends File ? FileData : Awaited<TValue>;
 }
 
 export interface Port {

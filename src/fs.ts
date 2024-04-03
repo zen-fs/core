@@ -7,14 +7,12 @@ import { Stats } from '@zenfs/core/stats.js';
 import * as RPC from './rpc.js';
 import type { ExtractProperties } from './utils.js';
 
-type FileAsyncMethods = ExtractProperties<File, (...args: unknown[]) => Promise<unknown>>;
-type FileMethod = keyof FileAsyncMethods;
-type FileArgs<TMethod extends FileMethod = FileMethod> = Parameters<FileAsyncMethods[TMethod]>;
-interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request<'file', TMethod, FileArgs<TMethod>> {
+type FileMethods = ExtractProperties<File, (...args: unknown[]) => Promise<unknown>>;
+type FileMethod = keyof FileMethods;
+interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request<'file', TMethod, Parameters<FileMethods[TMethod]>> {
 	fd: number;
 }
-type FileValue<TMethod extends FileMethod = FileMethod> = Awaited<ReturnType<FileAsyncMethods[TMethod]>>;
-interface FileResponse<TMethod extends FileMethod = FileMethod> extends RPC.Response<'file', TMethod, FileValue<TMethod>> {
+interface FileResponse<TMethod extends FileMethod = FileMethod> extends RPC.Response<'file', TMethod, ReturnType<FileMethods[TMethod]>> {
 	fd: number;
 }
 
@@ -28,8 +26,8 @@ export class PortFile extends File {
 		super();
 	}
 
-	public rpc<const T extends FileMethod>(method: T, ...args: FileArgs<T>): Promise<FileValue<T>> {
-		return RPC.request<FileRequest<T>, FileValue<T>>(this.fs.port, {
+	public rpc<const T extends FileMethod>(method: T, ...args: Parameters<FileMethods[T]>): Promise<Awaited<ReturnType<FileMethods[T]>>> {
+		return RPC.request<FileRequest<T>, Awaited<ReturnType<FileMethods[T]>>>(this.fs.port, {
 			scope: 'file',
 			fd: this.fd,
 			method,
@@ -118,11 +116,9 @@ export class PortFile extends File {
 	}
 }
 
-type FSAsyncMethods = ExtractProperties<FileSystem, (...args: unknown[]) => Promise<unknown> | FileSystemMetadata>;
-type FSMethod = keyof FSAsyncMethods;
-type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Request<'fs', TMethod, Parameters<FSAsyncMethods[TMethod]>>;
-type FSValue<TMethod extends FSMethod = FSMethod> = Awaited<ReturnType<FSAsyncMethods[TMethod]>>;
-type FSResponse<TMethod extends FSMethod = FSMethod> = RPC.Response<'fs', TMethod, FSValue<TMethod> extends File ? RPC.FileData : FSValue<TMethod>>;
+type FSMethods = ExtractProperties<FileSystem, (...args: unknown[]) => Promise<unknown> | FileSystemMetadata>;
+type FSMethod = keyof FSMethods;
+type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Request<'fs', TMethod, Parameters<FSMethods[TMethod]>>;
 
 export interface PortFSOptions extends Partial<RPC.Options> {
 	/**
@@ -162,8 +158,8 @@ export class PortFS extends Async(FileSystem) {
 		};
 	}
 
-	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSAsyncMethods[T]>): Promise<ReturnType<FSAsyncMethods[T]>> {
-		return RPC.request<FSRequest<T>, ReturnType<FSAsyncMethods[T]>>(this.port, {
+	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSMethods[T]>): Promise<Awaited<ReturnType<FSMethods[T]>>> {
+		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>(this.port, {
 			scope: 'fs',
 			method,
 			args,
@@ -175,38 +171,40 @@ export class PortFS extends Async(FileSystem) {
 		return this;
 	}
 
-	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-		return await this.rpc('rename', oldPath, newPath, cred);
+	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
+		return this.rpc('rename', oldPath, newPath, cred);
 	}
+
 	public async stat(p: string, cred: Cred): Promise<Stats> {
 		return new Stats(await this.rpc('stat', p, cred));
 	}
-	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		return await this.rpc('sync', path, data, stats);
+
+	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		return this.rpc('sync', path, data, stats);
 	}
-	public async openFile(p: string, flag: string, cred: Cred): Promise<File> {
-		return await this.rpc('openFile', p, flag, cred);
+	public openFile(p: string, flag: string, cred: Cred): Promise<File> {
+		return this.rpc('openFile', p, flag, cred);
 	}
-	public async createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
-		return await this.rpc('createFile', p, flag, mode, cred);
+	public createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
+		return this.rpc('createFile', p, flag, mode, cred);
 	}
-	public async unlink(p: string, cred: Cred): Promise<void> {
-		return await this.rpc('unlink', p, cred);
+	public unlink(p: string, cred: Cred): Promise<void> {
+		return this.rpc('unlink', p, cred);
 	}
-	public async rmdir(p: string, cred: Cred): Promise<void> {
-		return await this.rpc('rmdir', p, cred);
+	public rmdir(p: string, cred: Cred): Promise<void> {
+		return this.rpc('rmdir', p, cred);
 	}
-	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
-		return await this.rpc('mkdir', p, mode, cred);
+	public mkdir(p: string, mode: number, cred: Cred): Promise<void> {
+		return this.rpc('mkdir', p, mode, cred);
 	}
-	public async readdir(p: string, cred: Cred): Promise<string[]> {
-		return await this.rpc('readdir', p, cred);
+	public readdir(p: string, cred: Cred): Promise<string[]> {
+		return this.rpc('readdir', p, cred);
 	}
-	public async exists(p: string, cred: Cred): Promise<boolean> {
-		return await this.rpc('exists', p, cred);
+	public exists(p: string, cred: Cred): Promise<boolean> {
+		return this.rpc('exists', p, cred);
 	}
-	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
-		return await this.rpc('link', srcpath, dstpath, cred);
+	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
+		return this.rpc('link', srcpath, dstpath, cred);
 	}
 }
 
@@ -214,7 +212,7 @@ let nextFd = 0;
 
 const descriptors: Map<number, File> = new Map();
 
-async function handleMessage(port: RPC.Port, fs: FileSystem, message: MessageEvent<RPC.Request> | RPC.Request): Promise<void> {
+async function handleRequest(port: RPC.Port, fs: FileSystem, message: MessageEvent<RPC.Request> | RPC.Request): Promise<void> {
 	const data = 'data' in message ? message.data : message;
 	if (!RPC.isMessage(data)) {
 		return;
@@ -264,9 +262,9 @@ async function handleMessage(port: RPC.Port, fs: FileSystem, message: MessageEve
 }
 
 export function attachFS(port: RPC.Port, fs: FileSystem): void {
-	port['on' in port ? 'on' : 'addEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleMessage(port, fs, message));
+	port['on' in port ? 'on' : 'addEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, fs, message));
 }
 
 export function detachFS(port: RPC.Port, fs: FileSystem): void {
-	port['off' in port ? 'off' : 'removeEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleMessage(port, fs, message));
+	port['off' in port ? 'off' : 'removeEventListener']('message', (message: MessageEvent<RPC.Request> | RPC.Request) => handleRequest(port, fs, message));
 }
