@@ -57,43 +57,32 @@ class LRUCache<K, V> {
 }
 
 /**
- * Represents an *asynchronous* key-value store.
+ * Represents an asynchronous key-value store.
  */
 export interface AsyncStore {
 	/**
-	 * The name of the key-value store.
+	 * The name of the store.
 	 */
 	name: string;
 	/**
-	 * Empties the key-value store completely.
+	 * Empties the store completely.
 	 */
 	clear(): Promise<void>;
 	/**
-	 * Begins a read-write transaction.
+	 * Begins a transaction.
 	 */
-	beginTransaction(type: 'readwrite'): AsyncRWTransaction;
-	/**
-	 * Begins a read-only transaction.
-	 */
-	beginTransaction(type: 'readonly'): AsyncROTransaction;
-	beginTransaction(type: string): AsyncROTransaction;
+	beginTransaction(): AsyncTransaction;
 }
 
 /**
- * Represents an asynchronous read-only transaction.
+ * Represents an asynchronous transaction.
  */
-export interface AsyncROTransaction {
+export interface AsyncTransaction {
 	/**
 	 * Retrieves the data at the given key.
 	 * @param key The key to look under for data.
 	 */
 	get(key: Ino): Promise<Uint8Array>;
-}
-
-/**
- * Represents an asynchronous read-write transaction.
- */
-export interface AsyncRWTransaction extends AsyncROTransaction {
 	/**
 	 * Adds the data to the store under the given key. Overwrites any existing
 	 * data.
@@ -227,7 +216,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		}
 
 		try {
-			const tx = this.store.beginTransaction('readwrite'),
+			const tx = this.store.beginTransaction(),
 				oldParent = dirname(oldPath),
 				oldName = basename(oldPath),
 				newParent = dirname(newPath),
@@ -301,7 +290,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async stat(p: string, cred: Cred): Promise<Stats> {
-		const tx = this.store.beginTransaction('readonly');
+		const tx = this.store.beginTransaction();
 		const inode = await this.findINode(tx, p);
 		if (!inode) {
 			throw ApiError.ENOENT(p);
@@ -314,7 +303,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
-		const tx = this.store.beginTransaction('readwrite'),
+		const tx = this.store.beginTransaction(),
 			data = new Uint8Array(0),
 			newFile = await this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
 		// Open the file.
@@ -322,7 +311,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async openFile(p: string, flag: string, cred: Cred): Promise<File> {
-		const tx = this.store.beginTransaction('readonly'),
+		const tx = this.store.beginTransaction(),
 			node = await this.findINode(tx, p),
 			data = await tx.get(node.ino);
 		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
@@ -348,13 +337,13 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
-		const tx = this.store.beginTransaction('readwrite'),
+		const tx = this.store.beginTransaction(),
 			data = encode('{}');
 		await this.commitNewFile(tx, p, FileType.DIRECTORY, mode, cred, data);
 	}
 
 	public async readdir(p: string, cred: Cred): Promise<string[]> {
-		const tx = this.store.beginTransaction('readonly');
+		const tx = this.store.beginTransaction();
 		const node = await this.findINode(tx, p);
 		if (!node.toStats().hasAccess(R_OK, cred)) {
 			throw ApiError.EACCES(p);
@@ -367,7 +356,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public async sync(p: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		const tx = this.store.beginTransaction('readwrite'),
+		const tx = this.store.beginTransaction(),
 			// We use the _findInode helper because we actually need the INode id.
 			fileInodeId = await this._findINode(tx, dirname(p), basename(p)),
 			fileInode = await this.getINode(tx, fileInodeId, p),
@@ -388,7 +377,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async link(existing: string, newpath: string, cred: Cred): Promise<void> {
-		const tx = this.store.beginTransaction('readwrite'),
+		const tx = this.store.beginTransaction(),
 			existingDir: string = dirname(existing),
 			existingDirNode = await this.findINode(tx, existingDir);
 
@@ -427,7 +416,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
 	private async makeRootDirectory(): Promise<void> {
-		const tx = this.store.beginTransaction('readwrite');
+		const tx = this.store.beginTransaction();
 		if ((await tx.get(rootIno)) === undefined) {
 			// Create new inode. o777, owned by root:root
 			const dirInode = new Inode();
@@ -446,7 +435,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * @param filename The filename of the inode we are attempting to find, minus
 	 *   the parent.
 	 */
-	private async _findINode(tx: AsyncROTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): Promise<Ino> {
+	private async _findINode(tx: AsyncTransaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): Promise<Ino> {
 		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ApiError(ErrorCode.EIO, 'Infinite loop detected while finding inode', currentPath);
@@ -503,7 +492,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * @param p The path to look up.
 	 * @todo memoize/cache
 	 */
-	private async findINode(tx: AsyncROTransaction, p: string, visited: Set<string> = new Set<string>()): Promise<Inode> {
+	private async findINode(tx: AsyncTransaction, p: string, visited: Set<string> = new Set<string>()): Promise<Inode> {
 		const id = await this._findINode(tx, dirname(p), basename(p), visited);
 		return this.getINode(tx, id!, p);
 	}
@@ -514,7 +503,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * @param p The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private async getINode(tx: AsyncROTransaction, id: Ino, p: string): Promise<Inode> {
+	private async getINode(tx: AsyncTransaction, id: Ino, p: string): Promise<Inode> {
 		const data = await tx.get(id);
 		if (!data) {
 			throw ApiError.ENOENT(p);
@@ -526,7 +515,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * Given the Inode of a directory, retrieves the corresponding directory
 	 * listing.
 	 */
-	private async getDirListing(tx: AsyncROTransaction, inode: Inode, p: string): Promise<{ [fileName: string]: Ino }> {
+	private async getDirListing(tx: AsyncTransaction, inode: Inode, p: string): Promise<{ [fileName: string]: Ino }> {
 		if (!inode.toStats().isDirectory()) {
 			throw ApiError.ENOTDIR(p);
 		}
@@ -547,7 +536,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * Adds a new node under a random ID. Retries 5 times before giving up in
 	 * the exceedingly unlikely chance that we try to reuse a random ino.
 	 */
-	private async addNewNode(tx: AsyncRWTransaction, data: Uint8Array): Promise<Ino> {
+	private async addNewNode(tx: AsyncTransaction, data: Uint8Array): Promise<Ino> {
 		let retries = 0;
 		const reroll = async (): Promise<Ino> => {
 			if (++retries === 5) {
@@ -577,7 +566,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * @param cred The UID/GID to create the file with
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNewFile(tx: AsyncRWTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
+	private async commitNewFile(tx: AsyncTransaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
 		const parentDir = dirname(p),
 			fname = basename(p),
 			parentNode = await this.findINode(tx, parentDir),
@@ -637,7 +626,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		if (this._cache) {
 			this._cache.remove(p);
 		}
-		const tx = this.store.beginTransaction('readwrite'),
+		const tx = this.store.beginTransaction(),
 			parent: string = dirname(p),
 			parentNode = await this.findINode(tx, parent),
 			parentListing = await this.getDirListing(tx, parentNode, parent),

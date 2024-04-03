@@ -1,6 +1,6 @@
 import type { Ino } from '../inode.js';
 import type { Backend } from './backend.js';
-import { SyncStore, SimpleSyncStore, SimpleSyncRWTransaction, SyncRWTransaction, SyncStoreFS } from './SyncStore.js';
+import { SyncStore, SimpleSyncStore, SimpleSyncTransaction, SyncTransaction, SyncStoreFS } from './SyncStore.js';
 
 /**
  * A simple in-memory store
@@ -13,8 +13,8 @@ export class InMemoryStore implements SyncStore, SimpleSyncStore {
 		this.store.clear();
 	}
 
-	public beginTransaction(): SyncRWTransaction {
-		return new SimpleSyncRWTransaction(this);
+	public beginTransaction(): SyncTransaction {
+		return new SimpleSyncTransaction(this);
 	}
 
 	public get(key: Ino) {
