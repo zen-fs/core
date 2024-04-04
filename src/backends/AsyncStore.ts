@@ -536,24 +536,19 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * Adds a new node under a random ID. Retries 5 times before giving up in
 	 * the exceedingly unlikely chance that we try to reuse a random ino.
 	 */
-	private async addNewNode(tx: AsyncTransaction, data: Uint8Array): Promise<Ino> {
-		let retries = 0;
-		const reroll = async (): Promise<Ino> => {
-			if (++retries === 5) {
-				// Max retries hit. Return with an error.
-				throw new ApiError(ErrorCode.EIO, 'Unable to commit data to key-value store.');
-			} else {
-				// Try again.
-				const ino = randomIno();
-				const committed = await tx.put(ino, data, false);
-				if (!committed) {
-					return reroll();
-				} else {
-					return ino;
-				}
-			}
-		};
-		return reroll();
+	private async addNewNode(tx: AsyncTransaction, data: Uint8Array, _maxAttempts: number = 5): Promise<Ino> {
+		if (_maxAttempts <= 0) {
+			// Max retries hit. Return with an error.
+			throw new ApiError(ErrorCode.EIO, 'Unable to commit data to key-value store.');
+		}
+		// Make an attempt
+		const ino = randomIno();
+		const isCommited = await tx.put(ino, data, false);
+		if (!isCommited) {
+			return await this.addNewNode(tx, data, --_maxAttempts);
+		}
+
+		return ino;
 	}
 
 	/**

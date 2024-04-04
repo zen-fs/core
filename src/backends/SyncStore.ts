@@ -499,17 +499,13 @@ export class SyncStoreFS extends Sync(FileSystem) {
 	 * the exceedingly unlikely chance that we try to reuse a random GUID.
 	 * @return The GUID that the data was stored under.
 	 */
-	protected addNewNode(tx: SyncTransaction, data: Uint8Array): Ino {
-		const retries = 0;
-		let ino: Ino;
-		while (retries < 5) {
-			try {
-				ino = randomIno();
-				tx.put(ino, data, false);
-				return ino;
-			} catch (e) {
-				// Ignore and reroll.
+	protected addNewNode(tx: SyncTransaction, data: Uint8Array, _maxAttempts: number = 5): Ino {
+		for (let i = 0; i < _maxAttempts; i++) {
+			const ino: Ino = randomIno();
+			if (!tx.put(ino, data, false)) {
+				continue;
 			}
+			return ino;
 		}
 		throw new ApiError(ErrorCode.EIO, 'Unable to commit data to key-value store.');
 	}
