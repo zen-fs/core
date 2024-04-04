@@ -1,63 +1,92 @@
+import type { FileHandle } from '../../src/emulation/promises';
 import { fs } from '../common';
 
-describe('Truncate Tests', () => {
-	const filename: string = 'truncate-file.txt';
-	const data = Buffer.alloc(1024 * 16, 'x');
+const path: string = 'truncate-file.txt',
+	size = 1024 * 16,
+	data = new Uint8Array(size).fill('x'.charCodeAt(0));
 
-	afterEach(async () => {
-		await fs.promises.unlink(filename);
+describe('Truncate, sync', () => {
+	test('initial write', () => {
+		fs.writeFileSync(path, data);
+		expect(fs.statSync(path).size).toBe(size);
 	});
 
-	it('Truncate Sync', () => {
-		fs.writeFileSync(filename, data);
-		expect(fs.statSync(filename).size).toBe(1024 * 16);
+	test('truncate to 1024', () => {
+		fs.truncateSync(path, 1024);
+		expect(fs.statSync(path).size).toBe(1024);
+	});
 
-		fs.truncateSync(filename, 1024);
-		expect(fs.statSync(filename).size).toBe(1024);
+	test('truncate to 0', () => {
+		fs.truncateSync(path);
+		expect(fs.statSync(path).size).toBe(0);
+	});
 
-		fs.truncateSync(filename);
-		expect(fs.statSync(filename).size).toBe(0);
+	test('write', () => {
+		fs.writeFileSync(path, data);
+		expect(fs.statSync(path).size).toBe(size);
+	});
 
-		fs.writeFileSync(filename, data);
-		expect(fs.statSync(filename).size).toBe(1024 * 16);
+	let fd: number;
+	test('open r+', () => {
+		fd = fs.openSync(path, 'r+');
+	});
 
-		const fd = fs.openSync(filename, 'r+');
+	test('ftruncate to 1024', () => {
 		fs.ftruncateSync(fd, 1024);
-		let stat = fs.statSync(filename);
-		expect(stat.size).toBe(1024);
+		expect(fs.fstatSync(fd).size).toBe(1024);
+	});
 
+	test('ftruncate to 0', () => {
 		fs.ftruncateSync(fd);
-		stat = fs.statSync(filename);
-		expect(stat.size).toBe(0);
+		expect(fs.fstatSync(fd).size).toBe(0);
+	});
 
+	test('close fd', () => {
 		fs.closeSync(fd);
 	});
+});
+describe('Truncate, async', () => {
+	const statSize = async (path: string) => (await fs.promises.stat(path)).size;
 
-	it('Truncate Async', async () => {
-		const stat = fs.promises.stat;
+	test('initial write', async () => {
+		await fs.promises.writeFile(path, data);
 
-		await fs.promises.writeFile(filename, data);
-		expect((await stat(filename)).size).toBe(1024 * 16);
+		expect(await statSize(path)).toBe(1024 * 16);
+	});
 
-		await fs.promises.truncate(filename, 1024);
-		expect((await stat(filename)).size).toBe(1024);
+	test('truncate to 1024', async () => {
+		await fs.promises.truncate(path, 1024);
+		expect(await statSize(path)).toBe(1024);
+	});
 
-		await fs.promises.truncate(filename);
-		expect((await stat(filename)).size).toBe(0);
+	test('truncate to 0', async () => {
+		await fs.promises.truncate(path);
+		expect(await statSize(path)).toBe(0);
+	});
 
-		await fs.promises.writeFile(filename, data);
-		expect((await stat(filename)).size).toBe(1024 * 16);
+	test('write', async () => {
+		await fs.promises.writeFile(path, data);
+		expect(await statSize(path)).toBe(size);
+	});
 
-		const handle = await fs.promises.open(filename, 'w');
+	let handle: FileHandle;
+	test('open w', async () => {
+		handle = await fs.promises.open(path, 'w');
+	});
 
+	test('handle.truncate to 1024', async () => {
 		await handle.truncate(1024);
 		await handle.sync();
-		expect((await stat(filename)).size).toBe(1024);
+		expect(await statSize(path)).toBe(1024);
+	});
 
+	test('handle.truncate to 0', async () => {
 		await handle.truncate();
 		await handle.sync();
-		expect((await stat(filename)).size).toBe(0);
+		expect(await statSize(path)).toBe(0);
+	});
 
+	test('close handle', async () => {
 		await handle.close();
 	});
 });
