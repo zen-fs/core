@@ -79,8 +79,7 @@ export function normalizePath(p: string): string {
 	if (p.length == 0) {
 		throw new ApiError(ErrorCode.EINVAL, 'Path must not be empty.');
 	}
-	p = p.replaceAll(/\/+/g, '/');
-	return resolve(p);
+	return resolve(p.replaceAll(/[/\\]+/g, '/'));
 }
 
 /**
