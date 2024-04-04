@@ -73,10 +73,10 @@ export function normalizeTime(time: string | number | Date): Date {
  */
 export function normalizePath(p: string): string {
 	// Node doesn't allow null characters in paths.
-	if (p.indexOf('\u0000') >= 0) {
+	if (p.includes('\x00')) {
 		throw new ApiError(ErrorCode.EINVAL, 'Path must be a string without null bytes.');
 	}
-	if (p === '') {
+	if (p.length == 0) {
 		throw new ApiError(ErrorCode.EINVAL, 'Path must not be empty.');
 	}
 	p = p.replaceAll(/\/+/g, '/');
