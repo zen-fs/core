@@ -96,9 +96,10 @@ export const ErrorStrings: { [code in ErrorCode]: string } = {
 interface ApiErrorJSON {
 	errno: ErrorCode;
 	message: string;
-	path: string;
+	path?: string;
 	code: string;
 	stack: string;
+	syscall: string;
 }
 
 /**
@@ -107,49 +108,17 @@ interface ApiErrorJSON {
  */
 export class ApiError extends Error implements NodeJS.ErrnoException {
 	public static fromJSON(json: ApiErrorJSON): ApiError {
-		const err = new ApiError(json.errno, json.message, json.path);
+		const err = new ApiError(json.errno, json.message, json.path, json.syscall);
 		err.code = json.code;
 		err.stack = json.stack;
 		return err;
 	}
 
-	public static OnPath(code: ErrorCode, path: string): ApiError {
-		return new ApiError(code, ErrorStrings[code], path);
-	}
-
-	public static EACCES(path: string): ApiError {
-		return this.OnPath(ErrorCode.EACCES, path);
-	}
-
-	public static ENOENT(path: string): ApiError {
-		return this.OnPath(ErrorCode.ENOENT, path);
-	}
-
-	public static EEXIST(path: string): ApiError {
-		return this.OnPath(ErrorCode.EEXIST, path);
-	}
-
-	public static EISDIR(path: string): ApiError {
-		return this.OnPath(ErrorCode.EISDIR, path);
-	}
-
-	public static ENOTDIR(path: string): ApiError {
-		return this.OnPath(ErrorCode.ENOTDIR, path);
-	}
-
-	public static EPERM(path: string): ApiError {
-		return this.OnPath(ErrorCode.EPERM, path);
-	}
-
-	public static ENOTEMPTY(path: string): ApiError {
-		return this.OnPath(ErrorCode.ENOTEMPTY, path);
+	public static With(code: string, path: string, syscall?: string): ApiError {
+		return new ApiError(ErrorCode[code], ErrorStrings[ErrorCode[code]], path, syscall);
 	}
 
 	public code: string;
-
-	// Unsupported.
-	public syscall: string = '';
-	public stack?: string;
 
 	/**
 	 * Represents a ZenFS error. Passed back to applications after a failed
@@ -164,7 +133,8 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 	constructor(
 		public errno: ErrorCode,
 		message: string = ErrorStrings[errno],
-		public path?: string
+		public path?: string,
+		public syscall: string = ''
 	) {
 		super(message);
 		this.code = ErrorCode[errno];
@@ -185,6 +155,7 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 			path: this.path,
 			stack: this.stack,
 			message: this.message,
+			syscall: this.syscall,
 		};
 	}
 

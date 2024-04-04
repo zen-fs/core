@@ -56,8 +56,7 @@ export function renameSync(oldPath: PathLike, newPath: PathLike): void {
 			return _old.fs.renameSync(_old.path, _new.path, cred);
 		}
 
-		const data = readFileSync(oldPath);
-		writeFileSync(newPath, data);
+		writeFileSync(newPath, readFileSync(oldPath));
 		unlinkSync(oldPath);
 	} catch (e) {
 		throw fixError(e, paths);
@@ -150,23 +149,23 @@ function _openSync(_path: PathLike, _flag: string, _mode: Node.Mode, resolveSyml
 				// Ensure parent exists.
 				const parentStats: Stats = doOp('statSync', resolveSymlinks, dirname(path), cred);
 				if (!parentStats.isDirectory()) {
-					throw ApiError.ENOTDIR(dirname(path));
+					throw ApiError.With('ENOTDIR', dirname(path), '_openSync');
 				}
 				return doOp('createFileSync', resolveSymlinks, path, flag, mode, cred);
 			case ActionType.THROW:
-				throw ApiError.ENOENT(path);
+				throw ApiError.With('ENOENT', path, '_openSync');
 			default:
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid FileFlag object.');
 		}
 	}
 	if (!stats.hasAccess(mode, cred)) {
-		throw ApiError.EACCES(path);
+		throw ApiError.With('EACCES', path, '_openSync');
 	}
 
 	// File exists.
 	switch (pathExistsAction(flag)) {
 		case ActionType.THROW:
-			throw ApiError.EEXIST(path);
+			throw ApiError.With('EEXIST', path, '_openSync');
 		case ActionType.TRUNCATE:
 			// Delete file.
 			doOp('unlinkSync', resolveSymlinks, path, cred);
@@ -575,7 +574,7 @@ export function symlinkSync(target: PathLike, path: PathLike, type: symlink.Type
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid type: ' + type);
 	}
 	if (existsSync(path)) {
-		throw ApiError.EEXIST(path);
+		throw ApiError.With('EEXIST', path, 'symlinkSync');
 	}
 
 	writeFileSync(path, target);

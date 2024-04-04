@@ -273,14 +273,17 @@ async function doOp<M extends FileSystemMethod, RT extends ReturnType<M> = Retur
 export async function rename(oldPath: PathLike, newPath: PathLike): Promise<void> {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
-	const { path: old } = resolveFS(oldPath);
-	const { fs, path } = resolveFS(newPath);
+	const src = resolveFS(oldPath);
+	const dst = resolveFS(newPath);
 	try {
-		const data = await readFile(oldPath);
-		await writeFile(newPath, data);
+		if (src.mountPoint == dst.mountPoint) {
+			await src.fs.rename(src.path, dst.path, cred);
+			return;
+		}
+		await writeFile(newPath, await readFile(oldPath));
 		await unlink(oldPath);
 	} catch (e) {
-		throw fixError(e, { [old]: oldPath, [path]: newPath });
+		throw fixError(e, { [src.path]: oldPath, [dst.path]: newPath });
 	}
 }
 rename satisfies typeof Node.promises.rename;
@@ -369,7 +372,7 @@ async function _open(_path: PathLike, _flag: string, _mode: Node.Mode = 0o644, r
 	try {
 		switch (pathExistsAction(flag)) {
 			case ActionType.THROW:
-				throw ApiError.EEXIST(path);
+				throw ApiError.With('EEXIST', path, '_open');
 			case ActionType.TRUNCATE:
 				/* 
 					In a previous implementation, we deleted the file and
@@ -396,11 +399,11 @@ async function _open(_path: PathLike, _flag: string, _mode: Node.Mode = 0o644, r
 				// Ensure parent exists.
 				const parentStats: Stats = await doOp('stat', resolveSymlinks, dirname(path), cred);
 				if (parentStats && !parentStats.isDirectory()) {
-					throw ApiError.ENOTDIR(dirname(path));
+					throw ApiError.With('ENOTDIR', dirname(path), '_open');
 				}
 				return await doOp('createFile', resolveSymlinks, path, flag, mode, cred);
 			case ActionType.THROW:
-				throw ApiError.ENOENT(path);
+				throw ApiError.With('ENOENT', path, '_open');
 			default:
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid file flag');
 		}
@@ -683,7 +686,7 @@ export async function symlink(target: PathLike, path: PathLike, type: Node.symli
 	}
 
 	if (await exists(path)) {
-		throw ApiError.EEXIST(path);
+		throw ApiError.With('EEXIST', path, 'symlink');
 	}
 
 	await writeFile(path, target);

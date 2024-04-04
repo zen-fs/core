@@ -1,5 +1,5 @@
 import { fs } from '../common';
-import * as path from '../../src/emulation/path';
+import { join, resolve } from '../../src/emulation/path';
 
 describe('Rename', () => {
 	/**
@@ -8,35 +8,24 @@ describe('Rename', () => {
 	 *   - lol.txt
 	 * - file.dat
 	 */
-	async function populate_directory(dir: string) {
-		const dir1 = path.resolve(dir, '_rename_me');
-		const file1 = path.resolve(dir, 'file.dat');
-		const file2 = path.resolve(dir1, 'lol.txt');
-
-		await fs.promises.mkdir(dir1);
-		await fs.promises.writeFile(file1, Buffer.from('filedata'));
-		await fs.promises.writeFile(file2, Buffer.from('lololol'));
+	async function populate(dir: string) {
+		await fs.promises.mkdir(join(dir, '_rename_me'));
+		await fs.promises.writeFile(join(dir, 'file.dat'), 'filedata');
+		await fs.promises.writeFile(join(dir, '_rename_me/lol.txt'), 'lololol');
 	}
 
 	/**
 	 * Check that the directory structure created in populate_directory remains.
 	 */
 	async function check_directory(dir: string) {
-		const dir1 = path.resolve(dir, '_rename_me');
-		const file1 = path.resolve(dir, 'file.dat');
-		const file2 = path.resolve(dir1, 'lol.txt');
-
 		const contents = await fs.promises.readdir(dir);
 		expect(contents.length).toBe(2);
 
-		const contentsDir1 = await fs.promises.readdir(dir1);
-		expect(contentsDir1.length).toBe(1);
+		const subConents = await fs.promises.readdir(join(dir, '_rename_me'));
+		expect(subConents.length).toBe(1);
 
-		const existsFile1 = await fs.promises.exists(file1);
-		expect(existsFile1).toBe(true);
-
-		const existsFile2 = await fs.promises.exists(file2);
-		expect(existsFile2).toBe(true);
+		expect(await fs.promises.exists(join(dir, 'file.dat'))).toBe(true);
+		expect(await fs.promises.exists(join(dir, '_rename_me/lol.txt'))).toBe(true);
 	}
 
 	test('rename directory', async () => {
@@ -45,7 +34,7 @@ describe('Rename', () => {
 
 		await fs.promises.mkdir(oldDir);
 
-		await populate_directory(oldDir);
+		await populate(oldDir);
 
 		await fs.promises.rename(oldDir, oldDir);
 
@@ -58,28 +47,25 @@ describe('Rename', () => {
 		expect(await fs.promises.exists(oldDir)).toBe(false);
 
 		await fs.promises.mkdir(oldDir);
-		await populate_directory(oldDir);
-		await fs.promises.rename(oldDir, path.resolve(newDir, 'newDir'));
+		await populate(oldDir);
+		await fs.promises.rename(oldDir, resolve(newDir, 'newDir'));
 	});
 
 	test('rename file', async () => {
-		const fileDir = '/rename_file_test';
-		const file1 = path.resolve(fileDir, 'fun.js');
-		const file2 = path.resolve(fileDir, 'fun2.js');
+		const dir = '/rename_file_test';
+		const one = resolve(dir, 'fun.js');
+		const two = resolve(dir, 'fun2.js');
 
-		await fs.promises.mkdir(fileDir);
-		await fs.promises.writeFile(file1, Buffer.from('while(1) alert("Hey! Listen!");'));
-		await fs.promises.rename(file1, file1);
-		await fs.promises.rename(file1, file2);
+		await fs.promises.mkdir(dir);
+		await fs.promises.writeFile(one, 'while(1) alert("Hey! Listen!");');
+		await fs.promises.rename(one, one);
+		await fs.promises.rename(one, two);
 
-		await fs.promises.writeFile(file1, Buffer.from('hey'));
-		await fs.promises.rename(file1, file2);
+		await fs.promises.writeFile(one, 'hey');
+		await fs.promises.rename(one, two);
 
-		const contents = await fs.promises.readFile(file2);
-		expect(contents.toString()).toBe('hey');
-
-		const exists = await fs.promises.exists(file1);
-		expect(exists).toBe(false);
+		expect(await fs.promises.readFile(two, 'utf8')).toBe('hey');
+		expect(await fs.promises.exists(one)).toBe(false);
 	});
 
 	test('File to Directory and Directory to File Rename', async () => {
@@ -87,7 +73,7 @@ describe('Rename', () => {
 		const file = '/rename_filedir_test.txt';
 
 		await fs.promises.mkdir(dir);
-		await fs.promises.writeFile(file, Buffer.from('file contents go here'));
+		await fs.promises.writeFile(file, 'file contents go here');
 
 		try {
 			await fs.promises.rename(file, dir);

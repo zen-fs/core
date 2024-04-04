@@ -47,7 +47,6 @@ describe('write', () => {
 	});
 });
 
-
 describe('writeSync', () => {
 	it('should write file synchronously with specified content', async () => {
 		const fn = 'write.txt';

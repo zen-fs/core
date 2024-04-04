@@ -229,11 +229,11 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			oldDirList = this.getDirListing(tx, oldDirNode, oldParent);
 
 		if (!oldDirNode.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(oldPath);
+			throw ApiError.With('EACCES', oldPath, 'renameSync');
 		}
 
 		if (!oldDirList[oldName]) {
-			throw ApiError.ENOENT(oldPath);
+			throw ApiError.With('ENOENT', oldPath, 'renameSync');
 		}
 		const ino: Ino = oldDirList[oldName];
 		delete oldDirList[oldName];
@@ -271,7 +271,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 				}
 			} else {
 				// If it's a directory, throw a permissions error.
-				throw ApiError.EPERM(newPath);
+				throw ApiError.With('EPERM', newPath, 'renameSync');
 			}
 		}
 		newDirList[newName] = ino;
@@ -292,7 +292,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		// Get the inode to the item, convert it into a Stats object.
 		const stats = this.findINode(this.store.beginTransaction(), p).toStats();
 		if (!stats.hasAccess(R_OK, cred)) {
-			throw ApiError.EACCES(p);
+			throw ApiError.With('EACCES', p, 'statSync');
 		}
 		return stats;
 	}
@@ -307,10 +307,10 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			node = this.findINode(tx, p),
 			data = tx.get(node.ino);
 		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
-			throw ApiError.EACCES(p);
+			throw ApiError.With('EACCES', p, 'openFileSync');
 		}
 		if (data === null) {
-			throw ApiError.ENOENT(p);
+			throw ApiError.With('ENOENT', p, 'openFileSync');
 		}
 		return new SyncStoreFile(this, p, flag, node.toStats(), data);
 	}
@@ -322,7 +322,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 	public rmdirSync(p: string, cred: Cred): void {
 		// Check first if directory is empty.
 		if (this.readdirSync(p, cred).length > 0) {
-			throw ApiError.ENOTEMPTY(p);
+			throw ApiError.With('ENOTEMPTY', p, 'rmdirSync');
 		} else {
 			this.removeEntry(p, true, cred);
 		}
@@ -336,7 +336,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		const tx = this.store.beginTransaction();
 		const node = this.findINode(tx, p);
 		if (!node.toStats().hasAccess(R_OK, cred)) {
-			throw ApiError.EACCES(p);
+			throw ApiError.With('EACCES', p, 'readdirSync');
 		}
 		return Object.keys(this.getDirListing(tx, node, p));
 	}
@@ -370,7 +370,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			existingDirNode = this.findINode(tx, existingDir);
 
 		if (!existingDirNode.toStats().hasAccess(R_OK, cred)) {
-			throw ApiError.EACCES(existingDir);
+			throw ApiError.With('EACCES', existingDir, 'linkSync');
 		}
 
 		const newDir: string = dirname(newpath),
@@ -378,14 +378,14 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			newListing = this.getDirListing(tx, newDirNode, newDir);
 
 		if (!newDirNode.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(newDir);
+			throw ApiError.With('EACCES', newDir, 'linkSync');
 		}
 
 		const ino = this._findINode(tx, existingDir, basename(existing));
 		const node = this.getINode(tx, ino, existing);
 
 		if (!node.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(newpath);
+			throw ApiError.With('EACCES', newpath, 'linkSync');
 		}
 		node.nlink++;
 		newListing[basename(newpath)] = ino;
@@ -435,7 +435,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			const ino = this._findINode(tx, dirname(parent), basename(parent), visited);
 			const dir = this.getDirListing(tx, this.getINode(tx, ino, parent + sep + filename), parent);
 			if (!(filename in dir)) {
-				throw ApiError.ENOENT(resolve(parent, filename));
+				throw ApiError.With('ENOENT', resolve(parent, filename), '_findINode');
 			}
 
 			return dir[filename];
@@ -445,7 +445,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			// Find the item in the root node.
 			const dir = this.getDirListing(tx, this.getINode(tx, rootIno, parent), parent);
 			if (!(filename in dir)) {
-				throw ApiError.ENOENT(resolve(parent, filename));
+				throw ApiError.With('ENOENT', resolve(parent, filename), '_findINode');
 			}
 			return dir[filename];
 		}
@@ -474,7 +474,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 	protected getINode(tx: SyncTransaction, id: Ino, p?: string): Inode {
 		const data = tx.get(id);
 		if (!data) {
-			throw ApiError.ENOENT(p);
+			throw ApiError.With('ENOENT', p, 'getINode');
 		}
 		const inode = new Inode(data.buffer);
 		return inode;
@@ -485,11 +485,11 @@ export class SyncStoreFS extends Sync(FileSystem) {
 	 */
 	protected getDirListing(tx: SyncTransaction, inode: Inode, p?: string): { [fileName: string]: Ino } {
 		if (!inode.toStats().isDirectory()) {
-			throw ApiError.ENOTDIR(p);
+			throw ApiError.With('ENOTDIR', p, 'getDirListing');
 		}
 		const data = tx.get(inode.ino);
 		if (!data) {
-			throw ApiError.ENOENT(p);
+			throw ApiError.With('ENOENT', p, 'getDirListing');
 		}
 		return decodeDirListing(data);
 	}
@@ -528,7 +528,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 
 		//Check that the creater has correct access
 		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(p);
+			throw ApiError.With('EACCES', p, 'commitNewFile');
 		}
 
 		/* Invariant: The root always exists.
@@ -536,12 +536,12 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		we will create a file with name '' in root should p == '/'.
 		*/
 		if (p === '/') {
-			throw ApiError.EEXIST(p);
+			throw ApiError.With('EEXIST', p, 'commitNewFile');
 		}
 
 		// Check if file already exists.
 		if (dirListing[fname]) {
-			throw ApiError.EEXIST(p);
+			throw ApiError.With('EEXIST', p, 'commitNewFile');
 		}
 
 		const fileNode = new Inode();
@@ -578,25 +578,25 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			fileIno: Ino = parentListing[fileName];
 
 		if (!fileIno) {
-			throw ApiError.ENOENT(p);
+			throw ApiError.With('ENOENT', p, 'removeEntry');
 		}
 
 		// Get file inode.
 		const fileNode = this.getINode(tx, fileIno, p);
 
 		if (!fileNode.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.EACCES(p);
+			throw ApiError.With('EACCES', p, 'removeEntry');
 		}
 
 		// Remove from directory listing of parent.
 		delete parentListing[fileName];
 
 		if (!isDir && fileNode.toStats().isDirectory()) {
-			throw ApiError.EISDIR(p);
+			throw ApiError.With('EISDIR', p, 'removeEntry');
 		}
 
 		if (isDir && !fileNode.toStats().isDirectory()) {
-			throw ApiError.ENOTDIR(p);
+			throw ApiError.With('ENOTDIR', p, 'removeEntry');
 		}
 
 		try {

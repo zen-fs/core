@@ -361,7 +361,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 	public async stat(path: string): Promise<Stats> {
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.ENOENT(path);
+			throw ApiError.With('ENOENT', path, 'stat');
 		}
 
 		if (inode.isDirectory()) {
@@ -378,7 +378,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 	public statSync(path: string): Stats {
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.ENOENT(path);
+			throw ApiError.With('ENOENT', path, 'statSync');
 		}
 
 		if (inode.isDirectory()) {
@@ -402,11 +402,11 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 		const inode = this._index.get(path);
 
 		if (!inode) {
-			throw ApiError.ENOENT(path);
+			throw ApiError.With('ENOENT', path, 'openFile');
 		}
 
 		if (!inode.toStats().hasAccess(flagToMode(flag), cred)) {
-			throw ApiError.EACCES(path);
+			throw ApiError.With('EACCESS', path, 'openFile');
 		}
 
 		if (inode.isDirectory()) {
@@ -427,11 +427,11 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 		const inode = this._index.get(path);
 
 		if (!inode) {
-			throw ApiError.ENOENT(path);
+			throw ApiError.With('ENOENT', path, 'openFileSync');
 		}
 
 		if (!inode.toStats().hasAccess(flagToMode(flag), cred)) {
-			throw ApiError.EACCES(path);
+			throw ApiError.With('EACCES', path, 'openFileSync');
 		}
 
 		if (inode.isDirectory()) {
@@ -446,28 +446,28 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 		// Check if it exists.
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.ENOENT(path);
+			throw ApiError.With('ENOENT', path, 'readdir');
 		}
 
 		if (inode.isDirectory()) {
 			return inode.listing;
 		}
 
-		throw ApiError.ENOTDIR(path);
+		throw ApiError.With('ENOTDIR', path, 'readdir');
 	}
 
 	public readdirSync(path: string): string[] {
 		// Check if it exists.
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.ENOENT(path);
+			throw ApiError.With('ENOENT', path, 'readdirSync');
 		}
 
 		if (inode.isDirectory()) {
 			return inode.listing;
 		}
 
-		throw ApiError.ENOTDIR(path);
+		throw ApiError.With('ENOTDIR', path, 'readdirSync');
 	}
 
 	protected abstract statFileInode(inode: IndexFileInode<TIndex>, path: string): Promise<Stats>;
