@@ -99,7 +99,7 @@ describe('permissions test', () => {
 		}
 	}
 
-	it('should satisfy the permissions invariants', async () => {
+	test('satisfy the permissions invariants', async () => {
 		await process_item('/', 0o777);
 	});
 });

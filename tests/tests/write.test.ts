@@ -1,7 +1,7 @@
 import { fs } from '../common';
 
 describe('write', () => {
-	it('should write file with specified content asynchronously', async () => {
+	test('write file with specified content asynchronously', async () => {
 		const fn = 'write.txt';
 		const fn2 = 'write2.txt';
 		const expected = 'ümlaut.';
@@ -28,7 +28,7 @@ describe('write', () => {
 		await fs.promises.unlink(fn2);
 	});
 
-	it('should write a buffer to a file asynchronously', async () => {
+	test('write a buffer to a file asynchronously', async () => {
 		const filename = 'write.txt';
 		const expected = Buffer.from('hello');
 
@@ -48,7 +48,7 @@ describe('write', () => {
 });
 
 describe('writeSync', () => {
-	it('should write file synchronously with specified content', async () => {
+	test('write file synchronously with specified content', async () => {
 		const fn = 'write.txt';
 		const foo = 'foo';
 		const fd = fs.openSync(fn, 'w');

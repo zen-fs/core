@@ -33,7 +33,7 @@ describe('utimes', () => {
 		expect_ok(filename, atime, mtime);
 
 		// some systems don't have futimes
-		// if there's an error, it should be ENOSYS
+		// if there's an error, it be ENOSYS
 		try {
 			fs.futimesSync(handle.fd, atime, mtime);
 			expect_ok(handle.fd, atime, mtime);
@@ -54,7 +54,7 @@ describe('utimes', () => {
 		}
 	}
 
-	it('utimes should work', async () => {
+	test('utimes work', async () => {
 		await runTest(new Date('1982/09/10 13:37:00'), new Date('1982/09/10 13:37:00'));
 		await runTest(new Date(), new Date());
 		await runTest(123456.789, 123456.789);

@@ -5,7 +5,7 @@ const content = 'Sample content',
 	original = 'ABCD';
 
 describe('appendFile', () => {
-	it('should create an empty file and add content', async () => {
+	test('create an empty file and add content', async () => {
 		const filename = 'append.txt';
 		try {
 			await fs.promises.appendFile(filename, content);
@@ -16,7 +16,7 @@ describe('appendFile', () => {
 		expect(data).toEqual(content);
 	});
 
-	it('should append data to a non-empty file', async () => {
+	test('append data to a non-empty file', async () => {
 		const filename = 'append2.txt';
 
 		await fs.promises.writeFile(filename, original);
@@ -25,7 +25,7 @@ describe('appendFile', () => {
 		expect(data).toEqual(original + content);
 	});
 
-	it('should append a buffer to the file', async () => {
+	test('append a buffer to the file', async () => {
 		const filename = 'append3.txt';
 
 		await fs.promises.writeFile(filename, original);
