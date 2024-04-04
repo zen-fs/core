@@ -1,6 +1,6 @@
 import { fs } from '../common';
 
-describe('Link and Symlink Test', () => {
+describe('Links', () => {
 	const target = 'a1.js',
 		symlink = 'symlink1.js',
 		hardlink = 'link1.js';

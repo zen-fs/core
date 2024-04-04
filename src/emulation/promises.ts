@@ -118,7 +118,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	public async readFile(_options?: { flag?: Node.OpenMode }): Promise<Uint8Array>;
 	public async readFile(_options: { encoding: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string>;
 	public async readFile(_options?: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string | Uint8Array> {
-		const options = normalizeOptions(_options, null, 'r', null);
+		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = parseFlag(options.flag);
 		if (!isReadable(flag)) {
 			throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
@@ -455,8 +455,8 @@ async function _readFile(fname: string, flag: string, resolveSymlinks: boolean):
  * @returns file data
  */
 export async function readFile(filename: PathLike, options?: { flag?: Node.OpenMode }): Promise<Uint8Array>;
-export async function readFile(filename: PathLike, options: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string>;
-export async function readFile(filename: PathLike, _options?: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<Uint8Array | string> {
+export async function readFile(filename: PathLike, options: (Node.BaseEncodingOptions & { flag?: Node.OpenMode }) | BufferEncoding): Promise<string>;
+export async function readFile(filename: PathLike, _options?: (Node.BaseEncodingOptions & { flag?: Node.OpenMode }) | BufferEncoding): Promise<Uint8Array | string> {
 	const options = normalizeOptions(_options, null, 'r', null);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {

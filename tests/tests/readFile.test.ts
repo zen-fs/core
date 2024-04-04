@@ -6,7 +6,7 @@ describe('File Reading', () => {
 		let wasThrown = false;
 
 		try {
-			fs.readFileSync('a.js', 'wrongencoding');
+			fs.readFileSync('a.js', <BufferEncoding>'wrongencoding');
 		} catch (e) {
 			wasThrown = true;
 		}

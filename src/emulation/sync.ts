@@ -232,9 +232,8 @@ function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): U
  * @returns file contents
  */
 export function readFileSync(filename: string, options?: { flag?: string }): Uint8Array;
-export function readFileSync(filename: string, options: { encoding: string; flag?: string }): string;
-export function readFileSync(filename: string, encoding: string): string;
-export function readFileSync(filename: string, arg2: { encoding: string; flag?: string } | { flag?: string } | string = {}): FileContents {
+export function readFileSync(filename: string, options: (Node.BaseEncodingOptions & { flag?: string }) | BufferEncoding): string;
+export function readFileSync(filename: string, arg2: Node.WriteFileOptions = {}): FileContents {
 	const options = normalizeOptions(arg2, null, 'r', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
@@ -315,9 +314,7 @@ function _appendFileSync(fname: string, data: Uint8Array, flag: string, mode: nu
  * @option options mode Defaults to `0644`.
  * @option options flag Defaults to `'a'`.
  */
-export function appendFileSync(filename: string, data: FileContents, options?: Node.WriteFileOptions): void;
-export function appendFileSync(filename: string, data: FileContents, encoding?: string): void;
-export function appendFileSync(filename: string, data: FileContents, arg3?: Node.WriteFileOptions | string): void {
+export function appendFileSync(filename: string, data: FileContents, arg3?: Node.WriteFileOptions): void {
 	const options = normalizeOptions(arg3, 'utf8', 'a', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isAppendable(flag)) {

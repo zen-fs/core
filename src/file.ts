@@ -600,9 +600,6 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 * @param mode
 	 */
 	public chmodSync(mode: number): void {
-		if (!this.fs.metadata().supportsProperties) {
-			throw new ApiError(ErrorCode.ENOTSUP);
-		}
 		this._dirty = true;
 		this.stats.chmod(mode);
 		this.syncSync();
@@ -623,9 +620,6 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 * @param gid
 	 */
 	public chownSync(uid: number, gid: number): void {
-		if (!this.fs.metadata().supportsProperties) {
-			throw new ApiError(ErrorCode.ENOTSUP);
-		}
 		this._dirty = true;
 		this.stats.chown(uid, gid);
 		this.syncSync();
@@ -636,9 +630,6 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public utimesSync(atime: Date, mtime: Date): void {
-		if (!this.fs.metadata().supportsProperties) {
-			throw new ApiError(ErrorCode.ENOTSUP);
-		}
 		this._dirty = true;
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;

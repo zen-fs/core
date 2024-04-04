@@ -6,6 +6,7 @@ import { Cred, rootCred } from '../cred.js';
 import { FileSystem } from '../filesystem.js';
 import { InMemory } from '../backends/InMemory.js';
 import type { File } from '../file.js';
+import type { BaseEncodingOptions, OpenMode, WriteFileOptions } from 'node:fs';
 
 /**
  * converts Date or number to a integer UNIX timestamp
@@ -28,16 +29,15 @@ export function _toUnixTimestamp(time: Date | number): number {
  * @internal
  */
 export function normalizeMode(mode: string | number | unknown, def?: number): number {
-	switch (typeof mode) {
-		case 'number':
-			// (path, flag, mode, cb?)
-			return mode;
-		case 'string':
-			// (path, flag, modeString, cb?)
-			const trueMode = parseInt(mode, 8);
-			if (!isNaN(trueMode)) {
-				return trueMode;
-			}
+	if (typeof mode == 'number') {
+		return mode;
+	}
+
+	if (typeof mode == 'string') {
+		const parsed = parseInt(mode, 8);
+		if (!isNaN(parsed)) {
+			return parsed;
+		}
 	}
 
 	if (typeof def == 'number') {
@@ -84,34 +84,31 @@ export function normalizePath(p: string): string {
 
 /**
  * Normalizes options
+ * @param options options to normalize
+ * @param encoding default encoding
+ * @param flag default flag
+ * @param mode default mode
  * @internal
  */
-export function normalizeOptions(options: unknown, defEnc: string | null, defFlag: string, defMode: number | null): { encoding: BufferEncoding; flag: string; mode: number } {
-	// typeof null === 'object' so special-case handing is needed.
-	switch (options === null ? 'null' : typeof options) {
-		case 'object':
-			return {
-				encoding: typeof options['encoding'] !== 'undefined' ? options['encoding'] : defEnc,
-				flag: typeof options['flag'] !== 'undefined' ? options['flag'] : defFlag,
-				mode: normalizeMode(options['mode'], defMode!),
-			};
-		case 'string':
-			return {
-				encoding: <BufferEncoding>options,
-				flag: defFlag,
-				mode: defMode!,
-			};
-		case 'null':
-		case 'undefined':
-		case 'function':
-			return {
-				encoding: <BufferEncoding>defEnc!,
-				flag: defFlag,
-				mode: defMode!,
-			};
-		default:
-			throw new TypeError(`"options" must be a string or an object, got ${typeof options} instead.`);
+export function normalizeOptions(
+	options?: WriteFileOptions | (BaseEncodingOptions & { flag?: OpenMode }),
+	encoding: BufferEncoding = 'utf8',
+	flag?: string,
+	mode: number = 0
+): { encoding: BufferEncoding; flag: string; mode: number } {
+	if (typeof options != 'object' || options === null) {
+		return {
+			encoding: typeof options == 'string' ? options : encoding,
+			flag,
+			mode,
+		};
 	}
+
+	return {
+		encoding: typeof options?.encoding == 'string' ? options.encoding : encoding,
+		flag: typeof options?.flag == 'string' ? options.flag : flag,
+		mode: normalizeMode('mode' in options ? options?.mode : null, mode),
+	};
 }
 
 /**
