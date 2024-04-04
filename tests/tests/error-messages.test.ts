@@ -1,9 +1,9 @@
 import { fs } from '../common';
 import type { ApiError } from '../../src/ApiError';
 
-const existingFile = 'exit.js';
+const existingFile = '/exit.js';
 
-const expectError = async (fn: (...args) => Promise<unknown>, p: string, ...args) => {
+async function expectError(fn: (...args) => unknown, p: string, ...args) {
 	let error: ApiError;
 	try {
 		await fn(p, ...args);
@@ -13,55 +13,33 @@ const expectError = async (fn: (...args) => Promise<unknown>, p: string, ...args
 	expect(error).toBeDefined();
 	expect(error.path).toBe(p);
 	expect(error.message).toContain(p);
-};
+}
 
-const expectSyncError = (fn: (...args) => unknown, p: string, ...args) => {
-	let error: ApiError;
-	try {
-		fn(p, ...args);
-	} catch (err) {
-		error = err;
-	}
-	expect(error).toBeDefined();
-	expect(error.path).toBe(p);
-	expect(error.message).toContain(p);
-};
+describe('Error messages', () => {
+	const path = '/non-existent';
 
-describe('Error tests', () => {
-	it('should handle async operations with error', async () => {
-		const fn = 'non-existent';
-
-		await expectError(fs.promises.stat, fn);
-		await expectError(fs.promises.mkdir, existingFile, 0o666);
-		await expectError(fs.promises.rmdir, fn);
-		await expectError(fs.promises.rmdir, existingFile);
-		await expectError(fs.promises.rename, fn, 'foo');
-		await expectError(fs.promises.open, fn, 'r');
-		await expectError(fs.promises.readdir, fn);
-		await expectError(fs.promises.unlink, fn);
-		await expectError(fs.promises.link, fn, 'foo');
-		await expectError(fs.promises.chmod, fn, 0o666);
-		await expectError(fs.promises.lstat, fn);
-		await expectError(fs.promises.readlink, fn);
-	});
-
-	// Sync operations
-
-	it('should handle sync operations with error', () => {
-		const fn = 'non-existent';
-		const existingFile = 'exit.js';
-
-		expectSyncError(fs.statSync, fn);
-		expectSyncError(fs.mkdirSync, existingFile, 0o666);
-		expectSyncError(fs.rmdirSync, fn);
-		expectSyncError(fs.rmdirSync, existingFile);
-		expectSyncError(fs.renameSync, fn, 'foo');
-		expectSyncError(fs.openSync, fn, 'r');
-		expectSyncError(fs.readdirSync, fn);
-		expectSyncError(fs.unlinkSync, fn);
-		expectSyncError(fs.linkSync, fn, 'foo');
-		expectSyncError(fs.chmodSync, fn, 0o666);
-		expectSyncError(fs.lstatSync, fn);
-		expectSyncError(fs.readlinkSync, fn);
-	});
+	test('stat', () => expectError(fs.promises.stat, path));
+	test('mkdir', () => expectError(fs.promises.mkdir, existingFile, 0o666));
+	test('rmdir', () => expectError(fs.promises.rmdir, path));
+	test('rmdir', () => expectError(fs.promises.rmdir, existingFile));
+	test('rename', () => expectError(fs.promises.rename, path, 'foo'));
+	test('open', () => expectError(fs.promises.open, path, 'r'));
+	test('readdir', () => expectError(fs.promises.readdir, path));
+	test('unlink', () => expectError(fs.promises.unlink, path));
+	test('link', () => expectError(fs.promises.link, path, 'foo'));
+	test('chmod', () => expectError(fs.promises.chmod, path, 0o666));
+	test('lstat', () => expectError(fs.promises.lstat, path));
+	test('readlink', () => expectError(fs.promises.readlink, path));
+	test('statSync', () => expectError(fs.statSync, path));
+	test('mkdirSync', () => expectError(fs.mkdirSync, existingFile, 0o666));
+	test('rmdirSync', () => expectError(fs.rmdirSync, path));
+	test('rmdirSync', () => expectError(fs.rmdirSync, existingFile));
+	test('renameSync', () => expectError(fs.renameSync, path, 'foo'));
+	test('openSync', () => expectError(fs.openSync, path, 'r'));
+	test('readdirSync', () => expectError(fs.readdirSync, path));
+	test('unlinkSync', () => expectError(fs.unlinkSync, path));
+	test('linkSync', () => expectError(fs.linkSync, path, 'foo'));
+	test('chmodSync', () => expectError(fs.chmodSync, path, 0o666));
+	test('lstatSync', () => expectError(fs.lstatSync, path));
+	test('readlinkSync', () => expectError(fs.readlinkSync, path));
 });
