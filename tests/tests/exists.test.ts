@@ -1,6 +1,6 @@
 import { fs } from '../common';
 
-describe('fs.exists', () => {
+describe('exists', () => {
 	const f = 'x.txt';
 
 	it('should return true for an existing file', async () => {

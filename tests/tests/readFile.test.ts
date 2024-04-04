@@ -2,7 +2,7 @@ import { fs } from '../common';
 import * as path from 'path';
 
 describe('File Reading', () => {
-	it('Cannot read a file with an invalid encoding (synchronous)', async () => {
+	it('Cannot read a file with an invalid encoding', async () => {
 		let wasThrown = false;
 
 		try {
@@ -21,7 +21,7 @@ describe('File Reading', () => {
 	});
 });
 
-describe('Read and Unlink File Test', () => {
+describe('Read and Unlink', () => {
 	const dirName = 'test-readfile-unlink';
 	const fileName = path.resolve(dirName, 'test.bin');
 
@@ -66,5 +66,19 @@ describe('Read File Test', () => {
 	it('should read file with utf-8 encoding synchronously', async () => {
 		const data: string = fs.readFileSync(fn, 'utf8');
 		expect(data).toBe('');
+	});
+});
+
+describe('fs file reading', () => {
+	const filepath = 'elipses.txt';
+
+	it('should read file synchronously and verify the content', async () => {
+		const content = fs.readFileSync(filepath, 'utf8');
+
+		for (let i = 0; i < content.length; i++) {
+			expect(content[i]).toBe('\u2026');
+		}
+
+		expect(content.length).toBe(10000);
 	});
 });

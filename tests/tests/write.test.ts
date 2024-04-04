@@ -1,16 +1,16 @@
 import { fs } from '../common';
 
-describe('fs.write', () => {
+describe('write', () => {
 	it('should write file with specified content asynchronously', async () => {
 		const fn = 'write.txt';
 		const fn2 = 'write2.txt';
 		const expected = 'ümlaut.';
 
-		const fd = await fs.promises.open(fn, 'w', 0o644);
-		await fs.promises.write(fd, '', 0, 'utf8');
-		const written = await fs.promises.write(fd, expected, 0, 'utf8');
+		const handle = await fs.promises.open(fn, 'w', 0o644);
+		await fs.promises.write(handle, '', 0, 'utf8');
+		const written = await fs.promises.write(handle, expected, 0, 'utf8');
 		expect(written.bytesWritten).toBe(expected.length);
-		await fd.close();
+		await handle.close();
 
 		const data = await fs.promises.readFile(fn, 'utf8');
 		expect(data).toBe(expected);
@@ -44,5 +44,27 @@ describe('fs.write', () => {
 		expect(expected.toString()).toBe(found);
 
 		await fs.promises.unlink(filename);
+	});
+});
+
+
+describe('writeSync', () => {
+	it('should write file synchronously with specified content', async () => {
+		const fn = 'write.txt';
+		const foo = 'foo';
+		const fd = fs.openSync(fn, 'w');
+
+		let written = fs.writeSync(fd, '');
+		expect(written).toBe(0);
+
+		fs.writeSync(fd, foo);
+
+		const bar = 'bár';
+		written = fs.writeSync(fd, Buffer.from(bar), 0, Buffer.byteLength(bar));
+		expect(written).toBeGreaterThan(3);
+
+		fs.closeSync(fd);
+
+		expect(fs.readFileSync(fn).toString()).toBe('foobár');
 	});
 });

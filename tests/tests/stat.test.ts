@@ -1,9 +1,10 @@
+import { Stats } from '../../src/stats';
 import { fs } from '../common';
 
-describe('File Stat Test', () => {
+describe('Stats', () => {
 	const existing_file = 'x.txt';
 
-	it('should handle empty file path', async () => {
+	test('stat empty path', async () => {
 		try {
 			await fs.promises.stat('');
 		} catch (err) {
@@ -11,41 +12,39 @@ describe('File Stat Test', () => {
 		}
 	});
 
-	it('should stat existing directory', async () => {
+	test('stat directory', async () => {
 		const stats = await fs.promises.stat('/');
-		expect(stats.mtime).toBeInstanceOf(Date);
+		expect(stats).toBeInstanceOf(Stats);
 	});
 
-	it('should lstat existing directory', async () => {
+	test('lstat directory', async () => {
 		const stats = await fs.promises.lstat('/');
-		expect(stats.mtime).toBeInstanceOf(Date);
+		expect(stats).toBeInstanceOf(Stats);
 	});
 
-	it('should fstat existing file', async () => {
-		const fd = await fs.promises.open(existing_file, 'r');
-		expect(fd).toBeTruthy();
-
-		const stats = await fd.stat();
-		expect(stats.mtime).toBeInstanceOf(Date);
-		await fd.close();
+	test('FileHandle.stat', async () => {
+		const handle = await fs.promises.open(existing_file, 'r');
+		const stats = await handle.stat();
+		expect(stats).toBeInstanceOf(Stats);
+		await handle.close();
 	});
 
-	it('should fstatSync existing file', async () => {
+	test('fstatSync file', async () => {
 		const fd = fs.openSync(existing_file, 'r');
 		const stats = fs.fstatSync(fd);
-		expect(stats.mtime).toBeInstanceOf(Date);
+		expect(stats).toBeInstanceOf(Stats);
 		fs.close(fd);
 	});
 
-	it('should stat existing file', async () => {
-		const s = await fs.promises.stat(existing_file);
-		expect(s.isDirectory()).toBe(false);
-		expect(s.isFile()).toBe(true);
-		expect(s.isSocket()).toBe(false);
-		//expect(s.isBlockDevice()).toBe(false);
-		expect(s.isCharacterDevice()).toBe(false);
-		expect(s.isFIFO()).toBe(false);
-		expect(s.isSymbolicLink()).toBe(false);
-		expect(s.mtime).toBeInstanceOf(Date);
+	test('stat file', async () => {
+		const stats = await fs.promises.stat(existing_file);
+		expect(stats.isDirectory()).toBe(false);
+		expect(stats.isFile()).toBe(true);
+		expect(stats.isSocket()).toBe(false);
+		expect(stats.isBlockDevice()).toBe(false);
+		expect(stats.isCharacterDevice()).toBe(false);
+		expect(stats.isFIFO()).toBe(false);
+		expect(stats.isSymbolicLink()).toBe(false);
+		expect(stats).toBeInstanceOf(Stats);
 	});
 });

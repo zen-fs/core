@@ -1,14 +1,14 @@
 import { fs } from '../common';
-import * as path from 'path';
+import * as path from '../../src/emulation/path';
 
-describe('File and Directory Rename Tests', () => {
+describe('Rename', () => {
 	/**
 	 * Creates the following directory structure within the given dir:
 	 * - _rename_me
 	 *   - lol.txt
 	 * - file.dat
 	 */
-	async function populate_directory(dir) {
+	async function populate_directory(dir: string) {
 		const dir1 = path.resolve(dir, '_rename_me');
 		const file1 = path.resolve(dir, 'file.dat');
 		const file2 = path.resolve(dir1, 'lol.txt');
@@ -21,7 +21,7 @@ describe('File and Directory Rename Tests', () => {
 	/**
 	 * Check that the directory structure created in populate_directory remains.
 	 */
-	async function check_directory(dir) {
+	async function check_directory(dir: string) {
 		const dir1 = path.resolve(dir, '_rename_me');
 		const file1 = path.resolve(dir, 'file.dat');
 		const file2 = path.resolve(dir1, 'lol.txt');
@@ -39,7 +39,7 @@ describe('File and Directory Rename Tests', () => {
 		expect(existsFile2).toBe(true);
 	}
 
-	it('Directory Rename', async () => {
+	test('rename directory', async () => {
 		const oldDir = '/rename_test';
 		const newDir = '/rename_test2';
 
@@ -51,21 +51,18 @@ describe('File and Directory Rename Tests', () => {
 
 		await check_directory(oldDir);
 
-		await fs.promises.mkdir(newDir);
-		await fs.promises.rmdir(newDir);
 		await fs.promises.rename(oldDir, newDir);
 
 		await check_directory(newDir);
 
-		const exists = await fs.promises.exists(oldDir);
-		expect(exists).toBe(false);
+		expect(await fs.promises.exists(oldDir)).toBe(false);
 
 		await fs.promises.mkdir(oldDir);
 		await populate_directory(oldDir);
 		await fs.promises.rename(oldDir, path.resolve(newDir, 'newDir'));
 	});
 
-	it('File Rename', async () => {
+	test('rename file', async () => {
 		const fileDir = '/rename_file_test';
 		const file1 = path.resolve(fileDir, 'fun.js');
 		const file2 = path.resolve(fileDir, 'fun2.js');
@@ -85,7 +82,7 @@ describe('File and Directory Rename Tests', () => {
 		expect(exists).toBe(false);
 	});
 
-	it('File to Directory and Directory to File Rename', async () => {
+	test('File to Directory and Directory to File Rename', async () => {
 		const dir = '/rename_filedir_test';
 		const file = '/rename_filedir_test.txt';
 
@@ -110,7 +107,7 @@ describe('File and Directory Rename Tests', () => {
 		});*/
 	});
 
-	it('Cannot Rename a Directory Inside Itself', async () => {
+	test('rename directory inside itself', async () => {
 		const renDir1 = '/renamedir_1';
 		const renDir2 = '/renamedir_1/lol';
 

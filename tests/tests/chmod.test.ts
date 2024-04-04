@@ -34,7 +34,6 @@ describe('chmod tests', () => {
 		const link = 'symbolic-link';
 		const target = 'a1.js';
 
-		await fs.promises.unlink(link);
 		await fs.promises.symlink(target, link);
 		await fs.promises.lchmod(link, asyncMode);
 
