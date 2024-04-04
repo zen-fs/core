@@ -142,8 +142,8 @@ export function createBackend<B extends Backend>(backend: B, options?: object): 
  *
  * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
  */
-export interface BackendConfig {
-	backend: Backend;
+export interface BackendConfig<FS extends FileSystem = FileSystem, OC extends BackendOptionsConfig = BackendOptionsConfig> {
+	backend: Backend<FS, OC>;
 	[key: string]: unknown;
 }
 
@@ -158,7 +158,7 @@ export function isBackendConfig(arg: unknown): arg is BackendConfig {
  * Retrieve a file system with the given configuration.
  * @param config A BackendConfig object.
  */
-export async function resolveBackend(options: BackendConfig, _depth = 0): Promise<FileSystem> {
+export async function resolveBackend<FS extends FileSystem>(options: BackendConfig<FS>, _depth = 0): Promise<FS> {
 	if (typeof options !== 'object' || options == null) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on configuration object.');
 	}
