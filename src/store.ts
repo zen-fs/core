@@ -10,6 +10,7 @@ export class PortStore implements AsyncStore {
 		public readonly name: string = 'port'
 	) {
 		this.port = options.port;
+		RPC.attach(this.port, RPC.handleResponse);
 	}
 
 	public clear(): Promise<void> {
@@ -99,11 +100,7 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 				value = await store[method](...args);
 				if (method == 'beginTransaction') {
 					transactions.set(++nextTx, value);
-					value = {
-						fd: nextTx,
-						path: value.path,
-						position: value.position,
-					};
+					value = nextTx;
 				}
 				break;
 			case 'transaction':
