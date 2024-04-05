@@ -1,5 +1,5 @@
-import { encode } from '../../src/utils';
-import { fs } from '../common';
+import { encode } from '../src/utils';
+import { fs } from './common';
 
 describe('write', () => {
 	test('write file with specified content', async () => {

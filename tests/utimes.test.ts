@@ -1,5 +1,4 @@
-import type { ApiError } from '../../src/ApiError';
-import { fs } from '../common';
+import { fs } from './common';
 
 describe('utimes', () => {
 	const filename = 'x.txt';

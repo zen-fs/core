@@ -1,4 +1,4 @@
-import { decode, encode } from '../../src/utils';
+import { decode, encode } from '../src/utils';
 
 const text = 'Test_ömg',
 	encodings: BufferEncoding[] = ['ascii', 'utf8', 'latin1', 'binary', 'utf16le', 'ucs2', 'base64', 'base64url', 'hex'];

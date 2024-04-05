@@ -1,5 +1,5 @@
-import { ApiError, ErrorCode } from '../../src/ApiError';
-import { normalizePath } from '../../src/emulation/shared';
+import { ApiError, ErrorCode } from '../src/ApiError';
+import { normalizePath } from '../src/emulation/shared';
 
 describe('normalizePath', () => {
 	test('null bytes not allowed', () => {

@@ -1,5 +1,5 @@
-import { encode } from '../../src/utils';
-import { fs } from '../common';
+import { encode } from '../src/utils';
+import { fs } from './common';
 
 const content = 'Sample content',
 	original = 'ABCD';

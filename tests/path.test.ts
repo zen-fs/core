@@ -1,4 +1,4 @@
-import { resolve, join, normalize, basename, dirname, extname } from '../../src/emulation/path';
+import { resolve, join, normalize, basename, dirname, extname } from '../src/emulation/path';
 
 describe('Path emulation', () => {
 	test('resolve', () => {

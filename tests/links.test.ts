@@ -1,4 +1,4 @@
-import { fs } from '../common';
+import { fs } from './common';
 
 describe('Links', () => {
 	const target = 'a1.js',
