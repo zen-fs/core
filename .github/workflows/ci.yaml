@@ -51,6 +51,9 @@ jobs:
         permissions:
             contents: write
             id-token: write
+        environment:
+          name: github-pages
+          url: ${{ steps.deploy.outputs.page_url }}
         steps:
             - name: Checkout
               uses: actions/checkout@v3
@@ -66,9 +69,12 @@ jobs:
             - name: Build docs
               run: npm run build:docs
 
-            - name: Deploy docs
-              uses: peaceiris/actions-gh-pages@v3
+            - name: Upload docs artifact
+              uses: actions/upload-pages-artifact@v3
+              if: github.event_name != 'pull_request'
               with:
-                  github_token: ${{ secrets.GITHUB_TOKEN }}
-                  publish_dir: ./docs
-                  publish_branch: docs
+                  path: ./docs
+            - name: 'Deploy docs'
+              id: deploy
+              if: github.event_name != 'pull_request'
+              uses: actions/deploy-pages@v4
