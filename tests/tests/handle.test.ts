@@ -45,10 +45,10 @@ describe('FileHandle', () => {
 	});
 
 	test('chown', async () => {
-		await handle.chown(process.getuid(), process.getgid());
+		await handle.chown(1234, 5678);
 		const stats = await handle.stat();
-		expect(stats.uid).toBe(process.getuid());
-		expect(stats.gid).toBe(process.getgid());
+		expect(stats.uid).toBe(1234);
+		expect(stats.gid).toBe(5678);
 	});
 
 	test('close', async () => {
