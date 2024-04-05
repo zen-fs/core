@@ -1,11 +1,11 @@
-import { fs } from '../src/index';
-import * as path from 'path';
+import { fs } from '../src';
+import { join, relative } from 'path';
 import { statSync, readFileSync, readdirSync } from 'fs';
 
 export const fixturesDir = 'tests/fixtures/node';
 
 function copy(_p: string) {
-	const p = path.posix.relative(fixturesDir, _p) || '/';
+	const p = relative(fixturesDir, _p) || '/';
 	const stats = statSync(_p);
 
 	if (!stats.isDirectory()) {
@@ -17,7 +17,7 @@ function copy(_p: string) {
 		fs.mkdirSync(p);
 	}
 	for (const file of readdirSync(_p)) {
-		copy(path.join(_p, file));
+		copy(join(_p, file));
 	}
 }
 
