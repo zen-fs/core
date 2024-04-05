@@ -525,15 +525,16 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 				}
 			}
 		}
-		this._buffer.set(buffer.slice(offset, offset + length), position);
-		const len = this._buffer.byteOffset;
+		const slice = buffer.slice(offset, offset + length);
+		this._buffer.set(slice, position);
+		const bytesWritten = slice.byteLength;
 		this.stats.mtimeMs = Date.now();
 		if (isSynchronous(this.flag)) {
 			this.syncSync();
-			return len;
+			return bytesWritten;
 		}
-		this.position = position + len;
-		return len;
+		this.position = position + bytesWritten;
+		return bytesWritten;
 	}
 
 	/**

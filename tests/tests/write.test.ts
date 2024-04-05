@@ -1,36 +1,26 @@
+import { encode } from '../../src/utils';
 import { fs } from '../common';
 
 describe('write', () => {
-	test('write file with specified content asynchronously', async () => {
+	test('write file with specified content', async () => {
 		const fn = 'write.txt';
-		const fn2 = 'write2.txt';
 		const expected = 'ümlaut.';
 
 		const handle = await fs.promises.open(fn, 'w', 0o644);
-		await fs.promises.write(handle, '', 0, 'utf8');
-		const written = await fs.promises.write(handle, expected, 0, 'utf8');
-		expect(written.bytesWritten).toBe(expected.length);
+		await handle.write('', 0, 'utf8');
+		const { bytesWritten } = await handle.write(expected, 0, 'utf8');
+		expect(bytesWritten).toBe(encode(expected).length);
 		await handle.close();
 
 		const data = await fs.promises.readFile(fn, 'utf8');
 		expect(data).toBe(expected);
 
 		await fs.promises.unlink(fn);
-		const fd2 = await fs.promises.open(fn2, 'w', 0o644);
-		await fs.promises.write(fd2, '', 0, 'utf8');
-		const written2 = await fs.promises.write(fd2, expected, 0, 'utf8');
-		expect(written2.bytesWritten).toBe(Buffer.byteLength(expected));
-		await fd2.close();
-
-		const data2 = await fs.promises.readFile(fn2, 'utf8');
-		expect(data2).toBe(expected);
-
-		await fs.promises.unlink(fn2);
 	});
 
-	test('write a buffer to a file asynchronously', async () => {
+	test('write a buffer to a file', async () => {
 		const filename = 'write.txt';
-		const expected = Buffer.from('hello');
+		const expected = encode('hello');
 
 		const fd = await fs.promises.open(filename, 'w', 0o644);
 
@@ -40,15 +30,14 @@ describe('write', () => {
 
 		await fd.close();
 
-		const found = await fs.promises.readFile(filename, 'utf8');
-		expect(expected.toString()).toBe(found);
+		expect(await fs.promises.readFile(filename)).toEqual(expected);
 
 		await fs.promises.unlink(filename);
 	});
 });
 
 describe('writeSync', () => {
-	test('write file synchronously with specified content', async () => {
+	test('write file with specified content', async () => {
 		const fn = 'write.txt';
 		const foo = 'foo';
 		const fd = fs.openSync(fn, 'w');
@@ -58,12 +47,12 @@ describe('writeSync', () => {
 
 		fs.writeSync(fd, foo);
 
-		const bar = 'bár';
-		written = fs.writeSync(fd, Buffer.from(bar), 0, Buffer.byteLength(bar));
+		const data = encode('bár');
+		written = fs.writeSync(fd, data, 0, data.length);
 		expect(written).toBeGreaterThan(3);
 
 		fs.closeSync(fd);
 
-		expect(fs.readFileSync(fn).toString()).toBe('foobár');
+		expect(fs.readFileSync(fn, 'utf8')).toBe('foobár');
 	});
 });

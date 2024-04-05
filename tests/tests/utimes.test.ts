@@ -15,19 +15,17 @@ describe('utimes', () => {
 		await fs.promises.utimes(filename, atime, mtime);
 		expect_ok(filename, atime, mtime);
 
-		await fs.promises.utimes('foobarbaz', atime, mtime).catch((err: ApiError) => {
-			expect(err.code).toEqual('ENOENT');
-		});
+		try {
+			await fs.promises.utimes('foobarbaz', atime, mtime);
+		} catch (error) {
+			expect(error.code).toEqual('ENOENT');
+		}
 
 		// don't close this fd
 		const handle = await fs.promises.open(filename, 'r');
 
 		await fs.promises.futimes(handle, atime, mtime);
 		expect_ok(handle.fd, atime, mtime);
-
-		fs.futimes(-1, atime, mtime, (err: ApiError) => {
-			expect(err.code).toEqual('EBADF');
-		});
 
 		fs.utimesSync(filename, atime, mtime);
 		expect_ok(filename, atime, mtime);

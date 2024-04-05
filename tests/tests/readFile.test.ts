@@ -66,7 +66,6 @@ describe('Read File Test', () => {
 });
 
 describe('fs file reading', () => {
-
 	test('read file synchronously and verify the content', async () => {
 		const content = fs.readFileSync('elipses.txt', 'utf8');
 

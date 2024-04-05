@@ -1,8 +1,9 @@
+import { join } from '../../src/emulation/path';
+import { encode } from '../../src/utils';
 import { fs } from '../common';
-import * as path from 'path';
 
 describe('permissions test', () => {
-	const testFileContents = Buffer.from('this is a test file, plz ignore.');
+	const testFileContents = encode('this is a test file, plz ignore.');
 
 	function is_writable(mode: number) {
 		return (mode & 0o222) > 0;
@@ -45,21 +46,17 @@ describe('permissions test', () => {
 		}
 	}
 
-	async function process_directory(p: string, dirMode: number): Promise<void> {
+	async function process_directory(path: string, dirMode: number): Promise<void> {
 		try {
-			const dirs = await fs.promises.readdir(p);
 			// Invariant 2: We can only readdir if we have read permissions on the directory.
 			expect(is_readable(dirMode)).toBe(true);
 
-			const promises = dirs.map(async dir => {
-				const itemPath = path.resolve(p, dir);
-				await process_item(itemPath, dirMode);
-			});
-
-			await Promise.all(promises);
+			for (const dir of await fs.promises.readdir(path)) {
+				await process_item(join(path, dir), dirMode);
+			}
 
 			// Try to write a file into the directory.
-			const testFile = path.resolve(p, '__test_file_plz_ignore.txt');
+			const testFile = join(path, '__test_file_plz_ignore.txt');
 			await fs.promises.writeFile(testFile, testFileContents);
 			// Clean up.
 			await fs.promises.unlink(testFile);
