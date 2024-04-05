@@ -132,6 +132,7 @@ export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8A
 	}
 	switch (encoding) {
 		case 'ascii':
+			return new Uint8Array(Array.from(input).map(char => char.charCodeAt(0) & 0x7f));
 		case 'latin1':
 		case 'binary':
 			return new Uint8Array(Array.from(input).map(char => char.charCodeAt(0)));
@@ -158,7 +159,7 @@ export function encode(input: string, encoding: BufferEncoding = 'utf8'): Uint8A
 				})
 			);
 		case 'base64':
-			return encode(atob(input), 'utf-8');
+			return encode(atob(input), 'binary');
 		case 'base64url':
 			return encode(input.replace('_', '/').replace('-', '+'), 'base64');
 		case 'hex':
@@ -186,6 +187,9 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 	}
 	switch (encoding) {
 		case 'ascii':
+			return Array.from(input)
+				.map(char => String.fromCharCode(char & 0x7f))
+				.join('');
 		case 'latin1':
 		case 'binary':
 			return Array.from(input)
@@ -220,7 +224,7 @@ export function decode(input?: Uint8Array, encoding: BufferEncoding = 'utf8'): s
 			}
 			return utf16leString;
 		case 'base64':
-			return btoa(decode(input, 'utf-8'));
+			return btoa(decode(input, 'binary'));
 		case 'base64url':
 			return decode(input, 'base64').replace('/', '_').replace('+', '-');
 		case 'hex':
