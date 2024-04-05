@@ -289,12 +289,13 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	}
 }
 
-export const AsyncMirror: Backend = {
+export const AsyncMirror: Backend<AsyncMirrorFS> = {
 	name: 'AsyncMirror',
 
 	options: {
 		sync: {
 			type: 'object',
+			required: true,
 			description: 'The synchronous file system to mirror the asynchronous file system to.',
 			validator: async (backend: FileSystem | Backend): Promise<void> => {
 				if ('metadata' in backend && !backend.metadata().synchronous) {
@@ -304,6 +305,7 @@ export const AsyncMirror: Backend = {
 		},
 		async: {
 			type: 'object',
+			required: true,
 			description: 'The asynchronous file system to mirror.',
 		},
 	},

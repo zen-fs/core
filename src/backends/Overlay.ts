@@ -601,7 +601,7 @@ export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
 	}
 }
 
-export const Overlay: Backend = {
+export const Overlay: Backend<OverlayFS> = {
 	name: 'Overlay',
 
 	options: {
