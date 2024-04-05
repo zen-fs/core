@@ -1,95 +1,60 @@
+import type { Stats } from '../src/stats';
 import { join } from '../src/emulation/path';
 import { encode } from '../src/utils';
 import { fs } from './common';
+import { R_OK, W_OK, X_OK } from '../src/emulation/constants';
+import { cred } from '../src/emulation/shared';
 
-describe('permissions test', () => {
-	const testFileContents = encode('this is a test file, plz ignore.');
+describe('Permissions', () => {
+	async function test_item(path: string): Promise<void> {
+		let stats: Stats;
 
-	function is_writable(mode: number) {
-		return (mode & 0o222) > 0;
-	}
-
-	function is_readable(mode: number) {
-		return (mode & 0o444) > 0;
-	}
-
-	function is_executable(mode: number) {
-		return (mode & 0o111) > 0;
-	}
-
-	async function process_file(path: string, fileMode: number): Promise<void> {
-		// We can only read a file if we have read permissions on the file.
 		try {
-			await fs.promises.readFile(path);
-			expect(is_readable(fileMode)).toBe(true);
+			stats = await fs.promises.stat(path);
+			expect(stats.hasAccess(X_OK, cred)).toBe(true);
 		} catch (err) {
-			if (err.code != 'EPERM') {
+			if (err.code != 'EACCES') {
 				throw err;
 			}
-			expect(is_readable(fileMode)).toBe(false);
+			expect(stats.hasAccess(X_OK, cred)).toBe(false);
 		}
 
-		// We can only write to a file if we have write permissions on the file.
 		try {
-			const handle = await fs.promises.open(path, 'a');
-			expect(is_writable(fileMode)).toBe(true);
-			await handle.close();
-		} catch (err) {
-			if (err.code != 'EPERM') {
-				throw err;
-			}
-			
-			expect(is_writable(fileMode)).toBe(false);
-		}
-	}
-
-	async function process_directory(path: string, dirMode: number): Promise<void> {
-		try {
-			// We can only readdir if we have read permissions on the directory.
-			expect(is_readable(dirMode)).toBe(true);
-
-			for (const dir of await fs.promises.readdir(path)) {
-				await process_item(join(path, dir), dirMode);
-			}
-
-			// Try to write a file into the directory.
-			const testFile = join(path, '__test_file_plz_ignore.txt');
-			await fs.promises.writeFile(testFile, testFileContents);
-			// Clean up.
-			await fs.promises.unlink(testFile);
-		} catch (err) {
-			if (err.code != 'EPERM') {
-				throw err;
-			}
-			// We can only readdir if we have read permissions on the directory.
-			expect(is_readable(dirMode)).toBe(false);
-			// We can only write to a new file if we have write permissions in the directory.
-			expect(is_writable(dirMode)).toBe(false);
-		}
-	}
-
-	async function process_item(p: string, parentMode: number): Promise<void> {
-		try {
-			const stat = await fs.promises.stat(p);
-			// Ensure we have execute permissions on parent directory.
-			expect(is_executable(parentMode)).toBe(true);
-
-			// Ensure we have execute permissions on parent directory.
-			expect(is_executable(parentMode)).toBe(true);
-
-			if (stat.isDirectory()) {
-				await process_directory(p, stat.mode);
+			if (!stats.isDirectory()) {
+				await fs.promises.readFile(path);
 			} else {
-				await process_file(p, stat.mode);
+				for (const dir of await fs.promises.readdir(path)) {
+					await test_item(join(path, dir));
+				}
 			}
+			expect(stats.hasAccess(R_OK, cred)).toBe(true);
 		} catch (err) {
-			if (err.code != 'EPERM') {
+			if (err.code != 'EACCES') {
 				throw err;
 			}
-			// Ensure we do not have execute permissions on parent directory.
-			expect(is_executable(parentMode)).toBe(false);
+			expect(stats.hasAccess(R_OK, cred)).toBe(false);
+		}
+
+		try {
+			if (!stats.isDirectory()) {
+				const handle = await fs.promises.open(path, 'a');
+				expect(stats.hasAccess(W_OK, cred)).toBe(true);
+				await handle.close();
+			} else {
+				const testFile = join(path, '__test_file_plz_ignore.txt');
+				await fs.promises.writeFile(testFile, encode('this is a test file, please ignore.'));
+				await fs.promises.unlink(testFile);
+			}
+
+			expect(stats.hasAccess(R_OK, cred)).toBe(true);
+		} catch (err) {
+			if (err.code != 'EACCES') {
+				throw err;
+			}
+
+			expect(stats.hasAccess(W_OK, cred)).toBe(false);
 		}
 	}
 
-	process_item('/', 0o777);
+	test('recursive', () => test_item('/'));
 });

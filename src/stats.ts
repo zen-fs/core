@@ -1,7 +1,7 @@
 import type * as Node from 'fs';
 import { Cred } from './cred.js';
 
-import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from './emulation/constants.js';
+import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants.js';
 
 /**
  * Indicates the type of the given file. Applied to 'mode'.
@@ -253,9 +253,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	/**
 	 * Checks if a given user/group has access to this item
-	 * @param mode The request access as 4 bits (unused, read, write, execute)
-	 * @param uid The requesting UID
-	 * @param gid The requesting GID
+	 * @param mode The requested access, combination of W_OK, R_OK, and X_OK
+	 * @param cred The requesting credentials
 	 * @returns True if the request has access, false if the request does not
 	 * @internal
 	 */
@@ -264,27 +263,10 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 			//Running as root
 			return true;
 		}
-		const perms = this.mode & ~S_IFMT;
-		let uMode = 0xf,
-			gMode = 0xf,
-			wMode = 0xf;
 
-		if (cred.euid == this.uid) {
-			const uPerms = (0xf00 & perms) >> 8;
-			uMode = (mode ^ uPerms) & mode;
-		}
-		if (cred.egid == this.gid) {
-			const gPerms = (0xf0 & perms) >> 4;
-			gMode = (mode ^ gPerms) & mode;
-		}
-		const wPerms = 0xf & perms;
-		wMode = (mode ^ wPerms) & mode;
-		/*
-        Result = 0b0xxx (read, write, execute)
-        If any bits are set that means the request does not have that permission.
-    	*/
-		const result = uMode & gMode & wMode;
-		return !result;
+		// Mask for
+		const adjusted = (cred.uid == this.uid ? S_IRWXU : 0) | (cred.gid == this.gid ? S_IRWXG : 0) | S_IRWXO;
+		return (mode & this.mode & adjusted) == mode;
 	}
 
 	/**

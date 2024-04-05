@@ -119,6 +119,10 @@ export function flagToNumber(flag: string): number {
 	}
 }
 
+/**
+ * Parses a flag as a mode (W_OK, R_OK, and/or X_OK)
+ * @param flag the flag to parse
+ */
 export function flagToMode(flag: string): number {
 	let mode = 0;
 	mode <<= 1;

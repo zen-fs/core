@@ -9,6 +9,7 @@ import { BigIntStats, FileType, type Stats } from '../stats.js';
 import { decode, encode } from '../utils.js';
 import { Dirent } from './dir.js';
 import { dirname, join } from './path.js';
+import { F_OK } from './constants.js';
 
 export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> {
 	public constructor(
@@ -853,7 +854,7 @@ export async function watch(filename: PathLike, arg2: any, listener: (event: str
  * @param path
  * @param mode
  */
-export async function access(path: PathLike, mode: number = 0o600): Promise<void> {
+export async function access(path: PathLike, mode: number = F_OK): Promise<void> {
 	const stats = await stat(path);
 	if (!stats.hasAccess(mode, cred)) {
 		throw new ApiError(ErrorCode.EACCES);
