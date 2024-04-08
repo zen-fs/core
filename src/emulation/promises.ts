@@ -811,14 +811,7 @@ realpath satisfies typeof promises.realpath;
 /**
  * @todo Implement
  */
-export function watch(
-	filename: PathLike,
-	options:
-		| (Node.WatchOptions & {
-				encoding: 'buffer';
-		  })
-		| 'buffer'
-): AsyncIterable<FileChangeInfo<Buffer>>;
+export function watch(filename: PathLike, options: (Node.WatchOptions & { encoding: 'buffer' }) | 'buffer'): AsyncIterable<FileChangeInfo<Buffer>>;
 export function watch(filename: PathLike, options?: Node.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
 export function watch(filename: PathLike, options: Node.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
 	throw ApiError.With('ENOTSUP', filename, 'watch');
@@ -837,6 +830,8 @@ export async function access(path: PathLike, mode: number = F_OK): Promise<void>
 	}
 }
 access satisfies typeof promises.access;
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * @todo Implement
@@ -887,3 +882,5 @@ export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise
 export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
 	throw ApiError.With('ENOTSUP', path, 'statfs');
 }
+
+/* eslint-enable @typescript-eslint/no-unused-vars */

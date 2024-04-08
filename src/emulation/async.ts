@@ -666,6 +666,8 @@ export function access(path: PathLike, cbMode: any, cb: NoArgCallback = nop): vo
 }
 access satisfies Omit<typeof Node.access, '__promisify__'>;
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 /**
  * @todo Implement
  */
@@ -726,6 +728,8 @@ export function createWriteStream(
 	throw ApiError.With('ENOTSUP', path, 'createWriteStream');
 }
 createWriteStream satisfies Omit<typeof Node.createWriteStream, '__promisify__'>;
+
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 export function rm(path: PathLike, callback: NoArgCallback): void;
 export function rm(path: PathLike, options: Node.RmOptions, callback: NoArgCallback): void;

@@ -703,6 +703,8 @@ export function accessSync(path: PathLike, mode: number = 0o600): void {
 }
 accessSync satisfies typeof Node.accessSync;
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 /**
  * @todo Implement
  */
@@ -773,3 +775,5 @@ export function statfsSync(path: PathLike, options?: Node.StatFsOptions): StatsF
 export function statfsSync(path: PathLike, options?: Node.StatFsOptions): StatsFs | BigIntStatsFs {
 	throw ApiError.With('ENOTSUP', path, 'statfsSync');
 }
+
+/* eslint-enable @typescript-eslint/no-unused-vars */
