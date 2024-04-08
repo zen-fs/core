@@ -13,8 +13,8 @@ describe('Reading', () => {
 	});
 
 	test('Reading past the end of a file should not be an error', async () => {
-		const fd = await fs.promises.open('a.js', 'r');
-		const { bytesRead } = await fs.promises.read(fd, new Uint8Array(10), 0, 10, 10000);
+		const handle = await fs.promises.open('a.js', 'r');
+		const { bytesRead } = await handle.read(new Uint8Array(10), 0, 10, 10000);
 		expect(bytesRead).toBe(0);
 	});
 });

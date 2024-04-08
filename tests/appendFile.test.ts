@@ -1,4 +1,3 @@
-import { encode } from '../src/utils';
 import { fs } from './common';
 
 const content = 'Sample content',
@@ -29,7 +28,7 @@ describe('appendFile', () => {
 		const filename = 'append3.txt';
 
 		await fs.promises.writeFile(filename, original);
-		await fs.promises.appendFile(filename, encode(content, 'utf8'));
+		await fs.promises.appendFile(filename, content);
 		const data = await fs.promises.readFile(filename, 'utf8');
 		expect(data).toEqual(original + content);
 	});

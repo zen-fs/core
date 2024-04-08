@@ -23,7 +23,7 @@ describe('utimes', () => {
 		// don't close this fd
 		const handle = await fs.promises.open(filename, 'r');
 
-		await fs.promises.futimes(handle, atime, mtime);
+		await handle.utimes(atime, mtime);
 		expect_ok(handle.fd, atime, mtime);
 
 		fs.utimesSync(filename, atime, mtime);

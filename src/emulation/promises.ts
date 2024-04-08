@@ -13,6 +13,7 @@ import type { PathLike } from './shared.js';
 import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveFS } from './shared.js';
 export * as constants from './constants.js';
 import { ReadStream, WriteStream } from './streams.js';
+import { decode } from '../utils.js';
 
 export class FileHandle implements promises.FileHandle {
 	public constructor(
@@ -129,9 +130,10 @@ export class FileHandle implements promises.FileHandle {
 		}
 
 		const { size } = await this.stat();
-		const data = Buffer.from(new Uint8Array(size));
+		const data = new Uint8Array(size);
 		await fd2file(this.fd).read(data, 0, size, 0);
-		return options.encoding ? data.toString(options.encoding) : data;
+		const buffer = Buffer.from(data);
+		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}
 
 	/**

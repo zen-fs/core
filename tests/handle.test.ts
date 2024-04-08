@@ -13,6 +13,7 @@ describe('FileHandle', () => {
 
 	test('writeFile', async () => {
 		await handle.writeFile(content);
+		await handle.sync();
 	});
 
 	test('readFile', async () => {

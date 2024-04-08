@@ -9,7 +9,7 @@ describe('write', () => {
 		const handle = await fs.promises.open(fn, 'w', 0o644);
 		await handle.write('', 0, 'utf8');
 		const { bytesWritten } = await handle.write(expected, 0, 'utf8');
-		expect(bytesWritten).toBe(encode(expected).length);
+		expect(bytesWritten).toBe(Buffer.from(expected).length);
 		await handle.close();
 
 		const data = await fs.promises.readFile(fn, 'utf8');
@@ -20,15 +20,15 @@ describe('write', () => {
 
 	test('write a buffer to a file', async () => {
 		const filename = 'write.txt';
-		const expected = encode('hello');
+		const expected = Buffer.from('hello');
 
-		const fd = await fs.promises.open(filename, 'w', 0o644);
+		const handle = await fs.promises.open(filename, 'w', 0o644);
 
-		const written = await fs.promises.write(fd, expected, 0, expected.length, null);
+		const written = await handle.write(expected, 0, expected.length, null);
 
 		expect(expected.length).toBe(written.bytesWritten);
 
-		await fd.close();
+		await handle.close();
 
 		expect(await fs.promises.readFile(filename)).toEqual(expected);
 
@@ -47,7 +47,7 @@ describe('writeSync', () => {
 
 		fs.writeSync(fd, foo);
 
-		const data = encode('bár');
+		const data = Buffer.from('bár');
 		written = fs.writeSync(fd, data, 0, data.length);
 		expect(written).toBeGreaterThan(3);
 
