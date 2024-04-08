@@ -46,7 +46,7 @@
 		"format:check": "prettier --check .",
 		"lint": "eslint src tests && tsc -p tsconfig.json --noEmit",
 		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
-		"build": "node scripts/build.js --globalName=ZenFS --entryPoints src/index.ts",
+		"build": "node scripts/build.js --globalName=ZenFS --entry src/index.ts",
 		"build:docs": "typedoc --out docs --name ZenFS src/index.ts",
 		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build"
