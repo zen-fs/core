@@ -84,9 +84,9 @@ lstat satisfies Omit<typeof Node.lstat, '__promisify__'>;
  */
 export function truncate(path: PathLike, cb?: NoArgCallback): void;
 export function truncate(path: PathLike, len: number, cb?: NoArgCallback): void;
-export function truncate(path: PathLike, arg2: number | NoArgCallback = 0, cb: NoArgCallback = nop): void {
-	cb = typeof arg2 === 'function' ? arg2 : cb;
-	const len = typeof arg2 === 'number' ? arg2 : 0;
+export function truncate(path: PathLike, cbLen: number | NoArgCallback = 0, cb: NoArgCallback = nop): void {
+	cb = typeof cbLen === 'function' ? cbLen : cb;
+	const len = typeof cbLen === 'number' ? cbLen : 0;
 	promises
 		.truncate(path, len)
 		.then(() => cb())
@@ -134,9 +134,9 @@ unlink satisfies Omit<typeof Node.unlink, '__promisify__'>;
  */
 export function open(path: PathLike, flag: string, cb?: TwoArgCallback<number>): void;
 export function open(path: PathLike, flag: string, mode: number | string, cb?: TwoArgCallback<number>): void;
-export function open(path: PathLike, flag: string, arg2?: number | string | TwoArgCallback<number>, cb: TwoArgCallback<number> = nop): void {
-	const mode = normalizeMode(arg2, 0o644);
-	cb = typeof arg2 === 'function' ? arg2 : cb;
+export function open(path: PathLike, flag: string, cbMode?: number | string | TwoArgCallback<number>, cb: TwoArgCallback<number> = nop): void {
+	const mode = normalizeMode(cbMode, 0o644);
+	cb = typeof cbMode === 'function' ? cbMode : cb;
 	promises
 		.open(path, flag, mode)
 		.then(handle => cb(null, handle.fd))
@@ -656,11 +656,11 @@ realpath satisfies Omit<typeof Node.realpath, '__promisify__' | 'native'>;
  */
 export function access(path: PathLike, cb: NoArgCallback): void;
 export function access(path: PathLike, mode: number, cb: NoArgCallback): void;
-export function access(path: PathLike, arg2: any, cb: NoArgCallback = nop): void {
-	const mode = typeof arg2 === 'number' ? arg2 : R_OK;
-	cb = typeof arg2 === 'function' ? arg2 : cb;
+export function access(path: PathLike, cbMode: any, cb: NoArgCallback = nop): void {
+	const mode = typeof cbMode === 'number' ? cbMode : R_OK;
+	cb = typeof cbMode === 'function' ? cbMode : cb;
 	promises
-		.access(path, typeof arg2 === 'function' ? null : arg2)
+		.access(path, typeof cbMode === 'function' ? null : cbMode)
 		.then(() => cb())
 		.catch(cb);
 }
@@ -671,7 +671,7 @@ access satisfies Omit<typeof Node.access, '__promisify__'>;
  */
 export function watchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(filename: PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
-export function watchFile(filename: PathLike, arg2: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
+export function watchFile(filename: PathLike, optsListener: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
 	throw ApiError.With('ENOTSUP', filename, 'watchFile');
 }
 watchFile satisfies Omit<typeof Node.watchFile, '__promisify__'>;

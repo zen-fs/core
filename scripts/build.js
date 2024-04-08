@@ -3,21 +3,21 @@ import { execSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { rmSync } from 'node:fs';
 import { globalExternals } from '@fal-works/esbuild-plugin-global-externals';
-import $package from '../package.json' assert { type: 'json' };
-
-const main = $package.main;
 
 let buildCount = 0;
 
-const { watch, keep, quiet, globalName, entryPoints } = parseArgs({
+const {
+	values: { watch, keep, quiet, globalName },
+	positionals: entryPoints,
+} = parseArgs({
 	options: {
 		watch: { short: 'w', type: 'boolean', default: false },
 		keep: { short: 'k', type: 'boolean', default: false },
 		quiet: { short: 'q', type: 'boolean', default: false },
 		globalName: { type: 'string' },
-		entryPoints: { type: 'string', default: [main], multiple: true },
 	},
-}).values;
+	allowPositionals: true,
+});
 
 async function exportsOf(name) {
 	const mod = await import(name);
