@@ -20,8 +20,11 @@ const {
 });
 
 async function exportsOf(name) {
-	const mod = await import(name);
-	return Object.keys(mod).filter(key => key != 'default');
+	try {
+		return Object.keys(await import(name)).filter(key => key != 'default');
+	} catch (e) {
+		return [];
+	}
 }
 
 function start() {
