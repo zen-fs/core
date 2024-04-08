@@ -4,10 +4,15 @@ import type { Stats } from '../stats.js';
 import { readdir } from './promises.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { readdirSync } from './sync.js';
+import { basename } from './path.js';
 
 export class Dirent implements _Dirent {
+	public get name(): string {
+		return basename(this.path);
+	}
+
 	constructor(
-		public name: string,
+		public path: string,
 		protected stats: Stats
 	) {}
 

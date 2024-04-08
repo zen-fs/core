@@ -269,7 +269,7 @@ export abstract class File {
 	 *   position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	public abstract read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>>;
+	public abstract read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>>;
 
 	/**
 	 * Read data from the file.

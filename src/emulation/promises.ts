@@ -5,7 +5,7 @@ import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo,
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
-import { BigIntStats, FileType, type Stats } from '../stats.js';
+import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import { F_OK } from './constants.js';
 import { Dirent, type Dir } from './dir.js';
 import { dirname, join } from './path.js';
@@ -13,7 +13,8 @@ import type { PathLike } from './shared.js';
 import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveFS } from './shared.js';
 export * as constants from './constants.js';
 import { ReadStream, WriteStream } from './streams.js';
-import { decode } from '../utils.js';
+import type { ReadableStream } from 'node:stream/web';
+import type { Interface as ReadlineInterface } from 'readline';
 
 export class FileHandle implements promises.FileHandle {
 	public constructor(
@@ -23,11 +24,19 @@ export class FileHandle implements promises.FileHandle {
 		public readonly fd: number
 	) {}
 
+	private get file(): File {
+		return fd2file(this.fd);
+	}
+
+	private get path(): string {
+		return this.file.path;
+	}
+
 	/**
 	 * Asynchronous fchown(2) - Change ownership of a file.
 	 */
 	public chown(uid: number, gid: number): Promise<void> {
-		return fd2file(this.fd).chown(uid, gid);
+		return this.file.chown(uid, gid);
 	}
 
 	/**
@@ -39,21 +48,21 @@ export class FileHandle implements promises.FileHandle {
 		if (numMode < 0) {
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid mode.');
 		}
-		return fd2file(this.fd).chmod(numMode);
+		return this.file.chmod(numMode);
 	}
 
 	/**
 	 * Asynchronous fdatasync(2) - synchronize a file's in-core state with storage device.
 	 */
 	public datasync(): Promise<void> {
-		return fd2file(this.fd).datasync();
+		return this.file.datasync();
 	}
 
 	/**
 	 * Asynchronous fsync(2) - synchronize a file's in-core state with the underlying storage device.
 	 */
 	public sync(): Promise<void> {
-		return fd2file(this.fd).sync();
+		return this.file.sync();
 	}
 
 	/**
@@ -64,7 +73,7 @@ export class FileHandle implements promises.FileHandle {
 		if (len < 0) {
 			throw new ApiError(ErrorCode.EINVAL);
 		}
-		return fd2file(this.fd).truncate(len);
+		return this.file.truncate(len);
 	}
 
 	/**
@@ -73,7 +82,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param mtime The last modified time. If a string is provided, it will be coerced to number.
 	 */
 	public utimes(atime: string | number | Date, mtime: string | number | Date): Promise<void> {
-		return fd2file(this.fd).utimes(normalizeTime(atime), normalizeTime(mtime));
+		return this.file.utimes(normalizeTime(atime), normalizeTime(mtime));
 	}
 
 	/**
@@ -96,7 +105,7 @@ export class FileHandle implements promises.FileHandle {
 			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
-		await fd2file(this.fd).write(encodedData, 0, encodedData.length, null);
+		await this.file.write(encodedData, 0, encodedData.length, null);
 	}
 
 	/**
@@ -107,11 +116,11 @@ export class FileHandle implements promises.FileHandle {
 	 * @param length The number of bytes to read.
 	 * @param position The offset from the beginning of the file from which data should be read. If `null`, data will be read from the current position.
 	 */
-	public read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
+	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
 		if (isNaN(+position)) {
-			position = fd2file(this.fd).position!;
+			position = this.file.position!;
 		}
-		return fd2file(this.fd).read(buffer, offset, length, position);
+		return this.file.read(buffer, offset, length, position);
 	}
 
 	/**
@@ -131,9 +140,32 @@ export class FileHandle implements promises.FileHandle {
 
 		const { size } = await this.stat();
 		const data = new Uint8Array(size);
-		await fd2file(this.fd).read(data, 0, size, 0);
+		await this.file.read(data, 0, size, 0);
 		const buffer = Buffer.from(data);
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
+	}
+
+	/**
+	 * Returns a `ReadableStream` that may be used to read the files data.
+	 *
+	 * An error will be thrown if this method is called more than once or is called after the `FileHandle` is closed
+	 * or closing.
+	 *
+	 * While the `ReadableStream` will read the file to completion, it will not close the `FileHandle` automatically. User code must still call the `fileHandle.close()` method.
+	 *
+	 * @since v17.0.0
+	 * @experimental
+	 */
+	public readableWebStream(options?: promises.ReadableWebStreamOptions): ReadableStream {
+		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.readableWebStream');
+	}
+
+	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
+		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.readLines');
+	}
+
+	public [Symbol.asyncDispose](): Promise<void> {
+		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.@@asyncDispose');
 	}
 
 	/**
@@ -142,7 +174,7 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts: Node.BigIntOptions): Promise<BigIntStats>;
 	public async stat(opts?: Node.StatOptions & { bigint?: false }): Promise<Stats>;
 	public async stat(opts?: Node.StatOptions): Promise<Stats | BigIntStats> {
-		const stats = await fd2file(this.fd).stat();
+		const stats = await this.file.stat();
 		return opts?.bigint ? new BigIntStats(stats) : stats;
 	}
 
@@ -188,8 +220,8 @@ export class FileHandle implements promises.FileHandle {
 			position = typeof position === 'number' ? position : null;
 		}
 
-		position ??= fd2file(this.fd).position!;
-		const bytesWritten = await fd2file(this.fd).write(buffer, offset, length, position);
+		position ??= this.file.position!;
+		const bytesWritten = await this.file.write(buffer, offset, length, position);
 		return { buffer, bytesWritten };
 	}
 
@@ -214,39 +246,39 @@ export class FileHandle implements promises.FileHandle {
 			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
-		await fd2file(this.fd).write(encodedData, 0, encodedData.length, 0);
+		await this.file.write(encodedData, 0, encodedData.length, 0);
 	}
 
 	/**
 	 * See `fs.writev` promisified version.
 	 * @todo Implement
 	 */
-	writev(buffers: ReadonlyArray<Uint8Array>, position?: number): Promise<Node.WriteVResult> {
-		throw new ApiError(ErrorCode.ENOTSUP);
+	writev(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<Node.WriteVResult> {
+		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.writev');
 	}
 
 	/**
 	 * See `fs.readv` promisified version.
 	 * @todo Implement
 	 */
-	readv(buffers: ReadonlyArray<Uint8Array>, position?: number): Promise<Node.ReadVResult> {
-		throw new ApiError(ErrorCode.ENOTSUP);
+	readv(buffers: readonly NodeJS.ArrayBufferView[], position?: number): Promise<Node.ReadVResult> {
+		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.readv');
 	}
 
 	/**
 	 * Asynchronous close(2) - close a `FileHandle`.
 	 */
 	async close(): Promise<void> {
-		await fd2file(this.fd).close();
+		await this.file.close();
 		fdMap.delete(this.fd);
 	}
 
 	public createReadStream(options?: CreateReadStreamOptions): Node.ReadStream {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOTSUP', this.path, 'createReadStream');
 	}
 
 	public createWriteStream(options?: CreateWriteStreamOptions): Node.WriteStream {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOTSUP', this.path, 'createWriteStream');
 	}
 }
 
@@ -789,7 +821,7 @@ export function watch(
 ): AsyncIterable<FileChangeInfo<Buffer>>;
 export function watch(filename: PathLike, options?: Node.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
 export function watch(filename: PathLike, options: Node.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', filename, 'watch');
 }
 watch satisfies typeof promises.watch;
 
@@ -809,26 +841,26 @@ access satisfies typeof promises.access;
 /**
  * @todo Implement
  */
-export async function rm(path: PathLike) {
-	throw new ApiError(ErrorCode.ENOTSUP);
+export async function rm(path: PathLike, options?: Node.RmOptions) {
+	throw ApiError.With('ENOTSUP', path, 'rm');
 }
 rm satisfies typeof promises.rm;
 
 /**
  * @todo Implement
  */
-export async function mkdtemp(prefix: string, options?: Node.ObjectEncodingOptions | BufferEncoding): Promise<string>;
-export async function mkdtemp(prefix: string, options: Node.BufferEncodingOption): Promise<Buffer>;
-export async function mkdtemp(prefix: string, options?: Node.ObjectEncodingOptions | Node.BufferEncodingOption | BufferEncoding): Promise<string | Buffer> {
-	throw new ApiError(ErrorCode.ENOTSUP);
+export async function mkdtemp(prefix: string, options?: Node.EncodingOption): Promise<string>;
+export async function mkdtemp(prefix: string, options?: Node.BufferEncodingOption): Promise<Buffer>;
+export async function mkdtemp(prefix: string, options?: Node.EncodingOption | Node.BufferEncodingOption): Promise<string | Buffer> {
+	throw ApiError.With('ENOTSUP', prefix, 'mkdtemp');
 }
 mkdtemp satisfies typeof promises.mkdtemp;
 
 /**
  * @todo Implement
  */
-export async function copyFile(path: PathLike) {
-	throw new ApiError(ErrorCode.ENOTSUP);
+export async function copyFile(src: PathLike, dest: PathLike, mode?: number): Promise<void> {
+	throw ApiError.With('ENOTSUP', src, 'copyFile');
 }
 copyFile satisfies typeof promises.copyFile;
 
@@ -836,14 +868,22 @@ copyFile satisfies typeof promises.copyFile;
  * @todo Implement
  */
 export async function opendir(path: PathLike, options?: Node.OpenDirOptions): Promise<Dir> {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', path, 'opendir');
 }
 opendir satisfies typeof promises.opendir;
 
-/**
- * @todo Implement
- */
-export async function cp(path: PathLike) {
-	throw new ApiError(ErrorCode.ENOTSUP);
+export async function cp(source: PathLike, destination: PathLike, opts?: Node.CopyOptions): Promise<void> {
+	throw ApiError.With('ENOTSUP', source, 'cp');
 }
 cp satisfies typeof promises.cp;
+
+/**
+ * @since v18.15.0
+ * @return Fulfills with an {fs.StatFs} for the file system.
+ */
+export async function statfs(path: PathLike, opts?: Node.StatFsOptions & { bigint?: false }): Promise<StatsFs>;
+export async function statfs(path: PathLike, opts: Node.StatFsOptions & { bigint: true }): Promise<BigIntStatsFs>;
+export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs>;
+export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
+	throw ApiError.With('ENOTSUP', path, 'statfs');
+}

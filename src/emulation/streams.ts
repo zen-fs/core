@@ -2,7 +2,6 @@ import type * as Node from 'fs';
 import { Readable, Writable } from 'readable-stream';
 import { NoArgCallback } from '../filesystem.js';
 
-// @ts-expect-error 2720 (Incorrectly typed, see DefinitelyTyped#69218)
 export class ReadStream extends Readable implements Node.ReadStream {
 	close(callback: NoArgCallback = () => null): void {
 		try {
@@ -83,7 +82,6 @@ export class ReadStream extends Readable implements Node.ReadStream {
 	}
 }
 
-// @ts-expect-error 2720 (Incorrectly typed, see DefinitelyTyped#69218)
 export class WriteStream extends Writable implements Node.WriteStream {
 	close(callback: NoArgCallback = () => null): void {
 		try {

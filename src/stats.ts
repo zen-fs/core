@@ -1,6 +1,5 @@
 import type * as Node from 'fs';
 import { Cred } from './cred.js';
-
 import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants.js';
 
 /**
@@ -350,41 +349,37 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
 		return new BigIntStats(stats);
 	}
 }
-BigIntStats satisfies new () => Node.BigIntStats;
 
-/**
- * @returns true if stats is a file.
- */
-export function isFile(stats: StatsLike): boolean {
-	return (Number(stats.mode) & S_IFMT) === S_IFREG;
+export class StatsFs implements Node.StatsFsBase<number> {
+	/** Type of file system. */
+	public type: number;
+	/**  Optimal transfer block size. */
+	public bsize: number;
+	/**  Total data blocks in file system. */
+	public blocks: number;
+	/** Free blocks in file system. */
+	public bfree: number;
+	/** Available blocks for unprivileged users */
+	public bavail: number;
+	/** Total file nodes in file system. */
+	public files: number;
+	/** Free file nodes in file system. */
+	public ffree: number;
 }
 
-/**
- * @returns True if stats is a directory.
- */
-export function isDirectory(stats: StatsLike): boolean {
-	return (Number(stats.mode) & S_IFMT) === S_IFDIR;
-}
-
-/**
- * @returns true if stats is a symbolic link
- */
-export function isSymbolicLink(stats: StatsLike): boolean {
-	return (Number(stats.mode) & S_IFMT) === S_IFLNK;
-}
-
-export function isSocket(): boolean {
-	return false;
-}
-
-export function isBlockDevice(): boolean {
-	return false;
-}
-
-export function isCharacterDevice(): boolean {
-	return false;
-}
-
-export function isFIFO(): boolean {
-	return false;
+export class BigIntStatsFs implements Node.StatsFsBase<bigint> {
+	/** Type of file system. */
+	public type: bigint;
+	/**  Optimal transfer block size. */
+	public bsize: bigint;
+	/**  Total data blocks in file system. */
+	public blocks: bigint;
+	/** Free blocks in file system. */
+	public bfree: bigint;
+	/** Available blocks for unprivileged users */
+	public bavail: bigint;
+	/** Total file nodes in file system. */
+	public files: bigint;
+	/** Free file nodes in file system. */
+	public ffree: bigint;
 }

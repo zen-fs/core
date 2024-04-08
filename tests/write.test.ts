@@ -1,4 +1,3 @@
-import { encode } from '../src/utils';
 import { fs } from './common';
 
 describe('write', () => {

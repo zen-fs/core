@@ -1,7 +1,7 @@
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
-import { BigIntStats, FileType, type Stats } from '../stats.js';
+import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import type { symlink, ReadSyncOptions, StatOptions, EncodingOption, BufferEncodingOption } from 'fs';
 import type * as Node from 'fs';
 import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts, PathLike } from './shared.js';
@@ -707,7 +707,7 @@ accessSync satisfies typeof Node.accessSync;
  * @todo Implement
  */
 export function rmSync(path: PathLike) {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', path, 'rmSync');
 }
 rmSync satisfies typeof Node.rmSync;
 
@@ -717,7 +717,7 @@ rmSync satisfies typeof Node.rmSync;
 export function mkdtempSync(prefix: string, options: BufferEncodingOption): Buffer;
 export function mkdtempSync(prefix: string, options?: EncodingOption): string;
 export function mkdtempSync(prefix: string, options?: EncodingOption | BufferEncodingOption): string | Buffer {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', prefix, 'mkdtempSync');
 }
 mkdtempSync satisfies typeof Node.mkdtempSync;
 
@@ -725,7 +725,7 @@ mkdtempSync satisfies typeof Node.mkdtempSync;
  * @todo Implement
  */
 export function copyFileSync(src: string, dest: string, flags?: number): void {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', src, 'copyFileSync');
 }
 copyFileSync satisfies typeof Node.copyFileSync;
 
@@ -733,7 +733,7 @@ copyFileSync satisfies typeof Node.copyFileSync;
  * @todo Implement
  */
 export function readvSync(fd: number, buffers: readonly Uint8Array[], position?: number): number {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', fd2file(fd).path, 'readvSync');
 }
 readvSync satisfies typeof Node.readvSync;
 
@@ -741,7 +741,7 @@ readvSync satisfies typeof Node.readvSync;
  * @todo Implement
  */
 export function writevSync(fd: number, buffers: readonly Uint8Array[], position?: number): number {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', fd2file(fd).path, 'writevSync');
 }
 writevSync satisfies typeof Node.writevSync;
 
@@ -749,7 +749,7 @@ writevSync satisfies typeof Node.writevSync;
  * @todo Implement
  */
 export function opendirSync(path: PathLike, options?: Node.OpenDirOptions): Dir {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', path, 'opendirSync');
 }
 opendirSync satisfies typeof Node.opendirSync;
 
@@ -757,6 +757,19 @@ opendirSync satisfies typeof Node.opendirSync;
  * @todo Implement
  */
 export function cpSync(source: PathLike, destination: PathLike, opts?: Node.CopySyncOptions): void {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', source, 'cpSync');
 }
 cpSync satisfies typeof Node.cpSync;
+
+/**
+ * Synchronous statfs(2). Returns information about the mounted file system which contains path. The callback gets two arguments (err, stats) where stats is an <fs.StatFs> object.
+ * In case of an error, the err.code will be one of Common System Errors.
+ * @param path A path to an existing file or directory on the file system to be queried.
+ * @param callback
+ */
+export function statfsSync(path: PathLike, options?: Node.StatFsOptions & { bigint?: false }): StatsFs;
+export function statfsSync(path: PathLike, options: Node.StatFsOptions & { bigint: true }): BigIntStatsFs;
+export function statfsSync(path: PathLike, options?: Node.StatFsOptions): StatsFs | BigIntStatsFs;
+export function statfsSync(path: PathLike, options?: Node.StatFsOptions): StatsFs | BigIntStatsFs {
+	throw ApiError.With('ENOTSUP', path, 'statfsSync');
+}

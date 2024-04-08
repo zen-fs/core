@@ -1,9 +1,9 @@
 import type * as Node from 'fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { FileContents, NoArgCallback, ThreeArgCallback, TwoArgCallback } from '../filesystem.js';
-import { BigIntStats, type Stats } from '../stats.js';
+import { BigIntStats, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import { R_OK } from './constants.js';
-import { Dirent } from './dir.js';
+import { Dirent, type Dir } from './dir.js';
 import * as promises from './promises.js';
 import { PathLike, fd2file, nop, normalizeMode } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
@@ -672,7 +672,7 @@ access satisfies Omit<typeof Node.access, '__promisify__'>;
 export function watchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(filename: PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(filename: PathLike, arg2: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', filename, 'watchFile');
 }
 watchFile satisfies Omit<typeof Node.watchFile, '__promisify__'>;
 
@@ -680,7 +680,7 @@ watchFile satisfies Omit<typeof Node.watchFile, '__promisify__'>;
  * @todo Implement
  */
 export function unwatchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void = nop): void {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', filename, 'unwatchFile');
 }
 unwatchFile satisfies Omit<typeof Node.unwatchFile, '__promisify__'>;
 
@@ -689,8 +689,8 @@ unwatchFile satisfies Omit<typeof Node.unwatchFile, '__promisify__'>;
  */
 export function watch(filename: PathLike, listener?: (event: string, filename: string) => any): Node.FSWatcher;
 export function watch(filename: PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): Node.FSWatcher;
-export function watch(filename: PathLike, arg2: any, listener: (event: string, filename: string) => any = nop): Node.FSWatcher {
-	throw new ApiError(ErrorCode.ENOTSUP);
+export function watch(filename: PathLike, options: any, listener: (event: string, filename: string) => any = nop): Node.FSWatcher {
+	throw ApiError.With('ENOTSUP', filename, 'watch');
 }
 watch satisfies Omit<typeof Node.watch, '__promisify__'>;
 
@@ -707,7 +707,7 @@ export function createReadStream(
 		autoClose?: boolean;
 	}
 ): ReadStream {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', path, 'createReadStream');
 }
 createReadStream satisfies Omit<typeof Node.createReadStream, '__promisify__'>;
 
@@ -723,70 +723,108 @@ export function createWriteStream(
 		mode?: number;
 	}
 ): WriteStream {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	throw ApiError.With('ENOTSUP', path, 'createWriteStream');
 }
 createWriteStream satisfies Omit<typeof Node.createWriteStream, '__promisify__'>;
 
-/**
- * @todo Implement
- */
-export function rm(path: PathLike) {
-	new ApiError(ErrorCode.ENOTSUP);
+export function rm(path: PathLike, callback: NoArgCallback): void;
+export function rm(path: PathLike, options: Node.RmOptions, callback: NoArgCallback): void;
+export function rm(path: PathLike, options: Node.RmOptions | NoArgCallback, callback: NoArgCallback = nop): void {
+	callback = typeof options === 'function' ? options : callback;
+	promises
+		.rm(path, typeof options === 'function' ? null : options)
+		.then(result => callback(null))
+		.catch(callback);
 }
 rm satisfies Omit<typeof Node.rm, '__promisify__'>;
 
 /**
- * @todo Implement
+ * Asynchronously creates a unique temporary directory.
+ * Generates six random characters to be appended behind a required prefix to create a unique temporary directory.
  */
-export function mkdtemp(path: PathLike) {
-	new ApiError(ErrorCode.ENOTSUP);
+export function mkdtemp(prefix: string, callback: TwoArgCallback<string>): void;
+export function mkdtemp(prefix: string, options: Node.EncodingOption, callback: TwoArgCallback<string>): void;
+export function mkdtemp(prefix: string, options: Node.BufferEncodingOption, callback: TwoArgCallback<Buffer>): void;
+export function mkdtemp(
+	prefix: string,
+	options: Node.EncodingOption | Node.BufferEncodingOption | TwoArgCallback<string>,
+	callback: TwoArgCallback<Buffer> | TwoArgCallback<string> = nop
+): void {
+	callback = typeof options === 'function' ? options : callback;
+	promises
+		.mkdtemp(prefix, typeof options != 'function' ? <Node.EncodingOption>options : null)
+		.then(result => callback(null, <string & Buffer>result))
+		.catch(callback);
 }
 mkdtemp satisfies Omit<typeof Node.mkdtemp, '__promisify__'>;
 
-/**
- * @todo Implement
- */
 export function copyFile(src: PathLike, dest: PathLike, callback: NoArgCallback): void;
 export function copyFile(src: PathLike, dest: PathLike, flags: number, callback: NoArgCallback): void;
 export function copyFile(src: PathLike, dest: PathLike, flags: number | NoArgCallback, callback?: NoArgCallback): void {
-	new ApiError(ErrorCode.ENOTSUP);
+	callback = typeof flags === 'function' ? flags : callback;
+	promises
+		.copyFile(src, dest, typeof flags === 'function' ? null : flags)
+		.then(result => callback(null))
+		.catch(callback);
 }
 copyFile satisfies Omit<typeof Node.copyFile, '__promisify__'>;
 
-/**
- * @todo Implement
- */
-export function readv(path: PathLike) {
-	new ApiError(ErrorCode.ENOTSUP);
+type readvCb = ThreeArgCallback<number, NodeJS.ArrayBufferView[]>;
+
+export function readv(fd: number, buffers: readonly NodeJS.ArrayBufferView[], cb: readvCb): void;
+export function readv(fd: number, buffers: readonly NodeJS.ArrayBufferView[], position: number, cb: readvCb): void;
+export function readv(fd: number, buffers: readonly NodeJS.ArrayBufferView[], position: number | readvCb, cb: readvCb = nop): void {
+	cb = typeof position === 'function' ? position : cb;
+	new promises.FileHandle(fd)
+		.readv(buffers, typeof position === 'function' ? null : position)
+		.then(({ buffers, bytesRead }) => cb(null, bytesRead, buffers))
+		.catch(cb);
 }
 readv satisfies Omit<typeof Node.readv, '__promisify__'>;
 
-type writevCallback = ThreeArgCallback<number, Uint8Array[]>;
+type writevCb = ThreeArgCallback<number, NodeJS.ArrayBufferView[]>;
 
-/**
- * @todo Implement
- */
-export function writev(fd: number, buffers: Uint8Array[], cb: writevCallback): void;
-export function writev(fd: number, buffers: Uint8Array[], position: number, cb: writevCallback): void;
-export function writev(fd: number, buffers: Uint8Array[], position: number | writevCallback, cb?: writevCallback) {
-	throw new ApiError(ErrorCode.ENOTSUP);
+export function writev(fd: number, buffers: NodeJS.ArrayBufferView[], cb: writevCb): void;
+export function writev(fd: number, buffers: NodeJS.ArrayBufferView[], position: number, cb: writevCb): void;
+export function writev(fd: number, buffers: NodeJS.ArrayBufferView[], position: number | writevCb, cb: writevCb = nop) {
+	cb = typeof position === 'function' ? position : cb;
+	new promises.FileHandle(fd)
+		.writev(buffers, typeof position === 'function' ? null : position)
+		.then(({ buffers, bytesWritten }) => cb(null, bytesWritten, buffers))
+		.catch(cb);
 }
 writev satisfies Omit<typeof Node.writev, '__promisify__'>;
 
-/**
- * @todo Implement
- */
-export function opendir(path: PathLike) {
-	throw new ApiError(ErrorCode.ENOTSUP);
+export function opendir(path: PathLike, cb: TwoArgCallback<Dir>): void;
+export function opendir(path: PathLike, options: Node.OpenDirOptions, cb: TwoArgCallback<Dir>): void;
+export function opendir(path: PathLike, options: Node.OpenDirOptions | TwoArgCallback<Dir>, cb: TwoArgCallback<Dir> = nop): void {
+	cb = typeof options === 'function' ? options : cb;
+	promises
+		.opendir(path, typeof options === 'function' ? null : options)
+		.then(result => cb(null, result))
+		.catch(cb);
 }
 opendir satisfies Omit<typeof Node.opendir, '__promisify__'>;
 
-/**
- * @todo Implement
- */
 export function cp(source: PathLike, destination: PathLike, callback: NoArgCallback): void;
 export function cp(source: PathLike, destination: PathLike, opts: Node.CopyOptions, callback: NoArgCallback): void;
 export function cp(source: PathLike, destination: PathLike, opts: Node.CopyOptions | NoArgCallback, callback?: NoArgCallback): void {
-	throw new ApiError(ErrorCode.ENOTSUP);
+	callback = typeof opts === 'function' ? opts : callback;
+	promises
+		.cp(source, destination, typeof opts === 'function' ? null : opts)
+		.then(() => callback(null))
+		.catch(callback);
 }
 cp satisfies Omit<typeof Node.cp, '__promisify__'>;
+
+export function statfs(path: PathLike, callback: TwoArgCallback<StatsFs>): void;
+export function statfs(path: PathLike, options: Node.StatFsOptions & { bigint?: false }, callback: TwoArgCallback<StatsFs>): void;
+export function statfs(path: PathLike, options: Node.StatFsOptions & { bigint: true }, callback: TwoArgCallback<BigIntStatsFs>): void;
+export function statfs(path: PathLike, options?: Node.StatFsOptions | TwoArgCallback<StatsFs>, callback: TwoArgCallback<StatsFs> | TwoArgCallback<BigIntStatsFs> = nop): void {
+	callback = typeof options === 'function' ? options : callback;
+	promises
+		.statfs(path, typeof options === 'function' ? null : options)
+		.then(result => callback(null, <StatsFs & BigIntStatsFs>result))
+		.catch(callback);
+}
+statfs satisfies Omit<typeof Node.statfs, '__promisify__'>;
