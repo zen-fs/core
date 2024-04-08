@@ -828,3 +828,8 @@ export function statfs(path: PathLike, options?: Node.StatFsOptions | TwoArgCall
 		.catch(callback);
 }
 statfs satisfies Omit<typeof Node.statfs, '__promisify__'>;
+
+export function openAsBlob(path: PathLike, options?: Node.OpenAsBlobOptions): Promise<Blob> {
+	throw ApiError.With('ENOTSUP', path, 'openAsBlob');
+}
+openAsBlob satisfies typeof Node.openAsBlob;

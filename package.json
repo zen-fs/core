@@ -51,7 +51,7 @@
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {
-		"@types/node": "^18.15.0",
+		"@types/node": "^20.12.5",
 		"@types/readable-stream": "^4.0.10",
 		"buffer": "^6.0.3",
 		"minimatch": "^9.0.3",
