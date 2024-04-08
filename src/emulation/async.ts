@@ -154,7 +154,7 @@ open satisfies Omit<typeof Node.open, '__promisify__'>;
  */
 export function readFile(filename: PathLike, cb: TwoArgCallback<Uint8Array>): void;
 export function readFile(filename: PathLike, options: { flag?: string }, callback?: TwoArgCallback<Uint8Array>): void;
-export function readFile(filename: PathLike, optios: { encoding: BufferEncoding; flag?: string } | BufferEncoding, cb: TwoArgCallback<string>): void;
+export function readFile(filename: PathLike, options: { encoding: BufferEncoding; flag?: string } | BufferEncoding, cb: TwoArgCallback<string>): void;
 export function readFile(
 	filename: PathLike,
 	options?: Node.WriteFileOptions | BufferEncoding | TwoArgCallback<Uint8Array>,
@@ -186,10 +186,10 @@ readFile satisfies Omit<typeof Node.readFile, '__promisify__'>;
 export function writeFile(filename: PathLike, data: FileContents, cb?: NoArgCallback): void;
 export function writeFile(filename: PathLike, data: FileContents, encoding?: BufferEncoding, cb?: NoArgCallback): void;
 export function writeFile(filename: PathLike, data: FileContents, options?: Node.WriteFileOptions, cb?: NoArgCallback): void;
-export function writeFile(filename: PathLike, data: FileContents, arg3?: Node.WriteFileOptions | NoArgCallback, cb: NoArgCallback = nop): void {
-	cb = typeof arg3 === 'function' ? arg3 : cb;
+export function writeFile(filename: PathLike, data: FileContents, cbEncOpts?: Node.WriteFileOptions | NoArgCallback, cb: NoArgCallback = nop): void {
+	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
 	promises
-		.writeFile(filename, data, typeof arg3 != 'function' ? arg3 : null)
+		.writeFile(filename, data, typeof cbEncOpts != 'function' ? cbEncOpts : null)
 		.then(() => cb(null))
 		.catch(cb);
 }
@@ -210,9 +210,9 @@ writeFile satisfies Omit<typeof Node.writeFile, '__promisify__'>;
 export function appendFile(filename: PathLike, data: FileContents, cb?: NoArgCallback): void;
 export function appendFile(filename: PathLike, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }, cb?: NoArgCallback): void;
 export function appendFile(filename: PathLike, data: FileContents, encoding?: string, cb?: NoArgCallback): void;
-export function appendFile(filename: PathLike, data: FileContents, arg3?: any, cb: NoArgCallback = nop): void {
-	cb = typeof arg3 === 'function' ? arg3 : cb;
-	promises.appendFile(filename, data, typeof arg3 === 'function' ? null : arg3);
+export function appendFile(filename: PathLike, data: FileContents, cbEncOpts?: any, cb: NoArgCallback = nop): void {
+	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
+	promises.appendFile(filename, data, typeof cbEncOpts === 'function' ? null : cbEncOpts);
 }
 appendFile satisfies Omit<typeof Node.appendFile, '__promisify__'>;
 
