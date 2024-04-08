@@ -2,24 +2,9 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type Stats } from '../stats.js';
-import type { symlink, ReadSyncOptions, StatOptions, BaseEncodingOptions, BufferEncodingOption } from 'fs';
+import type { symlink, ReadSyncOptions, StatOptions, EncodingOption, BufferEncodingOption } from 'fs';
 import type * as Node from 'fs';
-import {
-	normalizePath,
-	cred,
-	getFdForFile,
-	normalizeMode,
-	normalizeOptions,
-	fdMap,
-	fd2file,
-	normalizeTime,
-	resolveFS,
-	fixError,
-	mounts,
-	BufferToUint8Array,
-	PathLike,
-} from './shared.js';
-import { decode, encode } from '../utils.js';
+import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts, PathLike } from './shared.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join } from './path.js';
 
@@ -88,7 +73,7 @@ existsSync satisfies typeof Node.existsSync;
  * @param path
  * @returns Stats
  */
-export function statSync(path: PathLike, options?: { bigint: false }): Stats;
+export function statSync(path: PathLike, options?: { bigint?: false }): Stats;
 export function statSync(path: PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(path: PathLike, options?: StatOptions): Stats | BigIntStats {
 	const stats: Stats = doOp('statSync', true, path, cred);
@@ -102,7 +87,7 @@ statSync satisfies typeof Node.statSync;
  * then the link itself is stat-ed, not the file that it refers to.
  * @param path
  */
-export function lstatSync(path: PathLike, options?: { bigint: false }): Stats;
+export function lstatSync(path: PathLike, options?: { bigint?: false }): Stats;
 export function lstatSync(path: PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(path: PathLike, options?: StatOptions): Stats | BigIntStats {
 	const stats: Stats = doOp('statSync', false, path, cred);
@@ -230,18 +215,18 @@ function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): U
  * @option options flag Defaults to `'r'`.
  * @returns file contents
  */
-export function readFileSync(filename: string, options?: { flag?: string }): Uint8Array;
-export function readFileSync(filename: string, options: (Node.BaseEncodingOptions & { flag?: string }) | BufferEncoding): string;
+export function readFileSync(filename: string, options?: { flag?: string }): Buffer;
+export function readFileSync(filename: string, options: (Node.EncodingOption & { flag?: string }) | BufferEncoding): string;
 export function readFileSync(filename: string, arg2: Node.WriteFileOptions = {}): FileContents {
 	const options = normalizeOptions(arg2, null, 'r', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	const data: Uint8Array = _readFileSync(filename, options.flag, true);
-	return options.encoding ? decode(data, options.encoding) : data;
+	const data: Buffer = Buffer.from(_readFileSync(filename, options.flag, true));
+	return options.encoding ? data.toString(options.encoding) : data;
 }
-readFileSync satisfies BufferToUint8Array<typeof Node.readFileSync>;
+readFileSync satisfies typeof Node.readFileSync;
 
 /**
  * Synchronously writes data to a file, replacing the file
@@ -281,7 +266,7 @@ export function writeFileSync(filename: string, data: FileContents, _options?: N
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? encode(data, options.encoding) : data;
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
 	if (encodedData === undefined) {
 		throw new ApiError(ErrorCode.EINVAL, 'Data not specified');
 	}
@@ -313,8 +298,8 @@ function _appendFileSync(fname: string, data: Uint8Array, flag: string, mode: nu
  * @option options mode Defaults to `0644`.
  * @option options flag Defaults to `'a'`.
  */
-export function appendFileSync(filename: string, data: FileContents, arg3?: Node.WriteFileOptions): void {
-	const options = normalizeOptions(arg3, 'utf8', 'a', 0o644);
+export function appendFileSync(filename: string, data: FileContents, _options?: Node.WriteFileOptions): void {
+	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isAppendable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
@@ -322,7 +307,7 @@ export function appendFileSync(filename: string, data: FileContents, arg3?: Node
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? encode(data) : data;
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
 	_appendFileSync(filename, encodedData, options.flag, options.mode, true);
 }
 appendFileSync satisfies typeof Node.appendFileSync;
@@ -407,7 +392,7 @@ export function writeSync(fd: number, data: FileContents, posOrOff?: number, len
 		position = typeof posOrOff === 'number' ? posOrOff : null;
 		const encoding = <BufferEncoding>(typeof lenOrEnc === 'string' ? lenOrEnc : 'utf8');
 		offset = 0;
-		buffer = encode(data, encoding);
+		buffer = Buffer.from(data, encoding);
 		length = buffer.length;
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?)
@@ -439,14 +424,16 @@ writeSync satisfies typeof Node.writeSync;
  */
 export function readSync(fd: number, buffer: Uint8Array, opts?: ReadSyncOptions): number;
 export function readSync(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number): number;
-export function readSync(fd: number, buffer: Uint8Array, opts?: ReadSyncOptions | number, length?: number, position?: number): number {
+export function readSync(fd: number, buffer: Uint8Array, opts?: ReadSyncOptions | number, length?: number, position?: number | bigint): number {
 	const file = fd2file(fd);
-	let offset = opts as number;
+	const offset = typeof opts == 'object' ? opts.offset : opts;
 	if (typeof opts == 'object') {
-		({ offset, length, position } = opts);
+		length = opts.length;
+		position = opts.position;
 	}
 
-	if (isNaN(+position)) {
+	position = Number(position);
+	if (isNaN(position)) {
 		position = file.position!;
 	}
 
@@ -520,9 +507,9 @@ mkdirSync satisfies typeof Node.mkdirSync;
  * @param path
  */
 export function readdirSync(path: PathLike, options?: { encoding?: BufferEncoding; withFileTypes?: false } | BufferEncoding): string[];
-export function readdirSync(path: PathLike, options: { encoding: 'buffer'; withFileTypes?: false } | 'buffer'): Uint8Array[];
+export function readdirSync(path: PathLike, options: { encoding: 'buffer'; withFileTypes?: false } | 'buffer'): Buffer[];
 export function readdirSync(path: PathLike, options: { withFileTypes: true }): Dirent[];
-export function readdirSync(path: PathLike, options?: { encoding?: BufferEncoding | 'buffer'; withFileTypes?: boolean } | string): string[] | Dirent[] | Uint8Array[] {
+export function readdirSync(path: PathLike, options?: { encoding?: BufferEncoding | 'buffer'; withFileTypes?: boolean } | string): string[] | Dirent[] | Buffer[] {
 	path = normalizePath(path);
 	const entries: string[] = doOp('readdirSync', true, path, cred);
 	for (const mount of mounts.keys()) {
@@ -536,19 +523,19 @@ export function readdirSync(path: PathLike, options?: { encoding?: BufferEncodin
 		}
 		entries.push(entry);
 	}
-	return <string[] | Dirent[] | Uint8Array[]>entries.map((entry: string) => {
+	return <string[] | Dirent[] | Buffer[]>entries.map((entry: string): string | Dirent | Buffer => {
 		if (typeof options == 'object' && options?.withFileTypes) {
 			return new Dirent(entry, statSync(join(path, entry)));
 		}
 
 		if (options == 'buffer' || (typeof options == 'object' && options.encoding == 'buffer')) {
-			return encode(entry);
+			return Buffer.from(entry);
 		}
 
 		return entry;
 	});
 }
-readdirSync satisfies BufferToUint8Array<typeof Node.readdirSync>;
+readdirSync satisfies typeof Node.readdirSync;
 
 // SYMLINK METHODS
 
@@ -587,17 +574,17 @@ symlinkSync satisfies typeof Node.symlinkSync;
  * Synchronous readlink.
  * @param path
  */
-export function readlinkSync(path: PathLike, options?: BufferEncodingOption): Uint8Array;
-export function readlinkSync(path: PathLike, options: BaseEncodingOptions | BufferEncoding): string;
-export function readlinkSync(path: PathLike, options?: BaseEncodingOptions | BufferEncoding | BufferEncodingOption): Uint8Array | string {
-	const value: Uint8Array = _readFileSync(path, 'r', false);
+export function readlinkSync(path: PathLike, options?: BufferEncodingOption): Buffer;
+export function readlinkSync(path: PathLike, options: EncodingOption | BufferEncoding): string;
+export function readlinkSync(path: PathLike, options?: EncodingOption | BufferEncoding | BufferEncodingOption): Buffer | string {
+	const value: Buffer = Buffer.from(_readFileSync(path, 'r', false));
 	const encoding: BufferEncoding | 'buffer' = typeof options == 'object' ? options.encoding : options;
 	if (encoding == 'buffer') {
 		return value;
 	}
-	return decode(value, encoding);
+	return value.toString(encoding);
 }
-readlinkSync satisfies BufferToUint8Array<typeof Node.readlinkSync>;
+readlinkSync satisfies typeof Node.readlinkSync;
 
 // PROPERTY OPERATIONS
 
@@ -685,9 +672,9 @@ lutimesSync satisfies typeof Node.lutimesSync;
  *   known real paths.
  * @returns the real path
  */
-export function realpathSync(path: PathLike, options: BufferEncodingOption): Uint8Array;
-export function realpathSync(path: PathLike, options?: BaseEncodingOptions | BufferEncoding): string;
-export function realpathSync(path: PathLike, options?: BaseEncodingOptions | BufferEncoding | BufferEncodingOption): string | Uint8Array {
+export function realpathSync(path: PathLike, options: BufferEncodingOption): Buffer;
+export function realpathSync(path: PathLike, options?: EncodingOption): string;
+export function realpathSync(path: PathLike, options?: EncodingOption | BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
 	const { fs, path: resolvedPath, mountPoint } = resolveFS(path);
 	try {
@@ -695,13 +682,13 @@ export function realpathSync(path: PathLike, options?: BaseEncodingOptions | Buf
 		if (!stats.isSymbolicLink()) {
 			return path;
 		}
-		const dst = normalizePath(mountPoint + decode(_readFileSync(resolvedPath, 'r+', false)));
+		const dst = normalizePath(mountPoint + Buffer.from(_readFileSync(resolvedPath, 'r+', false)).toString());
 		return realpathSync(dst);
 	} catch (e) {
 		throw fixError(e, { [resolvedPath]: path });
 	}
 }
-realpathSync satisfies BufferToUint8Array<typeof Node.realpathSync>;
+realpathSync satisfies Omit<typeof Node.realpathSync, 'native'>;
 
 /**
  * Synchronous `access`.
@@ -716,34 +703,60 @@ export function accessSync(path: PathLike, mode: number = 0o600): void {
 }
 accessSync satisfies typeof Node.accessSync;
 
+/**
+ * @todo Implement
+ */
 export function rmSync(path: PathLike) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 rmSync satisfies typeof Node.rmSync;
 
-export function mkdtempSync(prefix: string, options: BufferEncodingOption): Uint8Array;
-export function mkdtempSync(prefix: string, options?: BaseEncodingOptions | BufferEncoding): string;
-export function mkdtempSync(prefix: string, options?: BaseEncodingOptions | BufferEncoding | BufferEncodingOption): string | Uint8Array {
+/**
+ * @todo Implement
+ */
+export function mkdtempSync(prefix: string, options: BufferEncodingOption): Buffer;
+export function mkdtempSync(prefix: string, options?: EncodingOption): string;
+export function mkdtempSync(prefix: string, options?: EncodingOption | BufferEncodingOption): string | Buffer {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
-mkdtempSync satisfies BufferToUint8Array<typeof Node.mkdtempSync>;
+mkdtempSync satisfies typeof Node.mkdtempSync;
 
+/**
+ * @todo Implement
+ */
 export function copyFileSync(src: string, dest: string, flags?: number): void {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 copyFileSync satisfies typeof Node.copyFileSync;
 
+/**
+ * @todo Implement
+ */
 export function readvSync(fd: number, buffers: readonly Uint8Array[], position?: number): number {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 readvSync satisfies typeof Node.readvSync;
 
+/**
+ * @todo Implement
+ */
 export function writevSync(fd: number, buffers: readonly Uint8Array[], position?: number): number {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 writevSync satisfies typeof Node.writevSync;
 
+/**
+ * @todo Implement
+ */
 export function opendirSync(path: PathLike, options?: Node.OpenDirOptions): Dir {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
 opendirSync satisfies typeof Node.opendirSync;
+
+/**
+ * @todo Implement
+ */
+export function cpSync(source: PathLike, destination: PathLike, opts?: Node.CopySyncOptions): void {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+cpSync satisfies typeof Node.cpSync;

@@ -350,7 +350,7 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
 		return new BigIntStats(stats);
 	}
 }
-BigIntStats satisfies typeof Node.BigIntStats;
+BigIntStats satisfies new () => Node.BigIntStats;
 
 /**
  * @returns true if stats is a file.

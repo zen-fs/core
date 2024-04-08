@@ -6,7 +6,7 @@ import { Cred, rootCred } from '../cred.js';
 import { FileSystem } from '../filesystem.js';
 import { InMemory } from '../backends/InMemory.js';
 import type { File } from '../file.js';
-import type { BaseEncodingOptions, OpenMode, WriteFileOptions } from 'node:fs';
+import type { EncodingOption, OpenMode, WriteFileOptions } from 'node:fs';
 
 /**
  * converts Date or number to a integer UNIX timestamp
@@ -91,7 +91,7 @@ export function normalizePath(p: string): string {
  * @internal
  */
 export function normalizeOptions(
-	options?: WriteFileOptions | (BaseEncodingOptions & { flag?: OpenMode }),
+	options?: WriteFileOptions | (EncodingOption & { flag?: OpenMode }),
 	encoding: BufferEncoding = 'utf8',
 	flag?: string,
 	mode: number = 0
@@ -237,18 +237,3 @@ export function initialize(mountMapping: MountMapping): void {
  * In the future, maybe support URL?
  */
 export type PathLike = string;
-
-/**
- * @internal
- *
- * Recursivly converts `From` in `Target` to `To`
- */
-export type Convert<Target, From, To> = Target extends From
-	? To
-	: Target extends (...args) => unknown
-		? (...args: Convert<Parameters<Target>, From, To> & Array<unknown>) => Convert<ReturnType<Target>, From, To>
-		: Target extends object
-			? { [K in keyof Target]: Convert<Target[K], From, To> }
-			: Target;
-
-export type BufferToUint8Array<T> = Convert<T, Buffer, Uint8Array>;

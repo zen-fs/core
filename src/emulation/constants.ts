@@ -168,3 +168,9 @@ export const S_IWOTH = 2;
 
 /** File mode indicating executable by others. */
 export const S_IXOTH = 1;
+
+/**
+ * When set, a memory file mapping is used to access the file.
+ * This flag is ignored since a unix-like FS is emulated
+ */
+export const UV_FS_O_FILEMAP = 0;

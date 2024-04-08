@@ -1,17 +1,20 @@
+import { Buffer } from 'buffer';
 import type * as Node from 'node:fs';
+import type * as promises from 'node:fs/promises';
+import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo, FileReadResult, FlagAndOpenMode } from 'node:fs/promises';
 import { ApiError, ErrorCode } from '../ApiError.js';
-export * as constants from './constants.js';
-import { ActionType, File, isReadable, isWriteable, isAppendable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
-import { normalizePath, normalizeMode, getFdForFile, normalizeOptions, fd2file, fdMap, normalizeTime, cred, nop, resolveFS, fixError, mounts } from './shared.js';
-import type { PathLike, BufferToUint8Array } from './shared.js';
+import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type Stats } from '../stats.js';
-import { decode, encode } from '../utils.js';
-import { Dirent } from './dir.js';
-import { dirname, join } from './path.js';
 import { F_OK } from './constants.js';
+import { Dirent, type Dir } from './dir.js';
+import { dirname, join } from './path.js';
+import type { PathLike } from './shared.js';
+import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveFS } from './shared.js';
+export * as constants from './constants.js';
+import { ReadStream, WriteStream } from './streams.js';
 
-export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> {
+export class FileHandle implements promises.FileHandle {
 	public constructor(
 		/**
 		 * Gets the file descriptor for this file handle.
@@ -82,7 +85,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * If `mode` is a string, it is parsed as an octal integer.
 	 * If `flag` is not supplied, the default of `'a'` is used.
 	 */
-	public async appendFile(data: string | Uint8Array, _options?: { encoding?: BufferEncoding; mode?: Node.Mode; flag?: Node.OpenMode } | BufferEncoding): Promise<void> {
+	public async appendFile(data: string | Uint8Array, _options?: (Node.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isAppendable(flag)) {
@@ -91,7 +94,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 		}
-		const encodedData = typeof data == 'string' ? encode(data) : data;
+		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
 		await fd2file(this.fd).write(encodedData, 0, encodedData.length, null);
 	}
 
@@ -103,7 +106,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * @param length The number of bytes to read.
 	 * @param position The offset from the beginning of the file from which data should be read. If `null`, data will be read from the current position.
 	 */
-	public read<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
+	public read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
 		if (isNaN(+position)) {
 			position = fd2file(this.fd).position!;
 		}
@@ -116,9 +119,9 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * @param _options An object that may contain an optional flag.
 	 * If a flag is not provided, it defaults to `'r'`.
 	 */
-	public async readFile(_options?: { flag?: Node.OpenMode }): Promise<Uint8Array>;
-	public async readFile(_options: { encoding: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string>;
-	public async readFile(_options?: { encoding?: BufferEncoding; flag?: Node.OpenMode } | BufferEncoding): Promise<string | Uint8Array> {
+	public async readFile(_options?: { flag?: Node.OpenMode }): Promise<Buffer>;
+	public async readFile(_options: (Node.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string>;
+	public async readFile(_options?: (Node.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = parseFlag(options.flag);
 		if (!isReadable(flag)) {
@@ -126,9 +129,9 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 		}
 
 		const { size } = await this.stat();
-		const data = new Uint8Array(size);
+		const data = Buffer.from(new Uint8Array(size));
 		await fd2file(this.fd).read(data, 0, size, 0);
-		return options.encoding ? decode(data, options.encoding) : data;
+		return options.encoding ? data.toString(options.encoding) : data;
 	}
 
 	/**
@@ -151,7 +154,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	 * @param length The number of bytes to write. If not supplied, defaults to `buffer.length - offset`.
 	 * @param position The offset from the beginning of the file where this data should be written. If not supplied, defaults to the current position.
 	 */
-	async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<{ bytesWritten: number; buffer: Uint8Array }>;
+	async write<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesWritten: number; buffer: TBuffer }>;
 
 	/**
 	 * Asynchronously writes `string` to the file.
@@ -173,7 +176,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 			position = typeof posOrOff === 'number' ? posOrOff : null;
 			const encoding = <BufferEncoding>(typeof lenOrEnc === 'string' ? lenOrEnc : 'utf8');
 			offset = 0;
-			buffer = encode(data, encoding);
+			buffer = Buffer.from(data, encoding);
 			length = buffer.length;
 		} else {
 			// Signature 2: (fd, buffer, offset, length, position?)
@@ -208,12 +211,13 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 		}
-		const encodedData = typeof data == 'string' ? encode(data, options.encoding) : data;
+		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
 		await fd2file(this.fd).write(encodedData, 0, encodedData.length, 0);
 	}
 
 	/**
 	 * See `fs.writev` promisified version.
+	 * @todo Implement
 	 */
 	writev(buffers: ReadonlyArray<Uint8Array>, position?: number): Promise<Node.WriteVResult> {
 		throw new ApiError(ErrorCode.ENOTSUP);
@@ -221,6 +225,7 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 
 	/**
 	 * See `fs.readv` promisified version.
+	 * @todo Implement
 	 */
 	readv(buffers: ReadonlyArray<Uint8Array>, position?: number): Promise<Node.ReadVResult> {
 		throw new ApiError(ErrorCode.ENOTSUP);
@@ -232,6 +237,14 @@ export class FileHandle implements BufferToUint8Array<Node.promises.FileHandle> 
 	async close(): Promise<void> {
 		await fd2file(this.fd).close();
 		fdMap.delete(this.fd);
+	}
+
+	public createReadStream(options?: CreateReadStreamOptions): Node.ReadStream {
+		throw new ApiError(ErrorCode.ENOTSUP);
+	}
+
+	public createWriteStream(options?: CreateWriteStreamOptions): Node.WriteStream {
+		throw new ApiError(ErrorCode.ENOTSUP);
 	}
 }
 
@@ -287,7 +300,7 @@ export async function rename(oldPath: PathLike, newPath: PathLike): Promise<void
 		throw fixError(e, { [src.path]: oldPath, [dst.path]: newPath });
 	}
 }
-rename satisfies typeof Node.promises.rename;
+rename satisfies typeof promises.rename;
 
 /**
  * Test whether or not the given path exists by checking with the file system.
@@ -318,7 +331,7 @@ export async function stat(path: PathLike, options?: Node.StatOptions): Promise<
 	const stats: Stats = await doOp('stat', true, path, cred);
 	return options?.bigint ? new BigIntStats(stats) : stats;
 }
-stat satisfies typeof Node.promises.stat;
+stat satisfies typeof promises.stat;
 
 /**
  * `lstat`.
@@ -333,7 +346,7 @@ export async function lstat(path: PathLike, options?: Node.StatOptions): Promise
 	const stats: Stats = await doOp('stat', false, path, cred);
 	return options?.bigint ? new BigIntStats(stats) : stats;
 }
-lstat satisfies typeof Node.promises.lstat;
+lstat satisfies typeof promises.lstat;
 
 // FILE-ONLY METHODS
 
@@ -350,7 +363,7 @@ export async function truncate(path: PathLike, len: number = 0): Promise<void> {
 		await handle.close();
 	}
 }
-truncate satisfies typeof Node.promises.truncate;
+truncate satisfies typeof promises.truncate;
 
 /**
  * `unlink`.
@@ -359,7 +372,7 @@ truncate satisfies typeof Node.promises.truncate;
 export async function unlink(path: PathLike): Promise<void> {
 	return doOp('unlink', false, path, cred);
 }
-unlink satisfies typeof Node.promises.unlink;
+unlink satisfies typeof promises.unlink;
 
 /**
  * Opens a file. This helper handles the complexity of file flags.
@@ -421,7 +434,7 @@ export async function open(path: PathLike, flag: string, mode: Node.Mode = 0o644
 	const file = await _open(path, flag, mode, true);
 	return new FileHandle(getFdForFile(file));
 }
-open satisfies BufferToUint8Array<typeof Node.promises.open>;
+open satisfies typeof promises.open;
 
 /**
  * Opens a file without resolving symlinks
@@ -458,19 +471,19 @@ async function _readFile(fname: string, flag: string, resolveSymlinks: boolean):
  * options.flag Defaults to `'r'`.
  * @returns file data
  */
-export async function readFile(filename: PathLike, options?: { flag?: Node.OpenMode }): Promise<Uint8Array>;
-export async function readFile(filename: PathLike, options: (Node.BaseEncodingOptions & { flag?: Node.OpenMode }) | BufferEncoding): Promise<string>;
-export async function readFile(filename: PathLike, _options?: (Node.BaseEncodingOptions & { flag?: Node.OpenMode }) | BufferEncoding): Promise<Uint8Array | string> {
+export async function readFile(filename: PathLike, options?: { flag?: Node.OpenMode }): Promise<Buffer>;
+export async function readFile(filename: PathLike, options: (Node.EncodingOption & { flag?: Node.OpenMode }) | BufferEncoding): Promise<string>;
+export async function readFile(filename: PathLike, _options?: (Node.EncodingOption & { flag?: Node.OpenMode }) | BufferEncoding): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', null);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
 	}
 
-	const data: Uint8Array = await _readFile(filename, options.flag, true);
-	return options.encoding ? decode(data, options.encoding) : data;
+	const data: Buffer = Buffer.from(await _readFile(filename, options.flag, true));
+	return options.encoding ? data.toString(options.encoding) : data;
 }
-readFile satisfies BufferToUint8Array<typeof Node.promises.readFile>;
+readFile satisfies typeof promises.readFile;
 
 /**
  * Synchronously writes data to a file, replacing the file if it already exists.
@@ -492,7 +505,7 @@ export async function writeFile(filename: PathLike, data: FileContents, _options
 		await handle.close();
 	}
 }
-writeFile satisfies typeof Node.promises.writeFile;
+writeFile satisfies typeof promises.writeFile;
 
 /**
  * Asynchronously append data to a file, creating the file if
@@ -520,7 +533,7 @@ async function _appendFile(fname: string, data: Uint8Array, flag: string, mode: 
 export async function appendFile(
 	filename: PathLike,
 	data: FileContents,
-	_options?: BufferEncoding | (Node.BaseEncodingOptions & { mode?: Node.Mode; flag?: Node.OpenMode })
+	_options?: BufferEncoding | (Node.EncodingOption & { mode?: Node.Mode; flag?: Node.OpenMode })
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 	const flag = parseFlag(options.flag);
@@ -530,82 +543,10 @@ export async function appendFile(
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? encode(data) : data;
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
 	await _appendFile(filename, encodedData, options.flag, options.mode, true);
 }
-appendFile satisfies typeof Node.promises.appendFile;
-
-/**
- * Write buffer to the file specified by `fd`.
- * Note that it is unsafe to use fs.write multiple times on the same file without waiting for it to return.
- * @param handle
- * @param data Uint8Array containing the data to write to the file.
- * @param offset Offset in the buffer to start reading data from.
- * @param length The amount of bytes to write to the file.
- * @param position Offset from the beginning of the file where this data should be written. If position is null, the data will be written at the current position.
- */
-export function write(handle: FileHandle, data: Uint8Array, offset: number, length: number, position?: number): Promise<{ bytesWritten: number; buffer: Uint8Array }>;
-export function write(handle: FileHandle, data: string, position?: number, encoding?: BufferEncoding): Promise<{ bytesWritten: number; buffer: string }>;
-export function write(
-	handle: FileHandle,
-	data: FileContents,
-	posOrOff?: number,
-	lenOrEnc?: BufferEncoding | number,
-	position?: number
-): Promise<{ bytesWritten: number; buffer: FileContents }> {
-	return handle.write(data, posOrOff, lenOrEnc, position);
-}
-write satisfies BufferToUint8Array<typeof Node.promises.write>;
-
-/**
- * Read data from the file specified by `fd`.
- * @param handle
- * @param buffer The buffer that the data will be
- *   written to.
- * @param offset The offset within the buffer where writing will
- *   start.
- * @param length An integer specifying the number of bytes to read.
- * @param position An integer specifying where to begin reading from
- *   in the file. If position is null, data will be read from the current file
- *   position.
- */
-export function read(handle: FileHandle, buffer: Uint8Array, offset: number, length: number, position?: number): Promise<{ bytesRead: number; buffer: Uint8Array }> {
-	return handle.read(buffer, offset, length, position);
-}
-read satisfies BufferToUint8Array<typeof Node.promises.read>;
-
-/**
- * `fchown`.
- * @param handle
- * @param uid
- * @param gid
- */
-export function fchown(handle: FileHandle, uid: number, gid: number): Promise<void> {
-	return handle.chown(uid, gid);
-}
-fchown satisfies BufferToUint8Array<typeof Node.promises.fchown>;
-
-/**
- * `fchmod`.
- * @param handle
- * @param mode
- */
-export function fchmod(handle: FileHandle, mode: Node.Mode): Promise<void> {
-	return handle.chmod(mode);
-}
-fchmod satisfies BufferToUint8Array<typeof Node.promises.fchmod>;
-
-/**
- * Change the file timestamps of a file referenced by the supplied file
- * descriptor.
- * @param handle
- * @param atime
- * @param mtime
- */
-export function futimes(handle: FileHandle, atime: string | number | Date, mtime: string | number | Date): Promise<void> {
-	return handle.utimes(atime, mtime);
-}
-futimes satisfies BufferToUint8Array<typeof Node.promises.futimes>;
+appendFile satisfies typeof promises.appendFile;
 
 // DIRECTORY-ONLY METHODS
 
@@ -616,7 +557,7 @@ futimes satisfies BufferToUint8Array<typeof Node.promises.futimes>;
 export async function rmdir(path: PathLike): Promise<void> {
 	return doOp('rmdir', true, path, cred);
 }
-rmdir satisfies typeof Node.promises.rmdir;
+rmdir satisfies typeof promises.rmdir;
 
 /**
  * `mkdir`.
@@ -628,19 +569,19 @@ export async function mkdir(path: PathLike, mode: Node.MakeDirectoryOptions & { 
 export async function mkdir(path: PathLike, mode?: Node.Mode | Node.MakeDirectoryOptions): Promise<string | void> {
 	await doOp('mkdir', true, path, normalizeMode(typeof mode == 'object' ? mode?.mode : mode, 0o777), cred);
 }
-mkdir satisfies typeof Node.promises.mkdir;
+mkdir satisfies typeof promises.mkdir;
 
 /**
  * `readdir`. Reads the contents of a directory.
  * @param path
  */
-export async function readdir(path: PathLike, options?: (Node.BaseEncodingOptions & { withFileTypes?: false }) | BufferEncoding): Promise<string[]>;
-export async function readdir(path: PathLike, options: Node.BufferEncodingOption & { withFileTypes?: false }): Promise<Uint8Array[]>;
-export async function readdir(path: PathLike, options: Node.BaseEncodingOptions & { withFileTypes: true }): Promise<Dirent[]>;
+export async function readdir(path: PathLike, options?: (Node.EncodingOption & { withFileTypes?: false }) | BufferEncoding): Promise<string[]>;
+export async function readdir(path: PathLike, options: Node.BufferEncodingOption & { withFileTypes?: false }): Promise<Buffer[]>;
+export async function readdir(path: PathLike, options: Node.EncodingOption & { withFileTypes: true }): Promise<Dirent[]>;
 export async function readdir(
 	path: PathLike,
-	options?: (Node.BaseEncodingOptions & { withFileTypes?: boolean }) | BufferEncoding | (Node.BufferEncodingOption & { withFileTypes?: boolean })
-): Promise<string[] | Dirent[] | Uint8Array[]> {
+	options?: (Node.EncodingOption & { withFileTypes?: boolean }) | BufferEncoding | (Node.BufferEncodingOption & { withFileTypes?: boolean })
+): Promise<string[] | Dirent[] | Buffer[]> {
 	path = normalizePath(path);
 	const entries: string[] = await doOp('readdir', true, path, cred);
 	const points = [...mounts.keys()];
@@ -660,7 +601,7 @@ export async function readdir(
 	}
 	return values as string[] | Dirent[];
 }
-readdir satisfies BufferToUint8Array<typeof Node.promises.readdir>;
+readdir satisfies typeof promises.readdir;
 
 // SYMLINK METHODS
 
@@ -673,7 +614,7 @@ export async function link(existing: PathLike, newpath: PathLike): Promise<void>
 	newpath = normalizePath(newpath);
 	return doOp('link', false, existing, newpath, cred);
 }
-link satisfies typeof Node.promises.link;
+link satisfies typeof promises.link;
 
 /**
  * `symlink`.
@@ -694,23 +635,23 @@ export async function symlink(target: PathLike, path: PathLike, type: Node.symli
 	const file = await _open(path, 'r+', 0o644, false);
 	await file._setType(FileType.SYMLINK);
 }
-symlink satisfies typeof Node.promises.symlink;
+symlink satisfies typeof promises.symlink;
 
 /**
  * readlink.
  * @param path
  */
-export async function readlink(path: PathLike, options: Node.BufferEncodingOption): Promise<Uint8Array>;
-export async function readlink(path: PathLike, options?: Node.BaseEncodingOptions | BufferEncoding): Promise<string>;
-export async function readlink(path: PathLike, options?: Node.BufferEncodingOption | Node.BaseEncodingOptions | BufferEncoding): Promise<string | Uint8Array> {
-	const value: Uint8Array = await _readFile(path, 'r', false);
+export async function readlink(path: PathLike, options: Node.BufferEncodingOption): Promise<Buffer>;
+export async function readlink(path: PathLike, options?: Node.EncodingOption | BufferEncoding): Promise<string>;
+export async function readlink(path: PathLike, options?: Node.BufferEncodingOption | Node.EncodingOption | BufferEncoding): Promise<string | Buffer> {
+	const value: Buffer = Buffer.from(await _readFile(path, 'r', false));
 	const encoding: BufferEncoding | 'buffer' = typeof options == 'object' ? options.encoding : options;
 	if (encoding == 'buffer') {
 		return value;
 	}
-	return decode(value, encoding);
+	return value.toString(encoding);
 }
-readlink satisfies BufferToUint8Array<typeof Node.promises.readlink>;
+readlink satisfies typeof promises.readlink;
 
 // PROPERTY OPERATIONS
 
@@ -728,7 +669,7 @@ export async function chown(path: PathLike, uid: number, gid: number): Promise<v
 		await handle.close();
 	}
 }
-chown satisfies typeof Node.promises.chown;
+chown satisfies typeof promises.chown;
 
 /**
  * `lchown`.
@@ -744,7 +685,7 @@ export async function lchown(path: PathLike, uid: number, gid: number): Promise<
 		await handle.close();
 	}
 }
-lchown satisfies typeof Node.promises.lchown;
+lchown satisfies typeof promises.lchown;
 
 /**
  * `chmod`.
@@ -759,7 +700,7 @@ export async function chmod(path: PathLike, mode: Node.Mode): Promise<void> {
 		await handle.close();
 	}
 }
-chmod satisfies typeof Node.promises.chmod;
+chmod satisfies typeof promises.chmod;
 
 /**
  * `lchmod`.
@@ -774,7 +715,7 @@ export async function lchmod(path: PathLike, mode: Node.Mode): Promise<void> {
 		await handle.close();
 	}
 }
-lchmod satisfies typeof Node.promises.lchmod;
+lchmod satisfies typeof promises.lchmod;
 
 /**
  * Change file timestamps of the file referenced by the supplied path.
@@ -790,7 +731,7 @@ export async function utimes(path: PathLike, atime: string | number | Date, mtim
 		await handle.close();
 	}
 }
-utimes satisfies typeof Node.promises.utimes;
+utimes satisfies typeof promises.utimes;
 
 /**
  * Change file timestamps of the file referenced by the supplied path.
@@ -806,7 +747,7 @@ export async function lutimes(path: PathLike, atime: number | Date, mtime: numbe
 		await handle.close();
 	}
 }
-lutimes satisfies typeof Node.promises.lutimes;
+lutimes satisfies typeof promises.lutimes;
 
 /**
  * Asynchronous realpath(3) - return the canonicalized absolute pathname.
@@ -815,9 +756,9 @@ lutimes satisfies typeof Node.promises.lutimes;
  *
  * Note: This *Can not* use doOp since doOp depends on it
  */
-export async function realpath(path: PathLike, options: Node.BufferEncodingOption): Promise<Uint8Array>;
-export async function realpath(path: PathLike, options?: Node.BaseEncodingOptions | BufferEncoding): Promise<string>;
-export async function realpath(path: PathLike, options?: Node.BaseEncodingOptions | BufferEncoding | Node.BufferEncodingOption): Promise<string | Uint8Array> {
+export async function realpath(path: PathLike, options: Node.BufferEncodingOption): Promise<Buffer>;
+export async function realpath(path: PathLike, options?: Node.EncodingOption | BufferEncoding): Promise<string>;
+export async function realpath(path: PathLike, options?: Node.EncodingOption | BufferEncoding | Node.BufferEncodingOption): Promise<string | Buffer> {
 	path = normalizePath(path);
 	const { fs, path: resolvedPath, mountPoint } = resolveFS(path);
 	try {
@@ -825,29 +766,30 @@ export async function realpath(path: PathLike, options?: Node.BaseEncodingOption
 		if (!stats.isSymbolicLink()) {
 			return path;
 		}
-		const dst = mountPoint + normalizePath(decode(await _readFile(resolvedPath, 'r+', false)));
+		const dst = mountPoint + normalizePath(Buffer.from(await _readFile(resolvedPath, 'r+', false)).toString());
 		return realpath(dst);
 	} catch (e) {
 		throw fixError(e, { [resolvedPath]: path });
 	}
 }
-realpath satisfies BufferToUint8Array<typeof Node.promises.realpath>;
+realpath satisfies typeof promises.realpath;
 
-export async function watchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void): Promise<void>;
-export async function watchFile(filename: PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): Promise<void>;
-export async function watchFile(filename: PathLike, arg2: any, listener: (curr: Stats, prev: Stats) => void = nop): Promise<void> {
+/**
+ * @todo Implement
+ */
+export function watch(
+	filename: PathLike,
+	options:
+		| (Node.WatchOptions & {
+				encoding: 'buffer';
+		  })
+		| 'buffer'
+): AsyncIterable<FileChangeInfo<Buffer>>;
+export function watch(filename: PathLike, options?: Node.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
+export function watch(filename: PathLike, options: Node.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
-
-export async function unwatchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void = nop): Promise<void> {
-	throw new ApiError(ErrorCode.ENOTSUP);
-}
-
-export async function watch(filename: PathLike, listener?: (event: string, filename: PathLike) => any): Promise<Node.FSWatcher>;
-export async function watch(filename: PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): Promise<Node.FSWatcher>;
-export async function watch(filename: PathLike, arg2: any, listener: (event: string, filename: string) => any = nop): Promise<Node.FSWatcher> {
-	throw new ApiError(ErrorCode.ENOTSUP);
-}
+watch satisfies typeof promises.watch;
 
 /**
  * `access`.
@@ -860,40 +802,46 @@ export async function access(path: PathLike, mode: number = F_OK): Promise<void>
 		throw new ApiError(ErrorCode.EACCES);
 	}
 }
+access satisfies typeof promises.access;
 
-export async function createReadStream(
-	path: PathLike,
-	options?: {
-		flags?: string;
-		encoding?: string;
-		fd?: number;
-		mode?: number;
-		autoClose?: boolean;
-	}
-): Promise<Node.ReadStream> {
-	throw new ApiError(ErrorCode.ENOTSUP);
-}
-
-export async function createWriteStream(
-	path: PathLike,
-	options?: {
-		flags?: string;
-		encoding?: string;
-		fd?: number;
-		mode?: number;
-	}
-): Promise<Node.WriteStream> {
-	throw new ApiError(ErrorCode.ENOTSUP);
-}
-
+/**
+ * @todo Implement
+ */
 export async function rm(path: PathLike) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+rm satisfies typeof promises.rm;
 
-export async function mkdtemp(path: PathLike) {
+/**
+ * @todo Implement
+ */
+export async function mkdtemp(prefix: string, options?: Node.ObjectEncodingOptions | BufferEncoding): Promise<string>;
+export async function mkdtemp(prefix: string, options: Node.BufferEncodingOption): Promise<Buffer>;
+export async function mkdtemp(prefix: string, options?: Node.ObjectEncodingOptions | Node.BufferEncodingOption | BufferEncoding): Promise<string | Buffer> {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+mkdtemp satisfies typeof promises.mkdtemp;
 
+/**
+ * @todo Implement
+ */
 export async function copyFile(path: PathLike) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+copyFile satisfies typeof promises.copyFile;
+
+/**
+ * @todo Implement
+ */
+export async function opendir(path: PathLike, options?: Node.OpenDirOptions): Promise<Dir> {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+opendir satisfies typeof promises.opendir;
+
+/**
+ * @todo Implement
+ */
+export async function cp(path: PathLike) {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+cp satisfies typeof promises.cp;

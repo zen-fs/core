@@ -1,3 +1,4 @@
+import type { FileReadResult } from 'node:fs/promises';
 import { ApiError, ErrorCode } from './ApiError.js';
 import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT } from './emulation/constants.js';
 import type { FileSystem } from './filesystem.js';
@@ -268,7 +269,7 @@ export abstract class File {
 	 *   position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	public abstract read<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }>;
+	public abstract read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>>;
 
 	/**
 	 * Read data from the file.
@@ -279,7 +280,7 @@ export abstract class File {
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
 	 */
-	public abstract readSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number;
+	public abstract readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
 
 	/**
 	 * Asynchronous `datasync`.
@@ -552,7 +553,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
 	 */
-	public async read<TBuffer extends Uint8Array>(
+	public async read<TBuffer extends ArrayBufferView>(
 		buffer: TBuffer,
 		offset: number = 0,
 		length: number = this.stats.size,
@@ -572,7 +573,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 *   position.
 	 * @returns number of bytes written
 	 */
-	public readSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
+	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
 		if (!isReadable(this.flag)) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a readable mode.');
 		}
@@ -588,7 +589,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 			// No copy/read. Return immediatly for better performance
 			return bytesRead;
 		}
-		buffer.set(this._buffer.slice(position, end), offset);
+		new Uint8Array(buffer.buffer).set(this._buffer.slice(position, end), offset);
 		return bytesRead;
 	}
 

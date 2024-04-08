@@ -1,13 +1,12 @@
 import type * as Node from 'fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
-import { TwoArgCallback, NoArgCallback, ThreeArgCallback, FileContents } from '../filesystem.js';
+import { FileContents, NoArgCallback, ThreeArgCallback, TwoArgCallback } from '../filesystem.js';
 import { BigIntStats, type Stats } from '../stats.js';
-import { fd2file, nop, normalizeMode, PathLike } from './shared.js';
-import * as promises from './promises.js';
 import { R_OK } from './constants.js';
-import { decode, encode } from '../utils.js';
-import { ReadStream, WriteStream } from './streams.js';
 import { Dirent } from './dir.js';
+import * as promises from './promises.js';
+import { PathLike, fd2file, nop, normalizeMode } from './shared.js';
+import { ReadStream, WriteStream } from './streams.js';
 
 /**
  * Asynchronous rename. No arguments other than a possible exception are given
@@ -29,6 +28,7 @@ rename satisfies Omit<typeof Node.rename, '__promisify__'>;
  * Then call the callback argument with either true or false.
  * @param path
  * @param callback
+ * @deprecated Use {@link stat} or {@link access} instead.
  */
 export function exists(path: PathLike, cb: (exists: boolean) => unknown = nop): void {
 	promises
@@ -311,38 +311,45 @@ fdatasync satisfies Omit<typeof Node.fdatasync, '__promisify__'>;
  * @param callback The number specifies the number of bytes written into the file.
  */
 export function write(fd: number, buffer: Uint8Array, offset: number, length: number, cb?: ThreeArgCallback<number, Uint8Array>): void;
-export function write(fd: number, buffer: Uint8Array, offset: number, length: number, position: number | null, cb?: ThreeArgCallback<number, Uint8Array>): void;
+export function write(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number, cb?: ThreeArgCallback<number, Uint8Array>): void;
 export function write(fd: number, data: FileContents, cb?: ThreeArgCallback<number, string>): void;
-export function write(fd: number, data: FileContents, position: number | null, cb?: ThreeArgCallback<number, string>): void;
+export function write(fd: number, data: FileContents, position?: number, cb?: ThreeArgCallback<number, string>): void;
 export function write(fd: number, data: FileContents, position: number | null, encoding: BufferEncoding, cb?: ThreeArgCallback<number, string>): void;
-export function write(fd: number, arg2: FileContents, arg3?: any, arg4?: any, arg5?: any, cb: ThreeArgCallback<number, Uint8Array> | ThreeArgCallback<number, string> = nop): void {
-	let buffer: Uint8Array,
+export function write(
+	fd: number,
+	data: FileContents,
+	cbPosOff?: any,
+	cbLenEnc?: any,
+	cbPos?: any,
+	cb: ThreeArgCallback<number, Uint8Array> | ThreeArgCallback<number, string> = nop
+): void {
+	let buffer: Buffer,
 		offset: number,
 		length: number,
 		position: number | null = null,
 		encoding: BufferEncoding;
 	const handle = new promises.FileHandle(fd);
-	if (typeof arg2 === 'string') {
+	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]], cb?)
 		encoding = 'utf8';
-		switch (typeof arg3) {
+		switch (typeof cbPosOff) {
 			case 'function':
 				// (fd, string, cb)
-				cb = arg3;
+				cb = cbPosOff;
 				break;
 			case 'number':
 				// (fd, string, position, encoding?, cb?)
-				position = arg3;
-				encoding = (typeof arg4 === 'string' ? arg4 : 'utf8') as BufferEncoding;
-				cb = typeof arg5 === 'function' ? arg5 : cb;
+				position = cbPosOff;
+				encoding = <BufferEncoding>(typeof cbLenEnc === 'string' ? cbLenEnc : 'utf8');
+				cb = typeof cbPos === 'function' ? cbPos : cb;
 				break;
 			default:
 				// ...try to find the callback and get out of here!
-				cb = typeof arg4 === 'function' ? arg4 : typeof arg5 === 'function' ? arg5 : cb;
+				cb = typeof cbLenEnc === 'function' ? cbLenEnc : typeof cbPos === 'function' ? cbPos : cb;
 				cb(new ApiError(ErrorCode.EINVAL, 'Invalid arguments.'));
 				return;
 		}
-		buffer = encode(arg2);
+		buffer = Buffer.from(data);
 		offset = 0;
 		length = buffer.length;
 
@@ -350,15 +357,15 @@ export function write(fd: number, arg2: FileContents, arg3?: any, arg4?: any, ar
 
 		handle
 			.write(buffer, offset, length, position)
-			.then(({ bytesWritten }) => _cb(null, bytesWritten, decode(buffer)))
+			.then(({ bytesWritten }) => _cb(null, bytesWritten, buffer.toString(encoding)))
 			.catch(_cb);
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?, cb?)
-		buffer = arg2;
-		offset = arg3;
-		length = arg4;
-		position = typeof arg5 === 'number' ? arg5 : null;
-		const _cb = <ThreeArgCallback<number, Uint8Array>>(typeof arg5 === 'function' ? arg5 : cb);
+		buffer = Buffer.from(data);
+		offset = cbPosOff;
+		length = cbLenEnc;
+		position = typeof cbPos === 'number' ? cbPos : null;
+		const _cb = <ThreeArgCallback<number, Uint8Array>>(typeof cbPos === 'function' ? cbPos : cb);
 		handle
 			.write(buffer, offset, length, position)
 			.then(({ bytesWritten }) => _cb(null, bytesWritten, buffer))
@@ -520,11 +527,11 @@ symlink satisfies Omit<typeof Node.symlink, '__promisify__'>;
  */
 export function readlink(path: PathLike, callback: TwoArgCallback<string> & any): void;
 export function readlink(path: PathLike, options: Node.BufferEncodingOption, callback: TwoArgCallback<Uint8Array>): void;
-export function readlink(path: PathLike, options: Node.BaseEncodingOptions | string, callback: TwoArgCallback<string | Uint8Array>): void;
-export function readlink(path: PathLike, options: Node.BaseEncodingOptions | BufferEncoding, callback: TwoArgCallback<string>): void;
+export function readlink(path: PathLike, options: Node.EncodingOption, callback: TwoArgCallback<string | Uint8Array>): void;
+export function readlink(path: PathLike, options: Node.EncodingOption, callback: TwoArgCallback<string>): void;
 export function readlink(
 	path: PathLike,
-	options: Node.BufferEncodingOption | Node.BaseEncodingOptions | string | TwoArgCallback<string>,
+	options: Node.BufferEncodingOption | Node.EncodingOption | TwoArgCallback<string>,
 	callback: TwoArgCallback<string> | TwoArgCallback<Uint8Array> = nop
 ): void {
 	callback = typeof options == 'function' ? options : callback;
@@ -631,8 +638,8 @@ lutimes satisfies Omit<typeof Node.lutimes, '__promisify__'>;
  * @param callback
  */
 export function realpath(path: PathLike, cb?: TwoArgCallback<string>): void;
-export function realpath(path: PathLike, options: Node.BaseEncodingOptions, cb: TwoArgCallback<string>): void;
-export function realpath(path: PathLike, arg2?: TwoArgCallback<string> | Node.BaseEncodingOptions, cb: TwoArgCallback<string> = nop): void {
+export function realpath(path: PathLike, options: Node.EncodingOption, cb: TwoArgCallback<string>): void;
+export function realpath(path: PathLike, arg2?: TwoArgCallback<string> | Node.EncodingOption, cb: TwoArgCallback<string> = nop): void {
 	cb = typeof arg2 === 'function' ? arg2 : cb;
 	promises
 		.realpath(path, typeof arg2 === 'function' ? null : arg2)
@@ -659,22 +666,37 @@ export function access(path: PathLike, arg2: any, cb: NoArgCallback = nop): void
 }
 access satisfies Omit<typeof Node.access, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function watchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(filename: PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(filename: PathLike, arg2: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+watchFile satisfies Omit<typeof Node.watchFile, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function unwatchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void = nop): void {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+unwatchFile satisfies Omit<typeof Node.unwatchFile, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function watch(filename: PathLike, listener?: (event: string, filename: string) => any): Node.FSWatcher;
 export function watch(filename: PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): Node.FSWatcher;
 export function watch(filename: PathLike, arg2: any, listener: (event: string, filename: string) => any = nop): Node.FSWatcher {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+watch satisfies Omit<typeof Node.watch, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function createReadStream(
 	path: PathLike,
 	options?: {
@@ -687,7 +709,11 @@ export function createReadStream(
 ): ReadStream {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+createReadStream satisfies Omit<typeof Node.createReadStream, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function createWriteStream(
 	path: PathLike,
 	options?: {
@@ -699,33 +725,68 @@ export function createWriteStream(
 ): WriteStream {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+createWriteStream satisfies Omit<typeof Node.createWriteStream, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function rm(path: PathLike) {
 	new ApiError(ErrorCode.ENOTSUP);
 }
+rm satisfies Omit<typeof Node.rm, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function mkdtemp(path: PathLike) {
 	new ApiError(ErrorCode.ENOTSUP);
 }
+mkdtemp satisfies Omit<typeof Node.mkdtemp, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function copyFile(src: PathLike, dest: PathLike, callback: NoArgCallback): void;
 export function copyFile(src: PathLike, dest: PathLike, flags: number, callback: NoArgCallback): void;
 export function copyFile(src: PathLike, dest: PathLike, flags: number | NoArgCallback, callback?: NoArgCallback): void {
 	new ApiError(ErrorCode.ENOTSUP);
 }
+copyFile satisfies Omit<typeof Node.copyFile, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function readv(path: PathLike) {
 	new ApiError(ErrorCode.ENOTSUP);
 }
+readv satisfies Omit<typeof Node.readv, '__promisify__'>;
 
 type writevCallback = ThreeArgCallback<number, Uint8Array[]>;
 
+/**
+ * @todo Implement
+ */
 export function writev(fd: number, buffers: Uint8Array[], cb: writevCallback): void;
 export function writev(fd: number, buffers: Uint8Array[], position: number, cb: writevCallback): void;
 export function writev(fd: number, buffers: Uint8Array[], position: number | writevCallback, cb?: writevCallback) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+writev satisfies Omit<typeof Node.writev, '__promisify__'>;
 
+/**
+ * @todo Implement
+ */
 export function opendir(path: PathLike) {
 	throw new ApiError(ErrorCode.ENOTSUP);
 }
+opendir satisfies Omit<typeof Node.opendir, '__promisify__'>;
+
+/**
+ * @todo Implement
+ */
+export function cp(source: PathLike, destination: PathLike, callback: NoArgCallback): void;
+export function cp(source: PathLike, destination: PathLike, opts: Node.CopyOptions, callback: NoArgCallback): void;
+export function cp(source: PathLike, destination: PathLike, opts: Node.CopyOptions | NoArgCallback, callback?: NoArgCallback): void {
+	throw new ApiError(ErrorCode.ENOTSUP);
+}
+cp satisfies Omit<typeof Node.cp, '__promisify__'>;
