@@ -17,6 +17,7 @@ const {
 		quiet: { short: 'q', type: 'boolean', default: false },
 		globalName: { type: 'string' },
 	},
+	strict: false,
 	allowPositionals: true,
 });
 
