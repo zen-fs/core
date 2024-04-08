@@ -7,19 +7,17 @@ import { globalExternals } from '@fal-works/esbuild-plugin-global-externals';
 
 let buildCount = 0;
 
-const {
-	values: { watch, keep, quiet, globalName },
-	positionals: entryPoints,
-} = parseArgs({
+const { watch, keep, quiet, globalName, entry } = parseArgs({
 	options: {
 		watch: { short: 'w', type: 'boolean', default: false },
 		keep: { short: 'k', type: 'boolean', default: false },
 		quiet: { short: 'q', type: 'boolean', default: false },
 		globalName: { type: 'string' },
+		entry: { type: 'string' },
 	},
 	strict: false,
 	allowPositionals: true,
-});
+}).values;
 
 async function exportsOf(name) {
 	try {
@@ -42,7 +40,7 @@ function start() {
 }
 
 const config = {
-	entryPoints,
+	entryPoints: [entry],
 	target: 'esnext',
 	globalName,
 	outfile: 'dist/browser.min.js',
