@@ -10,7 +10,8 @@
 		"storage"
 	],
 	"bin": {
-		"make-index": "scripts/make-index.js"
+		"make-index": "scripts/make-index.js",
+		"build": "scripts/build.js"
 	},
 	"type": "module",
 	"homepage": "https://github.com/zen-fs/core",
@@ -45,9 +46,9 @@
 		"format:check": "prettier --check .",
 		"lint": "eslint src tests && tsc -p tsconfig.json --noEmit",
 		"test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
-		"build": "node scripts/build.js",
+		"build": "node scripts/build.js --globalName=ZenFS",
 		"build:docs": "typedoc --out docs --name ZenFS src/index.ts",
-		"dev": "node scripts/build.js --watch",
+		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {
@@ -58,6 +59,7 @@
 		"readable-stream": "^4.5.2"
 	},
 	"devDependencies": {
+		"@fal-works/esbuild-plugin-global-externals": "^2.1.2",
 		"@jest/globals": "^29.5.0",
 		"@types/jest": "^29.5.1",
 		"@typescript-eslint/eslint-plugin": "^5.55.0",

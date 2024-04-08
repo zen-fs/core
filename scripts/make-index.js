@@ -5,10 +5,7 @@ import { join } from 'path/posix';
 import { resolve } from 'path';
 import { minimatch } from 'minimatch';
 
-const {
-	values: options,
-	positionals: [root],
-} = parseArgs({
+const { values: options, positionals } = parseArgs({
 	options: {
 		help: { short: 'h', type: 'boolean', default: false },
 		ignore: { short: 'i', type: 'string', multiple: true, default: [] },
@@ -17,8 +14,9 @@ const {
 		verbose: { type: 'boolean', default: false },
 	},
 	allowPositionals: true,
-	strict: true,
 });
+
+const root = positionals.at(-1) == 'make-index' ? '.' : positionals.at(-1);
 
 if (options.help) {
 	console.log(`make-index <path> [...options]
@@ -76,7 +74,7 @@ function makeListing(path, seen = new Set()) {
 			return null;
 		}
 
-		let entries = {};
+		const entries = {};
 		for (const file of readdirSync(path)) {
 			const full = join(path, file);
 			if (options.ignore.some(pattern => minimatch(full, pattern))) {
