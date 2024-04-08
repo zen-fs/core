@@ -178,7 +178,7 @@ export class FileHandle implements promises.FileHandle {
 		return opts?.bigint ? new BigIntStats(stats) : stats;
 	}
 
-	async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }>;
+	public async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }>;
 
 	/**
 	 * Asynchronously writes `buffer` to the file.
@@ -188,7 +188,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param length The number of bytes to write. If not supplied, defaults to `buffer.length - offset`.
 	 * @param position The offset from the beginning of the file where this data should be written. If not supplied, defaults to the current position.
 	 */
-	async write<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesWritten: number; buffer: TBuffer }>;
+	public async write<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesWritten: number; buffer: TBuffer }>;
 
 	/**
 	 * Asynchronously writes `string` to the file.
@@ -199,9 +199,9 @@ export class FileHandle implements promises.FileHandle {
 	 * @param position The offset from the beginning of the file where this data should be written. If not supplied, defaults to the current position.
 	 * @param encoding The expected string encoding.
 	 */
-	async write(data: string, position?: number, encoding?: BufferEncoding): Promise<{ bytesWritten: number; buffer: string }>;
+	public async write(data: string, position?: number, encoding?: BufferEncoding): Promise<{ bytesWritten: number; buffer: string }>;
 
-	async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }> {
+	public async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }> {
 		let buffer: Uint8Array,
 			offset: number = 0,
 			length: number;
@@ -236,7 +236,7 @@ export class FileHandle implements promises.FileHandle {
 	 * If `mode` is a string, it is parsed as an octal integer.
 	 * If `flag` is not supplied, the default of `'w'` is used.
 	 */
-	async writeFile(data: string | Uint8Array, _options?: Node.WriteFileOptions): Promise<void> {
+	public async writeFile(data: string | Uint8Array, _options?: Node.WriteFileOptions): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isWriteable(flag)) {
@@ -250,10 +250,20 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	/**
+	 * Asynchronous close(2) - close a `FileHandle`.
+	 */
+	public async close(): Promise<void> {
+		await this.file.close();
+		fdMap.delete(this.fd);
+	}
+
+	/* eslint-disable @typescript-eslint/no-unused-vars */
+
+	/**
 	 * See `fs.writev` promisified version.
 	 * @todo Implement
 	 */
-	writev(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<Node.WriteVResult> {
+	public writev(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<Node.WriteVResult> {
 		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.writev');
 	}
 
@@ -261,16 +271,8 @@ export class FileHandle implements promises.FileHandle {
 	 * See `fs.readv` promisified version.
 	 * @todo Implement
 	 */
-	readv(buffers: readonly NodeJS.ArrayBufferView[], position?: number): Promise<Node.ReadVResult> {
+	public readv(buffers: readonly NodeJS.ArrayBufferView[], position?: number): Promise<Node.ReadVResult> {
 		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.readv');
-	}
-
-	/**
-	 * Asynchronous close(2) - close a `FileHandle`.
-	 */
-	async close(): Promise<void> {
-		await this.file.close();
-		fdMap.delete(this.fd);
 	}
 
 	public createReadStream(options?: CreateReadStreamOptions): Node.ReadStream {
@@ -280,6 +282,8 @@ export class FileHandle implements promises.FileHandle {
 	public createWriteStream(options?: CreateWriteStreamOptions): Node.WriteStream {
 		throw ApiError.With('ENOTSUP', this.path, 'createWriteStream');
 	}
+
+	/* eslint-enable @typescript-eslint/no-unused-vars */
 }
 
 type FileSystemMethod = {

@@ -210,9 +210,12 @@ writeFile satisfies Omit<typeof Node.writeFile, '__promisify__'>;
 export function appendFile(filename: PathLike, data: FileContents, cb?: NoArgCallback): void;
 export function appendFile(filename: PathLike, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }, cb?: NoArgCallback): void;
 export function appendFile(filename: PathLike, data: FileContents, encoding?: string, cb?: NoArgCallback): void;
-export function appendFile(filename: PathLike, data: FileContents, cbEncOpts?: any, cb: NoArgCallback = nop): void {
+export function appendFile(filename: PathLike, data: FileContents, cbEncOpts?, cb: NoArgCallback = nop): void {
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
-	promises.appendFile(filename, data, typeof cbEncOpts === 'function' ? null : cbEncOpts);
+	promises
+		.appendFile(filename, data, typeof cbEncOpts === 'function' ? null : cbEncOpts)
+		.then(() => cb())
+		.catch(cb);
 }
 appendFile satisfies Omit<typeof Node.appendFile, '__promisify__'>;
 
@@ -257,7 +260,7 @@ close satisfies Omit<typeof Node.close, '__promisify__'>;
  */
 export function ftruncate(fd: number, cb?: NoArgCallback): void;
 export function ftruncate(fd: number, len?: number, cb?: NoArgCallback): void;
-export function ftruncate(fd: number, lenOrCB?: any, cb: NoArgCallback = nop): void {
+export function ftruncate(fd: number, lenOrCB?, cb: NoArgCallback = nop): void {
 	const length = typeof lenOrCB === 'number' ? lenOrCB : 0;
 	cb = typeof lenOrCB === 'function' ? lenOrCB : cb;
 	const file = fd2file(fd);
@@ -315,14 +318,7 @@ export function write(fd: number, buffer: Uint8Array, offset: number, length: nu
 export function write(fd: number, data: FileContents, cb?: ThreeArgCallback<number, string>): void;
 export function write(fd: number, data: FileContents, position?: number, cb?: ThreeArgCallback<number, string>): void;
 export function write(fd: number, data: FileContents, position: number | null, encoding: BufferEncoding, cb?: ThreeArgCallback<number, string>): void;
-export function write(
-	fd: number,
-	data: FileContents,
-	cbPosOff?: any,
-	cbLenEnc?: any,
-	cbPos?: any,
-	cb: ThreeArgCallback<number, Uint8Array> | ThreeArgCallback<number, string> = nop
-): void {
+export function write(fd: number, data: FileContents, cbPosOff?, cbLenEnc?, cbPos?, cb: ThreeArgCallback<number, Uint8Array> | ThreeArgCallback<number, string> = nop): void {
 	let buffer: Buffer,
 		offset: number,
 		length: number,
@@ -656,7 +652,7 @@ realpath satisfies Omit<typeof Node.realpath, '__promisify__' | 'native'>;
  */
 export function access(path: PathLike, cb: NoArgCallback): void;
 export function access(path: PathLike, mode: number, cb: NoArgCallback): void;
-export function access(path: PathLike, cbMode: any, cb: NoArgCallback = nop): void {
+export function access(path: PathLike, cbMode, cb: NoArgCallback = nop): void {
 	const mode = typeof cbMode === 'number' ? cbMode : R_OK;
 	cb = typeof cbMode === 'function' ? cbMode : cb;
 	promises
@@ -673,7 +669,7 @@ access satisfies Omit<typeof Node.access, '__promisify__'>;
  */
 export function watchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(filename: PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
-export function watchFile(filename: PathLike, optsListener: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
+export function watchFile(filename: PathLike, optsListener, listener: (curr: Stats, prev: Stats) => void = nop): void {
 	throw ApiError.With('ENOTSUP', filename, 'watchFile');
 }
 watchFile satisfies Omit<typeof Node.watchFile, '__promisify__'>;
@@ -691,7 +687,7 @@ unwatchFile satisfies Omit<typeof Node.unwatchFile, '__promisify__'>;
  */
 export function watch(filename: PathLike, listener?: (event: string, filename: string) => any): Node.FSWatcher;
 export function watch(filename: PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): Node.FSWatcher;
-export function watch(filename: PathLike, options: any, listener: (event: string, filename: string) => any = nop): Node.FSWatcher {
+export function watch(filename: PathLike, options, listener: (event: string, filename: string) => any = nop): Node.FSWatcher {
 	throw ApiError.With('ENOTSUP', filename, 'watch');
 }
 watch satisfies Omit<typeof Node.watch, '__promisify__'>;
@@ -737,7 +733,7 @@ export function rm(path: PathLike, options: Node.RmOptions | NoArgCallback, call
 	callback = typeof options === 'function' ? options : callback;
 	promises
 		.rm(path, typeof options === 'function' ? null : options)
-		.then(result => callback(null))
+		.then(() => callback(null))
 		.catch(callback);
 }
 rm satisfies Omit<typeof Node.rm, '__promisify__'>;
@@ -768,7 +764,7 @@ export function copyFile(src: PathLike, dest: PathLike, flags: number | NoArgCal
 	callback = typeof flags === 'function' ? flags : callback;
 	promises
 		.copyFile(src, dest, typeof flags === 'function' ? null : flags)
-		.then(result => callback(null))
+		.then(() => callback(null))
 		.catch(callback);
 }
 copyFile satisfies Omit<typeof Node.copyFile, '__promisify__'>;
@@ -833,7 +829,11 @@ export function statfs(path: PathLike, options?: Node.StatFsOptions | TwoArgCall
 }
 statfs satisfies Omit<typeof Node.statfs, '__promisify__'>;
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 export function openAsBlob(path: PathLike, options?: Node.OpenAsBlobOptions): Promise<Blob> {
 	throw ApiError.With('ENOTSUP', path, 'openAsBlob');
 }
 openAsBlob satisfies typeof Node.openAsBlob;
+
+/* eslint-enable @typescript-eslint/no-unused-vars */

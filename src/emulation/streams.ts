@@ -104,8 +104,8 @@ export class WriteStream extends Writable implements Node.WriteStream {
 	addListener(event: 'pipe', listener: (src: Readable) => void): this;
 	addListener(event: 'ready', listener: () => void): this;
 	addListener(event: 'unpipe', listener: (src: Readable) => void): this;
-	addListener(event: string | symbol, listener: (...args: any[]) => void): this;
-	addListener(event: string | symbol, listener: (...args: any[]) => void): this {
+	addListener(event: string | symbol, listener: (...args) => void): this;
+	addListener(event: string | symbol, listener: (...args) => void): this {
 		return super.addListener(event, listener);
 	}
 	on(event: 'close', listener: () => void): this;
@@ -116,8 +116,8 @@ export class WriteStream extends Writable implements Node.WriteStream {
 	on(event: 'pipe', listener: (src: Readable) => void): this;
 	on(event: 'ready', listener: () => void): this;
 	on(event: 'unpipe', listener: (src: Readable) => void): this;
-	on(event: string | symbol, listener: (...args: any[]) => void): this;
-	on(event: string | symbol, listener: (...args: any[]) => void): this {
+	on(event: string | symbol, listener: (...args) => void): this;
+	on(event: string | symbol, listener: (...args) => void): this {
 		return super.on(event, listener);
 	}
 	once(event: 'close', listener: () => void): this;
@@ -128,8 +128,8 @@ export class WriteStream extends Writable implements Node.WriteStream {
 	once(event: 'pipe', listener: (src: Readable) => void): this;
 	once(event: 'ready', listener: () => void): this;
 	once(event: 'unpipe', listener: (src: Readable) => void): this;
-	once(event: string | symbol, listener: (...args: any[]) => void): this;
-	once(event: string | symbol, listener: (...args: any[]) => void): this {
+	once(event: string | symbol, listener: (...args) => void): this;
+	once(event: string | symbol, listener: (...args) => void): this {
 		return super.once(event, listener);
 	}
 	prependListener(event: 'close', listener: () => void): this;
@@ -140,8 +140,8 @@ export class WriteStream extends Writable implements Node.WriteStream {
 	prependListener(event: 'pipe', listener: (src: Readable) => void): this;
 	prependListener(event: 'ready', listener: () => void): this;
 	prependListener(event: 'unpipe', listener: (src: Readable) => void): this;
-	prependListener(event: string | symbol, listener: (...args: any[]) => void): this;
-	prependListener(event: string | symbol, listener: (...args: any[]) => void): this {
+	prependListener(event: string | symbol, listener: (...args) => void): this;
+	prependListener(event: string | symbol, listener: (...args) => void): this {
 		return super.prependListener(event, listener);
 	}
 	prependOnceListener(event: 'close', listener: () => void): this;
@@ -152,8 +152,8 @@ export class WriteStream extends Writable implements Node.WriteStream {
 	prependOnceListener(event: 'pipe', listener: (src: Readable) => void): this;
 	prependOnceListener(event: 'ready', listener: () => void): this;
 	prependOnceListener(event: 'unpipe', listener: (src: Readable) => void): this;
-	prependOnceListener(event: string | symbol, listener: (...args: any[]) => void): this;
-	prependOnceListener(event: string | symbol, listener: (...args: any[]) => void): this {
+	prependOnceListener(event: string | symbol, listener: (...args) => void): this;
+	prependOnceListener(event: string | symbol, listener: (...args) => void): this {
 		return super.prependOnceListener(event, listener);
 	}
 }
