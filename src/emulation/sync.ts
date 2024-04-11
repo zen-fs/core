@@ -7,6 +7,7 @@ import type * as Node from 'fs';
 import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts, PathLike } from './shared.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join } from './path.js';
+import { Buffer } from 'buffer';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
