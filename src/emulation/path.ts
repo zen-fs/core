@@ -28,7 +28,11 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 
 import type { ParsedPath } from 'node:path';
 
-export const cwd = '/';
+export let cwd = '/';
+
+export function cd(path: string): void {
+	cwd = resolve(cwd, path);
+}
 
 export const sep = '/';
 
