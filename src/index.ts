@@ -16,6 +16,7 @@ export * from './mutex.js';
 export * from './stats.js';
 export * from './utils.js';
 
+export * from './emulation/index.js';
 import * as fs from './emulation/index.js';
 export { fs };
 export default fs;

@@ -142,7 +142,7 @@ export function createBackend<B extends Backend>(backend: B, options?: object): 
  *
  * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
  */
-export interface BackendConfig<FS extends FileSystem = FileSystem, OC extends BackendOptionsConfig = BackendOptionsConfig> {
+export interface BackendConfiguration<FS extends FileSystem = FileSystem, OC extends BackendOptionsConfig = BackendOptionsConfig> {
 	backend: Backend<FS, OC>;
 	[key: string]: unknown;
 }
@@ -150,46 +150,6 @@ export interface BackendConfig<FS extends FileSystem = FileSystem, OC extends Ba
 /**
  * @internal
  */
-export function isBackendConfig(arg: unknown): arg is BackendConfig {
-	return arg != null && typeof arg == 'object' && 'backend' in arg;
-}
-
-/**
- * Retrieve a file system with the given configuration.
- * @param config A BackendConfig object.
- */
-export async function resolveBackend<FS extends FileSystem>(options: BackendConfig<FS>, _depth = 0): Promise<FS> {
-	if (typeof options !== 'object' || options == null) {
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on configuration object.');
-	}
-
-	const { backend } = options;
-	if (!isBackend(backend)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Missing or invalid backend');
-	}
-
-	const props = Object.keys(options).filter(k => k != 'backend');
-
-	for (const prop of props) {
-		let option = options[prop];
-
-		if (isBackend(option)) {
-			option = { backend: option };
-		}
-
-		if (isBackendConfig(option)) {
-			if (_depth > 10) {
-				throw new ApiError(ErrorCode.EINVAL, 'Invalid configuration, too deep and possibly infinite');
-			}
-			options[prop] = await resolveBackend(option, ++_depth);
-		}
-	}
-
-	if (!(await backend.isAvailable())) {
-		throw new ApiError(ErrorCode.EPERM, 'Backend not available: ' + backend);
-	}
-	checkOptions(backend, options);
-	const fs = backend.create(options);
-	await fs.ready();
-	return fs;
+export function isBackendConfig(arg: unknown): arg is BackendConfiguration {
+	return arg != null && typeof arg == 'object' && 'backend' in arg && isBackend(arg.backend);
 }

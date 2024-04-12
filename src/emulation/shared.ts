@@ -222,7 +222,7 @@ export function fixError<E extends Error>(e: E, paths: { [from: string]: string 
 	return e;
 }
 
-export function initialize(mountMapping: MountMapping): void {
+export function mountMapping(mountMapping: MountMapping): void {
 	if ('/' in mountMapping) {
 		umount('/');
 	}
