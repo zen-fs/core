@@ -1,22 +1,26 @@
-import { fs, configure } from '@zenfs/core';
-import { Worker } from 'node:worker_threads';
+import { configure, fs } from '@zenfs/core';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
 import { PortStoreBackend } from '../src/store.js';
 
 const __dirname = resolve(fileURLToPath(import.meta.url), '..');
 
 describe('Remote Store', () => {
-	const port = new Worker(__dirname + '/worker.js');
+	const port = new Worker(__dirname + '/worker.js'),
+		content = 'FS is in a port';
 
 	afterAll(() => port.terminate());
 
-	test('read/write', async () => {
+	test('configuration', async () => {
 		await configure({ backend: PortStoreBackend, port });
-		const content = 'FS is in a port';
-		await fs.promises.writeFile('/test', content);
+	});
 
-		const actual = await fs.promises.readFile('/test', 'utf8');
-		expect(actual).toBe(content);
+	test('write', async () => {
+		await fs.promises.writeFile('/test', content);
+	});
+
+	test('read', async () => {
+		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
 	});
 });

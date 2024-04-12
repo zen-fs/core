@@ -57,6 +57,6 @@
 		"typescript": "5.2.2"
 	},
 	"dependencies": {
-		"@zenfs/core": "^0.5.3"
+		"@zenfs/core": "^0.5.5"
 	}
 }

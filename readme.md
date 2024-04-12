@@ -15,7 +15,7 @@ npm install @zenfs/port
 ## Usage
 
 > [!NOTE]
-> The examples are written in ESM. If you are using CJS, you can `require` the package. If in a browser you can add a script tag to your HTML pointing to the `browser.min.js` and use ZenFS DOM via the global `ZenFS_Port` object.
+> The examples are written in ESM. If you are using CJS, you can `require` the package. If in a browser you can add a script tag to your HTML pointing to the `browser.min.js` and use ZenFS Port via the global `ZenFS_Port` object.
 
 #### Accessing an FS on a remote Worker from the main thread
 
@@ -39,11 +39,12 @@ await configure({
 Worker:
 
 ```ts
-import { fs } from '@zenfs/core';
-import { attach } from '@zenfs/port';
+import { InMemory } from '@zenfs/core';
+import { attachFS } from '@zenfs/port';
 import { parentPort } from 'node:worker_threads';
 
-attach(parentPort, fs.mounts.get('/'));
+const tmpfs = await resolveBackend({ backend: InMemory, name: 'tmp' });
+attachFS(parentPort, tmpfs);
 ```
 
 If you are using using web workers, you would use `self` instead of importing `parentPort` in the worker, and would not need to import `Worker` in the main thread.
@@ -51,15 +52,15 @@ If you are using using web workers, you would use `self` instead of importing `p
 #### Using with multiple ports on the same thread
 
 ```ts
-import { InMemory, fs, resolveBackendConfig } from '@zenfs/core';
-import { Port, attach } from '@zenfs/port';
+import { InMemory, fs, resolveBackend } from '@zenfs/core';
+import { Port, attachFS } from '@zenfs/port';
 import { MessageChannel } from 'node:worker_threads';
 
 const { port1, port2 } = new MessageChannel();
 
-fs.mount('/tmp', await resolveBackendConfig({ backend: InMemory, name: 'tmp' }));
-attach(port2, fs.mounts.get('/tmp'));
-fs.mount('/port', await resolveBackendConfig({ backend: Port, port: port1 }));
+const tmpfs = await resolveBackend({ backend: InMemory, name: 'tmp' });
+attachFS(port2, tmpfs);
+fs.mount('/port', await resolveBackend({ backend: Port, port: port1 }));
 console.log('/port');
 
 const content = 'FS is in a port';

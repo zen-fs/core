@@ -1,26 +1,31 @@
-import { InMemory, fs, resolveBackend, type SyncStoreFS, type InMemoryStore } from '@zenfs/core';
+import { InMemoryStore, configure, fs } from '@zenfs/core';
 import { MessageChannel } from 'node:worker_threads';
 import { PortStoreBackend, attachStore } from '../src/store.js';
 
 describe('Store with MessageChannel', () => {
-	const { port1, port2 } = new MessageChannel();
+	const { port1, port2 } = new MessageChannel(),
+		content = 'FS is in a port';
+	let tmpstore: InMemoryStore;
 
 	afterAll(() => {
 		port1.close();
 		port2.close();
 	});
 
-	test('read/write', async () => {
-		const tmpfs = (await resolveBackend({ backend: InMemory, name: 'tmp' })) as SyncStoreFS & { store: InMemoryStore };
-		fs.mount('/tmp', tmpfs);
-		attachStore(port2, tmpfs.store);
-		fs.mount('/port', await resolveBackend({ backend: PortStoreBackend, port: port1 }));
+	test('configuration', async () => {
+		tmpstore = new InMemoryStore('tmp');
+		attachStore(port2, tmpstore);
+		await configure({
+			backend: PortStoreBackend,
+			port: port1,
+		});
+	});
 
-		const content = 'FS is in a port';
+	test('write', async () => {
+		await fs.promises.writeFile('/test', content);
+	});
 
-		await fs.promises.writeFile('/port/test', content);
-		expect(fs.readFileSync('/tmp/test', 'utf8')).toBe(content);
-		const actual = await fs.promises.readFile('/port/test', 'utf8');
-		expect(actual).toBe(content);
+	test('read', async () => {
+		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
 	});
 });

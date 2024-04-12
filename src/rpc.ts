@@ -72,6 +72,7 @@ export function request<const TRequest extends Request, TValue>(
 	request: Omit<TRequest, 'id' | 'stack' | '_zenfs'>,
 	{ port, timeout = 1000, fs }: Partial<Options> & { fs?: PortFS } = {}
 ): Promise<TValue> {
+	const stack = new Error().stack.slice('Error:'.length);
 	return new Promise<TValue>((resolve, reject) => {
 		const id = Math.random().toString(16).slice(10);
 		executors.set(id, { resolve, reject, fs });
@@ -79,10 +80,12 @@ export function request<const TRequest extends Request, TValue>(
 			...request,
 			_zenfs: true,
 			id,
-			stack: new Error().stack.slice('Error:'.length),
+			stack,
 		});
 		setTimeout(() => {
-			reject(new ApiError(ErrorCode.EIO, 'RPC Failed'));
+			const error = new ApiError(ErrorCode.EIO, `RPC Failed (#${id})`);
+			error.stack += stack;
+			reject(error);
 		}, timeout);
 	});
 }

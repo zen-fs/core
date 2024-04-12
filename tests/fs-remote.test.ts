@@ -7,16 +7,20 @@ import { Port } from '../src/fs.js';
 const __dirname = resolve(fileURLToPath(import.meta.url), '..');
 
 describe('Remote FS', () => {
-	const port = new Worker(__dirname + '/worker.js');
+	const port = new Worker(__dirname + '/worker.js'),
+		content = 'FS is in a port';
 
 	afterAll(() => port.terminate());
 
-	test('read/write', async () => {
+	test('configuration', async () => {
 		await configure({ backend: Port, port });
-		const content = 'FS is in a port';
-		await fs.promises.writeFile('/test', content);
+	});
 
-		const actual = await fs.promises.readFile('/test', 'utf8');
-		expect(actual).toBe(content);
+	test('write', async () => {
+		await fs.promises.writeFile('/test', content);
+	});
+
+	test('read', async () => {
+		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
 	});
 });
