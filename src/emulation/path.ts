@@ -114,32 +114,32 @@ export function formatExt(ext: string): string {
 }
 
 export function resolve(...args: string[]): string {
-	let resolvedPath = '';
-	let resolvedAbsolute = false;
+	let resolved = '';
+	let absolute = false;
 
-	for (let i = args.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+	for (let i = args.length - 1; i >= -1 && !absolute; i--) {
 		const path = i >= 0 ? args[i] : cwd;
 		validateString(path, `paths[${i}]`);
 
 		// Skip empty entries
-		if (path.length === 0) {
+		if (!path.length) {
 			continue;
 		}
 
-		resolvedPath = `${path}/${resolvedPath}`;
-		resolvedAbsolute = path[0] === '/';
+		resolved = `${path}/${resolved}`;
+		absolute = path[0] == '/';
 	}
 
 	// At this point the path should be resolved to a full absolute path, but
-	// handle relative paths to be safe (might happen when process.cwd() fails)
+	// handle relative paths to be safe (might happen when cwd fails)
 
 	// Normalize the path
-	resolvedPath = normalizeString(resolvedPath, !resolvedAbsolute);
+	resolved = normalizeString(resolved, !absolute);
 
-	if (resolvedAbsolute) {
-		return `/${resolvedPath}`;
+	if (absolute) {
+		return `/${resolved}`;
 	}
-	return resolvedPath.length > 0 ? resolvedPath : '.';
+	return resolved.length > 0 ? resolved : '/';
 }
 
 export function normalize(path: string): string {
