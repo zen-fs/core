@@ -1,13 +1,13 @@
+import { Buffer } from 'buffer';
+import type * as Node from 'fs';
+import type { BufferEncodingOption, EncodingOption, ReadSyncOptions, StatOptions, symlink } from 'fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
-import type { symlink, ReadSyncOptions, StatOptions, EncodingOption, BufferEncodingOption } from 'fs';
-import type * as Node from 'fs';
-import { normalizePath, cred, getFdForFile, normalizeMode, normalizeOptions, fdMap, fd2file, normalizeTime, resolveFS, fixError, mounts, PathLike } from './shared.js';
 import { Dir, Dirent } from './dir.js';
-import { dirname, join } from './path.js';
-import { Buffer } from 'buffer';
+import { dirname, join, parse } from './path.js';
+import { PathLike, cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveFS } from './shared.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
@@ -57,7 +57,7 @@ renameSync satisfies typeof Node.renameSync;
 export function existsSync(path: PathLike): boolean {
 	path = normalizePath(path);
 	try {
-		const { fs, path: resolvedPath } = resolveFS(path);
+		const { fs, path: resolvedPath } = resolveFS(realpathSync(path));
 		return fs.existsSync(resolvedPath, cred);
 	} catch (e) {
 		if ((e as ApiError).errno == ErrorCode.ENOENT) {
@@ -677,16 +677,19 @@ export function realpathSync(path: PathLike, options: BufferEncodingOption): Buf
 export function realpathSync(path: PathLike, options?: EncodingOption): string;
 export function realpathSync(path: PathLike, options?: EncodingOption | BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
-	const { fs, path: resolvedPath, mountPoint } = resolveFS(path);
+	const { base, dir } = parse(path);
+	const lpath = join(dir == '/' ? '/' : realpathSync(dir), base);
+	const { fs, path: resolvedPath, mountPoint } = resolveFS(lpath);
+
 	try {
 		const stats = fs.statSync(resolvedPath, cred);
 		if (!stats.isSymbolicLink()) {
-			return path;
+			return lpath;
 		}
-		const dst = normalizePath(mountPoint + Buffer.from(_readFileSync(resolvedPath, 'r+', false)).toString());
-		return realpathSync(dst);
+
+		return realpathSync(mountPoint + readlinkSync(lpath));
 	} catch (e) {
-		throw fixError(e, { [resolvedPath]: path });
+		throw fixError(e, { [resolvedPath]: lpath });
 	}
 }
 realpathSync satisfies Omit<typeof Node.realpathSync, 'native'>;

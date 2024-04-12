@@ -8,9 +8,6 @@
 import { fs as zen } from '../src/index.js';
 import * as node from 'fs';
 
-/**
- * fixes __promisify__
- */
 type Mock = {
 	[K in keyof typeof node]: Omit<(typeof node)[K], '__promisify__' | 'native'>;
 };

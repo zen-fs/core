@@ -1,7 +1,8 @@
+import { join } from '../src/emulation/path';
 import { fs } from './common';
 
 describe('Links', () => {
-	const target = 'a1.js',
+	const target = '/a1.js',
 		symlink = 'symlink1.js',
 		hardlink = 'link1.js';
 
@@ -29,6 +30,15 @@ describe('Links', () => {
 		await fs.promises.link(target, hardlink);
 		const targetContent = await fs.promises.readFile(target, 'utf8');
 		const linkContent = await fs.promises.readFile(hardlink, 'utf8');
+		expect(targetContent).toBe(linkContent);
+	});
+
+	test('file inside symlinked directory', async () => {
+		await fs.promises.symlink('.', 'link');
+		const targetContent = await fs.promises.readFile(target, 'utf8');
+		const link = join('link', target);
+		expect(await fs.promises.realpath(link)).toBe(target);
+		const linkContent = await fs.promises.readFile(link, 'utf8');
 		expect(targetContent).toBe(linkContent);
 	});
 });

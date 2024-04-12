@@ -2,19 +2,19 @@ import { Buffer } from 'buffer';
 import type * as Node from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo, FileReadResult, FlagAndOpenMode } from 'node:fs/promises';
+import type { ReadableStream } from 'node:stream/web';
+import type { Interface as ReadlineInterface } from 'readline';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import { F_OK } from './constants.js';
 import { Dirent, type Dir } from './dir.js';
-import { dirname, join } from './path.js';
+import { dirname, join, parse } from './path.js';
 import type { PathLike } from './shared.js';
 import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveFS } from './shared.js';
-export * as constants from './constants.js';
 import { ReadStream, WriteStream } from './streams.js';
-import type { ReadableStream } from 'node:stream/web';
-import type { Interface as ReadlineInterface } from 'readline';
+export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
 	public constructor(
@@ -275,11 +275,11 @@ export class FileHandle implements promises.FileHandle {
 		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.readv');
 	}
 
-	public createReadStream(options?: CreateReadStreamOptions): Node.ReadStream {
+	public createReadStream(options?: CreateReadStreamOptions): ReadStream {
 		throw ApiError.With('ENOTSUP', this.path, 'createReadStream');
 	}
 
-	public createWriteStream(options?: CreateWriteStreamOptions): Node.WriteStream {
+	public createWriteStream(options?: CreateWriteStreamOptions): WriteStream {
 		throw ApiError.With('ENOTSUP', this.path, 'createWriteStream');
 	}
 
@@ -306,7 +306,8 @@ type FileSystemMethod = {
  */
 async function doOp<M extends FileSystemMethod, RT extends ReturnType<M> = ReturnType<M>>(...[name, resolveSymlinks, rawPath, ...args]: Parameters<M>): Promise<RT> {
 	rawPath = normalizePath(rawPath);
-	const { fs, path } = resolveFS(resolveSymlinks && (await exists(rawPath)) ? await realpath(rawPath) : rawPath);
+	const _path = resolveSymlinks && (await exists(rawPath)) ? await realpath(rawPath) : rawPath;
+	const { fs, path } = resolveFS(_path);
 	try {
 		// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
 		return fs[name](path, ...args) as Promise<RT>;
@@ -346,8 +347,8 @@ rename satisfies typeof promises.rename;
  */
 export async function exists(_path: PathLike): Promise<boolean> {
 	try {
-		const { fs, path } = resolveFS(_path);
-		return fs.exists(path, cred);
+		const { fs, path } = resolveFS(await realpath(_path));
+		return await fs.exists(path, cred);
 	} catch (e) {
 		if ((e as ApiError).errno == ErrorCode.ENOENT) {
 			return false;
@@ -798,16 +799,19 @@ export async function realpath(path: PathLike, options: Node.BufferEncodingOptio
 export async function realpath(path: PathLike, options?: Node.EncodingOption | BufferEncoding): Promise<string>;
 export async function realpath(path: PathLike, options?: Node.EncodingOption | BufferEncoding | Node.BufferEncodingOption): Promise<string | Buffer> {
 	path = normalizePath(path);
-	const { fs, path: resolvedPath, mountPoint } = resolveFS(path);
+	const { base, dir } = parse(path);
+	const lpath = join(dir == '/' ? '/' : await realpath(dir), base);
+	const { fs, path: resolvedPath, mountPoint } = resolveFS(lpath);
+
 	try {
 		const stats = await fs.stat(resolvedPath, cred);
 		if (!stats.isSymbolicLink()) {
-			return path;
+			return lpath;
 		}
-		const dst = mountPoint + normalizePath(Buffer.from(await _readFile(resolvedPath, 'r+', false)).toString());
-		return realpath(dst);
+
+		return realpath(mountPoint + (await readlink(lpath)));
 	} catch (e) {
-		throw fixError(e, { [resolvedPath]: path });
+		throw fixError(e, { [resolvedPath]: lpath });
 	}
 }
 realpath satisfies typeof promises.realpath;
