@@ -513,7 +513,7 @@ async function _readFile(fname: string, flag: string, resolveSymlinks: boolean):
 export async function readFile(filename: PathLike, options?: { flag?: Node.OpenMode }): Promise<Buffer>;
 export async function readFile(filename: PathLike, options: (Node.EncodingOption & { flag?: Node.OpenMode }) | BufferEncoding): Promise<string>;
 export async function readFile(filename: PathLike, _options?: (Node.EncodingOption & { flag?: Node.OpenMode }) | BufferEncoding): Promise<Buffer | string> {
-	const options = normalizeOptions(_options, null, 'r', null);
+	const options = normalizeOptions(_options, null, 'r', 0o000);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
