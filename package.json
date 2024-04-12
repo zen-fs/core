@@ -32,7 +32,8 @@
 	},
 	"exports": {
 		".": "./dist/index.js",
-		"./*": "./dist/*"
+		"./*": "./dist/*",
+		"./promises": "./dist/emulations/promises.js"
 	},
 	"typesVersions": {
 		"*": {
