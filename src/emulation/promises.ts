@@ -12,7 +12,7 @@ import { F_OK } from './constants.js';
 import { Dirent, type Dir } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import type { PathLike } from './shared.js';
-import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveFS } from './shared.js';
+import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
 
@@ -307,7 +307,7 @@ type FileSystemMethod = {
 async function doOp<M extends FileSystemMethod, RT extends ReturnType<M> = ReturnType<M>>(...[name, resolveSymlinks, rawPath, ...args]: Parameters<M>): Promise<RT> {
 	rawPath = normalizePath(rawPath);
 	const _path = resolveSymlinks && (await exists(rawPath)) ? await realpath(rawPath) : rawPath;
-	const { fs, path } = resolveFS(_path);
+	const { fs, path } = resolveMount(_path);
 	try {
 		// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
 		return fs[name](path, ...args) as Promise<RT>;
@@ -326,8 +326,8 @@ async function doOp<M extends FileSystemMethod, RT extends ReturnType<M> = Retur
 export async function rename(oldPath: PathLike, newPath: PathLike): Promise<void> {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
-	const src = resolveFS(oldPath);
-	const dst = resolveFS(newPath);
+	const src = resolveMount(oldPath);
+	const dst = resolveMount(newPath);
 	try {
 		if (src.mountPoint == dst.mountPoint) {
 			await src.fs.rename(src.path, dst.path, cred);
@@ -347,7 +347,7 @@ rename satisfies typeof promises.rename;
  */
 export async function exists(_path: PathLike): Promise<boolean> {
 	try {
-		const { fs, path } = resolveFS(await realpath(_path));
+		const { fs, path } = resolveMount(await realpath(_path));
 		return await fs.exists(path, cred);
 	} catch (e) {
 		if ((e as ApiError).errno == ErrorCode.ENOENT) {
@@ -801,7 +801,7 @@ export async function realpath(path: PathLike, options?: Node.EncodingOption | B
 	path = normalizePath(path);
 	const { base, dir } = parse(path);
 	const lpath = join(dir == '/' ? '/' : await realpath(dir), base);
-	const { fs, path: resolvedPath, mountPoint } = resolveFS(lpath);
+	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
 		const stats = await fs.stat(resolvedPath, cred);

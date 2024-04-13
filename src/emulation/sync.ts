@@ -7,7 +7,7 @@ import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { PathLike, cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveFS } from './shared.js';
+import { PathLike, cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveMount } from './shared.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
@@ -17,7 +17,7 @@ type FileSystemMethod = {
 
 function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): RT {
 	path = normalizePath(path);
-	const { fs, path: resolvedPath } = resolveFS(resolveSymlinks && existsSync(path) ? realpathSync(path) : path);
+	const { fs, path: resolvedPath } = resolveMount(resolveSymlinks && existsSync(path) ? realpathSync(path) : path);
 	try {
 		// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
 		return fs[name](resolvedPath, ...args) as RT;
@@ -34,8 +34,8 @@ function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, re
 export function renameSync(oldPath: PathLike, newPath: PathLike): void {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
-	const _old = resolveFS(oldPath);
-	const _new = resolveFS(newPath);
+	const _old = resolveMount(oldPath);
+	const _new = resolveMount(newPath);
 	const paths = { [_old.path]: oldPath, [_new.path]: newPath };
 	try {
 		if (_old === _new) {
@@ -57,7 +57,7 @@ renameSync satisfies typeof Node.renameSync;
 export function existsSync(path: PathLike): boolean {
 	path = normalizePath(path);
 	try {
-		const { fs, path: resolvedPath } = resolveFS(realpathSync(path));
+		const { fs, path: resolvedPath } = resolveMount(realpathSync(path));
 		return fs.existsSync(resolvedPath, cred);
 	} catch (e) {
 		if ((e as ApiError).errno == ErrorCode.ENOENT) {
@@ -679,7 +679,7 @@ export function realpathSync(path: PathLike, options?: EncodingOption | BufferEn
 	path = normalizePath(path);
 	const { base, dir } = parse(path);
 	const lpath = join(dir == '/' ? '/' : realpathSync(dir), base);
-	const { fs, path: resolvedPath, mountPoint } = resolveFS(lpath);
+	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
 		const stats = fs.statSync(resolvedPath, cred);
