@@ -17,10 +17,7 @@ type AsyncMethodName = {
  * @internal
  */
 type AsyncOperation = {
-	[K in AsyncMethodName]: {
-		apiMethod: K;
-		arguments: [] extends Parameters<FileSystem[K]> ? [null] : Parameters<FileSystem[K]>;
-	};
+	[K in AsyncMethodName]: [K, ...Parameters<FileSystem[K]>];
 }[AsyncMethodName];
 
 /**
@@ -122,10 +119,7 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		this._sync.syncSync(path, data, stats);
 
-		this.enqueue({
-			apiMethod: 'sync',
-			arguments: [path, data, stats],
-		});
+		this.queue('sync', path, data, stats);
 	}
 
 	public openFileSync(path: string, flag: string, cred: Cred): File {
@@ -134,10 +128,7 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): MirrorFile {
 		const file = this._sync.createFileSync(path, flag, mode, cred);
-		this.enqueue({
-			apiMethod: 'createFile',
-			arguments: [path, flag, mode, cred],
-		});
+		this.queue('createFile', path, flag, mode, cred);
 		const stats = file.statSync();
 		const buffer = new Uint8Array(stats.size);
 		file.readSync(buffer);
@@ -146,18 +137,12 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 
 	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
 		this._sync.linkSync(srcpath, dstpath, cred);
-		this.enqueue({
-			apiMethod: 'link',
-			arguments: [srcpath, dstpath, cred],
-		});
+		this.queue('link', srcpath, dstpath, cred);
 	}
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
 		this._sync.renameSync(oldPath, newPath, cred);
-		this.enqueue({
-			apiMethod: 'rename',
-			arguments: [oldPath, newPath, cred],
-		});
+		this.queue('rename', oldPath, newPath, cred);
 	}
 
 	public statSync(p: string, cred: Cred): Stats {
@@ -166,26 +151,17 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 
 	public unlinkSync(p: string, cred: Cred): void {
 		this._sync.unlinkSync(p, cred);
-		this.enqueue({
-			apiMethod: 'unlink',
-			arguments: [p, cred],
-		});
+		this.queue('unlink', p, cred);
 	}
 
 	public rmdirSync(p: string, cred: Cred): void {
 		this._sync.rmdirSync(p, cred);
-		this.enqueue({
-			apiMethod: 'rmdir',
-			arguments: [p, cred],
-		});
+		this.queue('rmdir', p, cred);
 	}
 
 	public mkdirSync(p: string, mode: number, cred: Cred): void {
 		this._sync.mkdirSync(p, mode, cred);
-		this.enqueue({
-			apiMethod: 'mkdir',
-			arguments: [p, mode, cred],
-		});
+		this.queue('mkdir', p, mode, cred);
 	}
 
 	public readdirSync(p: string, cred: Cred): string[] {
@@ -265,20 +241,16 @@ export class AsyncMirrorFS extends Sync(FileSystem) {
 			return;
 		}
 
-		const op = this._queue.shift()!;
-		try {
-			// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
-			await this._async[op.apiMethod](...op.arguments);
-		} catch (e) {
-			throw new ApiError(ErrorCode.EIO, 'AsyncMirror desync: ' + e);
-		}
+		const [method, ...args] = this._queue.shift()!;
+		// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
+		await this._async[method](...args);
 		await this._next();
 	}
 
 	/**
 	 * @internal
 	 */
-	private enqueue(op: AsyncOperation) {
+	private queue(...op: AsyncOperation) {
 		this._queue.push(op);
 		if (this._queueRunning) {
 			return;
