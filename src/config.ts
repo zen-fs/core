@@ -18,7 +18,7 @@ function isMountConfig(arg: unknown): arg is MountConfiguration {
  * Retrieve a file system with the given configuration.
  * @param config A BackendConfig object.
  */
-export async function resolveMount<FS extends FileSystem>(config: MountConfiguration<FS>, _depth = 0): Promise<FS> {
+export async function resolveMountConfig<FS extends FileSystem>(config: MountConfiguration<FS>, _depth = 0): Promise<FS> {
 	if (typeof config !== 'object' || config == null) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on mount configuration');
 	}
@@ -48,7 +48,7 @@ export async function resolveMount<FS extends FileSystem>(config: MountConfigura
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid configuration, too deep and possibly infinite');
 		}
 
-		config[key] = await resolveMount(value, ++_depth);
+		config[key] = await resolveMountConfig(value, ++_depth);
 	}
 
 	const { backend } = config;
@@ -93,7 +93,7 @@ export async function configure(config: Configuration): Promise<void> {
 		if (point == 'uid' || point == 'gid' || typeof value == 'number') {
 			continue;
 		}
-		config[point] = await resolveMount(value);
+		config[point] = await resolveMountConfig(value);
 	}
 
 	fs.mountMapping(<MountMapping>config);
