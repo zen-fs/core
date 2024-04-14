@@ -8,14 +8,10 @@ ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS).
 
 ## Backends
 
-ZenFS is modular and extensible. The core includes a few built-in backends:
+ZenFS is modular and extensible. The core includes two built-in backends:
 
 -   `InMemory`: Stores files in-memory. This is cleared when the runtime ends (e.g. a user navigating away from a web page or a Node process exiting)
--   `Overlay`: Use read-only file system as read-write by overlaying a writable file system on top of it.
--   `AsyncMirror`: Use an asynchronous backend synchronously. This is very helpful for asynchronous backends
-
-> [!NOTE]
-> When constructed, `AsyncMirror` loads the entire contents of the async file system into a synchronous backend. It performs operations on the synchronous file system and then queues them to be mirrored onto the asynchronous backend.
+-   `Overlay`: Use read-only file system as read-write by overlaying a writable file system on top of it. ([copy-on-write](https://en.wikipedia.org/wiki/Copy-on-write))
 
 ZenFS supports a number of other backends. Many are provided as separate packages under `@zenfs`. More backends can be defined by separate libraries by extending the `FileSystem` class and/or providing a `Backend` object.
 
@@ -74,13 +70,13 @@ await configure({
 > 2. An object that has the options accepted by the backend and a `backend` property which is a `Backend` object
 > 3. A `FileSystem` instance (_not recommended_)
 
-Here is an example that mounts the `Storage` backend from `@zenfs/dom` on `/`:
+Here is an example that mounts the `WebStorage` backend from `@zenfs/dom` on `/`:
 
 ```js
 import { configure, fs } from '@zenfs/core';
-import { Storage } from '@zenfs/dom';
+import { WebStorage } from '@zenfs/dom';
 
-await configure({ backend: Storage });
+await configure({ backend: WebStorage });
 
 if (!fs.existsSync('/test.txt')) {
 	fs.writeFileSync('/test.txt', 'This will persist across reloads!');
@@ -95,50 +91,33 @@ console.log(contents);
 The FS promises API is exposed as `promises`.
 
 ```js
-import { configure, promises } from '@zenfs/core';
+import { configure } from '@zenfs/core';
+import { exists, writeFile } from '@zenfs/core/promises';
 import { IndexedDB } from '@zenfs/dom';
 
 await configure({ '/': IndexedDB });
 
-const exists = await promises.exists('/myfile.txt');
+const exists = await exists('/myfile.txt');
 if (!exists) {
-	await promises.write('/myfile.txt', 'Lots of persistant data');
+	await writeFile('/myfile.txt', 'Lots of persistant data');
 }
 ```
 
 > [!NOTE]
-> You can import the promises API using `promises`, or using `fs.promises` on the exported `fs`.
-
-> [!IMPORTANT]
-> ZenFS does _not_ provide a separate public import for importing promises like `fs/promises`. If you are using ESM, you can import promises functions like `fs/promises` from the `dist/emulation/promises.ts` file, though this may change at any time and is **not recommended**.
-
-#### Using asynchronous backends synchronously
-
-You may have noticed that attempting to use a synchronous function on an asynchronous backend (e.g. `IndexedDB`) results in a "not supplied" error (`ENOTSUP`). If you would like to use an asynchronous backend synchronously you need to wrap it in an `AsyncMirror`:
-
-```js
-import { configure, fs, AsyncMirror, InMemory } from '@zenfs/core';
-import { IndexedDB } from '@zenfs/dom';
-
-await configure({
-	'/': {
-		backend: AsyncMirror,
-		sync: InMemory,
-		async: IndexedDB,
-	},
-});
-
-fs.writeFileSync('/persistant.txt', 'My persistant data');
-```
+> You can import the promises API using:
+>
+> 1. Exports from `@zenfs/core/promises`
+> 2. The `promises` export from `@zenfs/core`
+> 3. `fs.promises` on the exported `fs` from `@zenfs/core`.
 
 #### Mounting and unmounting, creating backends
 
-If you would like to create backends without configure (e.g. to do something dynamic at runtime), you may do so by importing the backend and calling `createBackend` with it.
+If you would like to create backends without configure (e.g. to do something dynamic at runtime), you may do so by importing the backend and calling `resolveMountConfig` with it.
 
 You can then mount and unmount the backend instance by using `mount` and `umount`.
 
 ```js
-import { configure, createBackend, InMemory } from '@zenfs/core';
+import { configure, resolveMountConfig, InMemory } from '@zenfs/core';
 import { IndexedDB  } from '@zenfs/dom';
 import { Zip } from '@zenfs/zip';
 
@@ -150,8 +129,8 @@ await configure({
 fs.mkdirSync('/mnt');
 
 const res = await fetch('mydata.zip');
-const zipFs = await createBackend(Zip, { zipData: await res.arrayBuffer() });
-fs.mount('/mnt/zip', zipFs);
+const zipfs = await resolveMountConfig({ backend: Zip, zipData: await res.arrayBuffer() });
+fs.mount('/mnt/zip', zipfs);
 
 // do stuff with the mounted zip
 
