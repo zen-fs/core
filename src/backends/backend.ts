@@ -1,6 +1,6 @@
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { FileSystem } from '../filesystem.js';
-import { levenshtein } from '../utils.js';
+import { levenshtein, type RequiredKeys } from '../utils.js';
 
 type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undefined' | 'object' | 'function';
 
@@ -31,19 +31,23 @@ export interface OptionConfig<T> {
 	validator?(opt: T): void | Promise<void>;
 }
 
-/**
- * Describes all of the options available in a file system.
- */
-type BackendOptionsConfig = Record<string, OptionConfig<unknown>>;
+type InferOptionsConfig<T> = {
+	[K in keyof T]: {
+		type: OptionType | OptionType[];
+		description: string;
+		required: K extends RequiredKeys<T> ? true : false;
+		validator?(opt: T[K]): void | Promise<void>;
+	};
+};
 
 /**
  * A backend
  */
-export interface Backend<FS extends FileSystem = FileSystem, OC extends BackendOptionsConfig = BackendOptionsConfig> {
+export interface Backend<FS extends FileSystem = FileSystem, TOptions extends object = object> {
 	/**
 	 * Create a new instance of the backend
 	 */
-	create(options: object): FS;
+	create(options: TOptions): FS;
 
 	/**
 	 * A name to identify the backend.
@@ -53,7 +57,7 @@ export interface Backend<FS extends FileSystem = FileSystem, OC extends BackendO
 	/**
 	 * Describes all of the options available for this backend.
 	 */
-	options: OC;
+	options: InferOptionsConfig<TOptions>;
 
 	/**
 	 * Whether the backend is available in the current environment.
@@ -79,7 +83,7 @@ export function isBackend(arg: unknown): arg is Backend {
  * Checks that the given options object is valid for the file system options.
  * @internal
  */
-export async function checkOptions(backend: Backend, opts: object): Promise<void> {
+export async function checkOptions<T extends Backend>(backend: T, opts: object): Promise<void> {
 	if (typeof opts != 'object' || opts === null) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid options');
 	}
@@ -142,10 +146,9 @@ export function createBackend<B extends Backend>(backend: B, options?: object): 
  *
  * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
  */
-export interface BackendConfiguration<FS extends FileSystem = FileSystem, OC extends BackendOptionsConfig = BackendOptionsConfig> {
-	backend: Backend<FS, OC>;
-	[key: string]: unknown;
-}
+export type BackendConfiguration<FS extends FileSystem = FileSystem, TOptions extends object = object> = TOptions & {
+	backend: Backend<FS, TOptions>;
+};
 
 /**
  * @internal

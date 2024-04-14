@@ -479,9 +479,7 @@ export abstract class FileIndexFS<TIndex> extends Readonly(FileSystem) {
 	protected abstract openFileInodeSync(inode: IndexFileInode<TIndex>, path: string, flag: string): NoSyncFile<this>;
 }
 
-export abstract class SyncFileIndexFS<TIndex> extends Sync(FileIndexFS<unknown>) {
-	declare _index: FileIndex<TIndex>;
-
+export abstract class SyncFileIndexFS<TIndex> extends FileIndexFS<TIndex> {
 	protected async statFileInode(inode: IndexFileInode<TIndex>, path: string): Promise<Stats> {
 		return this.statFileInodeSync(inode, path);
 	}

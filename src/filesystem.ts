@@ -292,6 +292,7 @@ declare abstract class AsyncFileSystem extends FileSystem {
 	 */
 	abstract _sync: FileSystem;
 	metadata(): FileSystemMetadata;
+	ready(): Promise<this>;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
 	statSync(path: string, cred: Cred): Stats;
 	createFileSync(path: string, flag: string, mode: number, cred: Cred): File;

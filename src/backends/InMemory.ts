@@ -38,7 +38,7 @@ export class InMemoryStore implements SyncStore, SimpleSyncStore {
  * A simple in-memory file system backed by an InMemoryStore.
  * Files are not persisted across page loads.
  */
-export const InMemory: Backend<SyncStoreFS> = {
+export const InMemory = {
 	name: 'InMemory',
 	isAvailable(): boolean {
 		return true;
@@ -50,7 +50,7 @@ export const InMemory: Backend<SyncStoreFS> = {
 			description: 'The name of the store',
 		},
 	},
-	create({ name }: { name: string }) {
+	create({ name }: { name?: string }) {
 		return new SyncStoreFS({ store: new InMemoryStore(name) });
 	},
-};
+} as const satisfies Backend;

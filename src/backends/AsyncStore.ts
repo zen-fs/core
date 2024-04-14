@@ -8,6 +8,7 @@ import { randomIno, type Ino, Inode } from '../inode.js';
 import { type Stats, FileType } from '../stats.js';
 import { encode, decodeDirListing, encodeDirListing } from '../utils.js';
 import { rootIno } from '../inode.js';
+import { InMemory } from './InMemory.js';
 
 interface LRUNode<K, V> {
 	key: K;
@@ -134,10 +135,12 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	private _cache?: LRUCache<string, Ino>;
 	_sync: FileSystem;
 
-	protected _ready: Promise<this>;
+	protected _ready: Promise<void>;
 
-	public ready() {
-		return this._ready;
+	public async ready() {
+		await super.ready();
+		await this._ready;
+		return this;
 	}
 
 	public metadata(): FileSystemMetadata {
@@ -147,23 +150,22 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		};
 	}
 
-	constructor({ store, lruCacheSize: cacheSize }: AsyncStoreOptions) {
+	constructor(options: AsyncStoreOptions) {
 		super();
-		if (cacheSize > 0) {
-			this._cache = new LRUCache(cacheSize);
-		}
-		this._ready = this._initialize(store);
+		this._ready = this._initialize(options);
 	}
 
 	/**
 	 * Initializes the file system. Typically called by subclasses' async
 	 * constructors.
 	 */
-	protected async _initialize(store: Promise<AsyncStore> | AsyncStore): Promise<this> {
+	protected async _initialize({ store, lruCacheSize, sync }: AsyncStoreOptions): Promise<void> {
+		if (lruCacheSize > 0) {
+			this._cache = new LRUCache(lruCacheSize);
+		}
 		this.store = await store;
-		// INVARIANT: Ensure that the root exists.
 		await this.makeRootDirectory();
-		return this;
+		this._sync = sync || InMemory.create({ name: 'test' });
 	}
 
 	/**

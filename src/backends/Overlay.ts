@@ -566,7 +566,7 @@ export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
 	}
 }
 
-export const Overlay: Backend<OverlayFS> = {
+export const Overlay = {
 	name: 'Overlay',
 
 	options: {
@@ -589,4 +589,4 @@ export const Overlay: Backend<OverlayFS> = {
 	create(options: OverlayOptions) {
 		return new OverlayFS(options);
 	},
-};
+} as const satisfies Backend<OverlayFS>;

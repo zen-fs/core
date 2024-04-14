@@ -110,7 +110,10 @@ export function levenshtein(a: string, b: string): number {
 	return dd;
 }
 
-/** Waits n ms.  */
+/**
+ * Waits n ms.
+ * @hidden
+ */
 export function wait(ms: number): Promise<void> {
 	return new Promise(resolve => {
 		setTimeout(resolve, ms);
@@ -149,7 +152,7 @@ export function decode(input?: Uint8Array): string {
 
 /**
  * Decodes a directory listing
- * @internal
+ * @hidden
  */
 export function decodeDirListing(data: Uint8Array): Record<string, bigint> {
 	return JSON.parse(decode(data), (k, v) => {
@@ -163,7 +166,7 @@ export function decodeDirListing(data: Uint8Array): Record<string, bigint> {
 
 /**
  * Encodes a directory listing
- * @internal
+ * @hidden
  */
 export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 	return encode(
@@ -179,7 +182,15 @@ export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 
 /**
  * Extracts an object of properties assignable to P from an object T
+ * @hidden
  */
 export type ExtractProperties<T, P> = {
 	[K in keyof T as T[K] extends infer Prop ? (Prop extends P ? K : never) : never]: T[K];
 };
+
+/**
+ * Extract a the keys in T which are required properties
+ * @hidden
+ * @see https://stackoverflow.com/a/55247867/17637456
+ */
+export type RequiredKeys<T> = { [K in keyof T]-?: {} extends { [P in K]: T[K] } ? never : K }[keyof T];
