@@ -156,35 +156,6 @@ export interface SyncStoreOptions {
 }
 
 /**
- * File backend by a SyncStoreFS
- * @internal
- */
-export class SyncStoreFile extends PreloadFile<SyncStoreFS> {
-	constructor(_fs: SyncStoreFS, _path: string, _flag: string, _stat: Stats, contents?: Uint8Array) {
-		super(_fs, _path, _flag, _stat, contents);
-	}
-
-	public async sync(): Promise<void> {
-		this.syncSync();
-	}
-
-	public syncSync(): void {
-		if (this.isDirty()) {
-			this.fs.syncSync(this.path, this._buffer, this.stats);
-			this.resetDirty();
-		}
-	}
-
-	public async close(): Promise<void> {
-		this.closeSync();
-	}
-
-	public closeSync(): void {
-		this.syncSync();
-	}
-}
-
-/**
  * A synchronous key-value file system. Uses a SyncStore to store the data.
  *
  * We use a unique ID for each node in the file system. The root node has a fixed ID.
@@ -297,12 +268,12 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		return stats;
 	}
 
-	public createFileSync(p: string, flag: string, mode: number, cred: Cred): SyncStoreFile {
+	public createFileSync(p: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
 		this.commitNewFile(p, FileType.FILE, mode, cred);
 		return this.openFileSync(p, flag, cred);
 	}
 
-	public openFileSync(p: string, flag: string, cred: Cred): SyncStoreFile {
+	public openFileSync(p: string, flag: string, cred: Cred): PreloadFile<this> {
 		const tx = this.store.beginTransaction(),
 			node = this.findINode(tx, p),
 			data = tx.get(node.ino);
@@ -312,7 +283,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		if (data === null) {
 			throw ApiError.With('ENOENT', p, 'openFileSync');
 		}
-		return new SyncStoreFile(this, p, flag, node.toStats(), data);
+		return new PreloadFile(this, p, flag, node.toStats(), data);
 	}
 
 	public unlinkSync(p: string, cred: Cred): void {

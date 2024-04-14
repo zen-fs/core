@@ -1,7 +1,9 @@
 import { ApiError, ErrorCode } from './ApiError.js';
 import type { Stats } from './stats.js';
-import type { File } from './file.js';
-import type { Cred } from './cred.js';
+import { PreloadFile, parseFlag, type File } from './file.js';
+import { rootCred, type Cred } from './cred.js';
+import { join } from './emulation/path.js';
+import type { ExtractProperties } from './utils.js';
 
 export type NoArgCallback = (e?: ApiError) => unknown;
 export type TwoArgCallback<T> = (e?: ApiError, rv?: T) => unknown;
@@ -22,11 +24,6 @@ export interface FileSystemMetadata {
 	 * Wheter the FS is readonly or not
 	 */
 	readonly: boolean;
-
-	/**
-	 * Does the FS support synchronous operations
-	 */
-	synchronous: boolean;
 
 	/**
 	 * Does the FS support properties
@@ -55,11 +52,13 @@ export interface FileSystemMetadata {
  * - All arguments are present. Any optional arguments at the Node API level have been passed in with their default values.
  */
 export abstract class FileSystem {
+	/**
+	 * Get metadata about the current file syste,
+	 */
 	public metadata(): FileSystemMetadata {
 		return {
 			name: this.constructor.name,
 			readonly: false,
-			synchronous: false,
 			supportsProperties: false,
 			totalSpace: 0,
 			freeSpace: 0,
@@ -233,10 +232,6 @@ export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (ab
 	 * Implements the asynchronous API in terms of the synchronous API.
 	 */
 	abstract class _SyncFileSystem extends FS implements SyncFileSystem {
-		public metadata(): FileSystemMetadata {
-			return { ...super.metadata(), synchronous: true };
-		}
-
 		public async ready(): Promise<this> {
 			return this;
 		}
@@ -291,7 +286,11 @@ export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (ab
 /**
  * @internal
  */
-declare abstract class AsyncFileSystem {
+declare abstract class AsyncFileSystem extends FileSystem {
+	/**
+	 * @hidden
+	 */
+	abstract _sync: FileSystem;
 	metadata(): FileSystemMetadata;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
 	statSync(path: string, cred: Cred): Stats;
@@ -305,60 +304,180 @@ declare abstract class AsyncFileSystem {
 	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
 }
 
+type AsyncMethods = ExtractProperties<FileSystem, (...args) => Promise<unknown>>;
+
+/**
+ * @internal
+ */
+type AsyncOperation = {
+	[K in keyof AsyncMethods]: [K, ...Parameters<FileSystem[K]>];
+}[keyof AsyncMethods];
+
+/**
+ * Async() implements synchronous methods on an asynchronous file system
+ *
+ * Implementing classes must define a protected _sync property for the synchronous file system used as a cache.
+ * by:
+ *
+ * - Performing operations over the in-memory copy, while asynchronously pipelining them
+ *   to the backing store.
+ * - During application loading, the contents of the async file system can be reloaded into
+ *   the synchronous store, if desired.
+ *
+ */
+
 export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => AsyncFileSystem) & T {
 	abstract class _AsyncFileSystem extends FS implements AsyncFileSystem {
-		public metadata(): FileSystemMetadata {
-			return { ...super.metadata(), synchronous: false };
+		/**
+		 * Queue of pending asynchronous operations.
+		 */
+		private _queue: AsyncOperation[] = [];
+		private _queueRunning: boolean = false;
+		abstract _sync: FileSystem;
+		private _isInitialized: boolean = false;
+
+		public async ready(): Promise<this> {
+			await this._initialize();
+			return this;
 		}
-		/* eslint-disable @typescript-eslint/no-unused-vars */
+
 		public renameSync(oldPath: string, newPath: string, cred: Cred): void {
-			throw new ApiError(ErrorCode.ENOTSUP);
+			this._sync.renameSync(oldPath, newPath, cred);
+			this.queue('rename', oldPath, newPath, cred);
 		}
 
-		public statSync(path: string, cred: Cred): Stats {
-			throw new ApiError(ErrorCode.ENOTSUP);
+		public statSync(p: string, cred: Cred): Stats {
+			return this._sync.statSync(p, cred);
 		}
 
-		public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
-			throw new ApiError(ErrorCode.ENOTSUP);
+		public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
+			const file = this._sync.createFileSync(path, flag, mode, cred);
+			this.queue('createFile', path, flag, mode, cred);
+			const stats = file.statSync();
+			const buffer = new Uint8Array(stats.size);
+			file.readSync(buffer);
+			return new PreloadFile(this, path, flag, stats, buffer);
 		}
 
 		public openFileSync(path: string, flag: string, cred: Cred): File {
-			throw new ApiError(ErrorCode.ENOTSUP);
+			return this._sync.openFileSync(path, flag, cred);
 		}
 
-		public unlinkSync(path: string, cred: Cred): void {
-			throw new ApiError(ErrorCode.ENOTSUP);
+		public unlinkSync(p: string, cred: Cred): void {
+			this._sync.unlinkSync(p, cred);
+			this.queue('unlink', p, cred);
 		}
 
-		public rmdirSync(path: string, cred: Cred): void {
-			throw new ApiError(ErrorCode.ENOTSUP);
+		public rmdirSync(p: string, cred: Cred): void {
+			this._sync.rmdirSync(p, cred);
+			this.queue('rmdir', p, cred);
 		}
 
-		public mkdirSync(path: string, mode: number, cred: Cred): void {
-			throw new ApiError(ErrorCode.ENOTSUP);
+		public mkdirSync(p: string, mode: number, cred: Cred): void {
+			this._sync.mkdirSync(p, mode, cred);
+			this.queue('mkdir', p, mode, cred);
 		}
 
-		public readdirSync(path: string, cred: Cred): string[] {
-			throw new ApiError(ErrorCode.ENOTSUP);
+		public readdirSync(p: string, cred: Cred): string[] {
+			return this._sync.readdirSync(p, cred);
 		}
 
 		public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
-			throw new ApiError(ErrorCode.ENOTSUP);
+			this._sync.linkSync(srcpath, dstpath, cred);
+			this.queue('link', srcpath, dstpath, cred);
 		}
 
 		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-			throw new ApiError(ErrorCode.ENOTSUP);
+			this._sync.syncSync(path, data, stats);
+			this.queue('sync', path, data, stats);
+		}
+
+		public existsSync(p: string, cred: Cred): boolean {
+			return this._sync.existsSync(p, cred);
+		}
+
+		/**
+		 * @internal
+		 */
+		protected async crossCopy(p: string): Promise<void> {
+			const stats = await this.stat(p, rootCred);
+			if (stats.isDirectory()) {
+				if (p !== '/') {
+					const stats = await this.stat(p, rootCred);
+					this._sync.mkdirSync(p, stats.mode, stats.cred());
+				}
+				const files = await this.readdir(p, rootCred);
+				for (const file of files) {
+					await this.crossCopy(join(p, file));
+				}
+			} else {
+				const asyncFile = await this.openFile(p, parseFlag('r'), rootCred);
+				const syncFile = this._sync.createFileSync(p, parseFlag('w'), stats.mode, rootCred);
+				try {
+					const { size } = await asyncFile.stat();
+					const buffer = new Uint8Array(size);
+					await asyncFile.read(buffer);
+					syncFile.writeSync(buffer);
+				} finally {
+					await asyncFile.close();
+					syncFile.closeSync();
+				}
+			}
+		}
+
+		/**
+		 * Called once to load up files from async storage into sync storage.
+		 */
+		protected async _initialize(): Promise<void> {
+			if (this._isInitialized) {
+				return;
+			}
+
+			try {
+				await this.crossCopy('/');
+				this._isInitialized = true;
+			} catch (e) {
+				this._isInitialized = false;
+				throw e;
+			}
+		}
+
+		/**
+		 * @internal
+		 */
+		private async _next(): Promise<void> {
+			if (this._queue.length == 0) {
+				this._queueRunning = false;
+				return;
+			}
+
+			const [method, ...args] = this._queue.shift()!;
+			// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
+			await this[method](...args);
+			await this._next();
+		}
+
+		/**
+		 * @internal
+		 */
+		private queue(...op: AsyncOperation) {
+			this._queue.push(op);
+			if (this._queueRunning) {
+				return;
+			}
+
+			this._queueRunning = true;
+			this._next();
 		}
 	}
-	/* eslint-enable @typescript-eslint/no-unused-vars */
+
 	return _AsyncFileSystem;
 }
 
 /**
  * @internal
  */
-declare abstract class ReadonlyFileSystem {
+declare abstract class ReadonlyFileSystem extends FileSystem {
 	metadata(): FileSystemMetadata;
 	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;

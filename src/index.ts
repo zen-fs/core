@@ -1,5 +1,4 @@
 export * from './backends/backend.js';
-export * from './backends/AsyncMirror.js';
 export * from './backends/AsyncStore.js';
 export * from './backends/InMemory.js';
 export * from './backends/Locked.js';

@@ -13,40 +13,6 @@ import type { Backend } from './backend.js';
 const deletionLogPath = '/.deleted';
 
 /**
- * Overlays a RO file to make it writable.
- * @internal
- */
-export class OverlayFile extends PreloadFile<UnlockedOverlayFS> implements File {
-	constructor(fs: UnlockedOverlayFS, path: string, flag: string, stats: Stats, data: Uint8Array) {
-		super(fs, path, flag, stats, data);
-	}
-
-	public async sync(): Promise<void> {
-		if (!this.isDirty()) {
-			return;
-		}
-
-		await this.fs.sync(this.path, this.buffer, this.stats);
-		this.resetDirty();
-	}
-
-	public syncSync(): void {
-		if (this.isDirty()) {
-			this.fs.syncSync(this.path, this.buffer, this.stats);
-			this.resetDirty();
-		}
-	}
-
-	public async close(): Promise<void> {
-		await this.sync();
-	}
-
-	public closeSync(): void {
-		this.syncSync();
-	}
-}
-
-/**
  * Configuration options for OverlayFS instances.
  */
 export interface OverlayOptions {
@@ -105,7 +71,6 @@ export class UnlockedOverlayFS extends FileSystem {
 		return {
 			...super.metadata(),
 			name: OverlayFS.name,
-			synchronous: this._readable.metadata().synchronous && this._writable.metadata().synchronous,
 			supportsProperties: this._readable.metadata().supportsProperties && this._writable.metadata().supportsProperties,
 		};
 	}
@@ -229,7 +194,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		const file = await this._readable.openFile(path, parseFlag('r'), cred);
 		const stats = new Stats(await file.stat());
 		const { buffer } = await file.read(new Uint8Array(stats.size));
-		return new OverlayFile(this, path, flag, stats, buffer);
+		return new PreloadFile(this, path, flag, stats, buffer);
 	}
 
 	public openFileSync(path: string, flag: string, cred: Cred): File {
@@ -241,7 +206,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		const stats = Stats.clone(file.statSync());
 		const data = new Uint8Array(stats.size);
 		file.readSync(data);
-		return new OverlayFile(this, path, flag, stats, data);
+		return new PreloadFile(this, path, flag, stats, data);
 	}
 
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {

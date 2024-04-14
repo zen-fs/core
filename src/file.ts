@@ -347,12 +347,9 @@ export abstract class File {
  * An implementation of the File interface that operates on a file that is
  * completely in-memory. PreloadFiles are backed by a Uint8Array.
  *
- * This is also an abstract class, as it lacks an implementation of 'sync' and
- * 'close'. Each filesystem that wishes to use this file representation must
- * extend this class and implement those two methods.
  * @todo 'close' lever that disables functionality once closed.
  */
-export abstract class PreloadFile<FS extends FileSystem> extends File {
+export class PreloadFile<FS extends FileSystem> extends File {
 	protected _position: number = 0;
 	protected _dirty: boolean = false;
 	/**
@@ -429,6 +426,30 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 		this._position = newPos;
 	}
 
+	public async sync(): Promise<void> {
+		if (!this.isDirty()) {
+			return;
+		}
+		await this.fs.sync(this.path, this._buffer, this.stats);
+		this._dirty = false;
+	}
+
+	public syncSync(): void {
+		if (!this.isDirty()) {
+			return;
+		}
+		this.fs.syncSync(this.path, this._buffer, this.stats);
+		this._dirty = false;
+	}
+
+	public async close(): Promise<void> {
+		await this.sync();
+	}
+
+	public closeSync(): void {
+		this.syncSync();
+	}
+
 	/**
 	 * Asynchronous `stat`.
 	 */
@@ -449,7 +470,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public truncate(len: number): Promise<void> {
 		this.truncateSync(len);
-		if (isSynchronous(this.flag) && !this.fs!.metadata().synchronous) {
+		if (isSynchronous(this.flag)) {
 			return this.sync();
 		}
 	}
@@ -468,7 +489,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 			const buf = new Uint8Array(len - this._buffer.length);
 			// Write will set stats.size for us.
 			this.writeSync(buf, 0, buf.length, this._buffer.length);
-			if (isSynchronous(this.flag) && this.fs!.metadata().synchronous) {
+			if (isSynchronous(this.flag)) {
 				this.syncSync();
 			}
 			return;
@@ -476,7 +497,7 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 		this.stats.size = len;
 		// Truncate buffer to 'len'.
 		this._buffer = this._buffer.subarray(0, len);
-		if (isSynchronous(this.flag) && this.fs!.metadata().synchronous) {
+		if (isSynchronous(this.flag)) {
 			this.syncSync();
 		}
 	}
@@ -662,34 +683,6 @@ export abstract class PreloadFile<FS extends FileSystem> extends File {
 	public _setTypeSync(type: FileType): void {
 		this._dirty = true;
 		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
-		this.syncSync();
-	}
-}
-
-/**
- * For synchronous file systems
- */
-export class SyncFile<FS extends FileSystem> extends PreloadFile<FS> {
-	constructor(_fs: FS, _path: string, _flag: string, _stat: Stats, contents?: Uint8Array) {
-		super(_fs, _path, _flag, _stat, contents);
-	}
-
-	public async sync(): Promise<void> {
-		this.syncSync();
-	}
-
-	public syncSync(): void {
-		if (this.isDirty()) {
-			this.fs.syncSync(this.path, this._buffer, this.stats);
-			this.resetDirty();
-		}
-	}
-
-	public async close(): Promise<void> {
-		this.closeSync();
-	}
-
-	public closeSync(): void {
 		this.syncSync();
 	}
 }

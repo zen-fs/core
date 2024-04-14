@@ -2,7 +2,7 @@ import { dirname, basename, join, resolve } from '../emulation/path.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import type { Cred } from '../cred.js';
 import { W_OK, R_OK } from '../emulation/constants.js';
-import { PreloadFile, File, flagToMode } from '../file.js';
+import { PreloadFile, flagToMode } from '../file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '../filesystem.js';
 import { randomIno, type Ino, Inode } from '../inode.js';
 import { type Stats, FileType } from '../stats.js';
@@ -107,38 +107,6 @@ export interface AsyncTransaction {
 	abort(): Promise<void>;
 }
 
-/**
- * Async preload file for usage with AsyncStore
- * @internal
- */
-export class AsyncFile extends PreloadFile<AsyncStoreFS> {
-	constructor(_fs: AsyncStoreFS, _path: string, _flag: string, _stat: Stats, contents?: Uint8Array) {
-		super(_fs, _path, _flag, _stat, contents);
-	}
-
-	public async sync(): Promise<void> {
-		if (!this.isDirty()) {
-			return;
-		}
-
-		await this.fs.sync(this.path, this._buffer, this.stats);
-
-		this.resetDirty();
-	}
-
-	public syncSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-
-	public async close(): Promise<void> {
-		this.sync();
-	}
-
-	public closeSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
-	}
-}
-
 export interface AsyncStoreOptions {
 	/**
 	 * Promise that resolves to the store
@@ -148,7 +116,12 @@ export interface AsyncStoreOptions {
 	/**
 	 * The size of the cache. If not provided, no cache will be used
 	 */
-	cacheSize?: number;
+	lruCacheSize?: number;
+
+	/**
+	 * The file system to use for synchronous methods. Defaults to InMemory
+	 */
+	sync?: FileSystem;
 }
 
 /**
@@ -159,6 +132,7 @@ export interface AsyncStoreOptions {
 export class AsyncStoreFS extends Async(FileSystem) {
 	protected store: AsyncStore;
 	private _cache?: LRUCache<string, Ino>;
+	_sync: FileSystem;
 
 	protected _ready: Promise<this>;
 
@@ -173,7 +147,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		};
 	}
 
-	constructor({ store, cacheSize }: AsyncStoreOptions) {
+	constructor({ store, lruCacheSize: cacheSize }: AsyncStoreOptions) {
 		super();
 		if (cacheSize > 0) {
 			this._cache = new LRUCache(cacheSize);
@@ -302,15 +276,15 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		return stats;
 	}
 
-	public async createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
+	public async createFile(p: string, flag: string, mode: number, cred: Cred): Promise<PreloadFile<this>> {
 		const tx = this.store.beginTransaction(),
 			data = new Uint8Array(0),
 			newFile = await this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
 		// Open the file.
-		return new AsyncFile(this, p, flag, newFile.toStats(), data);
+		return new PreloadFile(this, p, flag, newFile.toStats(), data);
 	}
 
-	public async openFile(p: string, flag: string, cred: Cred): Promise<File> {
+	public async openFile(p: string, flag: string, cred: Cred): Promise<PreloadFile<this>> {
 		const tx = this.store.beginTransaction(),
 			node = await this.findINode(tx, p),
 			data = await tx.get(node.ino);
@@ -320,7 +294,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		if (!data) {
 			throw ApiError.With('ENOENT', p, 'openFile');
 		}
-		return new AsyncFile(this, p, flag, node.toStats(), data);
+		return new PreloadFile(this, p, flag, node.toStats(), data);
 	}
 
 	public async unlink(p: string, cred: Cred): Promise<void> {
