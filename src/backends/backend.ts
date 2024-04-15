@@ -5,37 +5,30 @@ import { levenshtein, type RequiredKeys } from '../utils.js';
 type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undefined' | 'object' | 'function';
 
 /**
- * Describes a file system option.
+ * Resolves the type of Backend.options from the options interface
  */
-export interface OptionConfig<T> {
-	/**
-	 * The basic JavaScript type(s) for this option.
-	 */
-	type: OptionType | readonly OptionType[];
-
-	/**
-	 * Whether or not the option is required (optional can be set to null or undefined). Defaults to false.
-	 */
-	required: boolean;
-
-	/**
-	 * Description of the option. Used in error messages and documentation.
-	 */
-	description: string;
-
-	/**
-	 * A custom validation function to check if the option is valid.
-	 * When async, resolves if valid and rejects if not.
-	 * When sync, it will throw an error if not valid.
-	 */
-	validator?(opt: T): void | Promise<void>;
-}
-
-type InferOptionsConfig<T> = {
+type OptionsConfig<T> = {
 	[K in keyof T]: {
-		type: OptionType | OptionType[];
+		/**
+		 * The basic JavaScript type(s) for this option.
+		 */
+		type: OptionType | readonly OptionType[];
+
+		/**
+		 * Description of the option. Used in error messages and documentation.
+		 */
 		description: string;
+
+		/**
+		 * Whether or not the option is required (optional can be set to null or undefined). Defaults to false.
+		 */
 		required: K extends RequiredKeys<T> ? true : false;
+
+		/**
+		 * A custom validation function to check if the option is valid.
+		 * When async, resolves if valid and rejects if not.
+		 * When sync, it will throw an error if not valid.
+		 */
 		validator?(opt: T[K]): void | Promise<void>;
 	};
 };
@@ -57,7 +50,7 @@ export interface Backend<FS extends FileSystem = FileSystem, TOptions extends ob
 	/**
 	 * Describes all of the options available for this backend.
 	 */
-	options: InferOptionsConfig<TOptions>;
+	options: OptionsConfig<TOptions>;
 
 	/**
 	 * Whether the backend is available in the current environment.
