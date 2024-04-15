@@ -429,7 +429,7 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 		/**
 		 * Called once to load up files from async storage into sync storage.
 		 */
-		protected async _initialize(): Promise<void> {
+		private async _initialize(): Promise<void> {
 			if (this._isInitialized) {
 				return;
 			}
