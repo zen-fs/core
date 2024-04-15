@@ -141,8 +141,8 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		}
 		this.store = await this._options.store;
 		this._sync = this._options.sync || InMemory.create({ name: 'test' });
-		await super.ready();
 		await this.makeRootDirectory();
+		await super.ready();
 		return this;
 	}
 
