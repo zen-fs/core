@@ -139,7 +139,12 @@ export class AsyncStoreFS extends Async(FileSystem) {
 
 	public async ready() {
 		await super.ready();
-		await this._ready;
+		if (this._options.lruCacheSize > 0) {
+			this._cache = new LRUCache(this._options.lruCacheSize);
+		}
+		this.store = await this._options.store;
+		await this.makeRootDirectory();
+		this._sync = this._options.sync || InMemory.create({ name: 'test' });
 		return this;
 	}
 
@@ -150,22 +155,8 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		};
 	}
 
-	constructor(options: AsyncStoreOptions) {
+	constructor(protected _options: AsyncStoreOptions) {
 		super();
-		this._ready = this._initialize(options);
-	}
-
-	/**
-	 * Initializes the file system. Typically called by subclasses' async
-	 * constructors.
-	 */
-	private async _initialize({ store, lruCacheSize, sync }: AsyncStoreOptions): Promise<void> {
-		if (lruCacheSize > 0) {
-			this._cache = new LRUCache(lruCacheSize);
-		}
-		this.store = await store;
-		await this.makeRootDirectory();
-		this._sync = sync || InMemory.create({ name: 'test' });
 	}
 
 	/**

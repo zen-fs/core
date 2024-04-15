@@ -334,11 +334,22 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 		 */
 		private _queue: AsyncOperation[] = [];
 		private _queueRunning: boolean = false;
-		abstract _sync: FileSystem;
 		private _isInitialized: boolean = false;
 
+		abstract _sync: FileSystem;
+
 		public async ready(): Promise<this> {
-			await this._initialize();
+			if (this._isInitialized) {
+				return this;
+			}
+
+			try {
+				await this.crossCopy('/');
+				this._isInitialized = true;
+			} catch (e) {
+				this._isInitialized = false;
+				throw e;
+			}
 			return this;
 		}
 
@@ -423,23 +434,6 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 					await asyncFile.close();
 					syncFile.closeSync();
 				}
-			}
-		}
-
-		/**
-		 * Called once to load up files from async storage into sync storage.
-		 */
-		private async _initialize(): Promise<void> {
-			if (this._isInitialized) {
-				return;
-			}
-
-			try {
-				await this.crossCopy('/');
-				this._isInitialized = true;
-			} catch (e) {
-				this._isInitialized = false;
-				throw e;
 			}
 		}
 
