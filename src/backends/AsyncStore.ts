@@ -159,7 +159,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * Initializes the file system. Typically called by subclasses' async
 	 * constructors.
 	 */
-	protected async _initialize({ store, lruCacheSize, sync }: AsyncStoreOptions): Promise<void> {
+	private async _initialize({ store, lruCacheSize, sync }: AsyncStoreOptions): Promise<void> {
 		if (lruCacheSize > 0) {
 			this._cache = new LRUCache(lruCacheSize);
 		}
