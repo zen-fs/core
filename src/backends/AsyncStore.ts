@@ -135,16 +135,14 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	private _cache?: LRUCache<string, Ino>;
 	_sync: FileSystem;
 
-	protected _ready: Promise<void>;
-
 	public async ready() {
 		if (this._options.lruCacheSize > 0) {
 			this._cache = new LRUCache(this._options.lruCacheSize);
 		}
 		this.store = await this._options.store;
+		this._sync = this._options.sync || InMemory.create({ name: 'test' });
 		await super.ready();
 		await this.makeRootDirectory();
-		this._sync = this._options.sync || InMemory.create({ name: 'test' });
 		return this;
 	}
 
