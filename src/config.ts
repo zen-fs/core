@@ -8,7 +8,7 @@ import { FileSystem } from './filesystem.js';
 /**
  * Configuration for a specific mount point
  */
-export type MountConfiguration<FS extends FileSystem = FileSystem> = FS | BackendConfiguration<FS> | Backend<FS>;
+export type MountConfiguration<FS extends FileSystem = FileSystem, TOptions extends object = object> = FS | BackendConfiguration<FS, TOptions> | Backend<FS, TOptions>;
 
 function isMountConfig(arg: unknown): arg is MountConfiguration {
 	return isBackendConfig(arg) || isBackend(arg) || arg instanceof FileSystem;
@@ -18,7 +18,7 @@ function isMountConfig(arg: unknown): arg is MountConfiguration {
  * Retrieve a file system with the given configuration.
  * @param config A BackendConfig object.
  */
-export async function resolveMountConfig<FS extends FileSystem>(config: MountConfiguration<FS>, _depth = 0): Promise<FS> {
+export async function resolveMountConfig<FS extends FileSystem, TOptions extends object = object>(config: MountConfiguration<FS, TOptions>, _depth = 0): Promise<FS> {
 	if (typeof config !== 'object' || config == null) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on mount configuration');
 	}
@@ -32,7 +32,7 @@ export async function resolveMountConfig<FS extends FileSystem>(config: MountCon
 	}
 
 	if (isBackend(config)) {
-		config = { backend: config };
+		config = <BackendConfiguration<FS, TOptions>>{ backend: config };
 	}
 
 	for (const [key, value] of Object.entries(config)) {

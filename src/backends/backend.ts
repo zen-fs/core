@@ -11,7 +11,7 @@ export interface OptionConfig<T> {
 	/**
 	 * The basic JavaScript type(s) for this option.
 	 */
-	type: OptionType | OptionType[];
+	type: OptionType | readonly OptionType[];
 
 	/**
 	 * Whether or not the option is required (optional can be set to null or undefined). Defaults to false.
