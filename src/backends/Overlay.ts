@@ -589,4 +589,4 @@ export const Overlay = {
 	create(options: OverlayOptions) {
 		return new OverlayFS(options);
 	},
-} as const satisfies Backend<OverlayFS>;
+} as const satisfies Backend<OverlayFS, OverlayOptions>;
