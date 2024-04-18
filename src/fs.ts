@@ -285,7 +285,7 @@ export const Port = {
 			type: 'number',
 			required: false,
 			description: 'How long to wait before the request times out',
-		}
+		},
 	},
 
 	async isAvailable(): Promise<boolean> {
