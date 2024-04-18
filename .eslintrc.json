@@ -27,7 +27,8 @@
 		"@typescript-eslint/triple-slash-reference": "warn",
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-namespace": "warn",
-		"@typescript-eslint/prefer-as-const": "warn"
+		"@typescript-eslint/prefer-as-const": "warn",
+		"@typescript-eslint/no-explicit-any": "warn"
 	},
 	"ignorePatterns": ["tests/fixtures"],
 	"plugins": ["@typescript-eslint"]
