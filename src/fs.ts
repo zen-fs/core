@@ -266,12 +266,13 @@ export function detachFS(port: RPC.Port, fs: FileSystem): void {
 	RPC.detach(port, (request: RPC.Request) => handleRequest(port, fs, request));
 }
 
-export const Port: Backend = {
+export const Port = {
 	name: 'Port',
 
 	options: {
 		port: {
 			type: 'object',
+			required: true,
 			description: 'The target port that you want to connect to',
 			validator(port: RPC.Port) {
 				// Check for a `postMessage` function.
@@ -280,6 +281,11 @@ export const Port: Backend = {
 				}
 			},
 		},
+		timeout: {
+			type: 'number',
+			required: false,
+			description: 'How long to wait before the request times out',
+		}
 	},
 
 	async isAvailable(): Promise<boolean> {
@@ -301,4 +307,4 @@ export const Port: Backend = {
 	create(options: RPC.Options) {
 		return new PortFS(options);
 	},
-};
+} satisfies Backend<PortFS, RPC.Options>;

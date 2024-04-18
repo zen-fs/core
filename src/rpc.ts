@@ -17,7 +17,7 @@ export interface Options {
 	/**
 	 * How long to wait for a request to complete
 	 */
-	timeout: number;
+	timeout?: number;
 }
 
 /**
