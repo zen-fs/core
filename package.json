@@ -38,15 +38,16 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "tsc -p tsconfig.json --noEmit && eslint src",
-		"build": "node scripts/build.js",
+		"build": "npx build --package=@zenfs/core --globalName ZenFS_Port --entry src/index.ts",
 		"build:docs": "typedoc --out docs --name 'ZenFS Port' src/index.ts",
 		"prepublishOnly": "npm run build",
 		"test": "npm run build && cross-env NODE_OPTIONS=--experimental-vm-modules npx jest"
 	},
 	"devDependencies": {
+		"@fal-works/esbuild-plugin-global-externals": "^2.1.2",
 		"@types/jest": "^29.5.12",
-		"@typescript-eslint/eslint-plugin": "^5.55.0",
-		"@typescript-eslint/parser": "^5.55.0",
+		"@typescript-eslint/eslint-plugin": "^7.7.0",
+		"@typescript-eslint/parser": "^7.7.0",
 		"cross-env": "^7.0.3",
 		"esbuild": "^0.17.18",
 		"eslint": "^8.36.0",
@@ -57,6 +58,6 @@
 		"typescript": "5.2.2"
 	},
 	"dependencies": {
-		"@zenfs/core": "^0.5.5"
+		"@zenfs/core": "^0.7.0"
 	}
 }

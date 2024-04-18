@@ -1,4 +1,4 @@
-import { ApiError, ErrorCode, type Backend } from '@zenfs/core';
+import { ApiError, ErrorCode, InMemory, type Backend, type SyncStoreFS } from '@zenfs/core';
 import { Cred } from '@zenfs/core/cred.js';
 import { File } from '@zenfs/core/file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '@zenfs/core/filesystem.js';
@@ -59,7 +59,7 @@ export class PortFile extends File {
 		throw new ApiError(ErrorCode.ENOTSUP);
 	}
 
-	public read<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
+	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		return <Promise<{ bytesRead: number; buffer: TBuffer }>>this.rpc('read', buffer, offset, length, position);
 	}
 
@@ -130,6 +130,11 @@ export class PortFS extends Async(FileSystem) {
 	public readonly port: RPC.Port;
 
 	/**
+	 * @hidden
+	 */
+	_sync: SyncStoreFS = InMemory.create({ name: 'port-tmpfs' });
+
+	/**
 	 * Constructs a new PortFS instance that connects with ZenFS running on
 	 * the specified port.
 	 */
@@ -143,7 +148,6 @@ export class PortFS extends Async(FileSystem) {
 		return {
 			...super.metadata(),
 			name: 'PortFS',
-			synchronous: false,
 		};
 	}
 

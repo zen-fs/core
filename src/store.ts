@@ -173,6 +173,6 @@ export const PortStoreBackend: Backend = {
 	},
 
 	create(options: RPC.Options & AsyncStoreOptions & { name?: string }) {
-		return new AsyncStoreFS({ store: new PortStore(options, options?.name), cacheSize: options?.cacheSize });
+		return new AsyncStoreFS({ ...options, store: new PortStore(options, options?.name) });
 	},
 };
