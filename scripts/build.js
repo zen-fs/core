@@ -40,7 +40,7 @@ function start() {
 }
 
 const config = {
-	entryPoints: [entry],
+	entryPoints: [entry || 'src/index.ts'],
 	target: 'esnext',
 	globalName,
 	outfile: 'dist/browser.min.js',
