@@ -16,5 +16,6 @@ export * from './stats';
 export * from './utils';
 export * from './emulation/index';
 import * as fs from './emulation/index';
-export { fs };
+import * as path from './emulation/path';
+export { fs, path };
 export default fs;

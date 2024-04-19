@@ -1,4 +1,4 @@
-# CoreFS
+# file-ts
 
 This is ZenFS, rebuilt to use `tsc` and modified slightly, essentially it's still ZenFS, but more modern build structure.
 
@@ -22,7 +22,7 @@ For more information, see the [docs](https://zen-fs.github.io/core).
 ## Installing
 
 ```sh
-npm install @zenfs/core
+npm install file-ts
 ```
 
 ## Usage
@@ -33,7 +33,7 @@ npm install @zenfs/core
 > If using a browser environment without support for `type=module` in `script` tags, you can add a `script` tag to your HTML pointing to the `browser.min.js` and use ZenFS with the global `ZenFS` object.
 
 ```js
-import fs from '@zenfs/core'; // You can also use the named export, `fs`
+import fs from 'file-ts'; // You can also use the named export, `fs`
 
 fs.writeFileSync('/test.txt', 'Cool, I can do this in any JS environment (including browsers)!');
 
@@ -52,7 +52,7 @@ You can use multiple backends by passing an object to `configure` which maps pat
 The following example mounts a zip file to `/zip`, in-memory storage to `/tmp`, and IndexedDB to `/home`. Note that `/` has the default in-memory backend.
 
 ```js
-import { configure, InMemory } from '@zenfs/core';
+import { configure, InMemory } from 'file-ts';
 import { IndexedDB } from '@zenfs/dom';
 import { Zip } from '@zenfs/zip';
 
@@ -75,7 +75,7 @@ await configure({
 Here is an example that mounts the `WebStorage` backend from `@zenfs/dom` on `/`:
 
 ```js
-import { configure, fs } from '@zenfs/core';
+import { configure, fs } from 'file-ts';
 import { WebStorage } from '@zenfs/dom';
 
 await configure({ backend: WebStorage });
@@ -93,8 +93,8 @@ console.log(contents);
 The FS promises API is exposed as `promises`.
 
 ```js
-import { configure } from '@zenfs/core';
-import { exists, writeFile } from '@zenfs/core/promises';
+import { configure } from 'file-ts';
+import { exists, writeFile } from 'file-ts/promises';
 import { IndexedDB } from '@zenfs/dom';
 
 await configure({ '/': IndexedDB });
@@ -108,9 +108,9 @@ if (!exists) {
 > [!NOTE]
 > You can import the promises API using:
 >
-> 1. Exports from `@zenfs/core/promises`
-> 2. The `promises` export from `@zenfs/core`
-> 3. `fs.promises` on the exported `fs` from `@zenfs/core`.
+> 1. Exports from `file-ts/promises`
+> 2. The `promises` export from `file-ts`
+> 3. `fs.promises` on the exported `fs` from `file-ts`.
 
 #### Mounting and unmounting, creating backends
 
@@ -119,7 +119,7 @@ If you would like to create backends without configure (e.g. to do something dyn
 You can then mount and unmount the backend instance by using `mount` and `umount`.
 
 ```js
-import { configure, resolveMountConfig, InMemory } from '@zenfs/core';
+import { configure, resolveMountConfig, InMemory } from 'file-ts';
 import { IndexedDB  } from '@zenfs/dom';
 import { Zip } from '@zenfs/zip';
 
