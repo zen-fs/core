@@ -1,5 +1,18 @@
 # file-ts
 
+<p align="center" width="100%">
+    <img height="90" src="https://user-images.githubusercontent.com/545047/190171475-b416f99e-2831-4786-9ba3-a7ff4d95b0d3.svg" />
+</p>
+
+<p align="center" width="100%">
+  
+  <a href="https://github.com/pyramation/file-ts/actions/workflows/run-tests.yml">
+    <img height="20" src="https://github.com/pyramation/file-ts/actions/workflows/run-tests.yml/badge.svg" />
+  </a>
+   <a href="https://github.com/pyramation/file-ts/blob/main/LICENSE"><img height="20" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+</p>
+
+
 This is ZenFS, rebuilt to use `tsc` and modified slightly, essentially it's still ZenFS, but more modern build structure.
 
 ZenFS is a file system that emulates the [NodeJS filesystem API](http://nodejs.org/api/fs.html).
