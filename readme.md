@@ -1,4 +1,6 @@
-# ZenFS
+# CoreFS
+
+This is ZenFS, rebuilt to use `tsc` and modified slightly, essentially it's still ZenFS, but more modern build structure.
 
 ZenFS is a file system that emulates the [NodeJS filesystem API](http://nodejs.org/api/fs.html).
 
