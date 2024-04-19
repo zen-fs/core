@@ -1,4 +1,4 @@
-import { Stats, type StatsLike } from './stats.js';
+import { Stats, type StatsLike } from './stats';
 
 /**
  * Alias for an ino.

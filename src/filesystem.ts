@@ -1,9 +1,9 @@
-import { ApiError, ErrorCode } from './ApiError.js';
-import type { Stats } from './stats.js';
-import { PreloadFile, parseFlag, type File } from './file.js';
-import { rootCred, type Cred } from './cred.js';
-import { join } from './emulation/path.js';
-import type { ExtractProperties } from './utils.js';
+import { ApiError, ErrorCode } from './ApiError';
+import type { Stats } from './stats';
+import { PreloadFile, parseFlag, type File } from './file';
+import { rootCred, type Cred } from './cred';
+import { join } from './emulation/path';
+import type { ExtractProperties } from './utils';
 
 export type NoArgCallback = (e?: ApiError) => unknown;
 export type TwoArgCallback<T> = (e?: ApiError, rv?: T) => unknown;

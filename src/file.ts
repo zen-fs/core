@@ -1,9 +1,9 @@
 import type { FileReadResult } from 'node:fs/promises';
-import { ApiError, ErrorCode } from './ApiError.js';
-import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT } from './emulation/constants.js';
-import type { FileSystem } from './filesystem.js';
-import { size_max } from './inode.js';
-import { Stats, type FileType } from './stats.js';
+import { ApiError, ErrorCode } from './ApiError';
+import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT } from './emulation/constants';
+import type { FileSystem } from './filesystem';
+import { size_max } from './inode';
+import { Stats, type FileType } from './stats';
 
 /*
 	Typescript does not include a type declaration for resizable array buffers. 
@@ -28,7 +28,7 @@ declare global {
 	}
 
 	interface ArrayBufferConstructor {
-		new (byteLength: number, options: { maxByteLength?: number }): ArrayBuffer;
+		new(byteLength: number, options: { maxByteLength?: number }): ArrayBuffer;
 	}
 }
 

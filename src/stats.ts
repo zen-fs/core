@@ -1,6 +1,6 @@
 import type * as Node from 'fs';
-import { Cred } from './cred.js';
-import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants.js';
+import { Cred } from './cred';
+import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants';
 
 /**
  * Indicates the type of the given file. Applied to 'mode'.

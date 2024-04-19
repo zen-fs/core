@@ -4,17 +4,17 @@ import type * as promises from 'node:fs/promises';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo, FileReadResult, FlagAndOpenMode } from 'node:fs/promises';
 import type { ReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
-import { ApiError, ErrorCode } from '../ApiError.js';
-import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
-import { FileContents, FileSystem } from '../filesystem.js';
-import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
-import { F_OK } from './constants.js';
-import { Dirent, type Dir } from './dir.js';
-import { dirname, join, parse } from './path.js';
-import type { PathLike } from './shared.js';
-import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveMount } from './shared.js';
-import { ReadStream, WriteStream } from './streams.js';
-export * as constants from './constants.js';
+import { ApiError, ErrorCode } from '../ApiError';
+import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file';
+import { FileContents, FileSystem } from '../filesystem';
+import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats';
+import { F_OK } from './constants';
+import { Dirent, type Dir } from './dir';
+import { dirname, join, parse } from './path';
+import type { PathLike } from './shared';
+import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveMount } from './shared';
+import { ReadStream, WriteStream } from './streams';
+export * as constants from './constants';
 
 export class FileHandle implements promises.FileHandle {
 	public constructor(
@@ -22,7 +22,7 @@ export class FileHandle implements promises.FileHandle {
 		 * Gets the file descriptor for this file handle.
 		 */
 		public readonly fd: number
-	) {}
+	) { }
 
 	private get file(): File {
 		return fd2file(this.fd);
@@ -288,8 +288,8 @@ export class FileHandle implements promises.FileHandle {
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
-		? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
-		: never;
+	? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
+	: never;
 }[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
 
 /**

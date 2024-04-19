@@ -1,3 +1,32 @@
-*
-!dist/**/*
-!license.md
+*.log
+npm-debug.log*
+
+protobuf
+out
+*.proto
+
+# snapshots
+*.snap
+
+# Coverage directory used by tools like istanbul
+coverage
+.nyc_output
+
+# Dependency directories
+node_modules
+
+# npm package lock
+package-lock.json
+yarn.lock
+
+# project files
+__snapshots__
+__fixtures__
+__tests__
+.editorconfig
+.eslintignore
+.eslintrc.js
+.gitignore
+.travis.yml
+.vscode
+CHANGELOG.md

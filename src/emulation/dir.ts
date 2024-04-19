@@ -1,10 +1,10 @@
 import type { Dirent as _Dirent, Dir as _Dir } from 'fs';
-import type { NoArgCallback, TwoArgCallback } from '../filesystem.js';
-import type { Stats } from '../stats.js';
-import { readdir } from './promises.js';
-import { ApiError, ErrorCode } from '../ApiError.js';
-import { readdirSync } from './sync.js';
-import { basename } from './path.js';
+import type { NoArgCallback, TwoArgCallback } from '../filesystem';
+import type { Stats } from '../stats';
+import { readdir } from './promises';
+import { ApiError, ErrorCode } from '../ApiError';
+import { readdirSync } from './sync';
+import { basename } from './path';
 
 export class Dirent implements _Dirent {
 	public get name(): string {
@@ -14,7 +14,7 @@ export class Dirent implements _Dirent {
 	constructor(
 		public path: string,
 		protected stats: Stats
-	) {}
+	) { }
 
 	isFile(): boolean {
 		return this.stats.isFile();
@@ -53,7 +53,7 @@ export class Dir implements _Dir {
 
 	protected _entries: Dirent[];
 
-	constructor(public readonly path: string) {}
+	constructor(public readonly path: string) { }
 
 	/**
 	 * Asynchronously close the directory's underlying resource handle.

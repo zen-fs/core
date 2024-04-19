@@ -1,9 +1,9 @@
-import { ApiError, ErrorCode } from './ApiError.js';
-import type { Cred } from './cred.js';
-import { basename, dirname, join } from './emulation/path.js';
-import { NoSyncFile, flagToMode, isWriteable } from './file.js';
-import { FileSystem, Sync, Async, Readonly } from './filesystem.js';
-import { FileType, Stats } from './stats.js';
+import { ApiError, ErrorCode } from './ApiError';
+import type { Cred } from './cred';
+import { basename, dirname, join } from './emulation/path';
+import { NoSyncFile, flagToMode, isWriteable } from './file';
+import { FileSystem, Sync, Async, Readonly } from './filesystem';
+import { FileType, Stats } from './stats';
 
 /**
  * @internal
@@ -243,7 +243,7 @@ export class FileIndex<T> {
  * Note that Stats objects are what we use for file inodes.
  */
 export abstract class IndexInode<T> {
-	constructor(public data?: T) {}
+	constructor(public data?: T) { }
 	/**
 	 * Whether this inode is for a file
 	 */

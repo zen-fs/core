@@ -1,7 +1,7 @@
-import { FileSystem } from './filesystem.js';
-import { ApiError, ErrorCode } from './ApiError.js';
-import { dirname } from './emulation/path.js';
-import { Cred } from './cred.js';
+import { FileSystem } from './filesystem';
+import { ApiError, ErrorCode } from './ApiError';
+import { dirname } from './emulation/path';
+import { Cred } from './cred';
 
 declare global {
 	function atob(data: string): string;
@@ -65,7 +65,7 @@ export function levenshtein(a: string, b: string): number {
 
 	const vector = new Array<number>(la << 1);
 
-	for (let y = 0; y < la; ) {
+	for (let y = 0; y < la;) {
 		vector[la + y] = a.charCodeAt(offset + y);
 		vector[y] = ++y;
 	}
@@ -75,13 +75,13 @@ export function levenshtein(a: string, b: string): number {
 	let d1: number;
 	let d2: number;
 	let d3: number;
-	for (x = 0; x + 3 < lb; ) {
+	for (x = 0; x + 3 < lb;) {
 		const bx0 = b.charCodeAt(offset + (d0 = x));
 		const bx1 = b.charCodeAt(offset + (d1 = x + 1));
 		const bx2 = b.charCodeAt(offset + (d2 = x + 2));
 		const bx3 = b.charCodeAt(offset + (d3 = x + 3));
 		let dd = (x += 4);
-		for (let y = 0; y < la; ) {
+		for (let y = 0; y < la;) {
 			const ay = vector[la + y];
 			const dy = vector[y];
 			d0 = _min(dy, d0, d1, bx0, ay);
@@ -97,7 +97,7 @@ export function levenshtein(a: string, b: string): number {
 	}
 
 	let dd: number = 0;
-	for (; x < lb; ) {
+	for (; x < lb;) {
 		const bx0 = b.charCodeAt(offset + (d0 = x));
 		dd = ++x;
 		for (let y = 0; y < la; y++) {

@@ -1,6 +1,6 @@
 import type * as Node from 'fs';
 import { Readable, Writable } from 'readable-stream';
-import { NoArgCallback } from '../filesystem.js';
+import { NoArgCallback } from '../filesystem';
 
 export class ReadStream extends Readable implements Node.ReadStream {
 	close(callback: NoArgCallback = () => null): void {

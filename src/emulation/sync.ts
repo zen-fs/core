@@ -1,18 +1,18 @@
 import { Buffer } from 'buffer';
 import type * as Node from 'fs';
 import type { BufferEncodingOption, EncodingOption, ReadSyncOptions, StatOptions, symlink } from 'fs';
-import { ApiError, ErrorCode } from '../ApiError.js';
-import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
-import { FileContents, FileSystem } from '../filesystem.js';
-import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
-import { Dir, Dirent } from './dir.js';
-import { dirname, join, parse } from './path.js';
-import { PathLike, cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveMount } from './shared.js';
+import { ApiError, ErrorCode } from '../ApiError';
+import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file';
+import { FileContents, FileSystem } from '../filesystem';
+import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats';
+import { Dir, Dirent } from './dir';
+import { dirname, join, parse } from './path';
+import { PathLike, cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveMount } from './shared';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
-		? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
-		: never;
+	? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
+	: never;
 }[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
 
 function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): RT {

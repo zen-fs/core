@@ -1,12 +1,12 @@
 import type * as Node from 'fs';
-import { ApiError, ErrorCode } from '../ApiError.js';
-import { FileContents, NoArgCallback, ThreeArgCallback, TwoArgCallback } from '../filesystem.js';
-import { BigIntStats, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
-import { R_OK } from './constants.js';
-import { Dirent, type Dir } from './dir.js';
-import * as promises from './promises.js';
-import { PathLike, fd2file, nop, normalizeMode } from './shared.js';
-import { ReadStream, WriteStream } from './streams.js';
+import { ApiError, ErrorCode } from '../ApiError';
+import { FileContents, NoArgCallback, ThreeArgCallback, TwoArgCallback } from '../filesystem';
+import { BigIntStats, type BigIntStatsFs, type Stats, type StatsFs } from '../stats';
+import { R_OK } from './constants';
+import { Dirent, type Dir } from './dir';
+import * as promises from './promises';
+import { PathLike, fd2file, nop, normalizeMode } from './shared';
+import { ReadStream, WriteStream } from './streams';
 
 /**
  * Asynchronous rename. No arguments other than a possible exception are given

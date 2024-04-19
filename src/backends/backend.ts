@@ -1,6 +1,6 @@
-import { ApiError, ErrorCode } from '../ApiError.js';
-import { FileSystem } from '../filesystem.js';
-import { levenshtein, type RequiredKeys } from '../utils.js';
+import { ApiError, ErrorCode } from '../ApiError';
+import { FileSystem } from '../filesystem';
+import { levenshtein, type RequiredKeys } from '../utils';
 
 type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undefined' | 'object' | 'function';
 
@@ -102,8 +102,7 @@ export async function checkOptions<T extends Backend>(backend: T, opts: object):
 
 			throw new ApiError(
 				ErrorCode.EINVAL,
-				`${backend.name}: Required option '${optName}' not provided.${
-					incorrectOptions.length > 0 ? ` You provided '${incorrectOptions[0].str}', did you mean '${optName}'.` : ''
+				`${backend.name}: Required option '${optName}' not provided.${incorrectOptions.length > 0 ? ` You provided '${incorrectOptions[0].str}', did you mean '${optName}'.` : ''
 				}`
 			);
 		}
@@ -112,8 +111,7 @@ export async function checkOptions<T extends Backend>(backend: T, opts: object):
 		if (!typeMatches) {
 			throw new ApiError(
 				ErrorCode.EINVAL,
-				`${backend.name}: Value provided for option ${optName} is not the proper type. Expected ${
-					Array.isArray(opt.type) ? `one of {${opt.type.join(', ')}}` : opt.type
+				`${backend.name}: Value provided for option ${optName} is not the proper type. Expected ${Array.isArray(opt.type) ? `one of {${opt.type.join(', ')}}` : opt.type
 				}, but received ${typeof providedValue}`
 			);
 		}

@@ -1,8 +1,8 @@
-import type { Cred } from '../cred.js';
-import type { File } from '../file.js';
-import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
-import { Mutex } from '../mutex.js';
-import type { Stats } from '../stats.js';
+import type { Cred } from '../cred';
+import type { File } from '../file';
+import type { FileSystem, FileSystemMetadata } from '../filesystem';
+import { Mutex } from '../mutex';
+import type { Stats } from '../stats';
 
 /**
  * This class serializes access to an underlying async filesystem.
@@ -17,7 +17,7 @@ import type { Stats } from '../stats.js';
 export class LockedFS<FS extends FileSystem> implements FileSystem {
 	private _mu: Mutex = new Mutex();
 
-	constructor(public readonly fs: FS) {}
+	constructor(public readonly fs: FS) { }
 
 	public async ready(): Promise<this> {
 		await this.fs.ready();

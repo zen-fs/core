@@ -1,9 +1,9 @@
-import { ApiError, ErrorCode } from './ApiError.js';
-import type { Backend, BackendConfiguration } from './backends/backend.js';
-import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
-import * as fs from './emulation/index.js';
-import { setCred, type MountMapping } from './emulation/shared.js';
-import { FileSystem } from './filesystem.js';
+import { ApiError, ErrorCode } from './ApiError';
+import type { Backend, BackendConfiguration } from './backends/backend';
+import { checkOptions, isBackend, isBackendConfig } from './backends/backend';
+import * as fs from './emulation/index';
+import { setCred, type MountMapping } from './emulation/shared';
+import { FileSystem } from './filesystem';
 
 /**
  * Configuration for a specific mount point

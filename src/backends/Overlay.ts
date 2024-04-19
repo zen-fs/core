@@ -1,12 +1,12 @@
-import { FileSystem, FileSystemMetadata } from '../filesystem.js';
-import { ApiError, ErrorCode } from '../ApiError.js';
-import { File, PreloadFile, parseFlag } from '../file.js';
-import { Stats } from '../stats.js';
-import { LockedFS } from './Locked.js';
-import { dirname } from '../emulation/path.js';
-import { Cred, rootCred } from '../cred.js';
-import { decode, encode } from '../utils.js';
-import type { Backend } from './backend.js';
+import { FileSystem, FileSystemMetadata } from '../filesystem';
+import { ApiError, ErrorCode } from '../ApiError';
+import { File, PreloadFile, parseFlag } from '../file';
+import { Stats } from '../stats';
+import { LockedFS } from './Locked';
+import { dirname } from '../emulation/path';
+import { Cred, rootCred } from '../cred';
+import { decode, encode } from '../utils';
+import type { Backend } from './backend';
 /**
  * @internal
  */

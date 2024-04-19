@@ -1,6 +1,6 @@
-import type { Ino } from '../inode.js';
-import type { Backend } from './backend.js';
-import { SimpleSyncStore, SimpleSyncTransaction, SyncStore, SyncStoreFS, SyncTransaction } from './SyncStore.js';
+import type { Ino } from '../inode';
+import type { Backend } from './backend';
+import { SimpleSyncStore, SimpleSyncTransaction, SyncStore, SyncStoreFS, SyncTransaction } from './SyncStore';
 
 /**
  * A simple in-memory store
@@ -8,7 +8,7 @@ import { SimpleSyncStore, SimpleSyncTransaction, SyncStore, SyncStoreFS, SyncTra
 export class InMemoryStore implements SyncStore, SimpleSyncStore {
 	private store: Map<Ino, Uint8Array> = new Map();
 
-	constructor(public name: string = 'tmp') {}
+	constructor(public name: string = 'tmp') { }
 	public clear() {
 		this.store.clear();
 	}

@@ -1,14 +1,14 @@
-import { dirname, basename, join, resolve } from '../emulation/path.js';
-import { ApiError, ErrorCode } from '../ApiError.js';
-import type { Cred } from '../cred.js';
-import { W_OK, R_OK } from '../emulation/constants.js';
-import { PreloadFile, flagToMode } from '../file.js';
-import { Async, FileSystem, type FileSystemMetadata } from '../filesystem.js';
-import { randomIno, type Ino, Inode } from '../inode.js';
-import { type Stats, FileType } from '../stats.js';
-import { encode, decodeDirListing, encodeDirListing } from '../utils.js';
-import { rootIno } from '../inode.js';
-import { InMemory } from './InMemory.js';
+import { dirname, basename, join, resolve } from '../emulation/path';
+import { ApiError, ErrorCode } from '../ApiError';
+import type { Cred } from '../cred';
+import { W_OK, R_OK } from '../emulation/constants';
+import { PreloadFile, flagToMode } from '../file';
+import { Async, FileSystem, type FileSystemMetadata } from '../filesystem';
+import { randomIno, type Ino, Inode } from '../inode';
+import { type Stats, FileType } from '../stats';
+import { encode, decodeDirListing, encodeDirListing } from '../utils';
+import { rootIno } from '../inode';
+import { InMemory } from './InMemory';
 
 interface LRUNode<K, V> {
 	key: K;
@@ -21,7 +21,7 @@ interface LRUNode<K, V> {
 class LRUCache<K, V> {
 	private cache: LRUNode<K, V>[] = [];
 
-	constructor(public readonly limit: number) {}
+	constructor(public readonly limit: number) { }
 
 	public set(key: K, value: V): void {
 		const existingIndex = this.cache.findIndex(node => node.key === key);

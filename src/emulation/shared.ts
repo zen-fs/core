@@ -1,11 +1,11 @@
 // Utilities and shared data
 
-import { resolve } from './path.js';
-import { ApiError, ErrorCode } from '../ApiError.js';
-import { Cred, rootCred } from '../cred.js';
-import { FileSystem } from '../filesystem.js';
-import { InMemory } from '../backends/InMemory.js';
-import type { File } from '../file.js';
+import { resolve } from './path';
+import { ApiError, ErrorCode } from '../ApiError';
+import { Cred, rootCred } from '../cred';
+import { FileSystem } from '../filesystem';
+import { InMemory } from '../backends/InMemory';
+import type { File } from '../file';
 import type { EncodingOption, OpenMode, WriteFileOptions } from 'node:fs';
 
 /**

@@ -1,13 +1,13 @@
-import { dirname, basename, join, resolve, sep } from '../emulation/path.js';
-import { ApiError, ErrorCode } from '../ApiError.js';
-import { Cred } from '../cred.js';
-import { W_OK, R_OK } from '../emulation/constants.js';
-import { PreloadFile, flagToMode } from '../file.js';
-import { type FileSystemMetadata, FileSystem, Sync } from '../filesystem.js';
-import { randomIno, type Ino, Inode } from '../inode.js';
-import { type Stats, FileType } from '../stats.js';
-import { decodeDirListing, encode, encodeDirListing } from '../utils.js';
-import { rootIno } from '../inode.js';
+import { dirname, basename, join, resolve, sep } from '../emulation/path';
+import { ApiError, ErrorCode } from '../ApiError';
+import { Cred } from '../cred';
+import { W_OK, R_OK } from '../emulation/constants';
+import { PreloadFile, flagToMode } from '../file';
+import { type FileSystemMetadata, FileSystem, Sync } from '../filesystem';
+import { randomIno, type Ino, Inode } from '../inode';
+import { type Stats, FileType } from '../stats';
+import { decodeDirListing, encode, encodeDirListing } from '../utils';
+import { rootIno } from '../inode';
 
 /**
  * Represents a *synchronous* key-value store.
@@ -87,7 +87,7 @@ export class SimpleSyncTransaction implements SyncTransaction {
 	 */
 	protected modifiedKeys: Set<Ino> = new Set();
 
-	constructor(protected store: SimpleSyncStore) {}
+	constructor(protected store: SimpleSyncStore) { }
 
 	public get(ino: Ino): Uint8Array | undefined {
 		const val = this.store.get(ino);
