@@ -1,6 +1,6 @@
 {
   "name": "file-ts",
-  "version": "0.7.11",
+  "version": "0.7.12",
   "description": "A filesystem in your browser",
   "homepage": "https://github.com/pyramation/zen-fs#readme",
   "author": "James P. <jp@drvortex.dev> (https://drvortex.dev)",
