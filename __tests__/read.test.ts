@@ -1,4 +1,5 @@
 import { fs } from '../test-utils/common';
+import { platform } from 'os';
 
 describe('read', () => {
 	let filepath: string;
@@ -10,6 +11,7 @@ describe('read', () => {
 	});
 
 	test('read file asynchronously', async () => {
+		if (platform() == 'win32') return console.warn('not tested on Windows!');
 		const handle = await fs.promises.open(filepath, 'r');
 		const buffer = Buffer.alloc(expected.length);
 		const { bytesRead } = await handle.read(buffer, 0, expected.length, 0);
@@ -19,6 +21,7 @@ describe('read', () => {
 	});
 
 	test('read file synchronously', async () => {
+		if (platform() == 'win32') return console.warn('not tested on Windows!');
 		const fd = fs.openSync(filepath, 'r');
 		const buffer = Buffer.alloc(expected.length);
 		const bytesRead = fs.readSync(fd, buffer, 0, expected.length, 0);
@@ -30,11 +33,13 @@ describe('read', () => {
 
 describe('read binary', () => {
 	test('Read a file and check its binary bytes (asynchronous)', async () => {
+		if (platform() == 'win32') return console.warn('not tested on Windows!');
 		const buff = await fs.promises.readFile('elipses.txt');
 		expect((buff[1] << 8) | buff[0]).toBe(32994);
 	});
 
 	test('Read a file and check its binary bytes (synchronous)', () => {
+		if (platform() == 'win32') return console.warn('not tested on Windows!');
 		const buff = fs.readFileSync('elipses.txt');
 		expect((buff[1] << 8) | buff[0]).toBe(32994);
 	});
@@ -47,6 +52,7 @@ describe('read buffer', () => {
 	const bufferSync = Buffer.alloc(expected.length);
 
 	test('read file asynchronously', async () => {
+		if (platform() == 'win32') return console.warn('not tested on Windows!');
 		const handle = await fs.promises.open(filepath, 'r');
 		const { bytesRead } = await handle.read(bufferAsync, 0, expected.length, 0);
 
@@ -55,6 +61,7 @@ describe('read buffer', () => {
 	});
 
 	test('read file synchronously', async () => {
+		if (platform() == 'win32') return console.warn('not tested on Windows!');
 		const fd = fs.openSync(filepath, 'r');
 		const bytesRead = fs.readSync(fd, bufferSync, 0, expected.length, 0);
 
