@@ -28,11 +28,7 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 
 import type { ParsedPath } from 'node:path';
 
-export let cwd = '/';
-
-export function cd(path: string): void {
-	cwd = resolve(cwd, path);
-}
+const DEFAULT_RESOLVE = '/';
 
 export const sep = '/';
 
@@ -118,7 +114,7 @@ export function resolve(...args: string[]): string {
 	let absolute = false;
 
 	for (let i = args.length - 1; i >= -1 && !absolute; i--) {
-		const path = i >= 0 ? args[i] : cwd;
+		const path = i >= 0 ? args[i] : DEFAULT_RESOLVE;
 		validateString(path, `paths[${i}]`);
 
 		// Skip empty entries

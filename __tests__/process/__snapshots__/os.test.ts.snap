@@ -1,0 +1,16 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`globSync 1`] = `
+[
+  "run/root",
+  "run/active.apid",
+  "README.md",
+  "pyramation/deployments/deployment-config.txt",
+  "pyramation/scripts/deploy-stars.js",
+  "universe/black-holes/sagittarius-a/event-horizon.obj",
+  "universe/galaxies/andromeda/info.txt",
+  "universe/galaxies/galaxies.json",
+  "universe/galaxies/milky-way/milky-way.js",
+  "universe/galaxies/milky-way/solar-system/planets.txt",
+]
+`;

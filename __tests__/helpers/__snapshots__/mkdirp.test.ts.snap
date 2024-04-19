@@ -1,0 +1,18 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`mkdirpSync 1`] = `
+[
+  "pyramation/deployments/deployment-config.txt",
+  "universe/galaxies/andromeda/info.txt",
+  "universe/galaxies/milky-way/solar-system/planets.txt",
+  "some/deeply/nested/directory/path/a.txt",
+  "some/some/deeply/nested/directory/path/a.txt",
+]
+`;
+
+exports[`mkdirpSync 2`] = `
+[
+  "deeply/nested/directory/path/a.txt",
+  "some/deeply/nested/directory/path/a.txt",
+]
+`;
