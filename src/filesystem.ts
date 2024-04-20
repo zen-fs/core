@@ -26,11 +26,6 @@ export interface FileSystemMetadata {
 	readonly: boolean;
 
 	/**
-	 * Does the FS support properties
-	 */
-	supportsProperties: boolean;
-
-	/**
 	 * The total space
 	 */
 	totalSpace: number;
@@ -59,7 +54,6 @@ export abstract class FileSystem {
 		return {
 			name: this.constructor.name,
 			readonly: false,
-			supportsProperties: false,
 			totalSpace: 0,
 			freeSpace: 0,
 		};

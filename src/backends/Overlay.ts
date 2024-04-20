@@ -71,7 +71,6 @@ export class UnlockedOverlayFS extends FileSystem {
 		return {
 			...super.metadata(),
 			name: OverlayFS.name,
-			supportsProperties: this._readable.metadata().supportsProperties && this._writable.metadata().supportsProperties,
 		};
 	}
 
