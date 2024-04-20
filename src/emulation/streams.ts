@@ -1,9 +1,9 @@
 import type * as Node from 'fs';
 import { Readable, Writable } from 'readable-stream';
-import { NoArgCallback } from '../filesystem.js';
+import { Callback } from '../utils.js';
 
 export class ReadStream extends Readable implements Node.ReadStream {
-	close(callback: NoArgCallback = () => null): void {
+	close(callback: Callback = () => null): void {
 		try {
 			super.destroy();
 			super.emit('close');
@@ -83,7 +83,7 @@ export class ReadStream extends Readable implements Node.ReadStream {
 }
 
 export class WriteStream extends Writable implements Node.WriteStream {
-	close(callback: NoArgCallback = () => null): void {
+	close(callback: Callback = () => null): void {
 		try {
 			super.destroy();
 			super.emit('close');

@@ -5,9 +5,6 @@ import { join } from './emulation/path.js';
 import { PreloadFile, parseFlag, type File } from './file.js';
 import type { Stats } from './stats.js';
 
-export type NoArgCallback = (e?: ApiError) => unknown;
-export type TwoArgCallback<T> = (e?: ApiError, rv?: T) => unknown;
-export type ThreeArgCallback<T, U> = (e?: ApiError, arg1?: T, arg2?: U) => unknown;
 
 export type FileContents = Uint8Array | string;
 

@@ -1,5 +1,5 @@
 import type { Dirent as _Dirent, Dir as _Dir } from 'fs';
-import type { NoArgCallback, TwoArgCallback } from '../filesystem.js';
+import type { Callback } from '../utils.js';
 import type { Stats } from '../stats.js';
 import { readdir } from './promises.js';
 import { ApiError, ErrorCode } from '../ApiError.js';
@@ -60,8 +60,8 @@ export class Dir implements _Dir {
 	 * Subsequent reads will result in errors.
 	 */
 	close(): Promise<void>;
-	close(cb: NoArgCallback): void;
-	close(cb?: NoArgCallback): void | Promise<void> {
+	close(cb: Callback): void;
+	close(cb?: Callback): void | Promise<void> {
 		this.closed = true;
 		if (!cb) {
 			return Promise.resolve();
@@ -93,8 +93,8 @@ export class Dir implements _Dir {
 	 * Directory entries returned by this function are in no particular order as provided by the operating system's underlying directory mechanisms.
 	 */
 	read(): Promise<Dirent | null>;
-	read(cb: TwoArgCallback<Dirent | null>): void;
-	read(cb?: TwoArgCallback<Dirent | null>): void | Promise<Dirent | null> {
+	read(cb: Callback<[Dirent | null]>): void;
+	read(cb?: Callback<[Dirent | null]>): void | Promise<Dirent | null> {
 		if (!cb) {
 			return this._read();
 		}

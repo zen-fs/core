@@ -58,7 +58,7 @@
 		"buffer": "^6.0.3",
 		"minimatch": "^9.0.3",
 		"readable-stream": "^4.5.2",
-		"utilium": "^0.1.11"
+		"utilium": "^0.2.0"
 	},
 	"devDependencies": {
 		"@fal-works/esbuild-plugin-global-externals": "^2.1.2",

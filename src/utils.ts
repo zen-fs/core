@@ -1,3 +1,4 @@
+import type { OptionalTuple } from 'utilium';
 import { ApiError, ErrorCode } from './ApiError.js';
 import { Cred } from './cred.js';
 import { dirname } from './emulation/path.js';
@@ -169,3 +170,5 @@ export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 		})
 	);
 }
+
+export type Callback<Args extends unknown[] = []> = (e?: ApiError, ...args: OptionalTuple<Args>) => unknown;
