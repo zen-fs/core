@@ -1,9 +1,9 @@
+import type { ExtractProperties } from 'utilium';
 import { ApiError, ErrorCode } from './ApiError.js';
-import type { Stats } from './stats.js';
-import { PreloadFile, parseFlag, type File } from './file.js';
 import { rootCred, type Cred } from './cred.js';
 import { join } from './emulation/path.js';
-import type { ExtractProperties } from './utils.js';
+import { PreloadFile, parseFlag, type File } from './file.js';
+import type { Stats } from './stats.js';
 
 export type NoArgCallback = (e?: ApiError) => unknown;
 export type TwoArgCallback<T> = (e?: ApiError, rv?: T) => unknown;

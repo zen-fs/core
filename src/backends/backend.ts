@@ -1,6 +1,7 @@
+import type { RequiredKeys } from 'utilium';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { FileSystem } from '../filesystem.js';
-import { levenshtein, type RequiredKeys } from '../utils.js';
+import { levenshtein } from '../utils.js';
 
 type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undefined' | 'object' | 'function';
 
