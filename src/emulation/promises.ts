@@ -536,7 +536,7 @@ readFile satisfies typeof promises.readFile;
  * @option options flag Defaults to `'w'`.
  */
 export async function writeFile(filename: PathLike, data: FileContents, _options?: Node.WriteFileOptions): Promise<void> {
-	const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
+	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const handle = await open(filename, options.flag, options.mode);
 	try {
 		await handle.writeFile(data, options);

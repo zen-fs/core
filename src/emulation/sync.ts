@@ -259,7 +259,7 @@ function _writeFileSync(fname: string, data: Uint8Array, flag: string, mode: num
 export function writeFileSync(filename: string, data: FileContents, options?: Node.WriteFileOptions): void;
 export function writeFileSync(filename: string, data: FileContents, encoding?: BufferEncoding): void;
 export function writeFileSync(filename: string, data: FileContents, _options?: Node.WriteFileOptions | BufferEncoding): void {
-	const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
+	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isWriteable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to writeFile must allow for writing.');
