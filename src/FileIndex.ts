@@ -2,7 +2,7 @@ import { ApiError, ErrorCode } from './ApiError.js';
 import type { Cred } from './cred.js';
 import { basename, dirname, join } from './emulation/path.js';
 import { NoSyncFile, flagToMode, isWriteable } from './file.js';
-import { FileSystem, Sync, Async, Readonly } from './filesystem.js';
+import { FileSystem, Async, Readonly } from './filesystem.js';
 import { FileType, Stats } from './stats.js';
 
 /**
