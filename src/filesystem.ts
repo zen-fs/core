@@ -329,6 +329,7 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 		abstract _sync: FileSystem;
 
 		public async ready(): Promise<this> {
+			await this._sync.ready();
 			if (this._isInitialized) {
 				return this;
 			}
