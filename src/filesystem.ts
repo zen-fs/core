@@ -5,7 +5,6 @@ import { join } from './emulation/path.js';
 import { PreloadFile, parseFlag, type File } from './file.js';
 import type { Stats } from './stats.js';
 
-
 export type FileContents = Uint8Array | string;
 
 /**
