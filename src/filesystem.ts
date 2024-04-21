@@ -316,7 +316,6 @@ type AsyncOperation = {
  *   the synchronous store, if desired.
  *
  */
-
 export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => AsyncFileSystem) & T {
 	abstract class _AsyncFileSystem extends FS implements AsyncFileSystem {
 		/**
