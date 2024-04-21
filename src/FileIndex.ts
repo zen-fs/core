@@ -406,7 +406,7 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 		}
 
 		if (!inode.toStats().hasAccess(flagToMode(flag), cred)) {
-			throw ApiError.With('EACCESS', path, 'openFile');
+			throw ApiError.With('EACCES', path, 'openFile');
 		}
 
 		if (inode.isDirectory()) {
