@@ -155,7 +155,7 @@ export enum ErrorCode {
  * Strings associated with each error code.
  * @internal
  */
-export const errorMessages: { [code in ErrorCode]: string } = {
+export const errorMessages: { [K in ErrorCode]: string } = {
 	[ErrorCode.EPERM]: 'Operation not permitted',
 	[ErrorCode.ENOENT]: 'No such file or directory',
 	[ErrorCode.EIO]: 'Input/output error',
@@ -235,7 +235,7 @@ interface ApiErrorJSON {
 	errno: ErrorCode;
 	message: string;
 	path?: string;
-	code: string;
+	code: keyof typeof ErrorCode;
 	stack: string;
 	syscall: string;
 }
@@ -252,11 +252,11 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 		return err;
 	}
 
-	public static With(code: string, path: string, syscall?: string): ApiError {
+	public static With(code: keyof typeof ErrorCode, path: string, syscall?: string): ApiError {
 		return new ApiError(ErrorCode[code], errorMessages[ErrorCode[code]], path, syscall);
 	}
 
-	public code: string;
+	public code: keyof typeof ErrorCode;
 
 	/**
 	 * Represents a ZenFS error. Passed back to applications after a failed
@@ -275,7 +275,7 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 		public syscall: string = ''
 	) {
 		super(message);
-		this.code = ErrorCode[errno];
+		this.code = <keyof typeof ErrorCode>ErrorCode[errno];
 		this.message = `${this.code}: ${message}${this.path ? `, '${this.path}'` : ''}`;
 	}
 
