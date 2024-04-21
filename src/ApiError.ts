@@ -155,7 +155,7 @@ export enum ErrorCode {
  * Strings associated with each error code.
  * @internal
  */
-export const ErrorStrings: { [code in ErrorCode]: string } = {
+export const errorMessages: { [code in ErrorCode]: string } = {
 	[ErrorCode.EPERM]: 'Operation not permitted',
 	[ErrorCode.ENOENT]: 'No such file or directory',
 	[ErrorCode.EIO]: 'Input/output error',
@@ -253,7 +253,7 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 	}
 
 	public static With(code: string, path: string, syscall?: string): ApiError {
-		return new ApiError(ErrorCode[code], ErrorStrings[ErrorCode[code]], path, syscall);
+		return new ApiError(ErrorCode[code], errorMessages[ErrorCode[code]], path, syscall);
 	}
 
 	public code: string;
@@ -270,7 +270,7 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 	 */
 	constructor(
 		public errno: ErrorCode,
-		message: string = ErrorStrings[errno],
+		message: string = errorMessages[errno],
 		public path?: string,
 		public syscall: string = ''
 	) {
