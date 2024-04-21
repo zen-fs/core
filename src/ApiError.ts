@@ -8,6 +8,8 @@ export enum ErrorCode {
 	EPERM = 1,
 	/** No such file or directory */
 	ENOENT = 2,
+	/** Interrupted system call */
+	EINTR = 4,
 	/** Input/output error */
 	EIO = 5,
 	/** No such device or address */
@@ -158,6 +160,7 @@ export enum ErrorCode {
 export const errorMessages: { [K in ErrorCode]: string } = {
 	[ErrorCode.EPERM]: 'Operation not permitted',
 	[ErrorCode.ENOENT]: 'No such file or directory',
+	[ErrorCode.EINTR]: 'Interrupted system call',
 	[ErrorCode.EIO]: 'Input/output error',
 	[ErrorCode.ENXIO]: 'No such device or address',
 	[ErrorCode.EBADF]: 'Bad file descriptor',
