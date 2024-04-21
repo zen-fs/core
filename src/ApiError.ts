@@ -1,96 +1,234 @@
 /**
  * Standard libc error codes. More will be added to this enum and ErrorStrings as they are
  * needed.
- * @url http://www.gnu.org/software/libc/manual/html_node/Error-Codes.html
+ * @url https://en.wikipedia.org/wiki/Errno.h
  */
 export enum ErrorCode {
-	/**
-	 * Operation not permitted
-	 */
+	/** Operation not permitted */
 	EPERM = 1,
-	/**
-	 * No such file or directory
-	 */
+	/** No such file or directory */
 	ENOENT = 2,
-	/**
-	 * Input/output error
-	 */
+	/** Input/output error */
 	EIO = 5,
-	/**
-	 * Bad file descriptor
-	 */
+	/** No such device or address */
+	ENXIO = 6,
+	/** Bad file descriptor */
 	EBADF = 9,
-	/**
-	 * Permission denied
-	 */
+	/** Resource temporarily unavailable */
+	EAGAIN = 11,
+	/** Cannot allocate memory */
+	ENOMEM = 12,
+	/** Permission denied */
 	EACCES = 13,
-	/**
-	 * Resource busy or locked
-	 */
+	/** Bad address */
+	EFAULT = 14,
+	/** Block device required */
+	ENOTBLK = 15,
+	/** Resource busy or locked */
 	EBUSY = 16,
-	/**
-	 * File exists
-	 */
+	/** File exists */
 	EEXIST = 17,
-	/**
-	 * File is not a directory
-	 */
+	/** Invalid cross-device link */
+	EXDEV = 18,
+	/** No such device */
+	ENODEV = 19,
+	/** File is not a directory */
 	ENOTDIR = 20,
-	/**
-	 * File is a directory
-	 */
+	/** File is a directory */
 	EISDIR = 21,
-	/**
-	 * Invalid argument
-	 */
+	/** Invalid argument */
 	EINVAL = 22,
-	/**
-	 * File is too big
-	 */
+	/** Too many open files in system */
+	ENFILE = 23,
+	/** Too many open files */
+	EMFILE = 24,
+	/** Text file busy */
+	ETXTBSY = 26,
+	/** File is too big */
 	EFBIG = 27,
-	/**
-	 * No space left on disk
-	 */
+	/** No space left on disk */
 	ENOSPC = 28,
-	/**
-	 * Cannot modify a read-only file system
-	 */
+	/** Illegal seek */
+	ESPIPE = 29,
+	/** Cannot modify a read-only file system */
 	EROFS = 30,
-	/**
-	 * Resource deadlock would occur
-	 */
+	/** Too many links */
+	EMLINK = 31,
+	/** Broken pipe */
+	EPIPE = 32,
+	/** Numerical argument out of domain */
+	EDOM = 33,
+	/** Numerical result out of range */
+	ERANGE = 34,
+	/** Resource deadlock would occur */
 	EDEADLK = 35,
-	/**
-	 * Directory is not empty
-	 */
+	/** File name too long */
+	ENAMETOOLONG = 36,
+	/** No locks available */
+	ENOLCK = 37,
+	/** Function not implemented */
+	ENOSYS = 38,
+	/** Directory is not empty */
 	ENOTEMPTY = 39,
-	/**
-	 * Operation is not supported
-	 */
+	/** Too many levels of symbolic links */
+	ELOOP = 40,
+	/** No message of desired type */
+	ENOMSG = 42,
+	/** Invalid exchange */
+	EBADE = 52,
+	/** Invalid request descriptor */
+	EBADR = 53,
+	/** Exchange full */
+	EXFULL = 54,
+	/** No anode */
+	ENOANO = 55,
+	/** Invalid request code */
+	EBADRQC = 56,
+	/** Device not a stream */
+	ENOSTR = 60,
+	/** No data available */
+	ENODATA = 61,
+	/** Timer expired */
+	ETIME = 62,
+	/** Out of streams resources */
+	ENOSR = 63,
+	/** Machine is not on the network */
+	ENONET = 64,
+	/** Object is remote */
+	EREMOTE = 66,
+	/** Link has been severed */
+	ENOLINK = 67,
+	/** Communication error on send */
+	ECOMM = 70,
+	/** Protocol error */
+	EPROTO = 71,
+	/** Bad message */
+	EBADMSG = 74,
+	/** Value too large for defined data type */
+	EOVERFLOW = 75,
+	/** File descriptor in bad state */
+	EBADFD = 77,
+	/** Streams pipe error */
+	ESTRPIPE = 86,
+	/** Socket operation on non-socket */
+	ENOTSOCK = 88,
+	/** Destination address required */
+	EDESTADDRREQ = 89,
+	/** Message too long */
+	EMSGSIZE = 90,
+	/** Protocol wrong type for socket */
+	EPROTOTYPE = 91,
+	/** Protocol not available */
+	ENOPROTOOPT = 92,
+	/** Protocol not supported */
+	EPROTONOSUPPORT = 93,
+	/** Socket type not supported */
+	ESOCKTNOSUPPORT = 94,
+	/** Operation is not supported */
 	ENOTSUP = 95,
+	/** Network is down */
+	ENETDOWN = 100,
+	/** Network is unreachable */
+	ENETUNREACH = 101,
+	/** Network dropped connection on reset */
+	ENETRESET = 102,
+	/** Connection timed out */
+	ETIMEDOUT = 110,
+	/** Connection refused */
+	ECONNREFUSED = 111,
+	/** Host is down */
+	EHOSTDOWN = 112,
+	/** No route to host */
+	EHOSTUNREACH = 113,
+	/** Operation already in progress */
+	EALREADY = 114,
+	/** Operation now in progress */
+	EINPROGRESS = 115,
+	/** Stale file handle */
+	ESTALE = 116,
+	/** Remote I/O error */
+	EREMOTEIO = 121,
+	/** Disk quota exceeded */
+	EDQUOT = 122,
 }
-
 /**
  * Strings associated with each error code.
  * @internal
  */
 export const ErrorStrings: { [code in ErrorCode]: string } = {
-	[ErrorCode.EPERM]: 'Operation not permitted.',
-	[ErrorCode.ENOENT]: 'No such file or directory.',
-	[ErrorCode.EIO]: 'Input/output error.',
-	[ErrorCode.EBADF]: 'Bad file descriptor.',
-	[ErrorCode.EACCES]: 'Permission denied.',
-	[ErrorCode.EBUSY]: 'Resource busy or locked.',
-	[ErrorCode.EEXIST]: 'File exists.',
-	[ErrorCode.ENOTDIR]: 'File is not a directory.',
-	[ErrorCode.EISDIR]: 'File is a directory.',
-	[ErrorCode.EINVAL]: 'Invalid argument.',
-	[ErrorCode.EFBIG]: 'File is too big.',
-	[ErrorCode.ENOSPC]: 'No space left on disk.',
-	[ErrorCode.EROFS]: 'Cannot modify a read-only file system.',
+	[ErrorCode.EPERM]: 'Operation not permitted',
+	[ErrorCode.ENOENT]: 'No such file or directory',
+	[ErrorCode.EIO]: 'Input/output error',
+	[ErrorCode.ENXIO]: 'No such device or address',
+	[ErrorCode.EBADF]: 'Bad file descriptor',
+	[ErrorCode.EAGAIN]: 'Resource temporarily unavailable',
+	[ErrorCode.ENOMEM]: 'Cannot allocate memory',
+	[ErrorCode.EACCES]: 'Permission denied',
+	[ErrorCode.EFAULT]: 'Bad address',
+	[ErrorCode.ENOTBLK]: 'Block device required',
+	[ErrorCode.EBUSY]: 'Resource busy or locked',
+	[ErrorCode.EEXIST]: 'File exists',
+	[ErrorCode.EXDEV]: 'Invalid cross-device link',
+	[ErrorCode.ENODEV]: 'No such device',
+	[ErrorCode.ENOTDIR]: 'File is not a directory',
+	[ErrorCode.EISDIR]: 'File is a directory',
+	[ErrorCode.EINVAL]: 'Invalid argument',
+	[ErrorCode.ENFILE]: 'Too many open files in system',
+	[ErrorCode.EMFILE]: 'Too many open files',
+	[ErrorCode.ETXTBSY]: 'Text file busy',
+	[ErrorCode.EFBIG]: 'File is too big',
+	[ErrorCode.ENOSPC]: 'No space left on disk',
+	[ErrorCode.ESPIPE]: 'Illegal seek',
+	[ErrorCode.EROFS]: 'Cannot modify a read-only file system',
+	[ErrorCode.EMLINK]: 'Too many links',
+	[ErrorCode.EPIPE]: 'Broken pipe',
+	[ErrorCode.EDOM]: 'Numerical argument out of domain',
+	[ErrorCode.ERANGE]: 'Numerical result out of range',
 	[ErrorCode.EDEADLK]: 'Resource deadlock would occur',
-	[ErrorCode.ENOTEMPTY]: 'Directory is not empty.',
-	[ErrorCode.ENOTSUP]: 'Operation is not supported.',
+	[ErrorCode.ENAMETOOLONG]: 'File name too long',
+	[ErrorCode.ENOLCK]: 'No locks available',
+	[ErrorCode.ENOSYS]: 'Function not implemented',
+	[ErrorCode.ENOTEMPTY]: 'Directory is not empty',
+	[ErrorCode.ELOOP]: 'Too many levels of symbolic links',
+	[ErrorCode.ENOMSG]: 'No message of desired type',
+	[ErrorCode.EBADE]: 'Invalid exchange',
+	[ErrorCode.EBADR]: 'Invalid request descriptor',
+	[ErrorCode.EXFULL]: 'Exchange full',
+	[ErrorCode.ENOANO]: 'No anode',
+	[ErrorCode.EBADRQC]: 'Invalid request code',
+	[ErrorCode.ENOSTR]: 'Device not a stream',
+	[ErrorCode.ENODATA]: 'No data available',
+	[ErrorCode.ETIME]: 'Timer expired',
+	[ErrorCode.ENOSR]: 'Out of streams resources',
+	[ErrorCode.ENONET]: 'Machine is not on the network',
+	[ErrorCode.EREMOTE]: 'Object is remote',
+	[ErrorCode.ENOLINK]: 'Link has been severed',
+	[ErrorCode.ECOMM]: 'Communication error on send',
+	[ErrorCode.EPROTO]: 'Protocol error',
+	[ErrorCode.EBADMSG]: 'Bad message',
+	[ErrorCode.EOVERFLOW]: 'Value too large for defined data type',
+	[ErrorCode.EBADFD]: 'File descriptor in bad state',
+	[ErrorCode.ESTRPIPE]: 'Streams pipe error',
+	[ErrorCode.ENOTSOCK]: 'Socket operation on non-socket',
+	[ErrorCode.EDESTADDRREQ]: 'Destination address required',
+	[ErrorCode.EMSGSIZE]: 'Message too long',
+	[ErrorCode.EPROTOTYPE]: 'Protocol wrong type for socket',
+	[ErrorCode.ENOPROTOOPT]: 'Protocol not available',
+	[ErrorCode.EPROTONOSUPPORT]: 'Protocol not supported',
+	[ErrorCode.ESOCKTNOSUPPORT]: 'Socket type not supported',
+	[ErrorCode.ENOTSUP]: 'Operation is not supported',
+	[ErrorCode.ENETDOWN]: 'Network is down',
+	[ErrorCode.ENETUNREACH]: 'Network is unreachable',
+	[ErrorCode.ENETRESET]: 'Network dropped connection on reset',
+	[ErrorCode.ETIMEDOUT]: 'Connection timed out',
+	[ErrorCode.ECONNREFUSED]: 'Connection refused',
+	[ErrorCode.EHOSTDOWN]: 'Host is down',
+	[ErrorCode.EHOSTUNREACH]: 'No route to host',
+	[ErrorCode.EALREADY]: 'Operation already in progress',
+	[ErrorCode.EINPROGRESS]: 'Operation now in progress',
+	[ErrorCode.ESTALE]: 'Stale file handle',
+	[ErrorCode.EREMOTEIO]: 'Remote I/O error',
+	[ErrorCode.EDQUOT]: 'Disk quota exceeded',
 };
 
 interface ApiErrorJSON {
