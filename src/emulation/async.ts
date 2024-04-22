@@ -687,36 +687,115 @@ export function watch(filename: PathLike, options, listener: (event: string, fil
 }
 watch satisfies Omit<typeof Node.watch, '__promisify__'>;
 
+// From @types/node/fs (these types are not exported)
+interface StreamOptions {
+	flags?: string;
+	encoding?: BufferEncoding;
+	fd?: number | promises.FileHandle;
+	mode?: number;
+	autoClose?: boolean;
+	emitClose?: boolean;
+	start?: number;
+	signal?: AbortSignal;
+	highWaterMark?: number;
+}
+interface FSImplementation {
+	open?: (...args) => unknown;
+	close?: (...args) => unknown;
+}
+interface ReadStreamOptions extends StreamOptions {
+	fs?: FSImplementation & {
+		read: (...args) => unknown;
+	};
+	end?: number;
+}
+interface WriteStreamOptions extends StreamOptions {
+	fs?: FSImplementation & {
+		write: (...args) => unknown;
+		writev?: (...args) => unknown;
+	};
+	flush?: boolean;
+}
+
 /**
- * @todo Implement
+ * Opens a file in read mode and creates a Node.js-like ReadStream.
+ *
+ * @param path The path to the file to be opened.
+ * @param options Options for the ReadStream and file opening (e.g., `encoding`, `highWaterMark`, `mode`).
+ * @returns A ReadStream object for interacting with the file's contents.
  */
-export function createReadStream(
-	path: PathLike,
-	options?: {
-		flags?: string;
-		encoding?: string;
-		fd?: number;
-		mode?: number;
-		autoClose?: boolean;
-	}
-): ReadStream {
-	throw ApiError.With('ENOSYS', path, 'createReadStream');
+export function createReadStream(path: PathLike, options?: BufferEncoding | ReadStreamOptions): ReadStream {
+	options = typeof options == 'object' ? options : { encoding: options };
+	let handle: promises.FileHandle;
+	const stream = new ReadStream({
+		highWaterMark: options.highWaterMark || 64 * 1024,
+		encoding: options.encoding || 'utf8',
+		async read(size: number) {
+			try {
+				handle ||= await promises.open(path, 'r', options.mode);
+				const result = await handle.read(new Uint8Array(size), 0, size, handle.file.position);
+				stream.push(!result.bytesRead ? null : result.buffer.slice(0, result.bytesRead));
+				handle.file.position += result.bytesRead;
+				if (!result.bytesRead) {
+					await handle.close();
+				}
+			} catch (error) {
+				await handle?.close();
+				stream.destroy(error);
+			}
+		},
+		destroy(error, callback) {
+			handle
+				?.close()
+				.then(() => callback(error))
+				.catch(callback);
+		},
+	});
+
+	stream.path = path;
+	return stream;
 }
 createReadStream satisfies Omit<typeof Node.createReadStream, '__promisify__'>;
 
 /**
- * @todo Implement
+ * Opens a file in write mode and creates a Node.js-like WriteStream.
+ *
+ * @param path The path to the file to be opened.
+ * @param options Options for the WriteStream and file opening (e.g., `encoding`, `highWaterMark`, `mode`).
+ * @returns A WriteStream object for writing to the file.
  */
-export function createWriteStream(
-	path: PathLike,
-	options?: {
-		flags?: string;
-		encoding?: string;
-		fd?: number;
-		mode?: number;
-	}
-): WriteStream {
-	throw ApiError.With('ENOSYS', path, 'createWriteStream');
+export function createWriteStream(path: PathLike, options?: BufferEncoding | WriteStreamOptions): WriteStream {
+	options = typeof options == 'object' ? options : { encoding: options };
+	let handle: promises.FileHandle;
+	const stream = new WriteStream({
+		highWaterMark: options?.highWaterMark,
+		async write(chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error) => void) {
+			try {
+				handle ||= await promises.open(path, 'w', options?.mode || 0o666);
+				await handle.write(chunk, null, encoding);
+				callback(null);
+			} catch (error) {
+				await handle?.close();
+				callback(error);
+			}
+		},
+		destroy(error, callback) {
+			callback(error);
+			handle
+				?.close()
+				.then(() => callback(error))
+				.catch(callback);
+		},
+		final(callback) {
+			handle
+				?.close()
+				.then(() => callback())
+				.catch(callback);
+		},
+	});
+
+	stream.path = path;
+	return stream;
 }
 createWriteStream satisfies Omit<typeof Node.createWriteStream, '__promisify__'>;
 

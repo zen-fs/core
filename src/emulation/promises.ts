@@ -29,12 +29,11 @@ export class FileHandle implements promises.FileHandle {
 		public readonly fd: number
 	) {}
 
-	private get file(): File {
+	/**
+	 * @internal
+	 */
+	public get file(): File {
 		return fd2file(this.fd);
-	}
-
-	private get path(): string {
-		return this.file.path;
 	}
 
 	/**
@@ -180,7 +179,7 @@ export class FileHandle implements promises.FileHandle {
 					enqueue(result.buffer.slice(0, result.bytesRead));
 					position += result.bytesRead;
 					if (++i >= maxChunks) {
-						throw new ApiError(ErrorCode.EFBIG, 'Too many iterations on readable stream', this.path, 'FileHandle.readableWebStream');
+						throw new ApiError(ErrorCode.EFBIG, 'Too many iterations on readable stream', this.file.path, 'FileHandle.readableWebStream');
 					}
 				}
 			} catch (e) {
@@ -192,7 +191,7 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
-		throw ApiError.With('ENOSYS', this.path, 'FileHandle.readLines');
+		throw ApiError.With('ENOSYS', this.file.path, 'FileHandle.readLines');
 	}
 
 	public [Symbol.asyncDispose](): Promise<void> {
@@ -343,7 +342,7 @@ export class FileHandle implements promises.FileHandle {
 		};
 
 		const stream = new ReadStream(streamOptions);
-		stream.path = this.path;
+		stream.path = this.file.path;
 		return stream;
 	}
 
@@ -369,7 +368,7 @@ export class FileHandle implements promises.FileHandle {
 		};
 
 		const stream = new WriteStream(streamOptions);
-		stream.path = this.path;
+		stream.path = this.file.path;
 		return stream;
 	}
 }
