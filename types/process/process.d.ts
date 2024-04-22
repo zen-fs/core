@@ -14,3 +14,4 @@ export declare function getActiveProcessId(): string;
 export declare const setActiveProcess: (pid: string) => string[];
 export declare function kill(...args: any[]): void;
 export declare const detach: () => string[];
+export declare const spawn: () => any;
