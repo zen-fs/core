@@ -900,8 +900,3 @@ export function statfs(path: PathLike, options?: Node.StatFsOptions | Callback<[
 		.catch(callback);
 }
 statfs satisfies Omit<typeof Node.statfs, '__promisify__'>;
-
-export function openAsBlob(path: PathLike, options?: Node.OpenAsBlobOptions): Promise<Blob> {
-	throw ApiError.With('ENOSYS', path, 'openAsBlob');
-}
-openAsBlob satisfies typeof Node.openAsBlob;
