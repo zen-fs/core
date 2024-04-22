@@ -320,12 +320,57 @@ export class FileHandle implements promises.FileHandle {
 		return { bytesRead, buffers };
 	}
 
+	/**
+	 * Creates a `ReadStream` for reading from the file.
+	 *
+	 * @param options Options for the readable stream
+	 * @returns A `ReadStream` object.
+	 */
 	public createReadStream(options?: CreateReadStreamOptions): ReadStream {
-		throw ApiError.With('ENOSYS', this.path, 'createReadStream');
+		const streamOptions = {
+			highWaterMark: options?.highWaterMark || 64 * 1024,
+			encoding: options?.encoding,
+
+			read: async (size: number) => {
+				try {
+					const result = await this.read(new Uint8Array(size), 0, size, this.file.position);
+					stream.push(!result.bytesRead ? null : result.buffer.slice(0, result.bytesRead)); // Push data or null for EOF
+					this.file.position += result.bytesRead;
+				} catch (error) {
+					stream.destroy(error);
+				}
+			},
+		};
+
+		const stream = new ReadStream(streamOptions);
+		stream.path = this.path;
+		return stream;
 	}
 
+	/**
+	 * Creates a `WriteStream` for writing to the file.
+	 *
+	 * @param options Options for the writeable stream.
+	 * @returns A `WriteStream` object
+	 */
 	public createWriteStream(options?: CreateWriteStreamOptions): WriteStream {
-		throw ApiError.With('ENOSYS', this.path, 'createWriteStream');
+		const streamOptions = {
+			highWaterMark: options?.highWaterMark,
+			encoding: options?.encoding,
+
+			write: async (chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) => {
+				try {
+					const { bytesWritten } = await this.write(chunk, null, encoding);
+					callback(bytesWritten == chunk.length ? null : new Error('Failed to write full chunk'));
+				} catch (error) {
+					callback(error);
+				}
+			},
+		};
+
+		const stream = new WriteStream(streamOptions);
+		stream.path = this.path;
+		return stream;
 	}
 }
 
