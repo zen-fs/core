@@ -665,7 +665,7 @@ access satisfies Omit<typeof Node.access, '__promisify__'>;
 export function watchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(filename: PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(filename: PathLike, optsListener, listener: (curr: Stats, prev: Stats) => void = nop): void {
-	throw ApiError.With('ENOTSUP', filename, 'watchFile');
+	throw ApiError.With('ENOSYS', filename, 'watchFile');
 }
 watchFile satisfies Omit<typeof Node.watchFile, '__promisify__'>;
 
@@ -673,7 +673,7 @@ watchFile satisfies Omit<typeof Node.watchFile, '__promisify__'>;
  * @todo Implement
  */
 export function unwatchFile(filename: PathLike, listener: (curr: Stats, prev: Stats) => void = nop): void {
-	throw ApiError.With('ENOTSUP', filename, 'unwatchFile');
+	throw ApiError.With('ENOSYS', filename, 'unwatchFile');
 }
 unwatchFile satisfies Omit<typeof Node.unwatchFile, '__promisify__'>;
 
@@ -683,7 +683,7 @@ unwatchFile satisfies Omit<typeof Node.unwatchFile, '__promisify__'>;
 export function watch(filename: PathLike, listener?: (event: string, filename: string) => any): Node.FSWatcher;
 export function watch(filename: PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): Node.FSWatcher;
 export function watch(filename: PathLike, options, listener: (event: string, filename: string) => any = nop): Node.FSWatcher {
-	throw ApiError.With('ENOTSUP', filename, 'watch');
+	throw ApiError.With('ENOSYS', filename, 'watch');
 }
 watch satisfies Omit<typeof Node.watch, '__promisify__'>;
 
@@ -700,7 +700,7 @@ export function createReadStream(
 		autoClose?: boolean;
 	}
 ): ReadStream {
-	throw ApiError.With('ENOTSUP', path, 'createReadStream');
+	throw ApiError.With('ENOSYS', path, 'createReadStream');
 }
 createReadStream satisfies Omit<typeof Node.createReadStream, '__promisify__'>;
 
@@ -716,7 +716,7 @@ export function createWriteStream(
 		mode?: number;
 	}
 ): WriteStream {
-	throw ApiError.With('ENOTSUP', path, 'createWriteStream');
+	throw ApiError.With('ENOSYS', path, 'createWriteStream');
 }
 createWriteStream satisfies Omit<typeof Node.createWriteStream, '__promisify__'>;
 
@@ -823,6 +823,6 @@ export function statfs(path: PathLike, options?: Node.StatFsOptions | Callback<[
 statfs satisfies Omit<typeof Node.statfs, '__promisify__'>;
 
 export function openAsBlob(path: PathLike, options?: Node.OpenAsBlobOptions): Promise<Blob> {
-	throw ApiError.With('ENOTSUP', path, 'openAsBlob');
+	throw ApiError.With('ENOSYS', path, 'openAsBlob');
 }
 openAsBlob satisfies typeof Node.openAsBlob;

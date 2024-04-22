@@ -36,7 +36,7 @@ describe('utimes', () => {
 			fs.futimesSync(handle.fd, atime, mtime);
 			expect_ok(handle.fd, atime, mtime);
 		} catch (err) {
-			expect(err.code).toEqual('ENOTSUP');
+			expect(err.code).toEqual('ENOSYS');
 		}
 
 		try {

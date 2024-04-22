@@ -894,5 +894,5 @@ export function statfsSync(path: PathLike, options?: Node.StatFsOptions & { bigi
 export function statfsSync(path: PathLike, options: Node.StatFsOptions & { bigint: true }): BigIntStatsFs;
 export function statfsSync(path: PathLike, options?: Node.StatFsOptions): StatsFs | BigIntStatsFs;
 export function statfsSync(path: PathLike, options?: Node.StatFsOptions): StatsFs | BigIntStatsFs {
-	throw ApiError.With('ENOTSUP', path, 'statfs');
+	throw ApiError.With('ENOSYS', path, 'statfs');
 }

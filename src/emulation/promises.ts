@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import type * as Node from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo, FileReadResult, FlagAndOpenMode } from 'node:fs/promises';
-import type { ReadableStream } from 'node:stream/web';
+import type { ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
@@ -16,6 +16,10 @@ import type { PathLike } from './shared.js';
 import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
+
+declare global {
+	const ReadableStream: typeof TReadableStream;
+}
 
 export class FileHandle implements promises.FileHandle {
 	public constructor(
@@ -157,16 +161,42 @@ export class FileHandle implements promises.FileHandle {
 	 * @since v17.0.0
 	 * @experimental
 	 */
-	public readableWebStream(options?: promises.ReadableWebStreamOptions): ReadableStream {
-		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.readableWebStream');
+	public readableWebStream(options?: promises.ReadableWebStreamOptions): TReadableStream<Uint8Array> {
+		// Note: using an arrow function to preserve `this`
+		const start = async ({ close, enqueue, error }) => {
+			try {
+				const chunkSize = 64 * 1024,
+					maxChunks = 1e7;
+				let i = 0,
+					position = 0,
+					result: FileReadResult<Uint8Array>;
+
+				while (result.bytesRead > 0) {
+					result = await this.read(new Uint8Array(chunkSize), 0, chunkSize, position);
+					if (!result.bytesRead) {
+						close();
+						return;
+					}
+					enqueue(result.buffer.slice(0, result.bytesRead));
+					position += result.bytesRead;
+					if (++i >= maxChunks) {
+						throw new ApiError(ErrorCode.EFBIG, 'Too many iterations on readable stream', this.path, 'FileHandle.readableWebStream');
+					}
+				}
+			} catch (e) {
+				error(e);
+			}
+		};
+
+		return new ReadableStream({ start, type: options.type });
 	}
 
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
-		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.readLines');
+		throw ApiError.With('ENOSYS', this.path, 'FileHandle.readLines');
 	}
 
 	public [Symbol.asyncDispose](): Promise<void> {
-		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.@@asyncDispose');
+		return this.close();
 	}
 
 	/**
@@ -291,11 +321,11 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	public createReadStream(options?: CreateReadStreamOptions): ReadStream {
-		throw ApiError.With('ENOTSUP', this.path, 'createReadStream');
+		throw ApiError.With('ENOSYS', this.path, 'createReadStream');
 	}
 
 	public createWriteStream(options?: CreateWriteStreamOptions): WriteStream {
-		throw ApiError.With('ENOTSUP', this.path, 'createWriteStream');
+		throw ApiError.With('ENOSYS', this.path, 'createWriteStream');
 	}
 }
 
@@ -835,7 +865,7 @@ realpath satisfies typeof promises.realpath;
 export function watch(filename: PathLike, options: (Node.WatchOptions & { encoding: 'buffer' }) | 'buffer'): AsyncIterable<FileChangeInfo<Buffer>>;
 export function watch(filename: PathLike, options?: Node.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
 export function watch(filename: PathLike, options: Node.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
-	throw ApiError.With('ENOTSUP', filename, 'watch');
+	throw ApiError.With('ENOSYS', filename, 'watch');
 }
 watch satisfies typeof promises.watch;
 
@@ -997,5 +1027,5 @@ export async function statfs(path: PathLike, opts?: Node.StatFsOptions & { bigin
 export async function statfs(path: PathLike, opts: Node.StatFsOptions & { bigint: true }): Promise<BigIntStatsFs>;
 export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs>;
 export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
-	throw ApiError.With('ENOTSUP', path, 'statfs');
+	throw ApiError.With('ENOSYS', path, 'statfs');
 }
