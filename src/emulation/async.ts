@@ -724,15 +724,15 @@ interface WriteStreamOptions extends StreamOptions {
  * @param options Options for the ReadStream and file opening (e.g., `encoding`, `highWaterMark`, `mode`).
  * @returns A ReadStream object for interacting with the file's contents.
  */
-export function createReadStream(path: PathLike, options?: BufferEncoding | ReadStreamOptions): ReadStream {
-	options = typeof options == 'object' ? options : { encoding: options };
+export function createReadStream(path: PathLike, _options?: BufferEncoding | ReadStreamOptions): ReadStream {
+	const options = typeof _options == 'object' ? _options : { encoding: _options };
 	let handle: promises.FileHandle;
 	const stream = new ReadStream({
 		highWaterMark: options.highWaterMark || 64 * 1024,
 		encoding: options.encoding || 'utf8',
 		async read(size: number) {
 			try {
-				handle ||= await promises.open(path, 'r', options.mode);
+				handle ||= await promises.open(path, 'r', options?.mode);
 				const result = await handle.read(new Uint8Array(size), 0, size, handle.file.position);
 				stream.push(!result.bytesRead ? null : result.buffer.slice(0, result.bytesRead));
 				handle.file.position += result.bytesRead;
@@ -764,8 +764,8 @@ createReadStream satisfies Omit<typeof Node.createReadStream, '__promisify__'>;
  * @param options Options for the WriteStream and file opening (e.g., `encoding`, `highWaterMark`, `mode`).
  * @returns A WriteStream object for writing to the file.
  */
-export function createWriteStream(path: PathLike, options?: BufferEncoding | WriteStreamOptions): WriteStream {
-	options = typeof options == 'object' ? options : { encoding: options };
+export function createWriteStream(path: PathLike, _options?: BufferEncoding | WriteStreamOptions): WriteStream {
+	const options = typeof _options == 'object' ? _options : { encoding: _options };
 	let handle: promises.FileHandle;
 	const stream = new WriteStream({
 		highWaterMark: options?.highWaterMark,
