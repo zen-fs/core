@@ -1,7 +1,7 @@
 import type { OptionalTuple } from 'utilium';
 import { ApiError, ErrorCode } from './ApiError.js';
 import { Cred } from './cred.js';
-import { dirname } from './emulation/path.js';
+import { dirname, resolve } from './emulation/path.js';
 import { FileSystem } from './filesystem.js';
 
 declare global {
@@ -172,3 +172,116 @@ export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 }
 
 export type Callback<Args extends unknown[] = []> = (e?: ApiError, ...args: OptionalTuple<Args>) => unknown;
+
+import type { EncodingOption, OpenMode, WriteFileOptions } from 'node:fs';
+
+/**
+ * converts Date or number to a integer UNIX timestamp
+ * Grabbed from NodeJS sources (lib/fs.js)
+ *
+ * @internal
+ */
+export function _toUnixTimestamp(time: Date | number): number {
+	if (typeof time === 'number') {
+		return Math.floor(time);
+	}
+	if (time instanceof Date) {
+		return Math.floor(time.getTime() / 1000);
+	}
+	throw new Error('Cannot parse time: ' + time);
+}
+
+/**
+ * Normalizes a mode
+ * @internal
+ */
+export function normalizeMode(mode: string | number | unknown, def?: number): number {
+	if (typeof mode == 'number') {
+		return mode;
+	}
+
+	if (typeof mode == 'string') {
+		const parsed = parseInt(mode, 8);
+		if (!isNaN(parsed)) {
+			return parsed;
+		}
+	}
+
+	if (typeof def == 'number') {
+		return def;
+	}
+
+	throw new ApiError(ErrorCode.EINVAL, 'Invalid mode: ' + mode?.toString());
+}
+
+/**
+ * Normalizes a time
+ * @internal
+ */
+export function normalizeTime(time: string | number | Date): Date {
+	if (time instanceof Date) {
+		return time;
+	}
+
+	if (typeof time == 'number') {
+		return new Date(time * 1000);
+	}
+
+	if (typeof time == 'string') {
+		return new Date(time);
+	}
+
+	throw new ApiError(ErrorCode.EINVAL, 'Invalid time.');
+}
+
+/**
+ * Normalizes a path
+ * @internal
+ */
+export function normalizePath(p: string): string {
+	// Node doesn't allow null characters in paths.
+	if (p.includes('\x00')) {
+		throw new ApiError(ErrorCode.EINVAL, 'Path must be a string without null bytes.');
+	}
+	if (p.length == 0) {
+		throw new ApiError(ErrorCode.EINVAL, 'Path must not be empty.');
+	}
+	return resolve(p.replaceAll(/[/\\]+/g, '/'));
+}
+
+/**
+ * Normalizes options
+ * @param options options to normalize
+ * @param encoding default encoding
+ * @param flag default flag
+ * @param mode default mode
+ * @internal
+ */
+export function normalizeOptions(
+	options?: WriteFileOptions | (EncodingOption & { flag?: OpenMode }),
+	encoding: BufferEncoding = 'utf8',
+	flag?: string,
+	mode: number = 0
+): { encoding: BufferEncoding; flag: string; mode: number } {
+	if (typeof options != 'object' || options === null) {
+		return {
+			encoding: typeof options == 'string' ? options : encoding,
+			flag,
+			mode,
+		};
+	}
+
+	return {
+		encoding: typeof options?.encoding == 'string' ? options.encoding : encoding,
+		flag: typeof options?.flag == 'string' ? options.flag : flag,
+		mode: normalizeMode('mode' in options ? options?.mode : null, mode),
+	};
+}
+
+/**
+ * Do nothing
+ * @internal
+ */
+export function nop() {
+	// do nothing
+}

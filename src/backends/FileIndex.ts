@@ -378,7 +378,7 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 	public statSync(path: string): Stats {
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'statSync');
+			throw ApiError.With('ENOENT', path, 'stat');
 		}
 
 		if (inode.isDirectory()) {
@@ -427,11 +427,11 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 		const inode = this._index.get(path);
 
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'openFileSync');
+			throw ApiError.With('ENOENT', path, 'openFile');
 		}
 
 		if (!inode.toStats().hasAccess(flagToMode(flag), cred)) {
-			throw ApiError.With('EACCES', path, 'openFileSync');
+			throw ApiError.With('EACCES', path, 'openFile');
 		}
 
 		if (inode.isDirectory()) {
@@ -460,14 +460,14 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 		// Check if it exists.
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'readdirSync');
+			throw ApiError.With('ENOENT', path, 'readdir');
 		}
 
 		if (inode.isDirectory()) {
 			return inode.listing;
 		}
 
-		throw ApiError.With('ENOTDIR', path, 'readdirSync');
+		throw ApiError.With('ENOTDIR', path, 'readdir');
 	}
 
 	protected abstract statFileInode(inode: IndexFileInode<TData>, path: string): Promise<Stats>;

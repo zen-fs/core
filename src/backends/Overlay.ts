@@ -150,7 +150,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			this._writable.renameSync(oldPath, newPath, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(oldPath)) {
-				throw ApiError.With('ENOENT', oldPath, 'renameSync');
+				throw ApiError.With('ENOENT', oldPath, 'rename');
 			}
 		}
 	}
@@ -176,7 +176,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return this._writable.statSync(p, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(p)) {
-				throw ApiError.With('ENOENT', p, 'statSync');
+				throw ApiError.With('ENOENT', p, 'stat');
 			}
 			const oldStat = new Stats(this._readable.statSync(p, cred));
 			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type.
@@ -251,7 +251,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		this.checkPath(p);
 		if (!this.existsSync(p, cred)) {
-			throw ApiError.With('ENOENT', p, 'unlinkSync');
+			throw ApiError.With('ENOENT', p, 'unlink');
 		}
 
 		if (this._writable.existsSync(p, cred)) {
@@ -285,7 +285,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	public rmdirSync(p: string, cred: Cred): void {
 		this.checkInitialized();
 		if (!this.existsSync(p, cred)) {
-			throw ApiError.With('ENOENT', p, 'rmdirSync');
+			throw ApiError.With('ENOENT', p, 'rmdir');
 		}
 		if (this._writable.existsSync(p, cred)) {
 			this._writable.rmdirSync(p, cred);
@@ -293,7 +293,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		if (this.existsSync(p, cred)) {
 			// Check if directory is empty.
 			if (this.readdirSync(p, cred).length > 0) {
-				throw ApiError.With('ENOTEMPTY', p, 'rmdirSync');
+				throw ApiError.With('ENOTEMPTY', p, 'rmdir');
 			} else {
 				this.deletePath(p, cred);
 			}
@@ -313,7 +313,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	public mkdirSync(p: string, mode: number, cred: Cred): void {
 		this.checkInitialized();
 		if (this.existsSync(p, cred)) {
-			throw ApiError.With('EEXIST', p, 'mkdirSync');
+			throw ApiError.With('EEXIST', p, 'mkdir');
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
 		this.createParentDirectoriesSync(p, cred);
@@ -351,7 +351,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		const dirStats = this.statSync(p, cred);
 		if (!dirStats.isDirectory()) {
-			throw ApiError.With('ENOTDIR', p, 'readdirSync');
+			throw ApiError.With('ENOTDIR', p, 'readdir');
 		}
 
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
@@ -484,7 +484,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 	private async operateOnWritableAsync(p: string, cred: Cred): Promise<void> {
 		if (!(await this.exists(p, cred))) {
-			throw ApiError.With('ENOENT', p, 'operateOnWritableAsync');
+			throw ApiError.With('ENOENT', p, 'operateOnWritable');
 		}
 
 		if (!(await this._writable.exists(p, cred))) {

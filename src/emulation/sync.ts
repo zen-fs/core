@@ -5,9 +5,11 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
+import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { COPYFILE_EXCL, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK } from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { PathLike, cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveMount } from './shared.js';
+import { PathLike, cred, fd2file, fdMap, fixError, getFdForFile, mounts, resolveMount } from './shared.js';
 
 type FileSystemMethod = {
 	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
@@ -135,23 +137,23 @@ function _openSync(_path: PathLike, _flag: string, _mode: Node.Mode, resolveSyml
 				// Ensure parent exists.
 				const parentStats: Stats = doOp('statSync', resolveSymlinks, dirname(path), cred);
 				if (!parentStats.isDirectory()) {
-					throw ApiError.With('ENOTDIR', dirname(path), '_openSync');
+					throw ApiError.With('ENOTDIR', dirname(path), '_open');
 				}
 				return doOp('createFileSync', resolveSymlinks, path, flag, mode, cred);
 			case ActionType.THROW:
-				throw ApiError.With('ENOENT', path, '_openSync');
+				throw ApiError.With('ENOENT', path, '_open');
 			default:
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid FileFlag object.');
 		}
 	}
 	if (!stats.hasAccess(mode, cred)) {
-		throw ApiError.With('EACCES', path, '_openSync');
+		throw ApiError.With('EACCES', path, '_open');
 	}
 
 	// File exists.
 	switch (pathExistsAction(flag)) {
 		case ActionType.THROW:
-			throw ApiError.With('EEXIST', path, '_openSync');
+			throw ApiError.With('EEXIST', path, '_open');
 		case ActionType.TRUNCATE:
 			// Delete file.
 			doOp('unlinkSync', resolveSymlinks, path, cred);
@@ -562,7 +564,7 @@ export function symlinkSync(target: PathLike, path: PathLike, type: symlink.Type
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid type: ' + type);
 	}
 	if (existsSync(path)) {
-		throw ApiError.With('EEXIST', path, 'symlinkSync');
+		throw ApiError.With('EEXIST', path, 'symlink');
 	}
 
 	writeFileSync(path, target);
@@ -707,63 +709,178 @@ export function accessSync(path: PathLike, mode: number = 0o600): void {
 }
 accessSync satisfies typeof Node.accessSync;
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 /**
- * @todo Implement
+ * Synchronous `rm`. Removes files or directories (recursively).
+ * @param path The path to the file or directory to remove.
  */
-export function rmSync(path: PathLike) {
-	throw ApiError.With('ENOTSUP', path, 'rmSync');
+export function rmSync(path: PathLike, options?: Node.RmOptions): void {
+	path = normalizePath(path);
+
+	const stats = statSync(path);
+
+	switch (stats.mode & S_IFMT) {
+		case S_IFDIR:
+			if (options?.recursive) {
+				for (const entry of readdirSync(path)) {
+					rmSync(join(path, entry));
+				}
+			}
+
+			rmdirSync(path);
+			return;
+		case S_IFREG:
+		case S_IFLNK:
+			unlinkSync(path);
+			return;
+		case S_IFBLK:
+		case S_IFCHR:
+		case S_IFIFO:
+		case S_IFSOCK:
+		default:
+			throw new ApiError(ErrorCode.ENOTSUP, 'File type not supported', path, 'rm');
+	}
 }
 rmSync satisfies typeof Node.rmSync;
 
 /**
- * @todo Implement
+ * Synchronous `mkdtemp`. Creates a unique temporary directory.
+ * @param prefix The directory prefix.
+ * @param options The encoding (or an object including `encoding`).
+ * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
 export function mkdtempSync(prefix: string, options: BufferEncodingOption): Buffer;
 export function mkdtempSync(prefix: string, options?: EncodingOption): string;
 export function mkdtempSync(prefix: string, options?: EncodingOption | BufferEncodingOption): string | Buffer {
-	throw ApiError.With('ENOTSUP', prefix, 'mkdtempSync');
+	const encoding = typeof options === 'object' ? options.encoding : options || 'utf8';
+	const fsName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	const resolvedPath = '/tmp/' + fsName;
+
+	mkdirSync(resolvedPath);
+
+	return encoding == 'buffer' ? Buffer.from(resolvedPath) : resolvedPath;
 }
 mkdtempSync satisfies typeof Node.mkdtempSync;
 
 /**
- * @todo Implement
+ * Synchronous `copyFile`. Copies a file.
+ * @param src The source file.
+ * @param dest The destination file.
+ * @param flags Optional flags for the copy operation. Currently supports these flags:
+ *    * `fs.constants.COPYFILE_EXCL`: If the destination file already exists, the operation fails.
  */
-export function copyFileSync(src: string, dest: string, flags?: number): void {
-	throw ApiError.With('ENOTSUP', src, 'copyFileSync');
+export function copyFileSync(src: PathLike, dest: PathLike, flags?: number): void {
+	src = normalizePath(src);
+	dest = normalizePath(dest);
+
+	if (flags && flags & COPYFILE_EXCL && existsSync(dest)) {
+		throw new ApiError(ErrorCode.EEXIST, 'Destination file already exists.', dest, 'copyFile');
+	}
+
+	writeFileSync(dest, readFileSync(src));
 }
 copyFileSync satisfies typeof Node.copyFileSync;
 
 /**
- * @todo Implement
+ * Synchronous `readv`. Reads from a file descriptor into multiple buffers.
+ * @param fd The file descriptor.
+ * @param buffers An array of Uint8Array buffers.
+ * @param position The position in the file where to begin reading.
+ * @returns The number of bytes read.
  */
 export function readvSync(fd: number, buffers: readonly Uint8Array[], position?: number): number {
-	throw ApiError.With('ENOTSUP', fd2file(fd).path, 'readvSync');
+	const file = fd2file(fd);
+	let bytesRead = 0;
+
+	for (const buffer of buffers) {
+		bytesRead += file.readSync(buffer, 0, buffer.length, position + bytesRead);
+	}
+
+	return bytesRead;
 }
 readvSync satisfies typeof Node.readvSync;
 
 /**
- * @todo Implement
+ * Synchronous `writev`. Writes from multiple buffers into a file descriptor.
+ * @param fd The file descriptor.
+ * @param buffers An array of Uint8Array buffers.
+ * @param position The position in the file where to begin writing.
+ * @returns The number of bytes written.
  */
 export function writevSync(fd: number, buffers: readonly Uint8Array[], position?: number): number {
-	throw ApiError.With('ENOTSUP', fd2file(fd).path, 'writevSync');
+	const file = fd2file(fd);
+	let bytesWritten = 0;
+
+	for (const buffer of buffers) {
+		bytesWritten += file.writeSync(buffer, 0, buffer.length, position + bytesWritten);
+	}
+
+	return bytesWritten;
 }
 writevSync satisfies typeof Node.writevSync;
 
 /**
- * @todo Implement
+ * Synchronous `opendir`. Opens a directory.
+ * @param path The path to the directory.
+ * @param options Options for opening the directory.
+ * @returns A `Dir` object representing the opened directory.
  */
 export function opendirSync(path: PathLike, options?: Node.OpenDirOptions): Dir {
-	throw ApiError.With('ENOTSUP', path, 'opendirSync');
+	path = normalizePath(path);
+	return new Dir(path); // Re-use existing `Dir` class
 }
 opendirSync satisfies typeof Node.opendirSync;
 
 /**
- * @todo Implement
+ * Synchronous `cp`. Recursively copies a file or directory.
+ * @param source The source file or directory.
+ * @param destination The destination file or directory.
+ * @param opts Options for the copy operation. Currently supports these options from Node.js 'fs.cpSync':
+ *   * `dereference`: Dereference symbolic links.
+ *   * `errorOnExist`: Throw an error if the destination file or directory already exists.
+ *   * `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy the given source element.
+ *   * `force`: Overwrite the destination if it exists, and overwrite existing readonly destination files.
+ *   * `preserveTimestamps`: Preserve file timestamps.
+ *   * `recursive`: If `true`, copies directories recursively.
  */
 export function cpSync(source: PathLike, destination: PathLike, opts?: Node.CopySyncOptions): void {
-	throw ApiError.With('ENOTSUP', source, 'cpSync');
+	source = normalizePath(source);
+	destination = normalizePath(destination);
+
+	const srcStats = lstatSync(source); // Use lstat to follow symlinks if not dereferencing
+
+	if (opts?.errorOnExist && existsSync(destination)) {
+		throw new ApiError(ErrorCode.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
+	}
+
+	switch (srcStats.mode & S_IFMT) {
+		case S_IFDIR:
+			if (!opts?.recursive) {
+				throw new ApiError(ErrorCode.EISDIR, source + ' is a directory (not copied)', source, 'cp');
+			}
+			mkdirSync(destination, { recursive: true }); // Ensure the destination directory exists
+			for (const dirent of readdirSync(source, { withFileTypes: true })) {
+				if (opts.filter && !opts.filter(join(source, dirent.name), join(destination, dirent.name))) {
+					continue; // Skip if the filter returns false
+				}
+				cpSync(join(source, dirent.name), join(destination, dirent.name), opts);
+			}
+			break;
+		case S_IFREG:
+		case S_IFLNK:
+			copyFileSync(source, destination);
+			break;
+		case S_IFBLK:
+		case S_IFCHR:
+		case S_IFIFO:
+		case S_IFSOCK:
+		default:
+			throw new ApiError(ErrorCode.ENOTSUP, 'File type not supported', source, 'rm');
+	}
+
+	// Optionally preserve timestamps
+	if (opts?.preserveTimestamps) {
+		utimesSync(destination, srcStats.atime, srcStats.mtime);
+	}
 }
 cpSync satisfies typeof Node.cpSync;
 
@@ -777,7 +894,5 @@ export function statfsSync(path: PathLike, options?: Node.StatFsOptions & { bigi
 export function statfsSync(path: PathLike, options: Node.StatFsOptions & { bigint: true }): BigIntStatsFs;
 export function statfsSync(path: PathLike, options?: Node.StatFsOptions): StatsFs | BigIntStatsFs;
 export function statfsSync(path: PathLike, options?: Node.StatFsOptions): StatsFs | BigIntStatsFs {
-	throw ApiError.With('ENOTSUP', path, 'statfsSync');
+	throw ApiError.With('ENOTSUP', path, 'statfs');
 }
-
-/* eslint-enable @typescript-eslint/no-unused-vars */

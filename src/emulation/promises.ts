@@ -8,11 +8,12 @@ import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
+import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { F_OK } from './constants.js';
 import { Dirent, type Dir } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import type { PathLike } from './shared.js';
-import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, normalizeMode, normalizeOptions, normalizePath, normalizeTime, resolveMount } from './shared.js';
+import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
 

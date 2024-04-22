@@ -2,11 +2,11 @@ import type * as Node from 'fs';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
-import type { Callback } from '../utils.js';
+import { nop, normalizeMode, type Callback } from '../utils.js';
 import { R_OK } from './constants.js';
 import { Dirent, type Dir } from './dir.js';
 import * as promises from './promises.js';
-import { PathLike, fd2file, nop, normalizeMode } from './shared.js';
+import { PathLike, fd2file } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 
 /**

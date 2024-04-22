@@ -200,11 +200,11 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			oldDirList = this.getDirListing(tx, oldDirNode, oldParent);
 
 		if (!oldDirNode.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.With('EACCES', oldPath, 'renameSync');
+			throw ApiError.With('EACCES', oldPath, 'rename');
 		}
 
 		if (!oldDirList[oldName]) {
-			throw ApiError.With('ENOENT', oldPath, 'renameSync');
+			throw ApiError.With('ENOENT', oldPath, 'rename');
 		}
 		const ino: Ino = oldDirList[oldName];
 		delete oldDirList[oldName];
@@ -242,7 +242,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 				}
 			} else {
 				// If it's a directory, throw a permissions error.
-				throw ApiError.With('EPERM', newPath, 'renameSync');
+				throw ApiError.With('EPERM', newPath, 'rename');
 			}
 		}
 		newDirList[newName] = ino;
@@ -263,7 +263,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		// Get the inode to the item, convert it into a Stats object.
 		const stats = this.findINode(this.store.beginTransaction(), p).toStats();
 		if (!stats.hasAccess(R_OK, cred)) {
-			throw ApiError.With('EACCES', p, 'statSync');
+			throw ApiError.With('EACCES', p, 'stat');
 		}
 		return stats;
 	}
@@ -278,10 +278,10 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			node = this.findINode(tx, p),
 			data = tx.get(node.ino);
 		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
-			throw ApiError.With('EACCES', p, 'openFileSync');
+			throw ApiError.With('EACCES', p, 'openFile');
 		}
 		if (data === null) {
-			throw ApiError.With('ENOENT', p, 'openFileSync');
+			throw ApiError.With('ENOENT', p, 'openFile');
 		}
 		return new PreloadFile(this, p, flag, node.toStats(), data);
 	}
@@ -293,7 +293,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 	public rmdirSync(p: string, cred: Cred): void {
 		// Check first if directory is empty.
 		if (this.readdirSync(p, cred).length > 0) {
-			throw ApiError.With('ENOTEMPTY', p, 'rmdirSync');
+			throw ApiError.With('ENOTEMPTY', p, 'rmdir');
 		} else {
 			this.removeEntry(p, true, cred);
 		}
@@ -307,7 +307,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		const tx = this.store.beginTransaction();
 		const node = this.findINode(tx, p);
 		if (!node.toStats().hasAccess(R_OK, cred)) {
-			throw ApiError.With('EACCES', p, 'readdirSync');
+			throw ApiError.With('EACCES', p, 'readdir');
 		}
 		return Object.keys(this.getDirListing(tx, node, p));
 	}
@@ -341,7 +341,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			existingDirNode = this.findINode(tx, existingDir);
 
 		if (!existingDirNode.toStats().hasAccess(R_OK, cred)) {
-			throw ApiError.With('EACCES', existingDir, 'linkSync');
+			throw ApiError.With('EACCES', existingDir, 'link');
 		}
 
 		const newDir: string = dirname(newpath),
@@ -349,14 +349,14 @@ export class SyncStoreFS extends Sync(FileSystem) {
 			newListing = this.getDirListing(tx, newDirNode, newDir);
 
 		if (!newDirNode.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.With('EACCES', newDir, 'linkSync');
+			throw ApiError.With('EACCES', newDir, 'link');
 		}
 
 		const ino = this._findINode(tx, existingDir, basename(existing));
 		const node = this.getINode(tx, ino, existing);
 
 		if (!node.toStats().hasAccess(W_OK, cred)) {
-			throw ApiError.With('EACCES', newpath, 'linkSync');
+			throw ApiError.With('EACCES', newpath, 'link');
 		}
 		node.nlink++;
 		newListing[basename(newpath)] = ino;
