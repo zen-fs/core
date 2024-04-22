@@ -13,6 +13,10 @@ Please copy logs, terminal output, and code into a code block in the issue or PR
 -   Avoid [callback hell](http://callbackhell.com/)— this is why ZenFS uses `async`/`await` a lot. This also includes nesting in general.
 -   Document code. For the different functions and variables, write a short description of what it does and how it should be used. I certainly haven't been the best about doing this, so if you find missing docs an issue or PR would be welcome.
 
+## NPM vs 3rd party package managers
+
+ZenFS used `npm` rather than `pnpm` or `yarn` since it makes it easier for new contributors and simplifies tooling.
+
 ## Building
 
 You can build the project with `npm run build`, or run watch mode with `npm run dev`.
