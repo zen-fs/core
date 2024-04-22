@@ -826,11 +826,7 @@ export function statfs(path: PathLike, options?: Node.StatFsOptions | Callback<[
 }
 statfs satisfies Omit<typeof Node.statfs, '__promisify__'>;
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 export function openAsBlob(path: PathLike, options?: Node.OpenAsBlobOptions): Promise<Blob> {
 	throw ApiError.With('ENOTSUP', path, 'openAsBlob');
 }
 openAsBlob satisfies typeof Node.openAsBlob;
-
-/* eslint-enable @typescript-eslint/no-unused-vars */

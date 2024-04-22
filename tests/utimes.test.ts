@@ -1,3 +1,4 @@
+import { _toUnixTimestamp } from '../src/utils';
 import { fs } from './common';
 
 describe('utimes', () => {
@@ -6,8 +7,8 @@ describe('utimes', () => {
 	function expect_ok(resource: string | number, atime: Date | number, mtime: Date | number) {
 		const stats = typeof resource == 'string' ? fs.statSync(resource) : fs.fstatSync(resource);
 		// check up to single-second precision since sub-second precision is OS and fs dependent
-		expect(fs._toUnixTimestamp(atime)).toEqual(fs._toUnixTimestamp(stats.atime));
-		expect(fs._toUnixTimestamp(mtime)).toEqual(fs._toUnixTimestamp(stats.mtime));
+		expect(_toUnixTimestamp(atime)).toEqual(_toUnixTimestamp(stats.atime));
+		expect(_toUnixTimestamp(mtime)).toEqual(_toUnixTimestamp(stats.mtime));
 	}
 
 	async function runTest(atime: Date | number, mtime: Date | number): Promise<void> {
