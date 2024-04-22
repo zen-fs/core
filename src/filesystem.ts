@@ -218,9 +218,6 @@ declare abstract class SyncFileSystem extends FileSystem {
  * Implements the asynchronous API in terms of the synchronous API.
  */
 export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => SyncFileSystem) & T {
-	/**
-	 * Implements the asynchronous API in terms of the synchronous API.
-	 */
 	abstract class _SyncFileSystem extends FS implements SyncFileSystem {
 		public async ready(): Promise<this> {
 			return this;
@@ -480,6 +477,9 @@ declare abstract class ReadonlyFileSystem extends FileSystem {
 	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
 }
 
+/**
+ * Implements the non-readonly methods to throw `EROFS`
+ */
 export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => ReadonlyFileSystem) & T {
 	abstract class _ReadonlyFileSystem extends FS implements ReadonlyFileSystem {
 		public metadata(): FileSystemMetadata {
