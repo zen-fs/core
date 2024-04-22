@@ -55,7 +55,6 @@ export abstract class FileSystem {
 		};
 	}
 
-	/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 	public constructor(options?: object) {
 		// unused
 	}

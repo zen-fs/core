@@ -737,7 +737,7 @@ export function rmSync(path: PathLike, options?: Node.RmOptions): void {
 		case S_IFIFO:
 		case S_IFSOCK:
 		default:
-			throw new ApiError(ErrorCode.ENOTSUP, 'File type not supported', path, 'rm');
+			throw new ApiError(ErrorCode.EPERM, 'File type not supported', path, 'rm');
 	}
 }
 rmSync satisfies typeof Node.rmSync;
@@ -874,7 +874,7 @@ export function cpSync(source: PathLike, destination: PathLike, opts?: Node.Copy
 		case S_IFIFO:
 		case S_IFSOCK:
 		default:
-			throw new ApiError(ErrorCode.ENOTSUP, 'File type not supported', source, 'rm');
+			throw new ApiError(ErrorCode.EPERM, 'File type not supported', source, 'rm');
 	}
 
 	// Optionally preserve timestamps

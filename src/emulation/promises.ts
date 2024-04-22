@@ -9,8 +9,8 @@ import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pat
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
-import { F_OK } from './constants.js';
-import { Dirent, type Dir } from './dir.js';
+import * as constants from './constants.js';
+import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import type { PathLike } from './shared.js';
 import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, resolveMount } from './shared.js';
@@ -258,22 +258,36 @@ export class FileHandle implements promises.FileHandle {
 		fdMap.delete(this.fd);
 	}
 
-	/* eslint-disable @typescript-eslint/no-unused-vars */
-
 	/**
-	 * See `fs.writev` promisified version.
-	 * @todo Implement
+	 * Asynchronous `writev`. Writes from multiple buffers.
+	 * @param buffers An array of Uint8Array buffers.
+	 * @param position The position in the file where to begin writing.
+	 * @returns The number of bytes written.
 	 */
-	public writev(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<Node.WriteVResult> {
-		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.writev');
+	public async writev(buffers: Uint8Array[], position?: number): Promise<Node.WriteVResult> {
+		let bytesWritten = 0;
+
+		for (const buffer of buffers) {
+			bytesWritten += (await this.write(buffer, 0, buffer.length, position + bytesWritten)).bytesWritten;
+		}
+
+		return { bytesWritten, buffers };
 	}
 
 	/**
-	 * See `fs.readv` promisified version.
-	 * @todo Implement
+	 * Asynchronous `readv`. Reads into multiple buffers.
+	 * @param buffers An array of Uint8Array buffers.
+	 * @param position The position in the file where to begin reading.
+	 * @returns The number of bytes read.
 	 */
-	public readv(buffers: readonly NodeJS.ArrayBufferView[], position?: number): Promise<Node.ReadVResult> {
-		throw ApiError.With('ENOTSUP', this.path, 'FileHandle.readv');
+	public async readv(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<Node.ReadVResult> {
+		let bytesRead = 0;
+
+		for (const buffer of buffers) {
+			bytesRead += (await this.read(buffer, 0, buffer.byteLength, position + bytesRead)).bytesRead;
+		}
+
+		return { bytesRead, buffers };
 	}
 
 	public createReadStream(options?: CreateReadStreamOptions): ReadStream {
@@ -283,8 +297,6 @@ export class FileHandle implements promises.FileHandle {
 	public createWriteStream(options?: CreateWriteStreamOptions): WriteStream {
 		throw ApiError.With('ENOTSUP', this.path, 'createWriteStream');
 	}
-
-	/* eslint-enable @typescript-eslint/no-unused-vars */
 }
 
 type FileSystemMethod = {
@@ -526,7 +538,7 @@ export async function readFile(filename: PathLike, _options?: (Node.EncodingOpti
 readFile satisfies typeof promises.readFile;
 
 /**
- * Synchronously writes data to a file, replacing the file if it already exists.
+ * Asynchronously writes data to a file, replacing the file if it already exists.
  *
  * The encoding option is ignored if data is a buffer.
  * @param filename
@@ -832,7 +844,7 @@ watch satisfies typeof promises.watch;
  * @param path
  * @param mode
  */
-export async function access(path: PathLike, mode: number = F_OK): Promise<void> {
+export async function access(path: PathLike, mode: number = constants.F_OK): Promise<void> {
 	const stats = await stat(path);
 	if (!stats.hasAccess(mode, cred)) {
 		throw new ApiError(ErrorCode.EACCES);
@@ -840,44 +852,140 @@ export async function access(path: PathLike, mode: number = F_OK): Promise<void>
 }
 access satisfies typeof promises.access;
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 /**
- * @todo Implement
+ * Asynchronous `rm`. Removes files or directories (recursively).
+ * @param path The path to the file or directory to remove.
  */
 export async function rm(path: PathLike, options?: Node.RmOptions) {
-	throw ApiError.With('ENOTSUP', path, 'rm');
+	path = normalizePath(path);
+
+	const stats = await stat(path);
+
+	switch (stats.mode & constants.S_IFMT) {
+		case constants.S_IFDIR:
+			if (options?.recursive) {
+				for (const entry of await readdir(path)) {
+					await rm(join(path, entry));
+				}
+			}
+
+			await rmdir(path);
+			return;
+		case constants.S_IFREG:
+		case constants.S_IFLNK:
+			await unlink(path);
+			return;
+		case constants.S_IFBLK:
+		case constants.S_IFCHR:
+		case constants.S_IFIFO:
+		case constants.S_IFSOCK:
+		default:
+			throw new ApiError(ErrorCode.EPERM, 'File type not supported', path, 'rm');
+	}
 }
 rm satisfies typeof promises.rm;
 
 /**
- * @todo Implement
+ * Asynchronous `mkdtemp`. Creates a unique temporary directory.
+ * @param prefix The directory prefix.
+ * @param options The encoding (or an object including `encoding`).
+ * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
 export async function mkdtemp(prefix: string, options?: Node.EncodingOption): Promise<string>;
 export async function mkdtemp(prefix: string, options?: Node.BufferEncodingOption): Promise<Buffer>;
 export async function mkdtemp(prefix: string, options?: Node.EncodingOption | Node.BufferEncodingOption): Promise<string | Buffer> {
-	throw ApiError.With('ENOTSUP', prefix, 'mkdtemp');
+	const encoding = typeof options === 'object' ? options.encoding : options || 'utf8';
+	const fsName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	const resolvedPath = '/tmp/' + fsName;
+
+	await mkdir(resolvedPath);
+
+	return encoding == 'buffer' ? Buffer.from(resolvedPath) : resolvedPath;
 }
 mkdtemp satisfies typeof promises.mkdtemp;
 
 /**
- * @todo Implement
+ * Asynchronous `copyFile`. Copies a file.
+ * @param src The source file.
+ * @param dest The destination file.
+ * @param mode Optional flags for the copy operation. Currently supports these flags:
+ *    * `fs.constants.COPYFILE_EXCL`: If the destination file already exists, the operation fails.
  */
 export async function copyFile(src: PathLike, dest: PathLike, mode?: number): Promise<void> {
-	throw ApiError.With('ENOTSUP', src, 'copyFile');
+	src = normalizePath(src);
+	dest = normalizePath(dest);
+
+	if (mode && mode & constants.COPYFILE_EXCL && (await exists(dest))) {
+		throw new ApiError(ErrorCode.EEXIST, 'Destination file already exists.', dest, 'copyFile');
+	}
+
+	await writeFile(dest, await readFile(src));
 }
 copyFile satisfies typeof promises.copyFile;
 
 /**
- * @todo Implement
+ * Asynchronous `opendir`. Opens a directory.
+ * @param path The path to the directory.
+ * @param options Options for opening the directory.
+ * @returns A `Dir` object representing the opened directory.
  */
 export async function opendir(path: PathLike, options?: Node.OpenDirOptions): Promise<Dir> {
-	throw ApiError.With('ENOTSUP', path, 'opendir');
+	path = normalizePath(path);
+	return new Dir(path);
 }
 opendir satisfies typeof promises.opendir;
 
+/**
+ * Asynchronous `cp`. Recursively copies a file or directory.
+ * @param source The source file or directory.
+ * @param destination The destination file or directory.
+ * @param opts Options for the copy operation. Currently supports these options from Node.js 'fs.await cp':
+ *   * `dereference`: Dereference symbolic links.
+ *   * `errorOnExist`: Throw an error if the destination file or directory already exists.
+ *   * `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy the given source element.
+ *   * `force`: Overwrite the destination if it exists, and overwrite existing readonly destination files.
+ *   * `preserveTimestamps`: Preserve file timestamps.
+ *   * `recursive`: If `true`, copies directories recursively.
+ */
 export async function cp(source: PathLike, destination: PathLike, opts?: Node.CopyOptions): Promise<void> {
-	throw ApiError.With('ENOTSUP', source, 'cp');
+	source = normalizePath(source);
+	destination = normalizePath(destination);
+
+	const srcStats = await lstat(source); // Use lstat to follow symlinks if not dereferencing
+
+	if (opts?.errorOnExist && (await exists(destination))) {
+		throw new ApiError(ErrorCode.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
+	}
+
+	switch (srcStats.mode & constants.S_IFMT) {
+		case constants.S_IFDIR:
+			if (!opts?.recursive) {
+				throw new ApiError(ErrorCode.EISDIR, source + ' is a directory (not copied)', source, 'cp');
+			}
+			await mkdir(destination, { recursive: true }); // Ensure the destination directory exists
+			for (const dirent of await readdir(source, { withFileTypes: true })) {
+				if (opts.filter && !opts.filter(join(source, dirent.name), join(destination, dirent.name))) {
+					continue; // Skip if the filter returns false
+				}
+				await cp(join(source, dirent.name), join(destination, dirent.name), opts);
+			}
+			break;
+		case constants.S_IFREG:
+		case constants.S_IFLNK:
+			await copyFile(source, destination);
+			break;
+		case constants.S_IFBLK:
+		case constants.S_IFCHR:
+		case constants.S_IFIFO:
+		case constants.S_IFSOCK:
+		default:
+			throw new ApiError(ErrorCode.EPERM, 'File type not supported', source, 'rm');
+	}
+
+	// Optionally preserve timestamps
+	if (opts?.preserveTimestamps) {
+		await utimes(destination, srcStats.atime, srcStats.mtime);
+	}
 }
 cp satisfies typeof promises.cp;
 
@@ -891,5 +999,3 @@ export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise
 export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
 	throw ApiError.With('ENOTSUP', path, 'statfs');
 }
-
-/* eslint-enable @typescript-eslint/no-unused-vars */

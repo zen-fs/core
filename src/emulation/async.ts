@@ -659,8 +659,6 @@ export function access(path: PathLike, cbMode, cb: Callback = nop): void {
 }
 access satisfies Omit<typeof Node.access, '__promisify__'>;
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 /**
  * @todo Implement
  */
@@ -722,8 +720,6 @@ export function createWriteStream(
 }
 createWriteStream satisfies Omit<typeof Node.createWriteStream, '__promisify__'>;
 
-/* eslint-enable @typescript-eslint/no-unused-vars */
-
 export function rm(path: PathLike, callback: Callback): void;
 export function rm(path: PathLike, options: Node.RmOptions, callback: Callback): void;
 export function rm(path: PathLike, options: Node.RmOptions | Callback, callback: Callback = nop): void {
@@ -768,9 +764,9 @@ copyFile satisfies Omit<typeof Node.copyFile, '__promisify__'>;
 
 type readvCb = Callback<[number, NodeJS.ArrayBufferView[]]>;
 
-export function readv(fd: number, buffers: readonly NodeJS.ArrayBufferView[], cb: readvCb): void;
-export function readv(fd: number, buffers: readonly NodeJS.ArrayBufferView[], position: number, cb: readvCb): void;
-export function readv(fd: number, buffers: readonly NodeJS.ArrayBufferView[], position: number | readvCb, cb: readvCb = nop): void {
+export function readv(fd: number, buffers: NodeJS.ArrayBufferView[], cb: readvCb): void;
+export function readv(fd: number, buffers: NodeJS.ArrayBufferView[], position: number, cb: readvCb): void;
+export function readv(fd: number, buffers: NodeJS.ArrayBufferView[], position: number | readvCb, cb: readvCb = nop): void {
 	cb = typeof position === 'function' ? position : cb;
 	new promises.FileHandle(fd)
 		.readv(buffers, typeof position === 'function' ? null : position)
@@ -781,9 +777,9 @@ readv satisfies Omit<typeof Node.readv, '__promisify__'>;
 
 type writevCb = Callback<[number, NodeJS.ArrayBufferView[]]>;
 
-export function writev(fd: number, buffers: NodeJS.ArrayBufferView[], cb: writevCb): void;
-export function writev(fd: number, buffers: NodeJS.ArrayBufferView[], position: number, cb: writevCb): void;
-export function writev(fd: number, buffers: NodeJS.ArrayBufferView[], position: number | writevCb, cb: writevCb = nop) {
+export function writev(fd: number, buffers: Uint8Array[], cb: writevCb): void;
+export function writev(fd: number, buffers: Uint8Array[], position: number, cb: writevCb): void;
+export function writev(fd: number, buffers: Uint8Array[], position: number | writevCb, cb: writevCb = nop) {
 	cb = typeof position === 'function' ? position : cb;
 	new promises.FileHandle(fd)
 		.writev(buffers, typeof position === 'function' ? null : position)
