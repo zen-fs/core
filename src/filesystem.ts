@@ -33,7 +33,7 @@ export interface FileSystemMetadata {
 }
 
 /**
- * Structure for a filesystem. All ZenFS FileSystems must implement this.
+ * Structure for a filesystem. All ZenFS backends must extend this.
  *
  * This class includes some default implementations
  *
