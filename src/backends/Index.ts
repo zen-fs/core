@@ -490,11 +490,11 @@ export abstract class SyncIndexFS<TData> extends IndexFS<TData> {
 }
 
 export abstract class AsyncIndexFS<TData> extends IndexFS<TData> {
-	protected statFileInodeSync(): Stats {
-		throw new ApiError(ErrorCode.ENOTSUP);
+	protected statFileInodeSync(inode: IndexFileInode<TData>, path: string): Stats {
+		throw ApiError.With('ENOSYS', path, 'AsyncIndexFS.statFileInodeSync');
 	}
 
-	protected openFileInodeSync(): NoSyncFile<this> {
-		throw new ApiError(ErrorCode.ENOTSUP);
+	protected openFileInodeSync(inode: IndexFileInode<TData>, path: string, flag: string): NoSyncFile<this> {
+		throw ApiError.With('ENOSYS', path, 'AsyncIndexFS.openFileInodeSync');
 	}
 }

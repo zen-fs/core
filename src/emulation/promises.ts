@@ -1073,11 +1073,3 @@ export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise
 export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
 	throw ApiError.With('ENOSYS', path, 'statfs');
 }
-
-export async function openAsBlob(path: PathLike, options?: Node.OpenAsBlobOptions): Promise<Blob> {
-	const handle = await open(path, 'r');
-	const buffer = await handle.readFile();
-	await handle.close();
-	return new Blob([buffer], options);
-}
-openAsBlob satisfies typeof Node.openAsBlob;

@@ -900,3 +900,11 @@ export function statfs(path: PathLike, options?: Node.StatFsOptions | Callback<[
 		.catch(callback);
 }
 statfs satisfies Omit<typeof Node.statfs, '__promisify__'>;
+
+export async function openAsBlob(path: PathLike, options?: Node.OpenAsBlobOptions): Promise<Blob> {
+	const handle = await promises.open(path, 'r');
+	const buffer = await handle.readFile();
+	await handle.close();
+	return new Blob([buffer], options);
+}
+openAsBlob satisfies typeof Node.openAsBlob;
