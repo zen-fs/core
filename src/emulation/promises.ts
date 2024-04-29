@@ -17,10 +17,6 @@ import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, resolveMount } fr
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
 
-declare global {
-	const ReadableStream: typeof TReadableStream;
-}
-
 export class FileHandle implements promises.FileHandle {
 	public constructor(
 		/**
@@ -187,7 +183,7 @@ export class FileHandle implements promises.FileHandle {
 			}
 		};
 
-		return new ReadableStream({ start, type: options.type });
+		return new globalThis.ReadableStream({ start, type: options.type });
 	}
 
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
