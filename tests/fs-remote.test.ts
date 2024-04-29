@@ -1,19 +1,15 @@
-import { fs, configure } from '@zenfs/core';
+import { fs, configure, type BackendConfiguration } from '@zenfs/core';
 import { Worker } from 'node:worker_threads';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Port } from '../src/fs.js';
 
-const __dirname = resolve(fileURLToPath(import.meta.url), '..');
-
 describe('Remote FS', () => {
-	const port = new Worker(__dirname + '/worker.js'),
+	const port = new Worker(import.meta.dirname + '/worker.js'),
 		content = 'FS is in a port';
 
 	afterAll(() => port.terminate());
 
 	test('configuration', async () => {
-		await configure({ backend: Port, port });
+		await configure(<BackendConfiguration>{ backend: Port, port });
 	});
 
 	test('write', async () => {

@@ -1,4 +1,4 @@
-import { ApiError, InMemory, configure, fs } from '@zenfs/core';
+import { ApiError, InMemory, configure, fs, type BackendConfiguration } from '@zenfs/core';
 import { MessageChannel } from 'node:worker_threads';
 import { Port } from '../src/fs.js';
 
@@ -19,7 +19,7 @@ describe('Timeout', () => {
 		try {
 			await configure({
 				'/tmp': { backend: InMemory, name: 'tmp' },
-				'/port': { backend: Port, port: port1, timeout: 100 },
+				'/port': <BackendConfiguration>{ backend: Port, port: port1, timeout: 100 },
 			});
 		} catch (e) {
 			error = e;
@@ -32,7 +32,7 @@ describe('Timeout', () => {
 	test('Remote not attached', async () => {
 		let error: ApiError;
 		try {
-			await configure({ backend: Port, port: port1, timeout: 100 });
+			await configure(<BackendConfiguration>{ backend: Port, port: port1, timeout: 100 });
 			await fs.promises.writeFile('/test', 'anything');
 		} catch (e) {
 			error = e;

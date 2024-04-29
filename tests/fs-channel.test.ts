@@ -1,4 +1,4 @@
-import { InMemory, configure, fs, resolveBackend, SyncStoreFS } from '@zenfs/core';
+import { InMemory, configure, fs, resolveMountConfig, SyncStoreFS, type BackendConfiguration } from '@zenfs/core';
 import { MessageChannel } from 'node:worker_threads';
 import { Port, attachFS } from '../src/fs.js';
 
@@ -13,9 +13,9 @@ describe('FS with MessageChannel', () => {
 	});
 
 	test('configuration', async () => {
-		tmpfs = await resolveBackend({ backend: InMemory, name: 'tmp' });
+		tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
 		attachFS(port2, tmpfs);
-		await configure({ backend: Port, port: port1 });
+		await configure(<BackendConfiguration>{ backend: Port, port: port1 });
 	});
 
 	test('write', async () => {

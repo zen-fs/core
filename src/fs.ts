@@ -40,7 +40,7 @@ export class PortFile extends File {
 	}
 
 	public statSync(): Stats {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.statSync');
 	}
 
 	public truncate(len: number): Promise<void> {
@@ -48,7 +48,7 @@ export class PortFile extends File {
 	}
 
 	public truncateSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.truncateSync');
 	}
 
 	public write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
@@ -56,7 +56,7 @@ export class PortFile extends File {
 	}
 
 	public writeSync(): number {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.writeSync');
 	}
 
 	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
@@ -64,7 +64,7 @@ export class PortFile extends File {
 	}
 
 	public readSync(): number {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.readSync');
 	}
 
 	public chown(uid: number, gid: number): Promise<void> {
@@ -72,7 +72,7 @@ export class PortFile extends File {
 	}
 
 	public chownSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.chownSync');
 	}
 
 	public chmod(mode: number): Promise<void> {
@@ -80,7 +80,7 @@ export class PortFile extends File {
 	}
 
 	public chmodSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.chmodSync');
 	}
 
 	public utimes(atime: Date, mtime: Date): Promise<void> {
@@ -88,7 +88,7 @@ export class PortFile extends File {
 	}
 
 	public utimesSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.utimesSync');
 	}
 
 	public _setType(type: FileType): Promise<void> {
@@ -96,7 +96,7 @@ export class PortFile extends File {
 	}
 
 	public _setTypeSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile._setTypeSync');
 	}
 
 	public close(): Promise<void> {
@@ -104,7 +104,7 @@ export class PortFile extends File {
 	}
 
 	public closeSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.closeSync');
 	}
 
 	public sync(): Promise<void> {
@@ -112,7 +112,7 @@ export class PortFile extends File {
 	}
 
 	public syncSync(): void {
-		throw new ApiError(ErrorCode.ENOTSUP);
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.syncSync');
 	}
 }
 
@@ -300,8 +300,9 @@ export const Port = {
 			// NodeJS worker
 			return 'Worker' in worker_threads;
 		} catch (e) {
-			return false;
+			// nothing
 		}
+		return false;
 	},
 
 	create(options: RPC.Options) {

@@ -1,4 +1,4 @@
-import { InMemoryStore, configure, fs } from '@zenfs/core';
+import { InMemoryStore, configure, fs, type BackendConfiguration } from '@zenfs/core';
 import { MessageChannel } from 'node:worker_threads';
 import { PortStoreBackend, attachStore } from '../src/store.js';
 
@@ -15,7 +15,7 @@ describe('Store with MessageChannel', () => {
 	test('configuration', async () => {
 		tmpstore = new InMemoryStore('tmp');
 		attachStore(port2, tmpstore);
-		await configure({
+		await configure(<BackendConfiguration>{
 			backend: PortStoreBackend,
 			port: port1,
 		});
