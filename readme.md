@@ -39,11 +39,11 @@ await configure({
 Worker:
 
 ```ts
-import { InMemory } from '@zenfs/core';
+import { InMemory, resolveMountConfig } from '@zenfs/core';
 import { attachFS } from '@zenfs/port';
 import { parentPort } from 'node:worker_threads';
 
-const tmpfs = await resolveBackend({ backend: InMemory, name: 'tmp' });
+const tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
 attachFS(parentPort, tmpfs);
 ```
 
@@ -52,15 +52,15 @@ If you are using using web workers, you would use `self` instead of importing `p
 #### Using with multiple ports on the same thread
 
 ```ts
-import { InMemory, fs, resolveBackend } from '@zenfs/core';
+import { InMemory, fs, resolveMountConfig } from '@zenfs/core';
 import { Port, attachFS } from '@zenfs/port';
 import { MessageChannel } from 'node:worker_threads';
 
 const { port1, port2 } = new MessageChannel();
 
-const tmpfs = await resolveBackend({ backend: InMemory, name: 'tmp' });
+const tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
 attachFS(port2, tmpfs);
-fs.mount('/port', await resolveBackend({ backend: Port, port: port1 }));
+fs.mount('/port', await resolveMountConfig({ backend: Port, port: port1 }));
 console.log('/port');
 
 const content = 'FS is in a port';
