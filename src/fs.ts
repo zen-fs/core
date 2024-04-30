@@ -288,21 +288,8 @@ export const Port = {
 		},
 	},
 
-	async isAvailable(): Promise<boolean> {
-		if ('WorkerGlobalScope' in globalThis && globalThis instanceof globalThis.WorkerGlobalScope) {
-			// Web Worker
-			return true;
-		}
-
-		try {
-			const worker_threads = await import('node:worker_threads');
-
-			// NodeJS worker
-			return 'Worker' in worker_threads;
-		} catch (e) {
-			// nothing
-		}
-		return false;
+	async isAvailable(port?: RPC.Port): Promise<boolean> {
+		return true
 	},
 
 	create(options: RPC.Options) {
