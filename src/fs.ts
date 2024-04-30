@@ -289,7 +289,7 @@ export const Port = {
 	},
 
 	async isAvailable(port?: RPC.Port): Promise<boolean> {
-		return true
+		return true;
 	},
 
 	create(options: RPC.Options) {
