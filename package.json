@@ -3,7 +3,7 @@
 	"version": "0.1.2",
 	"description": "Port backend for ZenFS",
 	"main": "dist/index.js",
-	"types": "dist",
+	"types": "src/index.ts",
 	"keywords": [
 		"filesystem",
 		"node",
@@ -26,13 +26,6 @@
 	"exports": {
 		".": "./dist/index.js",
 		"./*": "./dist/*"
-	},
-	"typesVersions": {
-		"*": {
-			"*": [
-				"./dist/*"
-			]
-		}
 	},
 	"scripts": {
 		"format": "prettier --write .",
