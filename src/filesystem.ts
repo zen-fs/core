@@ -59,7 +59,9 @@ export abstract class FileSystem {
 		// unused
 	}
 
-	public abstract ready(): Promise<this>;
+	public async ready(): Promise<this> {
+		return this;
+	}
 
 	/**
 	 * Asynchronous rename. No arguments other than a possible exception
@@ -218,10 +220,6 @@ declare abstract class SyncFileSystem extends FileSystem {
  */
 export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => SyncFileSystem) & T {
 	abstract class _SyncFileSystem extends FS implements SyncFileSystem {
-		public async ready(): Promise<this> {
-			return this;
-		}
-
 		public async exists(path: string, cred: Cred): Promise<boolean> {
 			return this.existsSync(path, cred);
 		}
@@ -325,6 +323,7 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 
 		public async ready(): Promise<this> {
 			await this._sync.ready();
+			await super.ready();
 			if (this._isInitialized) {
 				return this;
 			}
