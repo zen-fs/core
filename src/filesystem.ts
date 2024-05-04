@@ -412,8 +412,7 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 				const asyncFile = await this.openFile(p, parseFlag('r'), rootCred);
 				const syncFile = this._sync.createFileSync(p, parseFlag('w'), stats.mode, stats.cred());
 				try {
-					const { size } = await asyncFile.stat();
-					const buffer = new Uint8Array(size);
+					const buffer = new Uint8Array(stats.size);
 					await asyncFile.read(buffer);
 					syncFile.writeSync(buffer);
 				} finally {
