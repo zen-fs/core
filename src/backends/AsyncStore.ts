@@ -135,7 +135,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	private _cache?: LRUCache<string, Ino>;
 	_sync: FileSystem;
 
-	public async ready() {
+	public async ready(): Promise<this> {
 		if (this._options.lruCacheSize > 0) {
 			this._cache = new LRUCache(this._options.lruCacheSize);
 		}
