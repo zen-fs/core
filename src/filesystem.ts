@@ -275,6 +275,7 @@ declare abstract class AsyncFileSystem extends FileSystem {
 	 * @hidden
 	 */
 	abstract _sync: FileSystem;
+	queueDone(): Promise<void>;
 	metadata(): FileSystemMetadata;
 	ready(): Promise<this>;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
@@ -316,7 +317,17 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 		 * Queue of pending asynchronous operations.
 		 */
 		private _queue: AsyncOperation[] = [];
-		private _queueRunning: boolean = false;
+		private get _queueRunning(): boolean {
+			return !!this._queue.length;
+		}
+
+		public queueDone(): Promise<void> {
+			return new Promise(resolve => {
+				const check = () => (this._queueRunning ? setTimeout(check) : resolve());
+				check();
+			});
+		}
+
 		private _isInitialized: boolean = false;
 
 		abstract _sync: FileSystem;
@@ -425,12 +436,11 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 		 * @internal
 		 */
 		private async _next(): Promise<void> {
-			if (this._queue.length == 0) {
-				this._queueRunning = false;
+			if (!this._queueRunning) {
 				return;
 			}
 
-			const [method, ...args] = this._queue.shift()!;
+			const [method, ...args] = this._queue.shift();
 			// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
 			await this[method](...args);
 			await this._next();
@@ -441,11 +451,6 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 		 */
 		private queue(...op: AsyncOperation) {
 			this._queue.push(op);
-			if (this._queueRunning) {
-				return;
-			}
-
-			this._queueRunning = true;
 			this._next();
 		}
 	}

@@ -132,10 +132,15 @@ export interface AsyncStoreOptions {
  */
 export class AsyncStoreFS extends Async(FileSystem) {
 	protected store: AsyncStore;
-	private _cache?: LRUCache<string, Ino>;
+	protected _cache?: LRUCache<string, Ino>;
+	private _initialized: boolean = false;
 	_sync: FileSystem;
 
 	public async ready(): Promise<this> {
+		if (this._initialized) {
+			return this;
+		}
+		this._initialized = true;
 		if (this._options.lruCacheSize > 0) {
 			this._cache = new LRUCache(this._options.lruCacheSize);
 		}
@@ -165,7 +170,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 			this._cache.reset();
 		}
 		await this.store.clear();
-		// INVARIANT: Root always exists.
+		// Root always exists.
 		await this.makeRootDirectory();
 	}
 
@@ -173,6 +178,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * @todo Make rename compatible with the cache.
 	 */
 	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
+		await this.queueDone();
 		const c = this._cache;
 		if (this._cache) {
 			// Clear and disable cache during renaming process.
@@ -255,6 +261,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async stat(p: string, cred: Cred): Promise<Stats> {
+		await this.queueDone();
 		const tx = this.store.beginTransaction();
 		const inode = await this.findINode(tx, p);
 		if (!inode) {
@@ -268,6 +275,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async createFile(p: string, flag: string, mode: number, cred: Cred): Promise<PreloadFile<this>> {
+		await this.queueDone();
 		const tx = this.store.beginTransaction(),
 			data = new Uint8Array(0),
 			newFile = await this.commitNewFile(tx, p, FileType.FILE, mode, cred, data);
@@ -276,6 +284,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async openFile(p: string, flag: string, cred: Cred): Promise<PreloadFile<this>> {
+		await this.queueDone();
 		const tx = this.store.beginTransaction(),
 			node = await this.findINode(tx, p),
 			data = await tx.get(node.ino);
@@ -289,10 +298,12 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async unlink(p: string, cred: Cred): Promise<void> {
+		await this.queueDone();
 		return this.removeEntry(p, false, cred);
 	}
 
 	public async rmdir(p: string, cred: Cred): Promise<void> {
+		await this.queueDone();
 		// Check first if directory is empty.
 		const list = await this.readdir(p, cred);
 		if (list.length > 0) {
@@ -302,12 +313,14 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
+		await this.queueDone();
 		const tx = this.store.beginTransaction(),
 			data = encode('{}');
 		await this.commitNewFile(tx, p, FileType.DIRECTORY, mode, cred, data);
 	}
 
 	public async readdir(p: string, cred: Cred): Promise<string[]> {
+		await this.queueDone();
 		const tx = this.store.beginTransaction();
 		const node = await this.findINode(tx, p);
 		if (!node.toStats().hasAccess(R_OK, cred)) {
@@ -321,6 +334,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public async sync(p: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		await this.queueDone();
 		const tx = this.store.beginTransaction(),
 			// We use the _findInode helper because we actually need the INode id.
 			fileInodeId = await this._findINode(tx, dirname(p), basename(p)),
@@ -342,6 +356,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	}
 
 	public async link(existing: string, newpath: string, cred: Cred): Promise<void> {
+		await this.queueDone();
 		const tx = this.store.beginTransaction(),
 			existingDir: string = dirname(existing),
 			existingDirNode = await this.findINode(tx, existingDir);
@@ -382,14 +397,13 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	 */
 	private async makeRootDirectory(): Promise<void> {
 		const tx = this.store.beginTransaction();
-		if ((await tx.get(rootIno)) === undefined) {
+		if (!(await tx.get(rootIno))) {
 			// Create new inode. o777, owned by root:root
-			const dirInode = new Inode();
-			dirInode.mode = 0o777 | FileType.DIRECTORY;
-			// If the root doesn't exist, the first random ID shouldn't exist,
-			// either.
-			await tx.put(dirInode.ino, encode('{}'), false);
-			await tx.put(rootIno, dirInode.data, false);
+			const inode = new Inode();
+			inode.mode = 0o777 | FileType.DIRECTORY;
+			// If the root doesn't exist, the first random ID shouldn't exist either.
+			await tx.put(inode.ino, encode('{}'), false);
+			await tx.put(rootIno, inode.data, false);
 			await tx.commit();
 		}
 	}
