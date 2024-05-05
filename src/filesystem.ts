@@ -424,7 +424,7 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 				try {
 					const buffer = new Uint8Array(stats.size);
 					await asyncFile.read(buffer);
-					syncFile.writeSync(buffer);
+					syncFile.writeSync(buffer, 0, stats.size);
 				} finally {
 					await asyncFile.close();
 					syncFile.closeSync();
