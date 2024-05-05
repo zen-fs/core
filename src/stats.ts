@@ -49,6 +49,10 @@ export interface StatsLike {
 	 * the id of the group that owns the file
 	 */
 	gid: number | bigint;
+	/**
+	 * the ino
+	 */
+	ino: number | bigint;
 }
 
 /**
@@ -179,7 +183,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Creates a new stats instance from a stats-like object. Can be used to copy stats (note)
 	 */
-	constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode }: Partial<StatsLike> = {}) {
+	constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino }: Partial<StatsLike> = {}) {
 		const currentTime = Date.now();
 		const resolveT = (val: number | bigint, _default: number) => <T>(typeof val == this._typename ? val : this._convert(typeof val == this._typename_inverse ? val : _default));
 		this.atimeMs = resolveT(atimeMs, currentTime);
@@ -189,6 +193,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.uid = resolveT(uid, 0);
 		this.gid = resolveT(gid, 0);
 		this.size = this._convert(size);
+		this.ino = this._convert(ino);
 		const itemType: FileType = Number(mode) & S_IFMT || FileType.FILE;
 
 		if (mode) {
