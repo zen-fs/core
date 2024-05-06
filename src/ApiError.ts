@@ -255,11 +255,13 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 		return err;
 	}
 
-	public static With(code: keyof typeof ErrorCode, path: string, syscall?: string): ApiError {
+	public static With(code: keyof typeof ErrorCode, path?: string, syscall?: string): ApiError {
 		return new ApiError(ErrorCode[code], errorMessages[ErrorCode[code]], path, syscall);
 	}
 
 	public code: keyof typeof ErrorCode;
+
+	public declare stack: string;
 
 	/**
 	 * Represents a ZenFS error. Passed back to applications after a failed

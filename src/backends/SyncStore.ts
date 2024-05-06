@@ -37,7 +37,7 @@ export interface SyncTransaction {
 	 * @param ino The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	get(ino: Ino): Uint8Array | undefined;
+	get(ino: Ino): Uint8Array | void;
 
 	/**
 	 * Adds the data to the store under the given key.
@@ -81,7 +81,7 @@ export class SimpleSyncTransaction implements SyncTransaction {
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	protected originalData: Map<Ino, Uint8Array> = new Map();
+	protected originalData: Map<Ino, Uint8Array | void> = new Map();
 	/**
 	 * List of keys modified in this transaction, if any.
 	 */
@@ -89,7 +89,7 @@ export class SimpleSyncTransaction implements SyncTransaction {
 
 	constructor(protected store: SimpleSyncStore) {}
 
-	public get(ino: Ino): Uint8Array | undefined {
+	public get(ino: Ino): Uint8Array | void {
 		const val = this.store.get(ino);
 		this.stashOldValue(ino, val);
 		return val;
@@ -129,7 +129,7 @@ export class SimpleSyncTransaction implements SyncTransaction {
 	 * prevent needless `get` requests if the program modifies the data later
 	 * on during the transaction.
 	 */
-	protected stashOldValue(ino: Ino, value: Uint8Array | undefined) {
+	protected stashOldValue(ino: Ino, value?: Uint8Array) {
 		// Keep only the earliest value in the transaction.
 		if (!this.originalData.has(ino)) {
 			this.originalData.set(ino, value);
@@ -280,7 +280,7 @@ export class SyncStoreFS extends Sync(FileSystem) {
 		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
 			throw ApiError.With('EACCES', p, 'openFile');
 		}
-		if (data === null) {
+		if (!data) {
 			throw ApiError.With('ENOENT', p, 'openFile');
 		}
 		return new PreloadFile(this, p, flag, node.toStats(), data);
@@ -439,13 +439,13 @@ export class SyncStoreFS extends Sync(FileSystem) {
 	/**
 	 * Given the ID of a node, retrieves the corresponding Inode.
 	 * @param tx The transaction to use.
-	 * @param p The corresponding path to the file (used for error messages).
+	 * @param path The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	protected getINode(tx: SyncTransaction, id: Ino, p?: string): Inode {
+	protected getINode(tx: SyncTransaction, id: Ino, path?: string): Inode {
 		const data = tx.get(id);
 		if (!data) {
-			throw ApiError.With('ENOENT', p, 'getINode');
+			throw ApiError.With('ENOENT', path, 'getINode');
 		}
 		const inode = new Inode(data.buffer);
 		return inode;

@@ -1,6 +1,7 @@
 import type * as Node from 'fs';
 import { Readable, Writable } from 'readable-stream';
 import { Callback } from '../utils.js';
+import { ApiError, ErrorCode } from '../ApiError.js';
 
 export class ReadStream extends Readable implements Node.ReadStream {
 	close(callback: Callback = () => null): void {
@@ -9,12 +10,12 @@ export class ReadStream extends Readable implements Node.ReadStream {
 			super.emit('close');
 			callback();
 		} catch (err) {
-			callback(err);
+			callback(new ApiError(ErrorCode.EIO, (err as Error).toString()));
 		}
 	}
-	bytesRead: number;
-	path: string | Buffer;
-	pending: boolean;
+	declare bytesRead: number;
+	declare path: string | Buffer;
+	declare pending: boolean;
 }
 
 export class WriteStream extends Writable implements Node.WriteStream {
@@ -24,10 +25,10 @@ export class WriteStream extends Writable implements Node.WriteStream {
 			super.emit('close');
 			callback();
 		} catch (err) {
-			callback(err);
+			callback(new ApiError(ErrorCode.EIO, (err as Error).toString()));
 		}
 	}
-	bytesWritten: number;
-	path: string | Buffer;
-	pending: boolean;
+	declare bytesWritten: number;
+	declare path: string | Buffer;
+	declare pending: boolean;
 }

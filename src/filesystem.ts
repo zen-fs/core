@@ -5,7 +5,7 @@ import { join } from './emulation/path.js';
 import { PreloadFile, parseFlag, type File } from './file.js';
 import type { Stats } from './stats.js';
 
-export type FileContents = Uint8Array | string;
+export type FileContents = ArrayBufferView | string;
 
 /**
  * Metadata about a FileSystem
@@ -218,7 +218,8 @@ declare abstract class SyncFileSystem extends FileSystem {
 /**
  * Implements the asynchronous API in terms of the synchronous API.
  */
-export function Sync<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => SyncFileSystem) & T {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => SyncFileSystem) & T {
 	abstract class _SyncFileSystem extends FS implements SyncFileSystem {
 		public async exists(path: string, cred: Cred): Promise<boolean> {
 			return this.existsSync(path, cred);
@@ -290,7 +291,8 @@ declare abstract class AsyncFileSystem extends FileSystem {
 	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
 }
 
-type AsyncMethods = ExtractProperties<FileSystem, (...args) => Promise<unknown>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AsyncMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<unknown>>;
 
 /**
  * @internal
@@ -311,7 +313,8 @@ type AsyncOperation = {
  *   the synchronous store, if desired.
  *
  */
-export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => AsyncFileSystem) & T {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => AsyncFileSystem) & T {
 	abstract class _AsyncFileSystem extends FS implements AsyncFileSystem {
 		/**
 		 * Queue of pending asynchronous operations.
@@ -323,7 +326,7 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 
 		public queueDone(): Promise<void> {
 			return new Promise(resolve => {
-				const check = () => (this._queueRunning ? setTimeout(check) : resolve());
+				const check = (): unknown => (this._queueRunning ? setTimeout(check) : resolve());
 				check();
 			});
 		}
@@ -440,7 +443,7 @@ export function Async<T extends abstract new (...args) => FileSystem>(FS: T): (a
 				return;
 			}
 
-			const [method, ...args] = this._queue.shift();
+			const [method, ...args] = this._queue.shift()!;
 			// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
 			await this[method](...args);
 			await this._next();
@@ -482,7 +485,8 @@ declare abstract class ReadonlyFileSystem extends FileSystem {
 /**
  * Implements the non-readonly methods to throw `EROFS`
  */
-export function Readonly<T extends abstract new (...args) => FileSystem>(FS: T): (abstract new (...args) => ReadonlyFileSystem) & T {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => ReadonlyFileSystem) & T {
 	abstract class _ReadonlyFileSystem extends FS implements ReadonlyFileSystem {
 		public metadata(): FileSystemMetadata {
 			return { ...super.metadata(), readonly: true };

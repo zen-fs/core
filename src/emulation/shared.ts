@@ -17,7 +17,7 @@ export function setCred(val: Cred): void {
 // descriptors
 export const fdMap: Map<number, File> = new Map();
 let nextFd = 100;
-export function getFdForFile(file: File): number {
+export function file2fd(file: File): number {
 	const fd = nextFd++;
 	fdMap.set(fd, file);
 	return fd;
@@ -26,7 +26,7 @@ export function fd2file(fd: number): File {
 	if (!fdMap.has(fd)) {
 		throw new ApiError(ErrorCode.EBADF);
 	}
-	return fdMap.get(fd);
+	return fdMap.get(fd)!;
 }
 
 // mounting
@@ -119,10 +119,3 @@ export function mountMapping(mountMapping: MountMapping): void {
 		mount(point, fs);
 	}
 }
-
-/**
- * Types supports as path parameters.
- *
- * In the future, maybe support URL?
- */
-export type PathLike = string;

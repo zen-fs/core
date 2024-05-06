@@ -51,7 +51,7 @@ export class Dir implements _Dir {
 		}
 	}
 
-	protected _entries: Dirent[];
+	protected _entries: Dirent[] = [];
 
 	constructor(public readonly path: string) {}
 
@@ -81,10 +81,10 @@ export class Dir implements _Dir {
 		if (!this._entries) {
 			this._entries = await readdir(this.path, { withFileTypes: true });
 		}
-		if (this._entries.length == 0) {
+		if (!this._entries.length) {
 			return null;
 		}
-		return this._entries.shift();
+		return this._entries.shift() || null;
 	}
 
 	/**
@@ -99,7 +99,7 @@ export class Dir implements _Dir {
 			return this._read();
 		}
 
-		this._read().then(value => cb(null, value));
+		this._read().then(value => cb(undefined, value));
 	}
 
 	/**
@@ -111,10 +111,10 @@ export class Dir implements _Dir {
 		if (!this._entries) {
 			this._entries = readdirSync(this.path, { withFileTypes: true });
 		}
-		if (this._entries.length == 0) {
+		if (!this._entries.length) {
 			return null;
 		}
-		return this._entries.shift();
+		return this._entries.shift() || null;
 	}
 
 	/**

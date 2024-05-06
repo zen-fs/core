@@ -109,7 +109,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			const { buffer } = await file.read(new Uint8Array(size));
 			this._deleteLog = decode(buffer);
 		} catch (err) {
-			if (err.errno !== ErrorCode.ENOENT) {
+			if ((err as ApiError).errno !== ErrorCode.ENOENT) {
 				throw err;
 			}
 		}
@@ -394,7 +394,7 @@ export class UnlockedOverlayFS extends FileSystem {
 				this.updateLog('', cred);
 			}
 		} catch (e) {
-			this._deleteLogError = e;
+			this._deleteLogError = e as ApiError;
 		} finally {
 			this._deleteLogUpdatePending = false;
 		}
@@ -423,7 +423,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 
 		const error = this._deleteLogError;
-		this._deleteLogError = null;
+		delete this._deleteLogError;
 		throw error;
 	}
 

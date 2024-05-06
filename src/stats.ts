@@ -120,7 +120,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Some file systems stash data on stats objects.
 	 */
-	public fileData?: Uint8Array = null;
+	public fileData?: Uint8Array;
 
 	/**
 	 * time of last access, in milliseconds since epoch
@@ -185,15 +185,16 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 */
 	constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino }: Partial<StatsLike> = {}) {
 		const currentTime = Date.now();
-		const resolveT = (val: number | bigint, _default: number) => <T>(typeof val == this._typename ? val : this._convert(typeof val == this._typename_inverse ? val : _default));
+		const resolveT = (val: number | bigint | undefined, _default: number) =>
+			<T>(typeof val == this._typename ? val : this._convert(typeof val == this._typename_inverse ? val! : _default));
 		this.atimeMs = resolveT(atimeMs, currentTime);
 		this.mtimeMs = resolveT(mtimeMs, currentTime);
 		this.ctimeMs = resolveT(ctimeMs, currentTime);
 		this.birthtimeMs = resolveT(birthtimeMs, currentTime);
 		this.uid = resolveT(uid, 0);
 		this.gid = resolveT(gid, 0);
-		this.size = this._convert(size);
-		this.ino = this._convert(ino);
+		this.size = resolveT(size, 0);
+		this.ino = resolveT(ino, 0);
 		const itemType: FileType = Number(mode) & S_IFMT || FileType.FILE;
 
 		if (mode) {
@@ -312,6 +313,19 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 			this.gid = this._convert(gid);
 		}
 	}
+
+	public get atimeNs(): bigint {
+		return BigInt(this.atimeMs);
+	}
+	public get mtimeNs(): bigint {
+		return BigInt(this.mtimeMs);
+	}
+	public get ctimeNs(): bigint {
+		return BigInt(this.ctimeMs);
+	}
+	public get birthtimeNs(): bigint {
+		return BigInt(this.birthtimeMs);
+	}
 }
 
 /**
@@ -341,11 +355,6 @@ Stats satisfies typeof Node.Stats;
 export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats, StatsLike {
 	protected _isBigint = true;
 
-	public atimeNs: bigint;
-	public mtimeNs: bigint;
-	public ctimeNs: bigint;
-	public birthtimeNs: bigint;
-
 	/**
 	 * Clone a stats object.
 	 * @deprecated use `new BigIntStats(stats)`
@@ -357,34 +366,34 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
 
 export class StatsFs implements Node.StatsFsBase<number> {
 	/** Type of file system. */
-	public type: number;
+	public type: number = 0;
 	/**  Optimal transfer block size. */
-	public bsize: number;
+	public bsize: number = 0;
 	/**  Total data blocks in file system. */
-	public blocks: number;
+	public blocks: number = 0;
 	/** Free blocks in file system. */
-	public bfree: number;
+	public bfree: number = 0;
 	/** Available blocks for unprivileged users */
-	public bavail: number;
+	public bavail: number = 0;
 	/** Total file nodes in file system. */
-	public files: number;
+	public files: number = 0;
 	/** Free file nodes in file system. */
-	public ffree: number;
+	public ffree: number = 0;
 }
 
 export class BigIntStatsFs implements Node.StatsFsBase<bigint> {
 	/** Type of file system. */
-	public type: bigint;
+	public type: bigint = 0n;
 	/**  Optimal transfer block size. */
-	public bsize: bigint;
+	public bsize: bigint = 0n;
 	/**  Total data blocks in file system. */
-	public blocks: bigint;
+	public blocks: bigint = 0n;
 	/** Free blocks in file system. */
-	public bfree: bigint;
+	public bfree: bigint = 0n;
 	/** Available blocks for unprivileged users */
-	public bavail: bigint;
+	public bavail: bigint = 0n;
 	/** Total file nodes in file system. */
-	public files: bigint;
+	public files: bigint = 0n;
 	/** Free file nodes in file system. */
-	public ffree: bigint;
+	public ffree: bigint = 0n;
 }

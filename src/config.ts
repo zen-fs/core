@@ -8,7 +8,7 @@ import { FileSystem } from './filesystem.js';
 /**
  * Configuration for a specific mount point
  */
-export type MountConfiguration<FS extends FileSystem = FileSystem, TOptions extends object = object> = FS | BackendConfiguration<FS, TOptions> | Backend<FS, TOptions>;
+export type MountConfiguration<FS extends FileSystem = FileSystem, TOptions extends object = object> = FS | BackendConfiguration<Backend<FS, TOptions>> | Backend<FS, TOptions>;
 
 function isMountConfig(arg: unknown): arg is MountConfiguration {
 	return isBackendConfig(arg) || isBackend(arg) || arg instanceof FileSystem;
@@ -32,7 +32,7 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 	}
 
 	if (isBackend(config)) {
-		config = <BackendConfiguration<FS, TOptions>>{ backend: config };
+		config = <BackendConfiguration<Backend<FS, TOptions>>>{ backend: config };
 	}
 
 	for (const [key, value] of Object.entries(config)) {
@@ -48,7 +48,7 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid configuration, too deep and possibly infinite');
 		}
 
-		config[key] = await resolveMountConfig(value, ++_depth);
+		(<Record<string, FileSystem>>config)[key] = await resolveMountConfig(value, ++_depth);
 	}
 
 	const { backend } = config;
@@ -81,8 +81,8 @@ export type Configuration = MountConfiguration | MappingConfiguration;
  * @see Configuration for more info on the configuration object.
  */
 export async function configure(config: Configuration): Promise<void> {
-	const uid = 'uid' in config ? +config.uid || 0 : 0;
-	const gid = 'gid' in config ? +config.gid || 0 : 0;
+	const uid = 'uid' in config ? config.uid || 0 : 0;
+	const gid = 'gid' in config ? config.gid || 0 : 0;
 
 	if (isMountConfig(config)) {
 		// single FS

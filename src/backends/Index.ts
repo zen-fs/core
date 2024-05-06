@@ -123,11 +123,12 @@ export class FileIndex<TData> {
 
 		const dirpath = dirname(path);
 
+		const hasParent = this._index.has(dirpath);
+
+		const parent = hasParent ? this._index.get(dirpath)! : new IndexDirInode<TData>();
+
 		// Try to add to its parent directory first.
-		let parent = this._index.get(dirpath);
-		if (!parent && path != '/') {
-			// Create parent.
-			parent = new IndexDirInode<TData>();
+		if (!hasParent && path != '/') {
 			if (!this.add(dirpath, parent)) {
 				return false;
 			}
@@ -184,7 +185,7 @@ export class FileIndex<TData> {
 	 * @return The removed item,
 	 *   or null if it did not exist.
 	 */
-	public remove(path: string): IndexInode<TData> | null {
+	public remove(path: string): IndexInode<TData> | void {
 		const dirpath = dirname(path);
 
 		// Try to remove it from its parent directory first.
@@ -217,7 +218,7 @@ export class FileIndex<TData> {
 	 * Retrieves the directory listing of the given path.
 	 * @return An array of files in the given path, or 'null' if it does not exist.
 	 */
-	public ls(path: string): string[] | null {
+	public ls(path: string): string[] | void {
 		return this._index.get(path)?.listing;
 	}
 
@@ -225,7 +226,7 @@ export class FileIndex<TData> {
 	 * Returns the inode of the given item.
 	 * @return Returns null if the item does not exist.
 	 */
-	public get(path: string): IndexInode<TData> | null {
+	public get(path: string): IndexInode<TData> | void | null {
 		const dirpath = dirname(path);
 
 		// Retrieve from its parent directory.
@@ -316,7 +317,7 @@ export class IndexDirInode<TData> extends IndexInode<TData> {
 	 * Returns the inode for the indicated item, or null if it does not exist.
 	 * @param path Name of item in this directory.
 	 */
-	public get(path: string): IndexInode<TData> | null {
+	public get(path: string): IndexInode<TData> | void {
 		return this._listing.get(path);
 	}
 	/**
@@ -340,7 +341,7 @@ export class IndexDirInode<TData> extends IndexInode<TData> {
 	 * @return Returns the item
 	 *   removed, or null if the item did not exist.
 	 */
-	public remove(p: string): IndexInode<TData> | null {
+	public remove(p: string): IndexInode<TData> | void {
 		const item = this._listing.get(p);
 		if (!item) {
 			return;

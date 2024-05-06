@@ -8,9 +8,9 @@ export class Mutex {
 	public lock(path: string): Promise<void> {
 		return new Promise(resolve => {
 			if (this._locks.has(path)) {
-				this._locks.get(path).push(resolve);
+				this._locks.get(path)!.push(resolve);
 			} else {
-				this._locks.set(path, []);
+				this._locks.set(path, [resolve]);
 			}
 		});
 	}
@@ -20,7 +20,7 @@ export class Mutex {
 			throw new Error('unlock of a non-locked mutex');
 		}
 
-		const next = this._locks.get(path).shift();
+		const next = this._locks.get(path)?.shift();
 		/* 
 			don't unlock - we want to queue up next for the
 			end of the current task execution, but we don't

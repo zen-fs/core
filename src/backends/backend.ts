@@ -66,6 +66,8 @@ export interface Backend<FS extends FileSystem = FileSystem, TOptions extends ob
 	isAvailable(): boolean | Promise<boolean>;
 }
 
+type OptionsOf<T extends Backend> = T extends Backend<FileSystem, infer TOptions> ? TOptions : never;
+
 /**
  * @internal
  */
@@ -77,7 +79,7 @@ export function isBackend(arg: unknown): arg is Backend {
  * Checks that the given options object is valid for the file system options.
  * @internal
  */
-export async function checkOptions<T extends Backend>(backend: T, opts: object): Promise<void> {
+export async function checkOptions<T extends Backend>(backend: T, opts: Partial<OptionsOf<T>> & Record<string, unknown>): Promise<void> {
 	if (typeof opts != 'object' || opts === null) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid options');
 	}
@@ -126,8 +128,8 @@ export async function checkOptions<T extends Backend>(backend: T, opts: object):
 	}
 }
 
-export function createBackend<B extends Backend>(backend: B, options?: object): Promise<ReturnType<B['create']>> {
-	checkOptions(backend, options);
+export async function createBackend<B extends Backend>(backend: B, options: Partial<OptionsOf<B>> = {}): Promise<ReturnType<B['create']>> {
+	await checkOptions(backend, options);
 	const fs = <ReturnType<B['create']>>backend.create(options);
 	return fs.ready();
 }
@@ -140,8 +142,8 @@ export function createBackend<B extends Backend>(backend: B, options?: object): 
  *
  * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
  */
-export type BackendConfiguration<FS extends FileSystem = FileSystem, TOptions extends object = object> = TOptions & {
-	backend: Backend<FS, TOptions>;
+export type BackendConfiguration<T extends Backend = Backend> = OptionsOf<T> & {
+	backend: T;
 };
 
 /**

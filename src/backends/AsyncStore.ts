@@ -34,7 +34,7 @@ class LRUCache<K, V> {
 		this.cache.push({ key, value });
 	}
 
-	public get(key: K): V | null {
+	public get(key: K): V | void {
 		const node = this.cache.find(n => n.key === key);
 		if (!node) {
 			return;
@@ -131,21 +131,27 @@ export interface AsyncStoreOptions {
  * @internal
  */
 export class AsyncStoreFS extends Async(FileSystem) {
-	protected store: AsyncStore;
+	protected _store?: AsyncStore;
+	protected get store(): AsyncStore {
+		if (!this._store) {
+			throw new ReferenceError('AsyncStoreFS not attached to a store');
+		}
+		return this._store;
+	}
 	protected _cache?: LRUCache<string, Ino>;
 	private _initialized: boolean = false;
-	_sync: FileSystem;
+	_sync: FileSystem = InMemory.create({ name: 'test' });
 
 	public async ready(): Promise<this> {
 		if (this._initialized) {
 			return this;
 		}
 		this._initialized = true;
-		if (this._options.lruCacheSize > 0) {
+		if (this._options.lruCacheSize) {
 			this._cache = new LRUCache(this._options.lruCacheSize);
 		}
-		this.store = await this._options.store;
-		this._sync = this._options.sync || InMemory.create({ name: 'test' });
+		this._store = await this._options.store;
+		this._sync = this._options.sync || this._sync;
 		await this.makeRootDirectory();
 		await super.ready();
 		return this;
@@ -182,8 +188,8 @@ export class AsyncStoreFS extends Async(FileSystem) {
 		const c = this._cache;
 		if (this._cache) {
 			// Clear and disable cache during renaming process.
-			this._cache = null;
-			c.reset();
+			delete this._cache;
+			c?.reset();
 		}
 
 		try {

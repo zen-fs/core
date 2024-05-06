@@ -181,12 +181,12 @@ export abstract class File {
 	/**
 	 * Get the current file position.
 	 */
-	public abstract position?: number;
+	public abstract position: number;
 
 	/**
 	 * The path to the file
 	 */
-	public abstract readonly path?: string;
+	public abstract readonly path: string;
 
 	/**
 	 * Asynchronous `stat`.
@@ -468,7 +468,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * Asynchronous truncate.
 	 * @param len
 	 */
-	public truncate(len: number): Promise<void> {
+	public async truncate(len: number): Promise<void> {
 		this.truncateSync(len);
 		if (isSynchronous(this.flag)) {
 			return this.sync();
@@ -541,7 +541,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (endFp > this.stats.size) {
 			this.stats.size = endFp;
 			if (endFp > this._buffer.byteLength) {
-				if (this._buffer.buffer.resizable && this._buffer.buffer.maxByteLength <= endFp) {
+				if (this._buffer.buffer.resizable && (this._buffer.buffer.maxByteLength ?? 0) <= endFp) {
 					this._buffer.buffer.resize(endFp);
 				} else {
 					// Extend the buffer!

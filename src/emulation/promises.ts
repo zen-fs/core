@@ -1,9 +1,10 @@
 import { Buffer } from 'buffer';
-import type * as Node from 'node:fs';
+import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo, FileReadResult, FlagAndOpenMode } from 'node:fs/promises';
 import type { ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
+import type { ReadableStreamController } from 'stream/web';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
@@ -12,9 +13,9 @@ import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '.
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import type { PathLike } from './shared.js';
-import { cred, fd2file, fdMap, fixError, getFdForFile, mounts, resolveMount } from './shared.js';
+import { cred, fd2file, fdMap, fixError, file2fd, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
+import type { BufferEncodingOption, TimeLike } from 'fs';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -43,7 +44,7 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronous fchmod(2) - Change permissions of a file.
 	 * @param mode A file mode. If a string is passed, it is parsed as an octal integer.
 	 */
-	public chmod(mode: Node.Mode): Promise<void> {
+	public chmod(mode: fs.Mode): Promise<void> {
 		const numMode = normalizeMode(mode, -1);
 		if (numMode < 0) {
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid mode.');
@@ -69,7 +70,8 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronous ftruncate(2) - Truncate a file to a specified length.
 	 * @param len If not specified, defaults to `0`.
 	 */
-	public truncate(len?: number): Promise<void> {
+	public truncate(len?: number | null): Promise<void> {
+		len ||= 0;
 		if (len < 0) {
 			throw new ApiError(ErrorCode.EINVAL);
 		}
@@ -95,7 +97,7 @@ export class FileHandle implements promises.FileHandle {
 	 * If `mode` is a string, it is parsed as an octal integer.
 	 * If `flag` is not supplied, the default of `'a'` is used.
 	 */
-	public async appendFile(data: string | Uint8Array, _options?: (Node.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<void> {
+	public async appendFile(data: string | Uint8Array, _options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding = {}): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isAppendable(flag)) {
@@ -105,7 +107,7 @@ export class FileHandle implements promises.FileHandle {
 			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
-		await this.file.write(encodedData, 0, encodedData.length, null);
+		await this.file.write(encodedData, 0, encodedData.length, undefined);
 	}
 
 	/**
@@ -116,9 +118,14 @@ export class FileHandle implements promises.FileHandle {
 	 * @param length The number of bytes to read.
 	 * @param position The offset from the beginning of the file from which data should be read. If `null`, data will be read from the current position.
 	 */
-	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
+	public read<TBuffer extends NodeJS.ArrayBufferView>(
+		buffer: TBuffer,
+		offset?: number,
+		length?: number,
+		position: number = this.file.position
+	): Promise<FileReadResult<TBuffer>> {
 		if (isNaN(+position)) {
-			position = this.file.position!;
+			position = this.file.position;
 		}
 		return this.file.read(buffer, offset, length, position);
 	}
@@ -129,10 +136,10 @@ export class FileHandle implements promises.FileHandle {
 	 * @param _options An object that may contain an optional flag.
 	 * If a flag is not provided, it defaults to `'r'`.
 	 */
-	public async readFile(_options?: { flag?: Node.OpenMode }): Promise<Buffer>;
-	public async readFile(_options: (Node.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string>;
-	public async readFile(_options?: (Node.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
-		const options = normalizeOptions(_options, null, 'r', 0o444);
+	public async readFile(_options?: { flag?: fs.OpenMode }): Promise<Buffer>;
+	public async readFile(_options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string>;
+	public async readFile(_options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding = {}): Promise<string | Buffer> {
+		const options = normalizeOptions(_options, undefined, 'r', 0o444);
 		const flag = parseFlag(options.flag);
 		if (!isReadable(flag)) {
 			throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
@@ -156,18 +163,18 @@ export class FileHandle implements promises.FileHandle {
 	 * @since v17.0.0
 	 * @experimental
 	 */
-	public readableWebStream(options?: promises.ReadableWebStreamOptions): TReadableStream<Uint8Array> {
+	public readableWebStream(options: promises.ReadableWebStreamOptions = {}): TReadableStream<Uint8Array> {
 		// Note: using an arrow function to preserve `this`
-		const start = async ({ close, enqueue, error }) => {
+		const start = async ({ close, enqueue, error }: ReadableStreamController<Uint8Array>) => {
 			try {
 				const chunkSize = 64 * 1024,
 					maxChunks = 1e7;
 				let i = 0,
 					position = 0,
-					result: FileReadResult<Uint8Array>;
+					bytesRead = NaN;
 
-				while (result.bytesRead > 0) {
-					result = await this.read(new Uint8Array(chunkSize), 0, chunkSize, position);
+				while (bytesRead > 0) {
+					const result = await this.read(new Uint8Array(chunkSize), 0, chunkSize, position);
 					if (!result.bytesRead) {
 						close();
 						return;
@@ -177,13 +184,14 @@ export class FileHandle implements promises.FileHandle {
 					if (++i >= maxChunks) {
 						throw new ApiError(ErrorCode.EFBIG, 'Too many iterations on readable stream', this.file.path, 'FileHandle.readableWebStream');
 					}
+					bytesRead = result.bytesRead;
 				}
 			} catch (e) {
 				error(e);
 			}
 		};
 
-		return new globalThis.ReadableStream({ start, type: options.type });
+		return new (globalThis as any).ReadableStream({ start, type: options.type });
 	}
 
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
@@ -197,9 +205,9 @@ export class FileHandle implements promises.FileHandle {
 	/**
 	 * Asynchronous fstat(2) - Get file status.
 	 */
-	public async stat(opts: Node.BigIntOptions): Promise<BigIntStats>;
-	public async stat(opts?: Node.StatOptions & { bigint?: false }): Promise<Stats>;
-	public async stat(opts?: Node.StatOptions): Promise<Stats | BigIntStats> {
+	public async stat(opts: fs.BigIntOptions): Promise<BigIntStats>;
+	public async stat(opts?: fs.StatOptions & { bigint?: false }): Promise<Stats>;
+	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
 		const stats = await this.file.stat();
 		return opts?.bigint ? new BigIntStats(stats) : stats;
 	}
@@ -233,17 +241,17 @@ export class FileHandle implements promises.FileHandle {
 			length: number;
 		if (typeof data === 'string') {
 			// Signature 1: (fd, string, [position?, [encoding?]])
-			position = typeof posOrOff === 'number' ? posOrOff : null;
+			position = typeof posOrOff === 'number' ? posOrOff : undefined;
 			const encoding = <BufferEncoding>(typeof lenOrEnc === 'string' ? lenOrEnc : 'utf8');
 			offset = 0;
 			buffer = Buffer.from(data, encoding);
 			length = buffer.length;
 		} else {
 			// Signature 2: (fd, buffer, offset, length, position?)
-			buffer = data;
-			offset = posOrOff;
+			buffer = new Uint8Array(data.buffer);
+			offset = posOrOff || 0;
 			length = lenOrEnc as number;
-			position = typeof position === 'number' ? position : null;
+			position = typeof position === 'number' ? position : undefined;
 		}
 
 		position ??= this.file.position!;
@@ -262,7 +270,7 @@ export class FileHandle implements promises.FileHandle {
 	 * If `mode` is a string, it is parsed as an octal integer.
 	 * If `flag` is not supplied, the default of `'w'` is used.
 	 */
-	public async writeFile(data: string | Uint8Array, _options?: Node.WriteFileOptions): Promise<void> {
+	public async writeFile(data: string | Uint8Array, _options: fs.WriteFileOptions = {}): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isWriteable(flag)) {
@@ -289,11 +297,11 @@ export class FileHandle implements promises.FileHandle {
 	 * @param position The position in the file where to begin writing.
 	 * @returns The number of bytes written.
 	 */
-	public async writev(buffers: Uint8Array[], position?: number): Promise<Node.WriteVResult> {
+	public async writev(buffers: Uint8Array[], position?: number): Promise<fs.WriteVResult> {
 		let bytesWritten = 0;
 
 		for (const buffer of buffers) {
-			bytesWritten += (await this.write(buffer, 0, buffer.length, position + bytesWritten)).bytesWritten;
+			bytesWritten += (await this.write(buffer, 0, buffer.length, (position || 0) + bytesWritten)).bytesWritten;
 		}
 
 		return { bytesWritten, buffers };
@@ -305,11 +313,11 @@ export class FileHandle implements promises.FileHandle {
 	 * @param position The position in the file where to begin reading.
 	 * @returns The number of bytes read.
 	 */
-	public async readv(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<Node.ReadVResult> {
+	public async readv(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<fs.ReadVResult> {
 		let bytesRead = 0;
 
 		for (const buffer of buffers) {
-			bytesRead += (await this.read(buffer, 0, buffer.byteLength, position + bytesRead)).bytesRead;
+			bytesRead += (await this.read(buffer, 0, buffer.byteLength, (position || 0) + bytesRead)).bytesRead;
 		}
 
 		return { bytesRead, buffers };
@@ -322,9 +330,9 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns A `ReadStream` object.
 	 */
 	public createReadStream(options?: CreateReadStreamOptions): ReadStream {
-		const streamOptions = {
+		const stream = new ReadStream({
 			highWaterMark: options?.highWaterMark || 64 * 1024,
-			encoding: options?.encoding,
+			encoding: options?.encoding ?? undefined,
 
 			read: async (size: number) => {
 				try {
@@ -332,12 +340,11 @@ export class FileHandle implements promises.FileHandle {
 					stream.push(!result.bytesRead ? null : result.buffer.slice(0, result.bytesRead)); // Push data or null for EOF
 					this.file.position += result.bytesRead;
 				} catch (error) {
-					stream.destroy(error);
+					stream.destroy(<Error>error);
 				}
 			},
-		};
+		});
 
-		const stream = new ReadStream(streamOptions);
 		stream.path = this.file.path;
 		return stream;
 	}
@@ -355,10 +362,10 @@ export class FileHandle implements promises.FileHandle {
 
 			write: async (chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) => {
 				try {
-					const { bytesWritten } = await this.write(chunk, null, encoding);
+					const { bytesWritten } = await this.write(chunk, undefined, encoding);
 					callback(bytesWritten == chunk.length ? null : new Error('Failed to write full chunk'));
 				} catch (error) {
-					callback(error);
+					callback(<Error>error);
 				}
 			},
 		};
@@ -370,7 +377,7 @@ export class FileHandle implements promises.FileHandle {
 }
 
 type FileSystemMethod = {
-	[K in keyof FileSystem]: FileSystem[K] extends (...args) => unknown
+	[K in keyof FileSystem]: FileSystem[K] extends (...args: any[]) => unknown
 		? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
 		: never;
 }[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
@@ -388,14 +395,14 @@ type FileSystemMethod = {
  * @returns
  */
 async function doOp<M extends FileSystemMethod, RT extends ReturnType<M> = ReturnType<M>>(...[name, resolveSymlinks, rawPath, ...args]: Parameters<M>): Promise<RT> {
-	rawPath = normalizePath(rawPath);
+	rawPath = normalizePath(rawPath!);
 	const _path = resolveSymlinks && (await exists(rawPath)) ? await realpath(rawPath) : rawPath;
 	const { fs, path } = resolveMount(_path);
 	try {
 		// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
 		return fs[name](path, ...args) as Promise<RT>;
 	} catch (e) {
-		throw fixError(e, { [path]: rawPath });
+		throw fixError(<Error>e, { [path]: rawPath });
 	}
 }
 
@@ -406,7 +413,7 @@ async function doOp<M extends FileSystemMethod, RT extends ReturnType<M> = Retur
  * @param oldPath
  * @param newPath
  */
-export async function rename(oldPath: PathLike, newPath: PathLike): Promise<void> {
+export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promise<void> {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
 	const src = resolveMount(oldPath);
@@ -419,7 +426,7 @@ export async function rename(oldPath: PathLike, newPath: PathLike): Promise<void
 		await writeFile(newPath, await readFile(oldPath));
 		await unlink(oldPath);
 	} catch (e) {
-		throw fixError(e, { [src.path]: oldPath, [dst.path]: newPath });
+		throw fixError(<Error>e, { [src.path]: oldPath, [dst.path]: newPath });
 	}
 }
 rename satisfies typeof promises.rename;
@@ -428,7 +435,7 @@ rename satisfies typeof promises.rename;
  * Test whether or not the given path exists by checking with the file system.
  * @param _path
  */
-export async function exists(_path: PathLike): Promise<boolean> {
+export async function exists(_path: fs.PathLike): Promise<boolean> {
 	try {
 		const { fs, path } = resolveMount(await realpath(_path));
 		return await fs.exists(path, cred);
@@ -446,11 +453,11 @@ export async function exists(_path: PathLike): Promise<boolean> {
  * @param path
  * @returns Stats
  */
-export async function stat(path: PathLike, options: Node.BigIntOptions): Promise<BigIntStats>;
-export async function stat(path: PathLike, options?: { bigint?: false }): Promise<Stats>;
-export async function stat(path: PathLike, options?: Node.StatOptions): Promise<Stats | BigIntStats>;
-export async function stat(path: PathLike, options?: Node.StatOptions): Promise<Stats | BigIntStats> {
-	const stats: Stats = await doOp('stat', true, path, cred);
+export async function stat(path: fs.PathLike, options: fs.BigIntOptions): Promise<BigIntStats>;
+export async function stat(path: fs.PathLike, options?: { bigint?: false }): Promise<Stats>;
+export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
+export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
+	const stats: Stats = await doOp('stat', true, path.toString(), cred);
 	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 stat satisfies typeof promises.stat;
@@ -462,10 +469,10 @@ stat satisfies typeof promises.stat;
  * @param path
  * @return
  */
-export async function lstat(path: PathLike, options?: { bigint?: false }): Promise<Stats>;
-export async function lstat(path: PathLike, options: { bigint: true }): Promise<BigIntStats>;
-export async function lstat(path: PathLike, options?: Node.StatOptions): Promise<Stats | BigIntStats> {
-	const stats: Stats = await doOp('stat', false, path, cred);
+export async function lstat(path: fs.PathLike, options?: { bigint?: boolean }): Promise<Stats>;
+export async function lstat(path: fs.PathLike, options: { bigint: true }): Promise<BigIntStats>;
+export async function lstat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
+	const stats: Stats = await doOp('stat', false, path.toString(), cred);
 	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 lstat satisfies typeof promises.lstat;
@@ -477,7 +484,7 @@ lstat satisfies typeof promises.lstat;
  * @param path
  * @param len
  */
-export async function truncate(path: PathLike, len: number = 0): Promise<void> {
+export async function truncate(path: fs.PathLike, len: number = 0): Promise<void> {
 	const handle = await open(path, 'r+');
 	try {
 		await handle.truncate(len);
@@ -491,8 +498,8 @@ truncate satisfies typeof promises.truncate;
  * `unlink`.
  * @param path
  */
-export async function unlink(path: PathLike): Promise<void> {
-	return doOp('unlink', false, path, cred);
+export async function unlink(path: fs.PathLike): Promise<void> {
+	return doOp('unlink', false, path.toString(), cred);
 }
 unlink satisfies typeof promises.unlink;
 
@@ -500,7 +507,7 @@ unlink satisfies typeof promises.unlink;
  * Opens a file. This helper handles the complexity of file flags.
  * @internal
  */
-async function _open(_path: PathLike, _flag: string, _mode: Node.Mode = 0o644, resolveSymlinks: boolean): Promise<File> {
+async function _open(_path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o644, resolveSymlinks: boolean): Promise<File> {
 	const path = normalizePath(_path),
 		mode = normalizeMode(_mode, 0o644),
 		flag = parseFlag(_flag);
@@ -552,20 +559,11 @@ async function _open(_path: PathLike, _flag: string, _mode: Node.Mode = 0o644, r
  * @param flags Handles the complexity of the various file modes. See its API for more details.
  * @param mode Mode to use to open the file. Can be ignored if the filesystem doesn't support permissions.
  */
-export async function open(path: PathLike, flag: string, mode: Node.Mode = 0o644): Promise<FileHandle> {
+export async function open(path: fs.PathLike, flag: fs.OpenMode = 'r', mode: fs.Mode = 0o644): Promise<FileHandle> {
 	const file = await _open(path, flag, mode, true);
-	return new FileHandle(getFdForFile(file));
+	return new FileHandle(file2fd(file));
 }
 open satisfies typeof promises.open;
-
-/**
- * Opens a file without resolving symlinks
- * @internal
- */
-export async function lopen(path: PathLike, flag: string, mode: Node.Mode = 0o644): Promise<FileHandle> {
-	const file: File = await _open(path, flag, mode, false);
-	return new FileHandle(getFdForFile(file));
-}
 
 /**
  * Asynchronously reads the entire contents of a file.
@@ -593,16 +591,23 @@ async function _readFile(fname: string, flag: string, resolveSymlinks: boolean):
  * options.flag Defaults to `'r'`.
  * @returns file data
  */
-export async function readFile(filename: PathLike, options?: { flag?: Node.OpenMode }): Promise<Buffer>;
-export async function readFile(filename: PathLike, options: (Node.EncodingOption & { flag?: Node.OpenMode }) | BufferEncoding): Promise<string>;
-export async function readFile(filename: PathLike, _options?: (Node.EncodingOption & { flag?: Node.OpenMode }) | BufferEncoding): Promise<Buffer | string> {
-	const options = normalizeOptions(_options, null, 'r', 0);
+export async function readFile(path: fs.PathLike | promises.FileHandle, options?: { encoding?: null; flag?: fs.OpenMode } | null): Promise<Buffer>;
+export async function readFile(path: fs.PathLike | promises.FileHandle, options: { encoding: BufferEncoding; flag?: fs.OpenMode } | BufferEncoding): Promise<string>;
+export async function readFile(
+	path: fs.PathLike | promises.FileHandle,
+	options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
+): Promise<string | Buffer>;
+export async function readFile(
+	path: fs.PathLike | promises.FileHandle,
+	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
+): Promise<Buffer | string> {
+	const options = normalizeOptions(_options, undefined, 'r', 0);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
 	}
-
-	const data: Buffer = Buffer.from(await _readFile(filename, options.flag, true));
+	path = path instanceof FileHandle ? path.file.path : path.toString();
+	const data: Buffer = Buffer.from(await _readFile(path, options.flag, true));
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFile satisfies typeof promises.readFile;
@@ -611,32 +616,33 @@ readFile satisfies typeof promises.readFile;
  * Asynchronously writes data to a file, replacing the file if it already exists.
  *
  * The encoding option is ignored if data is a buffer.
- * @param filename
+ * @param path
  * @param data
  * @param _options
  * @option options encoding Defaults to `'utf8'`.
  * @option options mode Defaults to `0644`.
  * @option options flag Defaults to `'w'`.
  */
-export async function writeFile(filename: PathLike, data: FileContents, _options?: Node.WriteFileOptions): Promise<void> {
+export async function writeFile(path: fs.PathLike | promises.FileHandle, data: FileContents, _options?: fs.WriteFileOptions): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
-	const handle = await open(filename, options.flag, options.mode);
+	const handle = path instanceof FileHandle ? path : await open(path.toString(), options.flag, options.mode);
 	try {
-		await handle.writeFile(data, options);
+		await handle.writeFile(typeof data == 'string' ? data : new Uint8Array(data.buffer), options);
 	} finally {
 		await handle.close();
 	}
 }
-writeFile satisfies typeof promises.writeFile;
+// Note, we do not suport iterables or streams for the data parameter
+writeFile satisfies typeof promises.writeFile | ((path: fs.PathLike | promises.FileHandle, data: FileContents, _options?: fs.WriteFileOptions) => Promise<void>);
 
 /**
  * Asynchronously append data to a file, creating the file if
  * it not yet exists.
  */
-async function _appendFile(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): Promise<void> {
-	const file = await _open(fname, flag, mode, resolveSymlinks);
+async function _appendFile(path: fs.PathLike, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): Promise<void> {
+	const file = await _open(path, flag, mode, resolveSymlinks);
 	try {
-		await file.write(data, 0, data.length, null);
+		await file.write(data, 0, data.length, undefined);
 	} finally {
 		await file.close();
 	}
@@ -645,7 +651,7 @@ async function _appendFile(fname: string, data: Uint8Array, flag: string, mode: 
 /**
  * Asynchronously append data to a file, creating the file if it not yet
  * exists.
- * @param filename
+ * @param path
  * @param data
  * @param options
  * @option options encoding Defaults to `'utf8'`.
@@ -653,9 +659,9 @@ async function _appendFile(fname: string, data: Uint8Array, flag: string, mode: 
  * @option options flag Defaults to `'a'`.
  */
 export async function appendFile(
-	filename: PathLike,
+	path: fs.PathLike | promises.FileHandle,
 	data: FileContents,
-	_options?: BufferEncoding | (Node.EncodingOption & { mode?: Node.Mode; flag?: Node.OpenMode })
+	_options?: BufferEncoding | (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | null
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 	const flag = parseFlag(options.flag);
@@ -665,8 +671,8 @@ export async function appendFile(
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
-	await _appendFile(filename, encodedData, options.flag, options.mode, true);
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : new Uint8Array(data.buffer);
+	await _appendFile(path instanceof FileHandle ? path.file.path : path.toString(), encodedData, options.flag, options.mode, true);
 }
 appendFile satisfies typeof promises.appendFile;
 
@@ -676,33 +682,41 @@ appendFile satisfies typeof promises.appendFile;
  * `rmdir`.
  * @param path
  */
-export async function rmdir(path: PathLike): Promise<void> {
-	return doOp('rmdir', true, path, cred);
+export async function rmdir(path: fs.PathLike): Promise<void> {
+	return doOp('rmdir', true, path.toString(), cred);
 }
 rmdir satisfies typeof promises.rmdir;
 
 /**
- * `mkdir`.
- * @param path
- * @param mode defaults to `0777`
+ * Asynchronous mkdir(2) - create a directory.
+ * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
+ * @param options Either the file mode, or an object optionally specifying the file mode and whether parent folders
+ * should be created. If a string is passed, it is parsed as an octal integer. If not specified, defaults to `0o777`.
  */
-export async function mkdir(path: PathLike, mode?: Node.Mode | (Node.MakeDirectoryOptions & { recursive?: false })): Promise<void>;
-export async function mkdir(path: PathLike, mode: Node.MakeDirectoryOptions & { recursive: true }): Promise<string>;
-export async function mkdir(path: PathLike, mode?: Node.Mode | Node.MakeDirectoryOptions): Promise<string | void> {
-	await doOp('mkdir', true, path, normalizeMode(typeof mode == 'object' ? mode?.mode : mode, 0o777), cred);
+export async function mkdir(path: fs.PathLike, options: fs.MakeDirectoryOptions & { recursive: true }): Promise<string | undefined>;
+export async function mkdir(path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false | undefined }) | null): Promise<void>;
+export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined>;
+export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined | void> {
+	await doOp('mkdir', true, path.toString(), normalizeMode(typeof options == 'object' ? options?.mode : options, 0o777), cred);
+	return;
 }
 mkdir satisfies typeof promises.mkdir;
 
 /**
- * `readdir`. Reads the contents of a directory.
- * @param path
+ * Asynchronous readdir(3) - read a directory.
+ * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
+ * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'` is used.
  */
-export async function readdir(path: PathLike, options?: (Node.EncodingOption & { withFileTypes?: false }) | BufferEncoding): Promise<string[]>;
-export async function readdir(path: PathLike, options: Node.BufferEncodingOption & { withFileTypes?: false }): Promise<Buffer[]>;
-export async function readdir(path: PathLike, options: Node.EncodingOption & { withFileTypes: true }): Promise<Dirent[]>;
+export async function readdir(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null): Promise<string[]>;
+export async function readdir(path: fs.PathLike, options: BufferEncodingOption & { withFileTypes?: false; recursive?: boolean }): Promise<Buffer[]>;
 export async function readdir(
-	path: PathLike,
-	options?: (Node.EncodingOption & { withFileTypes?: boolean }) | BufferEncoding | (Node.BufferEncodingOption & { withFileTypes?: boolean })
+	path: fs.PathLike,
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+): Promise<string[] | Buffer[]>;
+export async function readdir(path: fs.PathLike, options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean }): Promise<Dirent[]>;
+export async function readdir(
+	path: fs.PathLike,
+	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	path = normalizePath(path);
 	const entries: string[] = await doOp('readdir', true, path, cred);
@@ -732,9 +746,9 @@ readdir satisfies typeof promises.readdir;
  * @param existing
  * @param newpath
  */
-export async function link(existing: PathLike, newpath: PathLike): Promise<void> {
+export async function link(existing: fs.PathLike, newpath: fs.PathLike): Promise<void> {
 	newpath = normalizePath(newpath);
-	return doOp('link', false, existing, newpath, cred);
+	return doOp('link', false, existing.toString(), newpath, cred);
 }
 link satisfies typeof promises.link;
 
@@ -744,16 +758,16 @@ link satisfies typeof promises.link;
  * @param path link path
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
-export async function symlink(target: PathLike, path: PathLike, type: Node.symlink.Type = 'file'): Promise<void> {
-	if (!['file', 'dir', 'junction'].includes(type)) {
+export async function symlink(target: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | string | null = 'file'): Promise<void> {
+	if (!['file', 'dir', 'junction'].includes(type!)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Invalid symlink type: ' + type);
 	}
 
 	if (await exists(path)) {
-		throw ApiError.With('EEXIST', path, 'symlink');
+		throw ApiError.With('EEXIST', path.toString(), 'symlink');
 	}
 
-	await writeFile(path, target);
+	await writeFile(path, target.toString());
 	const file = await _open(path, 'r+', 0o644, false);
 	await file._setType(FileType.SYMLINK);
 }
@@ -763,15 +777,16 @@ symlink satisfies typeof promises.symlink;
  * readlink.
  * @param path
  */
-export async function readlink(path: PathLike, options: Node.BufferEncodingOption): Promise<Buffer>;
-export async function readlink(path: PathLike, options?: Node.EncodingOption | BufferEncoding): Promise<string>;
-export async function readlink(path: PathLike, options?: Node.BufferEncodingOption | Node.EncodingOption | BufferEncoding): Promise<string | Buffer> {
-	const value: Buffer = Buffer.from(await _readFile(path, 'r', false));
-	const encoding: BufferEncoding | 'buffer' = typeof options == 'object' ? options.encoding : options;
+export async function readlink(path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
+export async function readlink(path: fs.PathLike, options?: fs.EncodingOption | null): Promise<string>;
+export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer>;
+export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer> {
+	const value: Buffer = Buffer.from(await _readFile(path.toString(), 'r', false));
+	const encoding = typeof options == 'object' ? options?.encoding : options;
 	if (encoding == 'buffer') {
 		return value;
 	}
-	return value.toString(encoding);
+	return value.toString(encoding! as BufferEncoding);
 }
 readlink satisfies typeof promises.readlink;
 
@@ -783,7 +798,7 @@ readlink satisfies typeof promises.readlink;
  * @param uid
  * @param gid
  */
-export async function chown(path: PathLike, uid: number, gid: number): Promise<void> {
+export async function chown(path: fs.PathLike, uid: number, gid: number): Promise<void> {
 	const handle = await open(path, 'r+');
 	try {
 		await handle.chown(uid, gid);
@@ -799,12 +814,12 @@ chown satisfies typeof promises.chown;
  * @param uid
  * @param gid
  */
-export async function lchown(path: PathLike, uid: number, gid: number): Promise<void> {
-	const handle = await lopen(path, 'r+');
+export async function lchown(path: fs.PathLike, uid: number, gid: number): Promise<void> {
+	const file: File = await _open(path, 'r+', 0o644, false);
 	try {
-		await handle.chown(uid, gid);
+		await file.chown(uid, gid);
 	} finally {
-		await handle.close();
+		await file.close();
 	}
 }
 lchown satisfies typeof promises.lchown;
@@ -814,7 +829,7 @@ lchown satisfies typeof promises.lchown;
  * @param path
  * @param mode
  */
-export async function chmod(path: PathLike, mode: Node.Mode): Promise<void> {
+export async function chmod(path: fs.PathLike, mode: fs.Mode): Promise<void> {
 	const handle = await open(path, 'r+');
 	try {
 		await handle.chmod(mode);
@@ -829,12 +844,12 @@ chmod satisfies typeof promises.chmod;
  * @param path
  * @param mode
  */
-export async function lchmod(path: PathLike, mode: Node.Mode): Promise<void> {
-	const handle = await lopen(path, 'r+');
+export async function lchmod(path: fs.PathLike, mode: fs.Mode): Promise<void> {
+	const file: File = await _open(path, 'r+', 0o644, false);
 	try {
-		await handle.chmod(mode);
+		await new FileHandle(file2fd(file)).chmod(mode);
 	} finally {
-		await handle.close();
+		await file.close();
 	}
 }
 lchmod satisfies typeof promises.lchmod;
@@ -845,7 +860,7 @@ lchmod satisfies typeof promises.lchmod;
  * @param atime
  * @param mtime
  */
-export async function utimes(path: PathLike, atime: string | number | Date, mtime: string | number | Date): Promise<void> {
+export async function utimes(path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): Promise<void> {
 	const handle = await open(path, 'r+');
 	try {
 		await handle.utimes(atime, mtime);
@@ -861,12 +876,12 @@ utimes satisfies typeof promises.utimes;
  * @param atime
  * @param mtime
  */
-export async function lutimes(path: PathLike, atime: number | Date, mtime: number | Date): Promise<void> {
-	const handle = await lopen(path, 'r+');
+export async function lutimes(path: fs.PathLike, atime: TimeLike, mtime: TimeLike): Promise<void> {
+	const file: File = await _open(path, 'r+', 0o644, false);
 	try {
-		await handle.utimes(atime, mtime);
+		await file.utimes(new Date(atime), new Date(mtime));
 	} finally {
-		await handle.close();
+		await file.close();
 	}
 }
 lutimes satisfies typeof promises.lutimes;
@@ -878,9 +893,9 @@ lutimes satisfies typeof promises.lutimes;
  *
  * Note: This *Can not* use doOp since doOp depends on it
  */
-export async function realpath(path: PathLike, options: Node.BufferEncodingOption): Promise<Buffer>;
-export async function realpath(path: PathLike, options?: Node.EncodingOption | BufferEncoding): Promise<string>;
-export async function realpath(path: PathLike, options?: Node.EncodingOption | BufferEncoding | Node.BufferEncodingOption): Promise<string | Buffer> {
+export async function realpath(path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
+export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
+export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Promise<string | Buffer> {
 	path = normalizePath(path);
 	const { base, dir } = parse(path);
 	const lpath = join(dir == '/' ? '/' : await realpath(dir), base);
@@ -894,7 +909,7 @@ export async function realpath(path: PathLike, options?: Node.EncodingOption | B
 
 		return realpath(mountPoint + (await readlink(lpath)));
 	} catch (e) {
-		throw fixError(e, { [resolvedPath]: lpath });
+		throw fixError(<Error>e, { [resolvedPath]: lpath });
 	}
 }
 realpath satisfies typeof promises.realpath;
@@ -902,10 +917,11 @@ realpath satisfies typeof promises.realpath;
 /**
  * @todo Implement
  */
-export function watch(filename: PathLike, options: (Node.WatchOptions & { encoding: 'buffer' }) | 'buffer'): AsyncIterable<FileChangeInfo<Buffer>>;
-export function watch(filename: PathLike, options?: Node.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
-export function watch(filename: PathLike, options: Node.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
-	throw ApiError.With('ENOSYS', filename, 'watch');
+export function watch(filename: fs.PathLike, options?: fs.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
+export function watch(filename: fs.PathLike, options: fs.WatchOptions | BufferEncodingOption): AsyncIterable<FileChangeInfo<Buffer>>;
+export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>>;
+export function watch(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
+	throw ApiError.With('ENOSYS', filename.toString(), 'watch');
 }
 watch satisfies typeof promises.watch;
 
@@ -914,7 +930,7 @@ watch satisfies typeof promises.watch;
  * @param path
  * @param mode
  */
-export async function access(path: PathLike, mode: number = constants.F_OK): Promise<void> {
+export async function access(path: fs.PathLike, mode: number = constants.F_OK): Promise<void> {
 	const stats = await stat(path);
 	if (!stats.hasAccess(mode, cred)) {
 		throw new ApiError(ErrorCode.EACCES);
@@ -926,7 +942,7 @@ access satisfies typeof promises.access;
  * Asynchronous `rm`. Removes files or directories (recursively).
  * @param path The path to the file or directory to remove.
  */
-export async function rm(path: PathLike, options?: Node.RmOptions) {
+export async function rm(path: fs.PathLike, options?: fs.RmOptions) {
 	path = normalizePath(path);
 
 	const stats = await stat(path);
@@ -961,10 +977,10 @@ rm satisfies typeof promises.rm;
  * @param options The encoding (or an object including `encoding`).
  * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
-export async function mkdtemp(prefix: string, options?: Node.EncodingOption): Promise<string>;
-export async function mkdtemp(prefix: string, options?: Node.BufferEncodingOption): Promise<Buffer>;
-export async function mkdtemp(prefix: string, options?: Node.EncodingOption | Node.BufferEncodingOption): Promise<string | Buffer> {
-	const encoding = typeof options === 'object' ? options.encoding : options || 'utf8';
+export async function mkdtemp(prefix: string, options?: fs.EncodingOption): Promise<string>;
+export async function mkdtemp(prefix: string, options?: fs.BufferEncodingOption): Promise<Buffer>;
+export async function mkdtemp(prefix: string, options?: fs.EncodingOption | fs.BufferEncodingOption): Promise<string | Buffer> {
+	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
 	const fsName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}`;
 	const resolvedPath = '/tmp/' + fsName;
 
@@ -981,7 +997,7 @@ mkdtemp satisfies typeof promises.mkdtemp;
  * @param mode Optional flags for the copy operation. Currently supports these flags:
  *    * `fs.constants.COPYFILE_EXCL`: If the destination file already exists, the operation fails.
  */
-export async function copyFile(src: PathLike, dest: PathLike, mode?: number): Promise<void> {
+export async function copyFile(src: fs.PathLike, dest: fs.PathLike, mode?: number): Promise<void> {
 	src = normalizePath(src);
 	dest = normalizePath(dest);
 
@@ -999,7 +1015,7 @@ copyFile satisfies typeof promises.copyFile;
  * @param options Options for opening the directory.
  * @returns A `Dir` object representing the opened directory.
  */
-export async function opendir(path: PathLike, options?: Node.OpenDirOptions): Promise<Dir> {
+export async function opendir(path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
 	path = normalizePath(path);
 	return new Dir(path);
 }
@@ -1017,7 +1033,7 @@ opendir satisfies typeof promises.opendir;
  *   * `preserveTimestamps`: Preserve file timestamps.
  *   * `recursive`: If `true`, copies directories recursively.
  */
-export async function cp(source: PathLike, destination: PathLike, opts?: Node.CopyOptions): Promise<void> {
+export async function cp(source: fs.PathLike, destination: fs.PathLike, opts?: fs.CopyOptions): Promise<void> {
 	source = normalizePath(source);
 	destination = normalizePath(destination);
 
@@ -1063,9 +1079,9 @@ cp satisfies typeof promises.cp;
  * @since v18.15.0
  * @return Fulfills with an {fs.StatFs} for the file system.
  */
-export async function statfs(path: PathLike, opts?: Node.StatFsOptions & { bigint?: false }): Promise<StatsFs>;
-export async function statfs(path: PathLike, opts: Node.StatFsOptions & { bigint: true }): Promise<BigIntStatsFs>;
-export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs>;
-export async function statfs(path: PathLike, opts?: Node.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
-	throw ApiError.With('ENOSYS', path, 'statfs');
+export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions & { bigint?: false }): Promise<StatsFs>;
+export async function statfs(path: fs.PathLike, opts: fs.StatFsOptions & { bigint: true }): Promise<BigIntStatsFs>;
+export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<StatsFs | BigIntStatsFs>;
+export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
+	throw ApiError.With('ENOSYS', path.toString(), 'statfs');
 }

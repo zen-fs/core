@@ -114,7 +114,7 @@ export function levenshtein(a: string, b: string): number {
 /**
  * @hidden
  */
-export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : cb => setTimeout(cb, 0);
+export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : (cb: () => unknown) => setTimeout(cb, 0);
 
 /**
  * Encodes a string into a buffer
@@ -173,7 +173,7 @@ export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 
 export type Callback<Args extends unknown[] = []> = (e?: ApiError, ...args: OptionalTuple<Args>) => unknown;
 
-import type { EncodingOption, OpenMode, WriteFileOptions } from 'node:fs';
+import type { EncodingOption, OpenMode, PathLike, WriteFileOptions } from 'node:fs';
 
 /**
  * converts Date or number to a integer UNIX timestamp
@@ -238,7 +238,8 @@ export function normalizeTime(time: string | number | Date): Date {
  * Normalizes a path
  * @internal
  */
-export function normalizePath(p: string): string {
+export function normalizePath(p: PathLike): string {
+	p = p.toString();
 	// Node doesn't allow null characters in paths.
 	if (p.includes('\x00')) {
 		throw new ApiError(ErrorCode.EINVAL, 'Path must be a string without null bytes.');
@@ -258,9 +259,9 @@ export function normalizePath(p: string): string {
  * @internal
  */
 export function normalizeOptions(
-	options?: WriteFileOptions | (EncodingOption & { flag?: OpenMode }),
+	options: WriteFileOptions | (EncodingOption & { flag?: OpenMode }) | undefined,
 	encoding: BufferEncoding = 'utf8',
-	flag?: string,
+	flag: string,
 	mode: number = 0
 ): { encoding: BufferEncoding; flag: string; mode: number } {
 	if (typeof options != 'object' || options === null) {
