@@ -1,6 +1,6 @@
 {
 	"name": "@zenfs/port",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "Port backend for ZenFS",
 	"main": "dist/index.js",
 	"types": "src/index.ts",
