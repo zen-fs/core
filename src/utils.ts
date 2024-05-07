@@ -260,20 +260,20 @@ export function normalizePath(p: PathLike): string {
  */
 export function normalizeOptions(
 	options: WriteFileOptions | (EncodingOption & { flag?: OpenMode }) | undefined,
-	encoding: BufferEncoding = 'utf8',
+	encoding: BufferEncoding | null = 'utf8',
 	flag: string,
 	mode: number = 0
-): { encoding: BufferEncoding; flag: string; mode: number } {
+): { encoding?: BufferEncoding | null; flag: string; mode: number } {
 	if (typeof options != 'object' || options === null) {
 		return {
-			encoding: typeof options == 'string' ? options : encoding,
+			encoding: typeof options == 'string' ? options : encoding ?? null,
 			flag,
 			mode,
 		};
 	}
 
 	return {
-		encoding: typeof options?.encoding == 'string' ? options.encoding : encoding,
+		encoding: typeof options?.encoding == 'string' ? options.encoding : encoding ?? null,
 		flag: typeof options?.flag == 'string' ? options.flag : flag,
 		mode: normalizeMode('mode' in options ? options?.mode : null, mode),
 	};

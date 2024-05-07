@@ -106,8 +106,8 @@ export class FileHandle implements promises.FileHandle {
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 		}
-		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
-		await this.file.write(encodedData, 0, encodedData.length, undefined);
+		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
+		await this.file.write(encodedData, 0, encodedData.length, null);
 	}
 
 	/**
@@ -139,7 +139,7 @@ export class FileHandle implements promises.FileHandle {
 	public async readFile(_options?: { flag?: fs.OpenMode }): Promise<Buffer>;
 	public async readFile(_options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string>;
 	public async readFile(_options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding = {}): Promise<string | Buffer> {
-		const options = normalizeOptions(_options, undefined, 'r', 0o444);
+		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = parseFlag(options.flag);
 		if (!isReadable(flag)) {
 			throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
@@ -235,13 +235,16 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async write(data: string, position?: number, encoding?: BufferEncoding): Promise<{ bytesWritten: number; buffer: string }>;
 
-	public async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }> {
-		let buffer: Uint8Array,
-			offset: number = 0,
-			length: number;
+	public async write(
+		data: FileContents,
+		posOrOff?: number,
+		lenOrEnc?: BufferEncoding | number,
+		position?: number | null
+	): Promise<{ bytesWritten: number; buffer: FileContents }> {
+		let buffer: Uint8Array, offset: number | null | undefined, length: number;
 		if (typeof data === 'string') {
 			// Signature 1: (fd, string, [position?, [encoding?]])
-			position = typeof posOrOff === 'number' ? posOrOff : undefined;
+			position = typeof posOrOff === 'number' ? posOrOff : null;
 			const encoding = <BufferEncoding>(typeof lenOrEnc === 'string' ? lenOrEnc : 'utf8');
 			offset = 0;
 			buffer = Buffer.from(data, encoding);
@@ -249,9 +252,9 @@ export class FileHandle implements promises.FileHandle {
 		} else {
 			// Signature 2: (fd, buffer, offset, length, position?)
 			buffer = new Uint8Array(data.buffer);
-			offset = posOrOff || 0;
+			offset = posOrOff;
 			length = lenOrEnc as number;
-			position = typeof position === 'number' ? position : undefined;
+			position = typeof position === 'number' ? position : null;
 		}
 
 		position ??= this.file.position!;
@@ -279,7 +282,7 @@ export class FileHandle implements promises.FileHandle {
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 		}
-		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
+		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 		await this.file.write(encodedData, 0, encodedData.length, 0);
 	}
 
@@ -301,7 +304,7 @@ export class FileHandle implements promises.FileHandle {
 		let bytesWritten = 0;
 
 		for (const buffer of buffers) {
-			bytesWritten += (await this.write(buffer, 0, buffer.length, (position || 0) + bytesWritten)).bytesWritten;
+			bytesWritten += (await this.write(buffer, 0, buffer.length, position! + bytesWritten)).bytesWritten;
 		}
 
 		return { bytesWritten, buffers };
@@ -317,7 +320,7 @@ export class FileHandle implements promises.FileHandle {
 		let bytesRead = 0;
 
 		for (const buffer of buffers) {
-			bytesRead += (await this.read(buffer, 0, buffer.byteLength, (position || 0) + bytesRead)).bytesRead;
+			bytesRead += (await this.read(buffer, 0, buffer.byteLength, position! + bytesRead)).bytesRead;
 		}
 
 		return { bytesRead, buffers };
@@ -332,7 +335,7 @@ export class FileHandle implements promises.FileHandle {
 	public createReadStream(options?: CreateReadStreamOptions): ReadStream {
 		const stream = new ReadStream({
 			highWaterMark: options?.highWaterMark || 64 * 1024,
-			encoding: options?.encoding ?? undefined,
+			encoding: options!.encoding!,
 
 			read: async (size: number) => {
 				try {
@@ -601,7 +604,7 @@ export async function readFile(
 	path: fs.PathLike | promises.FileHandle,
 	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
 ): Promise<Buffer | string> {
-	const options = normalizeOptions(_options, undefined, 'r', 0);
+	const options = normalizeOptions(_options, null, 'r', 0);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
@@ -617,7 +620,7 @@ readFile satisfies typeof promises.readFile;
  *
  * The encoding option is ignored if data is a buffer.
  * @param path
- * @param data Note: 
+ * @param data Note:
  * @param _options
  * @option options encoding Defaults to `'utf8'`.
  * @option options mode Defaults to `0644`.
@@ -678,7 +681,7 @@ export async function appendFile(
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : new Uint8Array(data.buffer);
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer);
 	await _appendFile(path instanceof FileHandle ? path.file.path : path.toString(), encodedData, options.flag, options.mode, true);
 }
 appendFile satisfies typeof promises.appendFile;

@@ -1,3 +1,4 @@
+import type { ApiError } from '../src';
 import { fs } from './common';
 
 describe('Directory', () => {

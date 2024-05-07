@@ -3,11 +3,11 @@
 	"compilerOptions": {
 		"module": "ESNext",
 		"target": "ESNext",
-		"outDir": "../build/temp/test",
+		"noEmit": true,
 		"lib": ["ESNext"],
 		"moduleResolution": "Node",
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true
 	},
-	"include": ["**/*", "*"]
+	"include": ["**/*.ts", "*"]
 }

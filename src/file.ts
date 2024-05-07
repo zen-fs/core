@@ -241,7 +241,7 @@ export abstract class File {
 	 *   the current position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	public abstract write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number>;
+	public abstract write(buffer: Uint8Array, offset?: number, length?: number, position?: number | null): Promise<number>;
 
 	/**
 	 * Write buffer to the file.
@@ -255,7 +255,7 @@ export abstract class File {
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
 	 */
-	public abstract writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number;
+	public abstract writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number | null): number;
 
 	/**
 	 * Read data from the file.

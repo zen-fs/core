@@ -3,7 +3,8 @@ import type { ApiError } from '../src/ApiError';
 
 const existingFile = '/exit.js';
 
-async function expectError(fn: (...args) => unknown, p: string, ...args) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function expectError(fn: (...args: any[]) => unknown, p: string, ...args: any[]) {
 	let error: ApiError;
 	try {
 		await fn(p, ...args);

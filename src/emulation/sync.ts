@@ -220,7 +220,7 @@ function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): U
 export function readFileSync(filename: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
 export function readFileSync(filename: fs.PathOrFileDescriptor, options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null): string;
 export function readFileSync(filename: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
-	const options = normalizeOptions(_options, undefined, 'r', 0o644);
+	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
@@ -268,7 +268,7 @@ export function writeFileSync(filename: fs.PathOrFileDescriptor, data: FileConte
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 	if (encodedData === undefined) {
 		throw new ApiError(ErrorCode.EINVAL, 'Data not specified');
 	}
@@ -283,7 +283,7 @@ writeFileSync satisfies typeof fs.writeFileSync;
 function _appendFileSync(fname: string, data: ArrayBufferView, flag: string, mode: number, resolveSymlinks: boolean): void {
 	const file = _openSync(fname, flag, mode, resolveSymlinks);
 	try {
-		file.writeSync(new Uint8Array(data.buffer), 0, data.byteLength, undefined);
+		file.writeSync(new Uint8Array(data.buffer), 0, data.byteLength, null);
 	} finally {
 		file.closeSync();
 	}
@@ -309,7 +309,7 @@ export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileCont
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding) : data;
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 	_appendFileSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), encodedData, options.flag, options.mode, true);
 }
 appendFileSync satisfies typeof fs.appendFileSync;
@@ -386,10 +386,7 @@ fdatasyncSync satisfies typeof fs.fdatasyncSync;
 export function writeSync(fd: number, data: ArrayBufferView, offset?: number | null, length?: number | null, position?: number | null): number;
 export function writeSync(fd: number, data: string, position?: number | null, encoding?: BufferEncoding | null): number;
 export function writeSync(fd: number, data: FileContents, posOrOff?: number | null, lenOrEnc?: BufferEncoding | number | null, pos?: number | null): number {
-	let buffer: ArrayBufferView,
-		offset: number | undefined = 0,
-		length: number,
-		position: number | null;
+	let buffer: ArrayBufferView, offset: number | undefined, length: number, position: number | null;
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]])
 		position = typeof posOrOff === 'number' ? posOrOff : null;
@@ -400,7 +397,7 @@ export function writeSync(fd: number, data: FileContents, posOrOff?: number | nu
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?)
 		buffer = data;
-		offset = posOrOff || 0;
+		offset = posOrOff!;
 		length = <number>lenOrEnc;
 		position = typeof pos === 'number' ? pos : null;
 	}
@@ -797,7 +794,7 @@ export function readvSync(fd: number, buffers: readonly NodeJS.ArrayBufferView[]
 	let bytesRead = 0;
 
 	for (const buffer of buffers) {
-		bytesRead += file.readSync(buffer, 0, buffer.byteLength, (position || 0) + bytesRead);
+		bytesRead += file.readSync(buffer, 0, buffer.byteLength, position! + bytesRead);
 	}
 
 	return bytesRead;
@@ -816,7 +813,7 @@ export function writevSync(fd: number, buffers: readonly ArrayBufferView[], posi
 	let bytesWritten = 0;
 
 	for (const buffer of buffers) {
-		bytesWritten += file.writeSync(new Uint8Array(buffer.buffer), 0, buffer.byteLength, (position || 0) + bytesWritten);
+		bytesWritten += file.writeSync(new Uint8Array(buffer.buffer), 0, buffer.byteLength, position! + bytesWritten);
 	}
 
 	return bytesWritten;

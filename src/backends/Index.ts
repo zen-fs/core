@@ -86,7 +86,10 @@ export class FileIndex<TData> {
 		for (const dir of this._index.values()) {
 			for (const file of dir.listing) {
 				const item = dir.get(file);
-				if (!item?.isFile()) {
+				if (!item) {
+					continue;
+				}
+				if (!item.isFile()) {
 					continue;
 				}
 
