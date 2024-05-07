@@ -15,7 +15,7 @@ import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { cred, fd2file, fdMap, fixError, file2fd, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
-import type { BufferEncodingOption, TimeLike } from 'fs';
+import type { Stream } from 'node:stream';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -617,23 +617,30 @@ readFile satisfies typeof promises.readFile;
  *
  * The encoding option is ignored if data is a buffer.
  * @param path
- * @param data
+ * @param data Note: 
  * @param _options
  * @option options encoding Defaults to `'utf8'`.
  * @option options mode Defaults to `0644`.
  * @option options flag Defaults to `'w'`.
  */
-export async function writeFile(path: fs.PathLike | promises.FileHandle, data: FileContents, _options?: fs.WriteFileOptions): Promise<void> {
+export async function writeFile(
+	path: fs.PathLike | promises.FileHandle,
+	data: FileContents | Stream | Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView>,
+	_options?: (fs.ObjectEncodingOptions & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null
+): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const handle = path instanceof FileHandle ? path : await open(path.toString(), options.flag, options.mode);
 	try {
-		await handle.writeFile(typeof data == 'string' ? data : new Uint8Array(data.buffer), options);
+		const _data = typeof data == 'string' ? data : data instanceof Uint8Array ? new Uint8Array(data.buffer) : null;
+		if (!_data) {
+			throw new ApiError(ErrorCode.EINVAL, 'Iterables and streams not supported', handle.file.path, 'writeFile');
+		}
+		await handle.writeFile(_data, options);
 	} finally {
 		await handle.close();
 	}
 }
-// Note, we do not suport iterables or streams for the data parameter
-writeFile satisfies typeof promises.writeFile | ((path: fs.PathLike | promises.FileHandle, data: FileContents, _options?: fs.WriteFileOptions) => Promise<void>);
+writeFile satisfies typeof promises.writeFile;
 
 /**
  * Asynchronously append data to a file, creating the file if
@@ -708,7 +715,7 @@ mkdir satisfies typeof promises.mkdir;
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'` is used.
  */
 export async function readdir(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null): Promise<string[]>;
-export async function readdir(path: fs.PathLike, options: BufferEncodingOption & { withFileTypes?: false; recursive?: boolean }): Promise<Buffer[]>;
+export async function readdir(path: fs.PathLike, options: fs.BufferEncodingOption & { withFileTypes?: false; recursive?: boolean }): Promise<Buffer[]>;
 export async function readdir(
 	path: fs.PathLike,
 	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
@@ -876,7 +883,7 @@ utimes satisfies typeof promises.utimes;
  * @param atime
  * @param mtime
  */
-export async function lutimes(path: fs.PathLike, atime: TimeLike, mtime: TimeLike): Promise<void> {
+export async function lutimes(path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
 	const file: File = await _open(path, 'r+', 0o644, false);
 	try {
 		await file.utimes(new Date(atime), new Date(mtime));
@@ -918,7 +925,7 @@ realpath satisfies typeof promises.realpath;
  * @todo Implement
  */
 export function watch(filename: fs.PathLike, options?: fs.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
-export function watch(filename: fs.PathLike, options: fs.WatchOptions | BufferEncodingOption): AsyncIterable<FileChangeInfo<Buffer>>;
+export function watch(filename: fs.PathLike, options: fs.WatchOptions | fs.BufferEncodingOption): AsyncIterable<FileChangeInfo<Buffer>>;
 export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>>;
 export function watch(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
 	throw ApiError.With('ENOSYS', filename.toString(), 'watch');
