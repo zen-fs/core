@@ -208,6 +208,14 @@ export abstract class File {
 	 */
 	public abstract closeSync(): void;
 
+	public [Symbol.asyncDispose](): Promise<void> {
+		return this.close();
+	}
+
+	public [Symbol.dispose](): void {
+		return this.closeSync();
+	}
+
 	/**
 	 * Asynchronous truncate.
 	 */
