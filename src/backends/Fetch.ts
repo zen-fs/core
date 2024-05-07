@@ -100,7 +100,7 @@ export class FetchFS extends AsyncIndexFS<Stats> {
 
 		try {
 			const response = await fetch(index);
-			this._index = FileIndex.FromListing(await response.json() as ListingTree);
+			this._index = FileIndex.FromListing((await response.json()) as ListingTree);
 		} catch (e) {
 			throw new ApiError(ErrorCode.EINVAL, 'Invalid or unavailable file listing tree');
 		}
