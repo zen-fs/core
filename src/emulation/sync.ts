@@ -217,8 +217,8 @@ function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): U
  * @option options flag Defaults to `'r'`.
  * @returns file contents
  */
-export function readFileSync(filename: fs.PathOrFileDescriptor, options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null): string;
 export function readFileSync(filename: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
+export function readFileSync(filename: fs.PathOrFileDescriptor, options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null): string;
 export function readFileSync(filename: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
 	const options = normalizeOptions(_options, undefined, 'r', 0o644);
 	const flag = parseFlag(options.flag);
