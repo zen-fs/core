@@ -38,17 +38,16 @@ describe('write', () => {
 describe('writeSync', () => {
 	test('write file with specified content', async () => {
 		const fn = 'write.txt';
-		const foo = 'foo';
 		const fd = fs.openSync(fn, 'w');
 
 		let written = fs.writeSync(fd, '');
 		expect(written).toBe(0);
 
-		fs.writeSync(fd, foo);
+		fs.writeSync(fd, 'foo');
 
 		const data = Buffer.from('bár');
 		written = fs.writeSync(fd, data, 0, data.length);
-		expect(written).toBeGreaterThan(3);
+		expect(written).toBe(4);
 
 		fs.closeSync(fd);
 

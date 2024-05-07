@@ -1,21 +1,15 @@
 import { fs } from './common';
 
+const filepath: string = 'x.txt';
+const expected: string = 'xyz\n';
+
 describe('read', () => {
-	let filepath: string;
-	let expected: string;
-
-	beforeEach(() => {
-		filepath = 'x.txt';
-		expected = 'xyz\n';
-	});
-
 	test('read file asynchronously', async () => {
 		const handle = await fs.promises.open(filepath, 'r');
-		const buffer = Buffer.alloc(expected.length);
-		const { bytesRead } = await handle.read(buffer, 0, expected.length, 0);
+		const { bytesRead, buffer } = await handle.read(Buffer.alloc(expected.length), 0, expected.length, 0);
 
-		expect(buffer.toString()).toEqual(expected);
 		expect(bytesRead).toEqual(expected.length);
+		expect(buffer.toString()).toEqual(expected);
 	});
 
 	test('read file synchronously', async () => {
@@ -23,8 +17,8 @@ describe('read', () => {
 		const buffer = Buffer.alloc(expected.length);
 		const bytesRead = fs.readSync(fd, buffer, 0, expected.length, 0);
 
-		expect(buffer.toString()).toEqual(expected);
 		expect(bytesRead).toEqual(expected.length);
+		expect(buffer.toString()).toEqual(expected);
 	});
 });
 
@@ -41,8 +35,6 @@ describe('read binary', () => {
 });
 
 describe('read buffer', () => {
-	const filepath = 'x.txt';
-	const expected = 'xyz\n';
 	const bufferAsync = Buffer.alloc(expected.length);
 	const bufferSync = Buffer.alloc(expected.length);
 

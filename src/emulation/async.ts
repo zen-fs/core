@@ -316,7 +316,7 @@ export function write(fd: number, data: FileContents, cb?: Callback<[number, str
 export function write(fd: number, data: FileContents, position?: number, cb?: Callback<[number, string]>): void;
 export function write(fd: number, data: FileContents, position: number | null, encoding: BufferEncoding, cb?: Callback<[number, string]>): void;
 export function write(fd: number, data: FileContents, cbPosOff?: any, cbLenEnc?: any, cbPos?: any, cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop): void {
-	let buffer: Buffer, offset: number, length: number, position: number | undefined, encoding: BufferEncoding;
+	let buffer: Buffer, offset: number, length: number, position: number | undefined | null, encoding: BufferEncoding;
 	const handle = new promises.FileHandle(fd);
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]], cb?)
@@ -353,7 +353,7 @@ export function write(fd: number, data: FileContents, cbPosOff?: any, cbLenEnc?:
 		buffer = Buffer.from(data.buffer);
 		offset = cbPosOff;
 		length = cbLenEnc;
-		position = typeof cbPos === 'number' ? cbPos : undefined;
+		position = typeof cbPos === 'number' ? cbPos : null;
 		const _cb = <Callback<[number, Uint8Array]>>(typeof cbPos === 'function' ? cbPos : cb);
 		handle
 			.write(buffer, offset, length, position)

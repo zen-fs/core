@@ -211,21 +211,21 @@ function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): U
 
 /**
  * Synchronously reads the entire contents of a file.
- * @param filename
+ * @param path
  * @param options
  * @option options encoding The string encoding for the file contents. Defaults to `null`.
  * @option options flag Defaults to `'r'`.
  * @returns file contents
  */
-export function readFileSync(filename: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
-export function readFileSync(filename: fs.PathOrFileDescriptor, options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null): string;
-export function readFileSync(filename: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
+export function readFileSync(path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
+export function readFileSync(path: fs.PathOrFileDescriptor, options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null): string;
+export function readFileSync(path: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
 		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	const data: Buffer = Buffer.from(_readFileSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), options.flag, true));
+	const data: Buffer = Buffer.from(_readFileSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), options.flag, true));
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFileSync satisfies typeof fs.readFileSync;
@@ -236,10 +236,10 @@ readFileSync satisfies typeof fs.readFileSync;
  *
  * The encoding option is ignored if data is a buffer.
  */
-function _writeFileSync(fname: string, data: ArrayBufferView, flag: string, mode: number, resolveSymlinks: boolean): void {
+function _writeFileSync(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): void {
 	const file = _openSync(fname, flag, mode, resolveSymlinks);
 	try {
-		file.writeSync(new Uint8Array(data.buffer), 0, data.byteLength, 0);
+		file.writeSync(data, 0, data.byteLength, 0);
 	} finally {
 		file.closeSync();
 	}
@@ -250,16 +250,16 @@ function _writeFileSync(fname: string, data: ArrayBufferView, flag: string, mode
  * exists.
  *
  * The encoding option is ignored if data is a buffer.
- * @param filename
+ * @param path
  * @param data
  * @param options
  * @option options encoding Defaults to `'utf8'`.
  * @option options mode Defaults to `0644`.
  * @option options flag Defaults to `'w'`.
  */
-export function writeFileSync(filename: fs.PathOrFileDescriptor, data: FileContents, options?: fs.WriteFileOptions): void;
-export function writeFileSync(filename: fs.PathOrFileDescriptor, data: FileContents, encoding?: BufferEncoding): void;
-export function writeFileSync(filename: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions | BufferEncoding = {}): void {
+export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents, options?: fs.WriteFileOptions): void;
+export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents, encoding?: BufferEncoding): void;
+export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions | BufferEncoding = {}): void {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isWriteable(flag)) {
@@ -268,11 +268,11 @@ export function writeFileSync(filename: fs.PathOrFileDescriptor, data: FileConte
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
-	if (encodedData === undefined) {
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+	if (!encodedData) {
 		throw new ApiError(ErrorCode.EINVAL, 'Data not specified');
 	}
-	_writeFileSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), encodedData, options.flag, options.mode, true);
+	_writeFileSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), encodedData, options.flag, options.mode, true);
 }
 writeFileSync satisfies typeof fs.writeFileSync;
 
@@ -280,10 +280,10 @@ writeFileSync satisfies typeof fs.writeFileSync;
  * Synchronously append data to a file, creating the file if
  * it not yet exists.
  */
-function _appendFileSync(fname: string, data: ArrayBufferView, flag: string, mode: number, resolveSymlinks: boolean): void {
+function _appendFileSync(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): void {
 	const file = _openSync(fname, flag, mode, resolveSymlinks);
 	try {
-		file.writeSync(new Uint8Array(data.buffer), 0, data.byteLength, null);
+		file.writeSync(data, 0, data.byteLength, null);
 	} finally {
 		file.closeSync();
 	}
@@ -309,7 +309,7 @@ export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileCont
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	_appendFileSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), encodedData, options.flag, options.mode, true);
 }
 appendFileSync satisfies typeof fs.appendFileSync;
@@ -386,7 +386,7 @@ fdatasyncSync satisfies typeof fs.fdatasyncSync;
 export function writeSync(fd: number, data: ArrayBufferView, offset?: number | null, length?: number | null, position?: number | null): number;
 export function writeSync(fd: number, data: string, position?: number | null, encoding?: BufferEncoding | null): number;
 export function writeSync(fd: number, data: FileContents, posOrOff?: number | null, lenOrEnc?: BufferEncoding | number | null, pos?: number | null): number {
-	let buffer: ArrayBufferView, offset: number | undefined, length: number, position: number | null;
+	let buffer: Uint8Array, offset: number | undefined, length: number, position: number | null;
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]])
 		position = typeof posOrOff === 'number' ? posOrOff : null;
@@ -396,17 +396,15 @@ export function writeSync(fd: number, data: FileContents, posOrOff?: number | nu
 		length = buffer.byteLength;
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?)
-		buffer = data;
+		buffer = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 		offset = posOrOff!;
 		length = <number>lenOrEnc;
 		position = typeof pos === 'number' ? pos : null;
 	}
 
 	const file = fd2file(fd);
-	if (position === undefined || position === null) {
-		position = file.position!;
-	}
-	return file.writeSync(new Uint8Array(buffer.buffer), offset, length, position);
+	position ??= file.position;
+	return file.writeSync(buffer, offset, length, position);
 }
 writeSync satisfies typeof fs.writeSync;
 

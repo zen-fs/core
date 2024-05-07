@@ -2,6 +2,7 @@ import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo, FileReadResult, FlagAndOpenMode } from 'node:fs/promises';
+import type { Stream } from 'node:stream';
 import type { ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
 import type { ReadableStreamController } from 'stream/web';
@@ -13,9 +14,8 @@ import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '.
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { cred, fd2file, fdMap, fixError, file2fd, mounts, resolveMount } from './shared.js';
+import { cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
-import type { Stream } from 'node:stream';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -118,16 +118,11 @@ export class FileHandle implements promises.FileHandle {
 	 * @param length The number of bytes to read.
 	 * @param position The offset from the beginning of the file from which data should be read. If `null`, data will be read from the current position.
 	 */
-	public read<TBuffer extends NodeJS.ArrayBufferView>(
-		buffer: TBuffer,
-		offset?: number,
-		length?: number,
-		position: number = this.file.position
-	): Promise<FileReadResult<TBuffer>> {
-		if (isNaN(+position)) {
+	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number | null): Promise<FileReadResult<TBuffer>> {
+		if (isNaN(+position!)) {
 			position = this.file.position;
 		}
-		return this.file.read(buffer, offset, length, position);
+		return this.file.read(buffer, offset, length, position!);
 	}
 
 	/**
@@ -212,29 +207,20 @@ export class FileHandle implements promises.FileHandle {
 		return opts?.bigint ? new BigIntStats(stats) : stats;
 	}
 
-	public async write(data: FileContents, posOrOff?: number, lenOrEnc?: BufferEncoding | number, position?: number): Promise<{ bytesWritten: number; buffer: FileContents }>;
-
-	/**
-	 * Asynchronously writes `buffer` to the file.
-	 * The `FileHandle` must have been opened for writing.
-	 * @param buffer The buffer that the data will be written to.
-	 * @param offset The part of the buffer to be written. If not supplied, defaults to `0`.
-	 * @param length The number of bytes to write. If not supplied, defaults to `buffer.length - offset`.
-	 * @param position The offset from the beginning of the file where this data should be written. If not supplied, defaults to the current position.
-	 */
-	public async write<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesWritten: number; buffer: TBuffer }>;
-
 	/**
 	 * Asynchronously writes `string` to the file.
 	 * The `FileHandle` must have been opened for writing.
 	 * It is unsafe to call `write()` multiple times on the same file without waiting for the `Promise`
 	 * to be resolved (or rejected). For this scenario, `fs.createWriteStream` is strongly recommended.
-	 * @param string A string to write.
-	 * @param position The offset from the beginning of the file where this data should be written. If not supplied, defaults to the current position.
-	 * @param encoding The expected string encoding.
 	 */
+	public async write(
+		data: FileContents,
+		posOrOff?: number | null,
+		lenOrEnc?: BufferEncoding | number,
+		position?: number | null
+	): Promise<{ bytesWritten: number; buffer: FileContents }>;
+	public async write<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesWritten: number; buffer: TBuffer }>;
 	public async write(data: string, position?: number, encoding?: BufferEncoding): Promise<{ bytesWritten: number; buffer: string }>;
-
 	public async write(
 		data: FileContents,
 		posOrOff?: number,
@@ -251,13 +237,12 @@ export class FileHandle implements promises.FileHandle {
 			length = buffer.length;
 		} else {
 			// Signature 2: (fd, buffer, offset, length, position?)
-			buffer = new Uint8Array(data.buffer);
+			buffer = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 			offset = posOrOff;
 			length = lenOrEnc as number;
 			position = typeof position === 'number' ? position : null;
 		}
-
-		position ??= this.file.position!;
+		position ??= this.file.position;
 		const bytesWritten = await this.file.write(buffer, offset, length, position);
 		return { buffer, bytesWritten };
 	}
@@ -365,7 +350,7 @@ export class FileHandle implements promises.FileHandle {
 
 			write: async (chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) => {
 				try {
-					const { bytesWritten } = await this.write(chunk, undefined, encoding);
+					const { bytesWritten } = await this.write(chunk, null, encoding);
 					callback(bytesWritten == chunk.length ? null : new Error('Failed to write full chunk'));
 				} catch (error) {
 					callback(<Error>error);
@@ -634,8 +619,8 @@ export async function writeFile(
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const handle = path instanceof FileHandle ? path : await open(path.toString(), options.flag, options.mode);
 	try {
-		const _data = typeof data == 'string' ? data : data instanceof Uint8Array ? new Uint8Array(data.buffer) : null;
-		if (!_data) {
+		const _data = typeof data == 'string' ? data : data;
+		if (typeof _data != 'string' && !(_data instanceof Uint8Array)) {
 			throw new ApiError(ErrorCode.EINVAL, 'Iterables and streams not supported', handle.file.path, 'writeFile');
 		}
 		await handle.writeFile(_data, options);
@@ -652,7 +637,7 @@ writeFile satisfies typeof promises.writeFile;
 async function _appendFile(path: fs.PathLike, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): Promise<void> {
 	const file = await _open(path, flag, mode, resolveSymlinks);
 	try {
-		await file.write(data, 0, data.length, undefined);
+		await file.write(data, 0, data.length, null);
 	} finally {
 		await file.close();
 	}
@@ -681,7 +666,7 @@ export async function appendFile(
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer);
+	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	await _appendFile(path instanceof FileHandle ? path.file.path : path.toString(), encodedData, options.flag, options.mode, true);
 }
 appendFile satisfies typeof promises.appendFile;
@@ -793,10 +778,7 @@ export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOpt
 export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer> {
 	const value: Buffer = Buffer.from(await _readFile(path.toString(), 'r', false));
 	const encoding = typeof options == 'object' ? options?.encoding : options;
-	if (encoding == 'buffer') {
-		return value;
-	}
-	return value.toString(encoding! as BufferEncoding);
+	return encoding == 'buffer' ? value : value.toString(encoding! as BufferEncoding);
 }
 readlink satisfies typeof promises.readlink;
 

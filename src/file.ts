@@ -515,7 +515,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 *   the current position.
 	 */
 	public async write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): Promise<number> {
-		return this.writeSync(buffer, offset, length, position);
+		const bytesWritten = this.writeSync(buffer, offset, length, position);
+		await this.sync();
+		return bytesWritten;
 	}
 
 	/**
@@ -541,7 +543,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (endFp > this.stats.size) {
 			this.stats.size = endFp;
 			if (endFp > this._buffer.byteLength) {
-				if (this._buffer.buffer.resizable && (this._buffer.buffer.maxByteLength ?? 0) <= endFp) {
+				if (this._buffer.buffer.resizable && this._buffer.buffer.maxByteLength! <= endFp) {
 					this._buffer.buffer.resize(endFp);
 				} else {
 					// Extend the buffer!
@@ -594,7 +596,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 *   position.
 	 * @returns number of bytes written
 	 */
-	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
+	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position?: number): number {
 		if (!isReadable(this.flag)) {
 			throw new ApiError(ErrorCode.EPERM, 'File not opened with a readable mode.');
 		}
@@ -610,7 +612,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 			// No copy/read. Return immediatly for better performance
 			return bytesRead;
 		}
-		new Uint8Array(buffer.buffer).set(this._buffer.slice(position, end), offset);
+		new Uint8Array(buffer.buffer, 0, length).set(this._buffer.slice(position, end), offset);
 		return bytesRead;
 	}
 

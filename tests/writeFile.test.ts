@@ -18,7 +18,7 @@ describe('writeFile', () => {
 
 		await fs.promises.writeFile(filename, expected);
 		const actual = await fs.promises.readFile(filename);
-		expect(expected.length).toBe(actual.length);
+		expect(actual.length).toBe(expected.length);
 
 		await fs.promises.unlink(filename);
 	});
