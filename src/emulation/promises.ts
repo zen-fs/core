@@ -8,7 +8,7 @@ import type { Interface as ReadlineInterface } from 'readline';
 import type { ReadableStreamController } from 'stream/web';
 import { ApiError, ErrorCode } from '../ApiError.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
-import { FileContents, FileSystem } from '../filesystem.js';
+import type { FileContents } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as constants from './constants.js';
@@ -364,38 +364,6 @@ export class FileHandle implements promises.FileHandle {
 	}
 }
 
-type FileSystemMethod = {
-	[K in keyof FileSystem]: FileSystem[K] extends (...args: any[]) => unknown
-		? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
-		: never;
-}[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
-
-/**
- * Utility for FS ops. It handles
- * - path normalization (for the first parameter to the FS op)
- * - path translation for errors
- * - FS/mount point resolution
- *
- * It can't be used for functions which may operate on multiple mounted FSs or paths (e.g. `rename`)
- * @param name the function name
- * @param resolveSymlinks whether to resolve symlinks
- * @param args the rest of the parameters are passed to the FS function. Note that the first parameter is required to be a path
- * @returns
- */
-async function doOp<M extends FileSystemMethod, RT extends ReturnType<M> = ReturnType<M>>(...[name, resolveSymlinks, rawPath, ...args]: Parameters<M>): Promise<RT> {
-	rawPath = normalizePath(rawPath!);
-	const _path = resolveSymlinks && (await exists(rawPath)) ? await realpath(rawPath) : rawPath;
-	const { fs, path } = resolveMount(_path);
-	try {
-		// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
-		return fs[name](path, ...args) as Promise<RT>;
-	} catch (e) {
-		throw fixError(<Error>e, { [path]: rawPath });
-	}
-}
-
-// fs.promises
-
 /**
  * Renames a file
  * @param oldPath
@@ -421,12 +389,12 @@ rename satisfies typeof promises.rename;
 
 /**
  * Test whether or not the given path exists by checking with the file system.
- * @param _path
+ * @param path
  */
-export async function exists(_path: fs.PathLike): Promise<boolean> {
+export async function exists(path: fs.PathLike): Promise<boolean> {
 	try {
-		const { fs, path } = resolveMount(await realpath(_path));
-		return await fs.exists(path, cred);
+		const { fs, path: resolved } = resolveMount(await realpath(path));
+		return await fs.exists(resolved, cred);
 	} catch (e) {
 		if ((e as ApiError).errno == ErrorCode.ENOENT) {
 			return false;
@@ -445,8 +413,14 @@ export async function stat(path: fs.PathLike, options: fs.BigIntOptions): Promis
 export async function stat(path: fs.PathLike, options?: { bigint?: false }): Promise<Stats>;
 export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
 export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	const stats: Stats = await doOp('stat', true, path.toString(), cred);
-	return options?.bigint ? new BigIntStats(stats) : stats;
+	path = normalizePath(path);
+	const { fs, path: resolved } = resolveMount((await exists(path)) ? await realpath(path) : path);
+	try {
+		const stats = await fs.stat(resolved, cred);
+		return options?.bigint ? new BigIntStats(stats) : stats;
+	} catch (e) {
+		throw fixError(<Error>e, { [resolved]: path });
+	}
 }
 stat satisfies typeof promises.stat;
 
@@ -460,8 +434,14 @@ stat satisfies typeof promises.stat;
 export async function lstat(path: fs.PathLike, options?: { bigint?: boolean }): Promise<Stats>;
 export async function lstat(path: fs.PathLike, options: { bigint: true }): Promise<BigIntStats>;
 export async function lstat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	const stats: Stats = await doOp('stat', false, path.toString(), cred);
-	return options?.bigint ? new BigIntStats(stats) : stats;
+	path = normalizePath(path);
+	const { fs, path: resolved } = resolveMount(path);
+	try {
+		const stats = await fs.stat(resolved, cred);
+		return options?.bigint ? new BigIntStats(stats) : stats;
+	} catch (e) {
+		throw fixError(<Error>e, { [resolved]: path });
+	}
 }
 lstat satisfies typeof promises.lstat;
 
@@ -487,7 +467,13 @@ truncate satisfies typeof promises.truncate;
  * @param path
  */
 export async function unlink(path: fs.PathLike): Promise<void> {
-	return doOp('unlink', false, path.toString(), cred);
+	path = normalizePath(path);
+	const { fs, path: resolved } = resolveMount(path);
+	try {
+		return fs.unlink(resolved, cred);
+	} catch (e) {
+		throw fixError(<Error>e, { [resolved]: path });
+	}
 }
 unlink satisfies typeof promises.unlink;
 
@@ -495,10 +481,13 @@ unlink satisfies typeof promises.unlink;
  * Opens a file. This helper handles the complexity of file flags.
  * @internal
  */
-async function _open(_path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o644, resolveSymlinks: boolean): Promise<File> {
-	const path = normalizePath(_path),
-		mode = normalizeMode(_mode, 0o644),
+async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o644, resolveSymlinks: boolean): Promise<File> {
+	path = normalizePath(path);
+	const mode = normalizeMode(_mode, 0o644),
 		flag = parseFlag(_flag);
+
+	path = resolveSymlinks && (await exists(path)) ? await realpath(path) : path;
+	const { fs, path: resolved } = resolveMount(path);
 
 	try {
 		switch (pathExistsAction(flag)) {
@@ -511,16 +500,13 @@ async function _open(_path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o
 					asynchronous request was trying to read the file, as the file
 					would not exist for a small period of time.
 				*/
-				const file: File = await doOp('openFile', resolveSymlinks, path, flag, cred);
-				if (!file) {
-					throw new ApiError(ErrorCode.EIO, 'Impossible code path reached');
-				}
+				const file: File = await fs.openFile(resolved, flag, cred);
 				await file.truncate(0);
 				await file.sync();
 				return file;
 			case ActionType.NOP:
 				// Must await so thrown errors are caught by the catch below
-				return await doOp('openFile', resolveSymlinks, path, flag, cred);
+				return await fs.openFile(resolved, flag, cred);
 			default:
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid file flag');
 		}
@@ -528,11 +514,11 @@ async function _open(_path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o
 		switch (pathNotExistsAction(flag)) {
 			case ActionType.CREATE:
 				// Ensure parent exists.
-				const parentStats: Stats = await doOp('stat', resolveSymlinks, dirname(path), cred);
+				const parentStats: Stats = await fs.stat(dirname(resolved), cred);
 				if (parentStats && !parentStats.isDirectory()) {
 					throw ApiError.With('ENOTDIR', dirname(path), '_open');
 				}
-				return await doOp('createFile', resolveSymlinks, path, flag, mode, cred);
+				return await fs.createFile(resolved, flag, mode, cred);
 			case ActionType.THROW:
 				throw ApiError.With('ENOENT', path, '_open');
 			default:
@@ -678,7 +664,14 @@ appendFile satisfies typeof promises.appendFile;
  * @param path
  */
 export async function rmdir(path: fs.PathLike): Promise<void> {
-	return doOp('rmdir', true, path.toString(), cred);
+	path = normalizePath(path);
+	path = (await exists(path)) ? await realpath(path) : path;
+	const { fs, path: resolved } = resolveMount(path);
+	try {
+		return fs.rmdir(resolved, cred);
+	} catch (e) {
+		throw fixError(<Error>e, { [resolved]: path });
+	}
 }
 rmdir satisfies typeof promises.rmdir;
 
@@ -692,8 +685,14 @@ export async function mkdir(path: fs.PathLike, options: fs.MakeDirectoryOptions 
 export async function mkdir(path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false | undefined }) | null): Promise<void>;
 export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined>;
 export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined | void> {
-	await doOp('mkdir', true, path.toString(), normalizeMode(typeof options == 'object' ? options?.mode : options, 0o777), cred);
-	return;
+	path = normalizePath(path);
+	path = (await exists(path)) ? await realpath(path) : path;
+	const { fs, path: resolved } = resolveMount(path);
+	try {
+		return fs.mkdir(resolved, normalizeMode(typeof options == 'object' ? options?.mode : options, 0o777), cred);
+	} catch (e) {
+		throw fixError(<Error>e, { [resolved]: path });
+	}
 }
 mkdir satisfies typeof promises.mkdir;
 
@@ -714,9 +713,15 @@ export async function readdir(
 	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	path = normalizePath(path);
-	const entries: string[] = await doOp('readdir', true, path, cred);
-	const points = [...mounts.keys()];
-	for (const point of points) {
+	path = (await exists(path)) ? await realpath(path) : path;
+	const { fs, path: resolved } = resolveMount(path);
+	let entries: string[];
+	try {
+		entries = await fs.readdir(resolved, cred);
+	} catch (e) {
+		throw fixError(<Error>e, { [resolved]: path });
+	}
+	for (const point of mounts.keys()) {
 		if (point.startsWith(path)) {
 			const entry = point.slice(path.length);
 			if (entry.includes('/') || entry.length == 0) {
@@ -742,8 +747,14 @@ readdir satisfies typeof promises.readdir;
  * @param newpath
  */
 export async function link(existing: fs.PathLike, newpath: fs.PathLike): Promise<void> {
+	existing = normalizePath(existing);
 	newpath = normalizePath(newpath);
-	return doOp('link', false, existing.toString(), newpath, cred);
+	const { fs, path: resolved } = resolveMount(newpath);
+	try {
+		return await fs.link(existing, newpath, cred);
+	} catch (e) {
+		throw fixError(<Error>e, { [resolved]: newpath });
+	}
 }
 link satisfies typeof promises.link;
 
@@ -882,8 +893,6 @@ lutimes satisfies typeof promises.lutimes;
  * Asynchronous realpath(3) - return the canonicalized absolute pathname.
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'` is used.
- *
- * Note: This *Can not* use doOp since doOp depends on it
  */
 export async function realpath(path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
 export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
