@@ -61,9 +61,11 @@ import { Zip } from '@zenfs/zip';
 const zipData = await (await fetch('mydata.zip')).arrayBuffer();
 
 await configure({
-	'/mnt/zip': { backend: Zip, zipData },
-	'/tmp': InMemory,
-	'/home': IndexedDB,
+	mounts: {
+		'/mnt/zip': { backend: Zip, zipData },
+		'/tmp': InMemory,
+		'/home': IndexedDB,
+	}
 };
 ```
 
@@ -72,7 +74,7 @@ await configure({
 >
 > 1. A `Backend` object, if the backend has no required options
 > 2. An object that has the options accepted by the backend and a `backend` property which is a `Backend` object
-> 3. A `FileSystem` instance (_not recommended_)
+> 3. A `FileSystem` instance
 
 Here is an example that mounts the `WebStorage` backend from `@zenfs/dom` on `/`:
 
@@ -122,13 +124,15 @@ You can then mount and unmount the backend instance by using `mount` and `umount
 
 ```js
 import { configure, resolveMountConfig, InMemory } from '@zenfs/core';
-import { IndexedDB  } from '@zenfs/dom';
+import { IndexedDB } from '@zenfs/dom';
 import { Zip } from '@zenfs/zip';
 
 await configure({
-	'/tmp': InMemory,
-	'/home': IndexedDB,
-};
+	mounts: {
+		'/tmp': InMemory,
+		'/home': IndexedDB,
+	},
+});
 
 fs.mkdirSync('/mnt');
 

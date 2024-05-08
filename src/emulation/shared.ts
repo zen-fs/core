@@ -6,7 +6,7 @@ import { Cred, rootCred } from '../cred.js';
 import type { File } from '../file.js';
 import { FileSystem } from '../filesystem.js';
 import { normalizePath } from '../utils.js';
-import { resolve } from './path.js';
+import { resolve, type AbsolutePath } from './path.js';
 
 // credentials
 export let cred: Cred = rootCred;
@@ -30,9 +30,7 @@ export function fd2file(fd: number): File {
 }
 
 // mounting
-export interface MountMapping {
-	[point: string]: FileSystem;
-}
+export type MountObject = Record<AbsolutePath, FileSystem>;
 
 /**
  * The map of mount points
@@ -96,14 +94,14 @@ export function resolveMount(path: string): { fs: FileSystem; path: string; moun
 /**
  * Reverse maps the paths in text from the mounted FileSystem to the global path
  */
-export function fixPaths(text: string, paths: { [from: string]: string }): string {
+export function fixPaths(text: string, paths: Record<string, string>): string {
 	for (const [from, to] of Object.entries(paths)) {
 		text = text?.replaceAll(from, to);
 	}
 	return text;
 }
 
-export function fixError<E extends Error>(e: E, paths: { [from: string]: string }): E {
+export function fixError<E extends Error>(e: E, paths: Record<string, string>): E {
 	if (typeof e.stack == 'string') {
 		e.stack = fixPaths(e.stack, paths);
 	}
@@ -111,11 +109,11 @@ export function fixError<E extends Error>(e: E, paths: { [from: string]: string 
 	return e;
 }
 
-export function mountMapping(mountMapping: MountMapping): void {
-	if ('/' in mountMapping) {
+export function mountObject(mounts: MountObject): void {
+	if ('/' in mounts) {
 		umount('/');
 	}
-	for (const [point, fs] of Object.entries(mountMapping)) {
+	for (const [point, fs] of Object.entries(mounts)) {
 		mount(point, fs);
 	}
 }

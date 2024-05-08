@@ -18,8 +18,10 @@ describe('Timeout', () => {
 		let error: ApiError;
 		try {
 			await configure({
-				'/tmp': { backend: InMemory, name: 'tmp' },
-				'/port': <BackendConfiguration>{ backend: Port, port: port1, timeout: 100 },
+				mounts: {
+					'/tmp': { backend: InMemory, name: 'tmp' },
+					'/port': <BackendConfiguration>{ backend: Port, port: port1, timeout: 100 },
+				},
 			});
 		} catch (e) {
 			error = e;
