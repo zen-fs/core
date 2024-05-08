@@ -52,7 +52,7 @@ export interface FileData {
 }
 
 function isFileData(value: unknown): value is FileData {
-	return typeof value == 'object' && value !== null && 'fd' in value && 'path' in value && 'position' in value;
+	return typeof value == 'object' && value != null && 'fd' in value && 'path' in value && 'position' in value;
 }
 
 export { FileData as File };
@@ -60,7 +60,7 @@ export { FileData as File };
 // general types
 
 export function isMessage(arg: unknown): arg is Message<string, string> {
-	return typeof arg == 'object' && arg !== null && '_zenfs' in arg && !!arg._zenfs;
+	return typeof arg == 'object' && arg != null && '_zenfs' in arg && !!arg._zenfs;
 }
 
 type _Executor = Parameters<ConstructorParameters<typeof Promise<any>>[0]>;
@@ -84,12 +84,7 @@ export function request<const TRequest extends Request, TValue>(
 	return new Promise<TValue>((resolve, reject) => {
 		const id = Math.random().toString(16).slice(10);
 		executors.set(id, { resolve, reject, fs });
-		port.postMessage({
-			...request,
-			_zenfs: true,
-			id,
-			stack,
-		});
+		port.postMessage({ ...request, _zenfs: true, id, stack });
 		setTimeout(() => {
 			const error = new ApiError(ErrorCode.EIO, 'RPC Failed');
 			error.stack += stack;
@@ -98,7 +93,7 @@ export function request<const TRequest extends Request, TValue>(
 	});
 }
 
-export function handleResponse<const TResponse extends Response>(response: TResponse): TResponse | undefined {
+export function handleResponse<const TResponse extends Response>(response: TResponse): void {
 	if (!isMessage(response)) {
 		return;
 	}
@@ -114,20 +109,20 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 		e.stack += stack;
 		reject(e);
 		executors.delete(id);
-		return response;
+		return;
 	}
 
 	if (isFileData(value)) {
-		const { fd, path, position } = <FileData>(<unknown>value);
+		const { fd, path, position } = value;
 		const file = new PortFile(fs!, fd, path, position);
 		resolve(file);
 		executors.delete(id);
-		return response;
+		return;
 	}
 
 	resolve(value);
 	executors.delete(id);
-	return response;
+	return;
 }
 
 export function attach<T extends Message>(port: Port, handler: (message: T) => unknown) {

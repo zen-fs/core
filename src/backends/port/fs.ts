@@ -9,6 +9,7 @@ import type { SyncStoreFS } from '../SyncStore.js';
 import type { Backend } from '../backend.js';
 import * as RPC from './rpc.js';
 import type { ExtractProperties } from 'utilium';
+import type { FileReadResult } from 'node:fs/promises';
 
 type FileMethods = ExtractProperties<File, (...args: any[]) => Promise<any>>;
 type FileMethod = keyof FileMethods;
@@ -43,7 +44,7 @@ export class PortFile extends File {
 	}
 
 	public statSync(): Stats {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.statSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.stat');
 	}
 
 	public truncate(len: number): Promise<void> {
@@ -51,7 +52,7 @@ export class PortFile extends File {
 	}
 
 	public truncateSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.truncateSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.truncate');
 	}
 
 	public write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
@@ -59,15 +60,15 @@ export class PortFile extends File {
 	}
 
 	public writeSync(): number {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.writeSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.write');
 	}
 
-	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
-		return <Promise<{ bytesRead: number; buffer: TBuffer }>>this.rpc('read', buffer, offset, length, position);
+	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
+		return (await this.rpc('read', buffer, offset, length, position)) as FileReadResult<TBuffer>;
 	}
 
 	public readSync(): number {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.readSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.read');
 	}
 
 	public chown(uid: number, gid: number): Promise<void> {
@@ -75,7 +76,7 @@ export class PortFile extends File {
 	}
 
 	public chownSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.chownSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.chown');
 	}
 
 	public chmod(mode: number): Promise<void> {
@@ -83,7 +84,7 @@ export class PortFile extends File {
 	}
 
 	public chmodSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.chmodSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.chmod');
 	}
 
 	public utimes(atime: Date, mtime: Date): Promise<void> {
@@ -91,7 +92,7 @@ export class PortFile extends File {
 	}
 
 	public utimesSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.utimesSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.utimes');
 	}
 
 	public _setType(type: FileType): Promise<void> {
@@ -99,7 +100,7 @@ export class PortFile extends File {
 	}
 
 	public _setTypeSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile._setTypeSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile._setType');
 	}
 
 	public close(): Promise<void> {
@@ -107,7 +108,7 @@ export class PortFile extends File {
 	}
 
 	public closeSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.closeSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.close');
 	}
 
 	public sync(): Promise<void> {
@@ -115,7 +116,7 @@ export class PortFile extends File {
 	}
 
 	public syncSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.syncSync');
+		throw ApiError.With('ENOSYS', this.path, 'PortFile.sync');
 	}
 }
 
@@ -167,6 +168,7 @@ export class PortFS extends Async(FileSystem) {
 
 	public async ready(): Promise<this> {
 		await this.rpc('ready');
+		await super.ready();
 		return this;
 	}
 
@@ -237,7 +239,7 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 				}
 				break;
 			case 'file':
-				const { fd } = <FileRequest>request;
+				const { fd } = request;
 				if (!descriptors.has(fd)) {
 					throw new ApiError(ErrorCode.EBADF);
 				}
@@ -267,11 +269,11 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 }
 
 export function attachFS(port: RPC.Port, fs: FileSystem): void {
-	RPC.attach(port, (request: FileOrFSRequest) => handleRequest(port, fs, request));
+	RPC.attach<FileOrFSRequest>(port, request => handleRequest(port, fs, request));
 }
 
 export function detachFS(port: RPC.Port, fs: FileSystem): void {
-	RPC.detach(port, (request: FileOrFSRequest) => handleRequest(port, fs, request));
+	RPC.detach<FileOrFSRequest>(port, request => handleRequest(port, fs, request));
 }
 
 export const Port = {
