@@ -1,9 +1,9 @@
-import type { Stats } from '../../src/stats';
-import { join } from '../../src/emulation/path';
-import { encode } from '../../src/utils';
-import { fs } from '../common';
-import { R_OK, W_OK, X_OK } from '../../src/emulation/constants';
-import { cred } from '../../src/emulation/shared';
+import type { Stats } from '../../src/stats.js';
+import { join } from '../../src/emulation/path.js';
+import { encode } from '../../src/utils.js';
+import { fs } from '../common.js';
+import { R_OK, W_OK, X_OK } from '../../src/emulation/constants.js';
+import { cred } from '../../src/emulation/shared.js';
 
 describe('Permissions', () => {
 	async function test_item(path: string): Promise<void> {

@@ -1,5 +1,5 @@
-import { fs } from '../common';
-import type { ApiError } from '../../src/ApiError';
+import type { ApiError } from '../../src/ApiError.js';
+import { fs } from '../common.js';
 
 const existingFile = '/exit.js';
 

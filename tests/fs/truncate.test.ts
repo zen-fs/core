@@ -1,5 +1,5 @@
-import type { FileHandle } from '../../src/emulation/promises';
-import { fs } from '../common';
+import type { FileHandle } from '../../src/emulation/promises.js';
+import { fs } from '../common.js';
 
 const path: string = 'truncate-file.txt',
 	size = 1024 * 16,

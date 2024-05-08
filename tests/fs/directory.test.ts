@@ -1,5 +1,4 @@
-import type { ApiError } from '../../src';
-import { fs } from '../common';
+import { fs } from '../common.js';
 
 describe('Directory', () => {
 	test('mkdir', async () => {

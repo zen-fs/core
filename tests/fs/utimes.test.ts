@@ -1,5 +1,5 @@
-import { _toUnixTimestamp } from '../../src/utils';
-import { fs } from '../common';
+import { _toUnixTimestamp } from '../../src/utils.js';
+import { fs } from '../common.js';
 
 describe('utimes', () => {
 	const filename = 'x.txt';

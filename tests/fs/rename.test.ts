@@ -1,4 +1,4 @@
-import { fs } from '../common';
+import { fs } from '../common.js';
 
 describe('Rename', () => {
 	/**

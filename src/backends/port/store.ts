@@ -115,7 +115,8 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 				if (!transactions.has(tx)) {
 					throw new ApiError(ErrorCode.EBADF);
 				}
-				// @ts-expect-error 2556
+				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+				// @ts-ignore 2556
 				value = await transactions.get(tx)![method](...args);
 				if (method == 'close') {
 					transactions.delete(tx);

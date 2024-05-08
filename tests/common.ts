@@ -1,4 +1,4 @@
-import { fs } from '../src';
+import { fs } from '../src/index.js';
 import { join, relative } from 'path';
 import { statSync, readFileSync, readdirSync } from 'fs';
 

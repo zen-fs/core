@@ -1,4 +1,4 @@
-import { fs } from '../common';
+import { fs } from '../common.js';
 
 const asyncMode = 0o777;
 const syncMode = 0o644;

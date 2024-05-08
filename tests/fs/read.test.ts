@@ -1,4 +1,4 @@
-import { fs } from '../common';
+import { fs } from '../common.js';
 
 const filepath: string = 'x.txt';
 const expected: string = 'xyz\n';

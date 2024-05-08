@@ -1,4 +1,4 @@
-import { type FileHandle, open, constants } from '../../src/emulation/promises';
+import { type FileHandle, open, constants } from '../../src/emulation/promises.js';
 
 const content = 'The cake is a lie',
 	appended = '\nAnother lie';
