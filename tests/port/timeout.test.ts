@@ -1,4 +1,4 @@
-import { ApiError, InMemory, configure, fs, type BackendConfiguration } from '../../src/index.js';
+import { ErrnoError, InMemory, configure, fs, type BackendConfiguration } from '../../src/index.js';
 import { MessageChannel } from 'node:worker_threads';
 import { Port } from '../../src/backends/port/fs.js';
 
@@ -15,7 +15,7 @@ describe('Timeout', () => {
 	});
 
 	test('Misconfiguration', async () => {
-		let error: ApiError;
+		let error: ErrnoError;
 		try {
 			await configure({
 				mounts: {
@@ -26,20 +26,20 @@ describe('Timeout', () => {
 		} catch (e) {
 			error = e;
 		}
-		expect(error).toBeInstanceOf(ApiError);
+		expect(error).toBeInstanceOf(ErrnoError);
 		expect(error.code).toBe('EIO');
 		expect(error.message).toContain('RPC Failed');
 	});
 
 	test('Remote not attached', async () => {
-		let error: ApiError;
+		let error: ErrnoError;
 		try {
 			await configure(<BackendConfiguration>{ backend: Port, port: port1, timeout: 100 });
 			await fs.promises.writeFile('/test', 'anything');
 		} catch (e) {
 			error = e;
 		}
-		expect(error).toBeInstanceOf(ApiError);
+		expect(error).toBeInstanceOf(ErrnoError);
 		expect(error.code).toBe('EIO');
 		expect(error.message).toContain('RPC Failed');
 	});
