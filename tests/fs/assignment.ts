@@ -10,7 +10,7 @@
 	- ReadStream and WriteStream are excluded since they are polfilled from another module
 */
 
-import { fs as zen } from '../src/index.js';
+import { fs as zen } from '../../src/index.js';
 import * as node from 'fs';
 
 type Mock = {

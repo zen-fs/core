@@ -1,5 +1,5 @@
-import { Stats } from '../src/stats';
-import { fs } from './common';
+import { Stats } from '../../src/stats';
+import { fs } from '../common';
 
 describe('Stats', () => {
 	const existing_file = 'x.txt';

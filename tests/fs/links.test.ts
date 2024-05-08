@@ -1,5 +1,5 @@
-import { join } from '../src/emulation/path';
-import { fs } from './common';
+import { join } from '../../src/emulation/path';
+import { fs } from '../common';
 
 describe('Links', () => {
 	const target = '/a1.js',

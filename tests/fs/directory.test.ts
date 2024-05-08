@@ -1,5 +1,5 @@
-import type { ApiError } from '../src';
-import { fs } from './common';
+import type { ApiError } from '../../src';
+import { fs } from '../common';
 
 describe('Directory', () => {
 	test('mkdir', async () => {

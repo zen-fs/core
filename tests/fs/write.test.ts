@@ -1,4 +1,4 @@
-import { fs } from './common';
+import { fs } from '../common';
 
 describe('write', () => {
 	test('write file with specified content', async () => {
