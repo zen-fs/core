@@ -91,7 +91,7 @@ export function request<const TRequest extends Request, TValue>(
 			stack,
 		});
 		setTimeout(() => {
-			const error = new ApiError(ErrorCode.EIO, `RPC Failed (#${id})`);
+			const error = new ApiError(ErrorCode.EIO, 'RPC Failed');
 			error.stack += stack;
 			reject(error);
 		}, timeout);

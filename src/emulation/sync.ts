@@ -23,7 +23,7 @@ function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, re
 		// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
 		return fs[name](resolvedPath, ...args) as RT;
 	} catch (e) {
-		throw fixError(<Error>e, { [resolvedPath]: path });
+		throw fixError(e as Error, { [resolvedPath]: path });
 	}
 }
 
@@ -46,7 +46,7 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 		writeFileSync(newPath, readFileSync(oldPath));
 		unlinkSync(oldPath);
 	} catch (e) {
-		throw fixError(<Error>e, paths);
+		throw fixError(e as Error, paths);
 	}
 }
 renameSync satisfies typeof fs.renameSync;
@@ -691,7 +691,7 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 
 		return realpathSync(mountPoint + readlinkSync(lpath));
 	} catch (e) {
-		throw fixError(<Error>e, { [resolvedPath]: lpath });
+		throw fixError(e as Error, { [resolvedPath]: lpath });
 	}
 }
 realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;

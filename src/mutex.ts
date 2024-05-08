@@ -1,3 +1,5 @@
+import { ApiError, ErrorCode } from './ApiError.js';
+
 /**
  * Non-recursive mutex
  * @internal
@@ -17,7 +19,7 @@ export class Mutex {
 
 	public unlock(path: string): void {
 		if (!this._locks.has(path)) {
-			throw new Error('unlock of a non-locked mutex');
+			throw new ApiError(ErrorCode.EPERM, 'Can not unlock an already unlocked path', path);
 		}
 
 		const next = this._locks.get(path)?.shift();

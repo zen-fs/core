@@ -1,3 +1,4 @@
+import { ApiError } from '../ApiError.js';
 import type { Cred } from '../cred.js';
 import type { File } from '../file.js';
 import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
@@ -39,23 +40,23 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
 		if (this._mu.isLocked(oldPath)) {
-			throw new Error('invalid sync call');
+			throw ApiError.With('EBUSY', oldPath, 'rename');
 		}
 		return this.fs.renameSync(oldPath, newPath, cred);
 	}
 
-	public async stat(p: string, cred: Cred): Promise<Stats> {
-		await this._mu.lock(p);
-		const stats = await this.fs.stat(p, cred);
-		this._mu.unlock(p);
+	public async stat(path: string, cred: Cred): Promise<Stats> {
+		await this._mu.lock(path);
+		const stats = await this.fs.stat(path, cred);
+		this._mu.unlock(path);
 		return stats;
 	}
 
-	public statSync(p: string, cred: Cred): Stats {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
+	public statSync(path: string, cred: Cred): Stats {
+		if (this._mu.isLocked(path)) {
+			throw ApiError.With('EBUSY', path, 'stat');
 		}
-		return this.fs.statSync(p, cred);
+		return this.fs.statSync(path, cred);
 	}
 
 	public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
@@ -67,7 +68,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public openFileSync(path: string, flag: string, cred: Cred): File {
 		if (this._mu.isLocked(path)) {
-			throw new Error('invalid sync call');
+			throw ApiError.With('EBUSY', path, 'openFile');
 		}
 		return this.fs.openFileSync(path, flag, cred);
 	}
@@ -81,7 +82,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
 		if (this._mu.isLocked(path)) {
-			throw new Error('invalid sync call');
+			throw ApiError.With('EBUSY', path, 'createFile');
 		}
 		return this.fs.createFileSync(path, flag, mode, cred);
 	}
@@ -92,65 +93,65 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 		this._mu.unlock(p);
 	}
 
-	public unlinkSync(p: string, cred: Cred): void {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
+	public unlinkSync(path: string, cred: Cred): void {
+		if (this._mu.isLocked(path)) {
+			throw ApiError.With('EBUSY', path, 'unlink');
 		}
-		return this.fs.unlinkSync(p, cred);
+		return this.fs.unlinkSync(path, cred);
 	}
 
-	public async rmdir(p: string, cred: Cred): Promise<void> {
-		await this._mu.lock(p);
-		await this.fs.rmdir(p, cred);
-		this._mu.unlock(p);
+	public async rmdir(path: string, cred: Cred): Promise<void> {
+		await this._mu.lock(path);
+		await this.fs.rmdir(path, cred);
+		this._mu.unlock(path);
 	}
 
-	public rmdirSync(p: string, cred: Cred): void {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
+	public rmdirSync(path: string, cred: Cred): void {
+		if (this._mu.isLocked(path)) {
+			throw ApiError.With('EBUSY', path, 'rmdir');
 		}
-		return this.fs.rmdirSync(p, cred);
+		return this.fs.rmdirSync(path, cred);
 	}
 
-	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
-		await this._mu.lock(p);
-		await this.fs.mkdir(p, mode, cred);
-		this._mu.unlock(p);
+	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
+		await this._mu.lock(path);
+		await this.fs.mkdir(path, mode, cred);
+		this._mu.unlock(path);
 	}
 
-	public mkdirSync(p: string, mode: number, cred: Cred): void {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
+	public mkdirSync(path: string, mode: number, cred: Cred): void {
+		if (this._mu.isLocked(path)) {
+			throw ApiError.With('EBUSY', path, 'mkdir');
 		}
-		return this.fs.mkdirSync(p, mode, cred);
+		return this.fs.mkdirSync(path, mode, cred);
 	}
 
-	public async readdir(p: string, cred: Cred): Promise<string[]> {
-		await this._mu.lock(p);
-		const files = await this.fs.readdir(p, cred);
-		this._mu.unlock(p);
+	public async readdir(path: string, cred: Cred): Promise<string[]> {
+		await this._mu.lock(path);
+		const files = await this.fs.readdir(path, cred);
+		this._mu.unlock(path);
 		return files;
 	}
 
-	public readdirSync(p: string, cred: Cred): string[] {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
+	public readdirSync(path: string, cred: Cred): string[] {
+		if (this._mu.isLocked(path)) {
+			throw ApiError.With('EBUSY', path, 'readdir');
 		}
-		return this.fs.readdirSync(p, cred);
+		return this.fs.readdirSync(path, cred);
 	}
 
-	public async exists(p: string, cred: Cred): Promise<boolean> {
-		await this._mu.lock(p);
-		const exists = await this.fs.exists(p, cred);
-		this._mu.unlock(p);
+	public async exists(path: string, cred: Cred): Promise<boolean> {
+		await this._mu.lock(path);
+		const exists = await this.fs.exists(path, cred);
+		this._mu.unlock(path);
 		return exists;
 	}
 
-	public existsSync(p: string, cred: Cred): boolean {
-		if (this._mu.isLocked(p)) {
-			throw new Error('invalid sync call');
+	public existsSync(path: string, cred: Cred): boolean {
+		if (this._mu.isLocked(path)) {
+			throw ApiError.With('EBUSY', path, 'exists');
 		}
-		return this.fs.existsSync(p, cred);
+		return this.fs.existsSync(path, cred);
 	}
 
 	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
@@ -161,7 +162,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
 		if (this._mu.isLocked(srcpath)) {
-			throw new Error('invalid sync call');
+			throw ApiError.With('EBUSY', srcpath, 'link');
 		}
 		return this.fs.linkSync(srcpath, dstpath, cred);
 	}
@@ -174,7 +175,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		if (this._mu.isLocked(path)) {
-			throw new Error('invalid sync call');
+			throw ApiError.With('EBUSY', path, 'sync');
 		}
 		return this.fs.syncSync(path, data, stats);
 	}

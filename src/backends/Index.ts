@@ -113,10 +113,10 @@ export class FileIndex<TData> {
 	 */
 	public add(path: string, inode: IndexInode<TData>): boolean {
 		if (!inode) {
-			throw new Error('Inode must be specified');
+			throw new ApiError(ErrorCode.EINVAL, 'Inode must be specified', path, 'FileIndex.add');
 		}
 		if (!path.startsWith('/')) {
-			throw new Error('Path must be absolute, got: ' + path);
+			throw new ApiError(ErrorCode.EINVAL, 'Path not absolute', path, 'FileIndex.add');
 		}
 
 		// Check if it already exists.

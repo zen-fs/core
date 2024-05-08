@@ -134,7 +134,7 @@ export class AsyncStoreFS extends Async(FileSystem) {
 	protected _store?: AsyncStore;
 	protected get store(): AsyncStore {
 		if (!this._store) {
-			throw new ReferenceError('AsyncStoreFS not attached to a store');
+			throw new ApiError(ErrorCode.ENODATA, 'No store attached');
 		}
 		return this._store;
 	}
