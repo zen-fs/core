@@ -130,7 +130,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 	return response;
 }
 
-export function attach<const T extends Message>(port: Port, handler: (message: T) => unknown) {
+export function attach<T extends Message>(port: Port, handler: (message: T) => unknown) {
 	if (!port) {
 		throw ApiError.With('EINVAL');
 	}
@@ -139,7 +139,7 @@ export function attach<const T extends Message>(port: Port, handler: (message: T
 	});
 }
 
-export function detach<const T extends Message>(port: Port, handler: (message: T) => unknown) {
+export function detach<T extends Message>(port: Port, handler: (message: T) => unknown) {
 	if (!port) {
 		throw ApiError.With('EINVAL');
 	}
