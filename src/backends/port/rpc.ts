@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /// !<reference lib="DOM" />
 import type { TransferListItem } from 'worker_threads';
-import { ApiError, ErrorCode } from '../../ApiError.js';
+import { ApiError, ErrorCode, type ApiErrorJSON } from '../../ApiError.js';
 import { PortFile, type PortFS } from './fs.js';
 
 type _MessageEvent<T = any> = T | { data: T };
@@ -110,7 +110,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 	}
 	const { resolve, reject, fs } = executors.get(id)!;
 	if (error) {
-		const e = <ApiError>(<unknown>value);
+		const e = ApiError.fromJSON(value as ApiErrorJSON);
 		e.stack += stack;
 		reject(e);
 		executors.delete(id);

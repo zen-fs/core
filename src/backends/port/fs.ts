@@ -262,7 +262,7 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 		error,
 		method,
 		stack,
-		value,
+		value: value instanceof ApiError ? value.toJSON() : value,
 	});
 }
 

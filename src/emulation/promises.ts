@@ -19,18 +19,21 @@ import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
-	public constructor(
-		/**
-		 * Gets the file descriptor for this file handle.
-		 */
-		public readonly fd: number
-	) {}
+	/**
+	 * The file descriptor for this file handle.
+	 */
+	public readonly fd: number;
 
 	/**
 	 * @internal
+	 * The file for this file handle
 	 */
-	public get file(): File {
-		return fd2file(this.fd);
+	public readonly file: File;
+
+	public constructor(fdOrFile: number | File) {
+		const isFile = typeof fdOrFile != 'number';
+		this.fd = isFile ? file2fd(fdOrFile) : fdOrFile;
+		this.file = isFile ? fdOrFile : fd2file(fdOrFile);
 	}
 
 	/**
@@ -133,7 +136,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async readFile(_options?: { flag?: fs.OpenMode }): Promise<Buffer>;
 	public async readFile(_options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string>;
-	public async readFile(_options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding = {}): Promise<string | Buffer> {
+	public async readFile(_options?: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = parseFlag(options.flag);
 		if (!isReadable(flag)) {
@@ -328,7 +331,7 @@ export class FileHandle implements promises.FileHandle {
 					stream.push(!result.bytesRead ? null : result.buffer.slice(0, result.bytesRead)); // Push data or null for EOF
 					this.file.position += result.bytesRead;
 				} catch (error) {
-					stream.destroy(<Error>error);
+					stream.destroy(error as Error);
 				}
 			},
 		});
@@ -353,7 +356,7 @@ export class FileHandle implements promises.FileHandle {
 					const { bytesWritten } = await this.write(chunk, null, encoding);
 					callback(bytesWritten == chunk.length ? null : new Error('Failed to write full chunk'));
 				} catch (error) {
-					callback(<Error>error);
+					callback(error as Error);
 				}
 			},
 		};
@@ -382,7 +385,7 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 		await writeFile(newPath, await readFile(oldPath));
 		await unlink(oldPath);
 	} catch (e) {
-		throw fixError(<Error>e, { [src.path]: oldPath, [dst.path]: newPath });
+		throw fixError(e as Error, { [src.path]: oldPath, [dst.path]: newPath });
 	}
 }
 rename satisfies typeof promises.rename;
@@ -396,7 +399,7 @@ export async function exists(path: fs.PathLike): Promise<boolean> {
 		const { fs, path: resolved } = resolveMount(await realpath(path));
 		return await fs.exists(resolved, cred);
 	} catch (e) {
-		if ((e as ApiError).errno == ErrorCode.ENOENT) {
+		if (e instanceof ApiError && e.code == 'ENOENT') {
 			return false;
 		}
 
@@ -419,7 +422,7 @@ export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise
 		const stats = await fs.stat(resolved, cred);
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
-		throw fixError(<Error>e, { [resolved]: path });
+		throw fixError(e as Error, { [resolved]: path });
 	}
 }
 stat satisfies typeof promises.stat;
@@ -440,7 +443,7 @@ export async function lstat(path: fs.PathLike, options?: fs.StatOptions): Promis
 		const stats = await fs.stat(resolved, cred);
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
-		throw fixError(<Error>e, { [resolved]: path });
+		throw fixError(e as Error, { [resolved]: path });
 	}
 }
 lstat satisfies typeof promises.lstat;
@@ -470,9 +473,9 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		return fs.unlink(resolved, cred);
+		await fs.unlink(resolved, cred);
 	} catch (e) {
-		throw fixError(<Error>e, { [resolved]: path });
+		throw fixError(e as Error, { [resolved]: path });
 	}
 }
 unlink satisfies typeof promises.unlink;
@@ -481,7 +484,7 @@ unlink satisfies typeof promises.unlink;
  * Opens a file. This helper handles the complexity of file flags.
  * @internal
  */
-async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o644, resolveSymlinks: boolean): Promise<File> {
+async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o644, resolveSymlinks: boolean): Promise<FileHandle> {
 	path = normalizePath(path);
 	const mode = normalizeMode(_mode, 0o644),
 		flag = parseFlag(_flag);
@@ -503,10 +506,10 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 				const file: File = await fs.openFile(resolved, flag, cred);
 				await file.truncate(0);
 				await file.sync();
-				return file;
+				return new FileHandle(file);
 			case ActionType.NOP:
 				// Must await so thrown errors are caught by the catch below
-				return await fs.openFile(resolved, flag, cred);
+				return new FileHandle(await fs.openFile(resolved, flag, cred));
 			default:
 				throw new ApiError(ErrorCode.EINVAL, 'Invalid file flag');
 		}
@@ -518,7 +521,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 				if (parentStats && !parentStats.isDirectory()) {
 					throw ApiError.With('ENOTDIR', dirname(path), '_open');
 				}
-				return await fs.createFile(resolved, flag, mode, cred);
+				return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
 			case ActionType.THROW:
 				throw ApiError.With('ENOENT', path, '_open');
 			default:
@@ -534,28 +537,9 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
  * @param mode Mode to use to open the file. Can be ignored if the filesystem doesn't support permissions.
  */
 export async function open(path: fs.PathLike, flag: fs.OpenMode = 'r', mode: fs.Mode = 0o644): Promise<FileHandle> {
-	const file = await _open(path, flag, mode, true);
-	return new FileHandle(file2fd(file));
+	return await _open(path, flag, mode, true);
 }
 open satisfies typeof promises.open;
-
-/**
- * Asynchronously reads the entire contents of a file.
- */
-async function _readFile(fname: string, flag: string, resolveSymlinks: boolean): Promise<Uint8Array> {
-	const file = await _open(normalizePath(fname), flag, 0o644, resolveSymlinks);
-
-	try {
-		const stat = await file.stat();
-		const data = new Uint8Array(stat.size);
-		await file.read(data, 0, stat.size, 0);
-		await file.close();
-		return data;
-	} catch (e) {
-		await file.close();
-		throw e;
-	}
-}
 
 /**
  * Asynchronously reads the entire contents of a file.
@@ -575,14 +559,14 @@ export async function readFile(
 	path: fs.PathLike | promises.FileHandle,
 	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
 ): Promise<Buffer | string> {
-	const options = normalizeOptions(_options, null, 'r', 0);
-	const flag = parseFlag(options.flag);
-	if (!isReadable(flag)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
+	const options = normalizeOptions(_options, null, 'r', 0o644);
+	const handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open(path as string, options.flag, options.mode);
+
+	try {
+		return await handle.readFile(options);
+	} finally {
+		await handle.close();
 	}
-	path = path instanceof FileHandle ? path.file.path : path.toString();
-	const data: Buffer = Buffer.from(await _readFile(path, options.flag, true));
-	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFile satisfies typeof promises.readFile;
 
@@ -617,19 +601,6 @@ export async function writeFile(
 writeFile satisfies typeof promises.writeFile;
 
 /**
- * Asynchronously append data to a file, creating the file if
- * it not yet exists.
- */
-async function _appendFile(path: fs.PathLike, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): Promise<void> {
-	const file = await _open(path, flag, mode, resolveSymlinks);
-	try {
-		await file.write(data, 0, data.length, null);
-	} finally {
-		await file.close();
-	}
-}
-
-/**
  * Asynchronously append data to a file, creating the file if it not yet
  * exists.
  * @param path
@@ -653,7 +624,13 @@ export async function appendFile(
 		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	await _appendFile(path instanceof FileHandle ? path.file.path : path.toString(), encodedData, options.flag, options.mode, true);
+	const handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open(path as string, options.flag, options.mode);
+
+	try {
+		await handle.appendFile(encodedData, options);
+	} finally {
+		await handle.close();
+	}
 }
 appendFile satisfies typeof promises.appendFile;
 
@@ -668,9 +645,9 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		return fs.rmdir(resolved, cred);
+		await fs.rmdir(resolved, cred);
 	} catch (e) {
-		throw fixError(<Error>e, { [resolved]: path });
+		throw fixError(e as Error, { [resolved]: path });
 	}
 }
 rmdir satisfies typeof promises.rmdir;
@@ -689,9 +666,9 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		return fs.mkdir(resolved, normalizeMode(typeof options == 'object' ? options?.mode : options, 0o777), cred);
+		await fs.mkdir(resolved, normalizeMode(typeof options == 'object' ? options?.mode : options, 0o777), cred);
 	} catch (e) {
-		throw fixError(<Error>e, { [resolved]: path });
+		throw fixError(e as Error, { [resolved]: path });
 	}
 }
 mkdir satisfies typeof promises.mkdir;
@@ -719,7 +696,7 @@ export async function readdir(
 	try {
 		entries = await fs.readdir(resolved, cred);
 	} catch (e) {
-		throw fixError(<Error>e, { [resolved]: path });
+		throw fixError(e as Error, { [resolved]: path });
 	}
 	for (const point of mounts.keys()) {
 		if (point.startsWith(path)) {
@@ -753,7 +730,7 @@ export async function link(existing: fs.PathLike, newpath: fs.PathLike): Promise
 	try {
 		return await fs.link(existing, newpath, cred);
 	} catch (e) {
-		throw fixError(<Error>e, { [resolved]: newpath });
+		throw fixError(e as Error, { [resolved]: newpath });
 	}
 }
 link satisfies typeof promises.link;
@@ -774,8 +751,8 @@ export async function symlink(target: fs.PathLike, path: fs.PathLike, type: fs.s
 	}
 
 	await writeFile(path, target.toString());
-	const file = await _open(path, 'r+', 0o644, false);
-	await file._setType(FileType.SYMLINK);
+	const handle = await _open(path, 'r+', 0o644, false);
+	await handle.file._setType(FileType.SYMLINK);
 }
 symlink satisfies typeof promises.symlink;
 
@@ -787,9 +764,14 @@ export async function readlink(path: fs.PathLike, options: fs.BufferEncodingOpti
 export async function readlink(path: fs.PathLike, options?: fs.EncodingOption | null): Promise<string>;
 export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer>;
 export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer> {
-	const value: Buffer = Buffer.from(await _readFile(path.toString(), 'r', false));
-	const encoding = typeof options == 'object' ? options?.encoding : options;
-	return encoding == 'buffer' ? value : value.toString(encoding! as BufferEncoding);
+	const handle = await _open(normalizePath(path), 'r', 0o644, false);
+	try {
+		const value = await handle.readFile();
+		const encoding = typeof options == 'object' ? options?.encoding : options;
+		return encoding == 'buffer' ? value : value.toString(encoding! as BufferEncoding);
+	} finally {
+		await handle.close();
+	}
 }
 readlink satisfies typeof promises.readlink;
 
@@ -818,11 +800,11 @@ chown satisfies typeof promises.chown;
  * @param gid
  */
 export async function lchown(path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	const file: File = await _open(path, 'r+', 0o644, false);
+	const handle: FileHandle = await _open(path, 'r+', 0o644, false);
 	try {
-		await file.chown(uid, gid);
+		await handle.chown(uid, gid);
 	} finally {
-		await file.close();
+		await handle.close();
 	}
 }
 lchown satisfies typeof promises.lchown;
@@ -848,11 +830,11 @@ chmod satisfies typeof promises.chmod;
  * @param mode
  */
 export async function lchmod(path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	const file: File = await _open(path, 'r+', 0o644, false);
+	const handle: FileHandle = await _open(path, 'r+', 0o644, false);
 	try {
-		await new FileHandle(file2fd(file)).chmod(mode);
+		await handle.chmod(mode);
 	} finally {
-		await file.close();
+		await handle.close();
 	}
 }
 lchmod satisfies typeof promises.lchmod;
@@ -880,11 +862,11 @@ utimes satisfies typeof promises.utimes;
  * @param mtime
  */
 export async function lutimes(path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
-	const file: File = await _open(path, 'r+', 0o644, false);
+	const handle: FileHandle = await _open(path, 'r+', 0o644, false);
 	try {
-		await file.utimes(new Date(atime), new Date(mtime));
+		await handle.utimes(new Date(atime), new Date(mtime));
 	} finally {
-		await file.close();
+		await handle.close();
 	}
 }
 lutimes satisfies typeof promises.lutimes;
@@ -910,7 +892,7 @@ export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | 
 
 		return realpath(mountPoint + (await readlink(lpath)));
 	} catch (e) {
-		throw fixError(<Error>e, { [resolvedPath]: lpath });
+		throw fixError(e as Error, { [resolvedPath]: lpath });
 	}
 }
 realpath satisfies typeof promises.realpath;

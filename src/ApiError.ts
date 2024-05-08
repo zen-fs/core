@@ -234,7 +234,7 @@ export const errorMessages: { [K in ErrorCode]: string } = {
 	[ErrorCode.EDQUOT]: 'Disk quota exceeded',
 };
 
-interface ApiErrorJSON {
+export interface ApiErrorJSON {
 	errno: ErrorCode;
 	message: string;
 	path?: string;

@@ -137,7 +137,7 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 		error,
 		method,
 		stack,
-		value,
+		value: value instanceof ApiError ? value.toJSON() : value,
 	});
 }
 
