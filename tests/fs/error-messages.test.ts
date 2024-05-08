@@ -1,11 +1,11 @@
-import type { ApiError } from '../../src/ApiError.js';
+import type { ErrnoError } from '../../src/error.js';
 import { fs } from '../common.js';
 
 const existingFile = '/exit.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function expectError(fn: (...args: any[]) => unknown, p: string, ...args: any[]) {
-	let error: ApiError;
+	let error: ErrnoError;
 	try {
 		await fn(p, ...args);
 	} catch (err) {
