@@ -22,11 +22,13 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 /*
-This is the POSIX path code of NodeJS
+This is derived from the POSIX path code of NodeJS
 https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js 
 */
 
 import type { ParsedPath } from 'node:path';
+
+export type AbsolutePath = `/${string}`;
 
 export let cwd = '/';
 
@@ -35,12 +37,6 @@ export function cd(path: string): void {
 }
 
 export const sep = '/';
-
-function validateString(str: unknown, name: string): void {
-	if (typeof str != 'string') {
-		throw new TypeError(`"${name}" is not a string`);
-	}
-}
 
 function validateObject(str: unknown, name: string): void {
 	if (typeof str != 'object') {
@@ -113,22 +109,22 @@ export function formatExt(ext: string): string {
 	return ext ? `${ext[0] === '.' ? '' : '.'}${ext}` : '';
 }
 
-export function resolve(...args: string[]): string {
+export function resolve(...parts: string[]): AbsolutePath {
 	let resolved = '';
-	let absolute = false;
 
-	for (let i = args.length - 1; i >= -1 && !absolute; i--) {
-		const path = i >= 0 ? args[i] : cwd;
-		validateString(path, `paths[${i}]`);
-
-		// Skip empty entries
-		if (!path.length) {
+	for (const part of [...parts.toReversed(), cwd]) {
+		if (!part.length) {
 			continue;
 		}
 
-		resolved = `${path}/${resolved}`;
-		absolute = path[0] == '/';
+		resolved = `${part}/${resolved}`;
+
+		if (part.startsWith('/')) {
+			break;
+		}
 	}
+
+	const absolute = resolved.startsWith('/');
 
 	// At this point the path should be resolved to a full absolute path, but
 	// handle relative paths to be safe (might happen when cwd fails)
@@ -139,21 +135,19 @@ export function resolve(...args: string[]): string {
 	if (absolute) {
 		return `/${resolved}`;
 	}
-	return resolved.length > 0 ? resolved : '/';
+	return resolved.length ? (resolved as AbsolutePath) : '/';
 }
 
 export function normalize(path: string): string {
-	validateString(path, 'path');
+	if (!path.length) return '.';
 
-	if (path.length === 0) return '.';
-
-	const isAbsolute = path[0] === '/';
-	const trailingSeparator = path.at(-1) === '/';
+	const isAbsolute = path.startsWith('/');
+	const trailingSeparator = path.endsWith('/');
 
 	// Normalize the path
 	path = normalizeString(path, !isAbsolute);
 
-	if (path.length === 0) {
+	if (!path.length) {
 		if (isAbsolute) return '/';
 		return trailingSeparator ? './' : '.';
 	}
@@ -163,29 +157,17 @@ export function normalize(path: string): string {
 }
 
 export function isAbsolute(path: string): boolean {
-	validateString(path, 'path');
-	return path.length > 0 && path[0] === '/';
+	return path.startsWith('/');
 }
 
-export function join(...args: string[]): string {
-	if (args.length === 0) return '.';
-	let joined;
-	for (let i = 0; i < args.length; ++i) {
-		const arg = args[i];
-		validateString(arg, 'path');
-		if (arg.length > 0) {
-			if (joined === undefined) joined = arg;
-			else joined += `/${arg}`;
-		}
-	}
-	if (joined === undefined) return '.';
+export function join(...parts: string[]): string {
+	if (!parts.length) return '.';
+	const joined = parts.join('/');
+	if (!joined?.length) return '.';
 	return normalize(joined);
 }
 
-export function relative(from: string, to: string) {
-	validateString(from, 'from');
-	validateString(to, 'to');
-
+export function relative(from: string, to: string): string {
 	if (from === to) return '';
 
 	// Trim leading forward slashes.
@@ -249,7 +231,6 @@ export function relative(from: string, to: string) {
 }
 
 export function dirname(path: string): string {
-	validateString(path, 'path');
 	if (path.length === 0) return '.';
 	const hasRoot = path[0] === '/';
 	let end = -1;
@@ -272,9 +253,6 @@ export function dirname(path: string): string {
 }
 
 export function basename(path: string, suffix?: string): string {
-	if (suffix !== undefined) validateString(suffix, 'ext');
-	validateString(path, 'path');
-
 	let start = 0;
 	let end = -1;
 	let matchedSlash = true;
@@ -341,7 +319,6 @@ export function basename(path: string, suffix?: string): string {
 }
 
 export function extname(path: string): string {
-	validateString(path, 'path');
 	let startDot = -1;
 	let startPart = 0;
 	let end = -1;
@@ -400,8 +377,7 @@ export function format(pathObject: ParsedPath): string {
 }
 
 export function parse(path: string): ParsedPath {
-	validateString(path, 'path');
-	const isAbsolute = path[0] === '/';
+	const isAbsolute = path.startsWith('/');
 	const ret = { root: isAbsolute ? '/' : '', dir: '', base: '', ext: '', name: '' };
 	if (path.length === 0) return ret;
 

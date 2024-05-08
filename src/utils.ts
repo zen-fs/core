@@ -1,8 +1,9 @@
 import type { OptionalTuple } from 'utilium';
 import { ApiError, ErrorCode } from './ApiError.js';
 import { Cred } from './cred.js';
-import { dirname, resolve } from './emulation/path.js';
+import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
 import { FileSystem } from './filesystem.js';
+import type * as fs from 'node:fs';
 
 declare global {
 	function atob(data: string): string;
@@ -17,10 +18,10 @@ declare const globalThis: {
  * Synchronous recursive makedir.
  * @hidden
  */
-export function mkdirpSync(p: string, mode: number, cred: Cred, fs: FileSystem): void {
-	if (!fs.existsSync(p, cred)) {
-		mkdirpSync(dirname(p), mode, cred, fs);
-		fs.mkdirSync(p, mode, cred);
+export function mkdirpSync(path: string, mode: number, cred: Cred, fs: FileSystem): void {
+	if (!fs.existsSync(path, cred)) {
+		mkdirpSync(dirname(path), mode, cred, fs);
+		fs.mkdirSync(path, mode, cred);
 	}
 }
 
@@ -173,8 +174,6 @@ export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 
 export type Callback<Args extends unknown[] = []> = (e?: ApiError, ...args: OptionalTuple<Args>) => unknown;
 
-import type { EncodingOption, OpenMode, PathLike, WriteFileOptions } from 'node:fs';
-
 /**
  * converts Date or number to a integer UNIX timestamp
  * Grabbed from NodeJS sources (lib/fs.js)
@@ -238,14 +237,13 @@ export function normalizeTime(time: string | number | Date): Date {
  * Normalizes a path
  * @internal
  */
-export function normalizePath(p: PathLike): string {
+export function normalizePath(p: fs.PathLike): AbsolutePath {
 	p = p.toString();
-	// Node doesn't allow null characters in paths.
 	if (p.includes('\x00')) {
-		throw new ApiError(ErrorCode.EINVAL, 'Path must be a string without null bytes.');
+		throw new ApiError(ErrorCode.EINVAL, 'Path can not contain null character');
 	}
 	if (p.length == 0) {
-		throw new ApiError(ErrorCode.EINVAL, 'Path must not be empty.');
+		throw new ApiError(ErrorCode.EINVAL, 'Path can not be empty');
 	}
 	return resolve(p.replaceAll(/[/\\]+/g, '/'));
 }
@@ -259,7 +257,7 @@ export function normalizePath(p: PathLike): string {
  * @internal
  */
 export function normalizeOptions(
-	options: WriteFileOptions | (EncodingOption & { flag?: OpenMode }) | undefined,
+	options: fs.WriteFileOptions | (fs.EncodingOption & { flag?: fs.OpenMode }) | undefined,
 	encoding: BufferEncoding | null = 'utf8',
 	flag: string,
 	mode: number = 0
