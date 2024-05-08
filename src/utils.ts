@@ -1,5 +1,5 @@
 import type { OptionalTuple } from 'utilium';
-import { ApiError, ErrorCode } from './ApiError.js';
+import { ErrnoError, Errno } from './error.js';
 import { Cred } from './cred.js';
 import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
 import { FileSystem } from './filesystem.js';
@@ -123,7 +123,7 @@ export const setImmediate = typeof globalThis.setImmediate == 'function' ? globa
  */
 export function encode(input: string): Uint8Array {
 	if (typeof input != 'string') {
-		throw new ApiError(ErrorCode.EINVAL, 'Can not encode a non-string');
+		throw new ErrnoError(Errno.EINVAL, 'Can not encode a non-string');
 	}
 	return new Uint8Array(Array.from(input).map(char => char.charCodeAt(0)));
 }
@@ -134,7 +134,7 @@ export function encode(input: string): Uint8Array {
  */
 export function decode(input?: Uint8Array): string {
 	if (!(input instanceof Uint8Array)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Can not decode a non-Uint8Array');
+		throw new ErrnoError(Errno.EINVAL, 'Can not decode a non-Uint8Array');
 	}
 
 	return Array.from(input)
@@ -172,7 +172,7 @@ export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 	);
 }
 
-export type Callback<Args extends unknown[] = []> = (e?: ApiError, ...args: OptionalTuple<Args>) => unknown;
+export type Callback<Args extends unknown[] = []> = (e?: ErrnoError, ...args: OptionalTuple<Args>) => unknown;
 
 /**
  * converts Date or number to a integer UNIX timestamp
@@ -210,7 +210,7 @@ export function normalizeMode(mode: string | number | unknown, def?: number): nu
 		return def;
 	}
 
-	throw new ApiError(ErrorCode.EINVAL, 'Invalid mode: ' + mode?.toString());
+	throw new ErrnoError(Errno.EINVAL, 'Invalid mode: ' + mode?.toString());
 }
 
 /**
@@ -230,7 +230,7 @@ export function normalizeTime(time: string | number | Date): Date {
 		return new Date(time);
 	}
 
-	throw new ApiError(ErrorCode.EINVAL, 'Invalid time.');
+	throw new ErrnoError(Errno.EINVAL, 'Invalid time.');
 }
 
 /**
@@ -240,10 +240,10 @@ export function normalizeTime(time: string | number | Date): Date {
 export function normalizePath(p: fs.PathLike): AbsolutePath {
 	p = p.toString();
 	if (p.includes('\x00')) {
-		throw new ApiError(ErrorCode.EINVAL, 'Path can not contain null character');
+		throw new ErrnoError(Errno.EINVAL, 'Path can not contain null character');
 	}
 	if (p.length == 0) {
-		throw new ApiError(ErrorCode.EINVAL, 'Path can not be empty');
+		throw new ErrnoError(Errno.EINVAL, 'Path can not be empty');
 	}
 	return resolve(p.replaceAll(/[/\\]+/g, '/'));
 }

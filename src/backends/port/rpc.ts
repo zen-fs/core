@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /// !<reference lib="DOM" />
 import type { TransferListItem } from 'worker_threads';
-import { ApiError, ErrorCode, type ApiErrorJSON } from '../../ApiError.js';
+import { ErrnoError, Errno, type ErrnoErrorJSON } from '../../error.js';
 import { PortFile, type PortFS } from './fs.js';
 
 type _MessageEvent<T = any> = T | { data: T };
@@ -79,14 +79,14 @@ export function request<const TRequest extends Request, TValue>(
 ): Promise<TValue> {
 	const stack = new Error().stack!.slice('Error:'.length);
 	if (!port) {
-		throw ApiError.With('EINVAL');
+		throw ErrnoError.With('EINVAL');
 	}
 	return new Promise<TValue>((resolve, reject) => {
 		const id = Math.random().toString(16).slice(10);
 		executors.set(id, { resolve, reject, fs });
 		port.postMessage({ ...request, _zenfs: true, id, stack });
 		setTimeout(() => {
-			const error = new ApiError(ErrorCode.EIO, 'RPC Failed');
+			const error = new ErrnoError(Errno.EIO, 'RPC Failed');
 			error.stack += stack;
 			reject(error);
 		}, timeout);
@@ -99,13 +99,13 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 	}
 	const { id, value, error, stack } = response;
 	if (!executors.has(id)) {
-		const error = new ApiError(ErrorCode.EIO, 'Invalid RPC id:' + id);
+		const error = new ErrnoError(Errno.EIO, 'Invalid RPC id:' + id);
 		error.stack += stack;
 		throw error;
 	}
 	const { resolve, reject, fs } = executors.get(id)!;
 	if (error) {
-		const e = ApiError.fromJSON(value as ApiErrorJSON);
+		const e = ErrnoError.fromJSON(value as ErrnoErrorJSON);
 		e.stack += stack;
 		reject(e);
 		executors.delete(id);
@@ -127,7 +127,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 
 export function attach<T extends Message>(port: Port, handler: (message: T) => unknown) {
 	if (!port) {
-		throw ApiError.With('EINVAL');
+		throw ErrnoError.With('EINVAL');
 	}
 	port['on' in port ? 'on' : 'addEventListener']!('message', (message: T | _MessageEvent<T>) => {
 		handler('data' in message ? message.data : message);
@@ -136,7 +136,7 @@ export function attach<T extends Message>(port: Port, handler: (message: T) => u
 
 export function detach<T extends Message>(port: Port, handler: (message: T) => unknown) {
 	if (!port) {
-		throw ApiError.With('EINVAL');
+		throw ErrnoError.With('EINVAL');
 	}
 	port['off' in port ? 'off' : 'removeEventListener']!('message', (message: T | _MessageEvent<T>) => {
 		handler('data' in message ? message.data : message);

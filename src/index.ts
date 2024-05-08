@@ -1,4 +1,4 @@
-export * from './ApiError.js';
+export * from './error.js';
 export * from './backends/port/fs.js';
 export * from './backends/port/store.js';
 export * from './backends/AsyncStore.js';

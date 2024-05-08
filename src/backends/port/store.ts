@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ApiError, ErrorCode } from '../../ApiError.js';
+import { ErrnoError, Errno } from '../../error.js';
 import { type AsyncStore, type AsyncTransaction, type AsyncStoreOptions, AsyncStoreFS } from '../AsyncStore.js';
 import type { SyncTransaction, SyncStore } from '../SyncStore.js';
 import type { Backend } from '../backend.js';
@@ -113,7 +113,7 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 			case 'transaction':
 				const { tx } = request as TxRequest;
 				if (!transactions.has(tx)) {
-					throw new ApiError(ErrorCode.EBADF);
+					throw new ErrnoError(Errno.EBADF);
 				}
 				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 				// @ts-ignore 2556
@@ -137,7 +137,7 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 		error,
 		method,
 		stack,
-		value: value instanceof ApiError ? value.toJSON() : value,
+		value: value instanceof ErrnoError ? value.toJSON() : value,
 	});
 }
 
@@ -159,7 +159,7 @@ export const PortStoreBackend: Backend = {
 			validator(port: RPC.Port) {
 				// Check for a `postMessage` function.
 				if (typeof port?.postMessage != 'function') {
-					throw new ApiError(ErrorCode.EINVAL, 'option must be a port.');
+					throw new ErrnoError(Errno.EINVAL, 'option must be a port.');
 				}
 			},
 		},

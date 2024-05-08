@@ -1,5 +1,5 @@
 import { FileSystem, FileSystemMetadata } from '../filesystem.js';
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import { File, PreloadFile, parseFlag } from '../file.js';
 import { Stats } from '../stats.js';
 import { LockedFS } from './Locked.js';
@@ -53,7 +53,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	// update finishes.
 	private _deleteLogUpdateNeeded: boolean = false;
 	// If there was an error updating the delete log...
-	private _deleteLogError?: ApiError;
+	private _deleteLogError?: ErrnoError;
 
 	private _ready: Promise<void>;
 
@@ -62,7 +62,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this._writable = writable;
 		this._readable = readable;
 		if (this._writable.metadata().readonly) {
-			throw new ApiError(ErrorCode.EINVAL, 'Writable file system must be writable.');
+			throw new ErrnoError(Errno.EINVAL, 'Writable file system must be writable.');
 		}
 		this._ready = this._initialize();
 	}
@@ -109,7 +109,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			const { buffer } = await file.read(new Uint8Array(size));
 			this._deleteLog = decode(buffer);
 		} catch (err) {
-			if ((err as ApiError).errno !== ErrorCode.ENOENT) {
+			if ((err as ErrnoError).errno !== Errno.ENOENT) {
 				throw err;
 			}
 		}
@@ -136,7 +136,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			await this._writable.rename(oldPath, newPath, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(oldPath)) {
-				throw ApiError.With('ENOENT', oldPath, 'rename');
+				throw ErrnoError.With('ENOENT', oldPath, 'rename');
 			}
 		}
 	}
@@ -150,7 +150,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			this._writable.renameSync(oldPath, newPath, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(oldPath)) {
-				throw ApiError.With('ENOENT', oldPath, 'rename');
+				throw ErrnoError.With('ENOENT', oldPath, 'rename');
 			}
 		}
 	}
@@ -161,7 +161,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return this._writable.stat(p, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(p)) {
-				throw ApiError.With('ENOENT', p, 'stat');
+				throw ErrnoError.With('ENOENT', p, 'stat');
 			}
 			const oldStat = new Stats(await this._readable.stat(p, cred));
 			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type
@@ -176,7 +176,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return this._writable.statSync(p, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(p)) {
-				throw ApiError.With('ENOENT', p, 'stat');
+				throw ErrnoError.With('ENOENT', p, 'stat');
 			}
 			const oldStat = new Stats(this._readable.statSync(p, cred));
 			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type.
@@ -234,7 +234,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		this.checkPath(p);
 		if (!(await this.exists(p, cred))) {
-			throw ApiError.With('ENOENT', p, 'unlink');
+			throw ErrnoError.With('ENOENT', p, 'unlink');
 		}
 
 		if (await this._writable.exists(p, cred)) {
@@ -251,7 +251,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		this.checkPath(p);
 		if (!this.existsSync(p, cred)) {
-			throw ApiError.With('ENOENT', p, 'unlink');
+			throw ErrnoError.With('ENOENT', p, 'unlink');
 		}
 
 		if (this._writable.existsSync(p, cred)) {
@@ -267,7 +267,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	public async rmdir(p: string, cred: Cred): Promise<void> {
 		this.checkInitialized();
 		if (!(await this.exists(p, cred))) {
-			throw ApiError.With('ENOENT', p, 'rmdir');
+			throw ErrnoError.With('ENOENT', p, 'rmdir');
 		}
 		if (await this._writable.exists(p, cred)) {
 			await this._writable.rmdir(p, cred);
@@ -275,7 +275,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		if (await this.exists(p, cred)) {
 			// Check if directory is empty.
 			if ((await this.readdir(p, cred)).length > 0) {
-				throw ApiError.With('ENOTEMPTY', p, 'rmdir');
+				throw ErrnoError.With('ENOTEMPTY', p, 'rmdir');
 			} else {
 				this.deletePath(p, cred);
 			}
@@ -285,7 +285,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	public rmdirSync(p: string, cred: Cred): void {
 		this.checkInitialized();
 		if (!this.existsSync(p, cred)) {
-			throw ApiError.With('ENOENT', p, 'rmdir');
+			throw ErrnoError.With('ENOENT', p, 'rmdir');
 		}
 		if (this._writable.existsSync(p, cred)) {
 			this._writable.rmdirSync(p, cred);
@@ -293,7 +293,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		if (this.existsSync(p, cred)) {
 			// Check if directory is empty.
 			if (this.readdirSync(p, cred).length > 0) {
-				throw ApiError.With('ENOTEMPTY', p, 'rmdir');
+				throw ErrnoError.With('ENOTEMPTY', p, 'rmdir');
 			} else {
 				this.deletePath(p, cred);
 			}
@@ -303,7 +303,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
 		this.checkInitialized();
 		if (await this.exists(p, cred)) {
-			throw ApiError.With('EEXIST', p, 'mkdir');
+			throw ErrnoError.With('EEXIST', p, 'mkdir');
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
 		await this.createParentDirectories(p, cred);
@@ -313,7 +313,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	public mkdirSync(p: string, mode: number, cred: Cred): void {
 		this.checkInitialized();
 		if (this.existsSync(p, cred)) {
-			throw ApiError.With('EEXIST', p, 'mkdir');
+			throw ErrnoError.With('EEXIST', p, 'mkdir');
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
 		this.createParentDirectoriesSync(p, cred);
@@ -324,7 +324,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		const dirStats = await this.stat(p, cred);
 		if (!dirStats.isDirectory()) {
-			throw ApiError.With('ENOTDIR', p, 'readdir');
+			throw ErrnoError.With('ENOTDIR', p, 'readdir');
 		}
 
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
@@ -351,7 +351,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		const dirStats = this.statSync(p, cred);
 		if (!dirStats.isDirectory()) {
-			throw ApiError.With('ENOTDIR', p, 'readdir');
+			throw ErrnoError.With('ENOTDIR', p, 'readdir');
 		}
 
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
@@ -394,7 +394,7 @@ export class UnlockedOverlayFS extends FileSystem {
 				this.updateLog('', cred);
 			}
 		} catch (e) {
-			this._deleteLogError = e as ApiError;
+			this._deleteLogError = e as ErrnoError;
 		} finally {
 			this._deleteLogUpdatePending = false;
 		}
@@ -415,7 +415,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 	private checkInitialized(): void {
 		if (!this._isInitialized) {
-			throw new ApiError(ErrorCode.EPERM, 'OverlayFS is not initialized. Please initialize OverlayFS using its initialize() method before using it.');
+			throw new ErrnoError(Errno.EPERM, 'OverlayFS is not initialized. Please initialize OverlayFS using its initialize() method before using it.');
 		}
 
 		if (!this._deleteLogError) {
@@ -429,7 +429,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 	private checkPath(path: string): void {
 		if (path == deletionLogPath) {
-			throw ApiError.With('EPERM', path, 'checkPath');
+			throw ErrnoError.With('EPERM', path, 'checkPath');
 		}
 	}
 
@@ -473,7 +473,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	 */
 	private operateOnWritable(p: string, cred: Cred): void {
 		if (!this.existsSync(p, cred)) {
-			throw ApiError.With('ENOENT', p, 'operateOnWriteable');
+			throw ErrnoError.With('ENOENT', p, 'operateOnWriteable');
 		}
 		if (!this._writable.existsSync(p, cred)) {
 			// File is on readable storage. Copy to writable storage before
@@ -484,7 +484,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 	private async operateOnWritableAsync(p: string, cred: Cred): Promise<void> {
 		if (!(await this.exists(p, cred))) {
-			throw ApiError.With('ENOENT', p, 'operateOnWritable');
+			throw ErrnoError.With('ENOENT', p, 'operateOnWritable');
 		}
 
 		if (!(await this._writable.exists(p, cred))) {

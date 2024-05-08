@@ -1,4 +1,4 @@
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import { NoSyncFile } from '../file.js';
 import type { FileSystemMetadata } from '../filesystem.js';
 import { Stats } from '../stats.js';
@@ -9,7 +9,7 @@ import type { Backend } from './backend.js';
  * @hidden
  */
 function convertError(e: Error): never {
-	throw new ApiError(ErrorCode.EIO, e.message);
+	throw new ErrnoError(Errno.EIO, e.message);
 }
 
 /**
@@ -25,7 +25,7 @@ async function fetchFile<T extends object>(p: string, type: 'buffer' | 'json'): 
 async function fetchFile<T extends object>(p: string, type: 'buffer' | 'json'): Promise<T | Uint8Array> {
 	const response = await fetch(p).catch(convertError);
 	if (!response.ok) {
-		throw new ApiError(ErrorCode.EIO, 'fetch failed: response returned code ' + response.status);
+		throw new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status);
 	}
 	switch (type) {
 		case 'buffer':
@@ -34,7 +34,7 @@ async function fetchFile<T extends object>(p: string, type: 'buffer' | 'json'): 
 		case 'json':
 			return response.json().catch(convertError) as Promise<T>;
 		default:
-			throw new ApiError(ErrorCode.EINVAL, 'Invalid download type: ' + type);
+			throw new ErrnoError(Errno.EINVAL, 'Invalid download type: ' + type);
 	}
 }
 
@@ -45,7 +45,7 @@ async function fetchFile<T extends object>(p: string, type: 'buffer' | 'json'): 
 async function fetchSize(p: string): Promise<number> {
 	const response = await fetch(p, { method: 'HEAD' }).catch(convertError);
 	if (!response.ok) {
-		throw new ApiError(ErrorCode.EIO, 'fetch failed: HEAD response returned code ' + response.status);
+		throw new ErrnoError(Errno.EIO, 'fetch failed: HEAD response returned code ' + response.status);
 	}
 	return parseInt(response.headers.get('Content-Length') || '-1', 10);
 }
@@ -102,7 +102,7 @@ export class FetchFS extends AsyncIndexFS<Stats> {
 			const response = await fetch(index);
 			this._index = FileIndex.FromListing((await response.json()) as ListingTree);
 		} catch (e) {
-			throw new ApiError(ErrorCode.EINVAL, 'Invalid or unavailable file listing tree');
+			throw new ErrnoError(Errno.EINVAL, 'Invalid or unavailable file listing tree');
 		}
 	}
 
@@ -145,10 +145,10 @@ export class FetchFS extends AsyncIndexFS<Stats> {
 	public preloadFile(path: string, buffer: Uint8Array): void {
 		const inode = this._index.get(path)!;
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'preloadFile');
+			throw ErrnoError.With('ENOENT', path, 'preloadFile');
 		}
 		if (!inode.isFile()) {
-			throw ApiError.With('EISDIR', path, 'preloadFile');
+			throw ErrnoError.With('EISDIR', path, 'preloadFile');
 		}
 		const stats = inode.data!;
 		stats.size = buffer.length;

@@ -1,9 +1,9 @@
 /**
- * Standard libc error codes. More will be added to this enum and ErrorStrings as they are
+ * Standard libc error codes. More will be added to this enum and error strings as they are
  * needed.
  * @url https://en.wikipedia.org/wiki/Errno.h
  */
-export enum ErrorCode {
+export enum Errno {
 	/** Operation not permitted */
 	EPERM = 1,
 	/** No such file or directory */
@@ -157,88 +157,88 @@ export enum ErrorCode {
  * Strings associated with each error code.
  * @internal
  */
-export const errorMessages: { [K in ErrorCode]: string } = {
-	[ErrorCode.EPERM]: 'Operation not permitted',
-	[ErrorCode.ENOENT]: 'No such file or directory',
-	[ErrorCode.EINTR]: 'Interrupted system call',
-	[ErrorCode.EIO]: 'Input/output error',
-	[ErrorCode.ENXIO]: 'No such device or address',
-	[ErrorCode.EBADF]: 'Bad file descriptor',
-	[ErrorCode.EAGAIN]: 'Resource temporarily unavailable',
-	[ErrorCode.ENOMEM]: 'Cannot allocate memory',
-	[ErrorCode.EACCES]: 'Permission denied',
-	[ErrorCode.EFAULT]: 'Bad address',
-	[ErrorCode.ENOTBLK]: 'Block device required',
-	[ErrorCode.EBUSY]: 'Resource busy or locked',
-	[ErrorCode.EEXIST]: 'File exists',
-	[ErrorCode.EXDEV]: 'Invalid cross-device link',
-	[ErrorCode.ENODEV]: 'No such device',
-	[ErrorCode.ENOTDIR]: 'File is not a directory',
-	[ErrorCode.EISDIR]: 'File is a directory',
-	[ErrorCode.EINVAL]: 'Invalid argument',
-	[ErrorCode.ENFILE]: 'Too many open files in system',
-	[ErrorCode.EMFILE]: 'Too many open files',
-	[ErrorCode.ETXTBSY]: 'Text file busy',
-	[ErrorCode.EFBIG]: 'File is too big',
-	[ErrorCode.ENOSPC]: 'No space left on disk',
-	[ErrorCode.ESPIPE]: 'Illegal seek',
-	[ErrorCode.EROFS]: 'Cannot modify a read-only file system',
-	[ErrorCode.EMLINK]: 'Too many links',
-	[ErrorCode.EPIPE]: 'Broken pipe',
-	[ErrorCode.EDOM]: 'Numerical argument out of domain',
-	[ErrorCode.ERANGE]: 'Numerical result out of range',
-	[ErrorCode.EDEADLK]: 'Resource deadlock would occur',
-	[ErrorCode.ENAMETOOLONG]: 'File name too long',
-	[ErrorCode.ENOLCK]: 'No locks available',
-	[ErrorCode.ENOSYS]: 'Function not implemented',
-	[ErrorCode.ENOTEMPTY]: 'Directory is not empty',
-	[ErrorCode.ELOOP]: 'Too many levels of symbolic links',
-	[ErrorCode.ENOMSG]: 'No message of desired type',
-	[ErrorCode.EBADE]: 'Invalid exchange',
-	[ErrorCode.EBADR]: 'Invalid request descriptor',
-	[ErrorCode.EXFULL]: 'Exchange full',
-	[ErrorCode.ENOANO]: 'No anode',
-	[ErrorCode.EBADRQC]: 'Invalid request code',
-	[ErrorCode.ENOSTR]: 'Device not a stream',
-	[ErrorCode.ENODATA]: 'No data available',
-	[ErrorCode.ETIME]: 'Timer expired',
-	[ErrorCode.ENOSR]: 'Out of streams resources',
-	[ErrorCode.ENONET]: 'Machine is not on the network',
-	[ErrorCode.EREMOTE]: 'Object is remote',
-	[ErrorCode.ENOLINK]: 'Link has been severed',
-	[ErrorCode.ECOMM]: 'Communication error on send',
-	[ErrorCode.EPROTO]: 'Protocol error',
-	[ErrorCode.EBADMSG]: 'Bad message',
-	[ErrorCode.EOVERFLOW]: 'Value too large for defined data type',
-	[ErrorCode.EBADFD]: 'File descriptor in bad state',
-	[ErrorCode.ESTRPIPE]: 'Streams pipe error',
-	[ErrorCode.ENOTSOCK]: 'Socket operation on non-socket',
-	[ErrorCode.EDESTADDRREQ]: 'Destination address required',
-	[ErrorCode.EMSGSIZE]: 'Message too long',
-	[ErrorCode.EPROTOTYPE]: 'Protocol wrong type for socket',
-	[ErrorCode.ENOPROTOOPT]: 'Protocol not available',
-	[ErrorCode.EPROTONOSUPPORT]: 'Protocol not supported',
-	[ErrorCode.ESOCKTNOSUPPORT]: 'Socket type not supported',
-	[ErrorCode.ENOTSUP]: 'Operation is not supported',
-	[ErrorCode.ENETDOWN]: 'Network is down',
-	[ErrorCode.ENETUNREACH]: 'Network is unreachable',
-	[ErrorCode.ENETRESET]: 'Network dropped connection on reset',
-	[ErrorCode.ETIMEDOUT]: 'Connection timed out',
-	[ErrorCode.ECONNREFUSED]: 'Connection refused',
-	[ErrorCode.EHOSTDOWN]: 'Host is down',
-	[ErrorCode.EHOSTUNREACH]: 'No route to host',
-	[ErrorCode.EALREADY]: 'Operation already in progress',
-	[ErrorCode.EINPROGRESS]: 'Operation now in progress',
-	[ErrorCode.ESTALE]: 'Stale file handle',
-	[ErrorCode.EREMOTEIO]: 'Remote I/O error',
-	[ErrorCode.EDQUOT]: 'Disk quota exceeded',
+export const errorMessages: { [K in Errno]: string } = {
+	[Errno.EPERM]: 'Operation not permitted',
+	[Errno.ENOENT]: 'No such file or directory',
+	[Errno.EINTR]: 'Interrupted system call',
+	[Errno.EIO]: 'Input/output error',
+	[Errno.ENXIO]: 'No such device or address',
+	[Errno.EBADF]: 'Bad file descriptor',
+	[Errno.EAGAIN]: 'Resource temporarily unavailable',
+	[Errno.ENOMEM]: 'Cannot allocate memory',
+	[Errno.EACCES]: 'Permission denied',
+	[Errno.EFAULT]: 'Bad address',
+	[Errno.ENOTBLK]: 'Block device required',
+	[Errno.EBUSY]: 'Resource busy or locked',
+	[Errno.EEXIST]: 'File exists',
+	[Errno.EXDEV]: 'Invalid cross-device link',
+	[Errno.ENODEV]: 'No such device',
+	[Errno.ENOTDIR]: 'File is not a directory',
+	[Errno.EISDIR]: 'File is a directory',
+	[Errno.EINVAL]: 'Invalid argument',
+	[Errno.ENFILE]: 'Too many open files in system',
+	[Errno.EMFILE]: 'Too many open files',
+	[Errno.ETXTBSY]: 'Text file busy',
+	[Errno.EFBIG]: 'File is too big',
+	[Errno.ENOSPC]: 'No space left on disk',
+	[Errno.ESPIPE]: 'Illegal seek',
+	[Errno.EROFS]: 'Cannot modify a read-only file system',
+	[Errno.EMLINK]: 'Too many links',
+	[Errno.EPIPE]: 'Broken pipe',
+	[Errno.EDOM]: 'Numerical argument out of domain',
+	[Errno.ERANGE]: 'Numerical result out of range',
+	[Errno.EDEADLK]: 'Resource deadlock would occur',
+	[Errno.ENAMETOOLONG]: 'File name too long',
+	[Errno.ENOLCK]: 'No locks available',
+	[Errno.ENOSYS]: 'Function not implemented',
+	[Errno.ENOTEMPTY]: 'Directory is not empty',
+	[Errno.ELOOP]: 'Too many levels of symbolic links',
+	[Errno.ENOMSG]: 'No message of desired type',
+	[Errno.EBADE]: 'Invalid exchange',
+	[Errno.EBADR]: 'Invalid request descriptor',
+	[Errno.EXFULL]: 'Exchange full',
+	[Errno.ENOANO]: 'No anode',
+	[Errno.EBADRQC]: 'Invalid request code',
+	[Errno.ENOSTR]: 'Device not a stream',
+	[Errno.ENODATA]: 'No data available',
+	[Errno.ETIME]: 'Timer expired',
+	[Errno.ENOSR]: 'Out of streams resources',
+	[Errno.ENONET]: 'Machine is not on the network',
+	[Errno.EREMOTE]: 'Object is remote',
+	[Errno.ENOLINK]: 'Link has been severed',
+	[Errno.ECOMM]: 'Communication error on send',
+	[Errno.EPROTO]: 'Protocol error',
+	[Errno.EBADMSG]: 'Bad message',
+	[Errno.EOVERFLOW]: 'Value too large for defined data type',
+	[Errno.EBADFD]: 'File descriptor in bad state',
+	[Errno.ESTRPIPE]: 'Streams pipe error',
+	[Errno.ENOTSOCK]: 'Socket operation on non-socket',
+	[Errno.EDESTADDRREQ]: 'Destination address required',
+	[Errno.EMSGSIZE]: 'Message too long',
+	[Errno.EPROTOTYPE]: 'Protocol wrong type for socket',
+	[Errno.ENOPROTOOPT]: 'Protocol not available',
+	[Errno.EPROTONOSUPPORT]: 'Protocol not supported',
+	[Errno.ESOCKTNOSUPPORT]: 'Socket type not supported',
+	[Errno.ENOTSUP]: 'Operation is not supported',
+	[Errno.ENETDOWN]: 'Network is down',
+	[Errno.ENETUNREACH]: 'Network is unreachable',
+	[Errno.ENETRESET]: 'Network dropped connection on reset',
+	[Errno.ETIMEDOUT]: 'Connection timed out',
+	[Errno.ECONNREFUSED]: 'Connection refused',
+	[Errno.EHOSTDOWN]: 'Host is down',
+	[Errno.EHOSTUNREACH]: 'No route to host',
+	[Errno.EALREADY]: 'Operation already in progress',
+	[Errno.EINPROGRESS]: 'Operation now in progress',
+	[Errno.ESTALE]: 'Stale file handle',
+	[Errno.EREMOTEIO]: 'Remote I/O error',
+	[Errno.EDQUOT]: 'Disk quota exceeded',
 };
 
-export interface ApiErrorJSON {
-	errno: ErrorCode;
+export interface ErrnoErrorJSON {
+	errno: Errno;
 	message: string;
 	path?: string;
-	code: keyof typeof ErrorCode;
+	code: keyof typeof Errno;
 	stack: string;
 	syscall: string;
 }
@@ -247,19 +247,19 @@ export interface ApiErrorJSON {
  * Represents a ZenFS error. Passed back to applications after a failed
  * call to the ZenFS API.
  */
-export class ApiError extends Error implements NodeJS.ErrnoException {
-	public static fromJSON(json: ApiErrorJSON): ApiError {
-		const err = new ApiError(json.errno, json.message, json.path, json.syscall);
+export class ErrnoError extends Error implements NodeJS.ErrnoException {
+	public static fromJSON(json: ErrnoErrorJSON): ErrnoError {
+		const err = new ErrnoError(json.errno, json.message, json.path, json.syscall);
 		err.code = json.code;
 		err.stack = json.stack;
 		return err;
 	}
 
-	public static With(code: keyof typeof ErrorCode, path?: string, syscall?: string): ApiError {
-		return new ApiError(ErrorCode[code], errorMessages[ErrorCode[code]], path, syscall);
+	public static With(code: keyof typeof Errno, path?: string, syscall?: string): ErrnoError {
+		return new ErrnoError(Errno[code], errorMessages[Errno[code]], path, syscall);
 	}
 
-	public code: keyof typeof ErrorCode;
+	public code: keyof typeof Errno;
 
 	public declare stack: string;
 
@@ -274,13 +274,13 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 	 * @param message A descriptive error message.
 	 */
 	constructor(
-		public errno: ErrorCode,
+		public errno: Errno,
 		message: string = errorMessages[errno],
 		public path?: string,
 		public syscall: string = ''
 	) {
 		super(message);
-		this.code = <keyof typeof ErrorCode>ErrorCode[errno];
+		this.code = <keyof typeof Errno>Errno[errno];
 		this.message = `${this.code}: ${message}${this.path ? `, '${this.path}'` : ''}`;
 	}
 
@@ -291,7 +291,7 @@ export class ApiError extends Error implements NodeJS.ErrnoException {
 		return this.message;
 	}
 
-	public toJSON(): ApiErrorJSON {
+	public toJSON(): ErrnoErrorJSON {
 		return {
 			errno: this.errno,
 			code: this.code,

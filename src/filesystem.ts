@@ -1,5 +1,5 @@
 import type { ExtractProperties } from 'utilium';
-import { ApiError, ErrorCode } from './ApiError.js';
+import { ErrnoError, Errno } from './error.js';
 import { rootCred, type Cred } from './cred.js';
 import { join } from './emulation/path.js';
 import { PreloadFile, parseFlag, type File } from './file.js';
@@ -493,59 +493,59 @@ export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(
 		}
 		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public renameSync(oldPath: string, newPath: string, cred: Cred): void {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public async unlink(path: string, cred: Cred): Promise<void> {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public unlinkSync(path: string, cred: Cred): void {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public async rmdir(path: string, cred: Cred): Promise<void> {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public rmdirSync(path: string, cred: Cred): void {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public mkdirSync(path: string, mode: number, cred: Cred): void {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 
 		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-			throw new ApiError(ErrorCode.EROFS);
+			throw new ErrnoError(Errno.EROFS);
 		}
 		/* eslint-enable @typescript-eslint/no-unused-vars */
 	}

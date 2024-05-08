@@ -1,5 +1,5 @@
 import type { FileReadResult } from 'node:fs/promises';
-import { ApiError, ErrorCode } from './ApiError.js';
+import { ErrnoError, Errno } from './error.js';
 import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT } from './emulation/constants.js';
 import type { FileSystem } from './filesystem.js';
 import { size_max } from './inode.js';
@@ -490,7 +490,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	public truncateSync(len: number): void {
 		this._dirty = true;
 		if (!isWriteable(this.flag)) {
-			throw new ApiError(ErrorCode.EPERM, 'File not opened with a writeable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
 		}
 		this.stats.mtimeMs = Date.now();
 		if (len > this._buffer.length) {
@@ -545,7 +545,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this._dirty = true;
 		position ??= this.position;
 		if (!isWriteable(this.flag)) {
-			throw new ApiError(ErrorCode.EPERM, 'File not opened with a writeable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
 		}
 		const endFp = position + length;
 		if (endFp > this.stats.size) {
@@ -606,7 +606,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position?: number): number {
 		if (!isReadable(this.flag)) {
-			throw new ApiError(ErrorCode.EPERM, 'File not opened with a readable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
 		}
 		position ??= this.position;
 		let end = position + length;

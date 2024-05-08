@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents, FileSystem } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
@@ -61,7 +61,7 @@ export function existsSync(path: fs.PathLike): boolean {
 		const { fs, path: resolvedPath } = resolveMount(realpathSync(path));
 		return fs.existsSync(resolvedPath, cred);
 	} catch (e) {
-		if ((e as ApiError).errno == ErrorCode.ENOENT) {
+		if ((e as ErrnoError).errno == Errno.ENOENT) {
 			return false;
 		}
 
@@ -136,23 +136,23 @@ function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | nul
 				// Ensure parent exists.
 				const parentStats: Stats = doOp('statSync', resolveSymlinks, dirname(path), cred);
 				if (!parentStats.isDirectory()) {
-					throw ApiError.With('ENOTDIR', dirname(path), '_open');
+					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 				}
 				return doOp('createFileSync', resolveSymlinks, path, flag, mode, cred);
 			case ActionType.THROW:
-				throw ApiError.With('ENOENT', path, '_open');
+				throw ErrnoError.With('ENOENT', path, '_open');
 			default:
-				throw new ApiError(ErrorCode.EINVAL, 'Invalid FileFlag object.');
+				throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
 		}
 	}
 	if (!stats.hasAccess(mode, cred)) {
-		throw ApiError.With('EACCES', path, '_open');
+		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
 	// File exists.
 	switch (pathExistsAction(flag)) {
 		case ActionType.THROW:
-			throw ApiError.With('EEXIST', path, '_open');
+			throw ErrnoError.With('EEXIST', path, '_open');
 		case ActionType.TRUNCATE:
 			// Delete file.
 			doOp('unlinkSync', resolveSymlinks, path, cred);
@@ -166,7 +166,7 @@ function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | nul
 		case ActionType.NOP:
 			return doOp('openFileSync', resolveSymlinks, path, flag, cred);
 		default:
-			throw new ApiError(ErrorCode.EINVAL, 'Invalid FileFlag object.');
+			throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
 	}
 }
 
@@ -223,7 +223,7 @@ export function readFileSync(path: fs.PathOrFileDescriptor, _options: fs.WriteFi
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to readFile must allow for reading.');
+		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
 	const data: Buffer = Buffer.from(_readFileSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), options.flag, true));
 	return options.encoding ? data.toString(options.encoding) : data;
@@ -263,14 +263,14 @@ export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents,
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isWriteable(flag)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to writeFile must allow for writing.');
+		throw new ErrnoError(Errno.EINVAL, 'Flag passed to writeFile must allow for writing.');
 	}
 	if (typeof data != 'string' && !options.encoding) {
-		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	if (!encodedData) {
-		throw new ApiError(ErrorCode.EINVAL, 'Data not specified');
+		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
 	}
 	_writeFileSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), encodedData, options.flag, options.mode, true);
 }
@@ -304,10 +304,10 @@ export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileCont
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isAppendable(flag)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
+		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}
 	if (typeof data != 'string' && !options.encoding) {
-		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	_appendFileSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), encodedData, options.flag, options.mode, true);
@@ -346,7 +346,7 @@ closeSync satisfies typeof fs.closeSync;
 export function ftruncateSync(fd: number, len: number | null = 0): void {
 	len ||= 0;
 	if (len < 0) {
-		throw new ApiError(ErrorCode.EINVAL);
+		throw new ErrnoError(Errno.EINVAL);
 	}
 	fd2file(fd).truncateSync(len);
 }
@@ -458,7 +458,7 @@ fchownSync satisfies typeof fs.fchownSync;
 export function fchmodSync(fd: number, mode: number | string): void {
 	const numMode = normalizeMode(mode, -1);
 	if (numMode < 0) {
-		throw new ApiError(ErrorCode.EINVAL, `Invalid mode.`);
+		throw new ErrnoError(Errno.EINVAL, `Invalid mode.`);
 	}
 	fd2file(fd).chmodSync(numMode);
 }
@@ -561,10 +561,10 @@ linkSync satisfies typeof fs.linkSync;
  */
 export function symlinkSync(target: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | null = 'file'): void {
 	if (!['file', 'dir', 'junction'].includes(type!)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid type: ' + type);
+		throw new ErrnoError(Errno.EINVAL, 'Invalid type: ' + type);
 	}
 	if (existsSync(path)) {
-		throw ApiError.With('EEXIST', path.toString(), 'symlink');
+		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
 	}
 
 	writeFileSync(path, target.toString());
@@ -704,7 +704,7 @@ realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
 export function accessSync(path: fs.PathLike, mode: number = 0o600): void {
 	const stats = statSync(path);
 	if (!stats.hasAccess(mode, cred)) {
-		throw new ApiError(ErrorCode.EACCES);
+		throw new ErrnoError(Errno.EACCES);
 	}
 }
 accessSync satisfies typeof fs.accessSync;
@@ -737,7 +737,7 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions): void {
 		case S_IFIFO:
 		case S_IFSOCK:
 		default:
-			throw new ApiError(ErrorCode.EPERM, 'File type not supported', path, 'rm');
+			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
 	}
 }
 rmSync satisfies typeof fs.rmSync;
@@ -773,7 +773,7 @@ export function copyFileSync(src: fs.PathLike, dest: fs.PathLike, flags?: number
 	dest = normalizePath(dest);
 
 	if (flags && flags & COPYFILE_EXCL && existsSync(dest)) {
-		throw new ApiError(ErrorCode.EEXIST, 'Destination file already exists.', dest, 'copyFile');
+		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists.', dest, 'copyFile');
 	}
 
 	writeFileSync(dest, readFileSync(src));
@@ -849,13 +849,13 @@ export function cpSync(source: fs.PathLike, destination: fs.PathLike, opts?: fs.
 	const srcStats = lstatSync(source); // Use lstat to follow symlinks if not dereferencing
 
 	if (opts?.errorOnExist && existsSync(destination)) {
-		throw new ApiError(ErrorCode.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
+		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
 	}
 
 	switch (srcStats.mode & S_IFMT) {
 		case S_IFDIR:
 			if (!opts?.recursive) {
-				throw new ApiError(ErrorCode.EISDIR, source + ' is a directory (not copied)', source, 'cp');
+				throw new ErrnoError(Errno.EISDIR, source + ' is a directory (not copied)', source, 'cp');
 			}
 			mkdirSync(destination, { recursive: true }); // Ensure the destination directory exists
 			for (const dirent of readdirSync(source, { withFileTypes: true })) {
@@ -874,7 +874,7 @@ export function cpSync(source: fs.PathLike, destination: fs.PathLike, opts?: fs.
 		case S_IFIFO:
 		case S_IFSOCK:
 		default:
-			throw new ApiError(ErrorCode.EPERM, 'File type not supported', source, 'rm');
+			throw new ErrnoError(Errno.EPERM, 'File type not supported', source, 'rm');
 	}
 
 	// Optionally preserve timestamps
@@ -894,5 +894,5 @@ export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions & { big
 export function statfsSync(path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }): BigIntStatsFs;
 export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions): StatsFs | BigIntStatsFs;
 export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions): StatsFs | BigIntStatsFs {
-	throw ApiError.With('ENOSYS', path.toString(), 'statfs');
+	throw ErrnoError.With('ENOSYS', path.toString(), 'statfs');
 }

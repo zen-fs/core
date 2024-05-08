@@ -6,7 +6,7 @@ import type { Stream } from 'node:stream';
 import type { ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
 import type { ReadableStreamController } from 'stream/web';
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
@@ -50,7 +50,7 @@ export class FileHandle implements promises.FileHandle {
 	public chmod(mode: fs.Mode): Promise<void> {
 		const numMode = normalizeMode(mode, -1);
 		if (numMode < 0) {
-			throw new ApiError(ErrorCode.EINVAL, 'Invalid mode.');
+			throw new ErrnoError(Errno.EINVAL, 'Invalid mode.');
 		}
 		return this.file.chmod(numMode);
 	}
@@ -76,7 +76,7 @@ export class FileHandle implements promises.FileHandle {
 	public truncate(len?: number | null): Promise<void> {
 		len ||= 0;
 		if (len < 0) {
-			throw new ApiError(ErrorCode.EINVAL);
+			throw new ErrnoError(Errno.EINVAL);
 		}
 		return this.file.truncate(len);
 	}
@@ -104,10 +104,10 @@ export class FileHandle implements promises.FileHandle {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isAppendable(flag)) {
-			throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
+			throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending.');
 		}
 		if (typeof data != 'string' && !options.encoding) {
-			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+			throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 		await this.file.write(encodedData, 0, encodedData.length, null);
@@ -140,7 +140,7 @@ export class FileHandle implements promises.FileHandle {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = parseFlag(options.flag);
 		if (!isReadable(flag)) {
-			throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for reading.');
+			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for reading.');
 		}
 
 		const { size } = await this.stat();
@@ -180,7 +180,7 @@ export class FileHandle implements promises.FileHandle {
 					enqueue(result.buffer.slice(0, result.bytesRead));
 					position += result.bytesRead;
 					if (++i >= maxChunks) {
-						throw new ApiError(ErrorCode.EFBIG, 'Too many iterations on readable stream', this.file.path, 'FileHandle.readableWebStream');
+						throw new ErrnoError(Errno.EFBIG, 'Too many iterations on readable stream', this.file.path, 'FileHandle.readableWebStream');
 					}
 					bytesRead = result.bytesRead;
 				}
@@ -193,7 +193,7 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
-		throw ApiError.With('ENOSYS', this.file.path, 'FileHandle.readLines');
+		throw ErrnoError.With('ENOSYS', this.file.path, 'FileHandle.readLines');
 	}
 
 	public [Symbol.asyncDispose](): Promise<void> {
@@ -265,10 +265,10 @@ export class FileHandle implements promises.FileHandle {
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isWriteable(flag)) {
-			throw new ApiError(ErrorCode.EINVAL, 'Flag passed must allow for writing.');
+			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for writing.');
 		}
 		if (typeof data != 'string' && !options.encoding) {
-			throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+			throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 		await this.file.write(encodedData, 0, encodedData.length, 0);
@@ -399,7 +399,7 @@ export async function exists(path: fs.PathLike): Promise<boolean> {
 		const { fs, path: resolved } = resolveMount(await realpath(path));
 		return await fs.exists(resolved, cred);
 	} catch (e) {
-		if (e instanceof ApiError && e.code == 'ENOENT') {
+		if (e instanceof ErrnoError && e.code == 'ENOENT') {
 			return false;
 		}
 
@@ -495,7 +495,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	try {
 		switch (pathExistsAction(flag)) {
 			case ActionType.THROW:
-				throw ApiError.With('EEXIST', path, '_open');
+				throw ErrnoError.With('EEXIST', path, '_open');
 			case ActionType.TRUNCATE:
 				/* 
 					In a previous implementation, we deleted the file and
@@ -511,7 +511,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 				// Must await so thrown errors are caught by the catch below
 				return new FileHandle(await fs.openFile(resolved, flag, cred));
 			default:
-				throw new ApiError(ErrorCode.EINVAL, 'Invalid file flag');
+				throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
 		}
 	} catch (e) {
 		switch (pathNotExistsAction(flag)) {
@@ -519,13 +519,13 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 				// Ensure parent exists.
 				const parentStats: Stats = await fs.stat(dirname(resolved), cred);
 				if (parentStats && !parentStats.isDirectory()) {
-					throw ApiError.With('ENOTDIR', dirname(path), '_open');
+					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 				}
 				return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
 			case ActionType.THROW:
-				throw ApiError.With('ENOENT', path, '_open');
+				throw ErrnoError.With('ENOENT', path, '_open');
 			default:
-				throw new ApiError(ErrorCode.EINVAL, 'Invalid file flag');
+				throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
 		}
 	}
 }
@@ -591,7 +591,7 @@ export async function writeFile(
 	try {
 		const _data = typeof data == 'string' ? data : data;
 		if (typeof _data != 'string' && !(_data instanceof Uint8Array)) {
-			throw new ApiError(ErrorCode.EINVAL, 'Iterables and streams not supported', handle.file.path, 'writeFile');
+			throw new ErrnoError(Errno.EINVAL, 'Iterables and streams not supported', handle.file.path, 'writeFile');
 		}
 		await handle.writeFile(_data, options);
 	} finally {
@@ -618,10 +618,10 @@ export async function appendFile(
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isAppendable(flag)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Flag passed to appendFile must allow for appending.');
+		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending.');
 	}
 	if (typeof data != 'string' && !options.encoding) {
-		throw new ApiError(ErrorCode.EINVAL, 'Encoding not specified');
+		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	const handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open(path as string, options.flag, options.mode);
@@ -743,11 +743,11 @@ link satisfies typeof promises.link;
  */
 export async function symlink(target: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | string | null = 'file'): Promise<void> {
 	if (!['file', 'dir', 'junction'].includes(type!)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid symlink type: ' + type);
+		throw new ErrnoError(Errno.EINVAL, 'Invalid symlink type: ' + type);
 	}
 
 	if (await exists(path)) {
-		throw ApiError.With('EEXIST', path.toString(), 'symlink');
+		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
 	}
 
 	await writeFile(path, target.toString());
@@ -904,7 +904,7 @@ export function watch(filename: fs.PathLike, options?: fs.WatchOptions | BufferE
 export function watch(filename: fs.PathLike, options: fs.WatchOptions | fs.BufferEncodingOption): AsyncIterable<FileChangeInfo<Buffer>>;
 export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>>;
 export function watch(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
-	throw ApiError.With('ENOSYS', filename.toString(), 'watch');
+	throw ErrnoError.With('ENOSYS', filename.toString(), 'watch');
 }
 watch satisfies typeof promises.watch;
 
@@ -916,7 +916,7 @@ watch satisfies typeof promises.watch;
 export async function access(path: fs.PathLike, mode: number = constants.F_OK): Promise<void> {
 	const stats = await stat(path);
 	if (!stats.hasAccess(mode, cred)) {
-		throw new ApiError(ErrorCode.EACCES);
+		throw new ErrnoError(Errno.EACCES);
 	}
 }
 access satisfies typeof promises.access;
@@ -949,7 +949,7 @@ export async function rm(path: fs.PathLike, options?: fs.RmOptions) {
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			throw new ApiError(ErrorCode.EPERM, 'File type not supported', path, 'rm');
+			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
 	}
 }
 rm satisfies typeof promises.rm;
@@ -985,7 +985,7 @@ export async function copyFile(src: fs.PathLike, dest: fs.PathLike, mode?: numbe
 	dest = normalizePath(dest);
 
 	if (mode && mode & constants.COPYFILE_EXCL && (await exists(dest))) {
-		throw new ApiError(ErrorCode.EEXIST, 'Destination file already exists.', dest, 'copyFile');
+		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists.', dest, 'copyFile');
 	}
 
 	await writeFile(dest, await readFile(src));
@@ -1023,13 +1023,13 @@ export async function cp(source: fs.PathLike, destination: fs.PathLike, opts?: f
 	const srcStats = await lstat(source); // Use lstat to follow symlinks if not dereferencing
 
 	if (opts?.errorOnExist && (await exists(destination))) {
-		throw new ApiError(ErrorCode.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
+		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
 	}
 
 	switch (srcStats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (!opts?.recursive) {
-				throw new ApiError(ErrorCode.EISDIR, source + ' is a directory (not copied)', source, 'cp');
+				throw new ErrnoError(Errno.EISDIR, source + ' is a directory (not copied)', source, 'cp');
 			}
 			await mkdir(destination, { recursive: true }); // Ensure the destination directory exists
 			for (const dirent of await readdir(source, { withFileTypes: true })) {
@@ -1048,7 +1048,7 @@ export async function cp(source: fs.PathLike, destination: fs.PathLike, opts?: f
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			throw new ApiError(ErrorCode.EPERM, 'File type not supported', source, 'rm');
+			throw new ErrnoError(Errno.EPERM, 'File type not supported', source, 'rm');
 	}
 
 	// Optionally preserve timestamps
@@ -1066,5 +1066,5 @@ export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions & { bigi
 export async function statfs(path: fs.PathLike, opts: fs.StatFsOptions & { bigint: true }): Promise<BigIntStatsFs>;
 export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<StatsFs | BigIntStatsFs>;
 export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
-	throw ApiError.With('ENOSYS', path.toString(), 'statfs');
+	throw ErrnoError.With('ENOSYS', path.toString(), 'statfs');
 }

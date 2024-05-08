@@ -1,5 +1,5 @@
 import type { RequiredKeys } from 'utilium';
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import { FileSystem } from '../filesystem.js';
 import { levenshtein } from '../utils.js';
 
@@ -81,7 +81,7 @@ export function isBackend(arg: unknown): arg is Backend {
  */
 export async function checkOptions<T extends Backend>(backend: T, opts: Partial<OptionsOf<T>> & Record<string, unknown>): Promise<void> {
 	if (typeof opts != 'object' || opts === null) {
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid options');
+		throw new ErrnoError(Errno.EINVAL, 'Invalid options');
 	}
 
 	// Check for required options.
@@ -103,8 +103,8 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Partial<
 				.filter(o => o.distance < 5)
 				.sort((a, b) => a.distance - b.distance);
 
-			throw new ApiError(
-				ErrorCode.EINVAL,
+			throw new ErrnoError(
+				Errno.EINVAL,
 				`${backend.name}: Required option '${optName}' not provided.${
 					incorrectOptions.length > 0 ? ` You provided '${incorrectOptions[0].str}', did you mean '${optName}'.` : ''
 				}`
@@ -113,8 +113,8 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Partial<
 		// Option provided, check type.
 		const typeMatches = Array.isArray(opt.type) ? opt.type.indexOf(typeof providedValue) != -1 : typeof providedValue == opt.type;
 		if (!typeMatches) {
-			throw new ApiError(
-				ErrorCode.EINVAL,
+			throw new ErrnoError(
+				Errno.EINVAL,
 				`${backend.name}: Value provided for option ${optName} is not the proper type. Expected ${
 					Array.isArray(opt.type) ? `one of {${opt.type.join(', ')}}` : opt.type
 				}, but received ${typeof providedValue}`

@@ -1,6 +1,6 @@
 // Utilities and shared data
 
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import { InMemory } from '../backends/InMemory.js';
 import { Cred, rootCred } from '../cred.js';
 import type { File } from '../file.js';
@@ -24,7 +24,7 @@ export function file2fd(file: File): number {
 }
 export function fd2file(fd: number): File {
 	if (!fdMap.has(fd)) {
-		throw new ApiError(ErrorCode.EBADF);
+		throw new ErrnoError(Errno.EBADF);
 	}
 	return fdMap.get(fd)!;
 }
@@ -52,7 +52,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 	}
 	mountPoint = resolve(mountPoint);
 	if (mounts.has(mountPoint)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Mount point ' + mountPoint + ' is already in use.');
+		throw new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already in use.');
 	}
 	mounts.set(mountPoint, fs);
 }
@@ -66,7 +66,7 @@ export function umount(mountPoint: string): void {
 	}
 	mountPoint = resolve(mountPoint);
 	if (!mounts.has(mountPoint)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Mount point ' + mountPoint + ' is already unmounted.');
+		throw new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already unmounted.');
 	}
 	mounts.delete(mountPoint);
 }
@@ -88,7 +88,7 @@ export function resolveMount(path: string): { fs: FileSystem; path: string; moun
 		}
 	}
 
-	throw new ApiError(ErrorCode.EIO, 'ZenFS not initialized with a file system');
+	throw new ErrnoError(Errno.EIO, 'ZenFS not initialized with a file system');
 }
 
 /**

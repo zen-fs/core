@@ -1,4 +1,4 @@
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import type { Cred } from '../cred.js';
 import { basename, dirname, join } from '../emulation/path.js';
 import { NoSyncFile, flagToMode, isWriteable } from '../file.js';
@@ -113,10 +113,10 @@ export class FileIndex<TData> {
 	 */
 	public add(path: string, inode: IndexInode<TData>): boolean {
 		if (!inode) {
-			throw new ApiError(ErrorCode.EINVAL, 'Inode must be specified', path, 'FileIndex.add');
+			throw new ErrnoError(Errno.EINVAL, 'Inode must be specified', path, 'FileIndex.add');
 		}
 		if (!path.startsWith('/')) {
-			throw new ApiError(ErrorCode.EINVAL, 'Path not absolute', path, 'FileIndex.add');
+			throw new ErrnoError(Errno.EINVAL, 'Path not absolute', path, 'FileIndex.add');
 		}
 
 		// Check if it already exists.
@@ -365,7 +365,7 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 	public async stat(path: string): Promise<Stats> {
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'stat');
+			throw ErrnoError.With('ENOENT', path, 'stat');
 		}
 
 		if (inode.isDirectory()) {
@@ -376,13 +376,13 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 			return this.statFileInode(inode, path);
 		}
 
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid inode.');
+		throw new ErrnoError(Errno.EINVAL, 'Invalid inode.');
 	}
 
 	public statSync(path: string): Stats {
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'stat');
+			throw ErrnoError.With('ENOENT', path, 'stat');
 		}
 
 		if (inode.isDirectory()) {
@@ -393,24 +393,24 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 			return this.statFileInodeSync(inode, path);
 		}
 
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid inode.');
+		throw new ErrnoError(Errno.EINVAL, 'Invalid inode.');
 	}
 
 	public async openFile(path: string, flag: string, cred: Cred): Promise<NoSyncFile<this>> {
 		if (isWriteable(flag)) {
 			// You can't write to files on this file system.
-			throw new ApiError(ErrorCode.EPERM, path);
+			throw new ErrnoError(Errno.EPERM, path);
 		}
 
 		// Check if the path exists, and is a file.
 		const inode = this._index.get(path);
 
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'openFile');
+			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
 
 		if (!inode.toStats().hasAccess(flagToMode(flag), cred)) {
-			throw ApiError.With('EACCES', path, 'openFile');
+			throw ErrnoError.With('EACCES', path, 'openFile');
 		}
 
 		if (inode.isDirectory()) {
@@ -424,18 +424,18 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 	public openFileSync(path: string, flag: string, cred: Cred): NoSyncFile<this> {
 		if (isWriteable(flag)) {
 			// You can't write to files on this file system.
-			throw new ApiError(ErrorCode.EPERM, path);
+			throw new ErrnoError(Errno.EPERM, path);
 		}
 
 		// Check if the path exists, and is a file.
 		const inode = this._index.get(path);
 
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'openFile');
+			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
 
 		if (!inode.toStats().hasAccess(flagToMode(flag), cred)) {
-			throw ApiError.With('EACCES', path, 'openFile');
+			throw ErrnoError.With('EACCES', path, 'openFile');
 		}
 
 		if (inode.isDirectory()) {
@@ -450,28 +450,28 @@ export abstract class IndexFS<TData> extends Readonly(FileSystem) {
 		// Check if it exists.
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'readdir');
+			throw ErrnoError.With('ENOENT', path, 'readdir');
 		}
 
 		if (inode.isDirectory()) {
 			return inode.listing;
 		}
 
-		throw ApiError.With('ENOTDIR', path, 'readdir');
+		throw ErrnoError.With('ENOTDIR', path, 'readdir');
 	}
 
 	public readdirSync(path: string): string[] {
 		// Check if it exists.
 		const inode = this._index.get(path);
 		if (!inode) {
-			throw ApiError.With('ENOENT', path, 'readdir');
+			throw ErrnoError.With('ENOENT', path, 'readdir');
 		}
 
 		if (inode.isDirectory()) {
 			return inode.listing;
 		}
 
-		throw ApiError.With('ENOTDIR', path, 'readdir');
+		throw ErrnoError.With('ENOTDIR', path, 'readdir');
 	}
 
 	protected abstract statFileInode(inode: IndexFileInode<TData>, path: string): Promise<Stats>;
@@ -495,10 +495,10 @@ export abstract class SyncIndexFS<TData> extends IndexFS<TData> {
 
 export abstract class AsyncIndexFS<TData> extends IndexFS<TData> {
 	protected statFileInodeSync(inode: IndexFileInode<TData>, path: string): Stats {
-		throw ApiError.With('ENOSYS', path, 'AsyncIndexFS.statFileInodeSync');
+		throw ErrnoError.With('ENOSYS', path, 'AsyncIndexFS.statFileInodeSync');
 	}
 
 	protected openFileInodeSync(inode: IndexFileInode<TData>, path: string, flag: string): NoSyncFile<this> {
-		throw ApiError.With('ENOSYS', path, 'AsyncIndexFS.openFileInodeSync');
+		throw ErrnoError.With('ENOSYS', path, 'AsyncIndexFS.openFileInodeSync');
 	}
 }

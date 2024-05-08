@@ -1,4 +1,4 @@
-import { ApiError } from '../ApiError.js';
+import { ErrnoError } from '../error.js';
 import type { Cred } from '../cred.js';
 import type { File } from '../file.js';
 import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
@@ -40,7 +40,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
 		if (this._mu.isLocked(oldPath)) {
-			throw ApiError.With('EBUSY', oldPath, 'rename');
+			throw ErrnoError.With('EBUSY', oldPath, 'rename');
 		}
 		return this.fs.renameSync(oldPath, newPath, cred);
 	}
@@ -54,7 +54,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public statSync(path: string, cred: Cred): Stats {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'stat');
+			throw ErrnoError.With('EBUSY', path, 'stat');
 		}
 		return this.fs.statSync(path, cred);
 	}
@@ -68,7 +68,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public openFileSync(path: string, flag: string, cred: Cred): File {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'openFile');
+			throw ErrnoError.With('EBUSY', path, 'openFile');
 		}
 		return this.fs.openFileSync(path, flag, cred);
 	}
@@ -82,7 +82,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'createFile');
+			throw ErrnoError.With('EBUSY', path, 'createFile');
 		}
 		return this.fs.createFileSync(path, flag, mode, cred);
 	}
@@ -95,7 +95,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public unlinkSync(path: string, cred: Cred): void {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'unlink');
+			throw ErrnoError.With('EBUSY', path, 'unlink');
 		}
 		return this.fs.unlinkSync(path, cred);
 	}
@@ -108,7 +108,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public rmdirSync(path: string, cred: Cred): void {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'rmdir');
+			throw ErrnoError.With('EBUSY', path, 'rmdir');
 		}
 		return this.fs.rmdirSync(path, cred);
 	}
@@ -121,7 +121,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public mkdirSync(path: string, mode: number, cred: Cred): void {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'mkdir');
+			throw ErrnoError.With('EBUSY', path, 'mkdir');
 		}
 		return this.fs.mkdirSync(path, mode, cred);
 	}
@@ -135,7 +135,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public readdirSync(path: string, cred: Cred): string[] {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'readdir');
+			throw ErrnoError.With('EBUSY', path, 'readdir');
 		}
 		return this.fs.readdirSync(path, cred);
 	}
@@ -149,7 +149,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public existsSync(path: string, cred: Cred): boolean {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'exists');
+			throw ErrnoError.With('EBUSY', path, 'exists');
 		}
 		return this.fs.existsSync(path, cred);
 	}
@@ -162,7 +162,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
 		if (this._mu.isLocked(srcpath)) {
-			throw ApiError.With('EBUSY', srcpath, 'link');
+			throw ErrnoError.With('EBUSY', srcpath, 'link');
 		}
 		return this.fs.linkSync(srcpath, dstpath, cred);
 	}
@@ -175,7 +175,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		if (this._mu.isLocked(path)) {
-			throw ApiError.With('EBUSY', path, 'sync');
+			throw ErrnoError.With('EBUSY', path, 'sync');
 		}
 		return this.fs.syncSync(path, data, stats);
 	}

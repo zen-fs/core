@@ -1,4 +1,4 @@
-import { ApiError, ErrorCode } from './ApiError.js';
+import { ErrnoError, Errno } from './error.js';
 import type { Backend, BackendConfiguration } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import * as fs from './emulation/index.js';
@@ -21,11 +21,11 @@ function isMountConfig(arg: unknown): arg is MountConfiguration {
  */
 export async function resolveMountConfig<FS extends FileSystem, TOptions extends object = object>(config: MountConfiguration<FS, TOptions>, _depth = 0): Promise<FS> {
 	if (typeof config !== 'object' || config == null) {
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid options on mount configuration');
+		throw new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration');
 	}
 
 	if (!isMountConfig(config)) {
-		throw new ApiError(ErrorCode.EINVAL, 'Invalid mount configuration');
+		throw new ErrnoError(Errno.EINVAL, 'Invalid mount configuration');
 	}
 
 	if (config instanceof FileSystem) {
@@ -46,7 +46,7 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 		}
 
 		if (_depth > 10) {
-			throw new ApiError(ErrorCode.EINVAL, 'Invalid configuration, too deep and possibly infinite');
+			throw new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite');
 		}
 
 		(<Record<string, FileSystem>>config)[key] = await resolveMountConfig(value, ++_depth);
@@ -55,7 +55,7 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 	const { backend } = config;
 
 	if (!(await backend.isAvailable())) {
-		throw new ApiError(ErrorCode.EPERM, 'Backend not available: ' + backend);
+		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend);
 	}
 	checkOptions(backend, config);
 	const mount = backend.create(config);
@@ -87,7 +87,7 @@ export async function configure(config: MountConfiguration | Configuration): Pro
 
 	for (const [point, value] of Object.entries(config.mounts) as [AbsolutePath, MountConfiguration][]) {
 		if (!point.startsWith('/')) {
-			throw new ApiError(ErrorCode.EINVAL, 'Mount points must have absolute paths');
+			throw new ErrnoError(Errno.EINVAL, 'Mount points must have absolute paths');
 		}
 		config.mounts[point] = await resolveMountConfig(value);
 	}

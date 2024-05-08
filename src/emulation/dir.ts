@@ -2,7 +2,7 @@ import type { Dirent as _Dirent, Dir as _Dir } from 'fs';
 import type { Callback } from '../utils.js';
 import type { Stats } from '../stats.js';
 import { readdir } from './promises.js';
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import { readdirSync } from './sync.js';
 import { basename } from './path.js';
 
@@ -47,7 +47,7 @@ export class Dir implements _Dir {
 
 	protected checkClosed(): void {
 		if (this.closed) {
-			throw new ApiError(ErrorCode.EBADF, 'Can not use closed Dir');
+			throw new ErrnoError(Errno.EBADF, 'Can not use closed Dir');
 		}
 	}
 

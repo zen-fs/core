@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ApiError, ErrorCode } from '../../ApiError.js';
+import { ErrnoError, Errno } from '../../error.js';
 import type { Cred } from '../../cred.js';
 import { FileSystem, type FileSystemMetadata, Async } from '../../filesystem.js';
 import { File } from '../../file.js';
@@ -44,7 +44,7 @@ export class PortFile extends File {
 	}
 
 	public statSync(): Stats {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.stat');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.stat');
 	}
 
 	public truncate(len: number): Promise<void> {
@@ -52,7 +52,7 @@ export class PortFile extends File {
 	}
 
 	public truncateSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.truncate');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.truncate');
 	}
 
 	public write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
@@ -60,7 +60,7 @@ export class PortFile extends File {
 	}
 
 	public writeSync(): number {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.write');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.write');
 	}
 
 	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
@@ -68,7 +68,7 @@ export class PortFile extends File {
 	}
 
 	public readSync(): number {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.read');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.read');
 	}
 
 	public chown(uid: number, gid: number): Promise<void> {
@@ -76,7 +76,7 @@ export class PortFile extends File {
 	}
 
 	public chownSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.chown');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.chown');
 	}
 
 	public chmod(mode: number): Promise<void> {
@@ -84,7 +84,7 @@ export class PortFile extends File {
 	}
 
 	public chmodSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.chmod');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.chmod');
 	}
 
 	public utimes(atime: Date, mtime: Date): Promise<void> {
@@ -92,7 +92,7 @@ export class PortFile extends File {
 	}
 
 	public utimesSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.utimes');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.utimes');
 	}
 
 	public _setType(type: FileType): Promise<void> {
@@ -100,7 +100,7 @@ export class PortFile extends File {
 	}
 
 	public _setTypeSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile._setType');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile._setType');
 	}
 
 	public close(): Promise<void> {
@@ -108,7 +108,7 @@ export class PortFile extends File {
 	}
 
 	public closeSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.close');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.close');
 	}
 
 	public sync(): Promise<void> {
@@ -116,7 +116,7 @@ export class PortFile extends File {
 	}
 
 	public syncSync(): void {
-		throw ApiError.With('ENOSYS', this.path, 'PortFile.sync');
+		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.sync');
 	}
 }
 
@@ -241,7 +241,7 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 			case 'file':
 				const { fd } = request;
 				if (!descriptors.has(fd)) {
-					throw new ApiError(ErrorCode.EBADF);
+					throw new ErrnoError(Errno.EBADF);
 				}
 				// @ts-expect-error 2556
 				value = await descriptors.get(fd)![method](...args);
@@ -264,7 +264,7 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 		error,
 		method,
 		stack,
-		value: value instanceof ApiError ? value.toJSON() : value,
+		value: value instanceof ErrnoError ? value.toJSON() : value,
 	});
 }
 
@@ -287,7 +287,7 @@ export const Port = {
 			validator(port: RPC.Port) {
 				// Check for a `postMessage` function.
 				if (typeof port?.postMessage != 'function') {
-					throw new ApiError(ErrorCode.EINVAL, 'option must be a port.');
+					throw new ErrnoError(Errno.EINVAL, 'option must be a port.');
 				}
 			},
 		},

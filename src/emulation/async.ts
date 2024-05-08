@@ -1,5 +1,5 @@
 import type * as fs from 'node:fs';
-import { ApiError, ErrorCode } from '../ApiError.js';
+import { ErrnoError, Errno } from '../error.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import { nop, normalizeMode, type Callback } from '../utils.js';
@@ -262,7 +262,7 @@ export function ftruncate(fd: number, lenOrCB?: any, cb: Callback = nop): void {
 	cb = typeof lenOrCB === 'function' ? lenOrCB : cb;
 	const file = fd2file(fd);
 	if (length < 0) {
-		throw new ApiError(ErrorCode.EINVAL);
+		throw new ErrnoError(Errno.EINVAL);
 	}
 	file.truncate(length)
 		.then(() => cb())
@@ -335,7 +335,7 @@ export function write(fd: number, data: FileContents, cbPosOff?: any, cbLenEnc?:
 			default:
 				// ...try to find the callback and get out of here!
 				cb = typeof cbLenEnc === 'function' ? cbLenEnc : typeof cbPos === 'function' ? cbPos : cb;
-				(<Callback<[number, Uint8Array | string]>>cb)(new ApiError(ErrorCode.EINVAL, 'Invalid arguments.'));
+				(<Callback<[number, Uint8Array | string]>>cb)(new ErrnoError(Errno.EINVAL, 'Invalid arguments.'));
 				return;
 		}
 		buffer = Buffer.from(data);
@@ -661,7 +661,7 @@ access satisfies Omit<typeof fs.access, '__promisify__'>;
 export function watchFile(path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(path: fs.PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(path: fs.PathLike, optsListener: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
-	throw ApiError.With('ENOSYS', path.toString(), 'watchFile');
+	throw ErrnoError.With('ENOSYS', path.toString(), 'watchFile');
 }
 watchFile satisfies Omit<typeof fs.watchFile, '__promisify__'>;
 
@@ -669,7 +669,7 @@ watchFile satisfies Omit<typeof fs.watchFile, '__promisify__'>;
  * @todo Implement
  */
 export function unwatchFile(path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void = nop): void {
-	throw ApiError.With('ENOSYS', path.toString(), 'unwatchFile');
+	throw ErrnoError.With('ENOSYS', path.toString(), 'unwatchFile');
 }
 unwatchFile satisfies Omit<typeof fs.unwatchFile, '__promisify__'>;
 
@@ -679,7 +679,7 @@ unwatchFile satisfies Omit<typeof fs.unwatchFile, '__promisify__'>;
 export function watch(path: fs.PathLike, listener?: (event: string, filename: string) => any): fs.FSWatcher;
 export function watch(path: fs.PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): fs.FSWatcher;
 export function watch(path: fs.PathLike, options: any, listener: (event: string, filename: string) => any = nop): fs.FSWatcher {
-	throw ApiError.With('ENOSYS', path.toString(), 'watch');
+	throw ErrnoError.With('ENOSYS', path.toString(), 'watch');
 }
 watch satisfies Omit<typeof fs.watch, '__promisify__'>;
 
