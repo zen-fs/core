@@ -112,7 +112,7 @@ export function formatExt(ext: string): string {
 export function resolve(...parts: string[]): AbsolutePath {
 	let resolved = '';
 
-	for (const part of [...parts.toReversed(), cwd]) {
+	for (const part of [...parts.reverse(), cwd]) {
 		if (!part.length) {
 			continue;
 		}
