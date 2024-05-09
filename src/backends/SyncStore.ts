@@ -32,7 +32,7 @@ export interface SyncStore {
  */
 export interface SyncTransaction {
 	/**
-	 * Retrieves the data at the given key. Throws an ApiError if an error occurs
+	 * Retrieves the data at the given key. Throws an error if an error occurs
 	 * or if the key does not exist.
 	 * @param ino The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.

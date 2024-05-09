@@ -269,7 +269,6 @@ export class ErrnoError extends Error implements NodeJS.ErrnoException {
 	 *
 	 * Error codes mirror those returned by regular Unix file operations, which is
 	 * what Node returns.
-	 * @constructor ApiError
 	 * @param type The type of the error.
 	 * @param message A descriptive error message.
 	 */
