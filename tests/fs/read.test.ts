@@ -53,4 +53,13 @@ describe('read buffer', () => {
 		expect(bufferSync.toString()).toBe(expected);
 		expect(bytesRead).toBe(expected.length);
 	});
+
+	test('read file synchronously to non-zero offset', async () => {
+		const fd = fs.openSync(filepath, 'r');
+		const buffer = Buffer.alloc(expected.length + 10);
+		const bytesRead = fs.readSync(fd, buffer, 10, expected.length, 0);
+
+		expect(buffer.subarray(10, buffer.length).toString()).toBe(expected);
+		expect(bytesRead).toBe(expected.length);
+	});
 });
