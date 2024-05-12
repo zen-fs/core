@@ -620,7 +620,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 			// No copy/read. Return immediatly for better performance
 			return bytesRead;
 		}
-		new Uint8Array(buffer.buffer, 0, length).set(this._buffer.slice(position, end), offset);
+		new Uint8Array(buffer.buffer, offset, length).set(this._buffer.slice(position, end));
 		return bytesRead;
 	}
 
