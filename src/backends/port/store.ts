@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ErrnoError, Errno } from '../../error.js';
 import { type AsyncStore, type AsyncTransaction, type AsyncStoreOptions, AsyncStoreFS } from '../AsyncStore.js';
-import type { SyncTransaction, SyncStore } from '../SyncStore.js';
+import type { SyncTransaction, SyncStore } from '../Store.js';
 import type { Backend } from '../backend.js';
 import * as RPC from './rpc.js';
 import type { ExtractProperties } from 'utilium';

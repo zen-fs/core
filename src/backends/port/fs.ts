@@ -5,7 +5,7 @@ import { FileSystem, type FileSystemMetadata, Async } from '../../filesystem.js'
 import { File } from '../../file.js';
 import { Stats, type FileType } from '../../stats.js';
 import { InMemory } from '../InMemory.js';
-import type { SyncStoreFS } from '../SyncStore.js';
+import type { SyncStoreFS } from '../Store.js';
 import type { Backend } from '../backend.js';
 import * as RPC from './rpc.js';
 import type { ExtractProperties } from 'utilium';
