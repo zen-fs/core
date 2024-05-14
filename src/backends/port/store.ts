@@ -6,6 +6,7 @@ import * as RPC from './rpc.js';
 import type { ExtractProperties } from 'utilium';
 
 export class PortStore implements Store {
+	public readonly isSync = false;
 	public readonly port: RPC.Port;
 	public constructor(
 		public readonly options: RPC.Options,

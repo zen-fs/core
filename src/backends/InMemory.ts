@@ -6,6 +6,8 @@ import { SimpleSyncStore, SimpleSyncTransaction, StoreFS, type Store } from './S
  * A simple in-memory store
  */
 export class InMemoryStore implements Store, SimpleSyncStore {
+	public readonly isSync = true;
+
 	private store: Map<Ino, Uint8Array> = new Map();
 
 	public constructor(public name: string = 'tmp') {}

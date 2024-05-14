@@ -18,6 +18,13 @@ export interface Store {
 	name: string;
 
 	/**
+	 * Temporary. Flag used to determine whether to
+	 * A. initialize the store in the StoreFS constructor (sync)
+	 * or B. initialize the store in StoreFS.ready (async)
+	 */
+	isSync: boolean;
+
+	/**
 	 * Empties the store completely.
 	 */
 	clear(): Promise<void> | void;
@@ -265,20 +272,25 @@ export class StoreFS extends FileSystem {
 	private _initialized: boolean = false;
 
 	public async ready(): Promise<this> {
+		await super.ready();
 		if (this._initialized) {
 			return this;
 		}
 		this._initialized = true;
 		this._store = await this.options.store;
 		await this.makeRootDirectory();
-		await super.ready();
 		return this;
 	}
 
 	constructor(protected options: StoreOptions) {
 		super();
-		// Ensure that the root exists.
-		this.makeRootDirectorySync();
+
+		if (!(options.store instanceof Promise) && options.store.isSync) {
+			this._store = options.store;
+			this._initialized = true;
+
+			this.makeRootDirectorySync();
+		}
 	}
 
 	public metadata(): FileSystemMetadata {
