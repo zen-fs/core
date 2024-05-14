@@ -271,15 +271,14 @@ export class StoreFS extends FileSystem {
 
 	private _initialized: boolean = false;
 
-	public async ready(): Promise<this> {
+	public async ready(): Promise<void> {
 		await super.ready();
 		if (this._initialized) {
-			return this;
+			return;
 		}
 		this._initialized = true;
 		this._store = await this.options.store;
 		await this.makeRootDirectory();
-		return this;
 	}
 
 	constructor(protected options: StoreOptions) {

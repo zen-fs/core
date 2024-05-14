@@ -166,10 +166,9 @@ export class PortFS extends Async(FileSystem) {
 		);
 	}
 
-	public async ready(): Promise<this> {
+	public async ready(): Promise<void> {
 		await this.rpc('ready');
 		await super.ready();
-		return this;
 	}
 
 	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {

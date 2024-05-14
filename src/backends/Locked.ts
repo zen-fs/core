@@ -20,9 +20,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	constructor(public readonly fs: FS) {}
 
-	public async ready(): Promise<this> {
+	public async ready(): Promise<void> {
 		await this.fs.ready();
-		return this;
 	}
 
 	public metadata(): FileSystemMetadata {

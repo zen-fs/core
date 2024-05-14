@@ -106,9 +106,8 @@ export class FetchFS extends AsyncIndexFS<Stats> {
 		}
 	}
 
-	public async ready(): Promise<this> {
+	public async ready(): Promise<void> {
 		await this._init;
-		return this;
 	}
 
 	constructor({ index = 'index.json', baseUrl = '' }: FetchOptions) {

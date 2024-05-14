@@ -35,11 +35,10 @@ export interface OverlayOptions {
  * @internal
  */
 export class UnlockedOverlayFS extends FileSystem {
-	async ready(): Promise<this> {
+	async ready(): Promise<void> {
 		await this._readable.ready();
 		await this._writable.ready();
 		await this._ready;
-		return this;
 	}
 
 	private _writable: FileSystem;
@@ -536,11 +535,6 @@ export class UnlockedOverlayFS extends FileSystem {
  * @internal
  */
 export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
-	public async ready() {
-		await super.ready();
-		return this;
-	}
-
 	/**
 	 * @param options The options to initialize the OverlayFS with
 	 */

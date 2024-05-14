@@ -59,9 +59,7 @@ export abstract class FileSystem {
 		// unused
 	}
 
-	public async ready(): Promise<this> {
-		return this;
-	}
+	public async ready(): Promise<void> {}
 
 	/**
 	 * Asynchronous rename. No arguments other than a possible exception
@@ -201,7 +199,7 @@ export abstract class FileSystem {
  */
 declare abstract class SyncFileSystem extends FileSystem {
 	metadata(): FileSystemMetadata;
-	ready(): Promise<this>;
+	ready(): Promise<void>;
 	exists(path: string, cred: Cred): Promise<boolean>;
 	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
 	stat(path: string, cred: Cred): Promise<Stats>;
@@ -278,7 +276,7 @@ declare abstract class AsyncFileSystem extends FileSystem {
 	abstract _sync: FileSystem;
 	queueDone(): Promise<void>;
 	metadata(): FileSystemMetadata;
-	ready(): Promise<this>;
+	ready(): Promise<void>;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
 	statSync(path: string, cred: Cred): Stats;
 	createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
@@ -335,11 +333,11 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 
 		abstract _sync: FileSystem;
 
-		public async ready(): Promise<this> {
+		public async ready(): Promise<void> {
 			await this._sync.ready();
 			await super.ready();
 			if (this._isInitialized) {
-				return this;
+				return;
 			}
 
 			try {
@@ -349,7 +347,6 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 				this._isInitialized = false;
 				throw e;
 			}
-			return this;
 		}
 
 		public renameSync(oldPath: string, newPath: string, cred: Cred): void {

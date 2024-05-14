@@ -131,7 +131,8 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Partial<
 export async function createBackend<B extends Backend>(backend: B, options: Partial<OptionsOf<B>> = {}): Promise<ReturnType<B['create']>> {
 	await checkOptions(backend, options);
 	const fs = <ReturnType<B['create']>>backend.create(options);
-	return fs.ready();
+	await fs.ready();
+	return fs;
 }
 
 /**
