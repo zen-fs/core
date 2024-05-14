@@ -1,6 +1,6 @@
 import { Cred } from '../cred.js';
 import { R_OK, W_OK } from '../emulation/constants.js';
-import { basename, dirname, join, resolve, sep } from '../emulation/path.js';
+import { basename, dirname, join, resolve } from '../emulation/path.js';
 import { Errno, ErrnoError } from '../error.js';
 import { PreloadFile, flagToMode } from '../file.js';
 import { FileSystem, type FileSystemMetadata } from '../filesystem.js';
