@@ -1,11 +1,11 @@
-import { InMemory, configure, fs, resolveMountConfig, SyncStoreFS, type BackendConfiguration } from '../../src/index.js';
+import { InMemory, configure, fs, resolveMountConfig, StoreFS, type BackendConfiguration } from '../../src/index.js';
 import { MessageChannel } from 'node:worker_threads';
 import { Port, attachFS } from '../../src/backends/port/fs.js';
 
 describe('FS with MessageChannel', () => {
 	const { port1, port2 } = new MessageChannel(),
 		content = 'FS is in a port';
-	let tmpfs: SyncStoreFS;
+	let tmpfs: StoreFS;
 
 	afterAll(() => {
 		port1.close();
