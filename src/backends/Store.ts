@@ -732,7 +732,7 @@ export class StoreFS extends FileSystem {
 	 * @param filename The filename of the inode we are attempting to find, minus
 	 *   the parent.
 	 */
-	private async _findINode(tx: Transaction, parent: string, filename: string, visited: Set<string> = new Set<string>()): Promise<Ino> {
+	private async _findINode(tx: Transaction, parent: string, filename: string, visited: Set<string> = new Set()): Promise<Ino> {
 		const currentPath = join(parent, filename);
 		if (visited.has(currentPath)) {
 			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', currentPath);
@@ -740,32 +740,18 @@ export class StoreFS extends FileSystem {
 
 		visited.add(currentPath);
 
-		if (parent === '/') {
-			if (filename === '') {
-				return rootIno;
-			} else {
-				// BASE CASE #2: Find the item in the root node.
-				const inode = await this.getINode(tx, rootIno, parent);
-				const dirList = await this.getDirListing(tx, inode!, parent);
-				if (dirList![filename]) {
-					const id = dirList![filename];
-					return id;
-				} else {
-					throw ErrnoError.With('ENOENT', resolve(parent, filename), '_findINode');
-				}
-			}
-		} else {
-			// Get the parent directory's INode, and find the file in its directory
-			// listing.
-			const inode = await this.findINode(tx, parent, visited);
-			const dirList = await this.getDirListing(tx, inode!, parent);
-			if (dirList![filename]) {
-				const id = dirList![filename];
-				return id;
-			} else {
-				throw ErrnoError.With('ENOENT', resolve(parent, filename), '_findINode');
-			}
+		if (parent == '/' && filename === '') {
+			return rootIno;
 		}
+
+		const inode = parent == '/' ? await this.getINode(tx, rootIno, parent) : await this.findINode(tx, parent, visited);
+		const dirList = await this.getDirListing(tx, inode, parent);
+
+		if (!(filename in dirList)) {
+			throw ErrnoError.With('ENOENT', resolve(parent, filename), '_findINode');
+		}
+
+		return dirList[filename];
 	}
 
 	/**
@@ -783,27 +769,18 @@ export class StoreFS extends FileSystem {
 
 		visited.add(currentPath);
 
-		if (parent != '/') {
-			const ino = this._findINodeSync(tx, dirname(parent), basename(parent), visited);
-			const dir = this.getDirListingSync(tx, this.getINodeSync(tx, ino, parent + sep + filename), parent);
-			if (!(filename in dir)) {
-				throw ErrnoError.With('ENOENT', resolve(parent, filename), '_findINode');
-			}
-
-			return dir[filename];
+		if (parent == '/' && filename === '') {
+			return rootIno;
 		}
 
-		if (filename != '') {
-			// Find the item in the root node.
-			const dir = this.getDirListingSync(tx, this.getINodeSync(tx, rootIno, parent), parent);
-			if (!(filename in dir)) {
-				throw ErrnoError.With('ENOENT', resolve(parent, filename), '_findINode');
-			}
-			return dir[filename];
+		const inode = parent == '/' ? this.getINodeSync(tx, rootIno, parent) : this.findINodeSync(tx, parent, visited);
+		const dir = this.getDirListingSync(tx, inode, parent);
+
+		if (!(filename in dir)) {
+			throw ErrnoError.With('ENOENT', resolve(parent, filename), '_findINode');
 		}
 
-		// Return the root's ID.
-		return rootIno;
+		return dir[filename];
 	}
 
 	/**
@@ -811,7 +788,7 @@ export class StoreFS extends FileSystem {
 	 * @param p The path to look up.
 	 * @todo memoize/cache
 	 */
-	private async findINode(tx: Transaction, p: string, visited: Set<string> = new Set<string>()): Promise<Inode> {
+	private async findINode(tx: Transaction, p: string, visited: Set<string> = new Set()): Promise<Inode> {
 		const id = await this._findINode(tx, dirname(p), basename(p), visited);
 		return this.getINode(tx, id!, p);
 	}
@@ -822,8 +799,8 @@ export class StoreFS extends FileSystem {
 	 * @return The Inode of the path p.
 	 * @todo memoize/cache
 	 */
-	protected findINodeSync(tx: Transaction, p: string): Inode {
-		const ino = this._findINodeSync(tx, dirname(p), basename(p));
+	protected findINodeSync(tx: Transaction, p: string, visited: Set<string> = new Set()): Inode {
+		const ino = this._findINodeSync(tx, dirname(p), basename(p), visited);
 		return this.getINodeSync(tx, ino, p);
 	}
 
