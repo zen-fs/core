@@ -1,7 +1,6 @@
 export * from './error.js';
 export * from './backends/port/fs.js';
 export * from './backends/port/store.js';
-export * from './backends/AsyncStore.js';
 export * from './backends/Fetch.js';
 export * from './backends/InMemory.js';
 export * from './backends/Index.js';

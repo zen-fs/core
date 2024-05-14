@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ErrnoError, Errno } from '../../error.js';
-import { type AsyncStore, type AsyncTransaction, type AsyncStoreOptions, AsyncStoreFS } from '../AsyncStore.js';
-import type { SyncTransaction, SyncStore } from '../Store.js';
+import { type Transaction, type Store, StoreFS, AsyncTransaction } from '../Store.js';
 import type { Backend } from '../backend.js';
 import * as RPC from './rpc.js';
 import type { ExtractProperties } from 'utilium';
 
-export class PortStore implements AsyncStore {
+export class PortStore implements Store {
 	public readonly port: RPC.Port;
 	public constructor(
 		public readonly options: RPC.Options,
@@ -27,6 +26,10 @@ export class PortStore implements AsyncStore {
 		);
 	}
 
+	public clearSync(): void {
+		throw ErrnoError.With('ENOSYS', undefined, 'PortStore.clearSync');
+	}
+
 	public beginTransaction(): PortTransaction {
 		const id = RPC.request<RPC.Request, number>(
 			{
@@ -40,17 +43,19 @@ export class PortStore implements AsyncStore {
 	}
 }
 
-type TxMethods = ExtractProperties<AsyncTransaction, (...args: any[]) => Promise<any>>;
+type TxMethods = ExtractProperties<Transaction, (...args: any[]) => Promise<any>>;
 type TxMethod = keyof TxMethods;
 interface TxRequest<TMethod extends TxMethod = TxMethod> extends RPC.Request<'transaction', TMethod | 'close', Parameters<TxMethods[TMethod]>> {
 	tx: number;
 }
 
-export class PortTransaction implements AsyncTransaction {
+export class PortTransaction extends AsyncTransaction {
 	constructor(
 		public readonly store: PortStore,
 		public readonly id: number | Promise<number>
-	) {}
+	) {
+		super();
+	}
 
 	public async rpc<const T extends TxMethod>(method: T, ...args: Parameters<TxMethods[T]>): Promise<Awaited<ReturnType<TxMethods[T]>>> {
 		return RPC.request<TxRequest<T>, Awaited<ReturnType<TxMethods[T]>>>(
@@ -87,11 +92,11 @@ export class PortTransaction implements AsyncTransaction {
 
 let nextTx = 0;
 
-const transactions: Map<number, AsyncTransaction | SyncTransaction> = new Map();
+const transactions: Map<number, Transaction> = new Map();
 
-type StoreOrTxRequest = TxRequest | RPC.Request<'store', keyof ExtractProperties<AsyncStore, (...args: any[]) => any>>;
+type StoreOrTxRequest = TxRequest | RPC.Request<'store', keyof ExtractProperties<Store, (...args: any[]) => any>>;
 
-async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, request: StoreOrTxRequest): Promise<void> {
+async function handleRequest(port: RPC.Port, store: Store, request: StoreOrTxRequest): Promise<void> {
 	if (!RPC.isMessage(request)) {
 		return;
 	}
@@ -141,11 +146,11 @@ async function handleRequest(port: RPC.Port, store: AsyncStore | SyncStore, requ
 	});
 }
 
-export function attachStore(port: RPC.Port, store: SyncStore | AsyncStore): void {
+export function attachStore(port: RPC.Port, store: Store): void {
 	RPC.attach(port, (request: StoreOrTxRequest) => handleRequest(port, store, request));
 }
 
-export function detachStore(port: RPC.Port, store: SyncStore | AsyncStore): void {
+export function detachStore(port: RPC.Port, store: Store): void {
 	RPC.detach(port, (request: StoreOrTxRequest) => handleRequest(port, store, request));
 }
 
@@ -181,7 +186,7 @@ export const PortStoreBackend: Backend = {
 		}
 	},
 
-	create(options: RPC.Options & AsyncStoreOptions & { name?: string }) {
-		return new AsyncStoreFS({ ...options, store: new PortStore(options, options?.name) });
+	create(options: RPC.Options & { name?: string }) {
+		return new StoreFS({ ...options, store: new PortStore(options, options?.name) });
 	},
 };
