@@ -237,7 +237,7 @@ export class SimpleSyncTransaction extends SyncTransaction {
 	}
 }
 
-export interface SyncStoreOptions {
+export interface StoreOptions {
 	/**
 	 * The actual key-value store to read from/write to.
 	 */
@@ -275,7 +275,7 @@ export class StoreFS extends FileSystem {
 		return this;
 	}
 
-	constructor(protected options: SyncStoreOptions) {
+	constructor(protected options: StoreOptions) {
 		super();
 		// Ensure that the root exists.
 		this.makeRootDirectorySync();
