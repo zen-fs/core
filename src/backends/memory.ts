@@ -25,12 +25,8 @@ export class InMemoryStore extends SimpleSyncStore {
 		this.data.clear();
 	}
 
-	public put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean {
-		if (!overwrite && this.data.has(ino)) {
-			return false;
-		}
+	public set(ino: Ino, data: Uint8Array): void {
 		this.data.set(ino, data);
-		return true;
 	}
 }
 

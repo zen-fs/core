@@ -144,8 +144,8 @@ export class StoreFS extends FileSystem {
 		newDirList[newName] = nodeId;
 		// Commit the two changed directory listings.
 		try {
-			await tx.put(oldDirNode.ino, encodeDirListing(oldDirList), true);
-			await tx.put(newDirNode.ino, encodeDirListing(newDirList), true);
+			await tx.set(oldDirNode.ino, encodeDirListing(oldDirList));
+			await tx.set(newDirNode.ino, encodeDirListing(newDirList));
 		} catch (e) {
 			await tx.abort();
 			throw e;
@@ -214,8 +214,8 @@ export class StoreFS extends FileSystem {
 
 		// Commit the two changed directory listings.
 		try {
-			tx.putSync(oldDirNode.ino, encodeDirListing(oldDirList), true);
-			tx.putSync(newDirNode.ino, encodeDirListing(newDirList), true);
+			tx.setSync(oldDirNode.ino, encodeDirListing(oldDirList));
+			tx.setSync(newDirNode.ino, encodeDirListing(newDirList));
 		} catch (e) {
 			tx.abortSync();
 			throw e;
@@ -352,10 +352,10 @@ export class StoreFS extends FileSystem {
 
 		try {
 			// Sync data.
-			await tx.put(fileInode.ino, data, true);
+			await tx.set(fileInode.ino, data);
 			// Sync metadata.
 			if (inodeChanged) {
-				await tx.put(fileInodeId, fileInode.data, true);
+				await tx.set(fileInodeId, fileInode.data);
 			}
 		} catch (e) {
 			await tx.abort();
@@ -375,10 +375,10 @@ export class StoreFS extends FileSystem {
 
 		try {
 			// Sync data.
-			tx.putSync(fileInode.ino, data, true);
+			tx.setSync(fileInode.ino, data);
 			// Sync metadata.
 			if (inodeChanged) {
-				tx.putSync(fileInodeId, fileInode.data, true);
+				tx.setSync(fileInodeId, fileInode.data);
 			}
 		} catch (e) {
 			tx.abortSync();
@@ -414,8 +414,8 @@ export class StoreFS extends FileSystem {
 		node.nlink++;
 		newListing[basename(newpath)] = ino;
 		try {
-			tx.putSync(ino, node.data, true);
-			tx.putSync(newDirNode.ino, encodeDirListing(newListing), true);
+			tx.setSync(ino, node.data);
+			tx.setSync(newDirNode.ino, encodeDirListing(newListing));
 		} catch (e) {
 			tx.abortSync();
 			throw e;
@@ -449,8 +449,8 @@ export class StoreFS extends FileSystem {
 		node.nlink++;
 		newListing[basename(newpath)] = ino;
 		try {
-			tx.putSync(ino, node.data, true);
-			tx.putSync(newDirNode.ino, encodeDirListing(newListing), true);
+			tx.setSync(ino, node.data);
+			tx.setSync(newDirNode.ino, encodeDirListing(newListing));
 		} catch (e) {
 			tx.abortSync();
 			throw e;
@@ -470,8 +470,8 @@ export class StoreFS extends FileSystem {
 		const inode = new Inode();
 		inode.mode = 0o777 | FileType.DIRECTORY;
 		// If the root doesn't exist, the first random ID shouldn't exist either.
-		await tx.put(inode.ino, encode('{}'), false);
-		await tx.put(rootIno, inode.data, false);
+		await tx.set(inode.ino, encode('{}'));
+		await tx.set(rootIno, inode.data);
 		await tx.commit();
 	}
 
@@ -487,8 +487,8 @@ export class StoreFS extends FileSystem {
 		const inode = new Inode();
 		inode.mode = 0o777 | FileType.DIRECTORY;
 		// If the root doesn't exist, the first random ID shouldn't exist either.
-		tx.putSync(inode.ino, encode('{}'), false);
-		tx.putSync(rootIno, inode.data, false);
+		tx.setSync(inode.ino, encode('{}'));
+		tx.setSync(rootIno, inode.data);
 		tx.commitSync();
 	}
 
@@ -641,9 +641,10 @@ export class StoreFS extends FileSystem {
 	private async addNewNode(tx: Transaction, data: Uint8Array, path: string): Promise<Ino> {
 		for (let i = 0; i < maxInodeAllocTries; i++) {
 			const ino: Ino = randomIno();
-			if (!(await tx.put(ino, data, false))) {
+			if (await tx.get(ino)) {
 				continue;
 			}
+			await tx.set(ino, data);
 			return ino;
 		}
 		throw new ErrnoError(Errno.ENOSPC, 'No inode IDs available', path, 'addNewNode');
@@ -657,9 +658,10 @@ export class StoreFS extends FileSystem {
 	protected addNewNodeSync(tx: Transaction, data: Uint8Array, path: string): Ino {
 		for (let i = 0; i < maxInodeAllocTries; i++) {
 			const ino: Ino = randomIno();
-			if (!tx.putSync(ino, data, false)) {
+			if (tx.getSync(ino)) {
 				continue;
 			}
+			tx.setSync(ino, data);
 			return ino;
 		}
 		throw new ErrnoError(Errno.ENOSPC, 'No inode IDs available', path, 'addNewNode');
@@ -710,7 +712,7 @@ export class StoreFS extends FileSystem {
 
 			// Update and commit parent directory listing.
 			dirListing[fname] = await this.addNewNode(tx, inode.data, path);
-			await tx.put(parentNode.ino, encodeDirListing(dirListing), true);
+			await tx.set(parentNode.ino, encodeDirListing(dirListing));
 			await tx.commit();
 			return inode;
 		} catch (e) {
@@ -763,7 +765,7 @@ export class StoreFS extends FileSystem {
 			fileNode.gid = cred.gid;
 			// Update and commit parent directory listing.
 			dirListing[fname] = this.addNewNodeSync(tx, fileNode.data, path);
-			tx.putSync(parentNode.ino, encodeDirListing(dirListing), true);
+			tx.setSync(parentNode.ino, encodeDirListing(dirListing));
 		} catch (e) {
 			tx.abortSync();
 			throw e;
@@ -810,7 +812,7 @@ export class StoreFS extends FileSystem {
 		}
 
 		try {
-			await tx.put(parentNode.ino, encodeDirListing(parentListing), true);
+			await tx.set(parentNode.ino, encodeDirListing(parentListing));
 
 			if (--fileNode.nlink < 1) {
 				// remove file
@@ -864,7 +866,7 @@ export class StoreFS extends FileSystem {
 
 		try {
 			// Update directory listing.
-			tx.putSync(parentNode.ino, encodeDirListing(parentListing), true);
+			tx.setSync(parentNode.ino, encodeDirListing(parentListing));
 
 			if (--fileNode.nlink < 1) {
 				// remove file

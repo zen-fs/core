@@ -57,7 +57,7 @@ export interface Transaction {
 	 * @param overwrite If 'true', overwrite any existing data. If 'false',
 	 *   avoids writing the data if the key exists.
 	 */
-	put(ino: Ino, data: Uint8Array, overwrite: boolean): Promise<boolean>;
+	set(ino: Ino, data: Uint8Array): Promise<void>;
 
 	/**
 	 * Adds the data to the store under the given key.
@@ -67,7 +67,7 @@ export interface Transaction {
 	 *   avoids storing the data if the key exists.
 	 * @return True if storage succeeded, false otherwise.
 	 */
-	putSync(ino: Ino, data: Uint8Array, overwrite: boolean): boolean;
+	setSync(ino: Ino, data: Uint8Array): void;
 
 	/**
 	 * Deletes the data at the given key.
@@ -110,9 +110,9 @@ export abstract class SyncTransaction implements Transaction {
 	public async get(ino: Ino): Promise<Uint8Array> {
 		return this.getSync(ino);
 	}
-	public abstract putSync(ino: bigint, data: Uint8Array, overwrite: boolean): boolean;
-	public async put(ino: bigint, data: Uint8Array, overwrite: boolean): Promise<boolean> {
-		return this.putSync(ino, data, overwrite);
+	public abstract setSync(ino: bigint, data: Uint8Array): void;
+	public async set(ino: bigint, data: Uint8Array): Promise<void> {
+		return this.setSync(ino, data);
 	}
 	public abstract removeSync(ino: bigint): void;
 	public async remove(ino: Ino): Promise<void> {
@@ -137,10 +137,10 @@ export abstract class AsyncTransaction implements Transaction {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.getSync');
 	}
 	public abstract get(key: bigint): Promise<Uint8Array>;
-	public putSync(ino: bigint, data: Uint8Array, overwrite: boolean): boolean {
-		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.putSync');
+	public setSync(ino: bigint, data: Uint8Array): void {
+		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.setSync');
 	}
-	public abstract put(key: bigint, data: Uint8Array, overwrite: boolean): Promise<boolean>;
+	public abstract set(key: bigint, data: Uint8Array): Promise<void>;
 	public removeSync(ino: bigint): void {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.removeSync');
 	}

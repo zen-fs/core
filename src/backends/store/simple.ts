@@ -12,7 +12,7 @@ export abstract class SimpleSyncStore implements Store {
 	}
 	public abstract clearSync(): void;
 	public abstract get(ino: Ino): Uint8Array | undefined;
-	public abstract put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean;
+	public abstract set(ino: Ino, data: Uint8Array): void;
 	public abstract delete(ino: Ino): void;
 	public beginTransaction(): SimpleTransaction {
 		return new SimpleTransaction(this);
@@ -36,16 +36,12 @@ export abstract class SimpleAsyncStore extends SimpleSyncStore {
 		return this.cache.get(ino);
 	}
 
-	public put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean {
-		if (!overwrite && this.cache.has(ino)) {
-			return false;
-		}
+	public set(ino: Ino, data: Uint8Array): void {
 		this.cache.set(ino, data);
-		this.queue.add(this._put(ino, data, overwrite));
-		return true;
+		this.queue.add(this._set(ino, data));
 	}
 
-	protected abstract _put(ino: Ino, data: Uint8Array, overwrite: boolean): Promise<boolean>;
+	protected abstract _set(ino: Ino, data: Uint8Array): Promise<void>;
 
 	public delete(ino: Ino): void {
 		this.cache.delete(ino);
@@ -103,9 +99,9 @@ export class SimpleTransaction extends SyncTransaction {
 		return val!;
 	}
 
-	public putSync(ino: Ino, data: Uint8Array, overwrite: boolean): boolean {
+	public setSync(ino: Ino, data: Uint8Array): void {
 		this.markModified(ino);
-		return this.store.put(ino, data, overwrite);
+		return this.store.set(ino, data);
 	}
 
 	public removeSync(ino: Ino): void {
@@ -126,7 +122,7 @@ export class SimpleTransaction extends SyncTransaction {
 				this.store.delete(key);
 			} else {
 				// Key existed. Store old value.
-				this.store.put(key, value, true);
+				this.store.set(key, value);
 			}
 		}
 	}
