@@ -354,8 +354,8 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 			this.queue('rename', oldPath, newPath, cred);
 		}
 
-		public statSync(p: string, cred: Cred): Stats {
-			return this._sync.statSync(p, cred);
+		public statSync(path: string, cred: Cred): Stats {
+			return this._sync.statSync(path, cred);
 		}
 
 		public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
@@ -371,23 +371,23 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 			return this._sync.openFileSync(path, flag, cred);
 		}
 
-		public unlinkSync(p: string, cred: Cred): void {
-			this._sync.unlinkSync(p, cred);
-			this.queue('unlink', p, cred);
+		public unlinkSync(path: string, cred: Cred): void {
+			this._sync.unlinkSync(path, cred);
+			this.queue('unlink', path, cred);
 		}
 
-		public rmdirSync(p: string, cred: Cred): void {
-			this._sync.rmdirSync(p, cred);
-			this.queue('rmdir', p, cred);
+		public rmdirSync(path: string, cred: Cred): void {
+			this._sync.rmdirSync(path, cred);
+			this.queue('rmdir', path, cred);
 		}
 
-		public mkdirSync(p: string, mode: number, cred: Cred): void {
-			this._sync.mkdirSync(p, mode, cred);
-			this.queue('mkdir', p, mode, cred);
+		public mkdirSync(path: string, mode: number, cred: Cred): void {
+			this._sync.mkdirSync(path, mode, cred);
+			this.queue('mkdir', path, mode, cred);
 		}
 
-		public readdirSync(p: string, cred: Cred): string[] {
-			return this._sync.readdirSync(p, cred);
+		public readdirSync(path: string, cred: Cred): string[] {
+			return this._sync.readdirSync(path, cred);
 		}
 
 		public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
@@ -400,27 +400,27 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 			this.queue('sync', path, data, stats);
 		}
 
-		public existsSync(p: string, cred: Cred): boolean {
-			return this._sync.existsSync(p, cred);
+		public existsSync(path: string, cred: Cred): boolean {
+			return this._sync.existsSync(path, cred);
 		}
 
 		/**
 		 * @internal
 		 */
-		protected async crossCopy(p: string): Promise<void> {
-			const stats = await this.stat(p, rootCred);
+		protected async crossCopy(path: string): Promise<void> {
+			const stats = await this.stat(path, rootCred);
 			if (stats.isDirectory()) {
-				if (p !== '/') {
-					const stats = await this.stat(p, rootCred);
-					this._sync.mkdirSync(p, stats.mode, stats.cred());
+				if (path !== '/') {
+					const stats = await this.stat(path, rootCred);
+					this._sync.mkdirSync(path, stats.mode, stats.cred());
 				}
-				const files = await this.readdir(p, rootCred);
+				const files = await this.readdir(path, rootCred);
 				for (const file of files) {
-					await this.crossCopy(join(p, file));
+					await this.crossCopy(join(path, file));
 				}
 			} else {
-				const asyncFile = await this.openFile(p, parseFlag('r'), rootCred);
-				const syncFile = this._sync.createFileSync(p, parseFlag('w'), stats.mode, stats.cred());
+				const asyncFile = await this.openFile(path, parseFlag('r'), rootCred);
+				const syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats.cred());
 				try {
 					const buffer = new Uint8Array(stats.size);
 					await asyncFile.read(buffer);

@@ -340,16 +340,16 @@ export class IndexDirInode<TData> extends IndexInode<TData> {
 	}
 	/**
 	 * Removes the given item from the directory listing.
-	 * @param p Name of item to remove from the directory listing.
+	 * @param path Name of item to remove from the directory listing.
 	 * @return Returns the item
 	 *   removed, or null if the item did not exist.
 	 */
-	public remove(p: string): IndexInode<TData> | void {
-		const item = this._listing.get(p);
+	public remove(path: string): IndexInode<TData> | void {
+		const item = this._listing.get(path);
 		if (!item) {
 			return;
 		}
-		this._listing.delete(p);
+		this._listing.delete(path);
 		return item;
 	}
 }

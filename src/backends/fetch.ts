@@ -19,11 +19,11 @@ function convertError(e: Error): never {
  * constants.
  * @hidden
  */
-async function fetchFile(p: string, type: 'buffer'): Promise<Uint8Array>;
-async function fetchFile<T extends object>(p: string, type: 'json'): Promise<T>;
-async function fetchFile<T extends object>(p: string, type: 'buffer' | 'json'): Promise<T | Uint8Array>;
-async function fetchFile<T extends object>(p: string, type: 'buffer' | 'json'): Promise<T | Uint8Array> {
-	const response = await fetch(p).catch(convertError);
+async function fetchFile(path: string, type: 'buffer'): Promise<Uint8Array>;
+async function fetchFile<T extends object>(path: string, type: 'json'): Promise<T>;
+async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'): Promise<T | Uint8Array>;
+async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'): Promise<T | Uint8Array> {
+	const response = await fetch(path).catch(convertError);
 	if (!response.ok) {
 		throw new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status);
 	}
@@ -42,8 +42,8 @@ async function fetchFile<T extends object>(p: string, type: 'buffer' | 'json'): 
  * Asynchronously retrieves the size of the given file in bytes.
  * @hidden
  */
-async function fetchSize(p: string): Promise<number> {
-	const response = await fetch(p, { method: 'HEAD' }).catch(convertError);
+async function fetchSize(path: string): Promise<number> {
+	const response = await fetch(path, { method: 'HEAD' }).catch(convertError);
 	if (!response.ok) {
 		throw new ErrnoError(Errno.EIO, 'fetch failed: HEAD response returned code ' + response.status);
 	}
@@ -188,11 +188,11 @@ export class FetchFS extends AsyncIndexFS<Stats> {
 	/**
 	 * Asynchronously download the given file.
 	 */
-	protected _fetchFile(p: string, type: 'buffer'): Promise<Uint8Array>;
-	protected _fetchFile(p: string, type: 'json'): Promise<object>;
-	protected _fetchFile(p: string, type: 'buffer' | 'json'): Promise<object>;
-	protected _fetchFile(p: string, type: 'buffer' | 'json'): Promise<object> {
-		return fetchFile(this._getRemotePath(p), type);
+	protected _fetchFile(path: string, type: 'buffer'): Promise<Uint8Array>;
+	protected _fetchFile(path: string, type: 'json'): Promise<object>;
+	protected _fetchFile(path: string, type: 'buffer' | 'json'): Promise<object>;
+	protected _fetchFile(path: string, type: 'buffer' | 'json'): Promise<object> {
+		return fetchFile(this._getRemotePath(path), type);
 	}
 
 	/**

@@ -154,30 +154,30 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 	}
 
-	public async stat(p: string, cred: Cred): Promise<Stats> {
+	public async stat(path: string, cred: Cred): Promise<Stats> {
 		this.checkInitialized();
 		try {
-			return this._writable.stat(p, cred);
+			return this._writable.stat(path, cred);
 		} catch (e) {
-			if (this._deletedFiles.has(p)) {
-				throw ErrnoError.With('ENOENT', p, 'stat');
+			if (this._deletedFiles.has(path)) {
+				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
-			const oldStat = new Stats(await this._readable.stat(p, cred));
+			const oldStat = new Stats(await this._readable.stat(path, cred));
 			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type
 			oldStat.mode |= 0o222;
 			return oldStat;
 		}
 	}
 
-	public statSync(p: string, cred: Cred): Stats {
+	public statSync(path: string, cred: Cred): Stats {
 		this.checkInitialized();
 		try {
-			return this._writable.statSync(p, cred);
+			return this._writable.statSync(path, cred);
 		} catch (e) {
-			if (this._deletedFiles.has(p)) {
-				throw ErrnoError.With('ENOENT', p, 'stat');
+			if (this._deletedFiles.has(path)) {
+				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
-			const oldStat = new Stats(this._readable.statSync(p, cred));
+			const oldStat = new Stats(this._readable.statSync(path, cred));
 			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type.
 			oldStat.mode |= 0o222;
 			return oldStat;
@@ -229,153 +229,153 @@ export class UnlockedOverlayFS extends FileSystem {
 		this._writable.linkSync(srcpath, dstpath, cred);
 	}
 
-	public async unlink(p: string, cred: Cred): Promise<void> {
+	public async unlink(path: string, cred: Cred): Promise<void> {
 		this.checkInitialized();
-		this.checkPath(p);
-		if (!(await this.exists(p, cred))) {
-			throw ErrnoError.With('ENOENT', p, 'unlink');
+		this.checkPath(path);
+		if (!(await this.exists(path, cred))) {
+			throw ErrnoError.With('ENOENT', path, 'unlink');
 		}
 
-		if (await this._writable.exists(p, cred)) {
-			await this._writable.unlink(p, cred);
+		if (await this._writable.exists(path, cred)) {
+			await this._writable.unlink(path, cred);
 		}
 
 		// if it still exists add to the delete log
-		if (await this.exists(p, cred)) {
-			this.deletePath(p, cred);
+		if (await this.exists(path, cred)) {
+			this.deletePath(path, cred);
 		}
 	}
 
-	public unlinkSync(p: string, cred: Cred): void {
+	public unlinkSync(path: string, cred: Cred): void {
 		this.checkInitialized();
-		this.checkPath(p);
-		if (!this.existsSync(p, cred)) {
-			throw ErrnoError.With('ENOENT', p, 'unlink');
+		this.checkPath(path);
+		if (!this.existsSync(path, cred)) {
+			throw ErrnoError.With('ENOENT', path, 'unlink');
 		}
 
-		if (this._writable.existsSync(p, cred)) {
-			this._writable.unlinkSync(p, cred);
+		if (this._writable.existsSync(path, cred)) {
+			this._writable.unlinkSync(path, cred);
 		}
 
 		// if it still exists add to the delete log
-		if (this.existsSync(p, cred)) {
-			this.deletePath(p, cred);
+		if (this.existsSync(path, cred)) {
+			this.deletePath(path, cred);
 		}
 	}
 
-	public async rmdir(p: string, cred: Cred): Promise<void> {
+	public async rmdir(path: string, cred: Cred): Promise<void> {
 		this.checkInitialized();
-		if (!(await this.exists(p, cred))) {
-			throw ErrnoError.With('ENOENT', p, 'rmdir');
+		if (!(await this.exists(path, cred))) {
+			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
-		if (await this._writable.exists(p, cred)) {
-			await this._writable.rmdir(p, cred);
+		if (await this._writable.exists(path, cred)) {
+			await this._writable.rmdir(path, cred);
 		}
-		if (await this.exists(p, cred)) {
+		if (await this.exists(path, cred)) {
 			// Check if directory is empty.
-			if ((await this.readdir(p, cred)).length > 0) {
-				throw ErrnoError.With('ENOTEMPTY', p, 'rmdir');
+			if ((await this.readdir(path, cred)).length > 0) {
+				throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 			} else {
-				this.deletePath(p, cred);
+				this.deletePath(path, cred);
 			}
 		}
 	}
 
-	public rmdirSync(p: string, cred: Cred): void {
+	public rmdirSync(path: string, cred: Cred): void {
 		this.checkInitialized();
-		if (!this.existsSync(p, cred)) {
-			throw ErrnoError.With('ENOENT', p, 'rmdir');
+		if (!this.existsSync(path, cred)) {
+			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
-		if (this._writable.existsSync(p, cred)) {
-			this._writable.rmdirSync(p, cred);
+		if (this._writable.existsSync(path, cred)) {
+			this._writable.rmdirSync(path, cred);
 		}
-		if (this.existsSync(p, cred)) {
+		if (this.existsSync(path, cred)) {
 			// Check if directory is empty.
-			if (this.readdirSync(p, cred).length > 0) {
-				throw ErrnoError.With('ENOTEMPTY', p, 'rmdir');
+			if (this.readdirSync(path, cred).length > 0) {
+				throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 			} else {
-				this.deletePath(p, cred);
+				this.deletePath(path, cred);
 			}
 		}
 	}
 
-	public async mkdir(p: string, mode: number, cred: Cred): Promise<void> {
+	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
 		this.checkInitialized();
-		if (await this.exists(p, cred)) {
-			throw ErrnoError.With('EEXIST', p, 'mkdir');
+		if (await this.exists(path, cred)) {
+			throw ErrnoError.With('EEXIST', path, 'mkdir');
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
-		await this.createParentDirectories(p, cred);
-		await this._writable.mkdir(p, mode, cred);
+		await this.createParentDirectories(path, cred);
+		await this._writable.mkdir(path, mode, cred);
 	}
 
-	public mkdirSync(p: string, mode: number, cred: Cred): void {
+	public mkdirSync(path: string, mode: number, cred: Cred): void {
 		this.checkInitialized();
-		if (this.existsSync(p, cred)) {
-			throw ErrnoError.With('EEXIST', p, 'mkdir');
+		if (this.existsSync(path, cred)) {
+			throw ErrnoError.With('EEXIST', path, 'mkdir');
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
-		this.createParentDirectoriesSync(p, cred);
-		this._writable.mkdirSync(p, mode, cred);
+		this.createParentDirectoriesSync(path, cred);
+		this._writable.mkdirSync(path, mode, cred);
 	}
 
-	public async readdir(p: string, cred: Cred): Promise<string[]> {
+	public async readdir(path: string, cred: Cred): Promise<string[]> {
 		this.checkInitialized();
-		const dirStats = await this.stat(p, cred);
+		const dirStats = await this.stat(path, cred);
 		if (!dirStats.isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', p, 'readdir');
+			throw ErrnoError.With('ENOTDIR', path, 'readdir');
 		}
 
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
 		const contents: string[] = [];
 		try {
-			contents.push(...(await this._writable.readdir(p, cred)));
+			contents.push(...(await this._writable.readdir(path, cred)));
 		} catch (e) {
 			// NOP.
 		}
 		try {
-			contents.push(...(await this._readable.readdir(p, cred)).filter((fPath: string) => !this._deletedFiles.has(`${p}/${fPath}`)));
+			contents.push(...(await this._readable.readdir(path, cred)).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
 		} catch (e) {
 			// NOP.
 		}
 		const seenMap: { [name: string]: boolean } = {};
-		return contents.filter((fileP: string) => {
-			const result = !seenMap[fileP];
-			seenMap[fileP] = true;
+		return contents.filter((path: string) => {
+			const result = !seenMap[path];
+			seenMap[path] = true;
 			return result;
 		});
 	}
 
-	public readdirSync(p: string, cred: Cred): string[] {
+	public readdirSync(path: string, cred: Cred): string[] {
 		this.checkInitialized();
-		const dirStats = this.statSync(p, cred);
+		const dirStats = this.statSync(path, cred);
 		if (!dirStats.isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', p, 'readdir');
+			throw ErrnoError.With('ENOTDIR', path, 'readdir');
 		}
 
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
 		let contents: string[] = [];
 		try {
-			contents = contents.concat(this._writable.readdirSync(p, cred));
+			contents = contents.concat(this._writable.readdirSync(path, cred));
 		} catch (e) {
 			// NOP.
 		}
 		try {
-			contents = contents.concat(this._readable.readdirSync(p, cred).filter((fPath: string) => !this._deletedFiles.has(`${p}/${fPath}`)));
+			contents = contents.concat(this._readable.readdirSync(path, cred).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
 		} catch (e) {
 			// NOP.
 		}
 		const seenMap: { [name: string]: boolean } = {};
-		return contents.filter((fileP: string) => {
-			const result = !seenMap[fileP];
-			seenMap[fileP] = true;
+		return contents.filter((path: string) => {
+			const result = !seenMap[path];
+			seenMap[path] = true;
 			return result;
 		});
 	}
 
-	private deletePath(p: string, cred: Cred): void {
-		this._deletedFiles.add(p);
-		this.updateLog(`d${p}\n`, cred);
+	private deletePath(path: string, cred: Cred): void {
+		this._deletedFiles.add(path);
+		this.updateLog(`d${path}\n`, cred);
 	}
 
 	private async updateLog(addition: string, cred: Cred) {
@@ -436,8 +436,8 @@ export class UnlockedOverlayFS extends FileSystem {
 	 * With the given path, create the needed parent directories on the writable storage
 	 * should they not exist. Use modes from the read-only storage.
 	 */
-	private createParentDirectoriesSync(p: string, cred: Cred): void {
-		let parent = dirname(p),
+	private createParentDirectoriesSync(path: string, cred: Cred): void {
+		let parent = dirname(path),
 			toCreate: string[] = [];
 		while (!this._writable.existsSync(parent, cred)) {
 			toCreate.push(parent);
@@ -450,8 +450,8 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 	}
 
-	private async createParentDirectories(p: string, cred: Cred): Promise<void> {
-		let parent = dirname(p),
+	private async createParentDirectories(path: string, cred: Cred): Promise<void> {
+		let parent = dirname(path),
 			toCreate: string[] = [];
 		while (!(await this._writable.exists(parent, cred))) {
 			toCreate.push(parent);
@@ -470,24 +470,24 @@ export class UnlockedOverlayFS extends FileSystem {
 	 * - Ensures p is on writable before proceeding. Throws an error if it doesn't exist.
 	 * - Calls f to perform operation on writable.
 	 */
-	private operateOnWritable(p: string, cred: Cred): void {
-		if (!this.existsSync(p, cred)) {
-			throw ErrnoError.With('ENOENT', p, 'operateOnWriteable');
+	private operateOnWritable(path: string, cred: Cred): void {
+		if (!this.existsSync(path, cred)) {
+			throw ErrnoError.With('ENOENT', path, 'operateOnWriteable');
 		}
-		if (!this._writable.existsSync(p, cred)) {
+		if (!this._writable.existsSync(path, cred)) {
 			// File is on readable storage. Copy to writable storage before
 			// changing its mode.
-			this.copyToWritableSync(p, cred);
+			this.copyToWritableSync(path, cred);
 		}
 	}
 
-	private async operateOnWritableAsync(p: string, cred: Cred): Promise<void> {
-		if (!(await this.exists(p, cred))) {
-			throw ErrnoError.With('ENOENT', p, 'operateOnWritable');
+	private async operateOnWritableAsync(path: string, cred: Cred): Promise<void> {
+		if (!(await this.exists(path, cred))) {
+			throw ErrnoError.With('ENOENT', path, 'operateOnWritable');
 		}
 
-		if (!(await this._writable.exists(p, cred))) {
-			return this.copyToWritable(p, cred);
+		if (!(await this._writable.exists(path, cred))) {
+			return this.copyToWritable(path, cred);
 		}
 	}
 
@@ -495,34 +495,34 @@ export class UnlockedOverlayFS extends FileSystem {
 	 * Copy from readable to writable storage.
 	 * PRECONDITION: File does not exist on writable storage.
 	 */
-	private copyToWritableSync(p: string, cred: Cred): void {
-		const stats = this.statSync(p, cred);
+	private copyToWritableSync(path: string, cred: Cred): void {
+		const stats = this.statSync(path, cred);
 		if (stats.isDirectory()) {
-			this._writable.mkdirSync(p, stats.mode, cred);
+			this._writable.mkdirSync(path, stats.mode, cred);
 			return;
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = this._readable.openFileSync(p, parseFlag('r'), cred);
+		const readable = this._readable.openFileSync(path, parseFlag('r'), cred);
 		readable.readSync(data);
 		readable.closeSync();
-		const writable = this._writable.openFileSync(p, parseFlag('w'), cred);
+		const writable = this._writable.openFileSync(path, parseFlag('w'), cred);
 		writable.writeSync(data);
 		writable.closeSync();
 	}
 
-	private async copyToWritable(p: string, cred: Cred): Promise<void> {
-		const stats = await this.stat(p, cred);
+	private async copyToWritable(path: string, cred: Cred): Promise<void> {
+		const stats = await this.stat(path, cred);
 		if (stats.isDirectory()) {
-			await this._writable.mkdir(p, stats.mode, cred);
+			await this._writable.mkdir(path, stats.mode, cred);
 			return;
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = await this._readable.openFile(p, parseFlag('r'), cred);
+		const readable = await this._readable.openFile(path, parseFlag('r'), cred);
 		await readable.read(data);
 		await readable.close();
-		const writable = await this._writable.openFile(p, parseFlag('w'), cred);
+		const writable = await this._writable.openFile(path, parseFlag('w'), cred);
 		await writable.write(data);
 		await writable.close();
 	}

@@ -86,10 +86,10 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 		return this.fs.createFileSync(path, flag, mode, cred);
 	}
 
-	public async unlink(p: string, cred: Cred): Promise<void> {
-		await this._mu.lock(p);
-		await this.fs.unlink(p, cred);
-		this._mu.unlock(p);
+	public async unlink(path: string, cred: Cred): Promise<void> {
+		await this._mu.lock(path);
+		await this.fs.unlink(path, cred);
+		this._mu.unlock(path);
 	}
 
 	public unlinkSync(path: string, cred: Cred): void {

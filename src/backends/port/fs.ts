@@ -174,33 +174,33 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('rename', oldPath, newPath, cred);
 	}
 
-	public async stat(p: string, cred: Cred): Promise<Stats> {
-		return new Stats(await this.rpc('stat', p, cred));
+	public async stat(path: string, cred: Cred): Promise<Stats> {
+		return new Stats(await this.rpc('stat', path, cred));
 	}
 
 	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		return this.rpc('sync', path, data, stats);
 	}
-	public openFile(p: string, flag: string, cred: Cred): Promise<File> {
-		return this.rpc('openFile', p, flag, cred);
+	public openFile(path: string, flag: string, cred: Cred): Promise<File> {
+		return this.rpc('openFile', path, flag, cred);
 	}
-	public createFile(p: string, flag: string, mode: number, cred: Cred): Promise<File> {
-		return this.rpc('createFile', p, flag, mode, cred);
+	public createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
+		return this.rpc('createFile', path, flag, mode, cred);
 	}
-	public unlink(p: string, cred: Cred): Promise<void> {
-		return this.rpc('unlink', p, cred);
+	public unlink(path: string, cred: Cred): Promise<void> {
+		return this.rpc('unlink', path, cred);
 	}
-	public rmdir(p: string, cred: Cred): Promise<void> {
-		return this.rpc('rmdir', p, cred);
+	public rmdir(path: string, cred: Cred): Promise<void> {
+		return this.rpc('rmdir', path, cred);
 	}
-	public mkdir(p: string, mode: number, cred: Cred): Promise<void> {
-		return this.rpc('mkdir', p, mode, cred);
+	public mkdir(path: string, mode: number, cred: Cred): Promise<void> {
+		return this.rpc('mkdir', path, mode, cred);
 	}
-	public readdir(p: string, cred: Cred): Promise<string[]> {
-		return this.rpc('readdir', p, cred);
+	public readdir(path: string, cred: Cred): Promise<string[]> {
+		return this.rpc('readdir', path, cred);
 	}
-	public exists(p: string, cred: Cred): Promise<boolean> {
-		return this.rpc('exists', p, cred);
+	public exists(path: string, cred: Cred): Promise<boolean> {
+		return this.rpc('exists', path, cred);
 	}
 	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
 		return this.rpc('link', srcpath, dstpath, cred);

@@ -4,20 +4,20 @@ import { statSync, readFileSync, readdirSync } from 'fs';
 
 export const fixturesDir = 'tests/fixtures/node';
 
-function copy(_p: string) {
-	const p = relative(fixturesDir, _p) || '/';
-	const stats = statSync(_p);
+function copy(_path: string) {
+	const path = relative(fixturesDir, _path) || '/';
+	const stats = statSync(_path);
 
 	if (!stats.isDirectory()) {
-		fs.writeFileSync(p, readFileSync(_p));
+		fs.writeFileSync(path, readFileSync(_path));
 		return;
 	}
 
-	if (p != '/') {
-		fs.mkdirSync(p);
+	if (path != '/') {
+		fs.mkdirSync(path);
 	}
-	for (const file of readdirSync(_p)) {
-		copy(join(_p, file));
+	for (const file of readdirSync(_path)) {
+		copy(join(_path, file));
 	}
 }
 

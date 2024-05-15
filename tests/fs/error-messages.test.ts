@@ -4,16 +4,16 @@ import { fs } from '../common.js';
 const existingFile = '/exit.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function expectError(fn: (...args: any[]) => unknown, p: string, ...args: any[]) {
+async function expectError(fn: (...args: any[]) => unknown, path: string, ...args: any[]) {
 	let error: ErrnoError;
 	try {
-		await fn(p, ...args);
+		await fn(path, ...args);
 	} catch (err) {
 		error = err;
 	}
 	expect(error).toBeDefined();
-	expect(error.path).toBe(p);
-	expect(error.message).toContain(p);
+	expect(error.path).toBe(path);
+	expect(error.message).toContain(path);
 }
 
 describe('Error messages', () => {
