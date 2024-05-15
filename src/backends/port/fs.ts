@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ErrnoError, Errno } from '../../error.js';
+import type { FileReadResult } from 'node:fs/promises';
+import type { ExtractProperties } from 'utilium';
 import type { Cred } from '../../cred.js';
-import { FileSystem, type FileSystemMetadata, Async } from '../../filesystem.js';
+import { Errno, ErrnoError } from '../../error.js';
 import { File } from '../../file.js';
+import { Async, FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { Stats, type FileType } from '../../stats.js';
 import { InMemory } from '../InMemory.js';
-import type { StoreFS } from '../Store.js';
 import type { Backend } from '../backend.js';
 import * as RPC from './rpc.js';
-import type { ExtractProperties } from 'utilium';
-import type { FileReadResult } from 'node:fs/promises';
 
 type FileMethods = ExtractProperties<File, (...args: any[]) => Promise<any>>;
 type FileMethod = keyof FileMethods;
@@ -136,7 +135,7 @@ export class PortFS extends Async(FileSystem) {
 	/**
 	 * @hidden
 	 */
-	_sync: StoreFS = InMemory.create({ name: 'port-tmpfs' });
+	_sync = InMemory.create({ name: 'port-tmpfs' });
 
 	/**
 	 * Constructs a new PortFS instance that connects with ZenFS running on
@@ -297,7 +296,7 @@ export const Port = {
 		},
 	},
 
-	async isAvailable(port?: RPC.Port): Promise<boolean> {
+	async isAvailable(): Promise<boolean> {
 		return true;
 	},
 

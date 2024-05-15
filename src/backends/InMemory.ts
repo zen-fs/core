@@ -1,6 +1,7 @@
 import type { Ino } from '../inode.js';
 import type { Backend } from './backend.js';
-import { SimpleSyncStore, StoreFS } from './Store.js';
+import { StoreFS } from './store/fs.js';
+import { SimpleSyncStore } from './store/simple.js';
 
 /**
  * A simple in-memory store
@@ -30,10 +31,6 @@ export class InMemoryStore extends SimpleSyncStore {
 		}
 		this.data.set(ino, data);
 		return true;
-	}
-
-	public entries(): Iterable<[Ino, Uint8Array]> {
-		return [...this.data.entries()];
 	}
 }
 

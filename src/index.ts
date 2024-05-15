@@ -5,7 +5,7 @@ export * from './backends/InMemory.js';
 export * from './backends/Index.js';
 export * from './backends/Locked.js';
 export * from './backends/Overlay.js';
-export * from './backends/Store.js';
+export * from './backends/store/fs.js';
 export * from './backends/backend.js';
 export * from './config.js';
 export * from './cred.js';
