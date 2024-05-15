@@ -34,12 +34,14 @@ export interface Store {
 /**
  * A transaction for a synchronous key value store.
  */
-export interface Transaction {
+export abstract class Transaction {
+	protected aborted: boolean = false;
+
 	/**
 	 * Retrieves the data at the given key.
 	 * @param ino The key to look under for data.
 	 */
-	get(ino: Ino): Promise<Uint8Array>;
+	public abstract get(ino: Ino): Promise<Uint8Array>;
 
 	/**
 	 * Retrieves the data at the given key. Throws an error if an error occurs
@@ -47,7 +49,7 @@ export interface Transaction {
 	 * @param ino The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	getSync(ino: Ino): Uint8Array | void;
+	public abstract getSync(ino: Ino): Uint8Array;
 
 	/**
 	 * Adds the data to the store under the given key. Overwrites any existing
@@ -57,7 +59,7 @@ export interface Transaction {
 	 * @param overwrite If 'true', overwrite any existing data. If 'false',
 	 *   avoids writing the data if the key exists.
 	 */
-	set(ino: Ino, data: Uint8Array): Promise<void>;
+	public abstract set(ino: Ino, data: Uint8Array): Promise<void>;
 
 	/**
 	 * Adds the data to the store under the given key.
@@ -67,62 +69,73 @@ export interface Transaction {
 	 *   avoids storing the data if the key exists.
 	 * @return True if storage succeeded, false otherwise.
 	 */
-	setSync(ino: Ino, data: Uint8Array): void;
+	public abstract setSync(ino: Ino, data: Uint8Array): void;
 
 	/**
 	 * Deletes the data at the given key.
 	 * @param ino The key to delete from the store.
 	 */
-	remove(ino: Ino): Promise<void>;
+	public abstract remove(ino: Ino): Promise<void>;
 
 	/**
 	 * Deletes the data at the given key.
 	 * @param ino The key to delete from the store.
 	 */
-	removeSync(ino: Ino): void;
+	public abstract removeSync(ino: Ino): void;
 
 	/**
 	 * Commits the transaction.
 	 */
-	commit(): Promise<void>;
+	public abstract commit(): Promise<void>;
+
+	public async [Symbol.asyncDispose]() {
+		if (this.aborted) {
+			return;
+		}
+
+		await this.commit();
+	}
 
 	/**
 	 * Commits the transaction.
 	 */
-	commitSync(): void;
+	public abstract commitSync(): void;
+
+	public [Symbol.dispose]() {
+		if (this.aborted) {
+			return;
+		}
+
+		this.commitSync();
+	}
 
 	/**
 	 * Aborts and rolls back the transaction.
 	 */
-	abort(): Promise<void>;
+	public abstract abort(): Promise<void>;
 
 	/**
 	 * Aborts and rolls back the transaction.
 	 */
-	abortSync(): void;
+	public abstract abortSync(): void;
 }
 
 /**
  * Transaction that implement asynchronous operations with synchronous ones
  */
-export abstract class SyncTransaction implements Transaction {
-	public abstract getSync(ino: Ino): Uint8Array;
+export abstract class SyncTransaction extends Transaction {
 	public async get(ino: Ino): Promise<Uint8Array> {
 		return this.getSync(ino);
 	}
-	public abstract setSync(ino: bigint, data: Uint8Array): void;
 	public async set(ino: bigint, data: Uint8Array): Promise<void> {
 		return this.setSync(ino, data);
 	}
-	public abstract removeSync(ino: bigint): void;
 	public async remove(ino: Ino): Promise<void> {
 		return this.removeSync(ino);
 	}
-	public abstract commitSync(): void;
 	public async commit(): Promise<void> {
 		return this.commitSync();
 	}
-	public abstract abortSync(): void;
 	public async abort(): Promise<void> {
 		return this.abortSync();
 	}
@@ -132,25 +145,20 @@ export abstract class SyncTransaction implements Transaction {
  * Transaction that only supports asynchronous operations
  * @todo Add caching
  */
-export abstract class AsyncTransaction implements Transaction {
-	public getSync(ino: Ino): Uint8Array | void {
+export abstract class AsyncTransaction extends Transaction {
+	public getSync(ino: Ino): Uint8Array {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.getSync');
 	}
-	public abstract get(key: bigint): Promise<Uint8Array>;
 	public setSync(ino: bigint, data: Uint8Array): void {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.setSync');
 	}
-	public abstract set(key: bigint, data: Uint8Array): Promise<void>;
 	public removeSync(ino: bigint): void {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.removeSync');
 	}
-	public abstract remove(key: bigint): Promise<void>;
 	public commitSync(): void {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.commitSync');
 	}
-	public abstract commit(): Promise<void>;
 	public abortSync(): void {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.abortSync');
 	}
-	public abstract abort(): Promise<void>;
 }
