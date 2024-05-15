@@ -33,7 +33,7 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 	}
 
 	if (isBackend(config)) {
-		config = <BackendConfiguration<Backend<FS, TOptions>>>{ backend: config };
+		config = { backend: config } as BackendConfiguration<Backend<FS, TOptions>>;
 	}
 
 	for (const [key, value] of Object.entries(config)) {
@@ -76,7 +76,7 @@ export interface Configuration {
  * Creates filesystems with the given configuration, and initializes ZenFS with it.
  * @see Configuration for more info on the configuration object.
  */
-export async function configure(config: MountConfiguration | Configuration): Promise<void> {
+export async function configure<T extends MountConfiguration | Configuration>(config: T | Configuration): Promise<void> {
 	const uid = 'uid' in config ? config.uid || 0 : 0;
 	const gid = 'gid' in config ? config.gid || 0 : 0;
 

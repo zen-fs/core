@@ -1,6 +1,6 @@
-import { ErrnoError, InMemory, configure, fs, type BackendConfiguration } from '../../src/index.js';
 import { MessageChannel } from 'node:worker_threads';
 import { Port } from '../../src/backends/port/fs.js';
+import { ErrnoError, InMemory, configure, fs } from '../../src/index.js';
 
 /**
  * Tests a mis-configured PortFS using a MessageChannel
@@ -20,7 +20,7 @@ describe('Timeout', () => {
 			await configure({
 				mounts: {
 					'/tmp': { backend: InMemory, name: 'tmp' },
-					'/port': <BackendConfiguration>{ backend: Port, port: port1, timeout: 100 },
+					'/port': { backend: Port, port: port1, timeout: 100 },
 				},
 			});
 		} catch (e) {
@@ -34,7 +34,7 @@ describe('Timeout', () => {
 	test('Remote not attached', async () => {
 		let error: ErrnoError;
 		try {
-			await configure(<BackendConfiguration>{ backend: Port, port: port1, timeout: 100 });
+			await configure({ backend: Port, port: port1, timeout: 100 });
 			await fs.promises.writeFile('/test', 'anything');
 		} catch (e) {
 			error = e;

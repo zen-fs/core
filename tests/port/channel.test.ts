@@ -1,6 +1,6 @@
-import { InMemory, configure, fs, resolveMountConfig, StoreFS, type BackendConfiguration } from '../../src/index.js';
 import { MessageChannel } from 'node:worker_threads';
 import { Port, attachFS } from '../../src/backends/port/fs.js';
+import { InMemory, StoreFS, configure, fs, resolveMountConfig } from '../../src/index.js';
 
 describe('FS with MessageChannel', () => {
 	const { port1, port2 } = new MessageChannel(),
@@ -15,7 +15,7 @@ describe('FS with MessageChannel', () => {
 	test('configuration', async () => {
 		tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
 		attachFS(port2, tmpfs);
-		await configure(<BackendConfiguration>{ backend: Port, port: port1 });
+		await configure({ backend: Port, port: port1 });
 	});
 
 	test('write', async () => {
