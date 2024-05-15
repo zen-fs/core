@@ -86,7 +86,7 @@ export class StoreFS extends FileSystem {
 	 * @todo Make rename compatible with the cache.
 	 */
 	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			oldParent = dirname(oldPath),
 			oldName = basename(oldPath),
 			newParent = dirname(newPath),
@@ -155,7 +155,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			oldParent = dirname(oldPath),
 			oldName = basename(oldPath),
 			newParent = dirname(newPath),
@@ -225,7 +225,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public async stat(path: string, cred: Cred): Promise<Stats> {
-		const tx = this.store.beginTransaction();
+		const tx = this.store.transaction();
 		const inode = await this.findINode(tx, path);
 		if (!inode) {
 			throw ErrnoError.With('ENOENT', path, 'stat');
@@ -239,7 +239,7 @@ export class StoreFS extends FileSystem {
 
 	public statSync(path: string, cred: Cred): Stats {
 		// Get the inode to the item, convert it into a Stats object.
-		const stats = this.findINodeSync(this.store.beginTransaction(), path).toStats();
+		const stats = this.findINodeSync(this.store.transaction(), path).toStats();
 		if (!stats.hasAccess(R_OK, cred)) {
 			throw ErrnoError.With('EACCES', path, 'stat');
 		}
@@ -247,7 +247,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<PreloadFile<this>> {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			data = new Uint8Array(0),
 			newFile = await this.commitNew(tx, path, FileType.FILE, mode, cred, data);
 		// Open the file.
@@ -260,7 +260,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public async openFile(path: string, flag: string, cred: Cred): Promise<PreloadFile<this>> {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			node = await this.findINode(tx, path),
 			data = await tx.get(node.ino);
 		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
@@ -273,7 +273,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public openFileSync(path: string, flag: string, cred: Cred): PreloadFile<this> {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			node = this.findINodeSync(tx, path),
 			data = tx.getSync(node.ino);
 		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
@@ -312,7 +312,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			data = encode('{}');
 		await this.commitNew(tx, path, FileType.DIRECTORY, mode, cred, data);
 	}
@@ -322,7 +322,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public async readdir(path: string, cred: Cred): Promise<string[]> {
-		const tx = this.store.beginTransaction();
+		const tx = this.store.transaction();
 		const node = await this.findINode(tx, path);
 		if (!node.toStats().hasAccess(R_OK, cred)) {
 			throw ErrnoError.With('EACCES', path, 'readdur');
@@ -331,7 +331,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public readdirSync(path: string, cred: Cred): string[] {
-		const tx = this.store.beginTransaction();
+		const tx = this.store.transaction();
 		const node = this.findINodeSync(tx, path);
 		if (!node.toStats().hasAccess(R_OK, cred)) {
 			throw ErrnoError.With('EACCES', path, 'readdir');
@@ -344,7 +344,7 @@ export class StoreFS extends FileSystem {
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			// We use _findInode because we actually need the INode id.
 			fileInodeId = await this._findINode(tx, dirname(path), basename(path)),
 			fileInode = await this.getINode(tx, fileInodeId, path),
@@ -369,7 +369,7 @@ export class StoreFS extends FileSystem {
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			// We use _findInode because we actually need the INode id.
 			fileInodeId = this._findINodeSync(tx, dirname(path), basename(path)),
 			fileInode = this.getINodeSync(tx, fileInodeId, path),
@@ -390,7 +390,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public async link(existing: string, newpath: string, cred: Cred): Promise<void> {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			existingDir: string = dirname(existing),
 			existingDirNode = await this.findINode(tx, existingDir);
 
@@ -426,7 +426,7 @@ export class StoreFS extends FileSystem {
 	}
 
 	public linkSync(existing: string, newpath: string, cred: Cred): void {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			existingDir: string = dirname(existing),
 			existingDirNode = this.findINodeSync(tx, existingDir);
 
@@ -464,7 +464,7 @@ export class StoreFS extends FileSystem {
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
 	private async makeRootDirectory(): Promise<void> {
-		const tx = this.store.beginTransaction();
+		const tx = this.store.transaction();
 		if (await tx.get(rootIno)) {
 			return;
 		}
@@ -481,7 +481,7 @@ export class StoreFS extends FileSystem {
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
 	protected makeRootDirectorySync(): void {
-		const tx = this.store.beginTransaction();
+		const tx = this.store.transaction();
 		if (tx.getSync(rootIno)) {
 			return;
 		}
@@ -736,7 +736,7 @@ export class StoreFS extends FileSystem {
 	 * @return The Inode for the new file.
 	 */
 	protected commitNewSync(path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			parentPath = dirname(path),
 			parent = this.findINodeSync(tx, parentPath);
 
@@ -788,7 +788,7 @@ export class StoreFS extends FileSystem {
 	 * @todo Update mtime.
 	 */
 	private async remove(path: string, isDir: boolean, cred: Cred): Promise<void> {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			parent: string = dirname(path),
 			parentNode = await this.findINode(tx, parent),
 			listing = await this.getDirListing(tx, parentNode, parent),
@@ -842,7 +842,7 @@ export class StoreFS extends FileSystem {
 	 * @todo Update mtime.
 	 */
 	protected removeSync(path: string, isDir: boolean, cred: Cred): void {
-		const tx = this.store.beginTransaction(),
+		const tx = this.store.transaction(),
 			parent: string = dirname(path),
 			parentNode = this.findINodeSync(tx, parent),
 			listing = this.getDirListingSync(tx, parentNode, parent),

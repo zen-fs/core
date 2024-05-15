@@ -28,7 +28,7 @@ export interface Store {
 	/**
 	 * Begins a new transaction.
 	 */
-	beginTransaction(): Transaction;
+	transaction(): Transaction;
 }
 
 /**

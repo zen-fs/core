@@ -59,7 +59,7 @@ export abstract class SimpleAsyncStore implements SimpleSyncStore {
 		}
 	}
 
-	public beginTransaction(): SimpleTransaction {
+	public transaction(): SimpleTransaction {
 		return new SimpleTransaction(this);
 	}
 }

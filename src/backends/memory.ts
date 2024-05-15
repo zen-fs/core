@@ -17,7 +17,7 @@ export class InMemoryStore extends Map<Ino, Uint8Array> implements SimpleSyncSto
 		this.clear();
 	}
 
-	public beginTransaction(): SimpleTransaction {
+	public transaction(): SimpleTransaction {
 		return new SimpleTransaction(this);
 	}
 }
