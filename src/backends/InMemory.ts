@@ -1,20 +1,16 @@
 import type { Ino } from '../inode.js';
 import type { Backend } from './backend.js';
-import { SimpleStore, SimpleTransaction, StoreFS, type Store } from './Store.js';
+import { SimpleSyncStore, StoreFS } from './Store.js';
 
 /**
  * A simple in-memory store
  */
-export class InMemoryStore implements Store, SimpleStore {
+export class InMemoryStore extends SimpleSyncStore {
 	protected data: Map<Ino, Uint8Array> = new Map();
 
-	public constructor(public name: string = 'tmp') {}
-
-	public async clear(): Promise<void> {
-		this.data.clear();
+	public constructor(public name: string = 'tmp') {
+		super();
 	}
-
-	public async sync(): Promise<void> {}
 
 	public get(ino: Ino): Uint8Array | undefined {
 		return this.data.get(ino);
@@ -26,10 +22,6 @@ export class InMemoryStore implements Store, SimpleStore {
 
 	public clearSync(): void {
 		this.data.clear();
-	}
-
-	public beginTransaction(): SimpleTransaction {
-		return new SimpleTransaction(this);
 	}
 
 	public put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean {

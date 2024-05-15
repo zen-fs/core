@@ -159,14 +159,23 @@ export abstract class AsyncTransaction implements Transaction {
  * An interface for simple synchronous key-value stores that don't have special
  * support for transactions and such.
  */
-export interface SimpleStore extends Store {
-	get(ino: Ino): Uint8Array | undefined;
-	put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean;
-	delete(ino: Ino): void;
-	entries(): Iterable<[Ino, Uint8Array]>;
+export abstract class SimpleSyncStore implements Store {
+	public abstract name: string;
+	public async sync(): Promise<void> {}
+	public async clear(): Promise<void> {
+		this.clearSync();
+	}
+	public abstract clearSync(): void;
+	public beginTransaction(): SimpleSyncTransaction {
+		return new SimpleSyncTransaction(this);
+	}
+	public abstract get(ino: Ino): Uint8Array | undefined;
+	public abstract put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean;
+	public abstract delete(ino: Ino): void;
+	public abstract entries(): Iterable<[Ino, Uint8Array]>;
 }
 
-export abstract class SimpleAsyncStore implements SimpleStore, Store {
+export abstract class SimpleAsyncStore implements SimpleSyncStore, Store {
 	public abstract name: string;
 
 	protected cache: Map<Ino, Uint8Array> = new Map();
@@ -219,15 +228,15 @@ export abstract class SimpleAsyncStore implements SimpleStore, Store {
 		}
 	}
 
-	public beginTransaction(): SimpleTransaction {
-		return new SimpleTransaction(this);
+	public beginTransaction(): SimpleSyncTransaction {
+		return new SimpleSyncTransaction(this);
 	}
 }
 
 /**
  * A simple transaction for simple synchronous key-value stores.
  */
-export class SimpleTransaction extends SyncTransaction {
+export class SimpleSyncTransaction extends SyncTransaction {
 	/**
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
@@ -238,7 +247,7 @@ export class SimpleTransaction extends SyncTransaction {
 	 */
 	protected modifiedKeys: Set<Ino> = new Set();
 
-	constructor(protected store: SimpleStore) {
+	constructor(protected store: SimpleSyncStore) {
 		super();
 	}
 
