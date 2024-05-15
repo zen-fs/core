@@ -9,13 +9,6 @@ import { type Stats, FileType } from '../../stats.js';
 import { encodeDirListing, encode, decodeDirListing } from '../../utils.js';
 import type { Store, Transaction } from './store.js';
 
-export interface StoreOptions {
-	/**
-	 * The actual key-value store to read from/write to.
-	 */
-	store: Store | Promise<Store>;
-}
-
 const maxInodeAllocTries = 5;
 
 /**
@@ -44,14 +37,14 @@ export class StoreFS extends FileSystem {
 			return;
 		}
 		this._initialized = true;
-		this._store = await this.options.store;
+		this._store = await this.$store;
 	}
 
-	constructor(protected options: StoreOptions) {
+	constructor(private $store: Store | Promise<Store>) {
 		super();
 
-		if (!(options.store instanceof Promise)) {
-			this._store = options.store;
+		if (!($store instanceof Promise)) {
+			this._store = $store;
 			this._initialized = true;
 			this.makeRootDirectorySync();
 		}

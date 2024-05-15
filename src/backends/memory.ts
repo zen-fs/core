@@ -39,6 +39,6 @@ export const InMemory = {
 		},
 	},
 	create({ name }: { name?: string }) {
-		return new StoreFS({ store: new InMemoryStore(name) });
+		return new StoreFS(new InMemoryStore(name));
 	},
 } as const satisfies Backend<StoreFS, { name?: string }>;

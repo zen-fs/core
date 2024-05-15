@@ -6,7 +6,7 @@ import type { Ino } from '../../inode.js';
  */
 export interface Store {
 	/**
-	 * The name of the key-value store.
+	 * The name of the store.
 	 */
 	name: string;
 
@@ -32,7 +32,7 @@ export interface Store {
 }
 
 /**
- * A transaction for a synchronous key value store.
+ * A transaction for a synchronous store.
  */
 export abstract class Transaction {
 	protected aborted: boolean = false;
@@ -121,7 +121,7 @@ export abstract class Transaction {
 }
 
 /**
- * Transaction that implement asynchronous operations with synchronous ones
+ * Transaction that implements asynchronous operations with synchronous ones
  */
 export abstract class SyncTransaction extends Transaction {
 	public async get(ino: Ino): Promise<Uint8Array> {
