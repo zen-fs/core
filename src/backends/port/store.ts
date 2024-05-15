@@ -1,103 +1,69 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ErrnoError, Errno } from '../../error.js';
-import { type Transaction, type Store, StoreFS, AsyncTransaction } from '../Store.js';
+import { Errno, ErrnoError } from '../../error.js';
+import type { Ino } from '../../inode.js';
+import { SimpleAsyncStore, StoreFS, type SimpleStore } from '../Store.js';
 import type { Backend } from '../backend.js';
 import * as RPC from './rpc.js';
-import type { ExtractProperties } from 'utilium';
 
-export class PortStore implements Store {
+interface StoreMethods {
+	clear(): void;
+	sync(): void;
+	get(ino: Ino): Uint8Array | undefined;
+	put(ino: bigint, data: Uint8Array, overwrite: boolean): boolean;
+	delete(ino: bigint): void;
+	entries(): Iterable<[Ino, Uint8Array]>;
+}
+
+type StoreMethod = keyof StoreMethods;
+
+type StoreRequest<T extends StoreMethod = StoreMethod> = RPC.Request<'store', T, Parameters<StoreMethods[T]>>;
+
+export class PortStore extends SimpleAsyncStore {
 	public readonly isSync = false;
 	public readonly port: RPC.Port;
 	public constructor(
 		public readonly options: RPC.Options,
 		public readonly name: string = 'port'
 	) {
+		super();
 		this.port = options.port;
 		RPC.attach<RPC.Response>(this.port, RPC.handleResponse);
 	}
 
-	public clear(): Promise<void> {
-		return RPC.request(
+	protected rpc<const T extends StoreMethod>(method: T, ...args: Parameters<StoreMethods[T]>): Promise<ReturnType<StoreMethods[T]>> {
+		return RPC.request<StoreRequest<T>, ReturnType<StoreMethods[T]>>(
 			{
 				scope: 'store',
-				method: 'clear',
-				args: [],
-			},
-			this.options
-		);
-	}
-
-	public clearSync(): void {
-		throw ErrnoError.With('ENOSYS', undefined, 'PortStore.clearSync');
-	}
-
-	public beginTransaction(): PortTransaction {
-		const id = RPC.request<RPC.Request, number>(
-			{
-				scope: 'store',
-				method: 'beginTransaction',
-				args: [],
-			},
-			this.options
-		);
-		return new PortTransaction(this, id);
-	}
-}
-
-type TxMethods = ExtractProperties<Transaction, (...args: any[]) => Promise<any>>;
-type TxMethod = keyof TxMethods;
-interface TxRequest<TMethod extends TxMethod = TxMethod> extends RPC.Request<'transaction', TMethod | 'close', Parameters<TxMethods[TMethod]>> {
-	tx: number;
-}
-
-export class PortTransaction extends AsyncTransaction {
-	constructor(
-		public readonly store: PortStore,
-		public readonly id: number | Promise<number>
-	) {
-		super();
-	}
-
-	public async rpc<const T extends TxMethod>(method: T, ...args: Parameters<TxMethods[T]>): Promise<Awaited<ReturnType<TxMethods[T]>>> {
-		return RPC.request<TxRequest<T>, Awaited<ReturnType<TxMethods[T]>>>(
-			{
-				scope: 'transaction',
-				tx: await this.id,
 				method,
 				args,
 			},
-			this.store.options
+			this.options
 		);
 	}
 
-	public get(key: bigint): Promise<Uint8Array> {
-		return this.rpc('get', key);
+	protected async _entries(): Promise<Iterable<[Ino, Uint8Array]>> {
+		return this.rpc('entries');
 	}
 
-	public async put(key: bigint, data: Uint8Array, overwrite: boolean): Promise<boolean> {
-		return await this.rpc('put', key, data, overwrite);
+	public clear(): Promise<void> {
+		return this.rpc('clear');
 	}
 
-	public async remove(key: bigint): Promise<void> {
-		return await this.rpc('remove', key);
+	public async sync(): Promise<void> {
+		await super.sync();
+		await this.rpc('sync');
 	}
 
-	public async commit(): Promise<void> {
-		return await this.rpc('commit');
+	protected _put(ino: bigint, data: Uint8Array, overwrite: boolean): Promise<boolean> {
+		return this.rpc('put', ino, data, overwrite);
 	}
 
-	public async abort(): Promise<void> {
-		return await this.rpc('abort');
+	protected _delete(ino: bigint): Promise<void> {
+		return this.rpc('delete', ino);
 	}
 }
 
-let nextTx = 0;
-
-const transactions: Map<number, Transaction> = new Map();
-
-type StoreOrTxRequest = TxRequest | RPC.Request<'store', keyof ExtractProperties<Store, (...args: any[]) => any>>;
-
-async function handleRequest(port: RPC.Port, store: Store, request: StoreOrTxRequest): Promise<void> {
+async function handleRequest(port: RPC.Port, store: SimpleStore, request: StoreRequest): Promise<void> {
 	if (!RPC.isMessage(request)) {
 		return;
 	}
@@ -106,31 +72,13 @@ async function handleRequest(port: RPC.Port, store: Store, request: StoreOrTxReq
 	let value,
 		error: boolean = false;
 
+	if (scope != 'store') {
+		return;
+	}
+
 	try {
-		switch (scope) {
-			case 'store':
-				// @ts-expect-error 2556
-				value = await store[method](...args);
-				if (method == 'beginTransaction') {
-					transactions.set(++nextTx, value!);
-					value = nextTx;
-				}
-				break;
-			case 'transaction':
-				const { tx } = request as TxRequest;
-				if (!transactions.has(tx)) {
-					throw new ErrnoError(Errno.EBADF);
-				}
-				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-				// @ts-ignore 2556
-				value = await transactions.get(tx)![method](...args);
-				if (method == 'close') {
-					transactions.delete(tx);
-				}
-				break;
-			default:
-				return;
-		}
+		// @ts-expect-error 2556
+		value = await store[method](...args);
 	} catch (e) {
 		value = e;
 		error = true;
@@ -147,12 +95,12 @@ async function handleRequest(port: RPC.Port, store: Store, request: StoreOrTxReq
 	});
 }
 
-export function attachStore(port: RPC.Port, store: Store): void {
-	RPC.attach(port, (request: StoreOrTxRequest) => handleRequest(port, store, request));
+export function attachStore(port: RPC.Port, store: SimpleStore): void {
+	RPC.attach(port, (request: StoreRequest) => handleRequest(port, store, request));
 }
 
-export function detachStore(port: RPC.Port, store: Store): void {
-	RPC.detach(port, (request: StoreOrTxRequest) => handleRequest(port, store, request));
+export function detachStore(port: RPC.Port, store: SimpleStore): void {
+	RPC.detach(port, (request: StoreRequest) => handleRequest(port, store, request));
 }
 
 export const PortStoreBackend: Backend = {

@@ -1,42 +1,47 @@
 import type { Ino } from '../inode.js';
 import type { Backend } from './backend.js';
-import { SimpleSyncStore, SimpleSyncTransaction, StoreFS, type Store } from './Store.js';
+import { SimpleStore, SimpleTransaction, StoreFS, type Store } from './Store.js';
 
 /**
  * A simple in-memory store
  */
-export class InMemoryStore implements Store, SimpleSyncStore {
-	public readonly isSync = true;
-
-	private store: Map<Ino, Uint8Array> = new Map();
+export class InMemoryStore implements Store, SimpleStore {
+	protected data: Map<Ino, Uint8Array> = new Map();
 
 	public constructor(public name: string = 'tmp') {}
-	public clear() {
-		this.store.clear();
+
+	public async clear(): Promise<void> {
+		this.data.clear();
+	}
+
+	public async sync(): Promise<void> {}
+
+	public get(ino: Ino): Uint8Array | undefined {
+		return this.data.get(ino);
+	}
+
+	public delete(ino: Ino): void {
+		this.data.delete(ino);
 	}
 
 	public clearSync(): void {
-		this.store.clear();
+		this.data.clear();
 	}
 
-	public beginTransaction(): SimpleSyncTransaction {
-		return new SimpleSyncTransaction(this);
+	public beginTransaction(): SimpleTransaction {
+		return new SimpleTransaction(this);
 	}
 
-	public get(key: Ino) {
-		return this.store.get(key);
-	}
-
-	public put(key: Ino, data: Uint8Array, overwrite: boolean): boolean {
-		if (!overwrite && this.store.has(key)) {
+	public put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean {
+		if (!overwrite && this.data.has(ino)) {
 			return false;
 		}
-		this.store.set(key, data);
+		this.data.set(ino, data);
 		return true;
 	}
 
-	public remove(key: Ino): void {
-		this.store.delete(key);
+	public entries(): Iterable<[Ino, Uint8Array]> {
+		return [...this.data.entries()];
 	}
 }
 

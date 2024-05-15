@@ -18,19 +18,17 @@ export interface Store {
 	name: string;
 
 	/**
-	 * Temporary. Flag used to determine whether to
-	 * A. initialize the store in the StoreFS constructor (sync)
-	 * or B. initialize the store in StoreFS.ready (async)
+	 *
 	 */
-	isSync: boolean;
+	sync(): Promise<void>;
 
 	/**
 	 * Empties the store completely.
 	 */
-	clear(): Promise<void> | void;
+	clear(): Promise<void>;
 
 	/**
-	 * Empties the key-value store completely.
+	 * Empties the store completely.
 	 */
 	clearSync(): void;
 
@@ -161,16 +159,75 @@ export abstract class AsyncTransaction implements Transaction {
  * An interface for simple synchronous key-value stores that don't have special
  * support for transactions and such.
  */
-export interface SimpleSyncStore {
+export interface SimpleStore extends Store {
 	get(ino: Ino): Uint8Array | undefined;
 	put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean;
-	remove(ino: Ino): void;
+	delete(ino: Ino): void;
+	entries(): Iterable<[Ino, Uint8Array]>;
+}
+
+export abstract class SimpleAsyncStore implements SimpleStore, Store {
+	public abstract name: string;
+
+	protected cache: Map<Ino, Uint8Array> = new Map();
+
+	protected queue: Set<Promise<unknown>> = new Set();
+
+	public entries(): Iterable<[Ino, Uint8Array]> {
+		return [...this.cache.entries()];
+	}
+
+	protected abstract _entries(): Promise<Iterable<[Ino, Uint8Array]>>;
+
+	public get(ino: Ino): Uint8Array | undefined {
+		return this.cache.get(ino);
+	}
+
+	public put(ino: Ino, data: Uint8Array, overwrite: boolean): boolean {
+		if (!overwrite && this.cache.has(ino)) {
+			return false;
+		}
+		this.cache.set(ino, data);
+		this.queue.add(this._put(ino, data, overwrite));
+		return true;
+	}
+
+	protected abstract _put(ino: Ino, data: Uint8Array, overwrite: boolean): Promise<boolean>;
+
+	public delete(ino: Ino): void {
+		this.cache.delete(ino);
+		this.queue.add(this._delete(ino));
+	}
+
+	protected abstract _delete(ino: Ino): Promise<void>;
+
+	public clearSync(): void {
+		this.cache.clear();
+		this.queue.add(this.clear());
+	}
+
+	public abstract clear(): Promise<void>;
+
+	public async sync(): Promise<void> {
+		for (const [ino, data] of await this._entries()) {
+			if (!this.cache.has(ino)) {
+				this.cache.set(ino, data);
+			}
+		}
+		for (const promise of this.queue) {
+			await promise;
+		}
+	}
+
+	public beginTransaction(): SimpleTransaction {
+		return new SimpleTransaction(this);
+	}
 }
 
 /**
  * A simple transaction for simple synchronous key-value stores.
  */
-export class SimpleSyncTransaction extends SyncTransaction {
+export class SimpleTransaction extends SyncTransaction {
 	/**
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
@@ -181,7 +238,7 @@ export class SimpleSyncTransaction extends SyncTransaction {
 	 */
 	protected modifiedKeys: Set<Ino> = new Set();
 
-	constructor(protected store: SimpleSyncStore) {
+	constructor(protected store: SimpleStore) {
 		super();
 	}
 
@@ -198,7 +255,7 @@ export class SimpleSyncTransaction extends SyncTransaction {
 
 	public removeSync(ino: Ino): void {
 		this.markModified(ino);
-		this.store.remove(ino);
+		this.store.delete(ino);
 	}
 
 	public commitSync(): void {
@@ -211,7 +268,7 @@ export class SimpleSyncTransaction extends SyncTransaction {
 			const value = this.originalData.get(key);
 			if (!value) {
 				// Key didn't exist.
-				this.store.remove(key);
+				this.store.delete(key);
 			} else {
 				// Key existed. Store old value.
 				this.store.put(key, value, true);
@@ -278,16 +335,14 @@ export class StoreFS extends FileSystem {
 		}
 		this._initialized = true;
 		this._store = await this.options.store;
-		await this.makeRootDirectory();
 	}
 
 	constructor(protected options: StoreOptions) {
 		super();
 
-		if (!(options.store instanceof Promise) && options.store.isSync) {
+		if (!(options.store instanceof Promise)) {
 			this._store = options.store;
 			this._initialized = true;
-
 			this.makeRootDirectorySync();
 		}
 	}
@@ -303,7 +358,7 @@ export class StoreFS extends FileSystem {
 	 * Delete all contents stored in the file system.
 	 */
 	public async empty(): Promise<void> {
-		await this.store.clearSync();
+		await this.store.clear();
 		// Root always exists.
 		await this.makeRootDirectory();
 	}
