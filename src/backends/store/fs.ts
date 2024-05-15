@@ -16,6 +16,8 @@ export interface StoreOptions {
 	store: Store | Promise<Store>;
 }
 
+const maxInodeAllocTries = 5;
+
 /**
  * A synchronous key-value file system. Uses a SyncStore to store the data.
  *
@@ -632,85 +634,81 @@ export class StoreFS extends FileSystem {
 	}
 
 	/**
-	 * Adds a new node under a random ID. Retries 5 times before giving up in
+	 * Adds a new node under a random ID. Retries before giving up in
 	 * the exceedingly unlikely chance that we try to reuse a random ino.
 	 */
-	private async addNewNode(tx: Transaction, data: Uint8Array, _maxAttempts: number = 5): Promise<Ino> {
-		if (_maxAttempts <= 0) {
-			// Max retries hit. Return with an error.
-			throw new ErrnoError(Errno.EIO, 'Unable to commit data to key-value store.');
+	private async addNewNode(tx: Transaction, data: Uint8Array, path: string): Promise<Ino> {
+		for (let i = 0; i < maxInodeAllocTries; i++) {
+			const ino: Ino = randomIno();
+			if (!(await tx.put(ino, data, false))) {
+				continue;
+			}
+			return ino;
 		}
-		// Make an attempt
-		const ino = randomIno();
-		const isCommited = await tx.put(ino, data, false);
-		if (!isCommited) {
-			return await this.addNewNode(tx, data, --_maxAttempts);
-		}
-
-		return ino;
+		throw new ErrnoError(Errno.ENOSPC, 'No inode IDs available', path, 'addNewNode');
 	}
 
 	/**
-	 * Creates a new node under a random ID. Retries 5 times before giving up in
-	 * the exceedingly unlikely chance that we try to reuse a random GUID.
-	 * @return The GUID that the data was stored under.
+	 * Creates a new node under a random ID. Retries before giving up in
+	 * the exceedingly unlikely chance that we try to reuse a random ino.
+	 * @return The ino that the data was stored under.
 	 */
-	protected addNewNodeSync(tx: Transaction, data: Uint8Array, _maxAttempts: number = 5): Ino {
-		for (let i = 0; i < _maxAttempts; i++) {
+	protected addNewNodeSync(tx: Transaction, data: Uint8Array, path: string): Ino {
+		for (let i = 0; i < maxInodeAllocTries; i++) {
 			const ino: Ino = randomIno();
 			if (!tx.putSync(ino, data, false)) {
 				continue;
 			}
 			return ino;
 		}
-		throw new ErrnoError(Errno.EIO, 'Unable to commit data to key-value store.');
+		throw new ErrnoError(Errno.ENOSPC, 'No inode IDs available', path, 'addNewNode');
 	}
 
 	/**
 	 * Commits a new file (well, a FILE or a DIRECTORY) to the file system with
 	 * the given mode.
 	 * Note: This will commit the transaction.
-	 * @param p The path to the new file.
+	 * @param path The path to the new file.
 	 * @param type The type of the new file.
 	 * @param mode The mode to create the new file with.
 	 * @param cred The UID/GID to create the file with
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNewFile(tx: Transaction, p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
-		const parentDir = dirname(p),
-			fname = basename(p),
+	private async commitNewFile(tx: Transaction, path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
+		const parentDir = dirname(path),
+			fname = basename(path),
 			parentNode = await this.findINode(tx, parentDir),
 			dirListing = await this.getDirListing(tx, parentNode, parentDir);
 
 		//Check that the creater has correct access
 		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
-			throw ErrnoError.With('EACCES', p, 'commitNewFile');
+			throw ErrnoError.With('EACCES', path, 'commitNewFile');
 		}
 
 		// Invariant: The root always exists.
 		// If we don't check this prior to taking steps below, we will create a
 		// file with name '' in root should p == '/'.
-		if (p === '/') {
-			throw ErrnoError.With('EEXIST', p, 'commitNewFile');
+		if (path === '/') {
+			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
 
 		// Check if file already exists.
 		if (dirListing[fname]) {
 			await tx.abort();
-			throw ErrnoError.With('EEXIST', p, 'commitNewFile');
+			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
 		try {
 			// Commit data.
 
 			const inode = new Inode();
-			inode.ino = await this.addNewNode(tx, data);
+			inode.ino = await this.addNewNode(tx, data, path);
 			inode.mode = mode | type;
 			inode.uid = cred.uid;
 			inode.gid = cred.gid;
 			inode.size = data.length;
 
 			// Update and commit parent directory listing.
-			dirListing[fname] = await this.addNewNode(tx, inode.data);
+			dirListing[fname] = await this.addNewNode(tx, inode.data, path);
 			await tx.put(parentNode.ino, encodeDirListing(dirListing), true);
 			await tx.commit();
 			return inode;
@@ -723,47 +721,47 @@ export class StoreFS extends FileSystem {
 	/**
 	 * Commits a new file (well, a FILE or a DIRECTORY) to the file system with the given mode.
 	 * Note: This will commit the transaction.
-	 * @param p The path to the new file.
+	 * @param path The path to the new file.
 	 * @param type The type of the new file.
 	 * @param mode The mode to create the new file with.
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	protected commitNewFileSync(p: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
+	protected commitNewFileSync(path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
 		const tx = this.store.beginTransaction(),
-			parentDir = dirname(p),
-			fname = basename(p),
+			parentDir = dirname(path),
+			fname = basename(path),
 			parentNode = this.findINodeSync(tx, parentDir),
 			dirListing = this.getDirListingSync(tx, parentNode, parentDir);
 
 		//Check that the creater has correct access
 		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
-			throw ErrnoError.With('EACCES', p, 'commitNewFile');
+			throw ErrnoError.With('EACCES', path, 'commitNewFile');
 		}
 
 		/* Invariant: The root always exists.
 		If we don't check this prior to taking steps below,
 		we will create a file with name '' in root should p == '/'.
 		*/
-		if (p === '/') {
-			throw ErrnoError.With('EEXIST', p, 'commitNewFile');
+		if (path === '/') {
+			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
 
 		// Check if file already exists.
 		if (dirListing[fname]) {
-			throw ErrnoError.With('EEXIST', p, 'commitNewFile');
+			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
 
 		const fileNode = new Inode();
 		try {
 			// Commit data.
-			fileNode.ino = this.addNewNodeSync(tx, data);
+			fileNode.ino = this.addNewNodeSync(tx, data, path);
 			fileNode.size = data.length;
 			fileNode.mode = mode | type;
 			fileNode.uid = cred.uid;
 			fileNode.gid = cred.gid;
 			// Update and commit parent directory listing.
-			dirListing[fname] = this.addNewNodeSync(tx, fileNode.data);
+			dirListing[fname] = this.addNewNodeSync(tx, fileNode.data, path);
 			tx.putSync(parentNode.ino, encodeDirListing(dirListing), true);
 		} catch (e) {
 			tx.abortSync();
