@@ -16,7 +16,7 @@ export const size_max = 2 ** 32 - 1;
  * Room inode
  * @hidden
  */
-export const rootIno: Ino = 0n;
+export const rootIno = 0n as const;
 
 /**
  * Generates a random 32 bit integer, then converts to a hex string

@@ -463,15 +463,16 @@ export class StoreFS extends FileSystem {
 	 */
 	private async makeRootDirectory(): Promise<void> {
 		const tx = this.store.beginTransaction();
-		if (!(await tx.get(rootIno))) {
-			// Create new inode. o777, owned by root:root
-			const inode = new Inode();
-			inode.mode = 0o777 | FileType.DIRECTORY;
-			// If the root doesn't exist, the first random ID shouldn't exist either.
-			await tx.put(inode.ino, encode('{}'), false);
-			await tx.put(rootIno, inode.data, false);
-			await tx.commit();
+		if (await tx.get(rootIno)) {
+			return;
 		}
+		// Create new inode. o777, owned by root:root
+		const inode = new Inode();
+		inode.mode = 0o777 | FileType.DIRECTORY;
+		// If the root doesn't exist, the first random ID shouldn't exist either.
+		await tx.put(inode.ino, encode('{}'), false);
+		await tx.put(rootIno, inode.data, false);
+		await tx.commit();
 	}
 
 	/**
