@@ -240,11 +240,9 @@ export class StoreFS extends FileSystem {
 	}
 
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<PreloadFile<this>> {
-		const tx = this.store.transaction(),
-			data = new Uint8Array(0),
-			newFile = await this.commitNew(tx, path, FileType.FILE, mode, cred, data);
-		// Open the file.
-		return new PreloadFile(this, path, flag, newFile.toStats(), data);
+		const data = new Uint8Array(0);
+		const file = await this.commitNew(this.store.transaction(), path, FileType.FILE, mode, cred, data);
+		return new PreloadFile(this, path, flag, file.toStats(), data);
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
