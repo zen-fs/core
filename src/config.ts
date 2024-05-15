@@ -58,7 +58,7 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend);
 	}
 	checkOptions(backend, config);
-	const mount = backend.create(config);
+	const mount = await backend.create(config);
 	await mount.ready();
 	return mount;
 }
