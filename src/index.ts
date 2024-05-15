@@ -6,6 +6,8 @@ export * from './backends/Index.js';
 export * from './backends/locked.js';
 export * from './backends/overlay.js';
 export * from './backends/store/fs.js';
+export * from './backends/store/simple.js';
+export * from './backends/store/store.js';
 export * from './backends/backend.js';
 export * from './config.js';
 export * from './cred.js';
