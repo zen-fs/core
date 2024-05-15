@@ -11,14 +11,14 @@ export interface Store {
 	name: string;
 
 	/**
-	 *
+	 * Syncs the store
 	 */
 	sync(): Promise<void>;
 
 	/**
 	 * Empties the store completely.
 	 */
-	clear(): Promise<void>;
+	clear(): Promise<void> | void;
 
 	/**
 	 * Empties the store completely.

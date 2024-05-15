@@ -4,26 +4,17 @@ import { type Store, SyncTransaction } from './store.js';
 /**
  * An interface for simple synchronous stores that don't have special support for transactions and such.
  */
-export abstract class SimpleSyncStore implements Store {
-	public abstract name: string;
-	public async sync(): Promise<void> {}
-	public async clear(): Promise<void> {
-		this.clearSync();
-	}
-	public abstract clearSync(): void;
-	public abstract get(ino: Ino): Uint8Array | undefined;
-	public abstract set(ino: Ino, data: Uint8Array): void;
-	public abstract delete(ino: Ino): void;
-	public beginTransaction(): SimpleTransaction {
-		return new SimpleTransaction(this);
-	}
+export interface SimpleSyncStore extends Store {
+	get(ino: Ino): Uint8Array | undefined;
+	set(ino: Ino, data: Uint8Array): void;
+	delete(ino: Ino): void;
 }
 
 /**
  * An interface for simple asynchronous stores that don't have special support for transactions and such.
  * This class adds caching at the store level.
  */
-export abstract class SimpleAsyncStore extends SimpleSyncStore {
+export abstract class SimpleAsyncStore implements SimpleSyncStore {
 	public abstract name: string;
 
 	protected cache: Map<Ino, Uint8Array> = new Map();
