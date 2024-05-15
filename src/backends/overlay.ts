@@ -2,7 +2,7 @@ import { FileSystem, FileSystemMetadata } from '../filesystem.js';
 import { ErrnoError, Errno } from '../error.js';
 import { File, PreloadFile, parseFlag } from '../file.js';
 import { Stats } from '../stats.js';
-import { LockedFS } from './Locked.js';
+import { LockedFS } from './locked.js';
 import { dirname } from '../emulation/path.js';
 import { Cred, rootCred } from '../cred.js';
 import { decode, encode } from '../utils.js';

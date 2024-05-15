@@ -6,7 +6,7 @@ import { Errno, ErrnoError } from '../../error.js';
 import { File } from '../../file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { Stats, type FileType } from '../../stats.js';
-import { InMemory } from '../InMemory.js';
+import { InMemory } from '../memory.js';
 import type { Backend } from '../backend.js';
 import * as RPC from './rpc.js';
 

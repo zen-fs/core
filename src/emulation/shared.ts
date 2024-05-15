@@ -1,7 +1,7 @@
 // Utilities and shared data
 
 import { ErrnoError, Errno } from '../error.js';
-import { InMemory } from '../backends/InMemory.js';
+import { InMemory } from '../backends/memory.js';
 import { Cred, rootCred } from '../cred.js';
 import type { File } from '../file.js';
 import { FileSystem } from '../filesystem.js';
