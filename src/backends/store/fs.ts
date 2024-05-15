@@ -249,13 +249,13 @@ export class StoreFS extends FileSystem {
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<PreloadFile<this>> {
 		const tx = this.store.beginTransaction(),
 			data = new Uint8Array(0),
-			newFile = await this.commitNewFile(tx, path, FileType.FILE, mode, cred, data);
+			newFile = await this.commitNew(tx, path, FileType.FILE, mode, cred, data);
 		// Open the file.
 		return new PreloadFile(this, path, flag, newFile.toStats(), data);
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
-		this.commitNewFileSync(path, FileType.FILE, mode, cred);
+		this.commitNewSync(path, FileType.FILE, mode, cred);
 		return this.openFileSync(path, flag, cred);
 	}
 
@@ -286,11 +286,11 @@ export class StoreFS extends FileSystem {
 	}
 
 	public async unlink(path: string, cred: Cred): Promise<void> {
-		return this.removeEntry(path, false, cred);
+		return this.remove(path, false, cred);
 	}
 
 	public unlinkSync(path: string, cred: Cred): void {
-		this.removeEntrySync(path, false, cred);
+		this.removeSync(path, false, cred);
 	}
 
 	public async rmdir(path: string, cred: Cred): Promise<void> {
@@ -299,7 +299,7 @@ export class StoreFS extends FileSystem {
 		if (list.length > 0) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		}
-		await this.removeEntry(path, true, cred);
+		await this.remove(path, true, cred);
 	}
 
 	public rmdirSync(path: string, cred: Cred): void {
@@ -307,18 +307,18 @@ export class StoreFS extends FileSystem {
 		if (this.readdirSync(path, cred).length > 0) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		} else {
-			this.removeEntrySync(path, true, cred);
+			this.removeSync(path, true, cred);
 		}
 	}
 
 	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
 		const tx = this.store.beginTransaction(),
 			data = encode('{}');
-		await this.commitNewFile(tx, path, FileType.DIRECTORY, mode, cred, data);
+		await this.commitNew(tx, path, FileType.DIRECTORY, mode, cred, data);
 	}
 
 	public mkdirSync(path: string, mode: number, cred: Cred): void {
-		this.commitNewFileSync(path, FileType.DIRECTORY, mode, cred, encode('{}'));
+		this.commitNewSync(path, FileType.DIRECTORY, mode, cred, encode('{}'));
 	}
 
 	public async readdir(path: string, cred: Cred): Promise<string[]> {
@@ -640,7 +640,7 @@ export class StoreFS extends FileSystem {
 	 * Adds a new node under a random ID. Retries before giving up in
 	 * the exceedingly unlikely chance that we try to reuse a random ino.
 	 */
-	private async addNewNode(tx: Transaction, data: Uint8Array, path: string): Promise<Ino> {
+	private async addNew(tx: Transaction, data: Uint8Array, path: string): Promise<Ino> {
 		for (let i = 0; i < maxInodeAllocTries; i++) {
 			const ino: Ino = randomIno();
 			if (await tx.get(ino)) {
@@ -657,7 +657,7 @@ export class StoreFS extends FileSystem {
 	 * the exceedingly unlikely chance that we try to reuse a random ino.
 	 * @return The ino that the data was stored under.
 	 */
-	protected addNewNodeSync(tx: Transaction, data: Uint8Array, path: string): Ino {
+	protected addNewSync(tx: Transaction, data: Uint8Array, path: string): Ino {
 		for (let i = 0; i < maxInodeAllocTries; i++) {
 			const ino: Ino = randomIno();
 			if (tx.getSync(ino)) {
@@ -679,26 +679,29 @@ export class StoreFS extends FileSystem {
 	 * @param cred The UID/GID to create the file with
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNewFile(tx: Transaction, path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
-		const parentDir = dirname(path),
-			fname = basename(path),
-			parentNode = await this.findINode(tx, parentDir),
-			dirListing = await this.getDirListing(tx, parentNode, parentDir);
+	private async commitNew(tx: Transaction, path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
+		const parentPath = dirname(path),
+			parent = await this.findINode(tx, parentPath);
 
 		//Check that the creater has correct access
-		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
+		if (!parent.toStats().hasAccess(W_OK, cred)) {
 			throw ErrnoError.With('EACCES', path, 'commitNewFile');
 		}
 
-		// Invariant: The root always exists.
-		// If we don't check this prior to taking steps below, we will create a
-		// file with name '' in root should p == '/'.
+		const fname = basename(path),
+			listing = await this.getDirListing(tx, parent, parentPath);
+
+		/*
+			The root always exists.
+			If we don't check this prior to taking steps below,
+			we will create a file with name '' in root should path == '/'.
+		*/
 		if (path === '/') {
 			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
 
 		// Check if file already exists.
-		if (dirListing[fname]) {
+		if (listing[fname]) {
 			await tx.abort();
 			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
@@ -706,15 +709,15 @@ export class StoreFS extends FileSystem {
 			// Commit data.
 
 			const inode = new Inode();
-			inode.ino = await this.addNewNode(tx, data, path);
+			inode.ino = await this.addNew(tx, data, path);
 			inode.mode = mode | type;
 			inode.uid = cred.uid;
 			inode.gid = cred.gid;
 			inode.size = data.length;
 
 			// Update and commit parent directory listing.
-			dirListing[fname] = await this.addNewNode(tx, inode.data, path);
-			await tx.set(parentNode.ino, encodeDirListing(dirListing));
+			listing[fname] = await this.addNew(tx, inode.data, path);
+			await tx.set(parent.ino, encodeDirListing(listing));
 			await tx.commit();
 			return inode;
 		} catch (e) {
@@ -732,48 +735,50 @@ export class StoreFS extends FileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	protected commitNewFileSync(path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
+	protected commitNewSync(path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
 		const tx = this.store.beginTransaction(),
-			parentDir = dirname(path),
-			fname = basename(path),
-			parentNode = this.findINodeSync(tx, parentDir),
-			dirListing = this.getDirListingSync(tx, parentNode, parentDir);
+			parentPath = dirname(path),
+			parent = this.findINodeSync(tx, parentPath);
 
 		//Check that the creater has correct access
-		if (!parentNode.toStats().hasAccess(W_OK, cred)) {
+		if (!parent.toStats().hasAccess(W_OK, cred)) {
 			throw ErrnoError.With('EACCES', path, 'commitNewFile');
 		}
 
-		/* Invariant: The root always exists.
-		If we don't check this prior to taking steps below,
-		we will create a file with name '' in root should p == '/'.
+		const fname = basename(path),
+			listing = this.getDirListingSync(tx, parent, parentPath);
+
+		/*
+			The root always exists.
+			If we don't check this prior to taking steps below,
+			we will create a file with name '' in root should p == '/'.
 		*/
 		if (path === '/') {
 			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
 
 		// Check if file already exists.
-		if (dirListing[fname]) {
+		if (listing[fname]) {
 			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
 
-		const fileNode = new Inode();
+		const node = new Inode();
 		try {
 			// Commit data.
-			fileNode.ino = this.addNewNodeSync(tx, data, path);
-			fileNode.size = data.length;
-			fileNode.mode = mode | type;
-			fileNode.uid = cred.uid;
-			fileNode.gid = cred.gid;
+			node.ino = this.addNewSync(tx, data, path);
+			node.size = data.length;
+			node.mode = mode | type;
+			node.uid = cred.uid;
+			node.gid = cred.gid;
 			// Update and commit parent directory listing.
-			dirListing[fname] = this.addNewNodeSync(tx, fileNode.data, path);
-			tx.setSync(parentNode.ino, encodeDirListing(dirListing));
+			listing[fname] = this.addNewSync(tx, node.data, path);
+			tx.setSync(parent.ino, encodeDirListing(listing));
 		} catch (e) {
 			tx.abortSync();
 			throw e;
 		}
 		tx.commitSync();
-		return fileNode;
+		return node;
 	}
 
 	/**
@@ -782,18 +787,18 @@ export class StoreFS extends FileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
 	 */
-	private async removeEntry(path: string, isDir: boolean, cred: Cred): Promise<void> {
+	private async remove(path: string, isDir: boolean, cred: Cred): Promise<void> {
 		const tx = this.store.beginTransaction(),
 			parent: string = dirname(path),
 			parentNode = await this.findINode(tx, parent),
-			parentListing = await this.getDirListing(tx, parentNode, parent),
+			listing = await this.getDirListing(tx, parentNode, parent),
 			fileName: string = basename(path);
 
-		if (!parentListing[fileName]) {
+		if (!listing[fileName]) {
 			throw ErrnoError.With('ENOENT', path, 'removeEntry');
 		}
 
-		const fileIno = parentListing[fileName];
+		const fileIno = listing[fileName];
 
 		// Get file inode.
 		const fileNode = await this.getINode(tx, fileIno, path);
@@ -803,7 +808,7 @@ export class StoreFS extends FileSystem {
 		}
 
 		// Remove from directory listing of parent.
-		delete parentListing[fileName];
+		delete listing[fileName];
 
 		if (!isDir && fileNode.toStats().isDirectory()) {
 			throw ErrnoError.With('EISDIR', path, 'removeEntry');
@@ -814,7 +819,7 @@ export class StoreFS extends FileSystem {
 		}
 
 		try {
-			await tx.set(parentNode.ino, encodeDirListing(parentListing));
+			await tx.set(parentNode.ino, encodeDirListing(listing));
 
 			if (--fileNode.nlink < 1) {
 				// remove file
@@ -836,13 +841,13 @@ export class StoreFS extends FileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
 	 */
-	protected removeEntrySync(path: string, isDir: boolean, cred: Cred): void {
+	protected removeSync(path: string, isDir: boolean, cred: Cred): void {
 		const tx = this.store.beginTransaction(),
 			parent: string = dirname(path),
 			parentNode = this.findINodeSync(tx, parent),
-			parentListing = this.getDirListingSync(tx, parentNode, parent),
+			listing = this.getDirListingSync(tx, parentNode, parent),
 			fileName: string = basename(path),
-			fileIno: Ino = parentListing[fileName];
+			fileIno: Ino = listing[fileName];
 
 		if (!fileIno) {
 			throw ErrnoError.With('ENOENT', path, 'removeEntry');
@@ -856,7 +861,7 @@ export class StoreFS extends FileSystem {
 		}
 
 		// Remove from directory listing of parent.
-		delete parentListing[fileName];
+		delete listing[fileName];
 
 		if (!isDir && fileNode.toStats().isDirectory()) {
 			throw ErrnoError.With('EISDIR', path, 'removeEntry');
@@ -868,7 +873,7 @@ export class StoreFS extends FileSystem {
 
 		try {
 			// Update directory listing.
-			tx.setSync(parentNode.ino, encodeDirListing(parentListing));
+			tx.setSync(parentNode.ino, encodeDirListing(listing));
 
 			if (--fileNode.nlink < 1) {
 				// remove file
