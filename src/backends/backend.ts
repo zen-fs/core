@@ -130,13 +130,6 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Partial<
 	}
 }
 
-export async function createBackend<B extends Backend>(backend: B, options: Partial<OptionsOf<B>> = {}): Promise<FilesystemOf<B>> {
-	await checkOptions(backend, options);
-	const fs = (await backend.create(options)) as FilesystemOf<B>;
-	await fs.ready();
-	return fs;
-}
-
 /**
  * Specifies a file system backend type and its options.
  *
