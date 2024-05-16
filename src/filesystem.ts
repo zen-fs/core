@@ -197,7 +197,7 @@ export abstract class FileSystem {
 /**
  * @internal
  */
-declare abstract class SyncFileSystem extends FileSystem {
+declare abstract class SyncFS extends FileSystem {
 	metadata(): FileSystemMetadata;
 	ready(): Promise<void>;
 	exists(path: string, cred: Cred): Promise<boolean>;
@@ -217,8 +217,8 @@ declare abstract class SyncFileSystem extends FileSystem {
  * Implements the asynchronous API in terms of the synchronous API.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => SyncFileSystem) & T {
-	abstract class _SyncFileSystem extends FS implements SyncFileSystem {
+export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => SyncFS) & T {
+	abstract class _SyncFS extends FS implements SyncFS {
 		public async exists(path: string, cred: Cred): Promise<boolean> {
 			return this.existsSync(path, cred);
 		}
@@ -263,13 +263,13 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.syncSync(path, data, stats);
 		}
 	}
-	return _SyncFileSystem;
+	return _SyncFS;
 }
 
 /**
  * @internal
  */
-declare abstract class AsyncFileSystem extends FileSystem {
+declare abstract class AsyncFS extends FileSystem {
 	/**
 	 * @hidden
 	 */
@@ -312,8 +312,8 @@ type AsyncOperation = {
  *
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => AsyncFileSystem) & T {
-	abstract class _AsyncFileSystem extends FS implements AsyncFileSystem {
+export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => AsyncFS) & T {
+	abstract class _AsyncFS extends FS implements AsyncFS {
 		/**
 		 * Queue of pending asynchronous operations.
 		 */
@@ -359,16 +359,17 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 		}
 
 		public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
-			const file = this._sync.createFileSync(path, flag, mode, cred);
+			this._sync.createFileSync(path, flag, mode, cred);
 			this.queue('createFile', path, flag, mode, cred);
+			return this.openFileSync(path, flag, cred);
+		}
+
+		public openFileSync(path: string, flag: string, cred: Cred): PreloadFile<this> {
+			const file = this._sync.openFileSync(path, flag, cred);
 			const stats = file.statSync();
 			const buffer = new Uint8Array(stats.size);
 			file.readSync(buffer);
 			return new PreloadFile(this, path, flag, stats, buffer);
-		}
-
-		public openFileSync(path: string, flag: string, cred: Cred): File {
-			return this._sync.openFileSync(path, flag, cred);
 		}
 
 		public unlinkSync(path: string, cred: Cred): void {
@@ -455,13 +456,13 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 		}
 	}
 
-	return _AsyncFileSystem;
+	return _AsyncFS;
 }
 
 /**
  * @internal
  */
-declare abstract class ReadonlyFileSystem extends FileSystem {
+declare abstract class ReadonlyFS extends FileSystem {
 	metadata(): FileSystemMetadata;
 	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
 	renameSync(oldPath: string, newPath: string, cred: Cred): void;
@@ -483,8 +484,8 @@ declare abstract class ReadonlyFileSystem extends FileSystem {
  * Implements the non-readonly methods to throw `EROFS`
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => ReadonlyFileSystem) & T {
-	abstract class _ReadonlyFileSystem extends FS implements ReadonlyFileSystem {
+export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => ReadonlyFS) & T {
+	abstract class _ReadonlyFS extends FS implements ReadonlyFS {
 		public metadata(): FileSystemMetadata {
 			return { ...super.metadata(), readonly: true };
 		}
@@ -546,5 +547,5 @@ export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(
 		}
 		/* eslint-enable @typescript-eslint/no-unused-vars */
 	}
-	return _ReadonlyFileSystem;
+	return _ReadonlyFS;
 }
