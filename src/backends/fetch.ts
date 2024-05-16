@@ -6,13 +6,6 @@ import { type ListingTree, FileIndex, type IndexFileInode, AsyncIndexFS } from '
 import type { Backend } from './backend.js';
 
 /**
- * @hidden
- */
-function convertError(e: Error): never {
-	throw new ErrnoError(Errno.EIO, e.message);
-}
-
-/**
  * Asynchronously download a file as a buffer or a JSON object.
  * Note that the third function signature with a non-specialized type is
  * invalid, but TypeScript requires it when you specialize string arguments to
@@ -23,16 +16,22 @@ async function fetchFile(path: string, type: 'buffer'): Promise<Uint8Array>;
 async function fetchFile<T extends object>(path: string, type: 'json'): Promise<T>;
 async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'): Promise<T | Uint8Array>;
 async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'): Promise<T | Uint8Array> {
-	const response = await fetch(path).catch(convertError);
+	const response = await fetch(path).catch(e => {
+		throw new ErrnoError(Errno.EIO, e.message);
+	});
 	if (!response.ok) {
 		throw new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status);
 	}
 	switch (type) {
 		case 'buffer':
-			const arrayBuffer = await response.arrayBuffer().catch(convertError);
+			const arrayBuffer = await response.arrayBuffer().catch(e => {
+				throw new ErrnoError(Errno.EIO, e.message);
+			});
 			return new Uint8Array(arrayBuffer);
 		case 'json':
-			return response.json().catch(convertError) as Promise<T>;
+			return response.json().catch(e => {
+				throw new ErrnoError(Errno.EIO, e.message);
+			}) as Promise<T>;
 		default:
 			throw new ErrnoError(Errno.EINVAL, 'Invalid download type: ' + type);
 	}
@@ -43,7 +42,9 @@ async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'
  * @hidden
  */
 async function fetchSize(path: string): Promise<number> {
-	const response = await fetch(path, { method: 'HEAD' }).catch(convertError);
+	const response = await fetch(path, { method: 'HEAD' }).catch(e => {
+		throw new ErrnoError(Errno.EIO, e.message);
+	});
 	if (!response.ok) {
 		throw new ErrnoError(Errno.EIO, 'fetch failed: HEAD response returned code ' + response.status);
 	}
