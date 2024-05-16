@@ -16,7 +16,7 @@ const { values: options, positionals } = parseArgs({
 	allowPositionals: true,
 });
 
-const root = positionals.at(-1) == 'make-index' ? '.' : positionals.at(-1);
+const root = positionals.at(-1) == 'make-index' ? '.' : positionals.at(-1) || '.';
 
 if (options.help) {
 	console.log(`make-index <path> [...options]
@@ -68,9 +68,11 @@ function color(color, text) {
 
 function makeListing(path, seen = new Set()) {
 	try {
+		if (options.verbose) console.log(`${color('blue', 'list')} ${path}`);
 		const stats = statSync(path);
 
 		if (stats.isFile()) {
+			if (options.verbose) console.log(`${color('green', 'file')} ${path}`);
 			return null;
 		}
 
@@ -84,6 +86,7 @@ function makeListing(path, seen = new Set()) {
 
 			entries[file] = makeListing(full, seen);
 		}
+		if (options.verbose) console.log(`${color('bright_green', ' dir')} ${path}`);
 		return entries;
 	} catch (e) {
 		if (!options.quiet) {

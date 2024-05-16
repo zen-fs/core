@@ -210,7 +210,7 @@ export const Fetch = {
 		index: {
 			type: ['string', 'object'],
 			required: false,
-			description: 'URL to a file index as a JSON file or the file index object itself, generated with the make_http_index script. Defaults to `index.json`.',
+			description: 'URL to a file index as a JSON file or the file index object itself, generated with the make-index script. Defaults to `index.json`.',
 		},
 		baseUrl: {
 			type: 'string',
