@@ -1,11 +1,11 @@
 import { MessageChannel } from 'node:worker_threads';
 import { Port, attachFS } from '../../src/backends/port/fs.js';
-import { InMemory, StoreFS, configure, fs, resolveMountConfig } from '../../src/index.js';
+import { InMemory, StoreFS, configure, fs, resolveMountConfig, type InMemoryStore } from '../../src/index.js';
 
 describe('FS with MessageChannel', () => {
 	const { port1, port2 } = new MessageChannel(),
 		content = 'FS is in a port';
-	let tmpfs: StoreFS;
+	let tmpfs: StoreFS<InMemoryStore>;
 
 	afterAll(() => {
 		port1.close();
@@ -31,7 +31,6 @@ describe('FS with MessageChannel', () => {
 	});
 
 	test('read', async () => {
-		console.warn('Port read test is not functional');
-		//expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
+		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
 	});
 });

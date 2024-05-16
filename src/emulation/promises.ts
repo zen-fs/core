@@ -144,8 +144,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 
 		const { size } = await this.stat();
-		const data = new Uint8Array(size);
-		await this.file.read(data, 0, size, 0);
+		const { buffer: data } = await this.file.read(new Uint8Array(size), 0, size, 0);
 		const buffer = Buffer.from(data);
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}

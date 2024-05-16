@@ -12,22 +12,22 @@ import type { Store, Transaction } from './store.js';
 const maxInodeAllocTries = 5;
 
 /**
- * A synchronous key-value file system. Uses a SyncStore to store the data.
+ * A file system which uses a key-value store.
  *
  * We use a unique ID for each node in the file system. The root node has a fixed ID.
  * @todo Introduce Node ID caching.
  * @todo Check modes.
  * @internal
  */
-export class StoreFS extends FileSystem {
-	protected get store(): Store {
+export class StoreFS<T extends Store = Store> extends FileSystem {
+	protected get store(): T {
 		if (!this._store) {
 			throw new ErrnoError(Errno.ENODATA, 'No store attached');
 		}
 		return this._store;
 	}
 
-	protected _store?: Store;
+	protected _store?: T;
 
 	private _initialized: boolean = false;
 
@@ -40,7 +40,7 @@ export class StoreFS extends FileSystem {
 		this._store = await this.$store;
 	}
 
-	constructor(private $store: Store | Promise<Store>) {
+	constructor(private $store: T | Promise<T>) {
 		super();
 
 		if (!($store instanceof Promise)) {

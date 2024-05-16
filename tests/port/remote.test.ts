@@ -22,7 +22,6 @@ describe('Remote FS', () => {
 	});
 
 	test('read', async () => {
-		console.warn('Port read test is not functional');
-		//expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
+		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
 	});
 });
