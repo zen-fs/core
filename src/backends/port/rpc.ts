@@ -89,7 +89,7 @@ export function request<const TRequest extends Request, TValue>(
 			const error = new ErrnoError(Errno.EIO, 'RPC Failed');
 			error.stack += stack;
 			reject(error);
-			if(typeof _ == 'object') _.unref();
+			if (typeof _ == 'object') _.unref();
 		}, timeout);
 	});
 }
