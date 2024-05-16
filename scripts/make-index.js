@@ -16,19 +16,19 @@ const { values: options, positionals } = parseArgs({
 	allowPositionals: true,
 });
 
-const root = positionals.at(-1) == 'make-index' ? '.' : positionals.at(-1) || '.';
+const root = positionals.at(-1) || '.';
 
 if (options.help) {
 	console.log(`make-index <path> [...options]
-	path: The path to create a listing for
 
-	options:
-		--help, -h				Outputs this help message
-		--quiet, -q 			Do not output messages about individual files
-		--verbose				Output verbose messages
+path: The path to create a listing for
 
-		--output, -o <path>		Path to the output file. Defaults to listing.
-		--ignore, -i <pattern>	Ignores files which match the glob <pattern>. Can be passed multiple times.
+options:
+	--help, -h		Outputs this help message
+	--quiet, -q		The command will not generate any output, including error messages.
+	--verbose		Output verbose messages
+	--output, -o <path>	Path to the output file. Defaults to listing.
+	--ignore, -i <pattern>	Ignores files which match the glob <pattern>. Can be passed multiple times.
 	`);
 	process.exit();
 }
@@ -66,7 +66,7 @@ function color(color, text) {
 	return `\x1b[${colors[color]}m${text}\x1b[0m`;
 }
 
-function makeListing(path, seen = new Set()) {
+function listing(path, seen = new Set()) {
 	try {
 		if (options.verbose) console.log(`${color('blue', 'list')} ${path}`);
 		const stats = statSync(path);
@@ -84,7 +84,7 @@ function makeListing(path, seen = new Set()) {
 				continue;
 			}
 
-			entries[file] = makeListing(full, seen);
+			entries[file] = listing(full, seen);
 		}
 		if (options.verbose) console.log(`${color('bright_green', ' dir')} ${path}`);
 		return entries;
@@ -95,7 +95,7 @@ function makeListing(path, seen = new Set()) {
 	}
 }
 
-const listing = makeListing(pathToPosix(root));
+const rootListing = listing(pathToPosix(root));
 if (!options.quiet) console.log('Generated listing for ' + pathToPosix(resolve(root)));
 
-writeFileSync(options.output, JSON.stringify(listing));
+writeFileSync(options.output, JSON.stringify(rootListing));
