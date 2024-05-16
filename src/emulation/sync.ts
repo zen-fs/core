@@ -16,7 +16,7 @@ type FileSystemMethod = {
 		: never;
 }[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
 
-function doOp<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): RT {
+function wrap<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): RT {
 	path = normalizePath(path!);
 	const { fs, path: resolvedPath } = resolveMount(resolveSymlinks && existsSync(path) ? realpathSync(path) : path);
 	try {
@@ -78,7 +78,7 @@ existsSync satisfies typeof fs.existsSync;
 export function statSync(path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function statSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	const stats: Stats = doOp('statSync', true, path.toString(), cred);
+	const stats: Stats = wrap('statSync', true, path.toString(), cred);
 	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 statSync satisfies typeof fs.statSync;
@@ -92,7 +92,7 @@ statSync satisfies typeof fs.statSync;
 export function lstatSync(path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function lstatSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	const stats: Stats = doOp('statSync', false, path.toString(), cred);
+	const stats: Stats = wrap('statSync', false, path.toString(), cred);
 	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 lstatSync satisfies typeof fs.lstatSync;
@@ -117,7 +117,7 @@ truncateSync satisfies typeof fs.truncateSync;
  * @param path
  */
 export function unlinkSync(path: fs.PathLike): void {
-	return doOp('unlinkSync', false, path.toString(), cred);
+	return wrap('unlinkSync', false, path.toString(), cred);
 }
 unlinkSync satisfies typeof fs.unlinkSync;
 
@@ -128,17 +128,17 @@ function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | nul
 	// Check if the path exists, and is a file.
 	let stats: Stats;
 	try {
-		stats = doOp('statSync', resolveSymlinks, path, cred);
+		stats = wrap('statSync', resolveSymlinks, path, cred);
 	} catch (e) {
 		// File does not exist.
 		switch (pathNotExistsAction(flag)) {
 			case ActionType.CREATE:
 				// Ensure parent exists.
-				const parentStats: Stats = doOp('statSync', resolveSymlinks, dirname(path), cred);
+				const parentStats: Stats = wrap('statSync', resolveSymlinks, dirname(path), cred);
 				if (!parentStats.isDirectory()) {
 					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 				}
-				return doOp('createFileSync', resolveSymlinks, path, flag, mode, cred);
+				return wrap('createFileSync', resolveSymlinks, path, flag, mode, cred);
 			case ActionType.THROW:
 				throw ErrnoError.With('ENOENT', path, '_open');
 			default:
@@ -155,16 +155,16 @@ function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | nul
 			throw ErrnoError.With('EEXIST', path, '_open');
 		case ActionType.TRUNCATE:
 			// Delete file.
-			doOp('unlinkSync', resolveSymlinks, path, cred);
+			wrap('unlinkSync', resolveSymlinks, path, cred);
 			/*
 				Create file. Use the same mode as the old file.
 				Node itself modifies the ctime when this occurs, so this action
 				will preserve that behavior if the underlying file system
 				supports those properties.
 			*/
-			return doOp('createFileSync', resolveSymlinks, path, flag, stats.mode, cred);
+			return wrap('createFileSync', resolveSymlinks, path, flag, stats.mode, cred);
 		case ActionType.NOP:
-			return doOp('openFileSync', resolveSymlinks, path, flag, cred);
+			return wrap('openFileSync', resolveSymlinks, path, flag, cred);
 		default:
 			throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
 	}
@@ -231,21 +231,6 @@ export function readFileSync(path: fs.PathOrFileDescriptor, _options: fs.WriteFi
 readFileSync satisfies typeof fs.readFileSync;
 
 /**
- * Synchronously writes data to a file, replacing the file
- * if it already exists.
- *
- * The encoding option is ignored if data is a buffer.
- */
-function _writeFileSync(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): void {
-	const file = _openSync(fname, flag, mode, resolveSymlinks);
-	try {
-		file.writeSync(data, 0, data.byteLength, 0);
-	} finally {
-		file.closeSync();
-	}
-}
-
-/**
  * Synchronously writes data to a file, replacing the file if it already
  * exists.
  *
@@ -272,22 +257,14 @@ export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents,
 	if (!encodedData) {
 		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
 	}
-	_writeFileSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), encodedData, options.flag, options.mode, true);
-}
-writeFileSync satisfies typeof fs.writeFileSync;
-
-/**
- * Synchronously append data to a file, creating the file if
- * it not yet exists.
- */
-function _appendFileSync(fname: string, data: Uint8Array, flag: string, mode: number, resolveSymlinks: boolean): void {
-	const file = _openSync(fname, flag, mode, resolveSymlinks);
+	const file = _openSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), flag, options.mode, true);
 	try {
-		file.writeSync(data, 0, data.byteLength, null);
+		file.writeSync(encodedData, 0, encodedData.byteLength, 0);
 	} finally {
 		file.closeSync();
 	}
 }
+writeFileSync satisfies typeof fs.writeFileSync;
 
 /**
  * Asynchronously append data to a file, creating the file if it not yet
@@ -310,7 +287,12 @@ export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileCont
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	_appendFileSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), encodedData, options.flag, options.mode, true);
+	const file = _openSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), flag, options.mode, true);
+	try {
+		file.writeSync(encodedData, 0, encodedData.byteLength, null);
+	} finally {
+		file.closeSync();
+	}
 }
 appendFileSync satisfies typeof fs.appendFileSync;
 
@@ -481,7 +463,7 @@ futimesSync satisfies typeof fs.futimesSync;
  * @param path
  */
 export function rmdirSync(path: fs.PathLike): void {
-	return doOp('rmdirSync', true, path.toString(), cred);
+	return wrap('rmdirSync', true, path.toString(), cred);
 }
 rmdirSync satisfies typeof fs.rmdirSync;
 
@@ -497,7 +479,7 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined | void {
 	const mode: fs.Mode | undefined = typeof options == 'number' || typeof options == 'string' ? options : options?.mode;
 	const recursive = typeof options == 'object' && options?.recursive;
-	doOp('mkdirSync', true, path.toString(), normalizeMode(mode, 0o777), cred);
+	wrap('mkdirSync', true, path.toString(), normalizeMode(mode, 0o777), cred);
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
@@ -514,7 +496,7 @@ export function readdirSync(
 	options?: { recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null; withFileTypes?: boolean } | BufferEncoding | 'buffer' | null
 ): string[] | Dirent[] | Buffer[] {
 	path = normalizePath(path);
-	const entries: string[] = doOp('readdirSync', true, path, cred);
+	const entries: string[] = wrap('readdirSync', true, path, cred);
 	for (const mount of mounts.keys()) {
 		if (!mount.startsWith(path)) {
 			continue;
@@ -549,7 +531,7 @@ readdirSync satisfies typeof fs.readdirSync;
  */
 export function linkSync(existing: fs.PathLike, newpath: fs.PathLike): void {
 	newpath = normalizePath(newpath);
-	return doOp('linkSync', false, existing.toString(), newpath.toString(), cred);
+	return wrap('linkSync', false, existing.toString(), newpath.toString(), cred);
 }
 linkSync satisfies typeof fs.linkSync;
 
