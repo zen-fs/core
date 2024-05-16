@@ -85,10 +85,11 @@ export function request<const TRequest extends Request, TValue>(
 		const id = Math.random().toString(16).slice(10);
 		executors.set(id, { resolve, reject, fs });
 		port.postMessage({ ...request, _zenfs: true, id, stack });
-		setTimeout(() => {
+		const _ = setTimeout(() => {
 			const error = new ErrnoError(Errno.EIO, 'RPC Failed');
 			error.stack += stack;
 			reject(error);
+			if(typeof _ == 'object') _.unref();
 		}, timeout);
 	});
 }

@@ -11,7 +11,9 @@ describe('Timeout', () => {
 
 	afterAll(() => {
 		port1.close();
+		port1.unref();
 		port2.close();
+		port2.unref();
 	});
 
 	test('Misconfiguration', async () => {

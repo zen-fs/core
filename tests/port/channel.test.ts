@@ -9,7 +9,9 @@ describe('FS with MessageChannel', () => {
 
 	afterAll(() => {
 		port1.close();
+		port1.unref();
 		port2.close();
+		port2.unref();
 	});
 
 	test('configuration', async () => {

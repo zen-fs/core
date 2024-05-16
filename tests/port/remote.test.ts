@@ -8,7 +8,10 @@ describe('Remote FS', () => {
 	const port = new Worker(dirname(fileURLToPath(import.meta.url)) + '/worker.js'),
 		content = 'FS is in a port';
 
-	afterAll(() => port.terminate());
+	afterAll(async () => {
+		await port.terminate();
+		port.unref();
+	});
 
 	test('configuration', async () => {
 		await configure({ backend: Port, port });
