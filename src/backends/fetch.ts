@@ -1,9 +1,9 @@
-import { ErrnoError, Errno } from '../error.js';
-import { NoSyncFile } from '../file.js';
+import { Errno, ErrnoError } from '../error.js';
 import type { FileSystemMetadata } from '../filesystem.js';
 import { Stats } from '../stats.js';
-import { type ListingTree, FileIndex, type IndexFileInode, AsyncIndexFS } from './Index.js';
 import type { Backend } from './backend.js';
+import { IndexFS } from './index/fs.js';
+import type { IndexData } from './index/index.js';
 
 /**
  * Asynchronously download a file as a buffer or a JSON object.
@@ -38,20 +38,6 @@ async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'
 }
 
 /**
- * Asynchronously retrieves the size of the given file in bytes.
- * @hidden
- */
-async function fetchSize(path: string): Promise<number> {
-	const response = await fetch(path, { method: 'HEAD' }).catch(e => {
-		throw new ErrnoError(Errno.EIO, e.message);
-	});
-	if (!response.ok) {
-		throw new ErrnoError(Errno.EIO, 'fetch failed: HEAD response returned code ' + response.status);
-	}
-	return parseInt(response.headers.get('Content-Length') || '-1', 10);
-}
-
-/**
  * Configuration options for FetchFS.
  */
 export interface FetchOptions {
@@ -59,7 +45,7 @@ export interface FetchOptions {
 	 * URL to a file index as a JSON file or the file index object itself.
 	 * Defaults to `index.json`.
 	 */
-	index?: string | ListingTree;
+	index?: string | IndexData;
 
 	/** Used as the URL prefix for fetched files.
 	 * Default: Fetch files relative to the index.
@@ -68,59 +54,48 @@ export interface FetchOptions {
 }
 
 /**
- * A simple filesystem backed by HTTP using the fetch API.
+ * A simple filesystem backed by HTTP using the `fetch` API.
  *
  *
- * Listings objects look like the following:
+ * Index objects look like the following:
  *
  * ```json
  * {
- *   "home": {
- *     "jvilk": {
- *       "someFile.txt": null,
- *       "someDir": {
- *         // Empty directory
- *       }
- *     }
- *   }
+ * 	"version": 1,
+ * 	"entries": {
+ * 		"/home": { ... },
+ * 		"/home/jvilk": { ... },
+ * 		"/home/james": { ... }
+ * 	}
  * }
  * ```
  *
- * This example has the folder `/home/jvilk` with subfile `someFile.txt` and subfolder `someDir`.
+ * Each entry contains the stats associated with the file.
  */
-export class FetchFS extends AsyncIndexFS<Stats> {
-	public readonly prefixUrl: string;
-
-	protected _init: Promise<void>;
-
-	protected async _initialize(index: string | ListingTree): Promise<void> {
-		if (typeof index != 'string') {
-			this._index = FileIndex.FromListing(index);
-			return;
-		}
-
-		try {
-			const response = await fetch(index);
-			this._index = FileIndex.FromListing((await response.json()) as ListingTree);
-		} catch (e) {
-			throw new ErrnoError(Errno.EINVAL, 'Invalid or unavailable file listing tree');
-		}
-	}
+export class FetchFS extends IndexFS {
+	public readonly baseUrl: string;
 
 	public async ready(): Promise<void> {
-		await this._init;
+		if (this._isInitialized) {
+			return;
+		}
+		await super.ready();
+		/**
+		 * Iterate over all of the files and cache their contents
+		 */
+		for (const [path, stats] of this.index.files()) {
+			await this.getData(path, stats);
+		}
 	}
 
 	constructor({ index = 'index.json', baseUrl = '' }: FetchOptions) {
-		super({});
+		super(typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json'));
 
 		// prefix url must end in a directory separator.
 		if (baseUrl.at(-1) != '/') {
 			baseUrl += '/';
 		}
-		this.prefixUrl = baseUrl;
-
-		this._init = this._initialize(index);
+		this.baseUrl = baseUrl;
 	}
 
 	public metadata(): FileSystemMetadata {
@@ -131,76 +106,42 @@ export class FetchFS extends AsyncIndexFS<Stats> {
 		};
 	}
 
-	public empty(): void {
-		for (const file of this._index.files()) {
-			delete file.data!.fileData;
-		}
-	}
-
 	/**
-	 * Special function: Preload the given file into the index.
+	 * Preload the given file into the index.
 	 * @param path
 	 * @param buffer
 	 */
-	public preloadFile(path: string, buffer: Uint8Array): void {
-		const inode = this._index.get(path)!;
-		if (!inode) {
+	public preload(path: string, buffer: Uint8Array): void {
+		const stats = this.index.get(path);
+		if (!stats) {
 			throw ErrnoError.With('ENOENT', path, 'preloadFile');
 		}
-		if (!inode.isFile()) {
+		if (!stats.isFile()) {
 			throw ErrnoError.With('EISDIR', path, 'preloadFile');
 		}
-		const stats = inode.data!;
 		stats.size = buffer.length;
 		stats.fileData = buffer;
 	}
 
-	protected async statFileInode(inode: IndexFileInode<Stats>, path: string): Promise<Stats> {
-		const stats = inode.data!;
-		// At this point, a non-opened file will still have default stats from the listing.
-		if (stats.size < 0) {
-			stats.size = await this._fetchSize(path);
-		}
-
-		return stats;
-	}
-
-	protected async openFileInode(inode: IndexFileInode<Stats>, path: string, flag: string): Promise<NoSyncFile<this>> {
-		const stats = inode.data!;
-		// Use existing file contents. This maintains the previously-used flag.
+	/**
+	 * @todo Be lazier about actually requesting the data?
+	 */
+	protected async getData(path: string, stats: Stats): Promise<Uint8Array> {
 		if (stats.fileData) {
-			return new NoSyncFile(this, path, flag, new Stats(stats), stats.fileData);
+			return stats.fileData;
 		}
-		// @todo be lazier about actually requesting the file
-		const data = await this._fetchFile(path, 'buffer');
-		// we don't initially have file sizes
-		stats.size = data.length;
+
+		const data = await fetchFile(this.baseUrl + (path.startsWith('/') ? path.slice(1) : path), 'buffer');
 		stats.fileData = data;
-		return new NoSyncFile(this, path, flag, new Stats(stats), data);
+		return data;
 	}
 
-	private _getRemotePath(filePath: string): string {
-		if (filePath.charAt(0) === '/') {
-			filePath = filePath.slice(1);
+	protected getDataSync(path: string, stats: Stats): Uint8Array {
+		if (stats.fileData) {
+			return stats.fileData;
 		}
-		return this.prefixUrl + filePath;
-	}
 
-	/**
-	 * Asynchronously download the given file.
-	 */
-	protected _fetchFile(path: string, type: 'buffer'): Promise<Uint8Array>;
-	protected _fetchFile(path: string, type: 'json'): Promise<object>;
-	protected _fetchFile(path: string, type: 'buffer' | 'json'): Promise<object>;
-	protected _fetchFile(path: string, type: 'buffer' | 'json'): Promise<object> {
-		return fetchFile(this._getRemotePath(path), type);
-	}
-
-	/**
-	 * Only requests the HEAD content, for the file size.
-	 */
-	protected _fetchSize(path: string): Promise<number> {
-		return fetchSize(this._getRemotePath(path));
+		throw new ErrnoError(Errno.ENODATA, '', path, 'getData');
 	}
 }
 

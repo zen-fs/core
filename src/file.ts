@@ -701,8 +701,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
  * For the filesystems which do not sync to anything..
  */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
-	constructor(_fs: T, _path: string, _flag: string, _stat: Stats, contents?: Uint8Array) {
-		super(_fs, _path, _flag, _stat, contents);
+	constructor(fs: T, path: string, flag: string, stats: Stats, contents?: Uint8Array) {
+		super(fs, path, flag, stats, contents);
 	}
 	/**
 	 * Asynchronous sync. Doesn't do anything, simply calls the cb.

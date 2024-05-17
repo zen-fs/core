@@ -14,45 +14,45 @@ export enum FileType {
 /**
  *
  */
-export interface StatsLike {
+export interface StatsLike<T extends number | bigint = number | bigint> {
 	/**
 	 * Size of the item in bytes.
 	 * For directories/symlinks, this is normally the size of the struct that represents the item.
 	 */
-	size: number | bigint;
+	size: T;
 	/**
 	 * Unix-style file mode (e.g. 0o644) that includes the item type
 	 * Type of the item can be FILE, DIRECTORY, SYMLINK, or SOCKET
 	 */
-	mode: number | bigint;
+	mode: T;
 	/**
 	 * time of last access, in milliseconds since epoch
 	 */
-	atimeMs: number | bigint;
+	atimeMs: T;
 	/**
 	 * time of last modification, in milliseconds since epoch
 	 */
-	mtimeMs: number | bigint;
+	mtimeMs: T;
 	/**
 	 * time of last time file status was changed, in milliseconds since epoch
 	 */
-	ctimeMs: number | bigint;
+	ctimeMs: T;
 	/**
 	 * time of file creation, in milliseconds since epoch
 	 */
-	birthtimeMs: number | bigint;
+	birthtimeMs: T;
 	/**
 	 * the id of the user that owns the file
 	 */
-	uid: number | bigint;
+	uid: T;
 	/**
 	 * the id of the group that owns the file
 	 */
-	gid: number | bigint;
+	gid: T;
 	/**
 	 * the ino
 	 */
-	ino: number | bigint;
+	ino: T;
 }
 
 /**

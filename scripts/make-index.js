@@ -2,7 +2,7 @@
 import { parseArgs } from 'util';
 import { statSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path/posix';
-import { resolve } from 'path';
+import { relative, resolve } from 'path';
 import { minimatch } from 'minimatch';
 
 const { values: options, positionals } = parseArgs({
@@ -38,9 +38,11 @@ if (options.quiet && options.verbose) {
 	process.exit();
 }
 
-function pathToPosix(path) {
+function fixSlash(path) {
 	return path.replaceAll('\\', '/');
 }
+
+const resolvedRoot = root || '.';
 
 const colors = {
 	reset: 0,
@@ -66,28 +68,31 @@ function color(color, text) {
 	return `\x1b[${colors[color]}m${text}\x1b[0m`;
 }
 
-function listing(path, seen = new Set()) {
+const entries = new Map();
+
+function computeEntries(path) {
 	try {
-		if (options.verbose) console.log(`${color('blue', 'list')} ${path}`);
+		if (options.ignore.some(pattern => minimatch(path, pattern))) {
+			if (!options.quiet) console.log(`${color('yellow', 'skip')} ${path}`);
+			return;
+		}
+
 		const stats = statSync(path);
+		entries.set('/' + relative(resolvedRoot, path), stats);
 
 		if (stats.isFile()) {
-			if (options.verbose) console.log(`${color('green', 'file')} ${path}`);
-			return null;
-		}
-
-		const entries = {};
-		for (const file of readdirSync(path)) {
-			const full = join(path, file);
-			if (options.ignore.some(pattern => minimatch(full, pattern))) {
-				if (!options.quiet) console.log(`${color('yellow', 'skip')} ${full}`);
-				continue;
+			if (options.verbose) {
+				console.log(`${color('green', 'file')} ${path}`);
 			}
-
-			entries[file] = listing(full, seen);
+			return;
 		}
-		if (options.verbose) console.log(`${color('bright_green', ' dir')} ${path}`);
-		return entries;
+
+		for (const file of readdirSync(path)) {
+			computeEntries(join(path, file));
+		}
+		if (options.verbose) {
+			console.log(`${color('bright_green', ' dir')} ${path}`);
+		}
 	} catch (e) {
 		if (!options.quiet) {
 			console.log(`${color('red', 'fail')} ${path}: ${e.message}`);
@@ -95,7 +100,14 @@ function listing(path, seen = new Set()) {
 	}
 }
 
-const rootListing = listing(pathToPosix(root));
-if (!options.quiet) console.log('Generated listing for ' + pathToPosix(resolve(root)));
+computeEntries(resolvedRoot);
+if (!options.quiet) {
+	console.log('Generated listing for ' + fixSlash(resolve(root)));
+}
 
-writeFileSync(options.output, JSON.stringify(rootListing));
+const index = {
+	version: 1,
+	entries: Object.fromEntries(entries),
+};
+
+writeFileSync(options.output, JSON.stringify(index));
