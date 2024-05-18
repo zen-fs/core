@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import { ErrnoError, Errno } from '../error.js';
 import type { FileContents } from '../filesystem.js';
