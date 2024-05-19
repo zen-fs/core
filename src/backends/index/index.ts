@@ -4,6 +4,10 @@ import { Stats, StatsLike } from '../../stats.js';
 import { encode } from '../../utils.js';
 import { basename, dirname } from '../../emulation/path.js';
 
+/**
+ * An Index in JSON form
+ * @internal
+ */
 export interface IndexData {
 	version: 1;
 	entries: Record<string, StatsLike<number>>;
@@ -13,6 +17,7 @@ export const version = 1;
 
 /**
  * An index of files
+ * @internal
  */
 export class Index extends Map<string, Stats> {
 	public constructor() {

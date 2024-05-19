@@ -8,7 +8,7 @@ type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undef
 /**
  * Resolves the type of Backend.options from the options interface
  */
-type OptionsConfig<T> = {
+export type OptionsConfig<T> = {
 	[K in keyof T]: {
 		/**
 		 * The basic JavaScript type(s) for this option.
@@ -66,8 +66,16 @@ export interface Backend<FS extends FileSystem = FileSystem, TOptions extends ob
 	isAvailable(): boolean | Promise<boolean>;
 }
 
-type OptionsOf<T extends Backend> = T extends Backend<FileSystem, infer TOptions> ? TOptions : never;
+/**
+ * Gets the options type of a backend
+ * @internal
+ */
+export type OptionsOf<T extends Backend> = T extends Backend<FileSystem, infer TOptions> ? TOptions : never;
 
+/**
+ * Gets the FileSystem type for a backend
+ * @internal
+ */
 export type FilesystemOf<T extends Backend> = T extends Backend<infer FS> ? FS : never;
 
 /**

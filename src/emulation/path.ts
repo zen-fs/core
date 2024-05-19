@@ -28,6 +28,9 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 
 import type { ParsedPath } from 'node:path';
 
+/**
+ * An absolute path
+ */
 export type AbsolutePath = `/${string}`;
 
 export let cwd = '/';
