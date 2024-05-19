@@ -81,7 +81,7 @@ export function isBackend(arg: unknown): arg is Backend {
  * Checks that the given options object is valid for the file system options.
  * @internal
  */
-export async function checkOptions<T extends Backend>(backend: T, opts: Partial<OptionsOf<T>> & Record<string, unknown>): Promise<void> {
+export async function checkOptions<T extends Backend>(backend: T, opts: Record<string, unknown>): Promise<void> {
 	if (typeof opts != 'object' || opts === null) {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid options');
 	}

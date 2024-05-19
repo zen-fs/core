@@ -71,7 +71,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	protected _convert(arg: number | bigint | string | boolean): T {
-		return <T>(this._isBigint ? BigInt(arg) : Number(arg));
+		return (this._isBigint ? BigInt(arg) : Number(arg)) as T;
 	}
 
 	public blocks: T;
@@ -186,7 +186,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino }: Partial<StatsLike> = {}) {
 		const currentTime = Date.now();
 		const resolveT = (val: number | bigint | undefined, _default: number) =>
-			<T>(typeof val == this._typename ? val : this._convert(typeof val == this._typename_inverse ? val! : _default));
+			typeof val == this._typename ? (val as T) : this._convert(typeof val == this._typename_inverse ? val! : _default);
 		this.atimeMs = resolveT(atimeMs, currentTime);
 		this.mtimeMs = resolveT(mtimeMs, currentTime);
 		this.ctimeMs = resolveT(ctimeMs, currentTime);
@@ -213,7 +213,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.blocks = this._convert(Math.ceil(Number(size) / 512));
 		// Check if mode also includes top-most bits, which indicate the file's type.
 		if ((this.mode & S_IFMT) == 0) {
-			this.mode = <T>(this.mode | this._convert(itemType));
+			this.mode = (this.mode | this._convert(itemType)) as T;
 		}
 	}
 

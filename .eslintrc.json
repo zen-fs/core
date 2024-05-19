@@ -36,7 +36,8 @@
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-namespace": "warn",
 		"@typescript-eslint/prefer-as-const": "warn",
-		"@typescript-eslint/no-explicit-any": "warn"
+		"@typescript-eslint/no-explicit-any": "warn",
+		"@typescript-eslint/consistent-type-assertions": "warn"
 	},
 	"ignorePatterns": ["tests/fixtures"],
 	"plugins": ["@typescript-eslint"]

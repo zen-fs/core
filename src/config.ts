@@ -49,7 +49,7 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 			throw new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite');
 		}
 
-		(<Record<string, FileSystem>>config)[key] = await resolveMountConfig(value, ++_depth);
+		(config as Record<string, FileSystem>)[key] = await resolveMountConfig(value, ++_depth);
 	}
 
 	const { backend } = config;

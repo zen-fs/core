@@ -233,7 +233,7 @@ export class FileHandle implements promises.FileHandle {
 		if (typeof data === 'string') {
 			// Signature 1: (fd, string, [position?, [encoding?]])
 			position = typeof posOrOff === 'number' ? posOrOff : null;
-			const encoding = <BufferEncoding>(typeof lenOrEnc === 'string' ? lenOrEnc : 'utf8');
+			const encoding = typeof lenOrEnc === 'string' ? lenOrEnc : ('utf8' as BufferEncoding);
 			offset = 0;
 			buffer = Buffer.from(data, encoding);
 			length = buffer.length;

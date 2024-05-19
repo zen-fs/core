@@ -279,7 +279,7 @@ export class ErrnoError extends Error implements NodeJS.ErrnoException {
 		public syscall: string = ''
 	) {
 		super(message);
-		this.code = <keyof typeof Errno>Errno[errno];
+		this.code = Errno[errno] as keyof typeof Errno;
 		this.message = `${this.code}: ${message}${this.path ? `, '${this.path}'` : ''}`;
 	}
 

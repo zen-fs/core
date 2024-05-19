@@ -372,7 +372,7 @@ export function writeSync(fd: number, data: FileContents, posOrOff?: number | nu
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]])
 		position = typeof posOrOff === 'number' ? posOrOff : null;
-		const encoding = <BufferEncoding>(typeof lenOrEnc === 'string' ? lenOrEnc : 'utf8');
+		const encoding = typeof lenOrEnc === 'string' ? lenOrEnc : ('utf8' as BufferEncoding);
 		offset = 0;
 		buffer = Buffer.from(data, encoding);
 		length = buffer.byteLength;
@@ -380,7 +380,7 @@ export function writeSync(fd: number, data: FileContents, posOrOff?: number | nu
 		// Signature 2: (fd, buffer, offset, length, position?)
 		buffer = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 		offset = posOrOff!;
-		length = <number>lenOrEnc;
+		length = lenOrEnc as number;
 		position = typeof pos === 'number' ? pos : null;
 	}
 
@@ -508,7 +508,7 @@ export function readdirSync(
 		}
 		entries.push(entry);
 	}
-	return <string[] | Dirent[] | Buffer[]>entries.map((entry: string) => {
+	return entries.map((entry: string) => {
 		if (typeof options == 'object' && options?.withFileTypes) {
 			return new Dirent(entry, statSync(join(path.toString(), entry)));
 		}
@@ -518,7 +518,7 @@ export function readdirSync(
 		}
 
 		return entry;
-	});
+	}) as string[] | Dirent[] | Buffer[];
 }
 readdirSync satisfies typeof fs.readdirSync;
 

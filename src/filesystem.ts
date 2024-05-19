@@ -56,7 +56,7 @@ export interface FileSystemMetadata {
  */
 export abstract class FileSystem {
 	/**
-	 * Get metadata about the current file syste,
+	 * Get metadata about the current file system
 	 */
 	public metadata(): FileSystemMetadata {
 		return {
