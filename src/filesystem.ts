@@ -33,6 +33,7 @@ export interface FileSystemMetadata {
 
 	/**
 	 * If set, disables File from using a resizable array buffer.
+	 * @default false
 	 */
 	noResizableBuffers: boolean;
 
@@ -40,6 +41,7 @@ export interface FileSystemMetadata {
 	 * If set, disables caching on async file systems.
 	 * This means *sync operations will not work*.
 	 * It has no affect on sync file systems.
+	 * @default false
 	 */
 	noAsyncCache: boolean;
 }
@@ -286,10 +288,12 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
  */
 declare abstract class AsyncFS extends FileSystem {
 	/**
+	 * @access protected
 	 * @hidden
 	 */
 	_disableSync: boolean;
 	/**
+	 * @access protected
 	 * @hidden
 	 */
 	abstract _sync?: FileSystem;
