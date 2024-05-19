@@ -514,7 +514,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		}
 	} catch (_) {
 		const original = _ as ErrnoError;
-		if(original.code != 'ENOENT') {
+		if (original.code != 'ENOENT') {
 			throw original;
 		}
 		try {

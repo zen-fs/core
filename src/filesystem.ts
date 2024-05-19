@@ -172,7 +172,7 @@ export abstract class FileSystem {
 			await this.stat(path, cred);
 			return true;
 		} catch (e) {
-			return false;
+			return (e as ErrnoError).code != 'ENOENT';
 		}
 	}
 
@@ -184,7 +184,7 @@ export abstract class FileSystem {
 			this.statSync(path, cred);
 			return true;
 		} catch (e) {
-			return false;
+			return (e as ErrnoError).code != 'ENOENT';
 		}
 	}
 

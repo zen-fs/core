@@ -131,7 +131,7 @@ function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | nul
 		stats = wrap('statSync', resolveSymlinks, path, cred);
 	} catch (_) {
 		const original = _ as ErrnoError;
-		if(original.code != 'ENOENT') {
+		if (original.code != 'ENOENT') {
 			throw original;
 		}
 		try {
@@ -151,7 +151,7 @@ function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | nul
 			}
 		} catch (_) {
 			const ex = _ as ErrnoError;
-			ex.stack += '\n<original>\n'
+			ex.stack += '\n<original>\n';
 			ex.stack += (original as Error).stack;
 			throw ex;
 		}
