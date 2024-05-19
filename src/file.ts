@@ -383,7 +383,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		public readonly path: string,
 		public readonly flag: string,
 		public readonly stats: Stats,
-		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, { maxByteLength: size_max }))
+		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().disableResizableBuffers ? {} : { maxByteLength: size_max }))
 	) {
 		super();
 
@@ -547,15 +547,16 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
 		}
-		const endFp = position + length;
-		if (endFp > this.stats.size) {
-			this.stats.size = endFp;
-			if (endFp > this._buffer.byteLength) {
-				if (this._buffer.buffer.resizable && this._buffer.buffer.maxByteLength! <= endFp) {
-					this._buffer.buffer.resize(endFp);
+		const end = position + length;
+
+		if (end > this.stats.size) {
+			this.stats.size = end;
+			if (end > this._buffer.byteLength) {
+				if (this._buffer.buffer.resizable && this._buffer.buffer.maxByteLength! <= end) {
+					this._buffer.buffer.resize(end);
 				} else {
 					// Extend the buffer!
-					const newBuffer = new Uint8Array(new ArrayBuffer(endFp, { maxByteLength: size_max }));
+					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().disableResizableBuffers ? {} : { maxByteLength: size_max }));
 					newBuffer.set(this._buffer);
 					this._buffer = newBuffer;
 				}

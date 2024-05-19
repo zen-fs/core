@@ -30,6 +30,11 @@ export interface FileSystemMetadata {
 	 * The available space
 	 */
 	freeSpace: number;
+
+	/**
+	 * If set, disables File from using a resizable array buffer.
+	 */
+	disableResizableBuffers: boolean;
 }
 
 /**
@@ -52,6 +57,7 @@ export abstract class FileSystem {
 			readonly: false,
 			totalSpace: 0,
 			freeSpace: 0,
+			disableResizableBuffers: false,
 		};
 	}
 
