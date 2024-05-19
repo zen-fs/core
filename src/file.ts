@@ -383,7 +383,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		public readonly path: string,
 		public readonly flag: string,
 		public readonly stats: Stats,
-		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().disableResizableBuffers ? {} : { maxByteLength: size_max }))
+		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().noResizableBuffers ? {} : { maxByteLength: size_max }))
 	) {
 		super();
 
@@ -556,7 +556,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 					this._buffer.buffer.resize(end);
 				} else {
 					// Extend the buffer!
-					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().disableResizableBuffers ? {} : { maxByteLength: size_max }));
+					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().noResizableBuffers ? {} : { maxByteLength: size_max }));
 					newBuffer.set(this._buffer);
 					this._buffer = newBuffer;
 				}

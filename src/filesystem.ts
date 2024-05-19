@@ -34,7 +34,14 @@ export interface FileSystemMetadata {
 	/**
 	 * If set, disables File from using a resizable array buffer.
 	 */
-	disableResizableBuffers: boolean;
+	noResizableBuffers: boolean;
+
+	/**
+	 * If set, disables caching on async file systems.
+	 * This means *sync operations will not work*.
+	 * It has no affect on sync file systems.
+	 */
+	noAsyncCache: boolean;
 }
 
 /**
@@ -57,7 +64,8 @@ export abstract class FileSystem {
 			readonly: false,
 			totalSpace: 0,
 			freeSpace: 0,
-			disableResizableBuffers: false,
+			noResizableBuffers: false,
+			noAsyncCache: false,
 		};
 	}
 
@@ -204,19 +212,19 @@ export abstract class FileSystem {
  * @internal
  */
 declare abstract class SyncFS extends FileSystem {
-	metadata(): FileSystemMetadata;
-	ready(): Promise<void>;
-	exists(path: string, cred: Cred): Promise<boolean>;
-	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
-	stat(path: string, cred: Cred): Promise<Stats>;
-	createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
-	openFile(path: string, flag: string, cred: Cred): Promise<File>;
-	unlink(path: string, cred: Cred): Promise<void>;
-	rmdir(path: string, cred: Cred): Promise<void>;
-	mkdir(path: string, mode: number, cred: Cred): Promise<void>;
-	readdir(path: string, cred: Cred): Promise<string[]>;
-	link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
-	sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
+	public metadata(): FileSystemMetadata;
+	public ready(): Promise<void>;
+	public exists(path: string, cred: Cred): Promise<boolean>;
+	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
+	public stat(path: string, cred: Cred): Promise<Stats>;
+	public createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
+	public openFile(path: string, flag: string, cred: Cred): Promise<File>;
+	public unlink(path: string, cred: Cred): Promise<void>;
+	public rmdir(path: string, cred: Cred): Promise<void>;
+	public mkdir(path: string, mode: number, cred: Cred): Promise<void>;
+	public readdir(path: string, cred: Cred): Promise<string[]>;
+	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
+	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
 }
 
 /**
@@ -274,25 +282,31 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 
 /**
  * @internal
+ * Note: `_*` should be treated like protected.
+ * Protected can't be used because of TS quirks however.
  */
 declare abstract class AsyncFS extends FileSystem {
 	/**
 	 * @hidden
 	 */
-	abstract _sync: FileSystem;
-	queueDone(): Promise<void>;
-	metadata(): FileSystemMetadata;
-	ready(): Promise<void>;
-	renameSync(oldPath: string, newPath: string, cred: Cred): void;
-	statSync(path: string, cred: Cred): Stats;
-	createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
-	openFileSync(path: string, flag: string, cred: Cred): File;
-	unlinkSync(path: string, cred: Cred): void;
-	rmdirSync(path: string, cred: Cred): void;
-	mkdirSync(path: string, mode: number, cred: Cred): void;
-	readdirSync(path: string, cred: Cred): string[];
-	linkSync(srcpath: string, dstpath: string, cred: Cred): void;
-	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	_disableSync: boolean;
+	/**
+	 * @hidden
+	 */
+	abstract _sync?: FileSystem;
+	public queueDone(): Promise<void>;
+	public metadata(): FileSystemMetadata;
+	public ready(): Promise<void>;
+	public renameSync(oldPath: string, newPath: string, cred: Cred): void;
+	public statSync(path: string, cred: Cred): Stats;
+	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
+	public openFileSync(path: string, flag: string, cred: Cred): File;
+	public unlinkSync(path: string, cred: Cred): void;
+	public rmdirSync(path: string, cred: Cred): void;
+	public mkdirSync(path: string, mode: number, cred: Cred): void;
+	public readdirSync(path: string, cred: Cred): string[];
+	public linkSync(srcpath: string, dstpath: string, cred: Cred): void;
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -337,14 +351,18 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 
 		private _isInitialized: boolean = false;
 
-		abstract _sync: FileSystem;
+		_disableSync: boolean = false;
+
+		abstract _sync?: FileSystem;
 
 		public async ready(): Promise<void> {
-			await this._sync.ready();
 			await super.ready();
-			if (this._isInitialized) {
+			if (this._isInitialized || this._disableSync) {
 				return;
 			}
+			this.checkSync();
+
+			await this._sync.ready();
 
 			try {
 				await this.crossCopy('/');
@@ -355,22 +373,42 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 			}
 		}
 
+		public metadata(): FileSystemMetadata {
+			return {
+				...super.metadata(),
+				noAsyncCache: this._disableSync,
+			};
+		}
+
+		protected checkSync(path?: string, syscall?: string): asserts this is { _sync: FileSystem } {
+			if (this._disableSync) {
+				throw new ErrnoError(Errno.ENOTSUP, 'Sync caching has been disabled for this async file system', path, syscall);
+			}
+			if (!this._sync) {
+				throw new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall);
+			}
+		}
+
 		public renameSync(oldPath: string, newPath: string, cred: Cred): void {
+			this.checkSync(oldPath, 'rename');
 			this._sync.renameSync(oldPath, newPath, cred);
 			this.queue('rename', oldPath, newPath, cred);
 		}
 
 		public statSync(path: string, cred: Cred): Stats {
+			this.checkSync(path, 'stat');
 			return this._sync.statSync(path, cred);
 		}
 
 		public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
+			this.checkSync(path, 'createFile');
 			this._sync.createFileSync(path, flag, mode, cred);
 			this.queue('createFile', path, flag, mode, cred);
 			return this.openFileSync(path, flag, cred);
 		}
 
 		public openFileSync(path: string, flag: string, cred: Cred): PreloadFile<this> {
+			this.checkSync(path, 'openFile');
 			const file = this._sync.openFileSync(path, flag, cred);
 			const stats = file.statSync();
 			const buffer = new Uint8Array(stats.size);
@@ -379,35 +417,42 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 		}
 
 		public unlinkSync(path: string, cred: Cred): void {
+			this.checkSync(path, 'unlinkSync');
 			this._sync.unlinkSync(path, cred);
 			this.queue('unlink', path, cred);
 		}
 
 		public rmdirSync(path: string, cred: Cred): void {
+			this.checkSync(path, 'rmdir');
 			this._sync.rmdirSync(path, cred);
 			this.queue('rmdir', path, cred);
 		}
 
 		public mkdirSync(path: string, mode: number, cred: Cred): void {
+			this.checkSync(path, 'mkdir');
 			this._sync.mkdirSync(path, mode, cred);
 			this.queue('mkdir', path, mode, cred);
 		}
 
 		public readdirSync(path: string, cred: Cred): string[] {
+			this.checkSync(path, 'readdir');
 			return this._sync.readdirSync(path, cred);
 		}
 
 		public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
+			this.checkSync(srcpath, 'link');
 			this._sync.linkSync(srcpath, dstpath, cred);
 			this.queue('link', srcpath, dstpath, cred);
 		}
 
 		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+			this.checkSync(path, 'sync');
 			this._sync.syncSync(path, data, stats);
 			this.queue('sync', path, data, stats);
 		}
 
 		public existsSync(path: string, cred: Cred): boolean {
+			this.checkSync(path, 'exists');
 			return this._sync.existsSync(path, cred);
 		}
 
@@ -415,6 +460,7 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 		 * @internal
 		 */
 		protected async crossCopy(path: string): Promise<void> {
+			this.checkSync(path, 'crossCopy');
 			const stats = await this.stat(path, rootCred);
 			if (stats.isDirectory()) {
 				if (path !== '/') {
@@ -469,21 +515,21 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
  * @internal
  */
 declare abstract class ReadonlyFS extends FileSystem {
-	metadata(): FileSystemMetadata;
-	rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
-	renameSync(oldPath: string, newPath: string, cred: Cred): void;
-	createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
-	createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
-	unlink(path: string, cred: Cred): Promise<void>;
-	unlinkSync(path: string, cred: Cred): void;
-	rmdir(path: string, cred: Cred): Promise<void>;
-	rmdirSync(path: string, cred: Cred): void;
-	mkdir(path: string, mode: number, cred: Cred): Promise<void>;
-	mkdirSync(path: string, mode: number, cred: Cred): void;
-	link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
-	linkSync(srcpath: string, dstpath: string, cred: Cred): void;
-	sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
-	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	public metadata(): FileSystemMetadata;
+	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
+	public renameSync(oldPath: string, newPath: string, cred: Cred): void;
+	public createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
+	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
+	public unlink(path: string, cred: Cred): Promise<void>;
+	public unlinkSync(path: string, cred: Cred): void;
+	public rmdir(path: string, cred: Cred): Promise<void>;
+	public rmdirSync(path: string, cred: Cred): void;
+	public mkdir(path: string, mode: number, cred: Cred): Promise<void>;
+	public mkdirSync(path: string, mode: number, cred: Cred): void;
+	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
+	public linkSync(srcpath: string, dstpath: string, cred: Cred): void;
+	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
 }
 
 /**
