@@ -69,9 +69,8 @@ export abstract class FileSystem {
 		};
 	}
 
-	public constructor(options?: object) {
-		// unused
-	}
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	public constructor(options?: object) {}
 
 	public async ready(): Promise<void> {}
 
