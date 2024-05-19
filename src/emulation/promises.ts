@@ -491,52 +491,41 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	path = resolveSymlinks && (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
-	try {
-		switch (pathExistsAction(flag)) {
+	if (!(await fs.exists(path, cred))) {
+		switch (pathNotExistsAction(flag)) {
+			case ActionType.CREATE:
+				// Ensure parent exists.
+				const parentStats: Stats = await fs.stat(dirname(resolved), cred);
+				if (parentStats && !parentStats.isDirectory()) {
+					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
+				}
+				return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
 			case ActionType.THROW:
-				throw ErrnoError.With('EEXIST', path, '_open');
-			case ActionType.TRUNCATE:
-				/* 
+				throw ErrnoError.With('ENOENT', path, '_open');
+			default:
+				throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
+		}
+	}
+
+	switch (pathExistsAction(flag)) {
+		case ActionType.THROW:
+			throw ErrnoError.With('EEXIST', path, '_open');
+		case ActionType.TRUNCATE:
+			/* 
 					In a previous implementation, we deleted the file and
 					re-created it. However, this created a race condition if another
 					asynchronous request was trying to read the file, as the file
 					would not exist for a small period of time.
 				*/
-				const file: File = await fs.openFile(resolved, flag, cred);
-				await file.truncate(0);
-				await file.sync();
-				return new FileHandle(file);
-			case ActionType.NOP:
-				// Must await so thrown errors are caught by the catch below
-				return new FileHandle(await fs.openFile(resolved, flag, cred));
-			default:
-				throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
-		}
-	} catch (_) {
-		const original = _ as ErrnoError;
-		if (original.code != 'ENOENT') {
-			throw original;
-		}
-		try {
-			switch (pathNotExistsAction(flag)) {
-				case ActionType.CREATE:
-					// Ensure parent exists.
-					const parentStats: Stats = await fs.stat(dirname(resolved), cred);
-					if (parentStats && !parentStats.isDirectory()) {
-						throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
-					}
-					return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
-				case ActionType.THROW:
-					throw ErrnoError.With('ENOENT', path, '_open');
-				default:
-					throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
-			}
-		} catch (_) {
-			const ex = _ as ErrnoError;
-			ex.stack += '\n<original>\n';
-			ex.stack += (original as Error).stack;
-			throw ex;
-		}
+			const file: File = await fs.openFile(resolved, flag, cred);
+			await file.truncate(0);
+			await file.sync();
+			return new FileHandle(file);
+		case ActionType.NOP:
+			// Must await so thrown errors are caught by the catch below
+			return new FileHandle(await fs.openFile(resolved, flag, cred));
+		default:
+			throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
 	}
 }
 

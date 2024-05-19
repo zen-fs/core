@@ -121,41 +121,32 @@ export function unlinkSync(path: fs.PathLike): void {
 }
 unlinkSync satisfies typeof fs.unlinkSync;
 
-function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null, resolveSymlinks: boolean = true): File {
-	const path = normalizePath(_path),
-		mode = normalizeMode(_mode, 0o644),
+function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null, resolveSymlinks: boolean = true): File {
+	path = normalizePath(path);
+	const mode = normalizeMode(_mode, 0o644),
 		flag = parseFlag(_flag);
-	// Check if the path exists, and is a file.
-	let stats: Stats;
-	try {
-		stats = wrap('statSync', resolveSymlinks, path, cred);
-	} catch (_) {
-		const original = _ as ErrnoError;
-		if (original.code != 'ENOENT') {
-			throw original;
-		}
-		try {
-			// File does not exist.
-			switch (pathNotExistsAction(flag)) {
-				case ActionType.CREATE:
-					// Ensure parent exists.
-					const parentStats: Stats = wrap('statSync', resolveSymlinks, dirname(path), cred);
-					if (!parentStats.isDirectory()) {
-						throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
-					}
-					return wrap('createFileSync', resolveSymlinks, path, flag, mode, cred);
-				case ActionType.THROW:
-					throw ErrnoError.With('ENOENT', path, '_open');
-				default:
-					throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
-			}
-		} catch (_) {
-			const ex = _ as ErrnoError;
-			ex.stack += '\n<original>\n';
-			ex.stack += (original as Error).stack;
-			throw ex;
+
+	path = resolveSymlinks && existsSync(path) ? realpathSync(path) : path;
+	const { fs, path: resolved } = resolveMount(path);
+
+	if (!fs.existsSync(resolved, cred)) {
+		switch (pathNotExistsAction(flag)) {
+			case ActionType.CREATE:
+				// Ensure parent exists.
+				const parentStats: Stats = fs.statSync(dirname(resolved), cred);
+				if (!parentStats.isDirectory()) {
+					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
+				}
+				return fs.createFileSync(resolved, flag, mode, cred);
+			case ActionType.THROW:
+				throw ErrnoError.With('ENOENT', path, '_open');
+			default:
+				throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
 		}
 	}
+
+	const stats: Stats = fs.statSync(resolved, cred);
+
 	if (!stats.hasAccess(mode, cred)) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
@@ -166,16 +157,16 @@ function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | nul
 			throw ErrnoError.With('EEXIST', path, '_open');
 		case ActionType.TRUNCATE:
 			// Delete file.
-			wrap('unlinkSync', resolveSymlinks, path, cred);
+			fs.unlinkSync(resolved, cred);
 			/*
 				Create file. Use the same mode as the old file.
 				Node itself modifies the ctime when this occurs, so this action
 				will preserve that behavior if the underlying file system
 				supports those properties.
 			*/
-			return wrap('createFileSync', resolveSymlinks, path, flag, stats.mode, cred);
+			return fs.createFileSync(resolved, flag, stats.mode, cred);
 		case ActionType.NOP:
-			return wrap('openFileSync', resolveSymlinks, path, flag, cred);
+			return fs.openFileSync(resolved, flag, cred);
 		default:
 			throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
 	}
