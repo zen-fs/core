@@ -156,7 +156,7 @@ export function normalize(path: string): string {
 	return isAbsolute ? `/${path}` : path;
 }
 
-export function isAbsolute(path: string): boolean {
+export function isAbsolute(path: string): path is AbsolutePath {
 	return path.startsWith('/');
 }
 

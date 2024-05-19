@@ -68,7 +68,7 @@ export interface Backend<FS extends FileSystem = FileSystem, TOptions extends ob
 
 type OptionsOf<T extends Backend> = T extends Backend<FileSystem, infer TOptions> ? TOptions : never;
 
-type FilesystemOf<T extends Backend> = T extends Backend<infer FS> ? FS : never;
+export type FilesystemOf<T extends Backend> = T extends Backend<infer FS> ? FS : never;
 
 /**
  * @internal
@@ -138,13 +138,14 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Record<s
  *
  * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
  */
-export type BackendConfiguration<T extends Backend = Backend> = OptionsOf<T> & {
+export type BackendConfiguration<T extends Backend> = OptionsOf<T> & {
 	backend: T;
+	disableAsyncCache?: boolean;
 };
 
 /**
  * @internal
  */
-export function isBackendConfig(arg: unknown): arg is BackendConfiguration {
+export function isBackendConfig<T extends Backend>(arg: unknown): arg is BackendConfiguration<T> {
 	return arg != null && typeof arg == 'object' && 'backend' in arg && isBackend(arg.backend);
 }

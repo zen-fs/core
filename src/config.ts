@@ -1,17 +1,18 @@
-import { ErrnoError, Errno } from './error.js';
-import type { Backend, BackendConfiguration } from './backends/backend.js';
+import { type Entries } from 'utilium';
+import type { Backend, BackendConfiguration, FilesystemOf } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import * as fs from './emulation/index.js';
+import type {  AbsolutePath } from './emulation/path.js';
 import { setCred, type MountObject } from './emulation/shared.js';
-import { FileSystem } from './filesystem.js';
-import type { AbsolutePath } from './emulation/path.js';
+import { Errno, ErrnoError } from './error.js';
+import { FileSystem, type Async } from './filesystem.js';
 
 /**
  * Configuration for a specific mount point
  */
-export type MountConfiguration<FS extends FileSystem = FileSystem, TOptions extends object = object> = FS | BackendConfiguration<Backend<FS, TOptions>> | Backend<FS, TOptions>;
+export type MountConfiguration<T extends Backend> = FilesystemOf<T> | BackendConfiguration<T> | T;
 
-function isMountConfig(arg: unknown): arg is MountConfiguration {
+function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfiguration<T> {
 	return isBackendConfig(arg) || isBackend(arg) || arg instanceof FileSystem;
 }
 
@@ -19,7 +20,7 @@ function isMountConfig(arg: unknown): arg is MountConfiguration {
  * Retrieve a file system with the given configuration.
  * @param config A BackendConfig object.
  */
-export async function resolveMountConfig<FS extends FileSystem, TOptions extends object = object>(config: MountConfiguration<FS, TOptions>, _depth = 0): Promise<FS> {
+export async function resolveMountConfig<T extends Backend>(config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
 	if (typeof config !== 'object' || config == null) {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration');
 	}
@@ -33,7 +34,7 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 	}
 
 	if (isBackend(config)) {
-		config = { backend: config } as BackendConfiguration<Backend<FS, TOptions>>;
+		config = { backend: config } as BackendConfiguration<T>;
 	}
 
 	for (const [key, value] of Object.entries(config)) {
@@ -58,40 +59,80 @@ export async function resolveMountConfig<FS extends FileSystem, TOptions extends
 		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend);
 	}
 	checkOptions(backend, config);
-	const mount = await backend.create(config);
+	const mount = (await backend.create(config)) as FilesystemOf<T>;
+	if ('_disableSync' in mount) {
+		type AsyncFS = InstanceType<ReturnType<typeof Async<new () => FilesystemOf<T>>>>;
+		(mount as AsyncFS)._disableSync = config.disableAsyncCache || false;
+	}
 	await mount.ready();
 	return mount;
 }
 
+type ConfigMounts = { [K in AbsolutePath]: Backend };
+
 /**
  * Configuration
  */
-export interface Configuration {
-	mounts: Record<AbsolutePath, MountConfiguration>;
-	uid?: number;
-	gid?: number;
+export interface Configuration<T extends ConfigMounts> {
+	/**
+	 * An object mapping mount points to mount configuration
+	 */
+	mounts: { [K in keyof T & AbsolutePath]: MountConfiguration<T[K]> };
+	/**
+	 * The uid to use
+	 */
+	uid: number;
+	/**
+	 * The gid to use
+	 */
+	gid: number;
+	/**
+	 * If set, disables the sync cache and sync operations on async file systems.
+	 */
+	disableAsyncCache: boolean;
 }
 
 /**
- * Creates filesystems with the given configuration, and initializes ZenFS with it.
- * @see Configuration for more info on the configuration object.
+ * Configures ZenFS with single mount point /
  */
-export async function configure<T extends MountConfiguration | Configuration>(config: T | Configuration): Promise<void> {
+export async function configure<T extends Backend>(config: MountConfiguration<T>): Promise<void>;
+
+/**
+ * Configures ZenFS with the given configuration
+ * @see Configuration
+ */
+export async function configure<T extends ConfigMounts>(config: Partial<Configuration<T>>): Promise<void>;
+
+/**
+ * Configures ZenFS with the given configuration
+ * @see Configuration
+ */
+export async function configure(config: MountConfiguration<Backend> | Partial<Configuration<ConfigMounts>>): Promise<void> {
 	const uid = 'uid' in config ? config.uid || 0 : 0;
 	const gid = 'gid' in config ? config.gid || 0 : 0;
 
 	if (isMountConfig(config)) {
 		// single FS
-		config = { mounts: { '/': config } };
+		config = { mounts: { '/': config } } as Partial<Configuration<ConfigMounts>>;
 	}
 
-	for (const [point, value] of Object.entries(config.mounts) as [AbsolutePath, MountConfiguration][]) {
+	setCred({ uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
+
+	if (!config.mounts) {
+		return;
+	}
+
+	for (const [point, mountConfig] of Object.entries(config.mounts) as Entries<typeof config.mounts>) {
 		if (!point.startsWith('/')) {
 			throw new ErrnoError(Errno.EINVAL, 'Mount points must have absolute paths');
 		}
-		config.mounts[point] = await resolveMountConfig(value);
+
+		if (isBackendConfig(mountConfig)) {
+			mountConfig.disableAsyncCache = config.disableAsyncCache || false;
+		}
+
+		config.mounts[point] = await resolveMountConfig(mountConfig);
 	}
 
 	fs.mountObject(config.mounts as MountObject);
-	setCred({ uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 }
