@@ -2,7 +2,7 @@ import { type Entries } from 'utilium';
 import type { Backend, BackendConfiguration, FilesystemOf } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import * as fs from './emulation/index.js';
-import type {  AbsolutePath } from './emulation/path.js';
+import type { AbsolutePath } from './emulation/path.js';
 import { setCred, type MountObject } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem, type Async } from './filesystem.js';
