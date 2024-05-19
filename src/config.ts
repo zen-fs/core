@@ -128,7 +128,7 @@ export async function configure(config: MountConfiguration<Backend> | Partial<Co
 		}
 
 		if (isBackendConfig(mountConfig)) {
-			mountConfig.disableAsyncCache = config.disableAsyncCache || false;
+			mountConfig.disableAsyncCache ??= config.disableAsyncCache || false;
 		}
 
 		config.mounts[point] = await resolveMountConfig(mountConfig);

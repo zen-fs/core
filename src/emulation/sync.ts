@@ -129,20 +129,31 @@ function _openSync(_path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | nul
 	let stats: Stats;
 	try {
 		stats = wrap('statSync', resolveSymlinks, path, cred);
-	} catch (e) {
-		// File does not exist.
-		switch (pathNotExistsAction(flag)) {
-			case ActionType.CREATE:
-				// Ensure parent exists.
-				const parentStats: Stats = wrap('statSync', resolveSymlinks, dirname(path), cred);
-				if (!parentStats.isDirectory()) {
-					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
-				}
-				return wrap('createFileSync', resolveSymlinks, path, flag, mode, cred);
-			case ActionType.THROW:
-				throw ErrnoError.With('ENOENT', path, '_open');
-			default:
-				throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
+	} catch (_) {
+		const original = _ as ErrnoError;
+		if(original.code != 'ENOENT') {
+			throw original;
+		}
+		try {
+			// File does not exist.
+			switch (pathNotExistsAction(flag)) {
+				case ActionType.CREATE:
+					// Ensure parent exists.
+					const parentStats: Stats = wrap('statSync', resolveSymlinks, dirname(path), cred);
+					if (!parentStats.isDirectory()) {
+						throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
+					}
+					return wrap('createFileSync', resolveSymlinks, path, flag, mode, cred);
+				case ActionType.THROW:
+					throw ErrnoError.With('ENOENT', path, '_open');
+				default:
+					throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
+			}
+		} catch (_) {
+			const ex = _ as ErrnoError;
+			ex.stack += '\n<original>\n'
+			ex.stack += (original as Error).stack;
+			throw ex;
 		}
 	}
 	if (!stats.hasAccess(mode, cred)) {

@@ -17,7 +17,7 @@ describe('FS with MessageChannel', () => {
 	test('configuration', async () => {
 		tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
 		attachFS(port2, tmpfs);
-		await configure({ backend: Port, port: port1 });
+		await configure({ backend: Port, port: port1, disableAsyncCache: true });
 	});
 
 	test('write', async () => {
@@ -32,5 +32,9 @@ describe('FS with MessageChannel', () => {
 
 	test('read', async () => {
 		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
+	});
+
+	test('readFileSync should throw', () => {
+		expect(() => fs.readFileSync('/test', 'utf8')).toThrow('ENOTSUP');
 	});
 });

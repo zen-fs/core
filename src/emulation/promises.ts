@@ -512,19 +512,30 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 			default:
 				throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
 		}
-	} catch (e) {
-		switch (pathNotExistsAction(flag)) {
-			case ActionType.CREATE:
-				// Ensure parent exists.
-				const parentStats: Stats = await fs.stat(dirname(resolved), cred);
-				if (parentStats && !parentStats.isDirectory()) {
-					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
-				}
-				return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
-			case ActionType.THROW:
-				throw ErrnoError.With('ENOENT', path, '_open');
-			default:
-				throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
+	} catch (_) {
+		const original = _ as ErrnoError;
+		if(original.code != 'ENOENT') {
+			throw original;
+		}
+		try {
+			switch (pathNotExistsAction(flag)) {
+				case ActionType.CREATE:
+					// Ensure parent exists.
+					const parentStats: Stats = await fs.stat(dirname(resolved), cred);
+					if (parentStats && !parentStats.isDirectory()) {
+						throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
+					}
+					return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
+				case ActionType.THROW:
+					throw ErrnoError.With('ENOENT', path, '_open');
+				default:
+					throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
+			}
+		} catch (_) {
+			const ex = _ as ErrnoError;
+			ex.stack += '\n<original>\n';
+			ex.stack += (original as Error).stack;
+			throw ex;
 		}
 	}
 }
