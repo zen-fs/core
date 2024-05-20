@@ -1,6 +1,6 @@
 import type * as Node from 'fs';
 import { Cred } from './cred.js';
-import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants.js';
+import { S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants.js';
 import { size_max } from './inode.js';
 
 /**
@@ -61,21 +61,15 @@ export interface StatsLike<T extends number | bigint = number | bigint> {
  * Common code used by both Stats and BigIntStats.
  */
 export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T>, StatsLike {
-	protected abstract _isBigint: boolean;
-
-	protected get _typename(): string {
-		return this._isBigint ? 'bigint' : 'number';
-	}
-
-	protected get _typename_inverse(): string {
-		return this._isBigint ? 'number' : 'bigint';
-	}
+	protected abstract _isBigint: T extends bigint ? true : false;
 
 	protected _convert(arg: number | bigint | string | boolean): T {
 		return (this._isBigint ? BigInt(arg) : Number(arg)) as T;
 	}
 
-	public blocks: T;
+	public get blocks(): T {
+		return this._convert(Math.ceil(Number(this.size) / 512));
+	}
 
 	/**
 	 * Unix-style file mode (e.g. 0o644) that includes the type of the item.
@@ -186,16 +180,14 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 */
 	constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino }: Partial<StatsLike> = {}) {
 		const currentTime = Date.now();
-		const resolveT = (val: number | bigint | undefined, _default: number) =>
-			typeof val == this._typename ? (val as T) : this._convert(typeof val == this._typename_inverse ? val! : _default);
-		this.atimeMs = resolveT(atimeMs, currentTime);
-		this.mtimeMs = resolveT(mtimeMs, currentTime);
-		this.ctimeMs = resolveT(ctimeMs, currentTime);
-		this.birthtimeMs = resolveT(birthtimeMs, currentTime);
-		this.uid = resolveT(uid, 0);
-		this.gid = resolveT(gid, 0);
-		this.size = resolveT(size, 0);
-		this.ino = resolveT(ino, 0);
+		this.atimeMs = this._convert(atimeMs ?? currentTime);
+		this.mtimeMs = this._convert(mtimeMs ?? currentTime);
+		this.ctimeMs = this._convert(ctimeMs ?? currentTime);
+		this.birthtimeMs = this._convert(birthtimeMs ?? currentTime);
+		this.uid = this._convert(uid ?? 0);
+		this.gid = this._convert(gid ?? 0);
+		this.size = this._convert(size ?? 0);
+		this.ino = this._convert(ino ?? 0);
 		const itemType: FileType = Number(mode) & S_IFMT || FileType.FILE;
 
 		if (mode) {
@@ -210,8 +202,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 					this.mode = this._convert(0o777);
 			}
 		}
-		// number of 512B blocks allocated
-		this.blocks = this._convert(Math.ceil(Number(size) / 512));
 		// Check if mode also includes top-most bits, which indicate the file's type.
 		if ((this.mode & S_IFMT) == 0) {
 			this.mode = (this.mode | this._convert(itemType)) as T;
@@ -242,19 +232,19 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	// Currently unsupported
 
 	public isSocket(): boolean {
-		return false;
+		return (this.mode & S_IFMT) === S_IFSOCK;
 	}
 
 	public isBlockDevice(): boolean {
-		return false;
+		return (this.mode & S_IFMT) === S_IFBLK;
 	}
 
 	public isCharacterDevice(): boolean {
-		return false;
+		return (this.mode & S_IFMT) === S_IFCHR;
 	}
 
 	public isFIFO(): boolean {
-		return false;
+		return (this.mode & S_IFMT) === S_IFIFO;
 	}
 
 	/**
@@ -316,16 +306,16 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	public get atimeNs(): bigint {
-		return BigInt(this.atimeMs);
+		return BigInt(this.atimeMs) * 1000n;
 	}
 	public get mtimeNs(): bigint {
-		return BigInt(this.mtimeMs);
+		return BigInt(this.mtimeMs) * 1000n;
 	}
 	public get ctimeNs(): bigint {
-		return BigInt(this.ctimeMs);
+		return BigInt(this.ctimeMs) * 1000n;
 	}
 	public get birthtimeNs(): bigint {
-		return BigInt(this.birthtimeMs);
+		return BigInt(this.birthtimeMs) * 1000n;
 	}
 }
 
@@ -338,7 +328,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
  * @internal
  */
 export class Stats extends StatsCommon<number> implements Node.Stats, StatsLike {
-	protected _isBigint = false;
+	protected _isBigint = false as const;
 }
 Stats satisfies typeof Node.Stats;
 
@@ -348,7 +338,7 @@ Stats satisfies typeof Node.Stats;
  * @internal
  */
 export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats, StatsLike {
-	protected _isBigint = true;
+	protected _isBigint = true as const;
 }
 
 /**
