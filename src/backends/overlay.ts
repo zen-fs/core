@@ -201,7 +201,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 		// Create an OverlayFile.
 		const file = this._readable.openFileSync(path, parseFlag('r'), cred);
-		const stats = Stats.clone(file.statSync());
+		const stats = new Stats(file.statSync());
 		const data = new Uint8Array(stats.size);
 		file.readSync(data);
 		return new PreloadFile(this, path, flag, stats, data);

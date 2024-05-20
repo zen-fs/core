@@ -1,6 +1,7 @@
 import type * as Node from 'fs';
 import { Cred } from './cred.js';
 import { S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants.js';
+import { size_max } from './inode.js';
 
 /**
  * Indicates the type of the given file. Applied to 'mode'.
@@ -334,34 +335,63 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
  * Attribute descriptions are from `man 2 stat'
  * @see http://nodejs.org/api/fs.html#fs_class_fs_stats
  * @see http://man7.org/linux/man-pages/man2/stat.2.html
+ * @internal
  */
 export class Stats extends StatsCommon<number> implements Node.Stats, StatsLike {
 	protected _isBigint = false;
-
-	/**
-	 * Clones the stats object.
-	 * @deprecated use `new Stats(stats)`
-	 */
-	public static clone(stats: Stats): Stats {
-		return new Stats(stats);
-	}
 }
 Stats satisfies typeof Node.Stats;
 
 /**
  * Stats with bigint
  * @todo Implement with bigint instead of wrapping Stats
+ * @internal
  */
 export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats, StatsLike {
 	protected _isBigint = true;
-
-	/**
-	 * Clone a stats object.
-	 * @deprecated use `new BigIntStats(stats)`
-	 */
-	public static clone(stats: BigIntStats | Stats): BigIntStats {
-		return new BigIntStats(stats);
-	}
 }
 
+/**
+ * @internal
+ */
 export const ZenFsType = 0x7a656e6673; // 'z' 'e' 'n' 'f' 's'
+
+/**
+ * @hidden
+ */
+export class StatsFs implements Node.StatsFsBase<number> {
+	/** Type of file system. */
+	public type: number = 0x7a656e6673;
+	/**  Optimal transfer block size. */
+	public bsize: number = 4096;
+	/**  Total data blocks in file system. */
+	public blocks: number = 0;
+	/** Free blocks in file system. */
+	public bfree: number = 0;
+	/** Available blocks for unprivileged users */
+	public bavail: number = 0;
+	/** Total file nodes in file system. */
+	public files: number = size_max;
+	/** Free file nodes in file system. */
+	public ffree: number = size_max;
+}
+
+/**
+ * @hidden
+ */
+export class BigIntStatsFs implements Node.StatsFsBase<bigint> {
+	/** Type of file system. */
+	public type: bigint = 0x7a656e6673n;
+	/**  Optimal transfer block size. */
+	public bsize: bigint = 4096n;
+	/**  Total data blocks in file system. */
+	public blocks: bigint = 0n;
+	/** Free blocks in file system. */
+	public bfree: bigint = 0n;
+	/** Available blocks for unprivileged users */
+	public bavail: bigint = 0n;
+	/** Total file nodes in file system. */
+	public files: bigint = BigInt(size_max);
+	/** Free file nodes in file system. */
+	public ffree: bigint = BigInt(size_max);
+}
