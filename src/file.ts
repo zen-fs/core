@@ -359,7 +359,7 @@ export abstract class File {
  */
 export class PreloadFile<FS extends FileSystem> extends File {
 	protected _position: number = 0;
-	protected _dirty: boolean = false;
+	protected dirty: boolean = false;
 	/**
 	 * Creates a file with the given path and, optionally, the given contents. Note
 	 * that, if contents is specified, it will be mutated by the file!
@@ -400,7 +400,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 			throw new Error(`Size mismatch: buffer length ${_buffer.byteLength}, stats size ${this.stats.size}`);
 		}
 
-		this._dirty = true;
+		this.dirty = true;
 	}
 
 	/**
@@ -435,19 +435,19 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public async sync(): Promise<void> {
-		if (!this.isDirty()) {
+		if (!this.dirty) {
 			return;
 		}
 		await this.fs.sync(this.path, this._buffer, this.stats);
-		this._dirty = false;
+		this.dirty = false;
 	}
 
 	public syncSync(): void {
-		if (!this.isDirty()) {
+		if (!this.dirty) {
 			return;
 		}
 		this.fs.syncSync(this.path, this._buffer, this.stats);
-		this._dirty = false;
+		this.dirty = false;
 	}
 
 	public async close(): Promise<void> {
@@ -474,40 +474,33 @@ export class PreloadFile<FS extends FileSystem> extends File {
 
 	/**
 	 * Asynchronous truncate.
-	 * @param len
+	 * @param length
 	 */
-	public async truncate(len: number): Promise<void> {
-		this.truncateSync(len);
-		if (isSynchronous(this.flag)) {
-			return this.sync();
-		}
+	public async truncate(length: number): Promise<void> {
+		this.truncateSync(length);
+		return this.sync();
 	}
 
 	/**
 	 * Synchronous truncate.
-	 * @param len
+	 * @param length
 	 */
-	public truncateSync(len: number): void {
-		this._dirty = true;
+	public truncateSync(length: number): void {
+		this.dirty = true;
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
 		}
 		this.stats.mtimeMs = Date.now();
-		if (len > this._buffer.length) {
-			const buf = new Uint8Array(len - this._buffer.length);
-			// Write will set stats.size for us.
-			this.writeSync(buf, 0, buf.length, this._buffer.length);
-			if (isSynchronous(this.flag)) {
-				this.syncSync();
-			}
+		if (length > this._buffer.length) {
+			const data = new Uint8Array(length - this._buffer.length);
+			// Write will set stats.size and handle syncing.
+			this.writeSync(data, 0, data.length, this._buffer.length);
 			return;
 		}
-		this.stats.size = len;
-		// Truncate buffer to 'len'.
-		this._buffer = this._buffer.subarray(0, len);
-		if (isSynchronous(this.flag)) {
-			this.syncSync();
-		}
+		this.stats.size = length;
+		// Truncate.
+		this._buffer = this._buffer.slice(0, length);
+		this.syncSync();
 	}
 
 	/**
@@ -542,7 +535,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @returns bytes written
 	 */
 	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
-		this._dirty = true;
+		this.dirty = true;
 		position ??= this.position;
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
@@ -566,11 +559,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this._buffer.set(slice, position);
 		const bytesWritten = slice.byteLength;
 		this.stats.mtimeMs = Date.now();
-		if (isSynchronous(this.flag)) {
-			this.syncSync();
-			return bytesWritten;
-		}
 		this.position = position + bytesWritten;
+		this.syncSync();
 		return bytesWritten;
 	}
 
@@ -609,6 +599,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (!isReadable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
 		}
+		this.dirty = true;
 		position ??= this.position;
 		let end = position + length;
 		if (end > this.stats.size) {
@@ -617,6 +608,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this.stats.atimeMs = Date.now();
 		this._position = end;
 		const bytesRead = end - position;
+		this.syncSync();
 		if (bytesRead == 0) {
 			// No copy/read. Return immediatly for better performance
 			return bytesRead;
@@ -638,7 +630,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @param mode
 	 */
 	public chmodSync(mode: number): void {
-		this._dirty = true;
+		this.dirty = true;
 		this.stats.chmod(mode);
 		this.syncSync();
 	}
@@ -658,7 +650,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @param gid
 	 */
 	public chownSync(uid: number, gid: number): void {
-		this._dirty = true;
+		this.dirty = true;
 		this.stats.chown(uid, gid);
 		this.syncSync();
 	}
@@ -668,31 +660,20 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public utimesSync(atime: Date, mtime: Date): void {
-		this._dirty = true;
+		this.dirty = true;
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
 		this.syncSync();
 	}
 
-	protected isDirty(): boolean {
-		return this._dirty;
-	}
-
-	/**
-	 * Resets the dirty bit. Should only be called after a sync has completed successfully.
-	 */
-	protected resetDirty() {
-		this._dirty = false;
-	}
-
 	public _setType(type: FileType): Promise<void> {
-		this._dirty = true;
+		this.dirty = true;
 		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
 		return this.sync();
 	}
 
 	public _setTypeSync(type: FileType): void {
-		this._dirty = true;
+		this.dirty = true;
 		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
 		this.syncSync();
 	}
