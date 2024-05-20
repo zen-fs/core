@@ -364,36 +364,4 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
 	}
 }
 
-export class StatsFs implements Node.StatsFsBase<number> {
-	/** Type of file system. */
-	public type: number = 0;
-	/**  Optimal transfer block size. */
-	public bsize: number = 0;
-	/**  Total data blocks in file system. */
-	public blocks: number = 0;
-	/** Free blocks in file system. */
-	public bfree: number = 0;
-	/** Available blocks for unprivileged users */
-	public bavail: number = 0;
-	/** Total file nodes in file system. */
-	public files: number = 0;
-	/** Free file nodes in file system. */
-	public ffree: number = 0;
-}
-
-export class BigIntStatsFs implements Node.StatsFsBase<bigint> {
-	/** Type of file system. */
-	public type: bigint = 0n;
-	/**  Optimal transfer block size. */
-	public bsize: bigint = 0n;
-	/**  Total data blocks in file system. */
-	public blocks: bigint = 0n;
-	/** Free blocks in file system. */
-	public bfree: bigint = 0n;
-	/** Available blocks for unprivileged users */
-	public bavail: bigint = 0n;
-	/** Total file nodes in file system. */
-	public files: bigint = 0n;
-	/** Free file nodes in file system. */
-	public ffree: bigint = 0n;
-}
+export const ZenFsType = 0x7a656e6673; // 'z' 'e' 'n' 'f' 's'

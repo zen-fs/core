@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import { ErrnoError, Errno } from '../error.js';
 import type { FileContents } from '../filesystem.js';
-import { BigIntStats, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
+import { BigIntStats, type Stats } from '../stats.js';
 import { nop, normalizeMode, type Callback } from '../utils.js';
 import { R_OK } from './constants.js';
 import { Dirent, type Dir } from './dir.js';
@@ -882,14 +882,14 @@ export function cp(source: fs.PathLike, destination: fs.PathLike, opts: fs.CopyO
 }
 cp satisfies Omit<typeof fs.cp, '__promisify__'>;
 
-export function statfs(path: fs.PathLike, callback: Callback<[StatsFs]>): void;
-export function statfs(path: fs.PathLike, options: fs.StatFsOptions & { bigint?: false }, callback: Callback<[StatsFs]>): void;
-export function statfs(path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }, callback: Callback<[BigIntStatsFs]>): void;
-export function statfs(path: fs.PathLike, options?: fs.StatFsOptions | Callback<[StatsFs]>, callback: Callback<[StatsFs]> | Callback<[BigIntStatsFs]> = nop): void {
+export function statfs(path: fs.PathLike, callback: Callback<[fs.StatsFs]>): void;
+export function statfs(path: fs.PathLike, options: fs.StatFsOptions & { bigint?: false }, callback: Callback<[fs.StatsFs]>): void;
+export function statfs(path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }, callback: Callback<[fs.BigIntStatsFs]>): void;
+export function statfs(path: fs.PathLike, options?: fs.StatFsOptions | Callback<[fs.StatsFs]>, callback: Callback<[fs.StatsFs]> | Callback<[fs.BigIntStatsFs]> = nop): void {
 	callback = typeof options === 'function' ? options : callback;
 	promises
 		.statfs(path, typeof options === 'function' ? undefined : options)
-		.then(result => (callback as Callback<[StatsFs | BigIntStatsFs]>)(undefined, result))
+		.then(result => (callback as Callback<[fs.StatsFs | fs.BigIntStatsFs]>)(undefined, result))
 		.catch(callback);
 }
 statfs satisfies Omit<typeof fs.statfs, '__promisify__'>;

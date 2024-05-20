@@ -5,4 +5,4 @@ export * as constants from './constants.js';
 export * from './streams.js';
 export * from './dir.js';
 export { mountObject, mounts, mount, umount } from './shared.js';
-export { Stats, BigIntStats, StatsFs } from '../stats.js';
+export { Stats } from '../stats.js';

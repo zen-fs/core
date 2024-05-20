@@ -6,15 +6,15 @@ import type { Stream } from 'node:stream';
 import type { ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
 import type { ReadableStreamController } from 'stream/web';
-import { ErrnoError, Errno } from '../error.js';
+import { Errno, ErrnoError } from '../error.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import type { FileContents } from '../filesystem.js';
-import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
+import { BigIntStats, FileType, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
 
@@ -1061,9 +1061,11 @@ cp satisfies typeof promises.cp;
  * @since v18.15.0
  * @return Fulfills with an {fs.StatFs} for the file system.
  */
-export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions & { bigint?: false }): Promise<StatsFs>;
-export async function statfs(path: fs.PathLike, opts: fs.StatFsOptions & { bigint: true }): Promise<BigIntStatsFs>;
-export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<StatsFs | BigIntStatsFs>;
-export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<StatsFs | BigIntStatsFs> {
-	throw ErrnoError.With('ENOSYS', path.toString(), 'statfs');
+export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions & { bigint?: false }): Promise<fs.StatsFs>;
+export async function statfs(path: fs.PathLike, opts: fs.StatFsOptions & { bigint: true }): Promise<fs.BigIntStatsFs>;
+export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs>;
+export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs> {
+	path = normalizePath(path);
+	const { fs } = resolveMount(path);
+	return _statfs(fs, opts?.bigint);
 }

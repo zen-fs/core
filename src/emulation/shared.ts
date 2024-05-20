@@ -1,10 +1,13 @@
 // Utilities and shared data
 
-import { ErrnoError, Errno } from '../error.js';
+import type { BigIntStatsFs, StatsFs } from 'node:fs';
 import { InMemory } from '../backends/memory.js';
 import { Cred, rootCred } from '../cred.js';
+import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import { FileSystem } from '../filesystem.js';
+import { size_max } from '../inode.js';
+import { ZenFsType } from '../stats.js';
 import { normalizePath } from '../utils.js';
 import { resolve, type AbsolutePath } from './path.js';
 
@@ -116,4 +119,22 @@ export function mountObject(mounts: MountObject): void {
 	for (const [point, fs] of Object.entries(mounts)) {
 		mount(point, fs);
 	}
+}
+
+/**
+ * @hidden
+ */
+export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T extends true ? BigIntStatsFs : StatsFs {
+	const md = fs.metadata();
+	const bs = md.blockSize || 4096;
+
+	return {
+		type: (bigint ? BigInt : Number)(md.type || ZenFsType),
+		bsize: (bigint ? BigInt : Number)(bs),
+		ffree: (bigint ? BigInt : Number)(md.freeNodes || size_max),
+		files: (bigint ? BigInt : Number)(md.totalNodes || size_max),
+		bavail: (bigint ? BigInt : Number)(md.freeSpace / bs),
+		bfree: (bigint ? BigInt : Number)(md.freeSpace / bs),
+		blocks: (bigint ? BigInt : Number)(md.totalSpace / bs),
+	} as T extends true ? BigIntStatsFs : StatsFs;
 }

@@ -44,6 +44,27 @@ export interface FileSystemMetadata {
 	 * @default false
 	 */
 	noAsyncCache: boolean;
+
+	/**
+	 * The optimal block size to use with the file system
+	 * @default 4096
+	 */
+	blockSize?: number;
+
+	/**
+	 * Total number of (file) nodes available
+	 */
+	totalNodes?: number;
+
+	/**
+	 * Number of free (file) nodes available
+	 */
+	freeNodes?: number;
+
+	/**
+	 * The type of the FS
+	 */
+	type?: number;
 }
 
 /**
@@ -58,6 +79,12 @@ export interface FileSystemMetadata {
  */
 export abstract class FileSystem {
 	/**
+	 * Numeric type, used for statfs
+	 * @internal @protected
+	 */
+	_type?: number;
+
+	/**
 	 * Get metadata about the current file system
 	 */
 	public metadata(): FileSystemMetadata {
@@ -68,11 +95,11 @@ export abstract class FileSystem {
 			freeSpace: 0,
 			noResizableBuffers: false,
 			noAsyncCache: false,
+			type: this._type,
 		};
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	public constructor(options?: object) {}
+	public constructor() {}
 
 	public async ready(): Promise<void> {}
 

@@ -3,12 +3,12 @@ import type * as fs from 'node:fs';
 import { Errno, ErrnoError } from '../error.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
 import { FileContents } from '../filesystem.js';
-import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
+import { BigIntStats, FileType, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { COPYFILE_EXCL, F_OK, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK } from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 
 /**
  * Synchronous rename.
@@ -899,9 +899,11 @@ cpSync satisfies typeof fs.cpSync;
  * @param path A path to an existing file or directory on the file system to be queried.
  * @param callback
  */
-export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions & { bigint?: false }): StatsFs;
-export function statfsSync(path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }): BigIntStatsFs;
-export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions): StatsFs | BigIntStatsFs;
-export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions): StatsFs | BigIntStatsFs {
-	throw ErrnoError.With('ENOSYS', path.toString(), 'statfs');
+export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions & { bigint?: false }): fs.StatsFs;
+export function statfsSync(path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }): fs.BigIntStatsFs;
+export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs;
+export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs {
+	path = normalizePath(path);
+	const { fs } = resolveMount(path);
+	return _statfs(fs, options?.bigint);
 }
