@@ -38,12 +38,16 @@ export class PortFile extends File {
 		);
 	}
 
+	protected _throwNoSync(syscall: string): never {
+		throw new ErrnoError(Errno.ENOTSUP, 'Syncrohnous operations not support on PortFile', this.path, syscall);
+	}
+
 	public stat(): Promise<Stats> {
 		return this.rpc('stat');
 	}
 
 	public statSync(): Stats {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.stat');
+		this._throwNoSync('stat');
 	}
 
 	public truncate(len: number): Promise<void> {
@@ -51,7 +55,7 @@ export class PortFile extends File {
 	}
 
 	public truncateSync(): void {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.truncate');
+		this._throwNoSync('truncate');
 	}
 
 	public write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
@@ -59,7 +63,7 @@ export class PortFile extends File {
 	}
 
 	public writeSync(): number {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.write');
+		this._throwNoSync('write');
 	}
 
 	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
@@ -68,7 +72,7 @@ export class PortFile extends File {
 	}
 
 	public readSync(): number {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.read');
+		this._throwNoSync('read');
 	}
 
 	public chown(uid: number, gid: number): Promise<void> {
@@ -76,7 +80,7 @@ export class PortFile extends File {
 	}
 
 	public chownSync(): void {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.chown');
+		this._throwNoSync('chown');
 	}
 
 	public chmod(mode: number): Promise<void> {
@@ -84,7 +88,7 @@ export class PortFile extends File {
 	}
 
 	public chmodSync(): void {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.chmod');
+		this._throwNoSync('chmod');
 	}
 
 	public utimes(atime: Date, mtime: Date): Promise<void> {
@@ -92,7 +96,7 @@ export class PortFile extends File {
 	}
 
 	public utimesSync(): void {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.utimes');
+		this._throwNoSync('utimes');
 	}
 
 	public _setType(type: FileType): Promise<void> {
@@ -100,7 +104,7 @@ export class PortFile extends File {
 	}
 
 	public _setTypeSync(): void {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile._setType');
+		this._throwNoSync('_setType');
 	}
 
 	public close(): Promise<void> {
@@ -108,7 +112,7 @@ export class PortFile extends File {
 	}
 
 	public closeSync(): void {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.close');
+		this._throwNoSync('close');
 	}
 
 	public sync(): Promise<void> {
@@ -116,7 +120,7 @@ export class PortFile extends File {
 	}
 
 	public syncSync(): void {
-		throw ErrnoError.With('ENOSYS', this.path, 'PortFile.sync');
+		this._throwNoSync('sync');
 	}
 }
 
