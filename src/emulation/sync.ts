@@ -1,31 +1,14 @@
 import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
-import { ErrnoError, Errno } from '../error.js';
+import { Errno, ErrnoError } from '../error.js';
 import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
-import { FileContents, FileSystem } from '../filesystem.js';
+import { FileContents } from '../filesystem.js';
 import { BigIntStats, FileType, type BigIntStatsFs, type Stats, type StatsFs } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { COPYFILE_EXCL, F_OK, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK } from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { cred, fd2file, fdMap, fixError, file2fd, mounts, resolveMount } from './shared.js';
-
-type FileSystemMethod = {
-	[K in keyof FileSystem]: FileSystem[K] extends (...args: any[]) => unknown
-		? (name: K, resolveSymlinks: boolean, ...args: Parameters<FileSystem[K]>) => ReturnType<FileSystem[K]>
-		: never;
-}[keyof FileSystem]; // https://stackoverflow.com/a/76335220/17637456
-
-function wrap<M extends FileSystemMethod, RT extends ReturnType<M>>(...[name, resolveSymlinks, path, ...args]: Parameters<M>): RT {
-	path = normalizePath(path!);
-	const { fs, path: resolvedPath } = resolveMount(resolveSymlinks && existsSync(path) ? realpathSync(path) : path);
-	try {
-		// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
-		return fs[name](resolvedPath, ...args) as RT;
-	} catch (e) {
-		throw fixError(e as Error, { [resolvedPath]: path });
-	}
-}
+import { cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 
 /**
  * Synchronous rename.
@@ -78,8 +61,14 @@ existsSync satisfies typeof fs.existsSync;
 export function statSync(path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function statSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	const stats: Stats = wrap('statSync', true, path.toString(), cred);
-	return options?.bigint ? new BigIntStats(stats) : stats;
+	path = normalizePath(path);
+	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
+	try {
+		const stats = fs.statSync(resolved, cred);
+		return options?.bigint ? new BigIntStats(stats) : stats;
+	} catch (e) {
+		throw fixError(e as Error, { [resolved]: path });
+	}
 }
 statSync satisfies typeof fs.statSync;
 
@@ -92,8 +81,14 @@ statSync satisfies typeof fs.statSync;
 export function lstatSync(path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function lstatSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	const stats: Stats = wrap('statSync', false, path.toString(), cred);
-	return options?.bigint ? new BigIntStats(stats) : stats;
+	path = normalizePath(path);
+	const { fs, path: resolved } = resolveMount(path);
+	try {
+		const stats = fs.statSync(resolved, cred);
+		return options?.bigint ? new BigIntStats(stats) : stats;
+	} catch (e) {
+		throw fixError(e as Error, { [resolved]: path });
+	}
 }
 lstatSync satisfies typeof fs.lstatSync;
 
@@ -117,7 +112,13 @@ truncateSync satisfies typeof fs.truncateSync;
  * @param path
  */
 export function unlinkSync(path: fs.PathLike): void {
-	return wrap('unlinkSync', false, path.toString(), cred);
+	path = normalizePath(path);
+	const { fs, path: resolved } = resolveMount(path);
+	try {
+		return fs.unlinkSync(resolved, cred);
+	} catch (e) {
+		throw fixError(e as Error, { [resolved]: path });
+	}
 }
 unlinkSync satisfies typeof fs.unlinkSync;
 
@@ -465,7 +466,13 @@ futimesSync satisfies typeof fs.futimesSync;
  * @param path
  */
 export function rmdirSync(path: fs.PathLike): void {
-	return wrap('rmdirSync', true, path.toString(), cred);
+	path = normalizePath(path);
+	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
+	try {
+		fs.rmdirSync(resolved, cred);
+	} catch (e) {
+		throw fixError(e as Error, { [resolved]: path });
+	}
 }
 rmdirSync satisfies typeof fs.rmdirSync;
 
@@ -479,9 +486,15 @@ export function mkdirSync(path: fs.PathLike, options: fs.MakeDirectoryOptions & 
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined;
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined | void {
-	const mode: fs.Mode | undefined = typeof options == 'number' || typeof options == 'string' ? options : options?.mode;
+	const mode: fs.Mode = normalizeMode(typeof options == 'number' || typeof options == 'string' ? options : options?.mode, 0o777);
 	const recursive = typeof options == 'object' && options?.recursive;
-	wrap('mkdirSync', true, path.toString(), normalizeMode(mode, 0o777), cred);
+	path = normalizePath(path);
+	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
+	try {
+		return fs.mkdirSync(resolved, mode, cred);
+	} catch (e) {
+		throw fixError(e as Error, { [resolved]: path });
+	}
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
@@ -498,7 +511,13 @@ export function readdirSync(
 	options?: { recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null; withFileTypes?: boolean } | BufferEncoding | 'buffer' | null
 ): string[] | Dirent[] | Buffer[] {
 	path = normalizePath(path);
-	const entries: string[] = wrap('readdirSync', true, path, cred);
+	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
+	let entries: string[];
+	try {
+		entries = fs.readdirSync(resolved, cred);
+	} catch (e) {
+		throw fixError(e as Error, { [resolved]: path });
+	}
 	for (const mount of mounts.keys()) {
 		if (!mount.startsWith(path)) {
 			continue;
@@ -532,8 +551,14 @@ readdirSync satisfies typeof fs.readdirSync;
  * @param newpath
  */
 export function linkSync(existing: fs.PathLike, newpath: fs.PathLike): void {
+	existing = normalizePath(existing);
 	newpath = normalizePath(newpath);
-	return wrap('linkSync', false, existing.toString(), newpath.toString(), cred);
+	const { fs, path: resolved } = resolveMount(existing);
+	try {
+		return fs.linkSync(resolved, newpath, cred);
+	} catch (e) {
+		throw fixError(e as Error, { [resolved]: existing });
+	}
 }
 linkSync satisfies typeof fs.linkSync;
 
