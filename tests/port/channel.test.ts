@@ -18,7 +18,7 @@ describe('FS with MessageChannel', () => {
 	test('configuration', async () => {
 		tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
 		attachFS(port2, tmpfs);
-		await configure({ backend: Port, port: port1, disableAsyncCache: true });
+		await configure({ backend: Port, port: port1, disableAsyncCache: true, timeout: 250 });
 	});
 
 	test('write', async () => {
