@@ -287,7 +287,7 @@ export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileCont
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	const file = _openSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), flag, options.mode, true);
 	try {
-		file.writeSync(encodedData, 0, encodedData.byteLength, null);
+		file.writeSync(encodedData, 0, encodedData.byteLength);
 	} finally {
 		file.closeSync();
 	}

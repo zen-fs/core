@@ -216,7 +216,7 @@ export abstract class File {
 	 *   the current position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	public abstract write(buffer: Uint8Array, offset?: number, length?: number, position?: number | null): Promise<number>;
+	public abstract write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number>;
 
 	/**
 	 * Write buffer to the file.
@@ -230,7 +230,7 @@ export abstract class File {
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
 	 */
-	public abstract writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number | null): number;
+	public abstract writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number;
 
 	/**
 	 * Read data from the file.
@@ -482,7 +482,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 *   data should be written. If position is null, the data will be written at
 	 *   the current position.
 	 */
-	public async write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): Promise<number> {
+	public async write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): Promise<number> {
 		const bytesWritten = this.writeSync(buffer, offset, length, position);
 		await this.sync();
 		return bytesWritten;
@@ -501,9 +501,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 *   the current position.
 	 * @returns bytes written
 	 */
-	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = 0): number {
+	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
 		this.dirty = true;
-		position ??= this.position;
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
 		}

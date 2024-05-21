@@ -111,7 +111,7 @@ export class FileHandle implements promises.FileHandle {
 			throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
-		await this.file.write(encodedData, 0, encodedData.length, null);
+		await this.file.write(encodedData, 0, encodedData.length);
 	}
 
 	/**
