@@ -1,6 +1,6 @@
 import type * as Node from 'fs';
 import { Readable, Writable } from 'readable-stream';
-import { Callback } from '../utils.js';
+import type { Callback } from '../utils.js';
 import { ErrnoError, Errno } from '../error.js';
 
 export class ReadStream extends Readable implements Node.ReadStream {

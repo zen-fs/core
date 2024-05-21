@@ -11,7 +11,7 @@
 */
 
 import { fs as zen } from '../../src/index.js';
-import * as node from 'fs';
+import type * as node from 'fs';
 
 type Mock = {
 	[K in Exclude<keyof typeof node, 'ReadStream' | 'WriteStream'>]: Omit<(typeof node)[K], '__promisify__' | 'native'>;

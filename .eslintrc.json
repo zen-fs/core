@@ -37,7 +37,8 @@
 		"@typescript-eslint/no-namespace": "warn",
 		"@typescript-eslint/prefer-as-const": "warn",
 		"@typescript-eslint/no-explicit-any": "warn",
-		"@typescript-eslint/consistent-type-assertions": "warn"
+		"@typescript-eslint/consistent-type-assertions": "warn",
+		"@typescript-eslint/consistent-type-imports": "warn"
 	},
 	"ignorePatterns": ["tests/fixtures"],
 	"plugins": ["@typescript-eslint"]

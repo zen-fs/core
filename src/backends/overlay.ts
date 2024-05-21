@@ -1,10 +1,13 @@
-import { FileSystem, FileSystemMetadata } from '../filesystem.js';
+import type { FileSystemMetadata } from '../filesystem.js';
+import { FileSystem } from '../filesystem.js';
 import { ErrnoError, Errno } from '../error.js';
-import { File, PreloadFile, parseFlag } from '../file.js';
+import type { File } from '../file.js';
+import { PreloadFile, parseFlag } from '../file.js';
 import { Stats } from '../stats.js';
 import { LockedFS } from './locked.js';
 import { dirname } from '../emulation/path.js';
-import { Cred, rootCred } from '../cred.js';
+import type { Cred } from '../cred.js';
+import { rootCred } from '../cred.js';
 import { decode, encode } from '../utils.js';
 import type { Backend } from './backend.js';
 /**

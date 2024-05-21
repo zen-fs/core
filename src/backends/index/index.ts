@@ -1,6 +1,7 @@
 import { isJSON } from 'utilium';
 import { Errno, ErrnoError } from '../../error.js';
-import { Stats, StatsLike } from '../../stats.js';
+import type { StatsLike } from '../../stats.js';
+import { Stats } from '../../stats.js';
 import { encode } from '../../utils.js';
 import { basename, dirname } from '../../emulation/path.js';
 

@@ -4,7 +4,8 @@ import { NoSyncFile, isWriteable, flagToMode } from '../../file.js';
 import { Readonly, FileSystem } from '../../filesystem.js';
 import type { Stats } from '../../stats.js';
 import { decode } from '../../utils.js';
-import { Index, IndexData } from './index.js';
+import type { IndexData } from './index.js';
+import { Index } from './index.js';
 
 export abstract class IndexFS extends Readonly(FileSystem) {
 	protected index: Index = new Index();

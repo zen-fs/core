@@ -2,10 +2,11 @@
 
 import type { BigIntStatsFs, StatsFs } from 'node:fs';
 import { InMemory } from '../backends/memory.js';
-import { Cred, rootCred } from '../cred.js';
+import type { Cred } from '../cred.js';
+import { rootCred } from '../cred.js';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import { FileSystem } from '../filesystem.js';
+import type { FileSystem } from '../filesystem.js';
 import { size_max } from '../inode.js';
 import { ZenFsType } from '../stats.js';
 import { normalizePath } from '../utils.js';

@@ -1,8 +1,9 @@
 import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import { Errno, ErrnoError } from '../error.js';
-import { ActionType, File, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
-import { FileContents } from '../filesystem.js';
+import type { File } from '../file.js';
+import { ActionType, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
+import type { FileContents } from '../filesystem.js';
 import { BigIntStats, FileType, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { COPYFILE_EXCL, F_OK, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK } from './constants.js';

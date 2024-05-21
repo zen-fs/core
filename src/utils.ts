@@ -1,8 +1,8 @@
 import type { OptionalTuple } from 'utilium';
 import { ErrnoError, Errno } from './error.js';
-import { Cred } from './cred.js';
+import type { Cred } from './cred.js';
 import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
-import { FileSystem } from './filesystem.js';
+import type { FileSystem } from './filesystem.js';
 import type * as fs from 'node:fs';
 
 declare global {

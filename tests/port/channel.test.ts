@@ -1,6 +1,7 @@
 import { MessageChannel } from 'node:worker_threads';
 import { Port, attachFS } from '../../src/backends/port/fs.js';
-import { InMemory, StoreFS, configure, fs, resolveMountConfig, type InMemoryStore } from '../../src/index.js';
+import type { StoreFS } from '../../src/index.js';
+import { InMemory, configure, fs, resolveMountConfig, type InMemoryStore } from '../../src/index.js';
 
 describe('FS with MessageChannel', () => {
 	const { port1, port2 } = new MessageChannel(),

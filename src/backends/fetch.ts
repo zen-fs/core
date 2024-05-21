@@ -1,6 +1,6 @@
 import { Errno, ErrnoError } from '../error.js';
 import type { FileSystemMetadata } from '../filesystem.js';
-import { Stats } from '../stats.js';
+import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
 import { IndexFS } from './index/fs.js';
 import type { IndexData } from './index/index.js';
