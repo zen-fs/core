@@ -18,7 +18,7 @@ function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfigurati
 
 /**
  * Retrieve a file system with the given configuration.
- * @param config A BackendConfig object.
+ * @see MountConfiguration
  */
 export async function resolveMountConfig<T extends Backend>(config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
 	if (typeof config !== 'object' || config == null) {

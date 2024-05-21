@@ -1,7 +1,7 @@
 /**
  * Standard libc error codes. More will be added to this enum and error strings as they are
  * needed.
- * @url https://en.wikipedia.org/wiki/Errno.h
+ * @see https://en.wikipedia.org/wiki/Errno.h
  */
 export enum Errno {
 	/** Operation not permitted */

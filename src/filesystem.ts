@@ -3,7 +3,7 @@ import { ErrnoError, Errno } from './error.js';
 import { rootCred, type Cred } from './cred.js';
 import { join } from './emulation/path.js';
 import { PreloadFile, parseFlag, type File } from './file.js';
-import type { Stats } from './stats.js';
+import { ZenFsType, type Stats } from './stats.js';
 
 export type FileContents = ArrayBufferView | string;
 
@@ -64,26 +64,17 @@ export interface FileSystemMetadata {
 	/**
 	 * The type of the FS
 	 */
-	type?: number;
+	type: number;
 }
 
 /**
  * Structure for a filesystem. All ZenFS backends must extend this.
  *
- * This class includes some default implementations
+ * This class includes default implementations for `exists` and `existsSync`
  *
- * Assume the following about arguments passed to each API method:
- *
- * - Every path is an absolute path. `.`, `..`, and other items are resolved into an absolute form.
- * - All arguments are present. Any optional arguments at the Node API level have been passed in with their default values.
+ * If you are extending this class, note that every path is an absolute path and all arguments are present.
  */
 export abstract class FileSystem {
-	/**
-	 * Numeric type, used for statfs
-	 * @internal @protected
-	 */
-	_type?: number;
-
 	/**
 	 * Get metadata about the current file system
 	 */
@@ -95,7 +86,7 @@ export abstract class FileSystem {
 			freeSpace: 0,
 			noResizableBuffers: false,
 			noAsyncCache: false,
-			type: this._type,
+			type: ZenFsType,
 		};
 	}
 
@@ -104,8 +95,7 @@ export abstract class FileSystem {
 	public async ready(): Promise<void> {}
 
 	/**
-	 * Asynchronous rename. No arguments other than a possible exception
-	 * are given to the completion callback.
+	 * Asynchronous rename.
 	 */
 	public abstract rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
 	/**
@@ -124,29 +114,27 @@ export abstract class FileSystem {
 	public abstract statSync(path: string, cred: Cred): Stats;
 
 	/**
-	 * Opens the file at path p with the given flag. The file must exist.
-	 * @param p The path to open.
+	 * Opens the file at `path` with the given flag. The file must exist.
+	 * @param path The path to open.
 	 * @param flag The flag to use when opening the file.
 	 */
 	public abstract openFile(path: string, flag: string, cred: Cred): Promise<File>;
 
 	/**
-	 * Opens the file at path p with the given flag. The file must exist.
-	 * @param p The path to open.
+	 * Opens the file at `path` with the given flag. The file must exist.
+	 * @param path The path to open.
 	 * @param flag The flag to use when opening the file.
 	 * @return A File object corresponding to the opened file.
 	 */
 	public abstract openFileSync(path: string, flag: string, cred: Cred): File;
 
 	/**
-	 * Create the file at path p with the given mode. Then, open it with the given
-	 * flag.
+	 * Create the file at `path` with the given mode. Then, open it with the given flag.
 	 */
 	public abstract createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
 
 	/**
-	 * Create the file at path p with the given mode. Then, open it with the given
-	 * flag.
+	 * Create the file at `path` with the given mode. Then, open it with the given flag.
 	 */
 	public abstract createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
 
@@ -169,21 +157,16 @@ export abstract class FileSystem {
 	public abstract rmdirSync(path: string, cred: Cred): void;
 	/**
 	 * Asynchronous `mkdir`.
-	 * @param mode Mode to make the directory using. Can be ignored if
-	 *   the filesystem doesn't support permissions.
+	 * @param mode Mode to make the directory using.
 	 */
 	public abstract mkdir(path: string, mode: number, cred: Cred): Promise<void>;
 	/**
 	 * Synchronous `mkdir`.
-	 * @param mode Mode to make the directory using. Can be ignored if
-	 *   the filesystem doesn't support permissions.
+	 * @param mode Mode to make the directory using.
 	 */
 	public abstract mkdirSync(path: string, mode: number, cred: Cred): void;
 	/**
 	 * Asynchronous `readdir`. Reads the contents of a directory.
-	 *
-	 * The callback gets two arguments `(err, files)` where `files` is an array of
-	 * the names of the files in the directory excluding `'.'` and `'..'`.
 	 */
 	public abstract readdir(path: string, cred: Cred): Promise<string[]>;
 	/**
@@ -352,13 +335,11 @@ type AsyncOperation = {
 /**
  * Async() implements synchronous methods on an asynchronous file system
  *
- * Implementing classes must define a protected _sync property for the synchronous file system used as a cache.
- * by:
- *
- * - Performing operations over the in-memory copy, while asynchronously pipelining them
- *   to the backing store.
- * - During application loading, the contents of the async file system can be reloaded into
- *   the synchronous store, if desired.
+ * Implementing classes must define `_sync` for the synchronous file system used as a cache.
+ * Synchronous methods on an asynchronous FS are implemented by:
+ *	- Performing operations over the in-memory copy,
+ * 	while asynchronously pipelining them to the backing store.
+ * 	- During loading, the contents of the async file system are eloaded into the synchronous store.
  *
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

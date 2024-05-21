@@ -1,6 +1,6 @@
 import type { FileReadResult } from 'node:fs/promises';
-import { ErrnoError, Errno } from './error.js';
 import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT } from './emulation/constants.js';
+import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import { size_max } from './inode.js';
 import { Stats, type FileType } from './stats.js';
@@ -30,20 +30,6 @@ declare global {
 	interface ArrayBufferConstructor {
 		new (byteLength: number, options: { maxByteLength?: number }): ArrayBuffer;
 	}
-}
-
-/**
- * @hidden
- */
-export enum ActionType {
-	// Indicates that the code should not do anything.
-	NOP = 0,
-	// Indicates that the code should throw an exception.
-	THROW = 1,
-	// Indicates that the code should truncate the file, but only if it is a file.
-	TRUNCATE = 2,
-	// Indicates that the code should create the file.
-	CREATE = 3,
 }
 
 const validFlags = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
@@ -156,25 +142,6 @@ export function isSynchronous(flag: string): boolean {
 
 export function isExclusive(flag: string): boolean {
 	return flag.indexOf('x') !== -1;
-}
-
-export function pathExistsAction(flag: string): ActionType {
-	if (isExclusive(flag)) {
-		return ActionType.THROW;
-	}
-
-	if (isTruncating(flag)) {
-		return ActionType.TRUNCATE;
-	}
-
-	return ActionType.NOP;
-}
-
-export function pathNotExistsAction(flag: string): ActionType {
-	if ((isWriteable(flag) || isAppendable(flag)) && flag !== 'r+') {
-		return ActionType.CREATE;
-	}
-	return ActionType.THROW;
 }
 
 export abstract class File {

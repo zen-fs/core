@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import { ActionType, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
+import { isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, FileType, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
@@ -132,19 +132,15 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 	const { fs, path: resolved } = resolveMount(path);
 
 	if (!fs.existsSync(resolved, cred)) {
-		switch (pathNotExistsAction(flag)) {
-			case ActionType.CREATE:
-				// Ensure parent exists.
-				const parentStats: Stats = fs.statSync(dirname(resolved), cred);
-				if (!parentStats.isDirectory()) {
-					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
-				}
-				return fs.createFileSync(resolved, flag, mode, cred);
-			case ActionType.THROW:
-				throw ErrnoError.With('ENOENT', path, '_open');
-			default:
-				throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
+		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
+			throw ErrnoError.With('ENOENT', path, '_open');
 		}
+		// Create the file
+		const parentStats: Stats = fs.statSync(dirname(resolved), cred);
+		if (!parentStats.isDirectory()) {
+			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
+		}
+		return fs.createFileSync(resolved, flag, mode, cred);
 	}
 
 	const stats: Stats = fs.statSync(resolved, cred);
@@ -153,25 +149,23 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
-	// File exists.
-	switch (pathExistsAction(flag)) {
-		case ActionType.THROW:
-			throw ErrnoError.With('EEXIST', path, '_open');
-		case ActionType.TRUNCATE:
-			// Delete file.
-			fs.unlinkSync(resolved, cred);
-			/*
-				Create file. Use the same mode as the old file.
-				Node itself modifies the ctime when this occurs, so this action
-				will preserve that behavior if the underlying file system
-				supports those properties.
-			*/
-			return fs.createFileSync(resolved, flag, stats.mode, cred);
-		case ActionType.NOP:
-			return fs.openFileSync(resolved, flag, cred);
-		default:
-			throw new ErrnoError(Errno.EINVAL, 'Invalid FileFlag object.');
+	if (isExclusive(flag)) {
+		throw ErrnoError.With('EEXIST', path, '_open');
 	}
+
+	if (!isTruncating(flag)) {
+		return fs.openFileSync(resolved, flag, cred);
+	}
+
+	// Delete file.
+	fs.unlinkSync(resolved, cred);
+	/*
+		Create file. Use the same mode as the old file.
+		Node itself modifies the ctime when this occurs, so this action
+		will preserve that behavior if the underlying file system
+		supports those properties.
+	*/
+	return fs.createFileSync(resolved, flag, stats.mode, cred);
 }
 
 /**

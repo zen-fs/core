@@ -8,7 +8,7 @@ import type { Interface as ReadlineInterface } from 'readline';
 import type { ReadableStreamController } from 'stream/web';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import { ActionType, isAppendable, isReadable, isWriteable, parseFlag, pathExistsAction, pathNotExistsAction } from '../file.js';
+import { isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, FileType, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
@@ -493,41 +493,35 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	const { fs, path: resolved } = resolveMount(path);
 
 	if (!(await fs.exists(path, cred))) {
-		switch (pathNotExistsAction(flag)) {
-			case ActionType.CREATE:
-				// Ensure parent exists.
-				const parentStats: Stats = await fs.stat(dirname(resolved), cred);
-				if (parentStats && !parentStats.isDirectory()) {
-					throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
-				}
-				return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
-			case ActionType.THROW:
-				throw ErrnoError.With('ENOENT', path, '_open');
-			default:
-				throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
+		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
+			throw ErrnoError.With('ENOENT', path, '_open');
 		}
+		// Create the file
+		const parentStats: Stats = await fs.stat(dirname(resolved), cred);
+		if (parentStats && !parentStats.isDirectory()) {
+			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
+		}
+		return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
 	}
 
-	switch (pathExistsAction(flag)) {
-		case ActionType.THROW:
-			throw ErrnoError.With('EEXIST', path, '_open');
-		case ActionType.TRUNCATE:
-			/* 
-					In a previous implementation, we deleted the file and
-					re-created it. However, this created a race condition if another
-					asynchronous request was trying to read the file, as the file
-					would not exist for a small period of time.
-				*/
-			const file: File = await fs.openFile(resolved, flag, cred);
-			await file.truncate(0);
-			await file.sync();
-			return new FileHandle(file);
-		case ActionType.NOP:
-			// Must await so thrown errors are caught by the catch below
-			return new FileHandle(await fs.openFile(resolved, flag, cred));
-		default:
-			throw new ErrnoError(Errno.EINVAL, 'Invalid file flag');
+	if (isExclusive(flag)) {
+		throw ErrnoError.With('EEXIST', path, '_open');
 	}
+
+	if (!isTruncating(flag)) {
+		return new FileHandle(await fs.openFile(resolved, flag, cred));
+	}
+
+	/* 
+		In a previous implementation, we deleted the file and
+		re-created it. However, this created a race condition if another
+		asynchronous request was trying to read the file, as the file
+		would not exist for a small period of time.
+	*/
+	const file: File = await fs.openFile(resolved, flag, cred);
+	await file.truncate(0);
+	await file.sync();
+	return new FileHandle(file);
 }
 
 /**

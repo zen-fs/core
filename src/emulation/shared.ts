@@ -8,7 +8,6 @@ import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import type { FileSystem } from '../filesystem.js';
 import { size_max } from '../inode.js';
-import { ZenFsType } from '../stats.js';
 import { normalizePath } from '../utils.js';
 import { resolve, type AbsolutePath } from './path.js';
 
@@ -130,7 +129,7 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 	const bs = md.blockSize || 4096;
 
 	return {
-		type: (bigint ? BigInt : Number)(md.type || ZenFsType),
+		type: (bigint ? BigInt : Number)(md.type),
 		bsize: (bigint ? BigInt : Number)(bs),
 		ffree: (bigint ? BigInt : Number)(md.freeNodes || size_max),
 		files: (bigint ? BigInt : Number)(md.totalNodes || size_max),
