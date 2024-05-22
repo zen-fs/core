@@ -4,7 +4,7 @@ ZenFS is a file system that emulates the [NodeJS filesystem API](http://nodejs.o
 
 It works using a system of backends, which are used by ZenFS to store and retrieve data. ZenFS can also integrate with other tools.
 
-ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS). If you are using ZenFS in a research paper, you may want to [cite BrowserFS](https://github.com/jvilk/BrowserFS?tab=readme-ov-file#citing).
+ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS). If you are using ZenFS in a research paper, you may want to [cite BrowserFS](https://github.com/jvilk/BrowserFS#citing).
 
 ## Backends
 
