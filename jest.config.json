@@ -15,5 +15,8 @@
 			}
 		]
 	},
-	"verbose": true
+	"verbose": true,
+	"collectCoverage": true,
+	"coverageDirectory": "tests/coverage",
+	"collectCoverageFrom": ["src/**/*.ts"]
 }

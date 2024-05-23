@@ -5,6 +5,7 @@ docs
 *.log
 tmp
 build
-test/fixtures
-!test/fixtures/files
-!test/fixtures/README.md
+tests/fixtures
+!tests/fixtures/files
+!tests/fixtures/README.md
+tests/coverage
