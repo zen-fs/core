@@ -439,20 +439,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		return new Stats(this.stats);
 	}
 
-	/**
-	 * Asynchronous truncate.
-	 * @param length
-	 */
-	public async truncate(length: number): Promise<void> {
-		this.truncateSync(length);
-		return this.sync();
-	}
-
-	/**
-	 * Synchronous truncate.
-	 * @param length
-	 */
-	public truncateSync(length: number): void {
+	protected _truncate(length: number): void {
 		this.dirty = true;
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
@@ -467,41 +454,27 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this.stats.size = length;
 		// Truncate.
 		this._buffer = this._buffer.slice(0, length);
+	}
+
+	/**
+	 * Asynchronous truncate.
+	 * @param length
+	 */
+	public async truncate(length: number): Promise<void> {
+		this._truncate(length);
+		await this.sync();
+	}
+
+	/**
+	 * Synchronous truncate.
+	 * @param length
+	 */
+	public truncateSync(length: number): void {
+		this._truncate(length);
 		this.syncSync();
 	}
 
-	/**
-	 * Write buffer to the file.
-	 * Note that it is unsafe to use fs.write multiple times on the same file
-	 * without waiting for the callback.
-	 * @param buffer Uint8Array containing the data to write to
-	 *  the file.
-	 * @param offset Offset in the buffer to start reading data from.
-	 * @param length The amount of bytes to write to the file.
-	 * @param position Offset from the beginning of the file where this
-	 *   data should be written. If position is null, the data will be written at
-	 *   the current position.
-	 */
-	public async write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): Promise<number> {
-		const bytesWritten = this.writeSync(buffer, offset, length, position);
-		await this.sync();
-		return bytesWritten;
-	}
-
-	/**
-	 * Write buffer to the file.
-	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
-	 * without waiting for the callback.
-	 * @param buffer Uint8Array containing the data to write to
-	 *  the file.
-	 * @param offset Offset in the buffer to start reading data from.
-	 * @param length The amount of bytes to write to the file.
-	 * @param position Offset from the beginning of the file where this
-	 *   data should be written. If position is null, the data will be written at
-	 *   the current position.
-	 * @returns bytes written
-	 */
-	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+	protected _write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
 		this.dirty = true;
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
@@ -523,11 +496,67 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		}
 		const slice = buffer.slice(offset, offset + length);
 		this._buffer.set(slice, position);
-		const bytesWritten = slice.byteLength;
 		this.stats.mtimeMs = Date.now();
-		this.position = position + bytesWritten;
+		this.position = position + slice.byteLength;
+		return slice.byteLength;
+	}
+
+	/**
+	 * Write buffer to the file.
+	 * Note that it is unsafe to use fs.write multiple times on the same file
+	 * without waiting for the callback.
+	 * @param buffer Uint8Array containing the data to write to
+	 *  the file.
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this
+	 *   data should be written. If position is null, the data will be written at
+	 *   the current position.
+	 */
+	public async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
+		const bytesWritten = this._write(buffer, offset, length, position);
+		await this.sync();
+		return bytesWritten;
+	}
+
+	/**
+	 * Write buffer to the file.
+	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
+	 * without waiting for the callback.
+	 * @param buffer Uint8Array containing the data to write to
+	 *  the file.
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this
+	 *   data should be written. If position is null, the data will be written at
+	 *   the current position.
+	 * @returns bytes written
+	 */
+	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+		const bytesWritten = this._write(buffer, offset, length, position);
 		this.syncSync();
 		return bytesWritten;
+	}
+
+	protected _read(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position?: number): number {
+		if (!isReadable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
+		}
+		this.dirty = true;
+		position ??= this.position;
+		let end = position + length;
+		if (end > this.stats.size) {
+			end = position + Math.max(this.stats.size - position, 0);
+		}
+		this.stats.atimeMs = Date.now();
+		this._position = end;
+		const bytesRead = end - position;
+		if (bytesRead == 0) {
+			// No copy/read. Return immediatly for better performance
+			return bytesRead;
+		}
+		new Uint8Array(buffer.buffer, offset, length).set(this._buffer.slice(position, end));
+		return bytesRead;
 	}
 
 	/**
@@ -541,13 +570,10 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 *   in the file. If position is null, data will be read from the current file
 	 *   position.
 	 */
-	public async read<TBuffer extends ArrayBufferView>(
-		buffer: TBuffer,
-		offset: number = 0,
-		length: number = this.stats.size,
-		position: number = 0
-	): Promise<{ bytesRead: number; buffer: TBuffer }> {
-		return { bytesRead: this.readSync(buffer, offset, length, position), buffer };
+	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
+		const bytesRead = this._read(buffer, offset, length, position);
+		await this.sync();
+		return { bytesRead, buffer };
 	}
 
 	/**
@@ -561,25 +587,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 *   position.
 	 * @returns number of bytes written
 	 */
-	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position?: number): number {
-		if (!isReadable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
-		}
-		this.dirty = true;
-		position ??= this.position;
-		let end = position + length;
-		if (end > this.stats.size) {
-			end = position + Math.max(this.stats.size - position, 0);
-		}
-		this.stats.atimeMs = Date.now();
-		this._position = end;
-		const bytesRead = end - position;
-		this.syncSync();
-		if (bytesRead == 0) {
-			// No copy/read. Return immediatly for better performance
-			return bytesRead;
-		}
-		new Uint8Array(buffer.buffer, offset, length).set(this._buffer.slice(position, end));
+	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
+		const bytesRead = this._read(buffer, offset, length, position);
+		this.statSync();
 		return bytesRead;
 	}
 
@@ -588,7 +598,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @param mode the mode
 	 */
 	public async chmod(mode: number): Promise<void> {
-		this.chmodSync(mode);
+		this.dirty = true;
+		this.stats.chmod(mode);
+		await this.sync();
 	}
 
 	/**
@@ -607,7 +619,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @param gid
 	 */
 	public async chown(uid: number, gid: number): Promise<void> {
-		this.chownSync(uid, gid);
+		this.dirty = true;
+		this.stats.chown(uid, gid);
+		await this.sync();
 	}
 
 	/**
@@ -622,7 +636,10 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public async utimes(atime: Date, mtime: Date): Promise<void> {
-		this.utimesSync(atime, mtime);
+		this.dirty = true;
+		this.stats.atime = atime;
+		this.stats.mtime = mtime;
+		await this.sync();
 	}
 
 	public utimesSync(atime: Date, mtime: Date): void {
@@ -632,10 +649,10 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this.syncSync();
 	}
 
-	public _setType(type: FileType): Promise<void> {
+	public async _setType(type: FileType): Promise<void> {
 		this.dirty = true;
 		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
-		return this.sync();
+		await this.sync();
 	}
 
 	public _setTypeSync(type: FileType): void {
