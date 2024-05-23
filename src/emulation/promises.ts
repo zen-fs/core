@@ -492,7 +492,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	path = resolveSymlinks && (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
-	if (!(await fs.exists(path, cred))) {
+	if (!(await fs.exists(resolved, cred))) {
 		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
 			throw ErrnoError.With('ENOENT', path, '_open');
 		}
