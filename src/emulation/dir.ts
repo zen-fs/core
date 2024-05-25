@@ -16,6 +16,10 @@ export class Dirent implements _Dirent {
 		protected stats: Stats
 	) {}
 
+	get parentPath(): string {
+		return this.path;
+	}
+
 	isFile(): boolean {
 		return this.stats.isFile();
 	}
