@@ -325,7 +325,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
  * Attribute descriptions are from `man 2 stat'
  * @see http://nodejs.org/api/fs.html#fs_class_fs_stats
  * @see http://man7.org/linux/man-pages/man2/stat.2.html
- * @internal
  */
 export class Stats extends StatsCommon<number> implements Node.Stats, StatsLike {
 	protected _isBigint = false as const;
