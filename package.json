@@ -33,7 +33,7 @@
 	"exports": {
 		".": "./dist/index.js",
 		"./*": "./dist/*",
-		"./promises": "./dist/emulations/promises.js"
+		"./promises": "./dist/emulation/promises.js"
 	},
 	"scripts": {
 		"format": "prettier --write .",
