@@ -20,45 +20,34 @@ const maxInodeAllocTries = 5;
  * @internal
  */
 export class StoreFS<T extends Store = Store> extends FileSystem {
-	protected get store(): T {
-		if (!this._store) {
-			throw new ErrnoError(Errno.ENODATA, 'No store attached');
-		}
-		return this._store;
-	}
-
-	protected _store?: T;
-
 	private _initialized: boolean = false;
 
 	public async ready(): Promise<void> {
-		await super.ready();
 		if (this._initialized) {
 			return;
 		}
+		await this.makeRootDirectory();
 		this._initialized = true;
-		this._store = await this.$store;
 	}
 
-	constructor(private $store: T | Promise<T>) {
+	constructor(protected store: T) {
 		super();
-
-		if (!($store instanceof Promise)) {
-			this._store = $store;
-			this._initialized = true;
+		if (!this._disableSync) {
 			this.makeRootDirectorySync();
+			this._initialized = true;
 		}
 	}
 
 	public metadata(): FileSystemMetadata {
 		return {
 			...super.metadata(),
-			name: this.store.name,
+			name: 'storefs:' + this.store.name,
 		};
 	}
 
 	/**
 	 * Delete all contents stored in the file system.
+	 * @deprecated
 	 */
 	public async empty(): Promise<void> {
 		await this.store.clear();
@@ -68,6 +57,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	/**
 	 * Delete all contents stored in the file system.
+	 * @deprecated
 	 */
 	public emptySync(): void {
 		this.store.clearSync();

@@ -1,5 +1,5 @@
 import type { Ino } from '../../inode.js';
-import { type Store, SyncTransaction } from './store.js';
+import { SyncTransaction, type Store } from './store.js';
 
 /**
  * An interface for simple synchronous stores that don't have special support for transactions and such.

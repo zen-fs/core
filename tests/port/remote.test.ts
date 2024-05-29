@@ -14,7 +14,7 @@ describe('Remote FS', () => {
 	});
 
 	test('configuration', async () => {
-		await configure({ backend: Port, port, timeout: 250 });
+		await configure({ backend: Port, port, timeout: 300 });
 	});
 
 	test('write', async () => {

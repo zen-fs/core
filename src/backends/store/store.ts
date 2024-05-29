@@ -1,3 +1,4 @@
+import { ErrnoError } from '../../error.js';
 import type { Ino } from '../../inode.js';
 
 /**
@@ -7,7 +8,7 @@ export interface Store {
 	/**
 	 * The name of the store.
 	 */
-	name: string;
+	readonly name: string;
 
 	/**
 	 * Syncs the store
@@ -36,7 +37,7 @@ export interface Store {
 }
 
 /**
- * A transaction for a synchronous store.
+ * A transaction for a store.
  */
 export abstract class Transaction<T extends Store = Store> {
 	constructor(protected store: T) {}
@@ -130,7 +131,6 @@ export abstract class Transaction<T extends Store = Store> {
  * Transaction that implements asynchronous operations with synchronous ones
  */
 export abstract class SyncTransaction<T extends Store = Store> extends Transaction<T> {
-	public async init(): Promise<void> {}
 	public async get(ino: Ino): Promise<Uint8Array> {
 		return this.getSync(ino);
 	}
@@ -150,32 +150,25 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 
 /**
  * Transaction that only supports asynchronous operations
- * @todo ensure this works with `disableAsyncCache`
  */
 export abstract class AsyncTransaction<T extends Store = Store> extends Transaction<T> {
-	protected cache: Map<Ino, Uint8Array> = new Map();
-	protected queue: Promise<unknown>[] = [];
+	public getSync(): Uint8Array {
+		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.getSync');
+	}
 
-	public async init(): Promise<void> {
-		for (const [key, value] of await this.store.entries()) {
-			this.cache.set(key, value);
-		}
+	public setSync(): void {
+		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.setSync');
 	}
-	public getSync(ino: Ino): Uint8Array {
-		return this.cache.get(ino)!;
+
+	public removeSync(): void {
+		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.removeSync');
 	}
-	public setSync(ino: Ino, data: Uint8Array): void {
-		this.cache.set(ino, data);
-		this.queue.push(this.set(ino, data));
-	}
-	public removeSync(ino: Ino): void {
-		this.cache.delete(ino);
-		this.queue.push(this.remove(ino));
-	}
+
 	public commitSync(): void {
-		this.queue.push(this.commit());
+		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.commitSync');
 	}
+
 	public abortSync(): void {
-		this.queue.push(this.abort());
+		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.abortSync');
 	}
 }

@@ -80,15 +80,22 @@ export abstract class FileSystem {
 	 */
 	public metadata(): FileSystemMetadata {
 		return {
-			name: this.constructor.name,
+			name: this.constructor.name.toLowerCase(),
 			readonly: false,
 			totalSpace: 0,
 			freeSpace: 0,
 			noResizableBuffers: false,
-			noAsyncCache: false,
+			noAsyncCache: this._disableSync ?? false,
 			type: ZenFsType,
 		};
 	}
+
+	/**
+	 * Whether the sync cache should be disabled.
+	 * Only affects async things.
+	 * @internal @protected
+	 */
+	_disableSync?: boolean;
 
 	public constructor() {}
 
@@ -293,18 +300,11 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 
 /**
  * @internal
- * Note: `_*` should be treated like protected.
- * Protected can't be used because of TS quirks however.
  */
 declare abstract class AsyncFS extends FileSystem {
 	/**
-	 * @access protected
-	 * @hidden
-	 */
-	_disableSync: boolean;
-	/**
-	 * @access protected
-	 * @hidden
+	 * protected can't be used because of TS quirks.
+	 * @hidden @protected
 	 */
 	abstract _sync?: FileSystem;
 	public queueDone(): Promise<void>;
@@ -362,8 +362,6 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 
 		private _isInitialized: boolean = false;
 
-		_disableSync: boolean = false;
-
 		abstract _sync?: FileSystem;
 
 		public async ready(): Promise<void> {
@@ -382,13 +380,6 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 				this._isInitialized = false;
 				throw e;
 			}
-		}
-
-		public metadata(): FileSystemMetadata {
-			return {
-				...super.metadata(),
-				noAsyncCache: this._disableSync,
-			};
 		}
 
 		protected checkSync(path?: string, syscall?: string): asserts this is { _sync: FileSystem } {
