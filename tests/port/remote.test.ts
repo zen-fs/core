@@ -9,7 +9,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 
 describe('Remote FS', () => {
 	const content = 'FS is in a port';
-	let port: Worker
+	let port: Worker;
 
 	test('Build exists for worker', () => {
 		const dist = join(dir, '..', '..', 'dist');
