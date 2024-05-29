@@ -13,6 +13,12 @@
 		"make-index": "scripts/make-index.js",
 		"build": "scripts/build.js"
 	},
+	"files": [
+		"dist",
+		"src",
+		"license.md",
+		"tsconfig.json"
+	],
 	"type": "module",
 	"homepage": "https://github.com/zen-fs/core",
 	"author": "James P. <jp@drvortex.dev> (https://drvortex.dev)",

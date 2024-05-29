@@ -1,5 +1,0 @@
-*
-!dist/**/*
-!src/**/*
-!license.md
-!tsconfig.json
