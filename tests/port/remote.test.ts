@@ -1,27 +1,36 @@
-import { dirname } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { Port } from '../../src/backends/port/fs.js';
 import { configure, fs } from '../../src/index.js';
 
-describe('Remote FS', () => {
-	const port = new Worker(dirname(fileURLToPath(import.meta.url)) + '/worker.js'),
-		content = 'FS is in a port';
+const dir = dirname(fileURLToPath(import.meta.url));
 
-	afterAll(async () => {
-		await port.terminate();
-		port.unref();
+describe('Remote FS', () => {
+	const content = 'FS is in a port';
+	let port: Worker
+
+	test('Build exists for worker', () => {
+		const dist = join(dir, '..', '..', 'dist');
+		expect(existsSync(dist)).toBe(true);
+		port = new Worker(dir + '/worker.js');
 	});
 
-	test('configuration', async () => {
+	(port ? test : test.skip)('Configuration', async () => {
 		await configure({ backend: Port, port, timeout: 300 });
 	});
 
-	test('write', async () => {
+	(port ? test : test.skip)('Write', async () => {
 		await fs.promises.writeFile('/test', content);
 	});
 
-	test('read', async () => {
+	(port ? test : test.skip)('Read', async () => {
 		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
+	});
+
+	(port ? test : test.skip)('Cleanup', async () => {
+		await port.terminate();
+		port.unref();
 	});
 });
