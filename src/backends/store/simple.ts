@@ -21,7 +21,7 @@ export abstract class SimpleAsyncStore implements SimpleSyncStore {
 
 	protected queue: Set<Promise<unknown>> = new Set();
 
-	protected abstract entries(): Promise<Iterable<[Ino, Uint8Array]>>;
+	public abstract entries(): Promise<Iterable<[Ino, Uint8Array]>>;
 
 	public get(ino: Ino): Uint8Array | undefined {
 		return this.cache.get(ino);
@@ -69,7 +69,7 @@ export abstract class SimpleAsyncStore implements SimpleSyncStore {
  * @see SimpleSyncStore
  * @see SimpleAsyncStore
  */
-export class SimpleTransaction extends SyncTransaction {
+export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 	/**
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
@@ -80,8 +80,10 @@ export class SimpleTransaction extends SyncTransaction {
 	 */
 	protected modifiedKeys: Set<Ino> = new Set();
 
-	constructor(protected store: SimpleSyncStore) {
-		super();
+	protected declare store: SimpleSyncStore;
+
+	constructor(store: SimpleSyncStore) {
+		super(store);
 	}
 
 	public getSync(ino: Ino): Uint8Array {
