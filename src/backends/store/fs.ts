@@ -26,16 +26,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		if (this._initialized) {
 			return;
 		}
-		await this.makeRootDirectory();
+		await this.checkRoot();
 		this._initialized = true;
 	}
 
 	constructor(protected store: T) {
 		super();
-		if (!this._disableSync) {
-			this.makeRootDirectorySync();
-			this._initialized = true;
-		}
 	}
 
 	public metadata(): FileSystemMetadata {
@@ -52,7 +48,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async empty(): Promise<void> {
 		await this.store.clear();
 		// Root always exists.
-		await this.makeRootDirectory();
+		await this.checkRoot();
 	}
 
 	/**
@@ -62,7 +58,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public emptySync(): void {
 		this.store.clearSync();
 		// Root always exists.
-		this.makeRootDirectorySync();
+		this.checkRootSync();
 	}
 
 	/**
@@ -444,7 +440,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
-	private async makeRootDirectory(): Promise<void> {
+	public async checkRoot(): Promise<void> {
 		const tx = this.store.transaction();
 		if (await tx.get(rootIno)) {
 			return;
@@ -461,7 +457,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
-	protected makeRootDirectorySync(): void {
+	public checkRootSync(): void {
 		const tx = this.store.transaction();
 		if (tx.getSync(rootIno)) {
 			return;
