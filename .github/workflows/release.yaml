@@ -2,6 +2,7 @@ name: Release
 on:
     release:
         types: [created]
+    workflow_call:
 jobs:
     ci:
         uses: ./.github/workflows/ci.yaml
@@ -29,7 +30,7 @@ jobs:
             - name: Publish
               run: npm publish --access=public
               env:
-                  NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+                NODE_AUTH_TOKEN: ${{secrets.npm_token}}
     docs:
         runs-on: ubuntu-latest
         name: Docs build and deploy
