@@ -41,7 +41,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public metadata(): FileSystemMetadata {
 		return {
 			...super.metadata(),
-			name: 'storefs:' + this.store.name,
+			name: this.store.name,
 		};
 	}
 
