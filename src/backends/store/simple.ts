@@ -21,7 +21,7 @@ export abstract class SimpleAsyncStore implements SimpleSyncStore {
 
 	protected queue: Set<Promise<unknown>> = new Set();
 
-	public abstract entries(): Promise<Iterable<[Ino, Uint8Array]>>;
+	protected abstract entries(): Promise<Iterable<[Ino, Uint8Array]>>;
 
 	public get(ino: Ino): Uint8Array | undefined {
 		return this.cache.get(ino);

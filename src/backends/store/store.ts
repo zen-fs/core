@@ -29,11 +29,6 @@ export interface Store {
 	 * Begins a new transaction.
 	 */
 	transaction(): Transaction;
-
-	/**
-	 * Get all of the entries in a store
-	 */
-	entries(): Iterable<[Ino, Uint8Array]> | Promise<Iterable<[Ino, Uint8Array]>>;
 }
 
 /**
