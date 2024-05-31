@@ -4,7 +4,6 @@ import { rootCred, type Cred } from './cred.js';
 import { join } from './emulation/path.js';
 import { PreloadFile, parseFlag, type File } from './file.js';
 import { ZenFsType, type Stats } from './stats.js';
-import { InMemory } from './backends/memory.js';
 
 export type FileContents = ArrayBufferView | string;
 
@@ -370,7 +369,6 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 			if (this._isInitialized || this._disableSync) {
 				return;
 			}
-			this._sync ??= InMemory.create({ name: 'cache' });
 			this.checkSync();
 
 			await this._sync.ready();
