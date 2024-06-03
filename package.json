@@ -1,6 +1,6 @@
 {
 	"name": "@zenfs/core",
-	"version": "0.12.9",
+	"version": "0.12.10",
 	"description": "A filesystem in your browser",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
