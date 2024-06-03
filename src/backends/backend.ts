@@ -35,13 +35,23 @@ export type OptionsConfig<T> = {
 };
 
 /**
+ * Configuration options shared by backends and `Configuration`
+ */
+export interface SharedConfig {
+	/**
+	 * If set, disables the sync cache and sync operations on async file systems.
+	 */
+	disableAsyncCache: boolean;
+}
+
+/**
  * A backend
  */
 export interface Backend<FS extends FileSystem = FileSystem, TOptions extends object = object> {
 	/**
 	 * Create a new instance of the backend
 	 */
-	create(options: TOptions): FS | Promise<FS>;
+	create(options: TOptions & Partial<SharedConfig>): FS | Promise<FS>;
 
 	/**
 	 * A name to identify the backend.
@@ -146,10 +156,7 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Record<s
  *
  * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
  */
-export type BackendConfiguration<T extends Backend> = OptionsOf<T> & {
-	backend: T;
-	disableAsyncCache?: boolean;
-};
+export type BackendConfiguration<T extends Backend> = OptionsOf<T> & Partial<SharedConfig> & { backend: T };
 
 /**
  * @internal

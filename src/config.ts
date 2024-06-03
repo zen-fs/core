@@ -1,5 +1,5 @@
 import { type Entries } from 'utilium';
-import type { Backend, BackendConfiguration, FilesystemOf } from './backends/backend.js';
+import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
@@ -73,7 +73,7 @@ type ConfigMounts = { [K in AbsolutePath]: Backend };
 /**
  * Configuration
  */
-export interface Configuration<T extends ConfigMounts> {
+export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	/**
 	 * An object mapping mount points to mount configuration
 	 */
@@ -86,10 +86,6 @@ export interface Configuration<T extends ConfigMounts> {
 	 * The gid to use
 	 */
 	gid: number;
-	/**
-	 * If set, disables the sync cache and sync operations on async file systems.
-	 */
-	disableAsyncCache: boolean;
 }
 
 /**
