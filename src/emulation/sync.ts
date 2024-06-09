@@ -481,14 +481,34 @@ export function mkdirSync(path: fs.PathLike, options: fs.MakeDirectoryOptions & 
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined;
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined | void {
-	const mode: fs.Mode = normalizeMode(typeof options == 'number' || typeof options == 'string' ? options : options?.mode, 0o777);
-	const recursive = typeof options == 'object' && options?.recursive;
+	options = typeof options === 'object' ? options : { mode: options };
+	const mode = normalizeMode(options?.mode, 0o777);
+
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
-	try {
-		return fs.mkdirSync(resolved, mode, cred);
-	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+	path = existsSync(path) ? realpathSync(path) : path;
+	const { fs, path: resolved } = resolveMount(path);
+	const errorPaths: Record<string, string> = { [resolved]: path };
+
+	const mkdirSingle = (dir: string) => {
+		try {
+			fs.mkdirSync(dir, mode, cred);
+		} catch (e) {
+			throw fixError(e as Error, errorPaths);
+		}
+	};
+
+	if (options?.recursive) {
+		const dirs: string[] = [];
+		for (let dir = resolved, origDir = path; !fs.existsSync(dir, cred); dir = dirname(dir), origDir = dirname(origDir)) {
+			dirs.unshift(dir);
+			errorPaths[dir] = origDir;
+		}
+		for (const dir of dirs) {
+			mkdirSingle(dir);
+		}
+		return dirs[0];
+	} else {
+		return mkdirSingle(resolved);
 	}
 }
 mkdirSync satisfies typeof fs.mkdirSync;
