@@ -664,16 +664,16 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
-	const mkdirSingle = async (dir: string) => {
+	async function _mkdirSingle(dir: string) {
 		try {
 			await fs.mkdir(dir, mode, cred);
 		} catch (e) {
 			throw fixError(e as Error, errorPaths);
 		}
-	};
+	}
 
 	if (!options?.recursive) {
-		return mkdirSingle(resolved);
+		return _mkdirSingle(resolved);
 	}
 
 	const dirs: string[] = [];
@@ -682,7 +682,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 		errorPaths[dir] = origDir;
 	}
 	for (const dir of dirs) {
-		await mkdirSingle(dir);
+		await _mkdirSingle(dir);
 	}
 	return dirs[0];
 }

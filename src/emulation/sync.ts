@@ -489,16 +489,16 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
-	const mkdirSingle = (dir: string) => {
+	function _mkdirSingle(dir: string) {
 		try {
 			fs.mkdirSync(dir, mode, cred);
 		} catch (e) {
 			throw fixError(e as Error, errorPaths);
 		}
-	};
+	}
 
 	if (!options?.recursive) {
-		return mkdirSingle(resolved);
+		return _mkdirSingle(resolved);
 	}
 
 	const dirs: string[] = [];
@@ -507,7 +507,7 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 		errorPaths[dir] = original;
 	}
 	for (const dir of dirs) {
-		mkdirSingle(dir);
+		_mkdirSingle(dir);
 	}
 	return dirs[0];
 }
