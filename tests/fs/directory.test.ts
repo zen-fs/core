@@ -3,7 +3,8 @@ import { fs } from '../common.js';
 describe('Directory', () => {
 	test('mkdir', async () => {
 		await fs.promises.mkdir('/one', 0o755);
-		expect(await fs.promises.exists('/one')).toBe(true);
+		await expect(fs.promises.exists('/one')).resolves.toBe(true);
+		await expect(fs.promises.mkdir('/one', 0o755)).rejects.toThrow(/EEXIST/);
 	});
 
 	test('mkdirSync', () => fs.mkdirSync('/two', 0o000));
@@ -15,6 +16,30 @@ describe('Directory', () => {
 			expect(error.code).toBe('ENOENT');
 		}
 		expect(await fs.promises.exists('/nested/dir')).toBe(false);
+	});
+
+	test('mkdir, recursive', async () => {
+		await expect(fs.promises.mkdir('/recursiveP/A/B', { recursive: true, mode: 0o755 })).resolves.toBe('/recursiveP');
+		await expect(fs.promises.mkdir('/recursiveP/A/B/C/D', { recursive: true, mode: 0o777 })).resolves.toBe('/recursiveP/A/B/C');
+		await expect(fs.promises.mkdir('/recursiveP/A/B/C/D', { recursive: true, mode: 0o700 })).resolves.toBeUndefined();
+
+		await expect(fs.promises.stat('/recursiveP')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
+		await expect(fs.promises.stat('/recursiveP/A')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
+		await expect(fs.promises.stat('/recursiveP/A/B')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
+		await expect(fs.promises.stat('/recursiveP/A/B/C')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o777 });
+		await expect(fs.promises.stat('/recursiveP/A/B/C/D')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o777 });
+	});
+
+	test('mkdirSync, recursive', () => {
+		expect(fs.mkdirSync('/recursiveS/A/B', { recursive: true, mode: 0o755 })).toBe('/recursiveS');
+		expect(fs.mkdirSync('/recursiveS/A/B/C/D', { recursive: true, mode: 0o777 })).toBe('/recursiveS/A/B/C');
+		expect(fs.mkdirSync('/recursiveS/A/B/C/D', { recursive: true, mode: 0o700 })).toBeUndefined();
+
+		expect(fs.statSync('/recursiveS')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
+		expect(fs.statSync('/recursiveS/A')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
+		expect(fs.statSync('/recursiveS/A/B')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
+		expect(fs.statSync('/recursiveS/A/B/C')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o777 });
+		expect(fs.statSync('/recursiveS/A/B/C/D')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o777 });
 	});
 
 	test('readdirSync without permission', () => {
