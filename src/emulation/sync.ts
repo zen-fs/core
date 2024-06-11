@@ -497,19 +497,19 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 		}
 	};
 
-	if (options?.recursive) {
-		const dirs: string[] = [];
-		for (let dir = resolved, origDir = path; !fs.existsSync(dir, cred); dir = dirname(dir), origDir = dirname(origDir)) {
-			dirs.unshift(dir);
-			errorPaths[dir] = origDir;
-		}
-		for (const dir of dirs) {
-			mkdirSingle(dir);
-		}
-		return dirs[0];
-	} else {
+	if (!options?.recursive) {
 		return mkdirSingle(resolved);
 	}
+
+	const dirs: string[] = [];
+	for (let dir = resolved, original = path; !fs.existsSync(dir, cred); dir = dirname(dir), original = dirname(original)) {
+		dirs.unshift(dir);
+		errorPaths[dir] = original;
+	}
+	for (const dir of dirs) {
+		mkdirSingle(dir);
+	}
+	return dirs[0];
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 

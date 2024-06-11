@@ -672,19 +672,19 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 		}
 	};
 
-	if (options?.recursive) {
-		const dirs: string[] = [];
-		for (let dir = resolved, origDir = path; !(await fs.exists(dir, cred)); dir = dirname(dir), origDir = dirname(origDir)) {
-			dirs.unshift(dir);
-			errorPaths[dir] = origDir;
-		}
-		for (const dir of dirs) {
-			await mkdirSingle(dir);
-		}
-		return dirs[0];
-	} else {
+	if (!options?.recursive) {
 		return mkdirSingle(resolved);
 	}
+
+	const dirs: string[] = [];
+	for (let dir = resolved, origDir = path; !(await fs.exists(dir, cred)); dir = dirname(dir), origDir = dirname(origDir)) {
+		dirs.unshift(dir);
+		errorPaths[dir] = origDir;
+	}
+	for (const dir of dirs) {
+		await mkdirSingle(dir);
+	}
+	return dirs[0];
 }
 mkdir satisfies typeof promises.mkdir;
 
