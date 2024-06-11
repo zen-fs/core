@@ -489,27 +489,23 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
-	function _mkdirSingle(dir: string) {
-		try {
-			fs.mkdirSync(dir, mode, cred);
-		} catch (e) {
-			throw fixError(e as Error, errorPaths);
+	try {
+		if (!options?.recursive) {
+			return fs.mkdirSync(resolved, mode, cred);
 		}
-	}
 
-	if (!options?.recursive) {
-		return _mkdirSingle(resolved);
+		const dirs: string[] = [];
+		for (let dir = resolved, original = path; !fs.existsSync(dir, cred); dir = dirname(dir), original = dirname(original)) {
+			dirs.unshift(dir);
+			errorPaths[dir] = original;
+		}
+		for (const dir of dirs) {
+			fs.mkdirSync(dir, mode, cred);
+		}
+		return dirs[0];
+	} catch (e) {
+		throw fixError(e as Error, errorPaths);
 	}
-
-	const dirs: string[] = [];
-	for (let dir = resolved, original = path; !fs.existsSync(dir, cred); dir = dirname(dir), original = dirname(original)) {
-		dirs.unshift(dir);
-		errorPaths[dir] = original;
-	}
-	for (const dir of dirs) {
-		_mkdirSingle(dir);
-	}
-	return dirs[0];
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 

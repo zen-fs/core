@@ -664,27 +664,23 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
-	async function _mkdirSingle(dir: string) {
-		try {
-			await fs.mkdir(dir, mode, cred);
-		} catch (e) {
-			throw fixError(e as Error, errorPaths);
+	try {
+		if (!options?.recursive) {
+			await fs.mkdir(resolved, mode, cred);
 		}
-	}
 
-	if (!options?.recursive) {
-		return _mkdirSingle(resolved);
+		const dirs: string[] = [];
+		for (let dir = resolved, origDir = path; !(await fs.exists(dir, cred)); dir = dirname(dir), origDir = dirname(origDir)) {
+			dirs.unshift(dir);
+			errorPaths[dir] = origDir;
+		}
+		for (const dir of dirs) {
+			await fs.mkdir(dir, mode, cred);
+		}
+		return dirs[0];
+	} catch (e) {
+		throw fixError(e as Error, errorPaths);
 	}
-
-	const dirs: string[] = [];
-	for (let dir = resolved, origDir = path; !(await fs.exists(dir, cred)); dir = dirname(dir), origDir = dirname(origDir)) {
-		dirs.unshift(dir);
-		errorPaths[dir] = origDir;
-	}
-	for (const dir of dirs) {
-		await _mkdirSingle(dir);
-	}
-	return dirs[0];
 }
 mkdir satisfies typeof promises.mkdir;
 
