@@ -1,7 +1,7 @@
 {
 	"name": "@zenfs/core",
 	"version": "0.12.10",
-	"description": "A filesystem in your browser",
+	"description": "A filesystem, anywhere",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"keywords": [
@@ -47,7 +47,7 @@
 		"lint": "tsc -p tsconfig.json --noEmit && eslint src tests",
 		"test": "tsc -p tests/tsconfig.json && cross-env NODE_OPTIONS=--experimental-vm-modules npx jest",
 		"build": "node scripts/build.js --globalName=ZenFS --entry src/index.ts",
-		"build:docs": "typedoc --out docs --name ZenFS src/index.ts",
+		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build"
 	},
@@ -73,6 +73,7 @@
 		"prettier": "^3.2.5",
 		"ts-jest": "^29.1.0",
 		"typedoc": "^0.25.13",
+		"typedoc-plugin-remove-references": "^0.0.6",
 		"typescript": "^5.4.0"
 	}
 }

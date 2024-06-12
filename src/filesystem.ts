@@ -1,7 +1,7 @@
 import type { ExtractProperties } from 'utilium';
-import { ErrnoError, Errno } from './error.js';
 import { rootCred, type Cred } from './cred.js';
 import { join } from './emulation/path.js';
+import { Errno, ErrnoError } from './error.js';
 import { PreloadFile, parseFlag, type File } from './file.js';
 import { ZenFsType, type Stats } from './stats.js';
 
@@ -97,7 +97,8 @@ export abstract class FileSystem {
 	 */
 	_disableSync?: boolean;
 
-	public constructor() {}
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+	public constructor(...args: any[]) {}
 
 	public async ready(): Promise<void> {}
 
@@ -227,30 +228,24 @@ export abstract class FileSystem {
 }
 
 /**
+ * `TBase` with `TMixin` mixed-in.
+ * @internal @experimental
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Mixin<TBase extends typeof FileSystem, TMixin> = (abstract new (...args: any[]) => TMixin) & TBase;
+
+/**
+ * Asynchronous `FileSystem` methods. This is a convience type.
  * @internal
  */
-declare abstract class SyncFS extends FileSystem {
-	public metadata(): FileSystemMetadata;
-	public ready(): Promise<void>;
-	public exists(path: string, cred: Cred): Promise<boolean>;
-	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
-	public stat(path: string, cred: Cred): Promise<Stats>;
-	public createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
-	public openFile(path: string, flag: string, cred: Cred): Promise<File>;
-	public unlink(path: string, cred: Cred): Promise<void>;
-	public rmdir(path: string, cred: Cred): Promise<void>;
-	public mkdir(path: string, mode: number, cred: Cred): Promise<void>;
-	public readdir(path: string, cred: Cred): Promise<string[]>;
-	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
-	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type _AsyncFSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<unknown>>;
 
 /**
  * Implements the asynchronous API in terms of the synchronous API.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => SyncFS) & T {
-	abstract class _SyncFS extends FS implements SyncFS {
+export function Sync<T extends typeof FileSystem>(FS: T): Mixin<T, _AsyncFSMethods> {
+	abstract class SyncFS extends FS implements _AsyncFSMethods {
 		public async exists(path: string, cred: Cred): Promise<boolean> {
 			return this.existsSync(path, cred);
 		}
@@ -295,42 +290,15 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.syncSync(path, data, stats);
 		}
 	}
-	return _SyncFS;
+	return SyncFS;
 }
-
-/**
- * @internal
- */
-declare abstract class AsyncFS extends FileSystem {
-	/**
-	 * protected can't be used because of TS quirks.
-	 * @hidden @protected
-	 */
-	abstract _sync?: FileSystem;
-	public queueDone(): Promise<void>;
-	public metadata(): FileSystemMetadata;
-	public ready(): Promise<void>;
-	public renameSync(oldPath: string, newPath: string, cred: Cred): void;
-	public statSync(path: string, cred: Cred): Stats;
-	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
-	public openFileSync(path: string, flag: string, cred: Cred): File;
-	public unlinkSync(path: string, cred: Cred): void;
-	public rmdirSync(path: string, cred: Cred): void;
-	public mkdirSync(path: string, mode: number, cred: Cred): void;
-	public readdirSync(path: string, cred: Cred): string[];
-	public linkSync(srcpath: string, dstpath: string, cred: Cred): void;
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AsyncMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<unknown>>;
 
 /**
  * @internal
  */
 type AsyncOperation = {
-	[K in keyof AsyncMethods]: [K, ...Parameters<FileSystem[K]>];
-}[keyof AsyncMethods];
+	[K in keyof _AsyncFSMethods]: [K, ...Parameters<FileSystem[K]>];
+}[keyof _AsyncFSMethods];
 
 /**
  * Async() implements synchronous methods on an asynchronous file system
@@ -339,12 +307,33 @@ type AsyncOperation = {
  * Synchronous methods on an asynchronous FS are implemented by:
  *	- Performing operations over the in-memory copy,
  * 	while asynchronously pipelining them to the backing store.
- * 	- During loading, the contents of the async file system are eloaded into the synchronous store.
+ * 	- During loading, the contents of the async file system are preloaded into the synchronous store.
  *
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => AsyncFS) & T {
-	abstract class _AsyncFS extends FS implements AsyncFS {
+export function Async<T extends typeof FileSystem>(
+	FS: T
+): Mixin<
+	T,
+	{
+		/**
+		 * @internal @protected
+		 */
+		_sync?: FileSystem;
+		queueDone(): Promise<void>;
+		ready(): Promise<void>;
+		renameSync(oldPath: string, newPath: string, cred: Cred): void;
+		statSync(path: string, cred: Cred): Stats;
+		createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
+		openFileSync(path: string, flag: string, cred: Cred): File;
+		unlinkSync(path: string, cred: Cred): void;
+		rmdirSync(path: string, cred: Cred): void;
+		mkdirSync(path: string, mode: number, cred: Cred): void;
+		readdirSync(path: string, cred: Cred): string[];
+		linkSync(srcpath: string, dstpath: string, cred: Cred): void;
+		syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	}
+> {
+	abstract class AsyncFS extends FS {
 		/**
 		 * Queue of pending asynchronous operations.
 		 */
@@ -510,36 +499,35 @@ export function Async<T extends abstract new (...args: any[]) => FileSystem>(FS:
 		}
 	}
 
-	return _AsyncFS;
-}
-
-/**
- * @internal
- */
-declare abstract class ReadonlyFS extends FileSystem {
-	public metadata(): FileSystemMetadata;
-	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
-	public renameSync(oldPath: string, newPath: string, cred: Cred): void;
-	public createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
-	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
-	public unlink(path: string, cred: Cred): Promise<void>;
-	public unlinkSync(path: string, cred: Cred): void;
-	public rmdir(path: string, cred: Cred): Promise<void>;
-	public rmdirSync(path: string, cred: Cred): void;
-	public mkdir(path: string, mode: number, cred: Cred): Promise<void>;
-	public mkdirSync(path: string, mode: number, cred: Cred): void;
-	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
-	public linkSync(srcpath: string, dstpath: string, cred: Cred): void;
-	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	return AsyncFS;
 }
 
 /**
  * Implements the non-readonly methods to throw `EROFS`
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(FS: T): (abstract new (...args: any[]) => ReadonlyFS) & T {
-	abstract class _ReadonlyFS extends FS implements ReadonlyFS {
+export function Readonly<T extends typeof FileSystem>(
+	FS: T
+): Mixin<
+	T,
+	{
+		metadata(): FileSystemMetadata;
+		rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
+		renameSync(oldPath: string, newPath: string, cred: Cred): void;
+		createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
+		createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
+		unlink(path: string, cred: Cred): Promise<void>;
+		unlinkSync(path: string, cred: Cred): void;
+		rmdir(path: string, cred: Cred): Promise<void>;
+		rmdirSync(path: string, cred: Cred): void;
+		mkdir(path: string, mode: number, cred: Cred): Promise<void>;
+		mkdirSync(path: string, mode: number, cred: Cred): void;
+		link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
+		linkSync(srcpath: string, dstpath: string, cred: Cred): void;
+		sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
+		syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	}
+> {
+	abstract class ReadonlyFS extends FS {
 		public metadata(): FileSystemMetadata {
 			return { ...super.metadata(), readonly: true };
 		}
@@ -601,5 +589,5 @@ export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(
 		}
 		/* eslint-enable @typescript-eslint/no-unused-vars */
 	}
-	return _ReadonlyFS;
+	return ReadonlyFS;
 }
