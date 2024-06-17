@@ -28,6 +28,7 @@ jobs:
               run: npm publish --access=public
               env:
                   NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+                  NPM_TOKEN: ${{secrets.npm_token}}
     docs:
         runs-on: ubuntu-latest
         name: Docs build and deploy
