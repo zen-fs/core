@@ -5,15 +5,17 @@ import { ErrnoError, Errno } from './error.js';
  * @internal
  */
 export class Mutex {
-	protected locks: Map<string, (() => void)[]> = new Map();
+	protected locks: Map<string, { isLocked: boolean; queue: (() => void)[] }> = new Map();
 
 	public lock(path: string): Promise<void> {
+		if (!this.locks.has(path)) {
+			this.locks.set(path, { isLocked: false, queue: [] });
+		}
+		const queue = this.locks.get(path);
+
 		return new Promise(resolve => {
-			if (this.locks.has(path)) {
-				this.locks.get(path)!.push(resolve);
-			} else {
-				this.locks.set(path, [resolve]);
-			}
+			queue!.queue.push(resolve);
+			this.dispatch(path);
 		});
 	}
 
@@ -21,8 +23,7 @@ export class Mutex {
 		if (!this.locks.has(path)) {
 			throw new ErrnoError(Errno.EPERM, 'Can not unlock an already unlocked path', path);
 		}
-
-		const next = this.locks.get(path)?.shift();
+		this.locks.get(path)!.isLocked = false;
 		/* 
 			don't unlock - we want to queue up next for the
 			end of the current task execution, but we don't
@@ -31,12 +32,7 @@ export class Mutex {
 			behavior that an unlock immediately followed by a
 			lock won't cause starvation.
 		*/
-		if (next) {
-			setTimeout(next);
-			return;
-		}
-
-		this.locks.delete(path);
+		setTimeout(() => this.dispatch(path));
 	}
 
 	public tryLock(path: string): boolean {
@@ -44,11 +40,26 @@ export class Mutex {
 			return false;
 		}
 
-		this.locks.set(path, []);
+		this.locks.set(path, { isLocked: false, queue: [] });
 		return true;
 	}
 
 	public isLocked(path: string): boolean {
 		return this.locks.has(path);
+	}
+
+	private dispatch(path: string) {
+		const queue = this.locks.get(path);
+		if (queue!.isLocked) {
+			return;
+		}
+
+		const next = queue!.queue.shift();
+		if (!next) {
+			return;
+		}
+
+		queue!.isLocked = true;
+		next();
 	}
 }
