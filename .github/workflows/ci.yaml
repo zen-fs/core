@@ -13,17 +13,14 @@ jobs:
         name: Ubuntu
         uses: ./.github/workflows/ci-single-platform.yaml
         with:
-            name: Ubuntu
             platform: ubuntu-latest
     macos:
         name: MacOS
         uses: ./.github/workflows/ci-single-platform.yaml
         with:
-            name: MacOS
             platform: macos-latest
     win:
         name: Windows
         uses: ./.github/workflows/ci-single-platform.yaml
         with:
-            name: Windows
             platform: windows-latest
