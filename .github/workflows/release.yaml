@@ -3,9 +3,15 @@ on:
     release:
         types: [created]
     workflow_call:
+        secrets:
+            npm_token:
+                required: true
 jobs:
     ci:
-        uses: ./.github/workflows/ci.yaml
+        name: CI Checks
+        uses: ./.github/workflows/ci-single-platform.yaml
+        with:
+            platform: ubuntu-latest
     release:
         runs-on: ubuntu-latest
         needs: ci
@@ -28,7 +34,6 @@ jobs:
               run: npm publish --access=public
               env:
                   NODE_AUTH_TOKEN: ${{secrets.npm_token}}
-                  NPM_TOKEN: ${{secrets.npm_token}}
     docs:
         runs-on: ubuntu-latest
         name: Docs build and deploy
