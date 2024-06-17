@@ -82,7 +82,9 @@ export class Index extends Map<string, Stats> {
 		for (const [path, data] of Object.entries(json.entries)) {
 			const stats = new Stats(data);
 			if (stats.isDirectory()) {
-				stats.fileData = encode(JSON.stringify(this.dirEntries(path)));
+				const regex = new RegExp(`^${path}/[^/]+$`);
+				const immediateSubdirs = Object.keys(json.entries).filter(item => regex.test(item) && item !== path);
+				stats.fileData = encode(JSON.stringify(immediateSubdirs));
 			}
 			this.set(path, stats);
 		}
