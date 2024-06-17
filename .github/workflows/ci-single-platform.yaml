@@ -4,9 +4,14 @@ on:
             platform:
                 required: true
                 type: string
+            name:
+                required: false
+                type: string
+                default: ${{ inputs.platform }}
 
 jobs:
     ci:
+        name: ${{ inputs.name }}
         runs-on: ${{ inputs.platform }}
         defaults:
             run:
