@@ -1,3 +1,5 @@
+name: Continuous Integration
+
 on:
     push:
         branches:
@@ -8,19 +10,19 @@ on:
 
 jobs:
     ubuntu:
-        name: Continuous Integration
+        name: Ubuntu
         uses: ./.github/workflows/ci-single-platform.yaml
         with:
             name: Ubuntu
             platform: ubuntu-latest
     macos:
-        name: Continuous Integration
+        name: MacOS
         uses: ./.github/workflows/ci-single-platform.yaml
         with:
             name: MacOS
             platform: macos-latest
     win:
-        name: Continuous Integration
+        name: Windows
         uses: ./.github/workflows/ci-single-platform.yaml
         with:
             name: Windows
