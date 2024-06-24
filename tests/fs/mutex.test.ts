@@ -12,22 +12,6 @@ describe('Test Mutex', () => {
 		mutex.unlock('testLock');
 	});
 
-	test('test sequential access', async () => {
-		const array = [];
-		const expectedArray = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-		const delays = [0, 20, 10, 50, 5, 65, 30, 40, 15, 25];
-		const addNum = async (num: number, delay: number) => {
-			array.push(num);
-			setTimeout(() => {}, delay);
-		};
-
-		for (let i = 0; i < 10; i++) {
-			addNum(i, delays[i]);
-		}
-		await new Promise(resolve => setTimeout(resolve, 300));
-		expect(array).toEqual(expectedArray);
-	});
-
 	test('queueing locks', async () => {
 		let lock1Resolved = false;
 		let lock2Resolved = false;

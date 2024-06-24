@@ -1,3 +1,4 @@
+import { ErrnoError, Errno } from './error.js';
 /**
  * Non-recursive mutex
  * @internal
@@ -23,6 +24,9 @@ export class Mutex {
 
 	public unlock(path: string): void {
 		const entry = this.locks.get(path);
+		if (!entry) {
+			throw new ErrnoError(Errno.EPERM, 'Can not unlock an already unlocked path', path);
+		}
 		if (!entry || entry.queue.length === 0) {
 			entry!.isLocked = false;
 		} else {
