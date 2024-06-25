@@ -1,46 +1,28 @@
 import { ErrnoError, Errno } from './error.js';
+
 /**
  * Non-recursive mutex
  * @internal
  */
 export class Mutex {
-	protected locks: Map<string, { isLocked: boolean; queue: (() => void)[] }> = new Map();
+	protected locks: Map<string, PromiseWithResolvers<void>> = new Map();
 
-	public lock(path: string): Promise<void> {
-		return new Promise(resolve => {
-			if (!this.locks.has(path)) {
-				this.locks.set(path, { isLocked: false, queue: [] });
-			}
-			const entry = this.locks.get(path);
+	public async lock(path: string): Promise<void> {
+		if (this.locks.has(path)) {
+			// Non-null assertion: we already checked locks has path
+			await this.locks.get(path)!.promise;
+		}
 
-			if (entry!.isLocked) {
-				entry!.queue.push(resolve);
-			} else {
-				entry!.isLocked = true;
-				resolve();
-			}
-		});
+		this.locks.set(path, Promise.withResolvers());
 	}
 
 	public unlock(path: string): void {
-		const entry = this.locks.get(path);
-		if (!entry) {
+		if (!this.locks.has(path)) {
 			throw new ErrnoError(Errno.EPERM, 'Can not unlock an already unlocked path', path);
 		}
-		if (!entry || entry.queue.length === 0) {
-			entry!.isLocked = false;
-		} else {
-			const resolve = entry.queue.shift();
-			/* 
-        don't unlock - we want to queue up next for the
-        end of the current task execution, but we don't
-        want it to be called inline with whatever the
-        current stack is.  This way we still get the nice
-        behavior that an unlock immediately followed by a
-        lock won't cause starvation.
-      */
-			setTimeout(() => resolve!());
-		}
+
+		// Non-null assertion: we already checked locks has path
+		this.locks.get(path)!.resolve();
 	}
 
 	public tryLock(path: string): boolean {
@@ -48,7 +30,7 @@ export class Mutex {
 			return false;
 		}
 
-		this.locks.set(path, { isLocked: false, queue: [] });
+		this.locks.set(path, Promise.withResolvers());
 		return true;
 	}
 
