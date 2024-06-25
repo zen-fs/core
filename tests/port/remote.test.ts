@@ -1,5 +1,4 @@
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { Port } from '../../src/backends/port/fs.js';
@@ -7,14 +6,19 @@ import { configure, fs } from '../../src/index.js';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
+let port: Worker;
+
+try {
+	port = new Worker(dir + '/worker.js');
+} catch (e) {
+	/* nothing */
+}
+
 describe('Remote FS', () => {
 	const content = 'FS is in a port';
-	let port: Worker;
 
 	test('Build exists for worker', () => {
-		const dist = join(dir, '..', '..', 'dist');
-		expect(existsSync(dist)).toBe(true);
-		port = new Worker(dir + '/worker.js');
+		expect(port).toBeDefined();
 	});
 
 	(port ? test : test.skip)('Configuration', async () => {
