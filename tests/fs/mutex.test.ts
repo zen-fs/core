@@ -1,13 +1,10 @@
+import { wait } from 'utilium';
 import { Mutex } from '../../src/mutex.js';
 
-describe('Test Mutex', () => {
-	let mutex: Mutex;
+describe('Mutex', () => {
+	const mutex: Mutex = new Mutex();
 
-	beforeEach(() => {
-		mutex = new Mutex();
-	});
-
-	test('Test lock', async () => {
+	test('lock/unlock', async () => {
 		await mutex.lock('testLock');
 		mutex.unlock('testLock');
 	});
@@ -44,9 +41,8 @@ describe('Test Mutex', () => {
 
 		async function foo() {
 			await mutex.lock('raceConditions');
-			let y = x;
-			await new Promise(resolve => setTimeout(resolve, 100));
-			x = y + 1;
+			await wait(100);
+			x++;
 			mutex.unlock('raceConditions');
 		}
 
@@ -55,9 +51,6 @@ describe('Test Mutex', () => {
 	});
 
 	test('Unlock without lock', async () => {
-		const mutex = new Mutex();
-		const unlock = () => mutex.unlock('unlockWithoutLock');
-
-		expect(unlock).toThrowError();
+		expect(() => mutex.unlock('unlockWithoutLock')).toThrowError();
 	});
 });
