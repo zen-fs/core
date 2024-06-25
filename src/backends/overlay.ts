@@ -86,6 +86,10 @@ export class UnlockedOverlayFS extends FileSystem {
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		const cred = stats.cred(0, 0);
 		await this.createParentDirectories(path, cred);
+		const fileExists = await this._writable.exists(path, cred);
+		if (!fileExists) {
+			await this._writable.createFile(path, 'w', 0o644, cred);
+		}
 		await this._writable.sync(path, data, stats);
 	}
 
