@@ -23,6 +23,7 @@ export class Mutex {
 
 		// Non-null assertion: we already checked locks has path
 		this.locks.get(path)!.resolve();
+		this.locks.delete(path);
 	}
 
 	public tryLock(path: string): boolean {
