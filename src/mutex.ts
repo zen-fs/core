@@ -1,4 +1,4 @@
-import { ErrnoError, Errno } from './error.js';
+import { Errno, ErrnoError } from './error.js';
 
 /**
  * Non-recursive mutex
@@ -16,14 +16,24 @@ export class Mutex {
 		this.locks.set(path, Promise.withResolvers());
 	}
 
-	public unlock(path: string): void {
+	/**
+	 * Unlocks a path
+	 * @param path The path to lock
+	 * @param noThrow If true, an error will not be thrown if the path is already unlocked
+	 * @returns Whether the path was unlocked
+	 */
+	public unlock(path: string, noThrow: boolean = false): boolean {
 		if (!this.locks.has(path)) {
+			if (noThrow) {
+				return false;
+			}
 			throw new ErrnoError(Errno.EPERM, 'Can not unlock an already unlocked path', path);
 		}
 
 		// Non-null assertion: we already checked locks has path
 		this.locks.get(path)!.resolve();
 		this.locks.delete(path);
+		return true;
 	}
 
 	public tryLock(path: string): boolean {

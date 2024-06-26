@@ -43,7 +43,7 @@ describe('Mutex', () => {
 			await mutex.lock('raceConditions');
 			await wait(100);
 			x++;
-			mutex.unlock('raceConditions');
+			mutex.unlock('raceConditions', true);
 		}
 
 		await Promise.all([foo(), foo(), foo()]);
