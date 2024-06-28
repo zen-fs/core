@@ -456,12 +456,8 @@ lstat satisfies typeof promises.lstat;
  * @param len
  */
 export async function truncate(path: fs.PathLike, len: number = 0): Promise<void> {
-	const handle = await open(path, 'r+');
-	try {
-		await handle.truncate(len);
-	} finally {
-		await handle.close();
-	}
+	await using handle = await open(path, 'r+');
+	await handle.truncate(len);
 }
 truncate satisfies typeof promises.truncate;
 
@@ -554,13 +550,8 @@ export async function readFile(
 	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
 ): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
-	const handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open(path as string, options.flag, options.mode);
-
-	try {
-		return await handle.readFile(options);
-	} finally {
-		await handle.close();
-	}
+	await using handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open(path as string, options.flag, options.mode);
+	return await handle.readFile(options);
 }
 readFile satisfies typeof promises.readFile;
 
@@ -581,16 +572,13 @@ export async function writeFile(
 	_options?: (fs.ObjectEncodingOptions & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
-	const handle = path instanceof FileHandle ? path : await open(path.toString(), options.flag, options.mode);
-	try {
-		const _data = typeof data == 'string' ? data : data;
-		if (typeof _data != 'string' && !(_data instanceof Uint8Array)) {
-			throw new ErrnoError(Errno.EINVAL, 'Iterables and streams not supported', handle.file.path, 'writeFile');
-		}
-		await handle.writeFile(_data, options);
-	} finally {
-		await handle.close();
+	await using handle = path instanceof FileHandle ? path : await open(path.toString(), options.flag, options.mode);
+
+	const _data = typeof data == 'string' ? data : data;
+	if (typeof _data != 'string' && !(_data instanceof Uint8Array)) {
+		throw new ErrnoError(Errno.EINVAL, 'Iterables and streams not supported', handle.file.path, 'writeFile');
 	}
+	await handle.writeFile(_data, options);
 }
 writeFile satisfies typeof promises.writeFile;
 
@@ -618,13 +606,9 @@ export async function appendFile(
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	const handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open(path as string, options.flag, options.mode);
+	await using handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open(path as string, options.flag, options.mode);
 
-	try {
-		await handle.appendFile(encodedData, options);
-	} finally {
-		await handle.close();
-	}
+	await handle.appendFile(encodedData, options);
 }
 appendFile satisfies typeof promises.appendFile;
 
@@ -775,14 +759,10 @@ export async function readlink(path: fs.PathLike, options: fs.BufferEncodingOpti
 export async function readlink(path: fs.PathLike, options?: fs.EncodingOption | null): Promise<string>;
 export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer>;
 export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer> {
-	const handle = await _open(normalizePath(path), 'r', 0o644, false);
-	try {
-		const value = await handle.readFile();
-		const encoding = typeof options == 'object' ? options?.encoding : options;
-		return encoding == 'buffer' ? value : value.toString(encoding! as BufferEncoding);
-	} finally {
-		await handle.close();
-	}
+	await using handle = await _open(normalizePath(path), 'r', 0o644, false);
+	const value = await handle.readFile();
+	const encoding = typeof options == 'object' ? options?.encoding : options;
+	return encoding == 'buffer' ? value : value.toString(encoding! as BufferEncoding);
 }
 readlink satisfies typeof promises.readlink;
 
@@ -795,12 +775,8 @@ readlink satisfies typeof promises.readlink;
  * @param gid
  */
 export async function chown(path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	const handle = await open(path, 'r+');
-	try {
-		await handle.chown(uid, gid);
-	} finally {
-		await handle.close();
-	}
+	await using handle = await open(path, 'r+');
+	await handle.chown(uid, gid);
 }
 chown satisfies typeof promises.chown;
 
@@ -811,12 +787,8 @@ chown satisfies typeof promises.chown;
  * @param gid
  */
 export async function lchown(path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	const handle: FileHandle = await _open(path, 'r+', 0o644, false);
-	try {
-		await handle.chown(uid, gid);
-	} finally {
-		await handle.close();
-	}
+	await using handle: FileHandle = await _open(path, 'r+', 0o644, false);
+	await handle.chown(uid, gid);
 }
 lchown satisfies typeof promises.lchown;
 
@@ -826,12 +798,8 @@ lchown satisfies typeof promises.lchown;
  * @param mode
  */
 export async function chmod(path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	const handle = await open(path, 'r+');
-	try {
-		await handle.chmod(mode);
-	} finally {
-		await handle.close();
-	}
+	await using handle = await open(path, 'r+');
+	await handle.chmod(mode);
 }
 chmod satisfies typeof promises.chmod;
 
@@ -841,12 +809,8 @@ chmod satisfies typeof promises.chmod;
  * @param mode
  */
 export async function lchmod(path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	const handle: FileHandle = await _open(path, 'r+', 0o644, false);
-	try {
-		await handle.chmod(mode);
-	} finally {
-		await handle.close();
-	}
+	await using handle: FileHandle = await _open(path, 'r+', 0o644, false);
+	await handle.chmod(mode);
 }
 lchmod satisfies typeof promises.lchmod;
 
@@ -857,12 +821,8 @@ lchmod satisfies typeof promises.lchmod;
  * @param mtime
  */
 export async function utimes(path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): Promise<void> {
-	const handle = await open(path, 'r+');
-	try {
-		await handle.utimes(atime, mtime);
-	} finally {
-		await handle.close();
-	}
+	await using handle = await open(path, 'r+');
+	await handle.utimes(atime, mtime);
 }
 utimes satisfies typeof promises.utimes;
 
@@ -873,12 +833,8 @@ utimes satisfies typeof promises.utimes;
  * @param mtime
  */
 export async function lutimes(path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
-	const handle: FileHandle = await _open(path, 'r+', 0o644, false);
-	try {
-		await handle.utimes(new Date(atime), new Date(mtime));
-	} finally {
-		await handle.close();
-	}
+	await using handle: FileHandle = await _open(path, 'r+', 0o644, false);
+	await handle.utimes(new Date(atime), new Date(mtime));
 }
 lutimes satisfies typeof promises.lutimes;
 

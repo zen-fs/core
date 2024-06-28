@@ -99,12 +99,12 @@ lstatSync satisfies typeof fs.lstatSync;
  * @param len
  */
 export function truncateSync(path: fs.PathLike, len: number | null = 0): void {
-	const fd = openSync(path, 'r+');
-	try {
-		ftruncateSync(fd, len);
-	} finally {
-		closeSync(fd);
+	using file = _openSync(path, 'r+');
+	len ||= 0;
+	if (len < 0) {
+		throw new ErrnoError(Errno.EINVAL);
 	}
+	file.truncateSync(len);
 }
 truncateSync satisfies typeof fs.truncateSync;
 
@@ -194,17 +194,13 @@ export function lopenSync(path: fs.PathLike, flag: string, mode?: fs.Mode | null
  */
 function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): Uint8Array {
 	// Get file.
-	const file = _openSync(fname, flag, 0o644, resolveSymlinks);
-	try {
-		const stat = file.statSync();
-		// Allocate buffer.
-		const data = new Uint8Array(stat.size);
-		file.readSync(data, 0, stat.size, 0);
-		file.closeSync();
-		return data;
-	} finally {
-		file.closeSync();
-	}
+	using file = _openSync(fname, flag, 0o644, resolveSymlinks);
+	const stat = file.statSync();
+	// Allocate buffer.
+	const data = new Uint8Array(stat.size);
+	file.readSync(data, 0, stat.size, 0);
+	file.closeSync();
+	return data;
 }
 
 /**
@@ -255,12 +251,8 @@ export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents,
 	if (!encodedData) {
 		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
 	}
-	const file = _openSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), flag, options.mode, true);
-	try {
-		file.writeSync(encodedData, 0, encodedData.byteLength, 0);
-	} finally {
-		file.closeSync();
-	}
+	using file = _openSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), flag, options.mode, true);
+	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
 }
 writeFileSync satisfies typeof fs.writeFileSync;
 
@@ -285,12 +277,8 @@ export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileCont
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	const file = _openSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), flag, options.mode, true);
-	try {
-		file.writeSync(encodedData, 0, encodedData.byteLength);
-	} finally {
-		file.closeSync();
-	}
+	using file = _openSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), flag, options.mode, true);
+	file.writeSync(encodedData, 0, encodedData.byteLength);
 }
 appendFileSync satisfies typeof fs.appendFileSync;
 
