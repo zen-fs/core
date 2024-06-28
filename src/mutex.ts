@@ -1,42 +1,39 @@
-import { ErrnoError, Errno } from './error.js';
+import { Errno, ErrnoError } from './error.js';
 
 /**
  * Non-recursive mutex
  * @internal
  */
 export class Mutex {
-	protected locks: Map<string, (() => void)[]> = new Map();
+	protected locks: Map<string, PromiseWithResolvers<void>> = new Map();
 
-	public lock(path: string): Promise<void> {
-		return new Promise(resolve => {
-			if (this.locks.has(path)) {
-				this.locks.get(path)!.push(resolve);
-			} else {
-				this.locks.set(path, [resolve]);
-			}
-		});
+	public async lock(path: string): Promise<void> {
+		if (this.locks.has(path)) {
+			// Non-null assertion: we already checked locks has path
+			await this.locks.get(path)!.promise;
+		}
+
+		this.locks.set(path, Promise.withResolvers());
 	}
 
-	public unlock(path: string): void {
+	/**
+	 * Unlocks a path
+	 * @param path The path to lock
+	 * @param noThrow If true, an error will not be thrown if the path is already unlocked
+	 * @returns Whether the path was unlocked
+	 */
+	public unlock(path: string, noThrow: boolean = false): boolean {
 		if (!this.locks.has(path)) {
+			if (noThrow) {
+				return false;
+			}
 			throw new ErrnoError(Errno.EPERM, 'Can not unlock an already unlocked path', path);
 		}
 
-		const next = this.locks.get(path)?.shift();
-		/* 
-			don't unlock - we want to queue up next for the
-			end of the current task execution, but we don't
-			want it to be called inline with whatever the
-			current stack is.  This way we still get the nice
-			behavior that an unlock immediately followed by a
-			lock won't cause starvation.
-		*/
-		if (next) {
-			setTimeout(next);
-			return;
-		}
-
+		// Non-null assertion: we already checked locks has path
+		this.locks.get(path)!.resolve();
 		this.locks.delete(path);
+		return true;
 	}
 
 	public tryLock(path: string): boolean {
@@ -44,7 +41,7 @@ export class Mutex {
 			return false;
 		}
 
-		this.locks.set(path, []);
+		this.locks.set(path, Promise.withResolvers());
 		return true;
 	}
 

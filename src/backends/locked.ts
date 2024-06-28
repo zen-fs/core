@@ -32,9 +32,12 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-		await this.mutex.lock(oldPath);
-		await this.fs.rename(oldPath, newPath, cred);
-		this.mutex.unlock(oldPath);
+		try {
+			await this.mutex.lock(oldPath);
+			await this.fs.rename(oldPath, newPath, cred);
+		} finally {
+			this.mutex.unlock(oldPath);
+		}
 	}
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
@@ -45,10 +48,13 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async stat(path: string, cred: Cred): Promise<Stats> {
-		await this.mutex.lock(path);
-		const stats = await this.fs.stat(path, cred);
-		this.mutex.unlock(path);
-		return stats;
+		try {
+			await this.mutex.lock(path);
+			const stats = await this.fs.stat(path, cred);
+			return stats;
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public statSync(path: string, cred: Cred): Stats {
@@ -59,10 +65,13 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
-		await this.mutex.lock(path);
-		const fd = await this.fs.openFile(path, flag, cred);
-		this.mutex.unlock(path);
-		return fd;
+		try {
+			await this.mutex.lock(path);
+			const fd = await this.fs.openFile(path, flag, cred);
+			return fd;
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public openFileSync(path: string, flag: string, cred: Cred): File {
@@ -73,10 +82,13 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
-		await this.mutex.lock(path);
-		const fd = await this.fs.createFile(path, flag, mode, cred);
-		this.mutex.unlock(path);
-		return fd;
+		try {
+			await this.mutex.lock(path);
+			const fd = await this.fs.createFile(path, flag, mode, cred);
+			return fd;
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
@@ -87,9 +99,12 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async unlink(path: string, cred: Cred): Promise<void> {
-		await this.mutex.lock(path);
-		await this.fs.unlink(path, cred);
-		this.mutex.unlock(path);
+		try {
+			await this.mutex.lock(path);
+			await this.fs.unlink(path, cred);
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public unlinkSync(path: string, cred: Cred): void {
@@ -100,9 +115,12 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async rmdir(path: string, cred: Cred): Promise<void> {
-		await this.mutex.lock(path);
-		await this.fs.rmdir(path, cred);
-		this.mutex.unlock(path);
+		try {
+			await this.mutex.lock(path);
+			await this.fs.rmdir(path, cred);
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public rmdirSync(path: string, cred: Cred): void {
@@ -113,9 +131,12 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
-		await this.mutex.lock(path);
-		await this.fs.mkdir(path, mode, cred);
-		this.mutex.unlock(path);
+		try {
+			await this.mutex.lock(path);
+			await this.fs.mkdir(path, mode, cred);
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public mkdirSync(path: string, mode: number, cred: Cred): void {
@@ -126,10 +147,13 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async readdir(path: string, cred: Cred): Promise<string[]> {
-		await this.mutex.lock(path);
-		const files = await this.fs.readdir(path, cred);
-		this.mutex.unlock(path);
-		return files;
+		try {
+			await this.mutex.lock(path);
+			const files = await this.fs.readdir(path, cred);
+			return files;
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public readdirSync(path: string, cred: Cred): string[] {
@@ -140,10 +164,13 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async exists(path: string, cred: Cred): Promise<boolean> {
-		await this.mutex.lock(path);
-		const exists = await this.fs.exists(path, cred);
-		this.mutex.unlock(path);
-		return exists;
+		try {
+			await this.mutex.lock(path);
+			const exists = await this.fs.exists(path, cred);
+			return exists;
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public existsSync(path: string, cred: Cred): boolean {
@@ -154,9 +181,12 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
-		await this.mutex.lock(srcpath);
-		await this.fs.link(srcpath, dstpath, cred);
-		this.mutex.unlock(srcpath);
+		try {
+			await this.mutex.lock(srcpath);
+			await this.fs.link(srcpath, dstpath, cred);
+		} finally {
+			this.mutex.unlock(srcpath);
+		}
 	}
 
 	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
@@ -167,9 +197,12 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		await this.mutex.lock(path);
-		await this.fs.sync(path, data, stats);
-		this.mutex.unlock(path);
+		try {
+			await this.mutex.lock(path);
+			await this.fs.sync(path, data, stats);
+		} finally {
+			this.mutex.unlock(path);
+		}
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {

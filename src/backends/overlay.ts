@@ -86,6 +86,9 @@ export class UnlockedOverlayFS extends FileSystem {
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		const cred = stats.cred(0, 0);
 		await this.createParentDirectories(path, cred);
+		if (!(await this._writable.exists(path, cred))) {
+			await this._writable.createFile(path, 'w', 0o644, cred);
+		}
 		await this._writable.sync(path, data, stats);
 	}
 
@@ -160,7 +163,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	public async stat(path: string, cred: Cred): Promise<Stats> {
 		this.checkInitialized();
 		try {
-			return this._writable.stat(path, cred);
+			return await this._writable.stat(path, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
