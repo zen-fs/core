@@ -51,6 +51,19 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	/**
+	 * Locks `path` asynchronously.
+	 * If the path is currently locked, an error will be thrown
+	 */
+	protected lockSync(path: string): MutexLock {
+		if (this.locks.has(path)) {
+			// Non-null assertion: we already checked locks has path
+			throw ErrnoError.With('EBUSY', path, 'lockSync');
+		}
+
+		return this.addLock(path);
+	}
+
+	/**
 	 * Unlocks a path
 	 * @param path The path to lock
 	 * @param noThrow If true, an error will not be thrown if the path is already unlocked
@@ -72,6 +85,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 
 	/**
 	 * Attempt to lock `path` synchronously
+	 * @param path The path to lock
+	 * @returns A boolean indicating whether the path was locked
 	 */
 	protected tryLock(path: string): boolean {
 		if (this.locks.has(path)) {
@@ -104,51 +119,44 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
-		if (this.isLocked(oldPath)) {
-			throw ErrnoError.With('EBUSY', oldPath, 'rename');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(oldPath);
 		return this.fs.renameSync(oldPath, newPath, cred);
 	}
 
 	public async stat(path: string, cred: Cred): Promise<Stats> {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		using _ = await this.lock(path);
-		const stats = await this.fs.stat(path, cred);
-		return stats;
+		return await this.fs.stat(path, cred);
 	}
 
 	public statSync(path: string, cred: Cred): Stats {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'stat');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.statSync(path, cred);
 	}
 
 	public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		using _ = await this.lock(path);
-		const fd = await this.fs.openFile(path, flag, cred);
-		return fd;
+		return await this.fs.openFile(path, flag, cred);
 	}
 
 	public openFileSync(path: string, flag: string, cred: Cred): File {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'openFile');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.openFileSync(path, flag, cred);
 	}
 
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		using _ = await this.lock(path);
-		const fd = await this.fs.createFile(path, flag, mode, cred);
-		return fd;
+		return await this.fs.createFile(path, flag, mode, cred);
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'createFile');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.createFileSync(path, flag, mode, cred);
 	}
 
@@ -159,9 +167,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public unlinkSync(path: string, cred: Cred): void {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'unlink');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.unlinkSync(path, cred);
 	}
 
@@ -172,9 +179,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public rmdirSync(path: string, cred: Cred): void {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'rmdir');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.rmdirSync(path, cred);
 	}
 
@@ -185,37 +191,32 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public mkdirSync(path: string, mode: number, cred: Cred): void {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'mkdir');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.mkdirSync(path, mode, cred);
 	}
 
 	public async readdir(path: string, cred: Cred): Promise<string[]> {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		using _ = await this.lock(path);
-		const files = await this.fs.readdir(path, cred);
-		return files;
+		return await this.fs.readdir(path, cred);
 	}
 
 	public readdirSync(path: string, cred: Cred): string[] {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'readdir');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.readdirSync(path, cred);
 	}
 
 	public async exists(path: string, cred: Cred): Promise<boolean> {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		using _ = await this.lock(path);
-		const exists = await this.fs.exists(path, cred);
-		return exists;
+		return await this.fs.exists(path, cred);
 	}
 
 	public existsSync(path: string, cred: Cred): boolean {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'exists');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.existsSync(path, cred);
 	}
 
@@ -226,9 +227,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
-		if (this.isLocked(srcpath)) {
-			throw ErrnoError.With('EBUSY', srcpath, 'link');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(srcpath);
 		return this.fs.linkSync(srcpath, dstpath, cred);
 	}
 
@@ -239,9 +239,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-		if (this.isLocked(path)) {
-			throw ErrnoError.With('EBUSY', path, 'sync');
-		}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		using _ = this.lockSync(path);
 		return this.fs.syncSync(path, data, stats);
 	}
 }
