@@ -163,8 +163,7 @@ export class UnlockedOverlayFS extends FileSystem {
 	public async stat(path: string, cred: Cred): Promise<Stats> {
 		this.checkInitialized();
 		try {
-			const stats = await this._writable.stat(path, cred);
-			return stats;
+			return await this._writable.stat(path, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
@@ -175,6 +174,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return oldStat;
 		}
 	}
+
 	public statSync(path: string, cred: Cred): Stats {
 		this.checkInitialized();
 		try {
