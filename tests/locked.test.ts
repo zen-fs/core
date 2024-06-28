@@ -1,35 +1,37 @@
 import { wait } from 'utilium';
-import { Mutex } from '../../src/mutex.js';
+import { InMemory } from '../src/backends/memory.js';
+import { LockedFS } from '../src/backends/locked.js';
 
-describe('Mutex', () => {
-	const mutex: Mutex = new Mutex();
+describe('LockFS mutex', () => {
 
-	test('lock/unlock', async () => {
-		await mutex.lock('testLock');
-		mutex.unlock('testLock');
+	const fs = new LockedFS(InMemory.create({ name: 'test' }));
+
+	test('lock/unlock', () => {
+		fs.lockSync('/test');
+		fs.unlock('/test');
 	});
 
-	test('queueing locks', async () => {
+	test('queueing multiple locks', async () => {
 		let lock1Resolved = false;
 		let lock2Resolved = false;
 
-		const lock1 = mutex.lock('queueingLocks').then(() => {
+		const lock1 = fs.lock('/queued').then(() => {
 			lock1Resolved = true;
 		});
-		const lock2 = mutex.lock('queueingLocks').then(() => {
+		const lock2 = fs.lock('/queued').then(() => {
 			lock2Resolved = true;
 		});
 
 		expect(lock1Resolved).toBe(false);
 		expect(lock2Resolved).toBe(false);
 
-		mutex.unlock('queueingLocks');
+		fs.unlock('/queued');
 		await lock1;
 
 		expect(lock1Resolved).toBe(true);
 		expect(lock2Resolved).toBe(false);
 
-		mutex.unlock('queueingLocks');
+		fs.unlock('/queued');
 		await lock2;
 
 		expect(lock1Resolved).toBe(true);
@@ -40,10 +42,10 @@ describe('Mutex', () => {
 		let x = 1;
 
 		async function foo() {
-			await mutex.lock('raceConditions');
+			await fs.lock('raceConditions');
 			await wait(100);
 			x++;
-			mutex.unlock('raceConditions', true);
+			fs.unlock('raceConditions', true);
 		}
 
 		await Promise.all([foo(), foo(), foo()]);
@@ -51,6 +53,6 @@ describe('Mutex', () => {
 	});
 
 	test('Unlock without lock', async () => {
-		expect(() => mutex.unlock('unlockWithoutLock')).toThrowError();
+		expect(() => fs.unlock('unlockWithoutLock')).toThrowError();
 	});
 });

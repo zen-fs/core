@@ -1,8 +1,10 @@
-import { Errno, ErrnoError } from '../error.js';
 import type { Cred } from '../cred.js';
+import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
+import type { FileSystemMetadata } from '../filesystem.js';
+import { FileSystem } from '../filesystem.js';
 import type { Stats } from '../stats.js';
+import type { Backend } from './backend.js';
 
 export interface MutexLock extends PromiseWithResolvers<void> {
 	[Symbol.dispose](): void;
@@ -26,7 +28,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	 */
 	private locks: Map<string, MutexLock> = new Map();
 
-	private addLock(path: string): MutexLock {
+	protected addLock(path: string): MutexLock {
 		const lock: MutexLock = {
 			...Promise.withResolvers(),
 			[Symbol.dispose]: () => {
@@ -40,8 +42,9 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	/**
 	 * Locks `path` asynchronously.
 	 * If the path is currently locked, waits for it to be unlocked.
+	 * @internal
 	 */
-	protected async lock(path: string): Promise<MutexLock> {
+	public async lock(path: string): Promise<MutexLock> {
 		if (this.locks.has(path)) {
 			// Non-null assertion: we already checked locks has path
 			await this.locks.get(path)!.promise;
@@ -53,8 +56,9 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	/**
 	 * Locks `path` asynchronously.
 	 * If the path is currently locked, an error will be thrown
+	 * @internal
 	 */
-	protected lockSync(path: string): MutexLock {
+	public lockSync(path: string): MutexLock {
 		if (this.locks.has(path)) {
 			// Non-null assertion: we already checked locks has path
 			throw ErrnoError.With('EBUSY', path, 'lockSync');
@@ -68,8 +72,9 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	 * @param path The path to lock
 	 * @param noThrow If true, an error will not be thrown if the path is already unlocked
 	 * @returns Whether the path was unlocked
+	 * @internal
 	 */
-	protected unlock(path: string, noThrow: boolean = false): boolean {
+	public unlock(path: string, noThrow: boolean = false): boolean {
 		if (!this.locks.has(path)) {
 			if (noThrow) {
 				return false;
@@ -84,20 +89,10 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	/**
-	 * Attempt to lock `path` synchronously
-	 * @param path The path to lock
-	 * @returns A boolean indicating whether the path was locked
+	 * Whether `path` is locked
+	 * @internal
 	 */
-	protected tryLock(path: string): boolean {
-		if (this.locks.has(path)) {
-			return false;
-		}
-
-		this.addLock(path);
-		return true;
-	}
-
-	protected isLocked(path: string): boolean {
+	public isLocked(path: string): boolean {
 		return this.locks.has(path);
 	}
 
@@ -244,3 +239,25 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 		return this.fs.syncSync(path, data, stats);
 	}
 }
+
+export const Locked = {
+	name: 'Locked',
+	options: {
+		fs: {
+			type: 'object',
+			required: true,
+			description: '',
+			validator(fs) {
+				if (!(fs instanceof FileSystem)) {
+					throw new ErrnoError(Errno.EINVAL, 'fs passed to LockedFS must be a FileSystem');
+				}
+			},
+		},
+	},
+	isAvailable() {
+		return true;
+	},
+	create({ fs }) {
+		return new LockedFS(fs);
+	},
+} satisfies Backend<LockedFS<FileSystem>, { fs: FileSystem }>;
