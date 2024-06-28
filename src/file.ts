@@ -4,6 +4,7 @@ import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import { size_max } from './inode.js';
 import { Stats, type FileType } from './stats.js';
+import './symbol-dispose.js';
 
 /*
 	Typescript does not include a type declaration for resizable array buffers. 

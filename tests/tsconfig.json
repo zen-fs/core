@@ -2,9 +2,9 @@
 	"type": "module",
 	"compilerOptions": {
 		"module": "NodeNext",
-		"target": "ESNext",
+		"target": "ES2022",
 		"noEmit": true,
-		"lib": ["ESNext"],
+		"lib": ["ESNext", "ESNext.Disposable"],
 		"moduleResolution": "NodeNext",
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true

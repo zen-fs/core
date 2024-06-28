@@ -1,5 +1,6 @@
 import { ErrnoError } from '../../error.js';
 import type { Ino } from '../../inode.js';
+import '../../symbol-dispose.js';
 
 /**
  * Represents a key-value store.
