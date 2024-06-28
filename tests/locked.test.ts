@@ -3,12 +3,13 @@ import { InMemory } from '../src/backends/memory.js';
 import { LockedFS } from '../src/backends/locked.js';
 
 describe('LockFS mutex', () => {
-
 	const fs = new LockedFS(InMemory.create({ name: 'test' }));
 
 	test('lock/unlock', () => {
 		fs.lockSync('/test');
+		expect(fs.isLocked('/test')).toBe(true);
 		fs.unlock('/test');
+		expect(fs.isLocked('/test')).toBe(false);
 	});
 
 	test('queueing multiple locks', async () => {
