@@ -5,15 +5,17 @@ import { Errno, ErrnoError } from './error.js';
  * @internal
  */
 export class Mutex {
-	protected locks: Map<string, PromiseWithResolvers<void>> = new Map();
+	protected locks: Map<string, [PromiseWithResolvers<void>]> = new Map();
 
 	public async lock(path: string): Promise<void> {
-		if (this.locks.has(path)) {
+		if (this.locks.get(path)) {
 			// Non-null assertion: we already checked locks has path
-			await this.locks.get(path)!.promise;
+			const promise = this.locks.get(path).at(-1);
+			this.locks.get(path).push(Promise.withResolvers());
+			await promise;
+		} else {
+			this.locks.set(path, [Promise.withResolvers()]);
 		}
-
-		this.locks.set(path, Promise.withResolvers());
 	}
 
 	/**
@@ -31,21 +33,21 @@ export class Mutex {
 		}
 
 		// Non-null assertion: we already checked locks has path
-		this.locks.get(path)!.resolve();
-		this.locks.delete(path);
+		const res = this.locks.get(path).shift();
+		res.resolve();
 		return true;
 	}
 
 	public tryLock(path: string): boolean {
-		if (this.locks.has(path)) {
+		if (this.locks.has(path) && this.locks.get(path).length > 0) {
 			return false;
 		}
 
-		this.locks.set(path, Promise.withResolvers());
+		this.locks.set(path, [Promise.withResolvers()]);
 		return true;
 	}
 
 	public isLocked(path: string): boolean {
-		return this.locks.has(path);
+		return this.locks.has(path) && this.locks.get(path).length > 0;
 	}
 }
