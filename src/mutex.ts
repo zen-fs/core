@@ -8,7 +8,7 @@ export class Mutex {
 	protected locks: Map<string, [PromiseWithResolvers<void>]> = new Map();
 
 	public async lock(path: string): Promise<void> {
-		if (this.locks.get(path)) {
+		if (this.locks.has(path)) {
 			// Non-null assertion: we already checked locks has path
 			const promise = this.locks.get(path).at(-1);
 			this.locks.get(path).push(Promise.withResolvers());
