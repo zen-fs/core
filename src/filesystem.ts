@@ -463,16 +463,11 @@ export function Async<T extends typeof FileSystem>(
 					await this.crossCopy(join(path, file));
 				}
 			} else {
-				const asyncFile = await this.openFile(path, parseFlag('r'), rootCred);
-				const syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats.cred());
-				try {
-					const buffer = new Uint8Array(stats.size);
-					await asyncFile.read(buffer);
-					syncFile.writeSync(buffer, 0, stats.size);
-				} finally {
-					await asyncFile.close();
-					syncFile.closeSync();
-				}
+				await using asyncFile = await this.openFile(path, parseFlag('r'), rootCred);
+				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats.cred());
+				const buffer = new Uint8Array(stats.size);
+				await asyncFile.read(buffer);
+				syncFile.writeSync(buffer, 0, stats.size);
 			}
 		}
 

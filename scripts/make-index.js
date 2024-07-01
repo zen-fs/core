@@ -78,9 +78,9 @@ function computeEntries(path) {
 		}
 
 		const stats = statSync(path);
-		entries.set('/' + relative(resolvedRoot, path), stats);
 
 		if (stats.isFile()) {
+			entries.set('/' + relative(resolvedRoot, path), stats);
 			if (options.verbose) {
 				console.log(`${color('green', 'file')} ${path}`);
 			}
@@ -90,6 +90,7 @@ function computeEntries(path) {
 		for (const file of readdirSync(path)) {
 			computeEntries(join(path, file));
 		}
+		entries.set('/' + relative(resolvedRoot, path), stats);
 		if (options.verbose) {
 			console.log(`${color('bright_green', ' dir')} ${path}`);
 		}
