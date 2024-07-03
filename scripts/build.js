@@ -41,7 +41,7 @@ function start() {
 
 const config = {
 	entryPoints: [entry || 'src/index.ts'],
-	target: 'esnext',
+	target: 'es2022',
 	globalName,
 	outfile: 'dist/browser.min.js',
 	sourcemap: true,
