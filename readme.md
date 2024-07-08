@@ -137,7 +137,7 @@ await configure({
 fs.mkdirSync('/mnt');
 
 const res = await fetch('mydata.zip');
-const zipfs = await resolveMountConfig({ backend: Zip, zipData: await res.arrayBuffer() });
+const zipfs = await resolveMountConfig({ backend: Zip, data: await res.arrayBuffer() });
 fs.mount('/mnt/zip', zipfs);
 
 // do stuff with the mounted zip
