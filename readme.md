@@ -79,10 +79,10 @@ await configure({
 Here is an example that mounts the `WebStorage` backend from `@zenfs/dom` on `/`:
 
 ```js
-import { configure, fs } from '@zenfs/core';
+import { configureSingle, fs } from '@zenfs/core';
 import { WebStorage } from '@zenfs/dom';
 
-await configure({ backend: WebStorage });
+await configureSingle({ backend: WebStorage });
 
 if (!fs.existsSync('/test.txt')) {
 	fs.writeFileSync('/test.txt', 'This will persist across reloads!');
@@ -97,11 +97,11 @@ console.log(contents);
 The FS promises API is exposed as `promises`.
 
 ```js
-import { configure } from '@zenfs/core';
+import { configureSingle } from '@zenfs/core';
 import { exists, writeFile } from '@zenfs/core/promises';
 import { IndexedDB } from '@zenfs/dom';
 
-await configure({ '/': IndexedDB });
+await configureSingle({ backend: IndexedDB });
 
 const exists = await exists('/myfile.txt');
 if (!exists) {
