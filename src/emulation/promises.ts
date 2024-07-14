@@ -18,7 +18,7 @@ import { dirname, join, parse } from './path.js';
 import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
-import '../symbol-dispose.js';
+import '../polyfills.js';
 
 export class FileHandle implements promises.FileHandle {
 	/**

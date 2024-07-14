@@ -34,7 +34,7 @@
 		"url": "https://github.com/zen-fs/core/issues"
 	},
 	"engines": {
-		"node": ">= 22"
+		"node": ">= 16"
 	},
 	"exports": {
 		".": "./dist/index.js",
