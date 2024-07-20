@@ -80,6 +80,11 @@ export class FetchFS extends IndexFS {
 			return;
 		}
 		await super.ready();
+
+		if (this._disableSync) {
+			return;
+		}
+
 		/**
 		 * Iterate over all of the files and cache their contents
 		 */
