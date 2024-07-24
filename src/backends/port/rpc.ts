@@ -1,17 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/// !<reference lib="DOM" />
-import type { TransferListItem } from 'worker_threads';
-import { ErrnoError, Errno, type ErrnoErrorJSON } from '../../error.js';
+import { Errno, ErrnoError, type ErrnoErrorJSON } from '../../error.js';
 import { PortFile, type PortFS } from './fs.js';
 
 type _MessageEvent<T = any> = T | { data: T };
 
 export interface Port {
-	postMessage(value: unknown, transferList?: ReadonlyArray<TransferListItem>): void;
+	postMessage(value: unknown): void;
 	on?(event: 'message', listener: (value: unknown) => void): this;
 	off?(event: 'message', listener: (value: unknown) => void): this;
-	addEventListener?(type: 'message', listener: (this: Port, ev: _MessageEvent) => void): void;
-	removeEventListener?(type: 'message', listener: (this: Port, ev: _MessageEvent) => void): void;
+	addEventListener?(type: 'message', listener: (ev: _MessageEvent) => void): void;
+	removeEventListener?(type: 'message', listener: (ev: _MessageEvent) => void): void;
 }
 
 export interface Options {
@@ -28,22 +26,29 @@ export interface Options {
 /**
  * An RPC message
  */
-export interface Message<TScope extends string = string, TMethod extends string = string> {
+export interface Message {
 	_zenfs: true;
-	scope: TScope;
+	scope: 'fs' | 'file';
 	id: string;
-	method: TMethod;
+	method: string;
 	stack: string;
 }
 
-export interface Request<TScope extends string = string, TMethod extends string = string, TArgs extends unknown[] = unknown[]> extends Message<TScope, TMethod> {
-	args: TArgs;
+export interface Request extends Message {
+	args: unknown[];
 }
 
-export interface Response<TScope extends string = string, TMethod extends string = string, TValue = unknown> extends Message<TScope, TMethod> {
-	error: boolean;
-	value: Awaited<TValue> extends File ? FileData : Awaited<TValue>;
+interface _ResponseWithError extends Message {
+	error: true;
+	value: ErrnoErrorJSON | string;
 }
+
+interface _ResponseWithValue<T> extends Message {
+	error: false;
+	value: Awaited<T> extends File ? FileData : Awaited<T>;
+}
+
+export type Response<T = unknown> = _ResponseWithError | _ResponseWithValue<T>;
 
 export interface FileData {
 	fd: number;
@@ -59,7 +64,7 @@ export { FileData as File };
 
 // general types
 
-export function isMessage(arg: unknown): arg is Message<string, string> {
+export function isMessage(arg: unknown): arg is Message {
 	return typeof arg == 'object' && arg != null && '_zenfs' in arg && !!arg._zenfs;
 }
 
@@ -106,7 +111,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 	}
 	const { resolve, reject, fs } = executors.get(id)!;
 	if (error) {
-		const e = ErrnoError.fromJSON(value as ErrnoErrorJSON);
+		const e = typeof value == 'string' ? new Error(value) : ErrnoError.fromJSON(value);
 		e.stack += stack;
 		reject(e);
 		executors.delete(id);

@@ -12,8 +12,10 @@ import * as RPC from './rpc.js';
 
 type FileMethods = ExtractProperties<File, (...args: any[]) => Promise<any>>;
 type FileMethod = keyof FileMethods;
-interface FileRequest<TMethod extends FileMethod & string = FileMethod & string> extends RPC.Request<'file', TMethod, Parameters<FileMethods[TMethod]>> {
+interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request {
 	fd: number;
+	scope: 'file';
+	args: Parameters<FileMethods[TMethod]>;
 }
 
 export class PortFile extends File {
@@ -126,7 +128,10 @@ export class PortFile extends File {
 
 type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | FileSystemMetadata>;
 type FSMethod = keyof FSMethods;
-type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Request<'fs', TMethod, Parameters<FSMethods[TMethod]>>;
+interface FSRequest<TMethod extends FSMethod = FSMethod> extends RPC.Request {
+	scope: 'fs';
+	args: Parameters<FSMethods[TMethod]>;
+}
 
 /**
  * PortFS lets you access a ZenFS instance that is running in a port, or the other way around.
@@ -255,20 +260,12 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 			default:
 				return;
 		}
-	} catch (e) {
-		value = e;
+	} catch (e: any) {
+		value = e instanceof ErrnoError ? e.toJSON() : e.toString();
 		error = true;
 	}
 
-	port.postMessage({
-		_zenfs: true,
-		scope,
-		id,
-		error,
-		method,
-		stack,
-		value: value instanceof ErrnoError ? value.toJSON() : value,
-	});
+	port.postMessage({ _zenfs: true, scope, id, error, method, stack, value });
 }
 
 export function attachFS(port: RPC.Port, fs: FileSystem): void {
