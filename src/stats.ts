@@ -6,11 +6,7 @@ import { size_max } from './inode.js';
 /**
  * Indicates the type of the given file. Applied to 'mode'.
  */
-export enum FileType {
-	FILE = S_IFREG,
-	DIRECTORY = S_IFDIR,
-	SYMLINK = S_IFLNK,
-}
+export type FileType = typeof S_IFREG | typeof S_IFDIR | typeof S_IFLNK;
 
 /**
  *
@@ -188,20 +184,47 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.gid = this._convert(gid ?? 0);
 		this.size = this._convert(size ?? 0);
 		this.ino = this._convert(ino ?? 0);
-		const itemType: FileType = Number(mode) & S_IFMT || FileType.FILE;
+
+		/* [temporary analysis comment]
+
+			Looking at this code, it doesn't make sense.
+		*/
+
+		const itemType: FileType = ((Number(mode) & S_IFMT) as FileType) || S_IFREG;
 
 		if (mode) {
 			this.mode = this._convert(mode);
 		} else {
+			/* [temporary analysis comment]
+
+				If `mode` is defined, we set `this.mode` to it
+				If not, we set `this.mode` to a default based on the file type
+
+				*but* if `mode` is undefined,
+				`mode & S_IFMT` must be `0`
+				so `itemType` is `S_IFREG` because of `||`
+				and this code path will always take the `S_IFREG` case
+			*/
 			switch (itemType) {
-				case FileType.FILE:
+				case S_IFREG:
 					this.mode = this._convert(0o644);
 					break;
-				case FileType.DIRECTORY:
+				case S_IFDIR:
 				default:
 					this.mode = this._convert(0o777);
 			}
 		}
+
+		/* [temporary analysis comment]
+
+			Here, we now check if `this.mode` has a file type
+			If not, we just set the default.
+			
+			This means either
+			1. `mode` didn't include a file type or
+			2. `this.mode` is set by the above `else` branch, and then this modifies the value again
+		*/
+
 		// Check if mode also includes top-most bits, which indicate the file's type.
 		if ((this.mode & S_IFMT) == 0) {
 			this.mode = (this.mode | this._convert(itemType)) as T;

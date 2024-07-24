@@ -10,7 +10,8 @@ import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import { isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
-import { BigIntStats, FileType, type Stats } from '../stats.js';
+import '../polyfills.js';
+import { BigIntStats, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -18,7 +19,6 @@ import { dirname, join, parse } from './path.js';
 import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
-import '../polyfills.js';
 
 export class FileHandle implements promises.FileHandle {
 	/**
@@ -748,7 +748,7 @@ export async function symlink(target: fs.PathLike, path: fs.PathLike, type: fs.s
 
 	await writeFile(path, target.toString());
 	const handle = await _open(path, 'r+', 0o644, false);
-	await handle.file._setType(FileType.SYMLINK);
+	await handle.file._setType(constants.S_IFLNK);
 }
 symlink satisfies typeof promises.symlink;
 
