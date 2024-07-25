@@ -253,6 +253,7 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 				if (!descriptors.has(fd)) {
 					throw new ErrnoError(Errno.EBADF);
 				}
+				// @ts-expect-error 2556
 				value = await descriptors.get(fd)![method](...args);
 				if (method == 'close') {
 					descriptors.delete(fd);
