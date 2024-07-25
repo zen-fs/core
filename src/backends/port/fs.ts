@@ -10,11 +10,12 @@ import { InMemory } from '../memory.js';
 import type { Backend } from '../backend.js';
 import * as RPC from './rpc.js';
 
-type FileMethods = ExtractProperties<File, (...args: any[]) => Promise<any>>;
+type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
 type FileMethod = keyof FileMethods;
 interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request {
 	fd: number;
 	scope: 'file';
+	method: TMethod;
 	args: Parameters<FileMethods[TMethod]>;
 }
 
@@ -130,6 +131,7 @@ type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> 
 type FSMethod = keyof FSMethods;
 interface FSRequest<TMethod extends FSMethod = FSMethod> extends RPC.Request {
 	scope: 'fs';
+	method: TMethod;
 	args: Parameters<FSMethods[TMethod]>;
 }
 
@@ -251,7 +253,6 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 				if (!descriptors.has(fd)) {
 					throw new ErrnoError(Errno.EBADF);
 				}
-				// @ts-expect-error 2556
 				value = await descriptors.get(fd)![method](...args);
 				if (method == 'close') {
 					descriptors.delete(fd);
