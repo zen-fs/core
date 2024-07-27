@@ -14,7 +14,7 @@ Please copy logs, terminal output, and code into a code block in the issue or PR
 
 -   Avoid [callback hell](http://callbackhell.com/)— this is why ZenFS uses `async`/`await` a lot.
 -   Use [guard clauses](<https://en.wikipedia.org/wiki/Guard_(computer_science)>)
--   If your more of a visual learner, this video is helpful: [Why You Shouldn't Nest Your Code](https://youtu.be/CFRhGnuXG-4)
+-   If you're more of a visual learner, this video is helpful: [Why You Shouldn't Nest Your Code](https://youtu.be/CFRhGnuXG-4)
 
 #### Naming things
 
