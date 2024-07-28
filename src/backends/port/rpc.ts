@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Errno, ErrnoError, type ErrnoErrorJSON } from '../../error.js';
-import { PortFile, type PortFS } from './fs.js';
+import { type Backend, type FilesystemOf } from '../backend.js';
+import { handleRequest, PortFile, type PortFS } from './fs.js';
+import { type FileOrFSRequest } from './fs.js';
 
 type _MessageEvent<T = any> = T | { data: T };
 
@@ -147,4 +149,17 @@ export function detach<T extends Message>(port: Port, handler: (message: T) => u
 	port['off' in port ? 'off' : 'removeEventListener']!('message', (message: T | _MessageEvent<T>) => {
 		handler('data' in message ? message.data : message);
 	});
+}
+
+export function catchMessages<T extends Backend>(port: Port): (fs: FilesystemOf<T>) => void {
+	const events: _MessageEvent[] = [];
+	const handler = events.push.bind(events);
+	attach(port, handler);
+	return function (fs: any) {
+		detach(port, handler);
+		for (const event of events) {
+			const request: FileOrFSRequest = 'data' in event ? event.data : event;
+			handleRequest(port, fs, request);
+		}
+	};
 }
