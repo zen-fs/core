@@ -9,7 +9,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 let port: Worker;
 
 try {
-	port = new Worker(dir + '/worker.browser.js');
+	port = new Worker(dir + '/config.worker.js');
 } catch (e) {
 	/* nothing */
 }
