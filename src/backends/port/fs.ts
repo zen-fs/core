@@ -7,8 +7,9 @@ import { File } from '../../file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { Stats, type FileType } from '../../stats.js';
 import { InMemory } from '../memory.js';
-import type { Backend } from '../backend.js';
+import type { Backend, FilesystemOf } from '../backend.js';
 import * as RPC from './rpc.js';
+import { type MountConfiguration, resolveMountConfig } from '../../config.js';
 
 type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
 type FileMethod = keyof FileMethods;
@@ -223,9 +224,15 @@ let nextFd = 0;
 
 const descriptors: Map<number, File> = new Map();
 
-type FileOrFSRequest = FSRequest | FileRequest;
+/**
+ * @internal
+ */
+export type FileOrFSRequest = FSRequest | FileRequest;
 
-async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRequest): Promise<void> {
+/**
+ * @internal
+ */
+export async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRequest): Promise<void> {
 	if (!RPC.isMessage(request)) {
 		return;
 	}
@@ -308,3 +315,11 @@ export const Port = {
 		return new PortFS(options);
 	},
 } satisfies Backend<PortFS, RPC.Options>;
+
+export async function resolveRemoteMount<T extends Backend>(port: RPC.Port, config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
+	const stopAndReplay = RPC.catchMessages(port);
+	const fs = await resolveMountConfig(config, _depth);
+	attachFS(port, fs);
+	stopAndReplay(fs);
+	return fs;
+}
