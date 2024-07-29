@@ -7,7 +7,7 @@ import { File } from '../../file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { Stats, type FileType } from '../../stats.js';
 import { InMemory } from '../memory.js';
-import { type Backend, type FilesystemOf } from '../backend.js';
+import type { Backend, FilesystemOf } from '../backend.js';
 import * as RPC from './rpc.js';
 import { type MountConfiguration, resolveMountConfig } from '../../config.js';
 
@@ -224,8 +224,14 @@ let nextFd = 0;
 
 const descriptors: Map<number, File> = new Map();
 
+/**
+ * @internal
+ */
 export type FileOrFSRequest = FSRequest | FileRequest;
 
+/**
+ * @internal
+ */
 export async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRequest): Promise<void> {
 	if (!RPC.isMessage(request)) {
 		return;
