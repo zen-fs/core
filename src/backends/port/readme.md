@@ -24,6 +24,7 @@ await configure({
 ```
 
 Worker:
+
 ```ts
 import { InMemory, resolveRemoteMount, attachFS } from '@zenfs/core';
 import { parentPort } from 'node:worker_threads';
