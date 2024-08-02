@@ -191,10 +191,10 @@ export class FileHandle implements promises.FileHandle {
 		};
 
 		const _gt = globalThis;
-		if(!('ReadableStream' in _gt)) {
+		if (!('ReadableStream' in _gt)) {
 			throw new ErrnoError(Errno.ENOSYS, 'ReadableStream is missing on globalThis');
 		}
-		return new (_gt as { ReadableStream: new (...args: unknown[]) => TReadableStream<Uint8Array>}).ReadableStream({ start, type: options.type });
+		return new (_gt as { ReadableStream: new (...args: unknown[]) => TReadableStream<Uint8Array> }).ReadableStream({ start, type: options.type });
 	}
 
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {

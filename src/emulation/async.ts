@@ -207,9 +207,14 @@ writeFile satisfies Omit<typeof fs.writeFile, '__promisify__'>;
  * @param callback
  */
 export function appendFile(filename: fs.PathLike, data: FileContents, cb?: Callback): void;
-export function appendFile(filename: fs.PathLike, data: FileContents, options?: fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode; }, cb?: Callback): void;
+export function appendFile(filename: fs.PathLike, data: FileContents, options?: fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }, cb?: Callback): void;
 export function appendFile(filename: fs.PathLike, data: FileContents, encoding?: BufferEncoding, cb?: Callback): void;
-export function appendFile(filename: fs.PathLike, data: FileContents, cbEncOpts?: fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode; } | Callback, cb: Callback = nop): void {
+export function appendFile(
+	filename: fs.PathLike,
+	data: FileContents,
+	cbEncOpts?: (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | Callback,
+	cb: Callback = nop
+): void {
 	const optionsOrEncoding = typeof cbEncOpts != 'function' ? cbEncOpts : undefined;
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
 	promises

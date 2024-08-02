@@ -107,10 +107,10 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 		}
 
 		const content: unknown = JSON.parse(decode(stats.fileData));
-		if(!Array.isArray(content)) {
+		if (!Array.isArray(content)) {
 			throw ErrnoError.With('ENODATA', path, 'readdir');
 		}
-		if(!content.every(item => typeof item == 'string')) {
+		if (!content.every(item => typeof item == 'string')) {
 			throw ErrnoError.With('ENODATA', path, 'readdir');
 		}
 		return content as string[];
