@@ -38,7 +38,7 @@ describe('writeFile', () => {
 });
 
 describe('File Writing with Custom Mode', () => {
-	test('write file synchronously with custom mode', async () => {
+	test('write file synchronously with custom mode', () => {
 		const file = 'testWriteFileSync.txt';
 		const mode = 0o755;
 
@@ -51,7 +51,7 @@ describe('File Writing with Custom Mode', () => {
 		fs.unlinkSync(file);
 	});
 
-	test('append to a file synchronously with custom mode', async () => {
+	test('append to a file synchronously with custom mode', () => {
 		const file = 'testAppendFileSync.txt';
 		const mode = 0o755;
 

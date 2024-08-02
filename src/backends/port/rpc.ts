@@ -159,7 +159,7 @@ export function catchMessages<T extends Backend>(port: Port): (fs: FilesystemOf<
 		detach(port, handler);
 		for (const event of events) {
 			const request: FileOrFSRequest = 'data' in event ? event.data : event;
-			handleRequest(port, fs, request);
+			void handleRequest(port, fs, request);
 		}
 	};
 }

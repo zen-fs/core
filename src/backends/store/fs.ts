@@ -535,7 +535,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 */
 	private async findINode(tx: Transaction, path: string, visited: Set<string> = new Set()): Promise<Inode> {
 		const id = await this._findINode(tx, dirname(path), basename(path), visited);
-		return this.getINode(tx, id!, path);
+		return this.getINode(tx, id, path);
 	}
 
 	/**
@@ -698,7 +698,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			await tx.commit();
 			return inode;
 		} catch (e) {
-			tx.abort();
+			await tx.abort();
 			throw e;
 		}
 	}

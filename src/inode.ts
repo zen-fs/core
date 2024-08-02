@@ -16,7 +16,7 @@ export const size_max = 2 ** 32 - 1;
  * Room inode
  * @hidden
  */
-export const rootIno = 0n as const;
+export const rootIno = 0n;
 
 /**
  * Generates a random 32 bit integer, then converts to a hex string
@@ -36,19 +36,38 @@ export function randomIno(): Ino {
 /**
  * Offsets for inode members
  */
-enum Offset {
-	ino = 0,
-	size = 8, // offsets with a 64-bit size
-	mode = 12, // 16
-	nlink = 14, // 18
-	uid = 18, // 22
-	gid = 22, // 26
-	atime = 26, // 30
-	birthtime = 34, // 38
-	mtime = 42, // 46
-	ctime = 50, // 54
-	end = 58, // 62
-}
+const offsets = {
+	ino: 0,
+	size: 8,
+	mode: 12,
+	nlink: 14,
+	uid: 18,
+	gid: 22,
+	atime: 26,
+	birthtime: 34,
+	mtime: 42,
+	ctime: 50,
+	end: 58,
+};
+
+/**
+ *  Offsets for a 64-bit inode's members
+ * Currently unused
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const offsets_64 = {
+	ino: 0,
+	size: 8,
+	mode: 16,
+	nlink: 18,
+	uid: 22,
+	gid: 26,
+	atime: 30,
+	birthtime: 38,
+	mtime: 46,
+	ctime: 54,
+	end: 62,
+};
 
 /**
  * Generic inode definition that can easily be serialized.
@@ -64,9 +83,9 @@ export class Inode implements StatsLike {
 
 	constructor(buffer?: ArrayBufferLike) {
 		const setDefaults = !buffer;
-		buffer ??= new ArrayBuffer(Offset.end);
-		if (buffer?.byteLength < Offset.end) {
-			throw new RangeError(`Can not create an inode from a buffer less than ${Offset.end} bytes`);
+		buffer ??= new ArrayBuffer(offsets.end);
+		if (buffer?.byteLength < offsets.end) {
+			throw new RangeError(`Can not create an inode from a buffer less than ${offsets.end} bytes`);
 		}
 		this.view = new DataView(buffer);
 		this.buffer = buffer;
@@ -87,83 +106,83 @@ export class Inode implements StatsLike {
 	}
 
 	public get ino(): Ino {
-		return this.view.getBigUint64(Offset.ino, true);
+		return this.view.getBigUint64(offsets.ino, true);
 	}
 
 	public set ino(value: Ino) {
-		this.view.setBigUint64(Offset.ino, value, true);
+		this.view.setBigUint64(offsets.ino, value, true);
 	}
 
 	public get size(): number {
-		return this.view.getUint32(Offset.size, true);
+		return this.view.getUint32(offsets.size, true);
 	}
 
 	public set size(value: number) {
-		this.view.setUint32(Offset.size, value, true);
+		this.view.setUint32(offsets.size, value, true);
 	}
 
 	public get mode(): number {
-		return this.view.getUint16(Offset.mode, true);
+		return this.view.getUint16(offsets.mode, true);
 	}
 
 	public set mode(value: number) {
-		this.view.setUint16(Offset.mode, value, true);
+		this.view.setUint16(offsets.mode, value, true);
 	}
 
 	public get nlink(): number {
-		return this.view.getUint32(Offset.nlink, true);
+		return this.view.getUint32(offsets.nlink, true);
 	}
 
 	public set nlink(value: number) {
-		this.view.setUint32(Offset.nlink, value, true);
+		this.view.setUint32(offsets.nlink, value, true);
 	}
 
 	public get uid(): number {
-		return this.view.getUint32(Offset.uid, true);
+		return this.view.getUint32(offsets.uid, true);
 	}
 
 	public set uid(value: number) {
-		this.view.setUint32(Offset.uid, value, true);
+		this.view.setUint32(offsets.uid, value, true);
 	}
 
 	public get gid(): number {
-		return this.view.getUint32(Offset.gid, true);
+		return this.view.getUint32(offsets.gid, true);
 	}
 
 	public set gid(value: number) {
-		this.view.setUint32(Offset.gid, value, true);
+		this.view.setUint32(offsets.gid, value, true);
 	}
 
 	public get atimeMs(): number {
-		return this.view.getFloat64(Offset.atime, true);
+		return this.view.getFloat64(offsets.atime, true);
 	}
 
 	public set atimeMs(value: number) {
-		this.view.setFloat64(Offset.atime, value, true);
+		this.view.setFloat64(offsets.atime, value, true);
 	}
 
 	public get birthtimeMs(): number {
-		return this.view.getFloat64(Offset.birthtime, true);
+		return this.view.getFloat64(offsets.birthtime, true);
 	}
 
 	public set birthtimeMs(value: number) {
-		this.view.setFloat64(Offset.birthtime, value, true);
+		this.view.setFloat64(offsets.birthtime, value, true);
 	}
 
 	public get mtimeMs(): number {
-		return this.view.getFloat64(Offset.mtime, true);
+		return this.view.getFloat64(offsets.mtime, true);
 	}
 
 	public set mtimeMs(value: number) {
-		this.view.setFloat64(Offset.mtime, value, true);
+		this.view.setFloat64(offsets.mtime, value, true);
 	}
 
 	public get ctimeMs(): number {
-		return this.view.getFloat64(Offset.ctime, true);
+		return this.view.getFloat64(offsets.ctime, true);
 	}
 
 	public set ctimeMs(value: number) {
-		this.view.setFloat64(Offset.ctime, value, true);
+		this.view.setFloat64(offsets.ctime, value, true);
 	}
 
 	/**

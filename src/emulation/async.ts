@@ -207,12 +207,13 @@ writeFile satisfies Omit<typeof fs.writeFile, '__promisify__'>;
  * @param callback
  */
 export function appendFile(filename: fs.PathLike, data: FileContents, cb?: Callback): void;
-export function appendFile(filename: fs.PathLike, data: FileContents, options?: { encoding?: string; mode?: number | string; flag?: string }, cb?: Callback): void;
-export function appendFile(filename: fs.PathLike, data: FileContents, encoding?: string, cb?: Callback): void;
-export function appendFile(filename: fs.PathLike, data: FileContents, cbEncOpts?: any, cb: Callback = nop): void {
+export function appendFile(filename: fs.PathLike, data: FileContents, options?: fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode; }, cb?: Callback): void;
+export function appendFile(filename: fs.PathLike, data: FileContents, encoding?: BufferEncoding, cb?: Callback): void;
+export function appendFile(filename: fs.PathLike, data: FileContents, cbEncOpts?: fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode; } | Callback, cb: Callback = nop): void {
+	const optionsOrEncoding = typeof cbEncOpts != 'function' ? cbEncOpts : undefined;
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
 	promises
-		.appendFile(filename, data, typeof cbEncOpts === 'function' ? null : cbEncOpts)
+		.appendFile(filename, data, optionsOrEncoding)
 		.then(() => cb())
 		.catch(cb);
 }
@@ -259,7 +260,7 @@ close satisfies Omit<typeof fs.close, '__promisify__'>;
  */
 export function ftruncate(fd: number, cb?: Callback): void;
 export function ftruncate(fd: number, len?: number, cb?: Callback): void;
-export function ftruncate(fd: number, lenOrCB?: any, cb: Callback = nop): void {
+export function ftruncate(fd: number, lenOrCB?: number | Callback, cb: Callback = nop): void {
 	const length = typeof lenOrCB === 'number' ? lenOrCB : 0;
 	cb = typeof lenOrCB === 'function' ? lenOrCB : cb;
 	const file = fd2file(fd);
@@ -317,8 +318,15 @@ export function write(fd: number, buffer: Uint8Array, offset: number, length: nu
 export function write(fd: number, data: FileContents, cb?: Callback<[number, string]>): void;
 export function write(fd: number, data: FileContents, position?: number, cb?: Callback<[number, string]>): void;
 export function write(fd: number, data: FileContents, position: number | null, encoding: BufferEncoding, cb?: Callback<[number, string]>): void;
-export function write(fd: number, data: FileContents, cbPosOff?: any, cbLenEnc?: any, cbPos?: any, cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop): void {
-	let buffer: Buffer, offset: number, length: number, position: number | undefined | null, encoding: BufferEncoding;
+export function write(
+	fd: number,
+	data: FileContents,
+	cbPosOff?: number | Callback<[number, string]> | null,
+	cbLenEnc?: number | BufferEncoding | Callback<[number, string]>,
+	cbPosEnc?: number | BufferEncoding | Callback<[number, Uint8Array]> | Callback<[number, string]>,
+	cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop
+): void {
+	let buffer: Buffer, offset: number | undefined, length: number | undefined, position: number | undefined | null, encoding: BufferEncoding;
 	const handle = new promises.FileHandle(fd);
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]], cb?)
@@ -331,12 +339,12 @@ export function write(fd: number, data: FileContents, cbPosOff?: any, cbLenEnc?:
 			case 'number':
 				// (fd, string, position, encoding?, cb?)
 				position = cbPosOff;
-				encoding = typeof cbLenEnc === 'string' ? (cbLenEnc as BufferEncoding) : 'utf8';
-				cb = typeof cbPos === 'function' ? cbPos : cb;
+				encoding = typeof cbLenEnc === 'string' ? cbLenEnc : 'utf8';
+				cb = typeof cbPosEnc === 'function' ? cbPosEnc : cb;
 				break;
 			default:
 				// ...try to find the callback and get out of here!
-				cb = typeof cbLenEnc === 'function' ? cbLenEnc : typeof cbPos === 'function' ? cbPos : cb;
+				cb = (typeof cbLenEnc === 'function' ? cbLenEnc : typeof cbPosEnc === 'function' ? cbPosEnc : cb) as Callback<[number, Uint8Array | string]>;
 				(cb as Callback<[number, Uint8Array | string]>)(new ErrnoError(Errno.EINVAL, 'Invalid arguments.'));
 				return;
 		}
@@ -353,11 +361,11 @@ export function write(fd: number, data: FileContents, cbPosOff?: any, cbLenEnc?:
 	} else {
 		// Signature 2: (fd, buffer, offset, length, position?, cb?)
 		buffer = Buffer.from(data.buffer);
-		offset = cbPosOff;
-		length = cbLenEnc;
-		position = typeof cbPos === 'number' ? cbPos : null;
-		const _cb = typeof cbPos === 'function' ? cbPos : (cb as Callback<[number, Uint8Array]>);
-		handle
+		offset = cbPosOff as number;
+		length = cbLenEnc as number;
+		position = typeof cbPosEnc === 'number' ? cbPosEnc : null;
+		const _cb = (typeof cbPosEnc === 'function' ? cbPosEnc : cb) as Callback<[number, Uint8Array]>;
+		void handle
 			.write(buffer, offset, length, position)
 			.then(({ bytesWritten }) => _cb(undefined, bytesWritten, buffer))
 			.catch(_cb);
@@ -472,7 +480,7 @@ export function readdir(path: fs.PathLike, _options: { withFileTypes?: boolean }
 	const options = typeof _options != 'function' ? _options : {};
 	promises
 		.readdir(path, options as object)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 		.then(entries => cb(undefined, entries as any))
 		.catch(cb);
 }
@@ -647,11 +655,11 @@ realpath satisfies Omit<typeof fs.realpath, '__promisify__' | 'native'>;
  */
 export function access(path: fs.PathLike, cb: Callback): void;
 export function access(path: fs.PathLike, mode: number, cb: Callback): void;
-export function access(path: fs.PathLike, cbMode: any, cb: Callback = nop): void {
+export function access(path: fs.PathLike, cbMode: number | Callback, cb: Callback = nop): void {
 	const mode = typeof cbMode === 'number' ? cbMode : R_OK;
 	cb = typeof cbMode === 'function' ? cbMode : cb;
 	promises
-		.access(path, typeof cbMode === 'function' ? null : cbMode)
+		.access(path, mode)
 		.then(() => cb())
 		.catch(cb);
 }

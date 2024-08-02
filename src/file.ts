@@ -429,8 +429,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	/**
 	 * Asynchronous `stat`.
 	 */
-	public async stat(): Promise<Stats> {
-		return new Stats(this.stats);
+	public stat(): Promise<Stats> {
+		return Promise.resolve(new Stats(this.stats));
 	}
 
 	/**
@@ -673,8 +673,8 @@ export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 	/**
 	 * Asynchronous sync. Doesn't do anything, simply calls the cb.
 	 */
-	public async sync(): Promise<void> {
-		return;
+	public sync(): Promise<void> {
+		return Promise.resolve();
 	}
 	/**
 	 * Synchronous sync. Doesn't do anything.
@@ -685,8 +685,8 @@ export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 	/**
 	 * Asynchronous close. Doesn't do anything, simply calls the cb.
 	 */
-	public async close(): Promise<void> {
-		return;
+	public close(): Promise<void> {
+		return Promise.resolve();
 	}
 	/**
 	 * Synchronous close. Doesn't do anything.

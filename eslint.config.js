@@ -18,6 +18,16 @@ export default tseslint.config(
 		files: ['src/emulation/{sync,async,promises}.ts'],
 		rules: {
 			'@typescript-eslint/no-explicit-any': 'off',
+			'@typescript-eslint/no-unsafe-argument': 'off',
+		},
+	},
+	{
+		name: 'Tests any overrides',
+		files: ['tests/**/*.ts'],
+		rules: {
+			'@typescript-eslint/no-unsafe-member-access': 'off',
+			'@typescript-eslint/no-unsafe-argument': 'off',
+			'@typescript-eslint/no-unsafe-assignment': 'off'
 		},
 	},
 	{ name: 'Ignore test fixtures', ignores: ['tests/fixtures'] }

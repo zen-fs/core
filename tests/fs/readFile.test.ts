@@ -1,12 +1,12 @@
 import { fs } from '../common.js';
 
 describe('Reading', () => {
-	test('Cannot read a file with an invalid encoding', async () => {
+	test('Cannot read a file with an invalid encoding', () => {
 		let wasThrown = false;
 
 		try {
 			fs.readFileSync('a.js', 'wrongencoding' as BufferEncoding);
-		} catch (e) {
+		} catch (_) {
 			wasThrown = true;
 		}
 		expect(wasThrown).toBeTruthy();
@@ -54,19 +54,19 @@ describe('Read File Test', () => {
 		expect(data).toBe('');
 	});
 
-	test('read file synchronously', async () => {
+	test('read file synchronously', () => {
 		const data: Uint8Array = fs.readFileSync(fn);
 		expect(data).toBeDefined();
 	});
 
-	test('read file with utf-8 encoding synchronously', async () => {
+	test('read file with utf-8 encoding synchronously', () => {
 		const data: string = fs.readFileSync(fn, 'utf8');
 		expect(data).toBe('');
 	});
 });
 
 describe('fs file reading', () => {
-	test('read file synchronously and verify the content', async () => {
+	test('read file synchronously and verify the content', () => {
 		const content = fs.readFileSync('elipses.txt', 'utf8');
 
 		for (let i = 0; i < content.length; i++) {

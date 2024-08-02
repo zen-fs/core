@@ -55,9 +55,9 @@ export async function resolveMountConfig<T extends Backend>(config: MountConfigu
 	const { backend } = config;
 
 	if (!(await backend.isAvailable())) {
-		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend);
+		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name);
 	}
-	checkOptions(backend, config);
+	await checkOptions(backend, config);
 	const mount = (await backend.create(config)) as FilesystemOf<T>;
 	if ('_disableSync' in mount) {
 		type AsyncFS = InstanceType<ReturnType<typeof Async<new () => FilesystemOf<T>>>>;

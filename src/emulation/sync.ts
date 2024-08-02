@@ -219,7 +219,7 @@ export function readFileSync(path: fs.PathOrFileDescriptor, _options: fs.WriteFi
 	if (!isReadable(flag)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	const data: Buffer = Buffer.from(_readFileSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), options.flag, true));
+	const data: Buffer = Buffer.from(_readFileSync(typeof path == 'number' ? fd2file(path).path : path.toString(), options.flag, true));
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFileSync satisfies typeof fs.readFileSync;
@@ -251,7 +251,7 @@ export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents,
 	if (!encodedData) {
 		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
 	}
-	using file = _openSync(typeof path == 'number' ? fd2file(path).path! : path.toString(), flag, options.mode, true);
+	using file = _openSync(typeof path == 'number' ? fd2file(path).path : path.toString(), flag, options.mode, true);
 	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
 }
 writeFileSync satisfies typeof fs.writeFileSync;
@@ -277,7 +277,7 @@ export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileCont
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	using file = _openSync(typeof filename == 'number' ? fd2file(filename).path! : filename.toString(), flag, options.mode, true);
+	using file = _openSync(typeof filename == 'number' ? fd2file(filename).path : filename.toString(), flag, options.mode, true);
 	file.writeSync(encodedData, 0, encodedData.byteLength);
 }
 appendFileSync satisfies typeof fs.appendFileSync;
@@ -587,6 +587,7 @@ symlinkSync satisfies typeof fs.symlinkSync;
  */
 export function readlinkSync(path: fs.PathLike, options?: fs.BufferEncodingOption): Buffer;
 export function readlinkSync(path: fs.PathLike, options: fs.EncodingOption | BufferEncoding): string;
+export function readlinkSync(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string;
 export function readlinkSync(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string {
 	const value: Buffer = Buffer.from(_readFileSync(path.toString(), 'r', false));
 	const encoding = typeof options == 'object' ? options?.encoding : options;
@@ -697,7 +698,7 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 			return lpath;
 		}
 
-		return realpathSync(mountPoint + readlinkSync(lpath));
+		return realpathSync(mountPoint + readlinkSync(lpath, options).toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolvedPath]: lpath });
 	}

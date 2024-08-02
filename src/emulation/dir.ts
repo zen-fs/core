@@ -103,7 +103,7 @@ export class Dir implements _Dir {
 			return this._read();
 		}
 
-		this._read().then(value => cb(undefined, value));
+		void this._read().then(value => cb(undefined, value));
 	}
 
 	/**
