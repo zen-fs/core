@@ -27,7 +27,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	/**
 	 * The current locks
 	 */
-	private locks: Map<string, MutexLock> = new Map();
+	private locks: Map<string, [MutexLock]> = new Map();
 
 	protected addLock(path: string): MutexLock {
 		const lock: MutexLock = {
@@ -36,7 +36,11 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 				this.unlock(path);
 			},
 		};
-		this.locks.set(path, lock);
+		if (this.locks.has(path)) {
+			this.locks.get(path)!.push(lock);
+		} else {
+			this.locks.set(path, [lock]);
+		}
 		return lock;
 	}
 
@@ -48,7 +52,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	public async lock(path: string): Promise<MutexLock> {
 		if (this.locks.has(path)) {
 			// Non-null assertion: we already checked locks has path
-			await this.locks.get(path)!.promise;
+			const promise = this.locks.get(path)!.at(-1);
+			await promise;
 		}
 
 		return this.addLock(path);
@@ -84,8 +89,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 		}
 
 		// Non-null assertion: we already checked locks has path
-		this.locks.get(path)!.resolve();
-		this.locks.delete(path);
+		const res = this.locks.get(path)!.shift();
+		res!.resolve();
 		return true;
 	}
 
@@ -94,7 +99,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	 * @internal
 	 */
 	public isLocked(path: string): boolean {
-		return this.locks.has(path);
+		return this.locks.has(path) && this.locks.get(path)!.length > 0;
 	}
 
 	public async ready(): Promise<void> {
