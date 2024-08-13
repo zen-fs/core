@@ -62,9 +62,7 @@ const config = {
 				onStart(start);
 
 				if (watch && !quiet) {
-					onEnd(() => {
-						console.log(`--------------- Built #${buildCount}`);
-					});
+					onEnd(() => console.log(`--------------- Built #${buildCount}`));
 				}
 			},
 		},
