@@ -4,7 +4,7 @@ import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
 import { setCred, type MountObject } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
-import { FileSystem, type Async } from './filesystem.js';
+import { FileSystem } from './filesystem.js';
 
 /**
  * Configuration for a specific mount point
@@ -59,10 +59,7 @@ export async function resolveMountConfig<T extends Backend>(config: MountConfigu
 	}
 	await checkOptions(backend, config);
 	const mount = (await backend.create(config)) as FilesystemOf<T>;
-	if ('_disableSync' in mount) {
-		type AsyncFS = InstanceType<ReturnType<typeof Async<new () => FilesystemOf<T>>>>;
-		(mount as AsyncFS)._disableSync = config.disableAsyncCache || false;
-	}
+	mount._disableSync = config.disableAsyncCache || false;
 	await mount.ready();
 	return mount;
 }
