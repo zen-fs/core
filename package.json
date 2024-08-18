@@ -1,6 +1,6 @@
 {
 	"name": "@zenfs/core",
-	"version": "0.14.0",
+	"version": "0.16.3",
 	"description": "A filesystem, anywhere",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -17,11 +17,12 @@
 		"dist",
 		"src",
 		"license.md",
-		"tsconfig.json"
+		"tsconfig.json",
+		"eslint.shared.js"
 	],
 	"type": "module",
 	"homepage": "https://github.com/zen-fs/core",
-	"author": "James P. <jp@drvortex.dev> (https://drvortex.dev)",
+	"author": "James Prevett <jp@jamespre.dev> (https://jamespre.dev)",
 	"contributors": [
 		"John Vilk <jvilk@cs.umass.edu>"
 	],
@@ -34,7 +35,7 @@
 		"url": "https://github.com/zen-fs/core/issues"
 	},
 	"engines": {
-		"node": ">= 22"
+		"node": ">= 16"
 	},
 	"exports": {
 		".": "./dist/index.js",
@@ -51,6 +52,11 @@
 		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build"
 	},
+	"lint-staged": {
+		"*": [
+			"prettier --write"
+		]
+	},
 	"dependencies": {
 		"@types/node": "^20.12.12",
 		"@types/readable-stream": "^4.0.10",
@@ -61,19 +67,23 @@
 		"utilium": "^0.4.0"
 	},
 	"devDependencies": {
+		"@eslint/js": "^9.8.0",
 		"@fal-works/esbuild-plugin-global-externals": "^2.1.2",
 		"@jest/globals": "^29.5.0",
+		"@stylistic/eslint-plugin": "^2.6.1",
+		"@types/eslint__js": "^8.42.3",
 		"@types/jest": "^29.5.1",
-		"@typescript-eslint/eslint-plugin": "^7.7.0",
-		"@typescript-eslint/parser": "^7.7.0",
 		"cross-env": "^7.0.3",
 		"esbuild": "^0.21.0",
-		"eslint": "^8.36.0",
+		"eslint": "^9.8.0",
+		"globals": "^15.9.0",
 		"jest": "^29.7.0",
+		"lint-staged": "^15.2.7",
 		"prettier": "^3.2.5",
 		"ts-jest": "^29.1.5",
 		"typedoc": "^0.25.13",
 		"typedoc-plugin-remove-references": "^0.0.6",
-		"typescript": "^5.4.0"
+		"typescript": "^5.4.0",
+		"typescript-eslint": "^8.0.0"
 	}
 }

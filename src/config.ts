@@ -1,11 +1,10 @@
-import { type Entries } from 'utilium';
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
 import { setCred, type MountObject } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
-import { FileSystem, type Async } from './filesystem.js';
+import { FileSystem } from './filesystem.js';
 
 /**
  * Configuration for a specific mount point
@@ -56,19 +55,16 @@ export async function resolveMountConfig<T extends Backend>(config: MountConfigu
 	const { backend } = config;
 
 	if (!(await backend.isAvailable())) {
-		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend);
+		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name);
 	}
-	checkOptions(backend, config);
+	await checkOptions(backend, config);
 	const mount = (await backend.create(config)) as FilesystemOf<T>;
-	if ('_disableSync' in mount) {
-		type AsyncFS = InstanceType<ReturnType<typeof Async<new () => FilesystemOf<T>>>>;
-		(mount as AsyncFS)._disableSync = config.disableAsyncCache || false;
-	}
+	mount._disableSync = config.disableAsyncCache || false;
 	await mount.ready();
 	return mount;
 }
 
-type ConfigMounts = { [K in AbsolutePath]: Backend };
+export type ConfigMounts = { [K in AbsolutePath]: Backend };
 
 /**
  * Configuration
@@ -91,26 +87,23 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 /**
  * Configures ZenFS with single mount point /
  */
-export async function configure<T extends Backend>(config: MountConfiguration<T>): Promise<void>;
+export async function configureSingle<T extends Backend>(config: MountConfiguration<T>): Promise<void> {
+	if (!isBackendConfig(config)) {
+		throw new TypeError('Invalid single mount point configuration');
+	}
+
+	const resolved = await resolveMountConfig(config);
+	fs.umount('/');
+	fs.mount('/', resolved);
+}
 
 /**
  * Configures ZenFS with the given configuration
  * @see Configuration
  */
-export async function configure<T extends ConfigMounts>(config: Partial<Configuration<T>>): Promise<void>;
-
-/**
- * Configures ZenFS with the given configuration
- * @see Configuration
- */
-export async function configure(config: MountConfiguration<Backend> | Partial<Configuration<ConfigMounts>>): Promise<void> {
+export async function configure<T extends ConfigMounts>(config: Partial<Configuration<T>>): Promise<void> {
 	const uid = 'uid' in config ? config.uid || 0 : 0;
 	const gid = 'gid' in config ? config.gid || 0 : 0;
-
-	if (isMountConfig(config)) {
-		// single FS
-		config = { mounts: { '/': config } } as Partial<Configuration<ConfigMounts>>;
-	}
 
 	setCred({ uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 
@@ -118,7 +111,7 @@ export async function configure(config: MountConfiguration<Backend> | Partial<Co
 		return;
 	}
 
-	for (const [point, mountConfig] of Object.entries(config.mounts) as Entries<typeof config.mounts>) {
+	for (const [point, mountConfig] of Object.entries(config.mounts)) {
 		if (!point.startsWith('/')) {
 			throw new ErrnoError(Errno.EINVAL, 'Mount points must have absolute paths');
 		}
@@ -127,7 +120,7 @@ export async function configure(config: MountConfiguration<Backend> | Partial<Co
 			mountConfig.disableAsyncCache ??= config.disableAsyncCache || false;
 		}
 
-		config.mounts[point] = await resolveMountConfig(mountConfig);
+		config.mounts[point as keyof T & `/${string}`] = await resolveMountConfig(mountConfig);
 	}
 
 	fs.mountObject(config.mounts as MountObject);

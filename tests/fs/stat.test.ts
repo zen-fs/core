@@ -29,7 +29,7 @@ describe('Stats', () => {
 		await handle.close();
 	});
 
-	test('fstatSync file', async () => {
+	test('fstatSync file', () => {
 		const fd = fs.openSync(existing_file, 'r');
 		const stats = fs.fstatSync(fd);
 		expect(stats).toBeInstanceOf(Stats);

@@ -39,8 +39,8 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 		}
 	}
 
-	public async stat(path: string): Promise<Stats> {
-		return this.statSync(path);
+	public stat(path: string): Promise<Stats> {
+		return Promise.resolve(this.statSync(path));
 	}
 
 	public statSync(path: string): Stats {
@@ -91,8 +91,8 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 		return new NoSyncFile(this, path, flag, stats, stats.isDirectory() ? stats.fileData : this.getDataSync(path, stats));
 	}
 
-	public async readdir(path: string): Promise<string[]> {
-		return this.readdirSync(path);
+	public readdir(path: string): Promise<string[]> {
+		return Promise.resolve(this.readdirSync(path));
 	}
 
 	public readdirSync(path: string): string[] {
@@ -106,7 +106,14 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 			throw ErrnoError.With('ENOTDIR', path, 'readdir');
 		}
 
-		return JSON.parse(decode(stats.fileData));
+		const content: unknown = JSON.parse(decode(stats.fileData));
+		if (!Array.isArray(content)) {
+			throw ErrnoError.With('ENODATA', path, 'readdir');
+		}
+		if (!content.every(item => typeof item == 'string')) {
+			throw ErrnoError.With('ENODATA', path, 'readdir');
+		}
+		return content as string[];
 	}
 
 	protected abstract getData(path: string, stats: Stats): Promise<Uint8Array>;

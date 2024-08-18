@@ -26,12 +26,10 @@ await configure({
 Worker:
 
 ```ts
-import { InMemory, resolveMountConfig } from '@zenfs/core';
-import { attachFS } from '@zenfs/port';
+import { InMemory, resolveRemoteMount, attachFS } from '@zenfs/core';
 import { parentPort } from 'node:worker_threads';
 
-const tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
-attachFS(parentPort, tmpfs);
+await resolveRemoteMount(parentPort, { backend: InMemory, name: 'tmp' });
 ```
 
 If you are using using web workers, you would use `self` instead of importing `parentPort` in the worker, and would not need to import `Worker` in the main thread.
@@ -39,21 +37,18 @@ If you are using using web workers, you would use `self` instead of importing `p
 #### Using with multiple ports on the same thread
 
 ```ts
-import { InMemory, fs, resolveMountConfig } from '@zenfs/core';
-import { Port, attachFS } from '@zenfs/port';
+import { InMemory, fs, resolveMountConfig, resolveRemoteMount, Port } from '@zenfs/core';
 import { MessageChannel } from 'node:worker_threads';
 
-const { port1, port2 } = new MessageChannel();
+const { port1: localPort, port2: remotePort } = new MessageChannel();
 
-const tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
-attachFS(port2, tmpfs);
-fs.mount('/port', await resolveMountConfig({ backend: Port, port: port1 }));
-console.log('/port');
+fs.mount('/remote', await resolveRemoteMount(remotePort, { backend: InMemory, name: 'tmp' }));
+fs.mount('/port', await resolveMountConfig({ backend: Port, port: localPort }));
 
 const content = 'FS is in a port';
 
 await fs.promises.writeFile('/port/test', content);
 
-fs.readFileSync('/tmp/test', 'utf8'); // FS is in a port
+fs.readFileSync('/remote/test', 'utf8'); // FS is in a port
 await fs.promises.readFile('/port/test', 'utf8'); // FS is in a port
 ```

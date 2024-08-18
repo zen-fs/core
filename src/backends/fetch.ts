@@ -15,21 +15,22 @@ import type { IndexData } from './index/index.js';
 async function fetchFile(path: string, type: 'buffer'): Promise<Uint8Array>;
 async function fetchFile<T extends object>(path: string, type: 'json'): Promise<T>;
 async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'): Promise<T | Uint8Array>;
-async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'): Promise<T | Uint8Array> {
-	const response = await fetch(path).catch(e => {
+async function fetchFile<T extends object>(path: string, type: string): Promise<T | Uint8Array> {
+	const response = await fetch(path).catch((e: Error) => {
 		throw new ErrnoError(Errno.EIO, e.message);
 	});
 	if (!response.ok) {
 		throw new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status);
 	}
 	switch (type) {
-		case 'buffer':
-			const arrayBuffer = await response.arrayBuffer().catch(e => {
+		case 'buffer': {
+			const arrayBuffer = await response.arrayBuffer().catch((e: Error) => {
 				throw new ErrnoError(Errno.EIO, e.message);
 			});
 			return new Uint8Array(arrayBuffer);
+		}
 		case 'json':
-			return response.json().catch(e => {
+			return response.json().catch((e: Error) => {
 				throw new ErrnoError(Errno.EIO, e.message);
 			}) as Promise<T>;
 		default:
@@ -80,6 +81,11 @@ export class FetchFS extends IndexFS {
 			return;
 		}
 		await super.ready();
+
+		if (this._disableSync) {
+			return;
+		}
+
 		/**
 		 * Iterate over all of the files and cache their contents
 		 */

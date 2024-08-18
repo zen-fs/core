@@ -58,11 +58,11 @@ import { configure, InMemory } from '@zenfs/core';
 import { IndexedDB } from '@zenfs/dom';
 import { Zip } from '@zenfs/zip';
 
-const zipData = await (await fetch('mydata.zip')).arrayBuffer();
+const res = await fetch('mydata.zip');
 
 await configure({
 	mounts: {
-		'/mnt/zip': { backend: Zip, zipData },
+		'/mnt/zip': { backend: Zip, data: await res.arrayBuffer() },
 		'/tmp': InMemory,
 		'/home': IndexedDB,
 	}
@@ -79,10 +79,10 @@ await configure({
 Here is an example that mounts the `WebStorage` backend from `@zenfs/dom` on `/`:
 
 ```js
-import { configure, fs } from '@zenfs/core';
+import { configureSingle, fs } from '@zenfs/core';
 import { WebStorage } from '@zenfs/dom';
 
-await configure({ backend: WebStorage });
+await configureSingle({ backend: WebStorage });
 
 if (!fs.existsSync('/test.txt')) {
 	fs.writeFileSync('/test.txt', 'This will persist across reloads!');
@@ -97,11 +97,11 @@ console.log(contents);
 The FS promises API is exposed as `promises`.
 
 ```js
-import { configure } from '@zenfs/core';
+import { configureSingle } from '@zenfs/core';
 import { exists, writeFile } from '@zenfs/core/promises';
 import { IndexedDB } from '@zenfs/dom';
 
-await configure({ '/': IndexedDB });
+await configureSingle({ backend: IndexedDB });
 
 const exists = await exists('/myfile.txt');
 if (!exists) {
@@ -137,7 +137,7 @@ await configure({
 fs.mkdirSync('/mnt');
 
 const res = await fetch('mydata.zip');
-const zipfs = await resolveMountConfig({ backend: Zip, zipData: await res.arrayBuffer() });
+const zipfs = await resolveMountConfig({ backend: Zip, data: await res.arrayBuffer() });
 fs.mount('/mnt/zip', zipfs);
 
 // do stuff with the mounted zip

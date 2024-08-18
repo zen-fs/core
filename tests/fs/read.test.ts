@@ -12,7 +12,7 @@ describe('read', () => {
 		expect(buffer.toString()).toEqual(expected);
 	});
 
-	test('read file synchronously', async () => {
+	test('read file synchronously', () => {
 		const fd = fs.openSync(filepath, 'r');
 		const buffer = Buffer.alloc(expected.length);
 		const bytesRead = fs.readSync(fd, buffer, 0, expected.length, 0);
@@ -46,7 +46,7 @@ describe('read buffer', () => {
 		expect(bufferAsync.toString()).toBe(expected);
 	});
 
-	test('read file synchronously', async () => {
+	test('read file synchronously', () => {
 		const fd = fs.openSync(filepath, 'r');
 		const bytesRead = fs.readSync(fd, bufferSync, 0, expected.length, 0);
 
@@ -54,7 +54,7 @@ describe('read buffer', () => {
 		expect(bytesRead).toBe(expected.length);
 	});
 
-	test('read file synchronously to non-zero offset', async () => {
+	test('read file synchronously to non-zero offset', () => {
 		const fd = fs.openSync(filepath, 'r');
 		const buffer = Buffer.alloc(expected.length + 10);
 		const bytesRead = fs.readSync(fd, buffer, 10, expected.length, 0);

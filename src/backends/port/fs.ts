@@ -7,13 +7,17 @@ import { File } from '../../file.js';
 import { Async, FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { Stats, type FileType } from '../../stats.js';
 import { InMemory } from '../memory.js';
-import type { Backend } from '../backend.js';
+import type { Backend, FilesystemOf } from '../backend.js';
 import * as RPC from './rpc.js';
+import { type MountConfiguration, resolveMountConfig } from '../../config.js';
 
-type FileMethods = ExtractProperties<File, (...args: any[]) => Promise<any>>;
+type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
 type FileMethod = keyof FileMethods;
-interface FileRequest<TMethod extends FileMethod & string = FileMethod & string> extends RPC.Request<'file', TMethod, Parameters<FileMethods[TMethod]>> {
+interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request {
 	fd: number;
+	scope: 'file';
+	method: TMethod;
+	args: Parameters<FileMethods[TMethod]>;
 }
 
 export class PortFile extends File {
@@ -126,7 +130,11 @@ export class PortFile extends File {
 
 type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | FileSystemMetadata>;
 type FSMethod = keyof FSMethods;
-type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Request<'fs', TMethod, Parameters<FSMethods[TMethod]>>;
+interface FSRequest<TMethod extends FSMethod = FSMethod> extends RPC.Request {
+	scope: 'fs';
+	method: TMethod;
+	args: Parameters<FSMethods[TMethod]>;
+}
 
 /**
  * PortFS lets you access a ZenFS instance that is running in a port, or the other way around.
@@ -216,9 +224,15 @@ let nextFd = 0;
 
 const descriptors: Map<number, File> = new Map();
 
-type FileOrFSRequest = FSRequest | FileRequest;
+/**
+ * @internal
+ */
+export type FileOrFSRequest = FSRequest | FileRequest;
 
-async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRequest): Promise<void> {
+/**
+ * @internal
+ */
+export async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRequest): Promise<void> {
 	if (!RPC.isMessage(request)) {
 		return;
 	}
@@ -255,20 +269,12 @@ async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRe
 			default:
 				return;
 		}
-	} catch (e) {
-		value = e;
+	} catch (e: any) {
+		value = e instanceof ErrnoError ? e.toJSON() : e.toString();
 		error = true;
 	}
 
-	port.postMessage({
-		_zenfs: true,
-		scope,
-		id,
-		error,
-		method,
-		stack,
-		value: value instanceof ErrnoError ? value.toJSON() : value,
-	});
+	port.postMessage({ _zenfs: true, scope, id, error, method, stack, value });
 }
 
 export function attachFS(port: RPC.Port, fs: FileSystem): void {
@@ -309,3 +315,11 @@ export const Port = {
 		return new PortFS(options);
 	},
 } satisfies Backend<PortFS, RPC.Options>;
+
+export async function resolveRemoteMount<T extends Backend>(port: RPC.Port, config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
+	const stopAndReplay = RPC.catchMessages(port);
+	const fs = await resolveMountConfig(config, _depth);
+	attachFS(port, fs);
+	stopAndReplay(fs);
+	return fs;
+}

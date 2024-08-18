@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await */
 import type { ExtractProperties } from 'utilium';
 import { rootCred, type Cred } from './cred.js';
 import { join } from './emulation/path.js';
@@ -490,7 +491,7 @@ export function Async<T extends typeof FileSystem>(
 		 */
 		private queue(...op: AsyncOperation) {
 			this._queue.push(op);
-			this._next();
+			void this._next();
 		}
 	}
 

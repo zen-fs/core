@@ -1,12 +1,12 @@
 import type { Cred } from '../../cred.js';
-import { W_OK, R_OK } from '../../emulation/constants.js';
-import { dirname, basename, join, resolve } from '../../emulation/path.js';
-import { ErrnoError, Errno } from '../../error.js';
+import { R_OK, S_IFDIR, S_IFREG, W_OK } from '../../emulation/constants.js';
+import { basename, dirname, join, resolve } from '../../emulation/path.js';
+import { Errno, ErrnoError } from '../../error.js';
 import { PreloadFile, flagToMode } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
-import { type Ino, Inode, rootIno, randomIno } from '../../inode.js';
-import { type Stats, FileType } from '../../stats.js';
-import { encodeDirListing, encode, decodeDirListing } from '../../utils.js';
+import { type Ino, Inode, randomIno, rootIno } from '../../inode.js';
+import type { FileType, Stats } from '../../stats.js';
+import { decodeDirListing, encode, encodeDirListing } from '../../utils.js';
 import type { Store, Transaction } from './store.js';
 
 const maxInodeAllocTries = 5;
@@ -227,12 +227,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<PreloadFile<this>> {
 		const data = new Uint8Array(0);
-		const file = await this.commitNew(this.store.transaction(), path, FileType.FILE, mode, cred, data);
+		const file = await this.commitNew(this.store.transaction(), path, S_IFREG, mode, cred, data);
 		return new PreloadFile(this, path, flag, file.toStats(), data);
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
-		this.commitNewSync(path, FileType.FILE, mode, cred);
+		this.commitNewSync(path, S_IFREG, mode, cred);
 		return this.openFileSync(path, flag, cred);
 	}
 
@@ -291,11 +291,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
 		const tx = this.store.transaction(),
 			data = encode('{}');
-		await this.commitNew(tx, path, FileType.DIRECTORY, mode, cred, data);
+		await this.commitNew(tx, path, S_IFDIR, mode, cred, data);
 	}
 
 	public mkdirSync(path: string, mode: number, cred: Cred): void {
-		this.commitNewSync(path, FileType.DIRECTORY, mode, cred, encode('{}'));
+		this.commitNewSync(path, S_IFDIR, mode, cred, encode('{}'));
 	}
 
 	public async readdir(path: string, cred: Cred): Promise<string[]> {
@@ -447,7 +447,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 		// Create new inode. o777, owned by root:root
 		const inode = new Inode();
-		inode.mode = 0o777 | FileType.DIRECTORY;
+		inode.mode = 0o777 | S_IFDIR;
 		// If the root doesn't exist, the first random ID shouldn't exist either.
 		await tx.set(inode.ino, encode('{}'));
 		await tx.set(rootIno, inode.data);
@@ -464,7 +464,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 		// Create new inode, mode o777, owned by root:root
 		const inode = new Inode();
-		inode.mode = 0o777 | FileType.DIRECTORY;
+		inode.mode = 0o777 | S_IFDIR;
 		// If the root doesn't exist, the first random ID shouldn't exist either.
 		tx.setSync(inode.ino, encode('{}'));
 		tx.setSync(rootIno, inode.data);
@@ -535,7 +535,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 */
 	private async findINode(tx: Transaction, path: string, visited: Set<string> = new Set()): Promise<Inode> {
 		const id = await this._findINode(tx, dirname(path), basename(path), visited);
-		return this.getINode(tx, id!, path);
+		return this.getINode(tx, id, path);
 	}
 
 	/**
@@ -698,7 +698,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			await tx.commit();
 			return inode;
 		} catch (e) {
-			tx.abort();
+			await tx.abort();
 			throw e;
 		}
 	}

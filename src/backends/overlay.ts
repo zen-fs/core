@@ -126,10 +126,10 @@ export class UnlockedOverlayFS extends FileSystem {
 		return this._deleteLog;
 	}
 
-	public restoreDeletionLog(log: string, cred: Cred): void {
+	public async restoreDeletionLog(log: string, cred: Cred): Promise<void> {
 		this._deleteLog = log;
 		this._reparseDeletionLog();
-		this.updateLog('', cred);
+		await this.updateLog('', cred);
 	}
 
 	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
@@ -248,7 +248,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 		// if it still exists add to the delete log
 		if (await this.exists(path, cred)) {
-			this.deletePath(path, cred);
+			await this.deletePath(path, cred);
 		}
 	}
 
@@ -265,7 +265,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 		// if it still exists add to the delete log
 		if (this.existsSync(path, cred)) {
-			this.deletePath(path, cred);
+			void this.deletePath(path, cred);
 		}
 	}
 
@@ -282,7 +282,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			if ((await this.readdir(path, cred)).length > 0) {
 				throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 			} else {
-				this.deletePath(path, cred);
+				await this.deletePath(path, cred);
 			}
 		}
 	}
@@ -300,7 +300,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			if (this.readdirSync(path, cred).length > 0) {
 				throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 			} else {
-				this.deletePath(path, cred);
+				void this.deletePath(path, cred);
 			}
 		}
 	}
@@ -379,9 +379,9 @@ export class UnlockedOverlayFS extends FileSystem {
 		});
 	}
 
-	private deletePath(path: string, cred: Cred): void {
+	private async deletePath(path: string, cred: Cred): Promise<void> {
 		this._deletedFiles.add(path);
-		this.updateLog(`d${path}\n`, cred);
+		await this.updateLog(`d${path}\n`, cred);
 	}
 
 	private async updateLog(addition: string, cred: Cred) {
@@ -396,7 +396,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			await log.write(encode(this._deleteLog));
 			if (this._deleteLogUpdateNeeded) {
 				this._deleteLogUpdateNeeded = false;
-				this.updateLog('', cred);
+				await this.updateLog('', cred);
 			}
 		} catch (e) {
 			this._deleteLogError = e as ErrnoError;

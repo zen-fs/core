@@ -10,7 +10,8 @@ import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import { isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
-import { BigIntStats, FileType, type Stats } from '../stats.js';
+import '../polyfills.js';
+import { BigIntStats, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -18,7 +19,6 @@ import { dirname, join, parse } from './path.js';
 import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from './constants.js';
-import '../symbol-dispose.js';
 
 export class FileHandle implements promises.FileHandle {
 	/**
@@ -164,7 +164,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public readableWebStream(options: promises.ReadableWebStreamOptions = {}): TReadableStream<Uint8Array> {
 		// Note: using an arrow function to preserve `this`
-		const start = async ({ close, enqueue, error }: ReadableStreamController<Uint8Array>) => {
+		const start = async (controller: ReadableStreamController<Uint8Array>) => {
 			try {
 				const chunkSize = 64 * 1024,
 					maxChunks = 1e7;
@@ -175,10 +175,10 @@ export class FileHandle implements promises.FileHandle {
 				while (bytesRead > 0) {
 					const result = await this.read(new Uint8Array(chunkSize), 0, chunkSize, position);
 					if (!result.bytesRead) {
-						close();
+						controller.close();
 						return;
 					}
-					enqueue(result.buffer.slice(0, result.bytesRead));
+					controller.enqueue(result.buffer.slice(0, result.bytesRead));
 					position += result.bytesRead;
 					if (++i >= maxChunks) {
 						throw new ErrnoError(Errno.EFBIG, 'Too many iterations on readable stream', this.file.path, 'FileHandle.readableWebStream');
@@ -186,11 +186,15 @@ export class FileHandle implements promises.FileHandle {
 					bytesRead = result.bytesRead;
 				}
 			} catch (e) {
-				error(e);
+				controller.error(e);
 			}
 		};
 
-		return new (globalThis as any).ReadableStream({ start, type: options.type });
+		const _gt = globalThis;
+		if (!('ReadableStream' in _gt)) {
+			throw new ErrnoError(Errno.ENOSYS, 'ReadableStream is missing on globalThis');
+		}
+		return new (_gt as { ReadableStream: new (...args: unknown[]) => TReadableStream<Uint8Array> }).ReadableStream({ start, type: options.type });
 	}
 
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
@@ -326,6 +330,7 @@ export class FileHandle implements promises.FileHandle {
 			highWaterMark: options?.highWaterMark || 64 * 1024,
 			encoding: options!.encoding!,
 
+			// eslint-disable-next-line @typescript-eslint/no-misused-promises
 			read: async (size: number) => {
 				try {
 					const result = await this.read(new Uint8Array(size), 0, size, this.file.position);
@@ -573,7 +578,7 @@ export async function writeFile(
 	_options?: (fs.ObjectEncodingOptions & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
-	await using handle = path instanceof FileHandle ? path : await open(path.toString(), options.flag, options.mode);
+	await using handle = path instanceof FileHandle ? path : await open((path as fs.PathLike).toString(), options.flag, options.mode);
 
 	const _data = typeof data == 'string' ? data : data;
 	if (typeof _data != 'string' && !(_data instanceof Uint8Array)) {
@@ -748,7 +753,7 @@ export async function symlink(target: fs.PathLike, path: fs.PathLike, type: fs.s
 
 	await writeFile(path, target.toString());
 	const handle = await _open(path, 'r+', 0o644, false);
-	await handle.file._setType(FileType.SYMLINK);
+	await handle.file._setType(constants.S_IFLNK);
 }
 symlink satisfies typeof promises.symlink;
 

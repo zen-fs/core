@@ -9,12 +9,12 @@ const dir = dirname(fileURLToPath(import.meta.url));
 let port: Worker;
 
 try {
-	port = new Worker(dir + '/worker.js');
+	port = new Worker(dir + '/config.worker.js');
 } catch (e) {
 	/* nothing */
 }
 
-describe('Remote FS', () => {
+describe('Remote FS with resolveRemoteMount', () => {
 	const content = 'FS is in a port';
 
 	test('Build exists for worker', () => {

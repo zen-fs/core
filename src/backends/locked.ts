@@ -5,6 +5,7 @@ import type { FileSystemMetadata } from '../filesystem.js';
 import { FileSystem } from '../filesystem.js';
 import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
+import '../polyfills.js';
 
 export interface MutexLock extends PromiseWithResolvers<void> {
 	[Symbol.dispose](): void;

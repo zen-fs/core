@@ -36,7 +36,7 @@ describe('write', () => {
 });
 
 describe('writeSync', () => {
-	test('write file with specified content', async () => {
+	test('write file with specified content', () => {
 		const fn = 'write.txt';
 		const fd = fs.openSync(fn, 'w');
 

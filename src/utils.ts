@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import type { OptionalTuple } from 'utilium';
 import { ErrnoError, Errno } from './error.js';
 import type { Cred } from './cred.js';
@@ -187,14 +190,14 @@ export function _toUnixTimestamp(time: Date | number): number {
 	if (time instanceof Date) {
 		return Math.floor(time.getTime() / 1000);
 	}
-	throw new Error('Cannot parse time: ' + time);
+	throw new Error('Cannot parse time');
 }
 
 /**
  * Normalizes a mode
  * @internal
  */
-export function normalizeMode(mode: string | number | unknown, def?: number): number {
+export function normalizeMode(mode: unknown, def?: number): number {
 	if (typeof mode == 'number') {
 		return mode;
 	}

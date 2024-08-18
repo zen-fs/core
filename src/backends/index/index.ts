@@ -87,7 +87,7 @@ export class Index extends Map<string, Stats> {
 			throw new ErrnoError(Errno.EINVAL, 'Invalid JSON');
 		}
 
-		const json = JSON.parse(data);
+		const json = JSON.parse(data) as IndexData;
 		const index = new Index();
 		index.fromJSON(json);
 		return index;

@@ -3,7 +3,7 @@ import { fs } from '../common.js';
 describe('fs file opening', () => {
 	const filename = 'a.js';
 
-	test('throw ENOENT when opening non-existent file (sync)', async () => {
+	test('throw ENOENT when opening non-existent file (sync)', () => {
 		let caughtException = false;
 		try {
 			fs.openSync('/path/to/file/that/does/not/exist', 'r');
