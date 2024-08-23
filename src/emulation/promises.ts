@@ -514,7 +514,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		return new FileHandle(await fs.openFile(resolved, flag, cred));
 	}
 
-	/* 
+	/*
 		In a previous implementation, we deleted the file and
 		re-created it. However, this created a race condition if another
 		asynchronous request was trying to read the file, as the file
@@ -907,7 +907,7 @@ export async function rm(path: fs.PathLike, options?: fs.RmOptions) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
 				for (const entry of await readdir(path)) {
-					await rm(join(path, entry));
+					await rm(join(path, entry), options);
 				}
 			}
 
