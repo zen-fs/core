@@ -102,4 +102,20 @@ describe('Directory', () => {
 			expect(err.code).toBe('ENOENT');
 		}
 	});
+
+	test('rm recursively asynchronously', async () => {
+		await fs.promises.mkdir('/rmDirRecusrively');
+		await fs.promises.mkdir('/rmDirRecusrively/rmDirNested');
+		await fs.promises.writeFile('/rmDirRecusrively/rmDirNested/test.txt', 'hello world!');
+
+		await fs.promises.rm('/rmDirRecusrively', { recursive: true });
+	});
+
+	test('rm recursively synchronously', async () => {
+		fs.mkdirSync('/rmDirRecusrively');
+		fs.mkdirSync('/rmDirRecusrively/rmDirNested');
+		fs.writeFileSync('/rmDirRecusrively/rmDirNested/test.txt', 'hello world!');
+
+		fs.rmSync('/rmDirRecusrively', { recursive: true });
+	});
 });

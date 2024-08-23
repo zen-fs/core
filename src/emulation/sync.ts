@@ -731,7 +731,7 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions): void {
 		case S_IFDIR:
 			if (options?.recursive) {
 				for (const entry of readdirSync(path)) {
-					rmSync(join(path, entry));
+					rmSync(join(path, entry), options);
 				}
 			}
 
