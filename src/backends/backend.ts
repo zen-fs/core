@@ -66,12 +66,11 @@ export interface Backend<FS extends FileSystem = FileSystem, TOptions extends ob
 	/**
 	 * Whether the backend is available in the current environment.
 	 * It supports checking synchronously and asynchronously
-	 * Sync:
-	 * Returns 'true' if this backend is available in the current
-	 * environment. For example, a `localStorage`-backed filesystem will return
-	 * 'false' if the browser does not support that API.
 	 *
-	 * Defaults to 'false', as the FileSystem base class isn't usable alone.
+	 * Returns 'true' if this backend is available in the current
+	 * environment. For example, a backend using a browser API will return
+	 * 'false' if the API is unavailable
+	 *
 	 */
 	isAvailable(): boolean | Promise<boolean>;
 }
