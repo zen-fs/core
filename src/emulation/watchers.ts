@@ -43,14 +43,20 @@ class Watcher<TEvents extends Record<string, unknown[]> = Record<string, unknown
 	}
 }
 
-export class FSWatcher
+/**
+ * @todo Actually emit events
+ */
+export class FSWatcher<T extends string | Buffer = string | Buffer>
 	extends Watcher<{
-		change: [eventType: string, filename: string | Buffer];
+		change: [eventType: fs.WatchEventType, filename: T];
 		close: [];
 		error: [error: Error];
 	}>
 	implements fs.FSWatcher
 {
+	public constructor(public readonly options: fs.WatchOptions) {
+		super();
+	}
 	public close(): void {}
 }
 

@@ -18,6 +18,7 @@ import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
+import { FSWatcher } from './watchers.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -870,14 +871,31 @@ export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | 
 }
 realpath satisfies typeof promises.realpath;
 
-/**
- * @todo Implement
- */
 export function watch(filename: fs.PathLike, options?: fs.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
 export function watch(filename: fs.PathLike, options: fs.WatchOptions | fs.BufferEncodingOption): AsyncIterable<FileChangeInfo<Buffer>>;
 export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>>;
-export function watch(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>> {
-	throw ErrnoError.With('ENOSYS', filename.toString(), 'watch');
+export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<FileChangeInfo<T>> {
+	return {
+		[Symbol.asyncIterator](): AsyncIterator<FileChangeInfo<T>> {
+			const watcher = new FSWatcher<T>(typeof options != 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
+
+			function withDone(done: boolean) {
+				return function () {
+					const event = Promise.withResolvers<IteratorResult<FileChangeInfo<T>>>();
+					watcher.on('change', (eventType, filename) => {
+						event.resolve({ value: { eventType, filename }, done });
+					});
+					return event.promise;
+				};
+			}
+
+			return {
+				next: withDone(false),
+				return: withDone(true),
+				throw: withDone(true),
+			};
+		},
+	};
 }
 watch satisfies typeof promises.watch;
 
