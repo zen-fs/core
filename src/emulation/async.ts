@@ -10,6 +10,7 @@ import { type Dir } from './dir.js';
 import * as promises from './promises.js';
 import { fd2file } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
+import { FSWatcher } from './watchers.js';
 
 /**
  * Asynchronous rename. No arguments other than a possible exception are given
@@ -688,13 +689,15 @@ export function unwatchFile(path: fs.PathLike, listener: (curr: Stats, prev: Sta
 }
 unwatchFile satisfies Omit<typeof fs.unwatchFile, '__promisify__'>;
 
-/**
- * @todo Implement
- */
-export function watch(path: fs.PathLike, listener?: (event: string, filename: string) => any): fs.FSWatcher;
-export function watch(path: fs.PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): fs.FSWatcher;
-export function watch(path: fs.PathLike, options: any, listener: (event: string, filename: string) => any = nop): fs.FSWatcher {
-	throw ErrnoError.With('ENOSYS', path.toString(), 'watch');
+type _WatchListener = (event: string, filename: string) => any;
+
+export function watch(path: fs.PathLike, listener?: _WatchListener): fs.FSWatcher;
+export function watch(path: fs.PathLike, options: { persistent?: boolean }, listener?: _WatchListener): fs.FSWatcher;
+export function watch(path: fs.PathLike, options?: fs.WatchOptions | _WatchListener, listener?: _WatchListener): fs.FSWatcher {
+	const watcher = new FSWatcher<string>(typeof options == 'object' ? options : {});
+	listener = typeof options == 'function' ? options : listener;
+	watcher.on('change', listener || nop);
+	return watcher;
 }
 watch satisfies Omit<typeof fs.watch, '__promisify__'>;
 
