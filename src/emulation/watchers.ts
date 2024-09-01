@@ -5,11 +5,11 @@ import { ErrnoError } from '../error.js';
 
 class Watcher<TEvents extends Record<string, unknown[]> = Record<string, unknown[]>> extends EventEmitter<TEvents> implements NodeEventEmitter {
 	/* eslint-disable @typescript-eslint/no-explicit-any */
-	public off<T extends EventEmitter.EventNames<TEvents>>(event: T, fn?: ((...args: any[]) => void) | undefined, context?: any, once?: boolean | undefined): this {
+	public off<T extends EventEmitter.EventNames<TEvents>>(event: T, fn?: (...args: any[]) => void, context?: any, once?: boolean): this {
 		return super.off<T>(event, fn as EventEmitter.EventListener<TEvents, T>, context, once);
 	}
 
-	public removeListener<T extends EventEmitter.EventNames<TEvents>>(event: T, fn?: ((...args: any[]) => void) | undefined, context?: any, once?: boolean | undefined): this {
+	public removeListener<T extends EventEmitter.EventNames<TEvents>>(event: T, fn?: (...args: any[]) => void, context?: any, once?: boolean): this {
 		return super.removeListener<T>(event, fn as EventEmitter.EventListener<TEvents, T>, context, once);
 	}
 	/* eslint-enable @typescript-eslint/no-explicit-any */

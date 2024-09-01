@@ -4,7 +4,7 @@ import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import { isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
-import { BigIntStats, FileType, type Stats } from '../stats.js';
+import { BigIntStats, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { COPYFILE_EXCL, F_OK, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK } from './constants.js';
 import { Dir, Dirent } from './dir.js';
