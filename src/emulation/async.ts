@@ -676,7 +676,11 @@ access satisfies Omit<typeof fs.access, '__promisify__'>;
  */
 export function watchFile(path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(path: fs.PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
-export function watchFile(path: fs.PathLike, optsListener: any, listener: (curr: Stats, prev: Stats) => void = nop): void {
+export function watchFile(
+	path: fs.PathLike,
+	optsListener: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
+	listener: (curr: Stats, prev: Stats) => void = nop
+): void {
 	throw ErrnoError.With('ENOSYS', path.toString(), 'watchFile');
 }
 watchFile satisfies Omit<typeof fs.watchFile, '__promisify__'>;
@@ -689,11 +693,13 @@ export function unwatchFile(path: fs.PathLike, listener: (curr: Stats, prev: Sta
 }
 unwatchFile satisfies Omit<typeof fs.unwatchFile, '__promisify__'>;
 
-type _WatchListener = (event: string, filename: string) => any;
-
-export function watch(path: fs.PathLike, listener?: _WatchListener): fs.FSWatcher;
-export function watch(path: fs.PathLike, options: { persistent?: boolean }, listener?: _WatchListener): fs.FSWatcher;
-export function watch(path: fs.PathLike, options?: fs.WatchOptions | _WatchListener, listener?: _WatchListener): fs.FSWatcher {
+export function watch(path: fs.PathLike, listener?: (event: string, filename: string) => any): fs.FSWatcher;
+export function watch(path: fs.PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): fs.FSWatcher;
+export function watch(
+	path: fs.PathLike,
+	options?: fs.WatchOptions | ((event: string, filename: string) => any),
+	listener?: (event: string, filename: string) => any
+): fs.FSWatcher {
 	const watcher = new FSWatcher<string>(typeof options == 'object' ? options : {});
 	listener = typeof options == 'function' ? options : listener;
 	watcher.on('change', listener || nop);
