@@ -96,7 +96,7 @@ export abstract class Transaction<T extends Store = Store> {
 			return;
 		}
 
-		await this.commit();
+		await this.abort();
 	}
 
 	/**
@@ -109,7 +109,7 @@ export abstract class Transaction<T extends Store = Store> {
 			return;
 		}
 
-		this.commitSync();
+		this.abortSync();
 	}
 
 	/**

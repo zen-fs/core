@@ -226,9 +226,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<PreloadFile<this>> {
-		const data = new Uint8Array(0);
-		const file = await this.commitNew(this.store.transaction(), path, S_IFREG, mode, cred, data);
-		return new PreloadFile(this, path, flag, file.toStats(), data);
+		const node = await this.commitNew(path, S_IFREG, mode, cred, new Uint8Array(0));
+		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array(0));
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
@@ -289,9 +288,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
-		const tx = this.store.transaction(),
-			data = encode('{}');
-		await this.commitNew(tx, path, S_IFDIR, mode, cred, data);
+		await this.commitNew(path, S_IFDIR, mode, cred, encode('{}'));
 	}
 
 	public mkdirSync(path: string, mode: number, cred: Cred): void {
@@ -656,7 +653,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param cred The UID/GID to create the file with
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNew(tx: Transaction, path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
+	private async commitNew(path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
+		await using tx = this.store.transaction();
 		const parentPath = dirname(path),
 			parent = await this.findINode(tx, parentPath);
 
@@ -682,25 +680,20 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			await tx.abort();
 			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
-		try {
-			// Commit data.
 
-			const inode = new Inode();
-			inode.ino = await this.addNew(tx, data, path);
-			inode.mode = mode | type;
-			inode.uid = cred.uid;
-			inode.gid = cred.gid;
-			inode.size = data.length;
+		// Commit data.
+		const inode = new Inode();
+		inode.ino = await this.addNew(tx, data, path);
+		inode.mode = mode | type;
+		inode.uid = cred.uid;
+		inode.gid = cred.gid;
+		inode.size = data.length;
 
-			// Update and commit parent directory listing.
-			listing[fname] = await this.addNew(tx, inode.data, path);
-			await tx.set(parent.ino, encodeDirListing(listing));
-			await tx.commit();
-			return inode;
-		} catch (e) {
-			await tx.abort();
-			throw e;
-		}
+		// Update and commit parent directory listing.
+		listing[fname] = await this.addNew(tx, inode.data, path);
+		await tx.set(parent.ino, encodeDirListing(listing));
+		await tx.commit();
+		return inode;
 	}
 
 	/**
@@ -713,8 +706,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @return The Inode for the new file.
 	 */
 	protected commitNewSync(path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
-		const tx = this.store.transaction(),
-			parentPath = dirname(path),
+		using tx = this.store.transaction();
+		const parentPath = dirname(path),
 			parent = this.findINodeSync(tx, parentPath);
 
 		//Check that the creater has correct access
@@ -739,21 +732,16 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
 		}
 
+		// Commit data.
 		const node = new Inode();
-		try {
-			// Commit data.
-			node.ino = this.addNewSync(tx, data, path);
-			node.size = data.length;
-			node.mode = mode | type;
-			node.uid = cred.uid;
-			node.gid = cred.gid;
-			// Update and commit parent directory listing.
-			listing[fname] = this.addNewSync(tx, node.data, path);
-			tx.setSync(parent.ino, encodeDirListing(listing));
-		} catch (e) {
-			tx.abortSync();
-			throw e;
-		}
+		node.ino = this.addNewSync(tx, data, path);
+		node.size = data.length;
+		node.mode = mode | type;
+		node.uid = cred.uid;
+		node.gid = cred.gid;
+		// Update and commit parent directory listing.
+		listing[fname] = this.addNewSync(tx, node.data, path);
+		tx.setSync(parent.ino, encodeDirListing(listing));
 		tx.commitSync();
 		return node;
 	}
@@ -765,8 +753,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo Update mtime.
 	 */
 	private async remove(path: string, isDir: boolean, cred: Cred): Promise<void> {
-		const tx = this.store.transaction(),
-			parent: string = dirname(path),
+		await using tx = this.store.transaction();
+		const parent: string = dirname(path),
 			parentNode = await this.findINode(tx, parent),
 			listing = await this.getDirListing(tx, parentNode, parent),
 			fileName: string = basename(path);
@@ -795,17 +783,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			throw ErrnoError.With('ENOTDIR', path, 'removeEntry');
 		}
 
-		try {
-			await tx.set(parentNode.ino, encodeDirListing(listing));
+		await tx.set(parentNode.ino, encodeDirListing(listing));
 
-			if (--fileNode.nlink < 1) {
-				// remove file
-				await tx.remove(fileNode.ino);
-				await tx.remove(fileIno);
-			}
-		} catch (e) {
-			await tx.abort();
-			throw e;
+		if (--fileNode.nlink < 1) {
+			// remove file
+			await tx.remove(fileNode.ino);
+			await tx.remove(fileIno);
 		}
 
 		// Success.
@@ -819,8 +802,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo Update mtime.
 	 */
 	protected removeSync(path: string, isDir: boolean, cred: Cred): void {
-		const tx = this.store.transaction(),
-			parent: string = dirname(path),
+		using tx = this.store.transaction();
+		const parent: string = dirname(path),
 			parentNode = this.findINodeSync(tx, parent),
 			listing = this.getDirListingSync(tx, parentNode, parent),
 			fileName: string = basename(path),
@@ -848,19 +831,15 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			throw ErrnoError.With('ENOTDIR', path, 'removeEntry');
 		}
 
-		try {
-			// Update directory listing.
-			tx.setSync(parentNode.ino, encodeDirListing(listing));
+		// Update directory listing.
+		tx.setSync(parentNode.ino, encodeDirListing(listing));
 
-			if (--fileNode.nlink < 1) {
-				// remove file
-				tx.removeSync(fileNode.ino);
-				tx.removeSync(fileIno);
-			}
-		} catch (e) {
-			tx.abortSync();
-			throw e;
+		if (--fileNode.nlink < 1) {
+			// remove file
+			tx.removeSync(fileNode.ino);
+			tx.removeSync(fileIno);
 		}
+
 		// Success.
 		tx.commitSync();
 	}
