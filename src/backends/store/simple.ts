@@ -103,10 +103,13 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 	}
 
 	public commitSync(): void {
-		/* NOP */
+		this.done = true;
 	}
 
 	public abortSync(): void {
+		if (!this.done) {
+			return;
+		}
 		// Rollback old values.
 		for (const key of this.modifiedKeys) {
 			const value = this.originalData.get(key);
@@ -118,6 +121,7 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 				this.store.set(key, value);
 			}
 		}
+		this.done = true;
 	}
 
 	/**

@@ -65,8 +65,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo Make rename compatible with the cache.
 	 */
 	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-		const tx = this.store.transaction(),
-			oldParent = dirname(oldPath),
+		await using tx = this.store.transaction();
+		const oldParent = dirname(oldPath),
 			oldName = basename(oldPath),
 			newParent = dirname(newPath),
 			newName = basename(newPath),
@@ -108,13 +108,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			// If it's a file, delete it.
 			const newNameNode = await this.getINode(tx, newDirList[newName], newPath);
 			if (newNameNode.toStats().isFile()) {
-				try {
-					await tx.remove(newNameNode.ino);
-					await tx.remove(newDirList[newName]);
-				} catch (e) {
-					await tx.abort();
-					throw e;
-				}
+				await tx.remove(newNameNode.ino);
+				await tx.remove(newDirList[newName]);
 			} else {
 				// If it's a directory, throw a permissions error.
 				throw ErrnoError.With('EPERM', newPath, 'rename');
@@ -122,20 +117,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 		newDirList[newName] = nodeId;
 		// Commit the two changed directory listings.
-		try {
-			await tx.set(oldDirNode.ino, encodeDirListing(oldDirList));
-			await tx.set(newDirNode.ino, encodeDirListing(newDirList));
-		} catch (e) {
-			await tx.abort();
-			throw e;
-		}
-
+		await tx.set(oldDirNode.ino, encodeDirListing(oldDirList));
+		await tx.set(newDirNode.ino, encodeDirListing(newDirList));
 		await tx.commit();
 	}
 
 	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
-		const tx = this.store.transaction(),
-			oldParent = dirname(oldPath),
+		using tx = this.store.transaction();
+		const oldParent = dirname(oldPath),
 			oldName = basename(oldPath),
 			newParent = dirname(newPath),
 			newName = basename(newPath),
@@ -177,13 +166,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			// If it's a file, delete it.
 			const newNameNode = this.getINodeSync(tx, newDirList[newName], newPath);
 			if (newNameNode.toStats().isFile()) {
-				try {
-					tx.removeSync(newNameNode.ino);
-					tx.removeSync(newDirList[newName]);
-				} catch (e) {
-					tx.abortSync();
-					throw e;
-				}
+				tx.removeSync(newNameNode.ino);
+				tx.removeSync(newDirList[newName]);
 			} else {
 				// If it's a directory, throw a permissions error.
 				throw ErrnoError.With('EPERM', newPath, 'rename');
@@ -192,19 +176,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		newDirList[newName] = ino;
 
 		// Commit the two changed directory listings.
-		try {
-			tx.setSync(oldDirNode.ino, encodeDirListing(oldDirList));
-			tx.setSync(newDirNode.ino, encodeDirListing(newDirList));
-		} catch (e) {
-			tx.abortSync();
-			throw e;
-		}
-
+		tx.setSync(oldDirNode.ino, encodeDirListing(oldDirList));
+		tx.setSync(newDirNode.ino, encodeDirListing(newDirList));
 		tx.commitSync();
 	}
 
 	public async stat(path: string, cred: Cred): Promise<Stats> {
-		const tx = this.store.transaction();
+		await using tx = this.store.transaction();
 		const inode = await this.findINode(tx, path);
 		if (!inode) {
 			throw ErrnoError.With('ENOENT', path, 'stat');
@@ -217,8 +195,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public statSync(path: string, cred: Cred): Stats {
+		using tx = this.store.transaction();
 		// Get the inode to the item, convert it into a Stats object.
-		const stats = this.findINodeSync(this.store.transaction(), path).toStats();
+		const stats = this.findINodeSync(tx, path).toStats();
 		if (!stats.hasAccess(R_OK, cred)) {
 			throw ErrnoError.With('EACCES', path, 'stat');
 		}
@@ -236,8 +215,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async openFile(path: string, flag: string, cred: Cred): Promise<PreloadFile<this>> {
-		const tx = this.store.transaction(),
-			node = await this.findINode(tx, path),
+		await using tx = this.store.transaction();
+		const node = await this.findINode(tx, path),
 			data = await tx.get(node.ino);
 		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
 			throw ErrnoError.With('EACCES', path, 'openFile');
@@ -249,8 +228,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public openFileSync(path: string, flag: string, cred: Cred): PreloadFile<this> {
-		const tx = this.store.transaction(),
-			node = this.findINodeSync(tx, path),
+		using tx = this.store.transaction();
+		const node = this.findINodeSync(tx, path),
 			data = tx.getSync(node.ino);
 		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
 			throw ErrnoError.With('EACCES', path, 'openFile');
@@ -296,7 +275,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async readdir(path: string, cred: Cred): Promise<string[]> {
-		const tx = this.store.transaction();
+		await using tx = this.store.transaction();
 		const node = await this.findINode(tx, path);
 		if (!node.toStats().hasAccess(R_OK, cred)) {
 			throw ErrnoError.With('EACCES', path, 'readdur');
@@ -305,7 +284,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public readdirSync(path: string, cred: Cred): string[] {
-		const tx = this.store.transaction();
+		using tx = this.store.transaction();
 		const node = this.findINodeSync(tx, path);
 		if (!node.toStats().hasAccess(R_OK, cred)) {
 			throw ErrnoError.With('EACCES', path, 'readdir');
@@ -318,23 +297,19 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		const tx = this.store.transaction(),
-			// We use _findInode because we actually need the INode id.
-			fileInodeId = await this._findINode(tx, dirname(path), basename(path)),
+		await using tx = this.store.transaction();
+		// We use _findInode because we actually need the INode id.
+		const fileInodeId = await this._findINode(tx, dirname(path), basename(path)),
 			fileInode = await this.getINode(tx, fileInodeId, path),
 			inodeChanged = fileInode.update(stats);
 
-		try {
-			// Sync data.
-			await tx.set(fileInode.ino, data);
-			// Sync metadata.
-			if (inodeChanged) {
-				await tx.set(fileInodeId, fileInode.data);
-			}
-		} catch (e) {
-			await tx.abort();
-			throw e;
+		// Sync data.
+		await tx.set(fileInode.ino, data);
+		// Sync metadata.
+		if (inodeChanged) {
+			await tx.set(fileInodeId, fileInode.data);
 		}
+
 		await tx.commit();
 	}
 
@@ -343,29 +318,25 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-		const tx = this.store.transaction(),
-			// We use _findInode because we actually need the INode id.
-			fileInodeId = this._findINodeSync(tx, dirname(path), basename(path)),
+		using tx = this.store.transaction();
+		// We use _findInode because we actually need the INode id.
+		const fileInodeId = this._findINodeSync(tx, dirname(path), basename(path)),
 			fileInode = this.getINodeSync(tx, fileInodeId, path),
 			inodeChanged = fileInode.update(stats);
 
-		try {
-			// Sync data.
-			tx.setSync(fileInode.ino, data);
-			// Sync metadata.
-			if (inodeChanged) {
-				tx.setSync(fileInodeId, fileInode.data);
-			}
-		} catch (e) {
-			tx.abortSync();
-			throw e;
+		// Sync data.
+		tx.setSync(fileInode.ino, data);
+		// Sync metadata.
+		if (inodeChanged) {
+			tx.setSync(fileInodeId, fileInode.data);
 		}
+
 		tx.commitSync();
 	}
 
 	public async link(existing: string, newpath: string, cred: Cred): Promise<void> {
-		const tx = this.store.transaction(),
-			existingDir: string = dirname(existing),
+		await using tx = this.store.transaction();
+		const existingDir: string = dirname(existing),
 			existingDirNode = await this.findINode(tx, existingDir);
 
 		if (!existingDirNode.toStats().hasAccess(R_OK, cred)) {
@@ -389,19 +360,15 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		node.nlink++;
 		newListing[basename(newpath)] = ino;
-		try {
-			tx.setSync(ino, node.data);
-			tx.setSync(newDirNode.ino, encodeDirListing(newListing));
-		} catch (e) {
-			tx.abortSync();
-			throw e;
-		}
+
+		tx.setSync(ino, node.data);
+		tx.setSync(newDirNode.ino, encodeDirListing(newListing));
 		tx.commitSync();
 	}
 
 	public linkSync(existing: string, newpath: string, cred: Cred): void {
-		const tx = this.store.transaction(),
-			existingDir: string = dirname(existing),
+		using tx = this.store.transaction();
+		const existingDir: string = dirname(existing),
 			existingDirNode = this.findINodeSync(tx, existingDir);
 
 		if (!existingDirNode.toStats().hasAccess(R_OK, cred)) {
@@ -424,13 +391,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 		node.nlink++;
 		newListing[basename(newpath)] = ino;
-		try {
-			tx.setSync(ino, node.data);
-			tx.setSync(newDirNode.ino, encodeDirListing(newListing));
-		} catch (e) {
-			tx.abortSync();
-			throw e;
-		}
+
+		tx.setSync(ino, node.data);
+		tx.setSync(newDirNode.ino, encodeDirListing(newListing));
 		tx.commitSync();
 	}
 
@@ -438,7 +401,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
 	public async checkRoot(): Promise<void> {
-		const tx = this.store.transaction();
+		await using tx = this.store.transaction();
 		if (await tx.get(rootIno)) {
 			return;
 		}
@@ -455,7 +418,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
 	public checkRootSync(): void {
-		const tx = this.store.transaction();
+		using tx = this.store.transaction();
 		if (tx.getSync(rootIno)) {
 			return;
 		}

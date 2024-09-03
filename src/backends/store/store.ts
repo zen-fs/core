@@ -38,7 +38,10 @@ export interface Store {
 export abstract class Transaction<T extends Store = Store> {
 	constructor(protected store: T) {}
 
-	protected aborted: boolean = false;
+	/**
+	 * Whether the transaction was commited or aborted
+	 */
+	protected done: boolean = false;
 
 	/**
 	 * Retrieves the data at the given key.
@@ -92,7 +95,7 @@ export abstract class Transaction<T extends Store = Store> {
 	public abstract commit(): Promise<void>;
 
 	public async [Symbol.asyncDispose]() {
-		if (this.aborted) {
+		if (this.done) {
 			return;
 		}
 
@@ -105,7 +108,7 @@ export abstract class Transaction<T extends Store = Store> {
 	public abstract commitSync(): void;
 
 	public [Symbol.dispose]() {
-		if (this.aborted) {
+		if (this.done) {
 			return;
 		}
 
@@ -127,6 +130,7 @@ export abstract class Transaction<T extends Store = Store> {
  * Transaction that implements asynchronous operations with synchronous ones
  */
 export abstract class SyncTransaction<T extends Store = Store> extends Transaction<T> {
+	/* eslint-disable @typescript-eslint/require-await */
 	public async get(ino: Ino): Promise<Uint8Array> {
 		return this.getSync(ino);
 	}
@@ -142,6 +146,7 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 	public async abort(): Promise<void> {
 		return this.abortSync();
 	}
+	/* eslint-enable @typescript-eslint/require-await */
 }
 
 /**
