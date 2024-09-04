@@ -323,11 +323,23 @@ export abstract class File {
  * An implementation of the File interface that operates on a file that is
  * completely in-memory. PreloadFiles are backed by a Uint8Array.
  *
- * @todo 'close' lever that disables functionality once closed.
  */
 export class PreloadFile<FS extends FileSystem> extends File {
+	/**
+	 * Current position
+	 */
 	protected _position: number = 0;
+
+	/**
+	 * Whether the file has changes which have not been written to the FS
+	 */
 	protected dirty: boolean = false;
+
+	/**
+	 * Whether the file is open or closed
+	 */
+	protected closed: boolean = false;
+
 	/**
 	 * Creates a file with the given path and, optionally, the given contents. Note
 	 * that, if contents is specified, it will be mutated by the file!
@@ -403,6 +415,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public async sync(): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.sync');
+		}
 		if (!this.dirty) {
 			return;
 		}
@@ -411,6 +426,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public syncSync(): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.sync');
+		}
 		if (!this.dirty) {
 			return;
 		}
@@ -419,17 +437,48 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public async close(): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.close');
+		}
 		await this.sync();
+		this.dispose();
 	}
 
 	public closeSync(): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.close');
+		}
 		this.syncSync();
+		this.dispose();
+	}
+
+	/**
+	 * Cleans up
+	 * This will *not* sync the file data to the FS
+	 */
+	protected dispose(force?: boolean): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.dispose');
+		}
+		if (this.dirty && !force) {
+			throw ErrnoError.With('EBUSY', this.path, 'File.dispose');
+		}
+
+		// @ts-expect-error 2790
+		delete this._buffer;
+		// @ts-expect-error 2790
+		delete this.stats;
+
+		this.closed = true;
 	}
 
 	/**
 	 * Asynchronous `stat`.
 	 */
 	public stat(): Promise<Stats> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.stat');
+		}
 		return Promise.resolve(new Stats(this.stats));
 	}
 
@@ -437,10 +486,16 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * Synchronous `stat`.
 	 */
 	public statSync(): Stats {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.stat');
+		}
 		return new Stats(this.stats);
 	}
 
 	protected _truncate(length: number): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.truncate');
+		}
 		this.dirty = true;
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
@@ -476,6 +531,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	protected _write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.write');
+		}
 		this.dirty = true;
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
@@ -540,6 +598,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	protected _read(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position?: number): number {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.read');
+		}
 		if (!isReadable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
 		}
@@ -599,6 +660,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @param mode the mode
 	 */
 	public async chmod(mode: number): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
+		}
 		this.dirty = true;
 		this.stats.chmod(mode);
 		await this.sync();
@@ -609,6 +673,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @param mode
 	 */
 	public chmodSync(mode: number): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
+		}
 		this.dirty = true;
 		this.stats.chmod(mode);
 		this.syncSync();
@@ -620,6 +687,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @param gid
 	 */
 	public async chown(uid: number, gid: number): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.chown');
+		}
 		this.dirty = true;
 		this.stats.chown(uid, gid);
 		await this.sync();
@@ -631,12 +701,18 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * @param gid
 	 */
 	public chownSync(uid: number, gid: number): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.chown');
+		}
 		this.dirty = true;
 		this.stats.chown(uid, gid);
 		this.syncSync();
 	}
 
 	public async utimes(atime: Date, mtime: Date): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.utimes');
+		}
 		this.dirty = true;
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
@@ -644,6 +720,9 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public utimesSync(atime: Date, mtime: Date): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.utimes');
+		}
 		this.dirty = true;
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
@@ -651,15 +730,29 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	}
 
 	public async _setType(type: FileType): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File._setType');
+		}
 		this.dirty = true;
 		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
 		await this.sync();
 	}
 
 	public _setTypeSync(type: FileType): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File._setType');
+		}
 		this.dirty = true;
 		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
 		this.syncSync();
+	}
+
+	public async [Symbol.asyncDispose]() {
+		await this.close();
+	}
+
+	public [Symbol.dispose]() {
+		this.closeSync();
 	}
 }
 
