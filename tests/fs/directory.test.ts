@@ -1,3 +1,4 @@
+import { ErrnoError } from '../../src/error.js';
 import { fs } from '../common.js';
 
 describe('Directory', () => {
@@ -13,6 +14,9 @@ describe('Directory', () => {
 		try {
 			await fs.promises.mkdir('/nested/dir');
 		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
 			expect(error.code).toBe('ENOENT');
 		}
 		expect(await fs.promises.exists('/nested/dir')).toBe(false);
@@ -46,6 +50,9 @@ describe('Directory', () => {
 		try {
 			fs.readdirSync('/two');
 		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
 			expect(error.code).toBe('EACCES');
 		}
 	});
@@ -57,6 +64,9 @@ describe('Directory', () => {
 		try {
 			await fs.promises.rmdir('/rmdirTest');
 		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
 			expect(error.code).toBe('ENOTEMPTY');
 		}
 	});
@@ -66,9 +76,12 @@ describe('Directory', () => {
 
 		try {
 			fs.readdirSync('a.js');
-		} catch (e) {
+		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
 			wasThrown = true;
-			expect(e.code).toBe('ENOTDIR');
+			expect(error.code).toBe('ENOTDIR');
 		}
 		expect(wasThrown).toBeTruthy();
 	});
@@ -76,9 +89,11 @@ describe('Directory', () => {
 	test('readdir on file', async () => {
 		try {
 			await fs.promises.readdir('a.js');
-		} catch (err) {
-			expect(err).toBeTruthy();
-			expect(err.code).toBe('ENOTDIR');
+		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
+			expect(error.code).toBe('ENOTDIR');
 		}
 	});
 
@@ -87,9 +102,12 @@ describe('Directory', () => {
 
 		try {
 			fs.readdirSync('/does/not/exist');
-		} catch (e) {
+		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
 			wasThrown = true;
-			expect(e.code).toBe('ENOENT');
+			expect(error.code).toBe('ENOENT');
 		}
 		expect(wasThrown).toBeTruthy();
 	});
@@ -97,9 +115,11 @@ describe('Directory', () => {
 	test('readdir on non-existant directory', async () => {
 		try {
 			await fs.promises.readdir('/does/not/exist');
-		} catch (err) {
-			expect(err).toBeTruthy();
-			expect(err.code).toBe('ENOENT');
+		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
+			expect(error.code).toBe('ENOENT');
 		}
 	});
 

@@ -199,7 +199,6 @@ function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): U
 	// Allocate buffer.
 	const data = new Uint8Array(stat.size);
 	file.readSync(data, 0, stat.size, 0);
-	file.closeSync();
 	return data;
 }
 

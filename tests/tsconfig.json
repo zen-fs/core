@@ -7,7 +7,8 @@
 		"lib": ["ESNext", "ESNext.Disposable"],
 		"moduleResolution": "NodeNext",
 		"esModuleInterop": true,
-		"allowSyntheticDefaultImports": true
+		"allowSyntheticDefaultImports": true,
+		"strict": true
 	},
 	"include": ["**/*.ts", "*.ts"]
 }

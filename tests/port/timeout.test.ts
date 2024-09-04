@@ -26,11 +26,14 @@ describe('Timeout', () => {
 				},
 			});
 		} catch (e) {
+			if (!(e instanceof ErrnoError)) {
+				fail(e);
+			}
 			error = e;
 		}
-		expect(error).toBeInstanceOf(ErrnoError);
-		expect(error.code).toBe('EIO');
-		expect(error.message).toContain('RPC Failed');
+		expect(error!).toBeInstanceOf(ErrnoError);
+		expect(error!.code).toBe('EIO');
+		expect(error!.message).toContain('RPC Failed');
 	});
 
 	test('Remote not attached', async () => {
@@ -39,10 +42,13 @@ describe('Timeout', () => {
 			await configureSingle({ backend: Port, port: port1, timeout: 100 });
 			await fs.promises.writeFile('/test', 'anything');
 		} catch (e) {
+			if (!(e instanceof ErrnoError)) {
+				fail(e);
+			}
 			error = e;
 		}
-		expect(error).toBeInstanceOf(ErrnoError);
-		expect(error.code).toBe('EIO');
-		expect(error.message).toContain('RPC Failed');
+		expect(error!).toBeInstanceOf(ErrnoError);
+		expect(error!.code).toBe('EIO');
+		expect(error!.message).toContain('RPC Failed');
 	});
 });

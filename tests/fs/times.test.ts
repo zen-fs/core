@@ -1,4 +1,5 @@
 import { wait } from 'utilium';
+import { ErrnoError } from '../../src/error.js';
 import { _toUnixTimestamp } from '../../src/utils.js';
 import { fs } from '../common.js';
 
@@ -16,11 +17,10 @@ describe('times', () => {
 		await fs.promises.utimes(path, atime, mtime);
 		expect_ok(path, atime, mtime);
 
-		try {
-			await fs.promises.utimes('foobarbaz', atime, mtime);
-		} catch (error) {
-			expect(error.code).toEqual('ENOENT');
-		}
+		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: ErrnoError) => {
+			expect(error).toBeInstanceOf(ErrnoError);
+			expect(error.code).toBe('ENOENT');
+		});
 
 		// don't close this fd
 		const handle = await fs.promises.open(path, 'r');
@@ -36,20 +36,29 @@ describe('times', () => {
 		try {
 			fs.futimesSync(handle.fd, atime, mtime);
 			expect_ok(handle.fd, atime, mtime);
-		} catch (err) {
-			expect(err.code).toEqual('ENOSYS');
+		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
+			expect(error.code).toBe('ENOSYS');
 		}
 
 		try {
 			fs.utimesSync('foobarbaz', atime, mtime);
-		} catch (err) {
-			expect(err.code).toEqual('ENOENT');
+		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
+			expect(error.code).toBe('ENOENT');
 		}
 
 		try {
 			fs.futimesSync(-1, atime, mtime);
-		} catch (err) {
-			expect(err.code).toEqual('EBADF');
+		} catch (error) {
+			if (!(error instanceof ErrnoError)) {
+				fail(error);
+			}
+			expect(error.code).toEqual('EBADF');
 		}
 	}
 

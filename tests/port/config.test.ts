@@ -22,7 +22,7 @@ describe('Remote FS with resolveRemoteMount', () => {
 	});
 
 	(port ? test : test.skip)('Configuration', async () => {
-		await configureSingle({ backend: Port, port, timeout: 300 });
+		await configureSingle({ backend: Port, port, timeout: 500 });
 	});
 
 	(port ? test : test.skip)('Write', async () => {

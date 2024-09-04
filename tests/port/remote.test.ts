@@ -9,7 +9,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 let port: Worker;
 
 try {
-	port = new Worker(dir + '/worker.js');
+	port = new Worker(dir + '/remote.worker.js');
 } catch (e) {
 	/* nothing */
 }
@@ -22,7 +22,7 @@ describe('Remote FS', () => {
 	});
 
 	(port ? test : test.skip)('Configuration', async () => {
-		await configureSingle({ backend: Port, port, timeout: 300 });
+		await configureSingle({ backend: Port, port, timeout: 500 });
 	});
 
 	(port ? test : test.skip)('Write', async () => {

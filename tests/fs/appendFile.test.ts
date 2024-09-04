@@ -6,11 +6,7 @@ const content = 'Sample content',
 describe('appendFile', () => {
 	test('create an empty file and add content', async () => {
 		const filename = 'append.txt';
-		try {
-			await fs.promises.appendFile(filename, content);
-		} catch (e) {
-			throw e.message;
-		}
+		await fs.promises.appendFile(filename, content);
 		const data = await fs.promises.readFile(filename, 'utf8');
 		expect(data).toEqual(content);
 	});

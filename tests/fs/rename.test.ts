@@ -1,3 +1,4 @@
+import { ErrnoError } from '../../src/error.js';
 import { fs } from '../common.js';
 
 describe('Rename', () => {
@@ -74,12 +75,10 @@ describe('Rename', () => {
 		await fs.promises.mkdir(dir);
 		await fs.promises.writeFile(file, 'file contents go here');
 
-		try {
-			await fs.promises.rename(file, dir);
-		} catch (e) {
-			// Some *native* file systems throw EISDIR, others throw EPERM.... accept both.
-			expect(e.code === 'EISDIR' || e.code === 'EPERM').toBe(true);
-		}
+		await fs.promises.rename(file, dir).catch((error: ErrnoError) => {
+			expect(error).toBeInstanceOf(ErrnoError);
+			expect(error.code === 'EISDIR' || error.code === 'EPERM').toBe(true);
+		});
 
 		// JV: Removing test for now. I noticed that you can do that in Node v0.12 on Mac,
 		// but it might be FS independent.
@@ -98,10 +97,9 @@ describe('Rename', () => {
 
 		await fs.promises.mkdir(renDir1);
 
-		try {
-			await fs.promises.rename(renDir1, renDir2);
-		} catch (e) {
-			expect(e.code).toBe('EBUSY');
-		}
+		await fs.promises.rename(renDir1, renDir2).catch((error: ErrnoError) => {
+			expect(error).toBeInstanceOf(ErrnoError);
+			expect(error.code).toBe('EBUSY');
+		});
 	});
 });

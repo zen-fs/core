@@ -1,19 +1,22 @@
-import type { ErrnoError } from '../../src/error.js';
+import { ErrnoError } from '../../src/error.js';
 import { fs } from '../common.js';
 
 const existingFile = '/exit.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function expectError(fn: (...args: any[]) => unknown, path: string, ...args: any[]) {
-	let error: ErrnoError;
+	let error: ErrnoError | undefined;
 	try {
 		await fn(path, ...args);
 	} catch (err) {
+		if (!(err instanceof ErrnoError)) {
+			fail(err);
+		}
 		error = err;
 	}
 	expect(error).toBeDefined();
-	expect(error.path).toBe(path);
-	expect(error.message).toContain(path);
+	expect(error?.path).toBe(path);
+	expect(error?.message).toContain(path);
 }
 
 describe('Error messages', () => {
