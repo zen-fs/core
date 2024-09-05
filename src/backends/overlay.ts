@@ -565,7 +565,7 @@ export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
 	}
 }
 
-export const Overlay = {
+const _Overlay = {
 	name: 'Overlay',
 
 	options: {
@@ -589,3 +589,7 @@ export const Overlay = {
 		return new OverlayFS(options);
 	},
 } as const satisfies Backend<OverlayFS, OverlayOptions>;
+type _overlay = typeof _Overlay;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface Overlay extends _overlay {}
+export const Overlay: Overlay = _Overlay;

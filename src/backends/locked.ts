@@ -241,7 +241,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 }
 
-export const Locked = {
+export const _Locked = {
 	name: 'Locked',
 	options: {
 		fs: {
@@ -262,3 +262,7 @@ export const Locked = {
 		return new LockedFS(fs);
 	},
 } satisfies Backend<LockedFS<FileSystem>, { fs: FileSystem }>;
+type _locked = typeof _Locked;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface Locked extends _locked {}
+export const Locked: Locked = _Locked;

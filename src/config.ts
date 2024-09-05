@@ -64,7 +64,9 @@ export async function resolveMountConfig<T extends Backend>(config: MountConfigu
 	return mount;
 }
 
-export type ConfigMounts = { [K in AbsolutePath]: Backend };
+export interface ConfigMounts {
+	[K: AbsolutePath]: Backend;
+}
 
 /**
  * Configuration

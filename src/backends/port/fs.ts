@@ -285,7 +285,7 @@ export function detachFS(port: RPC.Port, fs: FileSystem): void {
 	RPC.detach<FileOrFSRequest>(port, request => handleRequest(port, fs, request));
 }
 
-export const Port = {
+export const _Port = {
 	name: 'Port',
 
 	options: {
@@ -315,6 +315,10 @@ export const Port = {
 		return new PortFS(options);
 	},
 } satisfies Backend<PortFS, RPC.Options>;
+type _port = typeof _Port;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface Port extends _port {}
+export const Port: Port = _Port;
 
 export async function resolveRemoteMount<T extends Backend>(port: RPC.Port, config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
 	const stopAndReplay = RPC.catchMessages(port);

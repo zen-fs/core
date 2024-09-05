@@ -151,7 +151,7 @@ export class FetchFS extends IndexFS {
 	}
 }
 
-export const Fetch = {
+const _Fetch = {
 	name: 'Fetch',
 
 	options: {
@@ -175,3 +175,7 @@ export const Fetch = {
 		return new FetchFS(options);
 	},
 } as const satisfies Backend<FetchFS, FetchOptions>;
+type _fetch = typeof _Fetch;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface Fetch extends _fetch {}
+export const Fetch: Fetch = _Fetch;
