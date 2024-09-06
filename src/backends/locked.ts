@@ -84,8 +84,9 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 		}
 
 		// Non-null assertion: we already checked locks has path
-		this.locks.get(path)!.resolve();
+		const lock = this.locks.get(path)!;
 		this.locks.delete(path);
+		lock.resolve();
 		return true;
 	}
 
