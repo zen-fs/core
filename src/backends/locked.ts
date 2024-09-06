@@ -46,11 +46,7 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	 * @internal
 	 */
 	public async lock(path: string): Promise<MutexLock> {
-		if (this.locks.has(path)) {
-			// Non-null assertion: we already checked locks has path
-			await this.locks.get(path)!.promise;
-		}
-
+		await this.locks.get(path)?.promise;
 		return this.addLock(path);
 	}
 
