@@ -1,4 +1,3 @@
-import type { ExtractProperties } from 'utilium';
 import { type Cred } from './cred.js';
 import type { ErrnoError } from './error.js';
 import { type File } from './file.js';
