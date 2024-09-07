@@ -1,9 +1,9 @@
 import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
-import { ErrnoError, Errno } from '../error.js';
+import { Errno, ErrnoError } from '../error.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, type Stats } from '../stats.js';
-import { nop, normalizeMode, type Callback } from '../utils.js';
+import { normalizeMode, type Callback } from '../utils.js';
 import { R_OK } from './constants.js';
 import type { Dirent } from './dir.js';
 import { type Dir } from './dir.js';
@@ -11,6 +11,8 @@ import * as promises from './promises.js';
 import { fd2file } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher } from './watchers.js';
+
+const nop = () => {};
 
 /**
  * Asynchronous rename. No arguments other than a possible exception are given

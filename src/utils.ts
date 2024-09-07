@@ -279,11 +279,3 @@ export function normalizeOptions(
 		mode: normalizeMode('mode' in options ? options?.mode : null, mode),
 	};
 }
-
-/**
- * Do nothing
- * @internal
- */
-export function nop() {
-	// do nothing
-}
