@@ -7,8 +7,32 @@ import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
 import '../polyfills.js';
 
-export interface MutexLock extends PromiseWithResolvers<void> {
-	[Symbol.dispose](): void;
+export class MutexLock {
+	protected current = Promise.withResolvers<void>();
+
+	protected _isLocked: boolean = true;
+	public get isLocked(): boolean {
+		return this._isLocked;
+	}
+
+	public constructor(
+		public readonly path: string,
+		protected readonly previous?: MutexLock
+	) {}
+
+	public async done(): Promise<void> {
+		await this.previous?.done();
+		await this.current.promise;
+	}
+
+	public unlock(): void {
+		this.current.resolve();
+		this._isLocked = false;
+	}
+
+	public [Symbol.dispose](): void {
+		this.unlock();
+	}
 }
 
 /**
@@ -16,26 +40,25 @@ export interface MutexLock extends PromiseWithResolvers<void> {
  * For example, on an OverlayFS instance with an async lower
  * directory operations like rename and rmdir may involve multiple
  * requests involving both the upper and lower filesystems -- they
- * are not executed in a single atomic step.  OverlayFS uses this
- * LockedFS to avoid having to reason about the correctness of
+ * are not executed in a single atomic step. OverlayFS uses this
+ * to avoid having to reason about the correctness of
  * multiple requests interleaving.
  * @internal
  */
 export class LockedFS<FS extends FileSystem> implements FileSystem {
-	constructor(public readonly fs: FS) {}
+	public constructor(public readonly fs: FS) {}
 
 	/**
 	 * The current locks
 	 */
 	private locks: Map<string, MutexLock> = new Map();
 
+	/**
+	 * Adds a lock for a path
+	 */
 	protected addLock(path: string): MutexLock {
-		const lock: MutexLock = {
-			...Promise.withResolvers(),
-			[Symbol.dispose]: () => {
-				this.unlock(path);
-			},
-		};
+		const previous = this.locks.get(path);
+		const lock = new MutexLock(path, previous?.isLocked ? previous : undefined);
 		this.locks.set(path, lock);
 		return lock;
 	}
@@ -46,12 +69,10 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	 * @internal
 	 */
 	public async lock(path: string): Promise<MutexLock> {
-		if (this.locks.has(path)) {
-			// Non-null assertion: we already checked locks has path
-			await this.locks.get(path)!.promise;
-		}
-
-		return this.addLock(path);
+		const previous = this.locks.get(path);
+		const lock = this.addLock(path);
+		await previous?.done();
+		return lock;
 	}
 
 	/**
@@ -69,33 +90,11 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 
 	/**
-	 * Unlocks a path
-	 * @param path The path to lock
-	 * @param noThrow If true, an error will not be thrown if the path is already unlocked
-	 * @returns Whether the path was unlocked
-	 * @internal
-	 */
-	public unlock(path: string, noThrow: boolean = false): boolean {
-		if (!this.locks.has(path)) {
-			if (noThrow) {
-				return false;
-			}
-			throw new ErrnoError(Errno.EPERM, 'Can not unlock an already unlocked path', path);
-		}
-
-		// Non-null assertion: we already checked locks has path
-		const lock = this.locks.get(path)!;
-		this.locks.delete(path);
-		lock.resolve();
-		return true;
-	}
-
-	/**
 	 * Whether `path` is locked
 	 * @internal
 	 */
 	public isLocked(path: string): boolean {
-		return this.locks.has(path);
+		return !!this.locks.get(path)?.isLocked;
 	}
 
 	public async ready(): Promise<void> {

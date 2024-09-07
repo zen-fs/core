@@ -6,9 +6,9 @@ describe('LockFS mutex', () => {
 	const fs = new LockedFS(InMemory.create({ name: 'test' }));
 
 	test('lock/unlock', () => {
-		fs.lockSync('/test');
+		const lock = fs.lockSync('/test');
 		expect(fs.isLocked('/test')).toBe(true);
-		fs.unlock('/test');
+		lock.unlock();
 		expect(fs.isLocked('/test')).toBe(false);
 	});
 
@@ -16,23 +16,26 @@ describe('LockFS mutex', () => {
 		let lock1Resolved = false;
 		let lock2Resolved = false;
 
-		const lock1 = fs.lock('/queued').then(() => {
+		const lock1 = fs.lock('/queued').then(lock => {
 			lock1Resolved = true;
+			lock.unlock();
 		});
-		const lock2 = fs.lock('/queued').then(() => {
+		const lock2 = fs.lock('/queued').then(lock => {
 			lock2Resolved = true;
+			lock.unlock();
 		});
 
+		// Both locks are queued, so neither should be resolved initially
 		expect(lock1Resolved).toBe(false);
 		expect(lock2Resolved).toBe(false);
 
-		fs.unlock('/queued');
+		// Wait for the first lock to be resolved
 		await lock1;
 
 		expect(lock1Resolved).toBe(true);
 		expect(lock2Resolved).toBe(false);
 
-		fs.unlock('/queued');
+		// Wait for the second lock to be resolved
 		await lock2;
 
 		expect(lock1Resolved).toBe(true);
@@ -43,17 +46,13 @@ describe('LockFS mutex', () => {
 		let x = 1;
 
 		async function foo() {
-			await fs.lock('raceConditions');
+			const lock = await fs.lock('raceConditions');
 			await wait(100);
 			x++;
-			fs.unlock('raceConditions', true);
+			lock.unlock();
 		}
 
 		await Promise.all([foo(), foo(), foo()]);
 		expect(x).toBe(4);
-	});
-
-	test('Unlock without lock', async () => {
-		expect(() => fs.unlock('unlockWithoutLock')).toThrowError();
 	});
 });
