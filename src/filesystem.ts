@@ -181,7 +181,7 @@ export abstract class FileSystem {
 	public abstract readdirSync(path: string, cred: Cred): string[];
 
 	/**
-	 * Test whether or not the given path exists by checking with the file system.
+	 * Test whether or not the given path exists.
 	 */
 	public async exists(path: string, cred: Cred): Promise<boolean> {
 		try {
@@ -193,7 +193,7 @@ export abstract class FileSystem {
 	}
 
 	/**
-	 * Test whether or not the given path exists by checking with the file system.
+	 * Test whether or not the given path exists.
 	 */
 	public existsSync(path: string, cred: Cred): boolean {
 		try {
