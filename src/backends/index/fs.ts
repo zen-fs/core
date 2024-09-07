@@ -1,7 +1,8 @@
 import type { Cred } from '../../cred.js';
 import { ErrnoError, Errno } from '../../error.js';
 import { NoSyncFile, isWriteable, flagToMode } from '../../file.js';
-import { Readonly, FileSystem } from '../../filesystem.js';
+import { FileSystem } from '../../filesystem.js';
+import { Readonly } from '../../mixins/readonly.js';
 import type { Stats } from '../../stats.js';
 import { decode } from '../../utils.js';
 import type { IndexData } from './index.js';
