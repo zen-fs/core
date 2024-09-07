@@ -552,14 +552,6 @@ export class OverlayFS extends MutexedFS<UnmutexedOverlayFS> {
 	public getDeletionLog(): string {
 		return super.fs.getDeletionLog();
 	}
-
-	public resDeletionLog(): string {
-		return super.fs.getDeletionLog();
-	}
-
-	public unwrap(): UnmutexedOverlayFS {
-		return super.fs;
-	}
 }
 
 const _Overlay = {

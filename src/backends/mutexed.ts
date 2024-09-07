@@ -46,7 +46,12 @@ export class MutexLock {
  * @internal
  */
 export class MutexedFS<FS extends FileSystem> implements FileSystem {
-	public constructor(public readonly fs: FS) {}
+	public constructor(
+		/**
+		 * The unmutexed FS that is being wrapped
+		 */
+		public readonly fs: FS
+	) {}
 
 	/**
 	 * The current locks
