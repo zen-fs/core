@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
@@ -988,10 +989,13 @@ copyFile satisfies typeof promises.copyFile;
  * @param path The path to the directory.
  * @param options Options for opening the directory.
  * @returns A `Dir` object representing the opened directory.
+ * @todo Use options
  */
 export async function opendir(path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
 	path = normalizePath(path);
-	return new Dir(path);
+	const dir = new Dir(path);
+	await dir._loadEntries();
+	return dir;
 }
 opendir satisfies typeof promises.opendir;
 

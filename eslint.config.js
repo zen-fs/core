@@ -30,5 +30,5 @@ export default tseslint.config(
 			'@typescript-eslint/no-unsafe-assignment': 'off',
 		},
 	},
-	{ name: 'Ignore test fixtures', ignores: ['tests/fixtures'] }
+	{ name: 'Ignores', ignores: ['tests/{fixtures,coverage}'] }
 );

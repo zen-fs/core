@@ -57,15 +57,22 @@ export class Dir implements _Dir {
 
 	protected _entries: Dirent[] = [];
 
-	constructor(public readonly path: string) {}
+	/**
+	 * @internal
+	 */
+	public async _loadEntries() {
+		this._entries ??= await readdir(this.path, { withFileTypes: true });
+	}
+
+	public constructor(public readonly path: string) {}
 
 	/**
 	 * Asynchronously close the directory's underlying resource handle.
 	 * Subsequent reads will result in errors.
 	 */
-	close(): Promise<void>;
-	close(cb: Callback): void;
-	close(cb?: Callback): void | Promise<void> {
+	public close(): Promise<void>;
+	public close(cb: Callback): void;
+	public close(cb?: Callback): void | Promise<void> {
 		this.closed = true;
 		if (!cb) {
 			return Promise.resolve();
@@ -77,14 +84,12 @@ export class Dir implements _Dir {
 	 * Synchronously close the directory's underlying resource handle.
 	 * Subsequent reads will result in errors.
 	 */
-	closeSync(): void {
+	public closeSync(): void {
 		this.closed = true;
 	}
 
 	protected async _read(): Promise<Dirent | null> {
-		if (!this._entries) {
-			this._entries = await readdir(this.path, { withFileTypes: true });
-		}
+		await this._loadEntries();
 		if (!this._entries.length) {
 			return null;
 		}
@@ -96,9 +101,9 @@ export class Dir implements _Dir {
 	 * After the read is completed, a value is returned that will be resolved with an `Dirent`, or `null` if there are no more directory entries to read.
 	 * Directory entries returned by this function are in no particular order as provided by the operating system's underlying directory mechanisms.
 	 */
-	read(): Promise<Dirent | null>;
-	read(cb: Callback<[Dirent | null]>): void;
-	read(cb?: Callback<[Dirent | null]>): void | Promise<Dirent | null> {
+	public read(): Promise<Dirent | null>;
+	public read(cb: Callback<[Dirent | null]>): void;
+	public read(cb?: Callback<[Dirent | null]>): void | Promise<Dirent | null> {
 		if (!cb) {
 			return this._read();
 		}
@@ -111,10 +116,8 @@ export class Dir implements _Dir {
 	 * If there are no more directory entries to read, null will be returned.
 	 * Directory entries returned by this function are in no particular order as provided by the operating system's underlying directory mechanisms.
 	 */
-	readSync(): Dirent | null {
-		if (!this._entries) {
-			this._entries = readdirSync(this.path, { withFileTypes: true });
-		}
+	public readSync(): Dirent | null {
+		this._entries ??= readdirSync(this.path, { withFileTypes: true });
 		if (!this._entries.length) {
 			return null;
 		}
@@ -124,7 +127,7 @@ export class Dir implements _Dir {
 	/**
 	 * Asynchronously iterates over the directory via `readdir(3)` until all entries have been read.
 	 */
-	[Symbol.asyncIterator](): AsyncIterableIterator<Dirent> {
+	public [Symbol.asyncIterator](): AsyncIterableIterator<Dirent> {
 		const _this = this;
 
 		return {
