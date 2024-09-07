@@ -6,7 +6,7 @@ import { BigIntStats, type Stats } from '../stats.js';
 import { normalizeMode, type Callback } from '../utils.js';
 import { R_OK } from './constants.js';
 import type { Dirent } from './dir.js';
-import { type Dir } from './dir.js';
+import type { Dir } from './dir.js';
 import * as promises from './promises.js';
 import { fd2file } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';

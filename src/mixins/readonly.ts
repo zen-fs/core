@@ -1,8 +1,8 @@
-import { type Cred } from '../cred.js';
+import type { Cred } from '../cred.js';
 import { Errno, ErrnoError } from '../error.js';
-import { type File } from '../file.js';
-import { type Stats } from '../stats.js';
+import type { File } from '../file.js';
 import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
+import type { Stats } from '../stats.js';
 import type { Mixin } from './shared.js';
 
 /**

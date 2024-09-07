@@ -1,6 +1,6 @@
-import { type Cred } from '../cred.js';
-import { type File } from '../file.js';
-import { type Stats } from '../stats.js';
+import type { Cred } from '../cred.js';
+import type { File } from '../file.js';
+import type { Stats } from '../stats.js';
 import type { FileSystem } from '../filesystem.js';
 import type { Mixin, _AsyncFSMethods } from './shared.js';
 

@@ -1,6 +1,6 @@
-import { type Cred } from './cred.js';
+import type { Cred } from './cred.js';
 import type { ErrnoError } from './error.js';
-import { type File } from './file.js';
+import type { File } from './file.js';
 import { ZenFsType, type Stats } from './stats.js';
 
 export type FileContents = ArrayBufferView | string;
