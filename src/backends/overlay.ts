@@ -37,15 +37,15 @@ export interface OverlayOptions {
  *
  * @internal
  */
-export class UnlockedOverlayFS extends FileSystem {
+export class UnmutexedOverlayFS extends FileSystem {
 	async ready(): Promise<void> {
-		await this._readable.ready();
-		await this._writable.ready();
+		await this.readable.ready();
+		await this.writable.ready();
 		await this._ready;
 	}
 
-	private _writable: FileSystem;
-	private _readable: FileSystem;
+	public readonly writable: FileSystem;
+	public readonly readable: FileSystem;
 	private _isInitialized: boolean = false;
 	private _deletedFiles: Set<string> = new Set();
 	private _deleteLog: string = '';
@@ -61,9 +61,9 @@ export class UnlockedOverlayFS extends FileSystem {
 
 	constructor({ writable, readable }: OverlayOptions) {
 		super();
-		this._writable = writable;
-		this._readable = readable;
-		if (this._writable.metadata().readonly) {
+		this.writable = writable;
+		this.readable = readable;
+		if (this.writable.metadata().readonly) {
 			throw new ErrnoError(Errno.EINVAL, 'Writable file system must be writable.');
 		}
 		this._ready = this._initialize();
@@ -76,26 +76,19 @@ export class UnlockedOverlayFS extends FileSystem {
 		};
 	}
 
-	public getOverlayedFileSystems(): OverlayOptions {
-		return {
-			readable: this._readable,
-			writable: this._writable,
-		};
-	}
-
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		const cred = stats.cred(0, 0);
 		await this.createParentDirectories(path, cred);
-		if (!(await this._writable.exists(path, cred))) {
-			await this._writable.createFile(path, 'w', 0o644, cred);
+		if (!(await this.writable.exists(path, cred))) {
+			await this.writable.createFile(path, 'w', 0o644, cred);
 		}
-		await this._writable.sync(path, data, stats);
+		await this.writable.sync(path, data, stats);
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		const cred = stats.cred(0, 0);
 		this.createParentDirectoriesSync(path, cred);
-		this._writable.syncSync(path, data, stats);
+		this.writable.syncSync(path, data, stats);
 	}
 
 	/**
@@ -109,7 +102,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 		// Read deletion log, process into metadata.
 		try {
-			const file = await this._writable.openFile(deletionLogPath, parseFlag('r'), rootCred);
+			const file = await this.writable.openFile(deletionLogPath, parseFlag('r'), rootCred);
 			const { size } = await file.stat();
 			const { buffer } = await file.read(new Uint8Array(size));
 			this._deleteLog = decode(buffer);
@@ -138,7 +131,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this.checkPath(newPath);
 
 		try {
-			await this._writable.rename(oldPath, newPath, cred);
+			await this.writable.rename(oldPath, newPath, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(oldPath)) {
 				throw ErrnoError.With('ENOENT', oldPath, 'rename');
@@ -152,7 +145,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		this.checkPath(newPath);
 
 		try {
-			this._writable.renameSync(oldPath, newPath, cred);
+			this.writable.renameSync(oldPath, newPath, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(oldPath)) {
 				throw ErrnoError.With('ENOENT', oldPath, 'rename');
@@ -163,12 +156,12 @@ export class UnlockedOverlayFS extends FileSystem {
 	public async stat(path: string, cred: Cred): Promise<Stats> {
 		this.checkInitialized();
 		try {
-			return await this._writable.stat(path, cred);
+			return await this.writable.stat(path, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
-			const oldStat = new Stats(await this._readable.stat(path, cred));
+			const oldStat = new Stats(await this.readable.stat(path, cred));
 			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type
 			oldStat.mode |= 0o222;
 			return oldStat;
@@ -178,12 +171,12 @@ export class UnlockedOverlayFS extends FileSystem {
 	public statSync(path: string, cred: Cred): Stats {
 		this.checkInitialized();
 		try {
-			return this._writable.statSync(path, cred);
+			return this.writable.statSync(path, cred);
 		} catch (e) {
 			if (this._deletedFiles.has(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
-			const oldStat = new Stats(this._readable.statSync(path, cred));
+			const oldStat = new Stats(this.readable.statSync(path, cred));
 			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type.
 			oldStat.mode |= 0o222;
 			return oldStat;
@@ -191,22 +184,22 @@ export class UnlockedOverlayFS extends FileSystem {
 	}
 
 	public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
-		if (await this._writable.exists(path, cred)) {
-			return this._writable.openFile(path, flag, cred);
+		if (await this.writable.exists(path, cred)) {
+			return this.writable.openFile(path, flag, cred);
 		}
 		// Create an OverlayFile.
-		const file = await this._readable.openFile(path, parseFlag('r'), cred);
+		const file = await this.readable.openFile(path, parseFlag('r'), cred);
 		const stats = new Stats(await file.stat());
 		const { buffer } = await file.read(new Uint8Array(stats.size));
 		return new PreloadFile(this, path, flag, stats, buffer);
 	}
 
 	public openFileSync(path: string, flag: string, cred: Cred): File {
-		if (this._writable.existsSync(path, cred)) {
-			return this._writable.openFileSync(path, flag, cred);
+		if (this.writable.existsSync(path, cred)) {
+			return this.writable.openFileSync(path, flag, cred);
 		}
 		// Create an OverlayFile.
-		const file = this._readable.openFileSync(path, parseFlag('r'), cred);
+		const file = this.readable.openFileSync(path, parseFlag('r'), cred);
 		const stats = new Stats(file.statSync());
 		const data = new Uint8Array(stats.size);
 		file.readSync(data);
@@ -215,24 +208,24 @@ export class UnlockedOverlayFS extends FileSystem {
 
 	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
 		this.checkInitialized();
-		await this._writable.createFile(path, flag, mode, cred);
+		await this.writable.createFile(path, flag, mode, cred);
 		return this.openFile(path, flag, cred);
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
 		this.checkInitialized();
-		this._writable.createFileSync(path, flag, mode, cred);
+		this.writable.createFileSync(path, flag, mode, cred);
 		return this.openFileSync(path, flag, cred);
 	}
 
 	public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
 		this.checkInitialized();
-		await this._writable.link(srcpath, dstpath, cred);
+		await this.writable.link(srcpath, dstpath, cred);
 	}
 
 	public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
 		this.checkInitialized();
-		this._writable.linkSync(srcpath, dstpath, cred);
+		this.writable.linkSync(srcpath, dstpath, cred);
 	}
 
 	public async unlink(path: string, cred: Cred): Promise<void> {
@@ -242,8 +235,8 @@ export class UnlockedOverlayFS extends FileSystem {
 			throw ErrnoError.With('ENOENT', path, 'unlink');
 		}
 
-		if (await this._writable.exists(path, cred)) {
-			await this._writable.unlink(path, cred);
+		if (await this.writable.exists(path, cred)) {
+			await this.writable.unlink(path, cred);
 		}
 
 		// if it still exists add to the delete log
@@ -259,8 +252,8 @@ export class UnlockedOverlayFS extends FileSystem {
 			throw ErrnoError.With('ENOENT', path, 'unlink');
 		}
 
-		if (this._writable.existsSync(path, cred)) {
-			this._writable.unlinkSync(path, cred);
+		if (this.writable.existsSync(path, cred)) {
+			this.writable.unlinkSync(path, cred);
 		}
 
 		// if it still exists add to the delete log
@@ -274,8 +267,8 @@ export class UnlockedOverlayFS extends FileSystem {
 		if (!(await this.exists(path, cred))) {
 			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
-		if (await this._writable.exists(path, cred)) {
-			await this._writable.rmdir(path, cred);
+		if (await this.writable.exists(path, cred)) {
+			await this.writable.rmdir(path, cred);
 		}
 		if (await this.exists(path, cred)) {
 			// Check if directory is empty.
@@ -292,8 +285,8 @@ export class UnlockedOverlayFS extends FileSystem {
 		if (!this.existsSync(path, cred)) {
 			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
-		if (this._writable.existsSync(path, cred)) {
-			this._writable.rmdirSync(path, cred);
+		if (this.writable.existsSync(path, cred)) {
+			this.writable.rmdirSync(path, cred);
 		}
 		if (this.existsSync(path, cred)) {
 			// Check if directory is empty.
@@ -312,7 +305,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
 		await this.createParentDirectories(path, cred);
-		await this._writable.mkdir(path, mode, cred);
+		await this.writable.mkdir(path, mode, cred);
 	}
 
 	public mkdirSync(path: string, mode: number, cred: Cred): void {
@@ -322,7 +315,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
 		this.createParentDirectoriesSync(path, cred);
-		this._writable.mkdirSync(path, mode, cred);
+		this.writable.mkdirSync(path, mode, cred);
 	}
 
 	public async readdir(path: string, cred: Cred): Promise<string[]> {
@@ -335,12 +328,12 @@ export class UnlockedOverlayFS extends FileSystem {
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
 		const contents: string[] = [];
 		try {
-			contents.push(...(await this._writable.readdir(path, cred)));
+			contents.push(...(await this.writable.readdir(path, cred)));
 		} catch (e) {
 			// NOP.
 		}
 		try {
-			contents.push(...(await this._readable.readdir(path, cred)).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
+			contents.push(...(await this.readable.readdir(path, cred)).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
 		} catch (e) {
 			// NOP.
 		}
@@ -362,12 +355,12 @@ export class UnlockedOverlayFS extends FileSystem {
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
 		let contents: string[] = [];
 		try {
-			contents = contents.concat(this._writable.readdirSync(path, cred));
+			contents = contents.concat(this.writable.readdirSync(path, cred));
 		} catch (e) {
 			// NOP.
 		}
 		try {
-			contents = contents.concat(this._readable.readdirSync(path, cred).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
+			contents = contents.concat(this.readable.readdirSync(path, cred).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
 		} catch (e) {
 			// NOP.
 		}
@@ -391,7 +384,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			return;
 		}
 		this._deleteLogUpdatePending = true;
-		const log = await this._writable.openFile(deletionLogPath, parseFlag('w'), cred);
+		const log = await this.writable.openFile(deletionLogPath, parseFlag('w'), cred);
 		try {
 			await log.write(encode(this._deleteLog));
 			if (this._deleteLogUpdateNeeded) {
@@ -445,21 +438,21 @@ export class UnlockedOverlayFS extends FileSystem {
 	private createParentDirectoriesSync(path: string, cred: Cred): void {
 		let parent = dirname(path),
 			toCreate: string[] = [];
-		while (!this._writable.existsSync(parent, cred)) {
+		while (!this.writable.existsSync(parent, cred)) {
 			toCreate.push(parent);
 			parent = dirname(parent);
 		}
 		toCreate = toCreate.reverse();
 
 		for (const p of toCreate) {
-			this._writable.mkdirSync(p, this.statSync(p, cred).mode, cred);
+			this.writable.mkdirSync(p, this.statSync(p, cred).mode, cred);
 		}
 	}
 
 	private async createParentDirectories(path: string, cred: Cred): Promise<void> {
 		let parent = dirname(path),
 			toCreate: string[] = [];
-		while (!(await this._writable.exists(parent, cred))) {
+		while (!(await this.writable.exists(parent, cred))) {
 			toCreate.push(parent);
 			parent = dirname(parent);
 		}
@@ -467,7 +460,7 @@ export class UnlockedOverlayFS extends FileSystem {
 
 		for (const p of toCreate) {
 			const stats = await this.stat(p, cred);
-			await this._writable.mkdir(p, stats.mode, cred);
+			await this.writable.mkdir(p, stats.mode, cred);
 		}
 	}
 
@@ -480,7 +473,7 @@ export class UnlockedOverlayFS extends FileSystem {
 		if (!this.existsSync(path, cred)) {
 			throw ErrnoError.With('ENOENT', path, 'operateOnWriteable');
 		}
-		if (!this._writable.existsSync(path, cred)) {
+		if (!this.writable.existsSync(path, cred)) {
 			// File is on readable storage. Copy to writable storage before
 			// changing its mode.
 			this.copyToWritableSync(path, cred);
@@ -492,7 +485,7 @@ export class UnlockedOverlayFS extends FileSystem {
 			throw ErrnoError.With('ENOENT', path, 'operateOnWritable');
 		}
 
-		if (!(await this._writable.exists(path, cred))) {
+		if (!(await this.writable.exists(path, cred))) {
 			return this.copyToWritable(path, cred);
 		}
 	}
@@ -504,15 +497,15 @@ export class UnlockedOverlayFS extends FileSystem {
 	private copyToWritableSync(path: string, cred: Cred): void {
 		const stats = this.statSync(path, cred);
 		if (stats.isDirectory()) {
-			this._writable.mkdirSync(path, stats.mode, cred);
+			this.writable.mkdirSync(path, stats.mode, cred);
 			return;
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = this._readable.openFileSync(path, parseFlag('r'), cred);
+		const readable = this.readable.openFileSync(path, parseFlag('r'), cred);
 		readable.readSync(data);
 		readable.closeSync();
-		const writable = this._writable.openFileSync(path, parseFlag('w'), cred);
+		const writable = this.writable.openFileSync(path, parseFlag('w'), cred);
 		writable.writeSync(data);
 		writable.closeSync();
 	}
@@ -520,15 +513,15 @@ export class UnlockedOverlayFS extends FileSystem {
 	private async copyToWritable(path: string, cred: Cred): Promise<void> {
 		const stats = await this.stat(path, cred);
 		if (stats.isDirectory()) {
-			await this._writable.mkdir(path, stats.mode, cred);
+			await this.writable.mkdir(path, stats.mode, cred);
 			return;
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = await this._readable.openFile(path, parseFlag('r'), cred);
+		const readable = await this.readable.openFile(path, parseFlag('r'), cred);
 		await readable.read(data);
 		await readable.close();
-		const writable = await this._writable.openFile(path, parseFlag('w'), cred);
+		const writable = await this.writable.openFile(path, parseFlag('w'), cred);
 		await writable.write(data);
 		await writable.close();
 	}
@@ -540,16 +533,20 @@ export class UnlockedOverlayFS extends FileSystem {
  * file system.
  * @internal
  */
-export class OverlayFS extends MutexedFS<UnlockedOverlayFS> {
+export class OverlayFS extends MutexedFS<UnmutexedOverlayFS> {
 	/**
 	 * @param options The options to initialize the OverlayFS with
 	 */
 	constructor(options: OverlayOptions) {
-		super(new UnlockedOverlayFS(options));
+		super(new UnmutexedOverlayFS(options));
 	}
 
-	public getOverlayedFileSystems(): OverlayOptions {
-		return super.fs.getOverlayedFileSystems();
+	public get readable() {
+		return this.fs.readable;
+	}
+
+	public get writable() {
+		return this.fs.writable;
 	}
 
 	public getDeletionLog(): string {
@@ -560,7 +557,7 @@ export class OverlayFS extends MutexedFS<UnlockedOverlayFS> {
 		return super.fs.getDeletionLog();
 	}
 
-	public unwrap(): UnlockedOverlayFS {
+	public unwrap(): UnmutexedOverlayFS {
 		return super.fs;
 	}
 }
