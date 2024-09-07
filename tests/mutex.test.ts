@@ -1,9 +1,11 @@
 import { wait } from 'utilium';
-import { InMemory } from '../src/backends/memory.js';
-import { MutexedFS } from '../src/backends/mutexed.js';
+import { Mutexed } from '../src/mixins/mutexed.js';
+import { StoreFS } from '../src/backends/store/fs.js';
+import { InMemoryStore } from '../src/backends/memory.js';
 
 describe('LockFS mutex', () => {
-	const fs = new MutexedFS(InMemory.create({ name: 'test' }));
+	const fs = new (Mutexed(StoreFS))(new InMemoryStore('test'));
+	fs.checkRootSync();
 
 	test('lock/unlock', () => {
 		const lock = fs.lockSync('/test');

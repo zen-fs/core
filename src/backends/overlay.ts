@@ -4,7 +4,7 @@ import { ErrnoError, Errno } from '../error.js';
 import type { File } from '../file.js';
 import { PreloadFile, parseFlag } from '../file.js';
 import { Stats } from '../stats.js';
-import { MutexedFS } from './mutexed.js';
+import { Mutexed } from '../mixins/mutexed.js';
 import { dirname } from '../emulation/path.js';
 import type { Cred } from '../cred.js';
 import { rootCred } from '../cred.js';
@@ -533,26 +533,7 @@ export class UnmutexedOverlayFS extends FileSystem {
  * file system.
  * @internal
  */
-export class OverlayFS extends MutexedFS<UnmutexedOverlayFS> {
-	/**
-	 * @param options The options to initialize the OverlayFS with
-	 */
-	constructor(options: OverlayOptions) {
-		super(new UnmutexedOverlayFS(options));
-	}
-
-	public get readable() {
-		return this.fs.readable;
-	}
-
-	public get writable() {
-		return this.fs.writable;
-	}
-
-	public getDeletionLog(): string {
-		return super.fs.getDeletionLog();
-	}
-}
+export class OverlayFS extends Mutexed(UnmutexedOverlayFS) {}
 
 const _Overlay = {
 	name: 'Overlay',
