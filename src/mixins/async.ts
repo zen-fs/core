@@ -166,21 +166,21 @@ export function Async<T extends typeof FileSystem>(
 		protected async crossCopy(path: string): Promise<void> {
 			this.checkSync(path, 'crossCopy');
 			const stats = await this.stat(path, rootCred);
-			if (stats.isDirectory()) {
-				if (path !== '/') {
-					const stats = await this.stat(path, rootCred);
-					this._sync.mkdirSync(path, stats.mode, stats.cred());
-				}
-				const files = await this.readdir(path, rootCred);
-				for (const file of files) {
-					await this.crossCopy(join(path, file));
-				}
-			} else {
+			if (!stats.isDirectory()) {
 				await using asyncFile = await this.openFile(path, parseFlag('r'), rootCred);
 				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats.cred());
 				const buffer = new Uint8Array(stats.size);
 				await asyncFile.read(buffer);
 				syncFile.writeSync(buffer, 0, stats.size);
+				return;
+			}
+			if (path !== '/') {
+				const stats = await this.stat(path, rootCred);
+				this._sync.mkdirSync(path, stats.mode, stats.cred());
+			}
+			const files = await this.readdir(path, rootCred);
+			for (const file of files) {
+				await this.crossCopy(join(path, file));
 			}
 		}
 
