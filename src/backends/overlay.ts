@@ -4,7 +4,7 @@ import { ErrnoError, Errno } from '../error.js';
 import type { File } from '../file.js';
 import { PreloadFile, parseFlag } from '../file.js';
 import { Stats } from '../stats.js';
-import { LockedFS } from './locked.js';
+import { MutexedFS } from './mutexed.js';
 import { dirname } from '../emulation/path.js';
 import type { Cred } from '../cred.js';
 import { rootCred } from '../cred.js';
@@ -33,7 +33,7 @@ export interface OverlayOptions {
  * OverlayFS makes a read-only filesystem writable by storing writes on a second, writable file system.
  * Deletes are persisted via metadata stored on the writable file system.
  *
- * This class contains no locking whatsoever. It is wrapped in a LockedFS to prevent races.
+ * This class contains no locking whatsoever. It is mutexed to prevent races.
  *
  * @internal
  */
@@ -540,7 +540,7 @@ export class UnlockedOverlayFS extends FileSystem {
  * file system.
  * @internal
  */
-export class OverlayFS extends LockedFS<UnlockedOverlayFS> {
+export class OverlayFS extends MutexedFS<UnlockedOverlayFS> {
 	/**
 	 * @param options The options to initialize the OverlayFS with
 	 */

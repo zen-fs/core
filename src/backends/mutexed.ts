@@ -45,7 +45,7 @@ export class MutexLock {
  * multiple requests interleaving.
  * @internal
  */
-export class LockedFS<FS extends FileSystem> implements FileSystem {
+export class MutexedFS<FS extends FileSystem> implements FileSystem {
 	public constructor(public readonly fs: FS) {}
 
 	/**
@@ -241,8 +241,8 @@ export class LockedFS<FS extends FileSystem> implements FileSystem {
 	}
 }
 
-export const _Locked = {
-	name: 'Locked',
+export const _Mutexed = {
+	name: 'Mutexed',
 	options: {
 		fs: {
 			type: 'object',
@@ -250,7 +250,7 @@ export const _Locked = {
 			description: '',
 			validator(fs) {
 				if (!(fs instanceof FileSystem)) {
-					throw new ErrnoError(Errno.EINVAL, 'fs passed to LockedFS must be a FileSystem');
+					throw new ErrnoError(Errno.EINVAL, 'Not a valid FileSystem');
 				}
 			},
 		},
@@ -259,10 +259,10 @@ export const _Locked = {
 		return true;
 	},
 	create({ fs }) {
-		return new LockedFS(fs);
+		return new MutexedFS(fs);
 	},
-} satisfies Backend<LockedFS<FileSystem>, { fs: FileSystem }>;
-type _locked = typeof _Locked;
+} satisfies Backend<MutexedFS<FileSystem>, { fs: FileSystem }>;
+type _mutexed = typeof _Mutexed;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface Locked extends _locked {}
-export const Locked: Locked = _Locked;
+interface Mutexed extends _mutexed {}
+export const Mutexed: Mutexed = _Mutexed;

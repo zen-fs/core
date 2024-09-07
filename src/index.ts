@@ -3,7 +3,7 @@ export * from './backends/port/fs.js';
 export * from './backends/fetch.js';
 export * from './backends/memory.js';
 export * from './backends/index/fs.js';
-export * from './backends/locked.js';
+export * from './backends/mutexed.js';
 export * from './backends/overlay.js';
 export * from './backends/store/fs.js';
 export * from './backends/store/simple.js';
