@@ -40,7 +40,8 @@
 	"exports": {
 		".": "./dist/index.js",
 		"./*": "./dist/*",
-		"./promises": "./dist/emulation/promises.js"
+		"./promises": "./dist/emulation/promises.js",
+		"./mixins": "./dist/mixins/index.js"
 	},
 	"scripts": {
 		"format": "prettier --write .",
