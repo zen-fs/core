@@ -2,7 +2,7 @@ export * from './error.js';
 export * from './backends/port/fs.js';
 export * from './backends/fetch.js';
 export * from './backends/memory.js';
-export * from './backends/index/fs.js';
+export * from './backends/file_index.js';
 export * from './backends/overlay.js';
 export * from './backends/store/fs.js';
 export * from './backends/store/simple.js';
