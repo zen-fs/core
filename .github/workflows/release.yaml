@@ -22,7 +22,7 @@ jobs:
             - name: Setup npm authenication
               uses: actions/setup-node@v4
               with:
-                  node-version: 22.5.1
+                  node-version: 22
                   registry-url: https://registry.npmjs.org/
 
             - name: Install dependencies
