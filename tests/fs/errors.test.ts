@@ -22,6 +22,11 @@ async function expectError(fn: (...args: any[]) => unknown, path: string, ...arg
 describe('Error messages', () => {
 	const path = '/non-existent';
 
+	fs.promises.stat(path).catch((error: ErrnoError) => {
+		expect(error.toString()).toBe(error.message);
+		expect(error.bufferSize()).toBe(4 + JSON.stringify(error.toJSON()).length);
+	});
+
 	test('stat', () => expectError(fs.promises.stat, path));
 	test('mkdir', () => expectError(fs.promises.mkdir, existingFile, 0o666));
 	test('rmdir', () => expectError(fs.promises.rmdir, path));

@@ -284,7 +284,7 @@ export class ErrnoError extends Error implements NodeJS.ErrnoException {
 	}
 
 	/**
-	 * @return A friendly error message.
+	 * @returns A friendly error message.
 	 */
 	public toString(): string {
 		return this.message;
