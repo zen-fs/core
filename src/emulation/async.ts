@@ -826,7 +826,7 @@ export function createReadStream(path: fs.PathLike, _options?: BufferEncoding | 
 			handle
 				?.close()
 				.then(() => callback(error))
-				.catch(callback);
+				.catch(nop);
 		},
 	});
 
