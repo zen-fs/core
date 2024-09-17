@@ -64,6 +64,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		 * The current locks
 		 */
 		private locks: Map<string, MutexLock> = new Map();
+		private inLockedThread: boolean = false;
 
 		/**
 		 * Adds a lock for a path
@@ -81,10 +82,13 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		 * @internal
 		 */
 		public async lock(path: string): Promise<MutexLock> {
-			const previous = this.locks.get(path);
-			const lock = this.addLock(path);
-			await previous?.done();
-			return lock;
+			if(this.inLockedThread) {
+				const previous = this.locks.get(path);
+				this.inLockedThread = false;
+				const lock = this.addLock(path);
+				await previous?.done();
+				return lock;
+			} else return this.locks.get(path)!
 		}
 
 		/**
