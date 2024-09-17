@@ -3,14 +3,14 @@ import type * as fs from 'node:fs';
 import { Errno, ErrnoError } from '../error.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, type Stats } from '../stats.js';
-import { normalizeMode, type Callback } from '../utils.js';
+import { normalizeMode, normalizePath, type Callback } from '../utils.js';
 import { R_OK } from './constants.js';
 import type { Dirent } from './dir.js';
 import type { Dir } from './dir.js';
 import * as promises from './promises.js';
 import { fd2file } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
-import { FSWatcher } from './watchers.js';
+import { FSWatcher, StatWatcher } from './watchers.js';
 
 const nop = () => {};
 
@@ -673,25 +673,85 @@ export function access(path: fs.PathLike, cbMode: number | Callback, cb: Callbac
 }
 access satisfies Omit<typeof fs.access, '__promisify__'>;
 
+const statWatchers: Map<string, { watcher: StatWatcher; listeners: Set<(curr: Stats, prev: Stats) => void> }> = new Map();
+
 /**
- * @todo Implement
+ * Watch for changes on a file. The callback listener will be called each time the file is accessed.
+ *
+ * The `options` argument may be omitted. If provided, it should be an object with a `persistent` boolean and an `interval` number specifying the polling interval in milliseconds.
+ *
+ * When a change is detected, the `listener` callback is called with the current and previous `Stats` objects.
+ *
+ * @param path The path to the file to watch.
+ * @param options Optional options object specifying `persistent` and `interval`.
+ * @param listener The callback listener to be called when the file changes.
  */
 export function watchFile(path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(path: fs.PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(
 	path: fs.PathLike,
 	optsListener: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
-	listener: (curr: Stats, prev: Stats) => void = nop
+	listener?: (curr: Stats, prev: Stats) => void
 ): void {
-	throw ErrnoError.With('ENOSYS', path.toString(), 'watchFile');
+	const normalizedPath = normalizePath(path.toString());
+	const options: { persistent?: boolean; interval?: number } = typeof optsListener != 'function' ? optsListener : {};
+
+	if (typeof optsListener === 'function') {
+		listener = optsListener;
+	}
+
+	if (!listener) {
+		throw new ErrnoError(Errno.EINVAL, 'No listener specified', path.toString(), 'watchFile');
+	}
+
+	if (statWatchers.has(normalizedPath)) {
+		const entry = statWatchers.get(normalizedPath);
+		if (entry) {
+			entry.listeners.add(listener);
+		}
+		return;
+	}
+
+	const watcher = new StatWatcher(normalizedPath, options);
+	watcher.on('change', (curr: Stats, prev: Stats) => {
+		const entry = statWatchers.get(normalizedPath);
+		if (!entry) {
+			return;
+		}
+		for (const listener of entry.listeners) {
+			listener(curr, prev);
+		}
+	});
+	statWatchers.set(normalizedPath, { watcher, listeners: new Set() });
 }
 watchFile satisfies Omit<typeof fs.watchFile, '__promisify__'>;
 
 /**
- * @todo Implement
+ * Stop watching for changes on a file.
+ *
+ * If the `listener` is specified, only that particular listener is removed.
+ * If no `listener` is specified, all listeners are removed, and the file is no longer watched.
+ *
+ * @param path The path to the file to stop watching.
+ * @param listener Optional listener to remove.
  */
 export function unwatchFile(path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void = nop): void {
-	throw ErrnoError.With('ENOSYS', path.toString(), 'unwatchFile');
+	const normalizedPath = normalizePath(path.toString());
+
+	const entry = statWatchers.get(normalizedPath);
+	if (entry) {
+		if (listener && listener !== nop) {
+			entry.listeners.delete(listener);
+		} else {
+			// If no listener is specified, remove all listeners
+			entry.listeners.clear();
+		}
+		if (entry.listeners.size === 0) {
+			// No more listeners, stop the watcher
+			entry.watcher.stop();
+			statWatchers.delete(normalizedPath);
+		}
+	}
 }
 unwatchFile satisfies Omit<typeof fs.unwatchFile, '__promisify__'>;
 
@@ -702,7 +762,7 @@ export function watch(
 	options?: fs.WatchOptions | ((event: string, filename: string) => any),
 	listener?: (event: string, filename: string) => any
 ): fs.FSWatcher {
-	const watcher = new FSWatcher<string>(typeof options == 'object' ? options : {});
+	const watcher = new FSWatcher<string>(typeof options == 'object' ? options : {}, normalizePath(path));
 	listener = typeof options == 'function' ? options : listener;
 	watcher.on('change', listener || nop);
 	return watcher;

@@ -324,6 +324,18 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
 }
 
 /**
+ * Determines if the file stats have changed by comparing relevant properties.
+ *
+ * @param left The previous stats.
+ * @param right The current stats.
+ * @returns `true` if stats have changed; otherwise, `false`.
+ * @internal
+ */
+export function isStatsEqual<T extends number | bigint>(left: StatsCommon<T>, right: StatsCommon<T>): boolean {
+	return left.size == right.size && +left.atime == +right.atime && +left.mtime == +right.mtime && +left.ctime == +right.ctime && left.mode == right.mode;
+}
+
+/**
  * @internal
  */
 export const ZenFsType = 0x7a656e6673; // 'z' 'e' 'n' 'f' 's'

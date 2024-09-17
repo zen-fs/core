@@ -10,6 +10,7 @@ import { COPYFILE_EXCL, F_OK, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFM
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { emitChange } from './watchers.js';
 
 /**
  * Synchronous rename.
@@ -29,6 +30,8 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 
 		writeFileSync(newPath, readFileSync(oldPath));
 		unlinkSync(oldPath);
+		emitChange('rename', newPath.toString());
+		emitChange('rename', oldPath.toString());
 	} catch (e) {
 		throw fixError(e as Error, paths);
 	}
@@ -116,7 +119,8 @@ export function unlinkSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		return fs.unlinkSync(resolved, cred);
+		fs.unlinkSync(resolved, cred);
+		emitChange('rename', path.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
@@ -252,6 +256,7 @@ export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents,
 	}
 	using file = _openSync(typeof path == 'number' ? fd2file(path).path : path.toString(), flag, options.mode, true);
 	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
+	emitChange('change', path.toString());
 }
 writeFileSync satisfies typeof fs.writeFileSync;
 
@@ -371,7 +376,9 @@ export function writeSync(fd: number, data: FileContents, posOrOff?: number | nu
 
 	const file = fd2file(fd);
 	position ??= file.position;
-	return file.writeSync(buffer, offset, length, position);
+	const bytesWritten = file.writeSync(buffer, offset, length, position);
+	emitChange('change', file.path);
+	return bytesWritten;
 }
 writeSync satisfies typeof fs.writeSync;
 
@@ -452,6 +459,7 @@ export function rmdirSync(path: fs.PathLike): void {
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	try {
 		fs.rmdirSync(resolved, cred);
+		emitChange('rename', path.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
@@ -488,6 +496,7 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 		}
 		for (const dir of dirs) {
 			fs.mkdirSync(dir, mode, cred);
+			emitChange('rename', dir);
 		}
 		return dirs[0];
 	} catch (e) {
@@ -785,6 +794,7 @@ export function copyFileSync(src: fs.PathLike, dest: fs.PathLike, flags?: number
 	}
 
 	writeFileSync(dest, readFileSync(src));
+	emitChange('rename', dest.toString());
 }
 copyFileSync satisfies typeof fs.copyFileSync;
 

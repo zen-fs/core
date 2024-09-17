@@ -19,7 +19,7 @@ import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
-import { FSWatcher } from './watchers.js';
+import { FSWatcher, emitChange } from './watchers.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -43,20 +43,22 @@ export class FileHandle implements promises.FileHandle {
 	/**
 	 * Asynchronous fchown(2) - Change ownership of a file.
 	 */
-	public chown(uid: number, gid: number): Promise<void> {
-		return this.file.chown(uid, gid);
+	public async chown(uid: number, gid: number): Promise<void> {
+		await this.file.chown(uid, gid);
+		emitChange('change', this.file.path);
 	}
 
 	/**
 	 * Asynchronous fchmod(2) - Change permissions of a file.
 	 * @param mode A file mode. If a string is passed, it is parsed as an octal integer.
 	 */
-	public chmod(mode: fs.Mode): Promise<void> {
+	public async chmod(mode: fs.Mode): Promise<void> {
 		const numMode = normalizeMode(mode, -1);
 		if (numMode < 0) {
 			throw new ErrnoError(Errno.EINVAL, 'Invalid mode.');
 		}
-		return this.file.chmod(numMode);
+		await this.file.chmod(numMode);
+		emitChange('change', this.file.path);
 	}
 
 	/**
@@ -77,12 +79,13 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronous ftruncate(2) - Truncate a file to a specified length.
 	 * @param len If not specified, defaults to `0`.
 	 */
-	public truncate(len?: number | null): Promise<void> {
+	public async truncate(len?: number | null): Promise<void> {
 		len ||= 0;
 		if (len < 0) {
 			throw new ErrnoError(Errno.EINVAL);
 		}
-		return this.file.truncate(len);
+		await this.file.truncate(len);
+		emitChange('change', this.file.path);
 	}
 
 	/**
@@ -90,8 +93,9 @@ export class FileHandle implements promises.FileHandle {
 	 * @param atime The last access time. If a string is provided, it will be coerced to number.
 	 * @param mtime The last modified time. If a string is provided, it will be coerced to number.
 	 */
-	public utimes(atime: string | number | Date, mtime: string | number | Date): Promise<void> {
-		return this.file.utimes(normalizeTime(atime), normalizeTime(mtime));
+	public async utimes(atime: string | number | Date, mtime: string | number | Date): Promise<void> {
+		await this.file.utimes(normalizeTime(atime), normalizeTime(mtime));
+		emitChange('change', this.file.path);
 	}
 
 	/**
@@ -115,6 +119,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 		await this.file.write(encodedData, 0, encodedData.length);
+		emitChange('change', this.file.path);
 	}
 
 	/**
@@ -254,6 +259,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 		position ??= this.file.position;
 		const bytesWritten = await this.file.write(buffer, offset, length, position);
+		emitChange('change', this.file.path);
 		return { buffer, bytesWritten };
 	}
 
@@ -279,6 +285,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 		await this.file.write(encodedData, 0, encodedData.length, 0);
+		emitChange('change', this.file.path);
 	}
 
 	/**
@@ -388,10 +395,13 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 	try {
 		if (src.mountPoint == dst.mountPoint) {
 			await src.fs.rename(src.path, dst.path, cred);
+			emitChange('rename', newPath.toString());
 			return;
 		}
 		await writeFile(newPath, await readFile(oldPath));
 		await unlink(oldPath);
+		emitChange('rename', newPath.toString());
+		emitChange('rename', oldPath.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [src.path]: oldPath, [dst.path]: newPath });
 	}
@@ -478,6 +488,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	const { fs, path: resolved } = resolveMount(path);
 	try {
 		await fs.unlink(resolved, cred);
+		emitChange('rename', path.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
@@ -632,6 +643,7 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	const { fs, path: resolved } = resolveMount(path);
 	try {
 		await fs.rmdir(resolved, cred);
+		emitChange('rename', path.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
@@ -643,6 +655,7 @@ rmdir satisfies typeof promises.rmdir;
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options Either the file mode, or an object optionally specifying the file mode and whether parent folders
  * should be created. If a string is passed, it is parsed as an octal integer. If not specified, defaults to `0o777`.
+ * @todo Should we return at the end of the non-recursive if block?
  */
 export async function mkdir(path: fs.PathLike, options: fs.MakeDirectoryOptions & { recursive: true }): Promise<string | undefined>;
 export async function mkdir(path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false | undefined }) | null): Promise<void>;
@@ -659,6 +672,8 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 	try {
 		if (!options?.recursive) {
 			await fs.mkdir(resolved, mode, cred);
+			emitChange('rename', path.toString());
+			// Return?
 		}
 
 		const dirs: string[] = [];
@@ -668,6 +683,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 		}
 		for (const dir of dirs) {
 			await fs.mkdir(dir, mode, cred);
+			emitChange('rename', dir);
 		}
 		return dirs[0];
 	} catch (e) {
@@ -878,7 +894,7 @@ export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string)
 export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<FileChangeInfo<T>> {
 	return {
 		[Symbol.asyncIterator](): AsyncIterator<FileChangeInfo<T>> {
-			const watcher = new FSWatcher<T>(typeof options != 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
+			const watcher = new FSWatcher<T>(typeof options != 'string' ? options : { encoding: options as BufferEncoding | 'buffer' }, filename.toString());
 
 			function withDone(done: boolean) {
 				return function () {
@@ -981,6 +997,7 @@ export async function copyFile(src: fs.PathLike, dest: fs.PathLike, mode?: numbe
 	}
 
 	await writeFile(dest, await readFile(src));
+	emitChange('rename', dest.toString());
 }
 copyFile satisfies typeof promises.copyFile;
 
