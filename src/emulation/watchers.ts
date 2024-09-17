@@ -6,6 +6,7 @@ import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';
 import { dirname } from './path.js';
 import { statSync } from './sync.js';
+import { basename } from 'node:path';
 
 /**
  * Base class for file system watchers.
@@ -73,9 +74,14 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 		super();
 		addWatcher(path.toString(), this);
 	}
+
 	public close(): void {
 		super.emit('close');
 		removeWatcher(this.path.toString(), this);
+	}
+
+	public [Symbol.dispose](): void {
+		this.close();
 	}
 }
 
@@ -168,7 +174,7 @@ export function emitChange(eventType: fs.WatchEventType, filename: string) {
 	// Notify watchers on the specific file
 	if (watchers.has(normalizedFilename)) {
 		for (const watcher of watchers.get(normalizedFilename)!) {
-			watcher.emit('change', eventType, filename);
+			watcher.emit('change', eventType, basename(filename));
 		}
 	}
 
@@ -177,7 +183,7 @@ export function emitChange(eventType: fs.WatchEventType, filename: string) {
 	while (parent !== normalizedFilename && parent !== '/') {
 		if (watchers.has(parent)) {
 			for (const watcher of watchers.get(parent)!) {
-				watcher.emit('change', eventType, filename);
+				watcher.emit('change', eventType, basename(filename));
 			}
 		}
 		normalizedFilename = parent;

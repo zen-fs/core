@@ -25,12 +25,13 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	const paths = { [_old.path]: oldPath, [_new.path]: newPath };
 	try {
 		if (_old === _new) {
-			return _old.fs.renameSync(_old.path, _new.path, cred);
+			_old.fs.renameSync(_old.path, _new.path, cred);
+			emitChange('rename', oldPath.toString());
+			return;
 		}
 
 		writeFileSync(newPath, readFileSync(oldPath));
 		unlinkSync(oldPath);
-		emitChange('rename', newPath.toString());
 		emitChange('rename', oldPath.toString());
 	} catch (e) {
 		throw fixError(e as Error, paths);

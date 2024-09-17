@@ -395,12 +395,11 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 	try {
 		if (src.mountPoint == dst.mountPoint) {
 			await src.fs.rename(src.path, dst.path, cred);
-			emitChange('rename', newPath.toString());
+			emitChange('rename', oldPath.toString());
 			return;
 		}
 		await writeFile(newPath, await readFile(oldPath));
 		await unlink(oldPath);
-		emitChange('rename', newPath.toString());
 		emitChange('rename', oldPath.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [src.path]: oldPath, [dst.path]: newPath });
