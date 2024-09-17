@@ -1009,7 +1009,6 @@ copyFile satisfies typeof promises.copyFile;
 export async function opendir(path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
 	path = normalizePath(path);
 	const dir = new Dir(path);
-	await dir._loadEntries();
 	return dir;
 }
 opendir satisfies typeof promises.opendir;

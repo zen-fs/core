@@ -1,10 +1,10 @@
-import type { Dirent as _Dirent, Dir as _Dir } from 'fs';
-import type { Callback } from '../utils.js';
+import type { Dir as _Dir, Dirent as _Dirent } from 'fs';
+import { Errno, ErrnoError } from '../error.js';
 import type { Stats } from '../stats.js';
-import { readdir } from './promises.js';
-import { ErrnoError, Errno } from '../error.js';
-import { readdirSync } from './sync.js';
+import type { Callback } from '../utils.js';
 import { basename } from './path.js';
+import { readdir } from './promises.js';
+import { readdirSync } from './sync.js';
 
 export class Dirent implements _Dirent {
 	public get name(): string {
@@ -55,14 +55,7 @@ export class Dir implements _Dir {
 		}
 	}
 
-	protected _entries: Dirent[] = [];
-
-	/**
-	 * @internal
-	 */
-	public async _loadEntries() {
-		this._entries ??= await readdir(this.path, { withFileTypes: true });
-	}
+	protected _entries?: Dirent[];
 
 	public constructor(public readonly path: string) {}
 
@@ -89,11 +82,12 @@ export class Dir implements _Dir {
 	}
 
 	protected async _read(): Promise<Dirent | null> {
-		await this._loadEntries();
+		this.checkClosed();
+		this._entries ??= await readdir(this.path, { withFileTypes: true });
 		if (!this._entries.length) {
 			return null;
 		}
-		return this._entries.shift() || null;
+		return this._entries.shift() ?? null;
 	}
 
 	/**
@@ -117,30 +111,28 @@ export class Dir implements _Dir {
 	 * Directory entries returned by this function are in no particular order as provided by the operating system's underlying directory mechanisms.
 	 */
 	public readSync(): Dirent | null {
+		this.checkClosed();
 		this._entries ??= readdirSync(this.path, { withFileTypes: true });
 		if (!this._entries.length) {
 			return null;
 		}
-		return this._entries.shift() || null;
+		return this._entries.shift() ?? null;
+	}
+
+	async next(): Promise<IteratorResult<Dirent>> {
+		const value = await this._read();
+		if (value) {
+			return { done: false, value };
+		}
+
+		await this.close();
+		return { done: true, value: undefined };
 	}
 
 	/**
 	 * Asynchronously iterates over the directory via `readdir(3)` until all entries have been read.
 	 */
 	public [Symbol.asyncIterator](): AsyncIterableIterator<Dirent> {
-		const _this = this;
-
-		return {
-			[Symbol.asyncIterator]: this[Symbol.asyncIterator],
-			async next(): Promise<IteratorResult<Dirent>> {
-				const value = await _this._read();
-				if (value != null) {
-					return { done: false, value };
-				}
-
-				await _this.close();
-				return { done: true, value: undefined };
-			},
-		};
+		return this;
 	}
 }
