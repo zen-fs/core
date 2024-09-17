@@ -4,9 +4,8 @@ import type * as fs from 'node:fs';
 import { ErrnoError } from '../error.js';
 import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';
-import { dirname } from './path.js';
+import { dirname, basename } from './path.js';
 import { statSync } from './sync.js';
-import { basename } from 'node:path';
 
 /**
  * Base class for file system watchers.
