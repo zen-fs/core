@@ -316,8 +316,6 @@ Stats satisfies typeof Node.Stats;
 
 /**
  * Stats with bigint
- * @todo Implement with bigint instead of wrapping Stats
- * @internal
  */
 export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats, StatsLike {
 	protected _isBigint = true as const;

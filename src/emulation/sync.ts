@@ -471,7 +471,6 @@ rmdirSync satisfies typeof fs.rmdirSync;
  * Synchronous `mkdir`.
  * @param path
  * @param mode defaults to o777
- * @todo Implement recursion
  */
 export function mkdirSync(path: fs.PathLike, options: fs.MakeDirectoryOptions & { recursive: true }): string | undefined;
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
