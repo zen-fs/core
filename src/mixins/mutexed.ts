@@ -82,13 +82,13 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		 * @internal
 		 */
 		public async lock(path: string): Promise<MutexLock> {
-			if(this.inLockedThread) {
+			if (this.inLockedThread) {
 				const previous = this.locks.get(path);
 				this.inLockedThread = false;
 				const lock = this.addLock(path);
 				await previous?.done();
 				return lock;
-			} else return this.locks.get(path)!
+			} else return this.locks.get(path)!;
 		}
 
 		/**
