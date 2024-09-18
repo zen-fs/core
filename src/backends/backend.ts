@@ -150,10 +150,9 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Record<s
 /**
  * Specifies a file system backend type and its options.
  *
- * Individual options can recursively contain BackendConfig objects for
- * option values that require file systems.
+ * Individual options can recursively contain BackendConfiguration objects for values that require file systems.
  *
- * The option object for each file system corresponds to that file system's option object passed to its `Create()` method.
+ * The configuration for each file system corresponds to that file system's option object passed to its `create()` method.
  */
 export type BackendConfiguration<T extends Backend> = OptionsOf<T> & Partial<SharedConfig> & { backend: T };
 
