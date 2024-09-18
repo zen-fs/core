@@ -18,11 +18,11 @@ describe('LockFS mutex', () => {
 		let lock1Resolved = false;
 		let lock2Resolved = false;
 
-		const lock1 = fs.lock('/queued').then(lock => {
+		const lock1 = fs.lock('/queued', 'test').then(lock => {
 			lock1Resolved = true;
 			lock.unlock();
 		});
-		const lock2 = fs.lock('/queued').then(lock => {
+		const lock2 = fs.lock('/queued', 'test').then(lock => {
 			lock2Resolved = true;
 			lock.unlock();
 		});
@@ -48,7 +48,7 @@ describe('LockFS mutex', () => {
 		let x = 1;
 
 		async function foo() {
-			const lock = await fs.lock('raceConditions');
+			const lock = await fs.lock('raceConditions', 'test');
 			await wait(100);
 			x++;
 			lock.unlock();
