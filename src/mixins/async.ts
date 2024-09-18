@@ -17,10 +17,10 @@ export type AsyncOperation = {
  * Async() implements synchronous methods on an asynchronous file system
  *
  * Implementing classes must define `_sync` for the synchronous file system used as a cache.
- * Synchronous methods on an asynchronous FS are implemented by:
- *	- Performing operations over the in-memory copy,
- * 	while asynchronously pipelining them to the backing store.
- * 	- During loading, the contents of the async file system are preloaded into the synchronous store.
+ *
+ * Synchronous methods on an asynchronous FS are implemented by performing operations over the in-memory copy,
+ * while asynchronously pipelining them to the backing store.
+ * During loading, the contents of the async file system are preloaded into the synchronous store.
  *
  */
 export function Async<T extends typeof FileSystem>(
