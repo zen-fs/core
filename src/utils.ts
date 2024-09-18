@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return */
 import type * as fs from 'node:fs';
 import type { OptionalTuple } from 'utilium';
 import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
@@ -149,13 +147,7 @@ export function decode(input?: Uint8Array): string {
  * @hidden
  */
 export function decodeDirListing(data: Uint8Array): Record<string, bigint> {
-	return JSON.parse(decode(data), (k, v) => {
-		if (k == '') {
-			return v;
-		}
-
-		return BigInt(v);
-	});
+	return JSON.parse(decode(data), (k, v) => (k == '' ? v : BigInt(v as string)));
 }
 
 /**
@@ -163,15 +155,7 @@ export function decodeDirListing(data: Uint8Array): Record<string, bigint> {
  * @hidden
  */
 export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
-	return encode(
-		JSON.stringify(data, (k, v) => {
-			if (k == '') {
-				return v;
-			}
-
-			return v.toString();
-		})
-	);
+	return encode(JSON.stringify(data, (k, v) => (k == '' ? v : v.toString())));
 }
 
 export type Callback<Args extends unknown[] = []> = (e?: ErrnoError, ...args: OptionalTuple<Args>) => unknown;

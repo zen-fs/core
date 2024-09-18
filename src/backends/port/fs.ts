@@ -1,16 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FileReadResult } from 'node:fs/promises';
 import type { ExtractProperties } from 'utilium';
-import type { Credentials } from '../../credentials.js';
+import { resolveMountConfig, type MountConfiguration } from '../../config.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { File } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { Async } from '../../mixins/async.js';
 import { Stats, type FileType } from '../../stats.js';
-import { InMemory } from '../memory.js';
 import type { Backend, FilesystemOf } from '../backend.js';
+import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
-import { type MountConfiguration, resolveMountConfig } from '../../config.js';
 
 type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
 type FileMethod = keyof FileMethods;

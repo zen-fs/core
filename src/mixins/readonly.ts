@@ -1,4 +1,3 @@
-import type { Credentials } from '../credentials.js';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
