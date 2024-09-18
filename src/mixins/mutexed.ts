@@ -54,7 +54,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 ): Mixin<
 	T,
 	{
-		lock(path: string): Promise<MutexLock>;
+		lock(path: string, syscall: string): Promise<MutexLock>;
 		lockSync(path: string): MutexLock;
 		isLocked(path: string): boolean;
 	}
@@ -80,9 +80,17 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		 * If the path is currently locked, waits for it to be unlocked.
 		 * @internal
 		 */
-		public async lock(path: string): Promise<MutexLock> {
+		public async lock(path: string, syscall: string): Promise<MutexLock> {
 			const previous = this.locks.get(path);
 			const lock = this.addLock(path);
+			const stack = new Error().stack;
+			setTimeout(() => {
+				if (lock.isLocked) {
+					const error = ErrnoError.With('EDEADLK', path, syscall);
+					error.stack += stack?.slice('Error'.length);
+					throw error;
+				}
+			}, 5000);
 			await previous?.done();
 			return lock;
 		}
@@ -111,7 +119,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 
 		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-			using _ = await this.lock(oldPath);
+			using _ = await this.lock(oldPath, 'rename');
 			// @ts-expect-error 2513
 			await super.rename(oldPath, newPath, cred);
 		}
@@ -123,7 +131,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async stat(path: string, cred: Cred): Promise<Stats> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'stat');
 			// @ts-expect-error 2513
 			return await super.stat(path, cred);
 		}
@@ -135,7 +143,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'openFile');
 			// @ts-expect-error 2513
 			return await super.openFile(path, flag, cred);
 		}
@@ -147,7 +155,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'createFile');
 			// @ts-expect-error 2513
 			return await super.createFile(path, flag, mode, cred);
 		}
@@ -159,7 +167,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async unlink(path: string, cred: Cred): Promise<void> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'unlink');
 			// @ts-expect-error 2513
 			await super.unlink(path, cred);
 		}
@@ -171,7 +179,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async rmdir(path: string, cred: Cred): Promise<void> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'rmdir');
 			// @ts-expect-error 2513
 			await super.rmdir(path, cred);
 		}
@@ -183,7 +191,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'mkdir');
 			// @ts-expect-error 2513
 			await super.mkdir(path, mode, cred);
 		}
@@ -195,7 +203,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async readdir(path: string, cred: Cred): Promise<string[]> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'readdir');
 			// @ts-expect-error 2513
 			return await super.readdir(path, cred);
 		}
@@ -207,7 +215,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async exists(path: string, cred: Cred): Promise<boolean> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'exists');
 			return await super.exists(path, cred);
 		}
 
@@ -217,7 +225,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
-			using _ = await this.lock(srcpath);
+			using _ = await this.lock(srcpath, 'link');
 			// @ts-expect-error 2513
 			await super.link(srcpath, dstpath, cred);
 		}
@@ -229,7 +237,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-			using _ = await this.lock(path);
+			using _ = await this.lock(path, 'sync');
 			// @ts-expect-error 2513
 			await super.sync(path, data, stats);
 		}
