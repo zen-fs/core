@@ -1,4 +1,4 @@
-import type { Cred } from '../../cred.js';
+import { credentials } from '../../credentials.js';
 import { R_OK, S_IFDIR, S_IFREG, W_OK } from '../../emulation/constants.js';
 import { basename, dirname, join, resolve } from '../../emulation/path.js';
 import { Errno, ErrnoError } from '../../error.js';
@@ -64,7 +64,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * @todo Make rename compatible with the cache.
 	 */
-	public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
+	public async rename(oldPath: string, newPath: string): Promise<void> {
 		await using tx = this.store.transaction();
 		const oldParent = dirname(oldPath),
 			oldName = basename(oldPath),
@@ -74,7 +74,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			oldDirNode = await this.findINode(tx, oldParent),
 			oldDirList = await this.getDirListing(tx, oldDirNode, oldParent);
 
-		if (!oldDirNode.toStats().hasAccess(W_OK, cred)) {
+		if (!oldDirNode.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', oldPath, 'rename');
 		}
 
@@ -122,7 +122,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await tx.commit();
 	}
 
-	public renameSync(oldPath: string, newPath: string, cred: Cred): void {
+	public renameSync(oldPath: string, newPath: string): void {
 		using tx = this.store.transaction();
 		const oldParent = dirname(oldPath),
 			oldName = basename(oldPath),
@@ -132,7 +132,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			oldDirNode = this.findINodeSync(tx, oldParent),
 			oldDirList = this.getDirListingSync(tx, oldDirNode, oldParent);
 
-		if (!oldDirNode.toStats().hasAccess(W_OK, cred)) {
+		if (!oldDirNode.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', oldPath, 'rename');
 		}
 
@@ -181,44 +181,44 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public async stat(path: string, cred: Cred): Promise<Stats> {
+	public async stat(path: string): Promise<Stats> {
 		await using tx = this.store.transaction();
 		const inode = await this.findINode(tx, path);
 		if (!inode) {
 			throw ErrnoError.With('ENOENT', path, 'stat');
 		}
 		const stats = inode.toStats();
-		if (!stats.hasAccess(R_OK, cred)) {
+		if (!stats.hasAccess(R_OK, credentials)) {
 			throw ErrnoError.With('EACCES', path, 'stat');
 		}
 		return stats;
 	}
 
-	public statSync(path: string, cred: Cred): Stats {
+	public statSync(path: string): Stats {
 		using tx = this.store.transaction();
 		// Get the inode to the item, convert it into a Stats object.
 		const stats = this.findINodeSync(tx, path).toStats();
-		if (!stats.hasAccess(R_OK, cred)) {
+		if (!stats.hasAccess(R_OK, credentials)) {
 			throw ErrnoError.With('EACCES', path, 'stat');
 		}
 		return stats;
 	}
 
-	public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<PreloadFile<this>> {
-		const node = await this.commitNew(path, S_IFREG, mode, cred, new Uint8Array(0));
+	public async createFile(path: string, flag: string, mode: number): Promise<PreloadFile<this>> {
+		const node = await this.commitNew(path, S_IFREG, mode, new Uint8Array(0));
 		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array(0));
 	}
 
-	public createFileSync(path: string, flag: string, mode: number, cred: Cred): PreloadFile<this> {
-		this.commitNewSync(path, S_IFREG, mode, cred);
-		return this.openFileSync(path, flag, cred);
+	public createFileSync(path: string, flag: string, mode: number): PreloadFile<this> {
+		this.commitNewSync(path, S_IFREG, mode);
+		return this.openFileSync(path, flag);
 	}
 
-	public async openFile(path: string, flag: string, cred: Cred): Promise<PreloadFile<this>> {
+	public async openFile(path: string, flag: string): Promise<PreloadFile<this>> {
 		await using tx = this.store.transaction();
 		const node = await this.findINode(tx, path),
 			data = await tx.get(node.ino);
-		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
+		if (!node.toStats().hasAccess(flagToMode(flag), credentials)) {
 			throw ErrnoError.With('EACCES', path, 'openFile');
 		}
 		if (!data) {
@@ -227,11 +227,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new PreloadFile(this, path, flag, node.toStats(), data);
 	}
 
-	public openFileSync(path: string, flag: string, cred: Cred): PreloadFile<this> {
+	public openFileSync(path: string, flag: string): PreloadFile<this> {
 		using tx = this.store.transaction();
 		const node = this.findINodeSync(tx, path),
 			data = tx.getSync(node.ino);
-		if (!node.toStats().hasAccess(flagToMode(flag), cred)) {
+		if (!node.toStats().hasAccess(flagToMode(flag), credentials)) {
 			throw ErrnoError.With('EACCES', path, 'openFile');
 		}
 		if (!data) {
@@ -240,53 +240,53 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new PreloadFile(this, path, flag, node.toStats(), data);
 	}
 
-	public async unlink(path: string, cred: Cred): Promise<void> {
-		return this.remove(path, false, cred);
+	public async unlink(path: string): Promise<void> {
+		return this.remove(path, false);
 	}
 
-	public unlinkSync(path: string, cred: Cred): void {
-		this.removeSync(path, false, cred);
+	public unlinkSync(path: string): void {
+		this.removeSync(path, false);
 	}
 
-	public async rmdir(path: string, cred: Cred): Promise<void> {
+	public async rmdir(path: string): Promise<void> {
 		// Check first if directory is empty.
-		const list = await this.readdir(path, cred);
+		const list = await this.readdir(path);
 		if (list.length > 0) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		}
-		await this.remove(path, true, cred);
+		await this.remove(path, true);
 	}
 
-	public rmdirSync(path: string, cred: Cred): void {
+	public rmdirSync(path: string): void {
 		// Check first if directory is empty.
-		if (this.readdirSync(path, cred).length > 0) {
+		if (this.readdirSync(path).length > 0) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		} else {
-			this.removeSync(path, true, cred);
+			this.removeSync(path, true);
 		}
 	}
 
-	public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
-		await this.commitNew(path, S_IFDIR, mode, cred, encode('{}'));
+	public async mkdir(path: string, mode: number): Promise<void> {
+		await this.commitNew(path, S_IFDIR, mode, encode('{}'));
 	}
 
-	public mkdirSync(path: string, mode: number, cred: Cred): void {
-		this.commitNewSync(path, S_IFDIR, mode, cred, encode('{}'));
+	public mkdirSync(path: string, mode: number): void {
+		this.commitNewSync(path, S_IFDIR, mode, encode('{}'));
 	}
 
-	public async readdir(path: string, cred: Cred): Promise<string[]> {
+	public async readdir(path: string): Promise<string[]> {
 		await using tx = this.store.transaction();
 		const node = await this.findINode(tx, path);
-		if (!node.toStats().hasAccess(R_OK, cred)) {
+		if (!node.toStats().hasAccess(R_OK, credentials)) {
 			throw ErrnoError.With('EACCES', path, 'readdur');
 		}
 		return Object.keys(await this.getDirListing(tx, node, path));
 	}
 
-	public readdirSync(path: string, cred: Cred): string[] {
+	public readdirSync(path: string): string[] {
 		using tx = this.store.transaction();
 		const node = this.findINodeSync(tx, path);
-		if (!node.toStats().hasAccess(R_OK, cred)) {
+		if (!node.toStats().hasAccess(R_OK, credentials)) {
 			throw ErrnoError.With('EACCES', path, 'readdir');
 		}
 		return Object.keys(this.getDirListingSync(tx, node, path));
@@ -334,12 +334,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public async link(existing: string, newpath: string, cred: Cred): Promise<void> {
+	public async link(existing: string, newpath: string): Promise<void> {
 		await using tx = this.store.transaction();
 		const existingDir: string = dirname(existing),
 			existingDirNode = await this.findINode(tx, existingDir);
 
-		if (!existingDirNode.toStats().hasAccess(R_OK, cred)) {
+		if (!existingDirNode.toStats().hasAccess(R_OK, credentials)) {
 			throw ErrnoError.With('EACCES', existingDir, 'link');
 		}
 
@@ -347,14 +347,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			newDirNode = await this.findINode(tx, newDir),
 			newListing = await this.getDirListing(tx, newDirNode, newDir);
 
-		if (!newDirNode.toStats().hasAccess(W_OK, cred)) {
+		if (!newDirNode.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', newDir, 'link');
 		}
 
 		const ino = await this._findINode(tx, existingDir, basename(existing));
 		const node = await this.getINode(tx, ino, existing);
 
-		if (!node.toStats().hasAccess(W_OK, cred)) {
+		if (!node.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', newpath, 'link');
 		}
 
@@ -366,12 +366,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public linkSync(existing: string, newpath: string, cred: Cred): void {
+	public linkSync(existing: string, newpath: string): void {
 		using tx = this.store.transaction();
 		const existingDir: string = dirname(existing),
 			existingDirNode = this.findINodeSync(tx, existingDir);
 
-		if (!existingDirNode.toStats().hasAccess(R_OK, cred)) {
+		if (!existingDirNode.toStats().hasAccess(R_OK, credentials)) {
 			throw ErrnoError.With('EACCES', existingDir, 'link');
 		}
 
@@ -379,14 +379,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			newDirNode = this.findINodeSync(tx, newDir),
 			newListing = this.getDirListingSync(tx, newDirNode, newDir);
 
-		if (!newDirNode.toStats().hasAccess(W_OK, cred)) {
+		if (!newDirNode.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', newDir, 'link');
 		}
 
 		const ino = this._findINodeSync(tx, existingDir, basename(existing));
 		const node = this.getINodeSync(tx, ino, existing);
 
-		if (!node.toStats().hasAccess(W_OK, cred)) {
+		if (!node.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', newpath, 'link');
 		}
 		node.nlink++;
@@ -616,13 +616,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param cred The UID/GID to create the file with
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNew(path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array): Promise<Inode> {
+	private async commitNew(path: string, type: FileType, mode: number, data: Uint8Array): Promise<Inode> {
 		await using tx = this.store.transaction();
 		const parentPath = dirname(path),
 			parent = await this.findINode(tx, parentPath);
 
 		//Check that the creater has correct access
-		if (!parent.toStats().hasAccess(W_OK, cred)) {
+		if (!parent.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', path, 'commitNewFile');
 		}
 
@@ -648,8 +648,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = new Inode();
 		inode.ino = await this.addNew(tx, data, path);
 		inode.mode = mode | type;
-		inode.uid = cred.uid;
-		inode.gid = cred.gid;
+		inode.uid = credentials.uid;
+		inode.gid = credentials.gid;
 		inode.size = data.length;
 
 		// Update and commit parent directory listing.
@@ -668,13 +668,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	protected commitNewSync(path: string, type: FileType, mode: number, cred: Cred, data: Uint8Array = new Uint8Array()): Inode {
+	protected commitNewSync(path: string, type: FileType, mode: number, data: Uint8Array = new Uint8Array()): Inode {
 		using tx = this.store.transaction();
 		const parentPath = dirname(path),
 			parent = this.findINodeSync(tx, parentPath);
 
 		//Check that the creater has correct access
-		if (!parent.toStats().hasAccess(W_OK, cred)) {
+		if (!parent.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', path, 'commitNewFile');
 		}
 
@@ -700,8 +700,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		node.ino = this.addNewSync(tx, data, path);
 		node.size = data.length;
 		node.mode = mode | type;
-		node.uid = cred.uid;
-		node.gid = cred.gid;
+		node.uid = credentials.uid;
+		node.gid = credentials.gid;
 		// Update and commit parent directory listing.
 		listing[fname] = this.addNewSync(tx, node.data, path);
 		tx.setSync(parent.ino, encodeDirListing(listing));
@@ -715,7 +715,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
 	 */
-	private async remove(path: string, isDir: boolean, cred: Cred): Promise<void> {
+	private async remove(path: string, isDir: boolean): Promise<void> {
 		await using tx = this.store.transaction();
 		const parent: string = dirname(path),
 			parentNode = await this.findINode(tx, parent),
@@ -731,7 +731,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Get file inode.
 		const fileNode = await this.getINode(tx, fileIno, path);
 
-		if (!fileNode.toStats().hasAccess(W_OK, cred)) {
+		if (!fileNode.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', path, 'removeEntry');
 		}
 
@@ -764,7 +764,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
 	 */
-	protected removeSync(path: string, isDir: boolean, cred: Cred): void {
+	protected removeSync(path: string, isDir: boolean): void {
 		using tx = this.store.transaction();
 		const parent: string = dirname(path),
 			parentNode = this.findINodeSync(tx, parent),
@@ -779,7 +779,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Get file inode.
 		const fileNode = this.getINodeSync(tx, fileIno, path);
 
-		if (!fileNode.toStats().hasAccess(W_OK, cred)) {
+		if (!fileNode.toStats().hasAccess(W_OK, credentials)) {
 			throw ErrnoError.With('EACCES', path, 'removeEntry');
 		}
 

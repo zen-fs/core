@@ -1,5 +1,5 @@
 import type * as Node from 'fs';
-import type { Cred } from './cred.js';
+import type { Credentials } from './credentials.js';
 import { S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants.js';
 import { size_max } from './inode.js';
 
@@ -237,7 +237,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @returns True if the request has access, false if the request does not
 	 * @internal
 	 */
-	public hasAccess(mode: number, cred: Cred): boolean {
+	public hasAccess(mode: number, cred: Credentials): boolean {
 		if (cred.euid === 0 || cred.egid === 0) {
 			//Running as root
 			return true;
@@ -252,7 +252,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * Convert the current stats object into a credentials object
 	 * @internal
 	 */
-	public cred(uid: number = Number(this.uid), gid: number = Number(this.gid)): Cred {
+	public cred(uid: number = Number(this.uid), gid: number = Number(this.gid)): Credentials {
 		return {
 			uid,
 			gid,

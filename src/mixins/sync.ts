@@ -1,7 +1,6 @@
-import type { Cred } from '../cred.js';
 import type { File } from '../file.js';
-import type { Stats } from '../stats.js';
 import type { FileSystem } from '../filesystem.js';
+import type { Stats } from '../stats.js';
 import type { Mixin, _AsyncFSMethods } from './shared.js';
 
 /**
@@ -10,44 +9,44 @@ import type { Mixin, _AsyncFSMethods } from './shared.js';
 /* eslint-disable @typescript-eslint/require-await */
 export function Sync<T extends typeof FileSystem>(FS: T): Mixin<T, _AsyncFSMethods> {
 	abstract class SyncFS extends FS implements _AsyncFSMethods {
-		public async exists(path: string, cred: Cred): Promise<boolean> {
-			return this.existsSync(path, cred);
+		public async exists(path: string): Promise<boolean> {
+			return this.existsSync(path);
 		}
 
-		public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-			return this.renameSync(oldPath, newPath, cred);
+		public async rename(oldPath: string, newPath: string): Promise<void> {
+			return this.renameSync(oldPath, newPath);
 		}
 
-		public async stat(path: string, cred: Cred): Promise<Stats> {
-			return this.statSync(path, cred);
+		public async stat(path: string): Promise<Stats> {
+			return this.statSync(path);
 		}
 
-		public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
-			return this.createFileSync(path, flag, mode, cred);
+		public async createFile(path: string, flag: string, mode: number): Promise<File> {
+			return this.createFileSync(path, flag, mode);
 		}
 
-		public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
-			return this.openFileSync(path, flag, cred);
+		public async openFile(path: string, flag: string): Promise<File> {
+			return this.openFileSync(path, flag);
 		}
 
-		public async unlink(path: string, cred: Cred): Promise<void> {
-			return this.unlinkSync(path, cred);
+		public async unlink(path: string): Promise<void> {
+			return this.unlinkSync(path);
 		}
 
-		public async rmdir(path: string, cred: Cred): Promise<void> {
-			return this.rmdirSync(path, cred);
+		public async rmdir(path: string): Promise<void> {
+			return this.rmdirSync(path);
 		}
 
-		public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
-			return this.mkdirSync(path, mode, cred);
+		public async mkdir(path: string, mode: number): Promise<void> {
+			return this.mkdirSync(path, mode);
 		}
 
-		public async readdir(path: string, cred: Cred): Promise<string[]> {
-			return this.readdirSync(path, cred);
+		public async readdir(path: string): Promise<string[]> {
+			return this.readdirSync(path);
 		}
 
-		public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
-			return this.linkSync(srcpath, dstpath, cred);
+		public async link(srcpath: string, dstpath: string): Promise<void> {
+			return this.linkSync(srcpath, dstpath);
 		}
 
 		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {

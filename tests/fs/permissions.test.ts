@@ -1,6 +1,6 @@
 import { R_OK, W_OK, X_OK } from '../../src/emulation/constants.js';
 import { join } from '../../src/emulation/path.js';
-import { cred } from '../../src/emulation/shared.js';
+import { credentials } from '../../src/credentials.js';
 import { ErrnoError } from '../../src/error.js';
 import { encode } from '../../src/utils.js';
 import { fs } from '../common.js';
@@ -14,13 +14,13 @@ describe('Permissions', () => {
 		if (!stats) {
 			return;
 		}
-		expect(stats.hasAccess(X_OK, cred)).toBe(true);
+		expect(stats.hasAccess(X_OK, credentials)).toBe(true);
 
 		function checkError(access: number) {
 			return function (error: ErrnoError) {
 				expect(error).toBeInstanceOf(ErrnoError);
 				expect(error);
-				expect(stats!.hasAccess(access, cred)).toBe(false);
+				expect(stats!.hasAccess(access, credentials)).toBe(false);
 			};
 		}
 
@@ -31,7 +31,7 @@ describe('Permissions', () => {
 		} else {
 			await fs.promises.readFile(path).catch(checkError(R_OK));
 		}
-		expect(stats.hasAccess(R_OK, cred)).toBe(true);
+		expect(stats.hasAccess(R_OK, credentials)).toBe(true);
 
 		if (stats.isDirectory()) {
 			const testFile = join(path, '__test_file_plz_ignore.txt');
@@ -44,7 +44,7 @@ describe('Permissions', () => {
 			}
 			await handle.close();
 		}
-		expect(stats.hasAccess(R_OK, cred)).toBe(true);
+		expect(stats.hasAccess(R_OK, credentials)).toBe(true);
 	}
 
 	test('recursive', () => test_item('/'));

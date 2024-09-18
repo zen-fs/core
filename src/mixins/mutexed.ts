@@ -1,4 +1,3 @@
-import type { Cred } from '../cred.js';
 import { ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import type { FileSystem } from '../filesystem.js';
@@ -118,122 +117,122 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		}
 
 		/* eslint-disable @typescript-eslint/no-unused-vars */
-		public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
+		public async rename(oldPath: string, newPath: string): Promise<void> {
 			using _ = await this.lock(oldPath, 'rename');
 			// @ts-expect-error 2513
-			await super.rename(oldPath, newPath, cred);
+			await super.rename(oldPath, newPath);
 		}
 
-		public renameSync(oldPath: string, newPath: string, cred: Cred): void {
+		public renameSync(oldPath: string, newPath: string): void {
 			using _ = this.lockSync(oldPath);
 			// @ts-expect-error 2513
-			return super.renameSync(oldPath, newPath, cred);
+			return super.renameSync(oldPath, newPath);
 		}
 
-		public async stat(path: string, cred: Cred): Promise<Stats> {
+		public async stat(path: string): Promise<Stats> {
 			using _ = await this.lock(path, 'stat');
 			// @ts-expect-error 2513
-			return await super.stat(path, cred);
+			return await super.stat(path);
 		}
 
-		public statSync(path: string, cred: Cred): Stats {
+		public statSync(path: string): Stats {
 			using _ = this.lockSync(path);
 			// @ts-expect-error 2513
-			return super.statSync(path, cred);
+			return super.statSync(path);
 		}
 
-		public async openFile(path: string, flag: string, cred: Cred): Promise<File> {
+		public async openFile(path: string, flag: string): Promise<File> {
 			using _ = await this.lock(path, 'openFile');
 			// @ts-expect-error 2513
-			return await super.openFile(path, flag, cred);
+			return await super.openFile(path, flag);
 		}
 
-		public openFileSync(path: string, flag: string, cred: Cred): File {
+		public openFileSync(path: string, flag: string): File {
 			using _ = this.lockSync(path);
 			// @ts-expect-error 2513
-			return super.openFileSync(path, flag, cred);
+			return super.openFileSync(path, flag);
 		}
 
-		public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
+		public async createFile(path: string, flag: string, mode: number): Promise<File> {
 			using _ = await this.lock(path, 'createFile');
 			// @ts-expect-error 2513
-			return await super.createFile(path, flag, mode, cred);
+			return await super.createFile(path, flag, mode);
 		}
 
-		public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
+		public createFileSync(path: string, flag: string, mode: number): File {
 			using _ = this.lockSync(path);
 			// @ts-expect-error 2513
-			return super.createFileSync(path, flag, mode, cred);
+			return super.createFileSync(path, flag, mode);
 		}
 
-		public async unlink(path: string, cred: Cred): Promise<void> {
+		public async unlink(path: string): Promise<void> {
 			using _ = await this.lock(path, 'unlink');
 			// @ts-expect-error 2513
-			await super.unlink(path, cred);
+			await super.unlink(path);
 		}
 
-		public unlinkSync(path: string, cred: Cred): void {
+		public unlinkSync(path: string): void {
 			using _ = this.lockSync(path);
 			// @ts-expect-error 2513
-			return super.unlinkSync(path, cred);
+			return super.unlinkSync(path);
 		}
 
-		public async rmdir(path: string, cred: Cred): Promise<void> {
+		public async rmdir(path: string): Promise<void> {
 			using _ = await this.lock(path, 'rmdir');
 			// @ts-expect-error 2513
-			await super.rmdir(path, cred);
+			await super.rmdir(path);
 		}
 
-		public rmdirSync(path: string, cred: Cred): void {
+		public rmdirSync(path: string): void {
 			using _ = this.lockSync(path);
 			// @ts-expect-error 2513
-			return super.rmdirSync(path, cred);
+			return super.rmdirSync(path);
 		}
 
-		public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
+		public async mkdir(path: string, mode: number): Promise<void> {
 			using _ = await this.lock(path, 'mkdir');
 			// @ts-expect-error 2513
-			await super.mkdir(path, mode, cred);
+			await super.mkdir(path, mode);
 		}
 
-		public mkdirSync(path: string, mode: number, cred: Cred): void {
+		public mkdirSync(path: string, mode: number): void {
 			using _ = this.lockSync(path);
 			// @ts-expect-error 2513
-			return super.mkdirSync(path, mode, cred);
+			return super.mkdirSync(path, mode);
 		}
 
-		public async readdir(path: string, cred: Cred): Promise<string[]> {
+		public async readdir(path: string): Promise<string[]> {
 			using _ = await this.lock(path, 'readdir');
 			// @ts-expect-error 2513
-			return await super.readdir(path, cred);
+			return await super.readdir(path);
 		}
 
-		public readdirSync(path: string, cred: Cred): string[] {
+		public readdirSync(path: string): string[] {
 			using _ = this.lockSync(path);
 			// @ts-expect-error 2513
-			return super.readdirSync(path, cred);
+			return super.readdirSync(path);
 		}
 
-		public async exists(path: string, cred: Cred): Promise<boolean> {
+		public async exists(path: string): Promise<boolean> {
 			using _ = await this.lock(path, 'exists');
-			return await super.exists(path, cred);
+			return await super.exists(path);
 		}
 
-		public existsSync(path: string, cred: Cred): boolean {
+		public existsSync(path: string): boolean {
 			using _ = this.lockSync(path);
-			return super.existsSync(path, cred);
+			return super.existsSync(path);
 		}
 
-		public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
+		public async link(srcpath: string, dstpath: string): Promise<void> {
 			using _ = await this.lock(srcpath, 'link');
 			// @ts-expect-error 2513
-			await super.link(srcpath, dstpath, cred);
+			await super.link(srcpath, dstpath);
 		}
 
-		public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
+		public linkSync(srcpath: string, dstpath: string): void {
 			using _ = this.lockSync(srcpath);
 			// @ts-expect-error 2513
-			return super.linkSync(srcpath, dstpath, cred);
+			return super.linkSync(srcpath, dstpath);
 		}
 
 		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {

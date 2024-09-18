@@ -17,7 +17,8 @@ import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '.
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { credentials } from '../credentials.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
 export * as constants from './constants.js';
@@ -394,7 +395,7 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 	const dst = resolveMount(newPath);
 	try {
 		if (src.mountPoint == dst.mountPoint) {
-			await src.fs.rename(src.path, dst.path, cred);
+			await src.fs.rename(src.path, dst.path);
 			emitChange('rename', oldPath.toString());
 			return;
 		}
@@ -414,7 +415,7 @@ rename satisfies typeof promises.rename;
 export async function exists(path: fs.PathLike): Promise<boolean> {
 	try {
 		const { fs, path: resolved } = resolveMount(await realpath(path));
-		return await fs.exists(resolved, cred);
+		return await fs.exists(resolved);
 	} catch (e) {
 		if (e instanceof ErrnoError && e.code == 'ENOENT') {
 			return false;
@@ -436,7 +437,7 @@ export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount((await exists(path)) ? await realpath(path) : path);
 	try {
-		const stats = await fs.stat(resolved, cred);
+		const stats = await fs.stat(resolved);
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -457,7 +458,7 @@ export async function lstat(path: fs.PathLike, options?: fs.StatOptions): Promis
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		const stats = await fs.stat(resolved, cred);
+		const stats = await fs.stat(resolved);
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -486,7 +487,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		await fs.unlink(resolved, cred);
+		await fs.unlink(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -506,16 +507,16 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	path = resolveSymlinks && (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
-	if (!(await fs.exists(resolved, cred))) {
+	if (!(await fs.exists(resolved))) {
 		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
 			throw ErrnoError.With('ENOENT', path, '_open');
 		}
 		// Create the file
-		const parentStats: Stats = await fs.stat(dirname(resolved), cred);
+		const parentStats: Stats = await fs.stat(dirname(resolved));
 		if (parentStats && !parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
-		return new FileHandle(await fs.createFile(resolved, flag, mode, cred));
+		return new FileHandle(await fs.createFile(resolved, flag, mode));
 	}
 
 	if (isExclusive(flag)) {
@@ -523,7 +524,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	}
 
 	if (!isTruncating(flag)) {
-		return new FileHandle(await fs.openFile(resolved, flag, cred));
+		return new FileHandle(await fs.openFile(resolved, flag));
 	}
 
 	/*
@@ -532,7 +533,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		asynchronous request was trying to read the file, as the file
 		would not exist for a small period of time.
 	*/
-	const file: File = await fs.openFile(resolved, flag, cred);
+	const file: File = await fs.openFile(resolved, flag);
 	await file.truncate(0);
 	await file.sync();
 	return new FileHandle(file);
@@ -641,7 +642,7 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		await fs.rmdir(resolved, cred);
+		await fs.rmdir(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -669,18 +670,18 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 
 	try {
 		if (!options?.recursive) {
-			await fs.mkdir(resolved, mode, cred);
+			await fs.mkdir(resolved, mode);
 			emitChange('rename', path.toString());
 			return;
 		}
 
 		const dirs: string[] = [];
-		for (let dir = resolved, origDir = path; !(await fs.exists(dir, cred)); dir = dirname(dir), origDir = dirname(origDir)) {
+		for (let dir = resolved, origDir = path; !(await fs.exists(dir)); dir = dirname(dir), origDir = dirname(origDir)) {
 			dirs.unshift(dir);
 			errorPaths[dir] = origDir;
 		}
 		for (const dir of dirs) {
-			await fs.mkdir(dir, mode, cred);
+			await fs.mkdir(dir, mode);
 			emitChange('rename', dir);
 		}
 		return dirs[0];
@@ -711,7 +712,7 @@ export async function readdir(
 	const { fs, path: resolved } = resolveMount(path);
 	let entries: string[];
 	try {
-		entries = await fs.readdir(resolved, cred);
+		entries = await fs.readdir(resolved);
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
@@ -745,7 +746,7 @@ export async function link(existing: fs.PathLike, newpath: fs.PathLike): Promise
 	newpath = normalizePath(newpath);
 	const { fs, path: resolved } = resolveMount(newpath);
 	try {
-		return await fs.link(existing, newpath, cred);
+		return await fs.link(existing, newpath);
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: newpath });
 	}
@@ -874,7 +875,7 @@ export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | 
 	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
-		const stats = await fs.stat(resolvedPath, cred);
+		const stats = await fs.stat(resolvedPath);
 		if (!stats.isSymbolicLink()) {
 			return lpath;
 		}
@@ -921,7 +922,7 @@ watch satisfies typeof promises.watch;
  */
 export async function access(path: fs.PathLike, mode: number = constants.F_OK): Promise<void> {
 	const stats = await stat(path);
-	if (!stats.hasAccess(mode, cred)) {
+	if (!stats.hasAccess(mode, credentials)) {
 		throw new ErrnoError(Errno.EACCES);
 	}
 }

@@ -1,8 +1,9 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
+import { credentials } from './credentials.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
-import { setCred, type MountObject } from './emulation/shared.js';
+import type { MountObject } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
@@ -107,7 +108,7 @@ export async function configure<T extends ConfigMounts>(config: Partial<Configur
 	const uid = 'uid' in config ? config.uid || 0 : 0;
 	const gid = 'gid' in config ? config.gid || 0 : 0;
 
-	setCred({ uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
+	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 
 	if (!config.mounts) {
 		return;

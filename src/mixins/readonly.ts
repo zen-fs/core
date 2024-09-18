@@ -1,4 +1,4 @@
-import type { Cred } from '../cred.js';
+import type { Credentials } from '../credentials.js';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
@@ -15,18 +15,18 @@ export function Readonly<T extends typeof FileSystem>(
 	T,
 	{
 		metadata(): FileSystemMetadata;
-		rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
-		renameSync(oldPath: string, newPath: string, cred: Cred): void;
-		createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
-		createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
-		unlink(path: string, cred: Cred): Promise<void>;
-		unlinkSync(path: string, cred: Cred): void;
-		rmdir(path: string, cred: Cred): Promise<void>;
-		rmdirSync(path: string, cred: Cred): void;
-		mkdir(path: string, mode: number, cred: Cred): Promise<void>;
-		mkdirSync(path: string, mode: number, cred: Cred): void;
-		link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
-		linkSync(srcpath: string, dstpath: string, cred: Cred): void;
+		rename(oldPath: string, newPath: string): Promise<void>;
+		renameSync(oldPath: string, newPath: string): void;
+		createFile(path: string, flag: string, mode: number): Promise<File>;
+		createFileSync(path: string, flag: string, mode: number): File;
+		unlink(path: string): Promise<void>;
+		unlinkSync(path: string): void;
+		rmdir(path: string): Promise<void>;
+		rmdirSync(path: string): void;
+		mkdir(path: string, mode: number): Promise<void>;
+		mkdirSync(path: string, mode: number): void;
+		link(srcpath: string, dstpath: string): Promise<void>;
+		linkSync(srcpath: string, dstpath: string): void;
 		sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
 		syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
 	}
@@ -36,51 +36,51 @@ export function Readonly<T extends typeof FileSystem>(
 			return { ...super.metadata(), readonly: true };
 		}
 		/* eslint-disable @typescript-eslint/no-unused-vars */
-		public async rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
+		public async rename(oldPath: string, newPath: string): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public renameSync(oldPath: string, newPath: string, cred: Cred): void {
+		public renameSync(oldPath: string, newPath: string): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
+		public async createFile(path: string, flag: string, mode: number): Promise<File> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public createFileSync(path: string, flag: string, mode: number, cred: Cred): File {
+		public createFileSync(path: string, flag: string, mode: number): File {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async unlink(path: string, cred: Cred): Promise<void> {
+		public async unlink(path: string): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public unlinkSync(path: string, cred: Cred): void {
+		public unlinkSync(path: string): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async rmdir(path: string, cred: Cred): Promise<void> {
+		public async rmdir(path: string): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public rmdirSync(path: string, cred: Cred): void {
+		public rmdirSync(path: string): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async mkdir(path: string, mode: number, cred: Cred): Promise<void> {
+		public async mkdir(path: string, mode: number): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public mkdirSync(path: string, mode: number, cred: Cred): void {
+		public mkdirSync(path: string, mode: number): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
+		public async link(srcpath: string, dstpath: string): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public linkSync(srcpath: string, dstpath: string, cred: Cred): void {
+		public linkSync(srcpath: string, dstpath: string): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 

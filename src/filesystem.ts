@@ -1,4 +1,3 @@
-import type { Cred } from './cred.js';
 import type { ErrnoError } from './error.js';
 import type { File } from './file.js';
 import { ZenFsType, type Stats } from './stats.js';
@@ -103,28 +102,28 @@ export abstract class FileSystem {
 	/**
 	 * Asynchronous rename.
 	 */
-	public abstract rename(oldPath: string, newPath: string, cred: Cred): Promise<void>;
+	public abstract rename(oldPath: string, newPath: string): Promise<void>;
 	/**
 	 * Synchronous rename.
 	 */
-	public abstract renameSync(oldPath: string, newPath: string, cred: Cred): void;
+	public abstract renameSync(oldPath: string, newPath: string): void;
 
 	/**
 	 * Asynchronous `stat`.
 	 */
-	public abstract stat(path: string, cred: Cred): Promise<Stats>;
+	public abstract stat(path: string): Promise<Stats>;
 
 	/**
 	 * Synchronous `stat`.
 	 */
-	public abstract statSync(path: string, cred: Cred): Stats;
+	public abstract statSync(path: string): Stats;
 
 	/**
 	 * Opens the file at `path` with the given flag. The file must exist.
 	 * @param path The path to open.
 	 * @param flag The flag to use when opening the file.
 	 */
-	public abstract openFile(path: string, flag: string, cred: Cred): Promise<File>;
+	public abstract openFile(path: string, flag: string): Promise<File>;
 
 	/**
 	 * Opens the file at `path` with the given flag. The file must exist.
@@ -132,60 +131,60 @@ export abstract class FileSystem {
 	 * @param flag The flag to use when opening the file.
 	 * @return A File object corresponding to the opened file.
 	 */
-	public abstract openFileSync(path: string, flag: string, cred: Cred): File;
+	public abstract openFileSync(path: string, flag: string): File;
 
 	/**
 	 * Create the file at `path` with the given mode. Then, open it with the given flag.
 	 */
-	public abstract createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File>;
+	public abstract createFile(path: string, flag: string, mode: number): Promise<File>;
 
 	/**
 	 * Create the file at `path` with the given mode. Then, open it with the given flag.
 	 */
-	public abstract createFileSync(path: string, flag: string, mode: number, cred: Cred): File;
+	public abstract createFileSync(path: string, flag: string, mode: number): File;
 
 	/**
 	 * Asynchronous `unlink`.
 	 */
-	public abstract unlink(path: string, cred: Cred): Promise<void>;
+	public abstract unlink(path: string): Promise<void>;
 	/**
 	 * Synchronous `unlink`.
 	 */
-	public abstract unlinkSync(path: string, cred: Cred): void;
+	public abstract unlinkSync(path: string): void;
 	// Directory operations
 	/**
 	 * Asynchronous `rmdir`.
 	 */
-	public abstract rmdir(path: string, cred: Cred): Promise<void>;
+	public abstract rmdir(path: string): Promise<void>;
 	/**
 	 * Synchronous `rmdir`.
 	 */
-	public abstract rmdirSync(path: string, cred: Cred): void;
+	public abstract rmdirSync(path: string): void;
 	/**
 	 * Asynchronous `mkdir`.
 	 * @param mode Mode to make the directory using.
 	 */
-	public abstract mkdir(path: string, mode: number, cred: Cred): Promise<void>;
+	public abstract mkdir(path: string, mode: number): Promise<void>;
 	/**
 	 * Synchronous `mkdir`.
 	 * @param mode Mode to make the directory using.
 	 */
-	public abstract mkdirSync(path: string, mode: number, cred: Cred): void;
+	public abstract mkdirSync(path: string, mode: number): void;
 	/**
 	 * Asynchronous `readdir`. Reads the contents of a directory.
 	 */
-	public abstract readdir(path: string, cred: Cred): Promise<string[]>;
+	public abstract readdir(path: string): Promise<string[]>;
 	/**
 	 * Synchronous `readdir`. Reads the contents of a directory.
 	 */
-	public abstract readdirSync(path: string, cred: Cred): string[];
+	public abstract readdirSync(path: string): string[];
 
 	/**
 	 * Test whether or not the given path exists.
 	 */
-	public async exists(path: string, cred: Cred): Promise<boolean> {
+	public async exists(path: string): Promise<boolean> {
 		try {
-			await this.stat(path, cred);
+			await this.stat(path);
 			return true;
 		} catch (e) {
 			return (e as ErrnoError).code != 'ENOENT';
@@ -195,9 +194,9 @@ export abstract class FileSystem {
 	/**
 	 * Test whether or not the given path exists.
 	 */
-	public existsSync(path: string, cred: Cred): boolean {
+	public existsSync(path: string): boolean {
 		try {
-			this.statSync(path, cred);
+			this.statSync(path);
 			return true;
 		} catch (e) {
 			return (e as ErrnoError).code != 'ENOENT';
@@ -207,12 +206,12 @@ export abstract class FileSystem {
 	/**
 	 * Asynchronous `link`.
 	 */
-	public abstract link(srcpath: string, dstpath: string, cred: Cred): Promise<void>;
+	public abstract link(srcpath: string, dstpath: string): Promise<void>;
 
 	/**
 	 * Synchronous `link`.
 	 */
-	public abstract linkSync(srcpath: string, dstpath: string, cred: Cred): void;
+	public abstract linkSync(srcpath: string, dstpath: string): void;
 
 	/**
 	 * Synchronize the data and stats for path asynchronously

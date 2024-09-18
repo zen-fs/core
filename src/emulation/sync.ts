@@ -9,7 +9,8 @@ import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '.
 import { COPYFILE_EXCL, F_OK, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK } from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { _statfs, cred, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { credentials } from '../credentials.js';
 import { emitChange } from './watchers.js';
 
 /**
@@ -25,7 +26,7 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	const paths = { [_old.path]: oldPath, [_new.path]: newPath };
 	try {
 		if (_old === _new) {
-			_old.fs.renameSync(_old.path, _new.path, cred);
+			_old.fs.renameSync(_old.path, _new.path);
 			emitChange('rename', oldPath.toString());
 			return;
 		}
@@ -47,7 +48,7 @@ export function existsSync(path: fs.PathLike): boolean {
 	path = normalizePath(path);
 	try {
 		const { fs, path: resolvedPath } = resolveMount(realpathSync(path));
-		return fs.existsSync(resolvedPath, cred);
+		return fs.existsSync(resolvedPath);
 	} catch (e) {
 		if ((e as ErrnoError).errno == Errno.ENOENT) {
 			return false;
@@ -69,7 +70,7 @@ export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | B
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	try {
-		const stats = fs.statSync(resolved, cred);
+		const stats = fs.statSync(resolved);
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -89,7 +90,7 @@ export function lstatSync(path: fs.PathLike, options?: fs.StatOptions): Stats | 
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		const stats = fs.statSync(resolved, cred);
+		const stats = fs.statSync(resolved);
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -120,7 +121,7 @@ export function unlinkSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		fs.unlinkSync(resolved, cred);
+		fs.unlinkSync(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -136,21 +137,21 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 	path = resolveSymlinks && existsSync(path) ? realpathSync(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
-	if (!fs.existsSync(resolved, cred)) {
+	if (!fs.existsSync(resolved)) {
 		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
 			throw ErrnoError.With('ENOENT', path, '_open');
 		}
 		// Create the file
-		const parentStats: Stats = fs.statSync(dirname(resolved), cred);
+		const parentStats: Stats = fs.statSync(dirname(resolved));
 		if (!parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
-		return fs.createFileSync(resolved, flag, mode, cred);
+		return fs.createFileSync(resolved, flag, mode);
 	}
 
-	const stats: Stats = fs.statSync(resolved, cred);
+	const stats: Stats = fs.statSync(resolved);
 
-	if (!stats.hasAccess(mode, cred)) {
+	if (!stats.hasAccess(mode, credentials)) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
@@ -159,18 +160,18 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 	}
 
 	if (!isTruncating(flag)) {
-		return fs.openFileSync(resolved, flag, cred);
+		return fs.openFileSync(resolved, flag);
 	}
 
 	// Delete file.
-	fs.unlinkSync(resolved, cred);
+	fs.unlinkSync(resolved);
 	/*
 		Create file. Use the same mode as the old file.
 		Node itself modifies the ctime when this occurs, so this action
 		will preserve that behavior if the underlying file system
 		supports those properties.
 	*/
-	return fs.createFileSync(resolved, flag, stats.mode, cred);
+	return fs.createFileSync(resolved, flag, stats.mode);
 }
 
 /**
@@ -459,7 +460,7 @@ export function rmdirSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	try {
-		fs.rmdirSync(resolved, cred);
+		fs.rmdirSync(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -486,16 +487,16 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 
 	try {
 		if (!options?.recursive) {
-			return fs.mkdirSync(resolved, mode, cred);
+			return fs.mkdirSync(resolved, mode);
 		}
 
 		const dirs: string[] = [];
-		for (let dir = resolved, original = path; !fs.existsSync(dir, cred); dir = dirname(dir), original = dirname(original)) {
+		for (let dir = resolved, original = path; !fs.existsSync(dir); dir = dirname(dir), original = dirname(original)) {
 			dirs.unshift(dir);
 			errorPaths[dir] = original;
 		}
 		for (const dir of dirs) {
-			fs.mkdirSync(dir, mode, cred);
+			fs.mkdirSync(dir, mode);
 			emitChange('rename', dir);
 		}
 		return dirs[0];
@@ -521,7 +522,7 @@ export function readdirSync(
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	let entries: string[];
 	try {
-		entries = fs.readdirSync(resolved, cred);
+		entries = fs.readdirSync(resolved);
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
@@ -562,7 +563,7 @@ export function linkSync(existing: fs.PathLike, newpath: fs.PathLike): void {
 	newpath = normalizePath(newpath);
 	const { fs, path: resolved } = resolveMount(existing);
 	try {
-		return fs.linkSync(resolved, newpath, cred);
+		return fs.linkSync(resolved, newpath);
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: existing });
 	}
@@ -701,7 +702,7 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
-		const stats = fs.statSync(resolvedPath, cred);
+		const stats = fs.statSync(resolvedPath);
 		if (!stats.isSymbolicLink()) {
 			return lpath;
 		}
@@ -720,7 +721,7 @@ realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
  */
 export function accessSync(path: fs.PathLike, mode: number = 0o600): void {
 	const stats = statSync(path);
-	if (!stats.hasAccess(mode, cred)) {
+	if (!stats.hasAccess(mode, credentials)) {
 		throw new ErrnoError(Errno.EACCES);
 	}
 }

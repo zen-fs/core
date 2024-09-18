@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import type { OptionalTuple } from 'utilium';
-import { ErrnoError, Errno } from './error.js';
-import type { Cred } from './cred.js';
-import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
-import type { FileSystem } from './filesystem.js';
 import type * as fs from 'node:fs';
+import type { OptionalTuple } from 'utilium';
+import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
+import { Errno, ErrnoError } from './error.js';
+import type { FileSystem } from './filesystem.js';
 
 declare global {
 	function atob(data: string): string;
@@ -21,10 +20,10 @@ declare const globalThis: {
  * Synchronous recursive makedir.
  * @hidden
  */
-export function mkdirpSync(path: string, mode: number, cred: Cred, fs: FileSystem): void {
-	if (!fs.existsSync(path, cred)) {
-		mkdirpSync(dirname(path), mode, cred, fs);
-		fs.mkdirSync(path, mode, cred);
+export function mkdirpSync(path: string, mode: number, fs: FileSystem): void {
+	if (!fs.existsSync(path)) {
+		mkdirpSync(dirname(path), mode, fs);
+		fs.mkdirSync(path, mode);
 	}
 }
 

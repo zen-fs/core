@@ -1,7 +1,7 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
 import { isJSON } from 'utilium';
-import type { Cred } from '../cred.js';
+import { credentials } from '../credentials.js';
 import { basename, dirname } from '../emulation/path.js';
 import { Errno, ErrnoError } from '../error.js';
 import { NoSyncFile, flagToMode, isWriteable } from '../file.js';
@@ -149,7 +149,7 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 		return this.index.get(path)!;
 	}
 
-	public async openFile(path: string, flag: string, cred: Cred): Promise<NoSyncFile<this>> {
+	public async openFile(path: string, flag: string): Promise<NoSyncFile<this>> {
 		if (isWriteable(flag)) {
 			// You can't write to files on this file system.
 			throw new ErrnoError(Errno.EPERM, path);
@@ -162,14 +162,14 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
 
-		if (!stats.hasAccess(flagToMode(flag), cred)) {
+		if (!stats.hasAccess(flagToMode(flag), credentials)) {
 			throw ErrnoError.With('EACCES', path, 'openFile');
 		}
 
 		return new NoSyncFile(this, path, flag, stats, stats.isDirectory() ? stats.fileData : await this.getData(path, stats));
 	}
 
-	public openFileSync(path: string, flag: string, cred: Cred): NoSyncFile<this> {
+	public openFileSync(path: string, flag: string): NoSyncFile<this> {
 		if (isWriteable(flag)) {
 			// You can't write to files on this file system.
 			throw new ErrnoError(Errno.EPERM, path);
@@ -182,7 +182,7 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
 
-		if (!stats.hasAccess(flagToMode(flag), cred)) {
+		if (!stats.hasAccess(flagToMode(flag), credentials)) {
 			throw ErrnoError.With('EACCES', path, 'openFile');
 		}
 

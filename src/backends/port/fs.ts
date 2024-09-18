@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FileReadResult } from 'node:fs/promises';
 import type { ExtractProperties } from 'utilium';
-import type { Cred } from '../../cred.js';
+import type { Credentials } from '../../credentials.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { File } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
@@ -184,40 +184,40 @@ export class PortFS extends Async(FileSystem) {
 		await super.ready();
 	}
 
-	public rename(oldPath: string, newPath: string, cred: Cred): Promise<void> {
-		return this.rpc('rename', oldPath, newPath, cred);
+	public rename(oldPath: string, newPath: string): Promise<void> {
+		return this.rpc('rename', oldPath, newPath);
 	}
 
-	public async stat(path: string, cred: Cred): Promise<Stats> {
-		return new Stats(await this.rpc('stat', path, cred));
+	public async stat(path: string): Promise<Stats> {
+		return new Stats(await this.rpc('stat', path));
 	}
 
 	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		return this.rpc('sync', path, data, stats);
 	}
-	public openFile(path: string, flag: string, cred: Cred): Promise<File> {
-		return this.rpc('openFile', path, flag, cred);
+	public openFile(path: string, flag: string): Promise<File> {
+		return this.rpc('openFile', path, flag);
 	}
-	public createFile(path: string, flag: string, mode: number, cred: Cred): Promise<File> {
-		return this.rpc('createFile', path, flag, mode, cred);
+	public createFile(path: string, flag: string, mode: number): Promise<File> {
+		return this.rpc('createFile', path, flag, mode);
 	}
-	public unlink(path: string, cred: Cred): Promise<void> {
-		return this.rpc('unlink', path, cred);
+	public unlink(path: string): Promise<void> {
+		return this.rpc('unlink', path);
 	}
-	public rmdir(path: string, cred: Cred): Promise<void> {
-		return this.rpc('rmdir', path, cred);
+	public rmdir(path: string): Promise<void> {
+		return this.rpc('rmdir', path);
 	}
-	public mkdir(path: string, mode: number, cred: Cred): Promise<void> {
-		return this.rpc('mkdir', path, mode, cred);
+	public mkdir(path: string, mode: number): Promise<void> {
+		return this.rpc('mkdir', path, mode);
 	}
-	public readdir(path: string, cred: Cred): Promise<string[]> {
-		return this.rpc('readdir', path, cred);
+	public readdir(path: string): Promise<string[]> {
+		return this.rpc('readdir', path);
 	}
-	public exists(path: string, cred: Cred): Promise<boolean> {
-		return this.rpc('exists', path, cred);
+	public exists(path: string): Promise<boolean> {
+		return this.rpc('exists', path);
 	}
-	public link(srcpath: string, dstpath: string, cred: Cred): Promise<void> {
-		return this.rpc('link', srcpath, dstpath, cred);
+	public link(srcpath: string, dstpath: string): Promise<void> {
+		return this.rpc('link', srcpath, dstpath);
 	}
 }
 

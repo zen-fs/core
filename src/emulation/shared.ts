@@ -2,20 +2,12 @@
 
 import type { BigIntStatsFs, StatsFs } from 'node:fs';
 import { InMemory } from '../backends/memory.js';
-import type { Cred } from '../cred.js';
-import { rootCred } from '../cred.js';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import type { FileSystem } from '../filesystem.js';
 import { size_max } from '../inode.js';
 import { normalizePath } from '../utils.js';
 import { resolve, type AbsolutePath } from './path.js';
-
-// credentials
-export let cred: Cred = rootCred;
-export function setCred(val: Cred): void {
-	cred = val;
-}
 
 // descriptors
 export const fdMap: Map<number, File> = new Map();
