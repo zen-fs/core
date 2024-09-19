@@ -172,12 +172,11 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 
 	const file = fs.openFileSync(resolved, flag);
 
-	if (!isTruncating(flag)) {
-		return file;
+	if (isTruncating(flag)) {
+		file.truncateSync(0);
+		file.syncSync();
 	}
 
-	file.truncateSync(0);
-	file.syncSync();
 	return file;
 }
 

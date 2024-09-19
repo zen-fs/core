@@ -544,11 +544,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		throw ErrnoError.With('EEXIST', path, '_open');
 	}
 
-	const file: File = await fs.openFile(resolved, flag);
-
-	if (!isTruncating(flag)) {
-		return new FileHandle(file);
-	}
+	const handle = new FileHandle(await fs.openFile(resolved, flag));
 
 	/*
 		In a previous implementation, we deleted the file and
@@ -556,10 +552,12 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		asynchronous request was trying to read the file, as the file
 		would not exist for a small period of time.
 	*/
+	if (isTruncating(flag)) {
+		await handle.truncate(0);
+		await handle.sync();
+	}
 
-	await file.truncate(0);
-	await file.sync();
-	return new FileHandle(file);
+	return handle;
 }
 
 /**
