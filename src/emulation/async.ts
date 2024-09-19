@@ -758,7 +758,7 @@ unwatchFile satisfies Omit<typeof fs.unwatchFile, '__promisify__'>;
 export function watch(path: fs.PathLike, listener?: (event: string, filename: string) => any): FSWatcher;
 export function watch(path: fs.PathLike, options: { persistent?: boolean }, listener?: (event: string, filename: string) => any): FSWatcher;
 export function watch(path: fs.PathLike, options?: fs.WatchOptions | ((event: string, filename: string) => any), listener?: (event: string, filename: string) => any): FSWatcher {
-	const watcher = new FSWatcher<string>(typeof options == 'object' ? options : {}, normalizePath(path));
+	const watcher = new FSWatcher<string>(normalizePath(path), typeof options == 'object' ? options : {});
 	listener = typeof options == 'function' ? options : listener;
 	watcher.on('change', listener || nop);
 	return watcher;
