@@ -685,14 +685,14 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 
 	path = normalizePath(path);
 	path = (await exists(path)) ? await realpath(path) : path;
-	if (!(await stat(dirname(path))).hasAccess(constants.W_OK, credentials)) {
-		throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
-	}
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
 	try {
 		if (!options?.recursive) {
+			if (!(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK, credentials)) {
+				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
+			}
 			await fs.mkdir(resolved, mode);
 			emitChange('rename', path.toString());
 			return;
@@ -704,6 +704,9 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 			errorPaths[dir] = origDir;
 		}
 		for (const dir of dirs) {
+			if (!(await fs.stat(dirname(dir))).hasAccess(constants.W_OK, credentials)) {
+				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
+			}
 			await fs.mkdir(dir, mode);
 			emitChange('rename', dir);
 		}

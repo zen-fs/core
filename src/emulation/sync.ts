@@ -490,14 +490,14 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 
 	path = normalizePath(path);
 	path = existsSync(path) ? realpathSync(path) : path;
-	if (!statSync(dirname(path)).hasAccess(constants.W_OK, credentials)) {
-		throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
-	}
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
 	try {
 		if (!options?.recursive) {
+			if (!fs.statSync(dirname(resolved)).hasAccess(constants.W_OK, credentials)) {
+				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
+			}
 			return fs.mkdirSync(resolved, mode);
 		}
 
@@ -507,6 +507,9 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 			errorPaths[dir] = original;
 		}
 		for (const dir of dirs) {
+			if (!fs.statSync(dirname(dir)).hasAccess(constants.W_OK, credentials)) {
+				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
+			}
 			fs.mkdirSync(dir, mode);
 			emitChange('rename', dir);
 		}
