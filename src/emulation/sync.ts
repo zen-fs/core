@@ -148,6 +148,9 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 		}
 		// Create the file
 		const parentStats: Stats = fs.statSync(dirname(resolved));
+		if (!parentStats.hasAccess(constants.W_OK, credentials)) {
+			throw ErrnoError.With('EACCES', dirname(path), '_open');
+		}
 		if (!parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
@@ -487,6 +490,9 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 
 	path = normalizePath(path);
 	path = existsSync(path) ? realpathSync(path) : path;
+	if (!statSync(dirname(path)).hasAccess(constants.W_OK, credentials)) {
+		throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
+	}
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 

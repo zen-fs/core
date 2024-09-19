@@ -524,7 +524,10 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		}
 		// Create the file
 		const parentStats: Stats = await fs.stat(dirname(resolved));
-		if (parentStats && !parentStats.isDirectory()) {
+		if (!parentStats.hasAccess(constants.W_OK, credentials)) {
+			throw ErrnoError.With('EACCES', dirname(path), '_open');
+		}
+		if (!parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
 		return new FileHandle(await fs.createFile(resolved, flag, mode));
@@ -682,6 +685,9 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 
 	path = normalizePath(path);
 	path = (await exists(path)) ? await realpath(path) : path;
+	if (!(await stat(dirname(path))).hasAccess(constants.W_OK, credentials)) {
+		throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
+	}
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 

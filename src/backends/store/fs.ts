@@ -560,11 +560,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const parentPath = dirname(path),
 			parent = await this.findINode(tx, parentPath);
 
-		//Check that the creater has correct access
-		if (!parent.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', path, 'commitNewFile');
-		}
-
 		const fname = basename(path),
 			listing = await this.getDirListing(tx, parent, parentPath);
 
@@ -611,11 +606,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		using tx = this.store.transaction();
 		const parentPath = dirname(path),
 			parent = this.findINodeSync(tx, parentPath);
-
-		//Check that the creater has correct access
-		if (!parent.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', path, 'commitNewFile');
-		}
 
 		const fname = basename(path),
 			listing = this.getDirListingSync(tx, parent, parentPath);
