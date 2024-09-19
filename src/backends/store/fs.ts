@@ -101,15 +101,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		if (newDirList[newName]) {
-			// If it's a file, delete it.
+			// If it's a file, delete it, if it's a directory, throw a permissions error.
 			const newNameNode = await this.getINode(tx, newDirList[newName], newPath);
-			if (newNameNode.toStats().isFile()) {
-				await tx.remove(newNameNode.ino);
-				await tx.remove(newDirList[newName]);
-			} else {
-				// If it's a directory, throw a permissions error.
+			if (!newNameNode.toStats().isFile()) {
 				throw ErrnoError.With('EPERM', newPath, 'rename');
 			}
+			await tx.remove(newNameNode.ino);
+			await tx.remove(newDirList[newName]);
 		}
 		newDirList[newName] = nodeId;
 		// Commit the two changed directory listings.
@@ -155,15 +153,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		if (newDirList[newName]) {
-			// If it's a file, delete it.
+			// If it's a file, delete it, if it's a directory, throw a permissions error.
 			const newNameNode = this.getINodeSync(tx, newDirList[newName], newPath);
-			if (newNameNode.toStats().isFile()) {
-				tx.removeSync(newNameNode.ino);
-				tx.removeSync(newDirList[newName]);
-			} else {
-				// If it's a directory, throw a permissions error.
+			if (!newNameNode.toStats().isFile()) {
 				throw ErrnoError.With('EPERM', newPath, 'rename');
 			}
+			tx.removeSync(newNameNode.ino);
+			tx.removeSync(newDirList[newName]);
 		}
 		newDirList[newName] = ino;
 
@@ -228,8 +224,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public async rmdir(path: string): Promise<void> {
 		// Check first if directory is empty.
-		const list = await this.readdir(path);
-		if (list.length > 0) {
+		if ((await this.readdir(path)).length) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		}
 		await this.remove(path, true);
@@ -237,11 +232,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public rmdirSync(path: string): void {
 		// Check first if directory is empty.
-		if (this.readdirSync(path).length > 0) {
+		if (this.readdirSync(path).length) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
-		} else {
-			this.removeSync(path, true);
 		}
+		this.removeSync(path, true);
 	}
 
 	public async mkdir(path: string, mode: number): Promise<void> {
