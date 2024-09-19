@@ -1,10 +1,9 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
 import { isJSON } from 'utilium';
-import { credentials } from '../credentials.js';
 import { basename, dirname } from '../emulation/path.js';
 import { Errno, ErrnoError } from '../error.js';
-import { NoSyncFile, flagToMode, isWriteable } from '../file.js';
+import { NoSyncFile, isWriteable } from '../file.js';
 import { FileSystem } from '../filesystem.js';
 import { Readonly } from '../mixins/readonly.js';
 import type { StatsLike } from '../stats.js';
@@ -162,10 +161,6 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
 
-		if (!stats.hasAccess(flagToMode(flag), credentials)) {
-			throw ErrnoError.With('EACCES', path, 'openFile');
-		}
-
 		return new NoSyncFile(this, path, flag, stats, stats.isDirectory() ? stats.fileData : await this.getData(path, stats));
 	}
 
@@ -180,10 +175,6 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 
 		if (!stats) {
 			throw ErrnoError.With('ENOENT', path, 'openFile');
-		}
-
-		if (!stats.hasAccess(flagToMode(flag), credentials)) {
-			throw ErrnoError.With('EACCES', path, 'openFile');
 		}
 
 		return new NoSyncFile(this, path, flag, stats, stats.isDirectory() ? stats.fileData : this.getDataSync(path, stats));
