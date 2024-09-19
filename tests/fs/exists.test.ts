@@ -13,7 +13,7 @@ describe('exists', () => {
 		expect(exists).toBe(false);
 	});
 
-	test('have sync methods that behave the same', async () => {
+	test('have sync methods that behave the same', () => {
 		expect(fs.existsSync(f)).toBe(true);
 		expect(fs.existsSync(f + '-NO')).toBe(false);
 	});

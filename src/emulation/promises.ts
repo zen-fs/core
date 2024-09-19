@@ -9,7 +9,7 @@ import type { Interface as ReadlineInterface } from 'readline';
 import type { ReadableStreamController } from 'stream/web';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import { isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
+import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import '../polyfills.js';
 import { BigIntStats, type Stats } from '../stats.js';
@@ -220,6 +220,9 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts?: fs.StatOptions & { bigint?: false }): Promise<Stats>;
 	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
 		const stats = await this.file.stat();
+		if (!stats.hasAccess(constants.R_OK, credentials)) {
+			throw ErrnoError.With('EACCES', this.file.path, 'stat');
+		}
 		return opts?.bigint ? new BigIntStats(stats) : stats;
 	}
 
@@ -393,6 +396,9 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 	newPath = normalizePath(newPath);
 	const src = resolveMount(oldPath);
 	const dst = resolveMount(newPath);
+	if (!(await stat(dirname(oldPath))).hasAccess(constants.W_OK, credentials)) {
+		throw ErrnoError.With('EACCES', oldPath, 'rename');
+	}
 	try {
 		if (src.mountPoint == dst.mountPoint) {
 			await src.fs.rename(src.path, dst.path);
@@ -438,6 +444,9 @@ export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise
 	const { fs, path: resolved } = resolveMount((await exists(path)) ? await realpath(path) : path);
 	try {
 		const stats = await fs.stat(resolved);
+		if (!stats.hasAccess(constants.R_OK, credentials)) {
+			throw ErrnoError.With('EACCES', path, 'stat');
+		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -507,7 +516,9 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	path = resolveSymlinks && (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
-	if (!(await fs.exists(resolved))) {
+	const stats = await fs.stat(resolved).catch(() => null);
+
+	if (!stats) {
 		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
 			throw ErrnoError.With('ENOENT', path, '_open');
 		}
@@ -519,12 +530,18 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		return new FileHandle(await fs.createFile(resolved, flag, mode));
 	}
 
+	if (!stats.hasAccess(flagToMode(flag), credentials)) {
+		throw ErrnoError.With('EACCES', path, '_open');
+	}
+
 	if (isExclusive(flag)) {
 		throw ErrnoError.With('EEXIST', path, '_open');
 	}
 
+	const file: File = await fs.openFile(resolved, flag);
+
 	if (!isTruncating(flag)) {
-		return new FileHandle(await fs.openFile(resolved, flag));
+		return new FileHandle(file);
 	}
 
 	/*
@@ -533,7 +550,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		asynchronous request was trying to read the file, as the file
 		would not exist for a small period of time.
 	*/
-	const file: File = await fs.openFile(resolved, flag);
+
 	await file.truncate(0);
 	await file.sync();
 	return new FileHandle(file);
@@ -708,6 +725,9 @@ export async function readdir(
 	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	path = normalizePath(path);
+	if (!(await stat(path)).hasAccess(constants.R_OK, credentials)) {
+		throw ErrnoError.With('EACCES', path, 'readdir');
+	}
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 	let entries: string[];
@@ -738,17 +758,31 @@ readdir satisfies typeof promises.readdir;
 
 /**
  * `link`.
- * @param existing
- * @param newpath
+ * @param targetPath
+ * @param linkPath
  */
-export async function link(existing: fs.PathLike, newpath: fs.PathLike): Promise<void> {
-	existing = normalizePath(existing);
-	newpath = normalizePath(newpath);
-	const { fs, path: resolved } = resolveMount(newpath);
+export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Promise<void> {
+	targetPath = normalizePath(targetPath);
+	if (!(await stat(dirname(targetPath))).hasAccess(constants.R_OK, credentials)) {
+		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
+	}
+	linkPath = normalizePath(linkPath);
+	if (!(await stat(dirname(linkPath))).hasAccess(constants.W_OK, credentials)) {
+		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
+	}
+
+	const { fs, path } = resolveMount(targetPath);
+	const link = resolveMount(linkPath);
+	if (fs != link.fs) {
+		throw ErrnoError.With('EXDEV', linkPath, 'link');
+	}
 	try {
-		return await fs.link(existing, newpath);
+		if (!(await fs.stat(path)).hasAccess(constants.W_OK, credentials)) {
+			throw ErrnoError.With('EACCES', path, 'link');
+		}
+		return await fs.link(path, link.path);
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: newpath });
+		throw fixError(e as Error, { [link.path]: linkPath, [path]: targetPath });
 	}
 }
 link satisfies typeof promises.link;

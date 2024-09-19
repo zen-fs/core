@@ -1,8 +1,8 @@
 import { credentials } from '../../credentials.js';
-import { R_OK, S_IFDIR, S_IFREG, W_OK } from '../../emulation/constants.js';
+import { S_IFDIR, S_IFREG, W_OK } from '../../emulation/constants.js';
 import { basename, dirname, join, resolve } from '../../emulation/path.js';
 import { Errno, ErrnoError } from '../../error.js';
-import { PreloadFile, flagToMode } from '../../file.js';
+import { PreloadFile } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { type Ino, Inode, randomIno, rootIno } from '../../inode.js';
 import type { FileType, Stats } from '../../stats.js';
@@ -74,10 +74,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			oldDirNode = await this.findINode(tx, oldParent),
 			oldDirList = await this.getDirListing(tx, oldDirNode, oldParent);
 
-		if (!oldDirNode.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', oldPath, 'rename');
-		}
-
 		if (!oldDirList[oldName]) {
 			throw ErrnoError.With('ENOENT', oldPath, 'rename');
 		}
@@ -132,10 +128,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			oldDirNode = this.findINodeSync(tx, oldParent),
 			oldDirList = this.getDirListingSync(tx, oldDirNode, oldParent);
 
-		if (!oldDirNode.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', oldPath, 'rename');
-		}
-
 		if (!oldDirList[oldName]) {
 			throw ErrnoError.With('ENOENT', oldPath, 'rename');
 		}
@@ -187,21 +179,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		if (!inode) {
 			throw ErrnoError.With('ENOENT', path, 'stat');
 		}
-		const stats = inode.toStats();
-		if (!stats.hasAccess(R_OK, credentials)) {
-			throw ErrnoError.With('EACCES', path, 'stat');
-		}
-		return stats;
+		return inode.toStats();
 	}
 
 	public statSync(path: string): Stats {
 		using tx = this.store.transaction();
 		// Get the inode to the item, convert it into a Stats object.
-		const stats = this.findINodeSync(tx, path).toStats();
-		if (!stats.hasAccess(R_OK, credentials)) {
-			throw ErrnoError.With('EACCES', path, 'stat');
-		}
-		return stats;
+		return this.findINodeSync(tx, path).toStats();
 	}
 
 	public async createFile(path: string, flag: string, mode: number): Promise<PreloadFile<this>> {
@@ -218,9 +202,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.store.transaction();
 		const node = await this.findINode(tx, path),
 			data = await tx.get(node.ino);
-		if (!node.toStats().hasAccess(flagToMode(flag), credentials)) {
-			throw ErrnoError.With('EACCES', path, 'openFile');
-		}
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
@@ -231,9 +212,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		using tx = this.store.transaction();
 		const node = this.findINodeSync(tx, path),
 			data = tx.getSync(node.ino);
-		if (!node.toStats().hasAccess(flagToMode(flag), credentials)) {
-			throw ErrnoError.With('EACCES', path, 'openFile');
-		}
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
@@ -277,18 +255,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async readdir(path: string): Promise<string[]> {
 		await using tx = this.store.transaction();
 		const node = await this.findINode(tx, path);
-		if (!node.toStats().hasAccess(R_OK, credentials)) {
-			throw ErrnoError.With('EACCES', path, 'readdur');
-		}
 		return Object.keys(await this.getDirListing(tx, node, path));
 	}
 
 	public readdirSync(path: string): string[] {
 		using tx = this.store.transaction();
 		const node = this.findINodeSync(tx, path);
-		if (!node.toStats().hasAccess(R_OK, credentials)) {
-			throw ErrnoError.With('EACCES', path, 'readdir');
-		}
 		return Object.keys(this.getDirListingSync(tx, node, path));
 	}
 
@@ -334,66 +306,39 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public async link(existing: string, newpath: string): Promise<void> {
+	public async link(target: string, link: string): Promise<void> {
 		await using tx = this.store.transaction();
-		const existingDir: string = dirname(existing),
-			existingDirNode = await this.findINode(tx, existingDir);
 
-		if (!existingDirNode.toStats().hasAccess(R_OK, credentials)) {
-			throw ErrnoError.With('EACCES', existingDir, 'link');
-		}
-
-		const newDir: string = dirname(newpath),
+		const newDir: string = dirname(link),
 			newDirNode = await this.findINode(tx, newDir),
-			newListing = await this.getDirListing(tx, newDirNode, newDir);
+			listing = await this.getDirListing(tx, newDirNode, newDir);
 
-		if (!newDirNode.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', newDir, 'link');
-		}
-
-		const ino = await this._findINode(tx, existingDir, basename(existing));
-		const node = await this.getINode(tx, ino, existing);
-
-		if (!node.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', newpath, 'link');
-		}
+		const ino = await this._findINode(tx, dirname(target), basename(target));
+		const node = await this.getINode(tx, ino, target);
 
 		node.nlink++;
-		newListing[basename(newpath)] = ino;
+		listing[basename(link)] = ino;
 
 		tx.setSync(ino, node.data);
-		tx.setSync(newDirNode.ino, encodeDirListing(newListing));
+		tx.setSync(newDirNode.ino, encodeDirListing(listing));
 		tx.commitSync();
 	}
 
-	public linkSync(existing: string, newpath: string): void {
+	public linkSync(target: string, link: string): void {
 		using tx = this.store.transaction();
-		const existingDir: string = dirname(existing),
-			existingDirNode = this.findINodeSync(tx, existingDir);
 
-		if (!existingDirNode.toStats().hasAccess(R_OK, credentials)) {
-			throw ErrnoError.With('EACCES', existingDir, 'link');
-		}
-
-		const newDir: string = dirname(newpath),
+		const newDir: string = dirname(link),
 			newDirNode = this.findINodeSync(tx, newDir),
-			newListing = this.getDirListingSync(tx, newDirNode, newDir);
+			listing = this.getDirListingSync(tx, newDirNode, newDir);
 
-		if (!newDirNode.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', newDir, 'link');
-		}
+		const ino = this._findINodeSync(tx, dirname(target), basename(target));
+		const node = this.getINodeSync(tx, ino, target);
 
-		const ino = this._findINodeSync(tx, existingDir, basename(existing));
-		const node = this.getINodeSync(tx, ino, existing);
-
-		if (!node.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', newpath, 'link');
-		}
 		node.nlink++;
-		newListing[basename(newpath)] = ino;
+		listing[basename(link)] = ino;
 
 		tx.setSync(ino, node.data);
-		tx.setSync(newDirNode.ino, encodeDirListing(newListing));
+		tx.setSync(newDirNode.ino, encodeDirListing(listing));
 		tx.commitSync();
 	}
 

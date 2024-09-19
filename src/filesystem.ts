@@ -206,12 +206,12 @@ export abstract class FileSystem {
 	/**
 	 * Asynchronous `link`.
 	 */
-	public abstract link(srcpath: string, dstpath: string): Promise<void>;
+	public abstract link(target: string, link: string): Promise<void>;
 
 	/**
 	 * Synchronous `link`.
 	 */
-	public abstract linkSync(srcpath: string, dstpath: string): void;
+	public abstract linkSync(target: string, link: string): void;
 
 	/**
 	 * Synchronize the data and stats for path asynchronously

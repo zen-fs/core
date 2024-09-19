@@ -131,7 +131,7 @@ describe('Directory', () => {
 		await fs.promises.rm('/rmDirRecusrively', { recursive: true });
 	});
 
-	test('rm recursively synchronously', async () => {
+	test('rm recursively synchronously', () => {
 		fs.mkdirSync('/rmDirRecusrively');
 		fs.mkdirSync('/rmDirRecusrively/rmDirNested');
 		fs.writeFileSync('/rmDirRecusrively/rmDirNested/test.txt', 'hello world!');

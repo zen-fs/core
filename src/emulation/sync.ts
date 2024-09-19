@@ -2,11 +2,11 @@ import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import { isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
+import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, type Stats } from '../stats.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
-import { COPYFILE_EXCL, F_OK, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK } from './constants.js';
+import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
@@ -21,12 +21,14 @@ import { emitChange } from './watchers.js';
 export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
-	const _old = resolveMount(oldPath);
-	const _new = resolveMount(newPath);
-	const paths = { [_old.path]: oldPath, [_new.path]: newPath };
+	const oldMount = resolveMount(oldPath);
+	const newMount = resolveMount(newPath);
+	if (!statSync(dirname(oldPath)).hasAccess(constants.W_OK, credentials)) {
+		throw ErrnoError.With('EACCES', oldPath, 'rename');
+	}
 	try {
-		if (_old === _new) {
-			_old.fs.renameSync(_old.path, _new.path);
+		if (oldMount === newMount) {
+			oldMount.fs.renameSync(oldMount.path, newMount.path);
 			emitChange('rename', oldPath.toString());
 			return;
 		}
@@ -35,7 +37,7 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 		unlinkSync(oldPath);
 		emitChange('rename', oldPath.toString());
 	} catch (e) {
-		throw fixError(e as Error, paths);
+		throw fixError(e as Error, { [oldMount.path]: oldPath, [newMount.path]: newPath });
 	}
 }
 renameSync satisfies typeof fs.renameSync;
@@ -71,6 +73,9 @@ export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | B
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	try {
 		const stats = fs.statSync(resolved);
+		if (!stats.hasAccess(constants.R_OK, credentials)) {
+			throw ErrnoError.With('EACCES', path, 'stat');
+		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -151,7 +156,7 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 
 	const stats: Stats = fs.statSync(resolved);
 
-	if (!stats.hasAccess(mode, credentials)) {
+	if (!stats.hasAccess(mode, credentials) || !stats.hasAccess(flagToMode(flag), credentials)) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
@@ -182,7 +187,7 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
  * @param mode Mode to use to open the file. Can be ignored if the
  *   filesystem doesn't support permissions.
  */
-export function openSync(path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = F_OK): number {
+export function openSync(path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
 	return file2fd(_openSync(path, flag, mode, true));
 }
 openSync satisfies typeof fs.openSync;
@@ -521,6 +526,9 @@ export function readdirSync(
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	let entries: string[];
+	if (!statSync(path).hasAccess(constants.R_OK, credentials)) {
+		throw ErrnoError.With('EACCES', path, 'readdir');
+	}
 	try {
 		entries = fs.readdirSync(resolved);
 	} catch (e) {
@@ -555,17 +563,31 @@ readdirSync satisfies typeof fs.readdirSync;
 
 /**
  * Synchronous `link`.
- * @param existing
- * @param newpath
+ * @param targetPath
+ * @param linkPath
  */
-export function linkSync(existing: fs.PathLike, newpath: fs.PathLike): void {
-	existing = normalizePath(existing);
-	newpath = normalizePath(newpath);
-	const { fs, path: resolved } = resolveMount(existing);
+export function linkSync(targetPath: fs.PathLike, linkPath: fs.PathLike): void {
+	targetPath = normalizePath(targetPath);
+	if (!statSync(dirname(targetPath)).hasAccess(constants.R_OK, credentials)) {
+		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
+	}
+	linkPath = normalizePath(linkPath);
+	if (!statSync(dirname(linkPath)).hasAccess(constants.W_OK, credentials)) {
+		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
+	}
+
+	const { fs, path } = resolveMount(targetPath);
+	const link = resolveMount(linkPath);
+	if (fs != link.fs) {
+		throw ErrnoError.With('EXDEV', linkPath, 'link');
+	}
 	try {
-		return fs.linkSync(resolved, newpath);
+		if (!fs.statSync(path).hasAccess(constants.W_OK, credentials)) {
+			throw ErrnoError.With('EACCES', path, 'link');
+		}
+		return fs.linkSync(path, linkPath);
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: existing });
+		throw fixError(e as Error, { [path]: targetPath, [link.path]: linkPath });
 	}
 }
 linkSync satisfies typeof fs.linkSync;
@@ -586,7 +608,7 @@ export function symlinkSync(target: fs.PathLike, path: fs.PathLike, type: fs.sym
 
 	writeFileSync(path, target.toString());
 	const file = _openSync(path, 'r+', 0o644, false);
-	file._setTypeSync(S_IFLNK);
+	file._setTypeSync(constants.S_IFLNK);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
@@ -736,8 +758,8 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions): void {
 
 	const stats = statSync(path);
 
-	switch (stats.mode & S_IFMT) {
-		case S_IFDIR:
+	switch (stats.mode & constants.S_IFMT) {
+		case constants.S_IFDIR:
 			if (options?.recursive) {
 				for (const entry of readdirSync(path)) {
 					rmSync(join(path, entry), options);
@@ -746,14 +768,14 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions): void {
 
 			rmdirSync(path);
 			return;
-		case S_IFREG:
-		case S_IFLNK:
+		case constants.S_IFREG:
+		case constants.S_IFLNK:
 			unlinkSync(path);
 			return;
-		case S_IFBLK:
-		case S_IFCHR:
-		case S_IFIFO:
-		case S_IFSOCK:
+		case constants.S_IFBLK:
+		case constants.S_IFCHR:
+		case constants.S_IFIFO:
+		case constants.S_IFSOCK:
 		default:
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
 	}
@@ -790,7 +812,7 @@ export function copyFileSync(src: fs.PathLike, dest: fs.PathLike, flags?: number
 	src = normalizePath(src);
 	dest = normalizePath(dest);
 
-	if (flags && flags & COPYFILE_EXCL && existsSync(dest)) {
+	if (flags && flags & constants.COPYFILE_EXCL && existsSync(dest)) {
 		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists.', dest, 'copyFile');
 	}
 
@@ -871,8 +893,8 @@ export function cpSync(source: fs.PathLike, destination: fs.PathLike, opts?: fs.
 		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
 	}
 
-	switch (srcStats.mode & S_IFMT) {
-		case S_IFDIR:
+	switch (srcStats.mode & constants.S_IFMT) {
+		case constants.S_IFDIR:
 			if (!opts?.recursive) {
 				throw new ErrnoError(Errno.EISDIR, source + ' is a directory (not copied)', source, 'cp');
 			}
@@ -884,14 +906,14 @@ export function cpSync(source: fs.PathLike, destination: fs.PathLike, opts?: fs.
 				cpSync(join(source, dirent.name), join(destination, dirent.name), opts);
 			}
 			break;
-		case S_IFREG:
-		case S_IFLNK:
+		case constants.S_IFREG:
+		case constants.S_IFLNK:
 			copyFileSync(source, destination);
 			break;
-		case S_IFBLK:
-		case S_IFCHR:
-		case S_IFIFO:
-		case S_IFSOCK:
+		case constants.S_IFBLK:
+		case constants.S_IFCHR:
+		case constants.S_IFIFO:
+		case constants.S_IFSOCK:
 		default:
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', source, 'rm');
 	}

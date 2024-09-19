@@ -25,7 +25,7 @@ describe('FS with MessageChannel', () => {
 		await fs.promises.writeFile('/test', content);
 	});
 
-	test('remote content', async () => {
+	test('remote content', () => {
 		fs.mount('/tmp', tmpfs);
 		expect(fs.readFileSync('/tmp/test', 'utf8')).toEqual(content);
 		fs.umount('/tmp');

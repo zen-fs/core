@@ -30,7 +30,7 @@ export class PortFile extends File {
 		super();
 	}
 
-	public rpc<const T extends FileMethod & string>(method: T, ...args: Parameters<FileMethods[T]>): Promise<Awaited<ReturnType<FileMethods[T]>>> {
+	public rpc<const T extends FileMethod>(method: T, ...args: Parameters<FileMethods[T]>): Promise<Awaited<ReturnType<FileMethods[T]>>> {
 		return RPC.request<FileRequest<T>, Awaited<ReturnType<FileMethods[T]>>>(
 			{
 				scope: 'file',
@@ -46,8 +46,8 @@ export class PortFile extends File {
 		throw new ErrnoError(Errno.ENOTSUP, 'Syncrohnous operations not support on PortFile', this.path, syscall);
 	}
 
-	public stat(): Promise<Stats> {
-		return this.rpc('stat');
+	public async stat(): Promise<Stats> {
+		return new Stats(await this.rpc('stat'));
 	}
 
 	public statSync(): Stats {
