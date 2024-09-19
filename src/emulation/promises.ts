@@ -940,7 +940,7 @@ export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string)
 export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<FileChangeInfo<T>> {
 	return {
 		[Symbol.asyncIterator](): AsyncIterator<FileChangeInfo<T>> {
-			const watcher = new FSWatcher<T>(typeof options != 'string' ? options : { encoding: options as BufferEncoding | 'buffer' }, filename.toString());
+			const watcher = new FSWatcher<T>(filename.toString(), typeof options != 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
 			function withDone(done: boolean) {
 				return function () {

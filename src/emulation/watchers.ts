@@ -24,24 +24,28 @@ class Watcher<TEvents extends Record<string, unknown[]> = Record<string, unknown
 	}
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 
+	public constructor(public readonly path: string) {
+		super();
+	}
+
 	public setMaxListeners(): never {
-		throw ErrnoError.With('ENOTSUP');
+		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.setMaxListeners');
 	}
 
 	public getMaxListeners(): never {
-		throw ErrnoError.With('ENOTSUP');
+		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.getMaxListeners');
 	}
 
 	public prependListener(): never {
-		throw ErrnoError.With('ENOTSUP');
+		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.prependListener');
 	}
 
 	public prependOnceListener(): never {
-		throw ErrnoError.With('ENOTSUP');
+		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.prependOnceListener');
 	}
 
 	public rawListeners(): never {
-		throw ErrnoError.With('ENOTSUP');
+		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.rawListeners');
 	}
 
 	public ref(): this {
@@ -67,10 +71,10 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 	implements fs.FSWatcher
 {
 	public constructor(
-		public readonly options: fs.WatchOptions,
-		public readonly path: string
+		path: string,
+		public readonly options: fs.WatchOptions
 	) {
-		super();
+		super(path);
 		addWatcher(path.toString(), this);
 	}
 
@@ -99,14 +103,12 @@ export class StatWatcher
 {
 	private intervalId?: NodeJS.Timeout | number;
 	private previous?: Stats;
-	private options: { persistent?: boolean; interval?: number };
 
 	public constructor(
-		public readonly path: string,
-		options: { persistent?: boolean; interval?: number }
+		path: string,
+		private options: { persistent?: boolean; interval?: number }
 	) {
-		super();
-		this.options = options;
+		super(path);
 		this.start();
 	}
 

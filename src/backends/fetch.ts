@@ -120,10 +120,10 @@ export class FetchFS extends IndexFS {
 	public preload(path: string, buffer: Uint8Array): void {
 		const stats = this.index.get(path);
 		if (!stats) {
-			throw ErrnoError.With('ENOENT', path, 'preloadFile');
+			throw ErrnoError.With('ENOENT', path, 'preload');
 		}
 		if (!stats.isFile()) {
-			throw ErrnoError.With('EISDIR', path, 'preloadFile');
+			throw ErrnoError.With('EISDIR', path, 'preload');
 		}
 		stats.size = buffer.length;
 		stats.fileData = buffer;

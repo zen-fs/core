@@ -102,7 +102,7 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		public lockSync(path: string): MutexLock {
 			if (this.locks.has(path)) {
 				// Non-null assertion: we already checked locks has path
-				throw ErrnoError.With('EBUSY', path, 'lockSync');
+				throw ErrnoError.With('EBUSY', path, 'lock');
 			}
 
 			return this.addLock(path);

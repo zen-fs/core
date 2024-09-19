@@ -569,13 +569,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			we will create a file with name '' in root should path == '/'.
 		*/
 		if (path === '/') {
-			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
+			throw ErrnoError.With('EEXIST', path, 'commitNew');
 		}
 
 		// Check if file already exists.
 		if (listing[fname]) {
 			await tx.abort();
-			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
+			throw ErrnoError.With('EEXIST', path, 'commitNew');
 		}
 
 		// Commit data.
@@ -616,12 +616,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			we will create a file with name '' in root should p == '/'.
 		*/
 		if (path === '/') {
-			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
+			throw ErrnoError.With('EEXIST', path, 'commitNew');
 		}
 
 		// Check if file already exists.
 		if (listing[fname]) {
-			throw ErrnoError.With('EEXIST', path, 'commitNewFile');
+			throw ErrnoError.With('EEXIST', path, 'commitNew');
 		}
 
 		// Commit data.
@@ -652,7 +652,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			fileName: string = basename(path);
 
 		if (!listing[fileName]) {
-			throw ErrnoError.With('ENOENT', path, 'removeEntry');
+			throw ErrnoError.With('ENOENT', path, 'remove');
 		}
 
 		const fileIno = listing[fileName];
@@ -664,11 +664,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		delete listing[fileName];
 
 		if (!isDir && fileNode.toStats().isDirectory()) {
-			throw ErrnoError.With('EISDIR', path, 'removeEntry');
+			throw ErrnoError.With('EISDIR', path, 'remove');
 		}
 
 		if (isDir && !fileNode.toStats().isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', path, 'removeEntry');
+			throw ErrnoError.With('ENOTDIR', path, 'remove');
 		}
 
 		await tx.set(parentNode.ino, encodeDirListing(listing));
@@ -698,7 +698,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			fileIno: Ino = listing[fileName];
 
 		if (!fileIno) {
-			throw ErrnoError.With('ENOENT', path, 'removeEntry');
+			throw ErrnoError.With('ENOENT', path, 'remove');
 		}
 
 		// Get file inode.
@@ -708,11 +708,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		delete listing[fileName];
 
 		if (!isDir && fileNode.toStats().isDirectory()) {
-			throw ErrnoError.With('EISDIR', path, 'removeEntry');
+			throw ErrnoError.With('EISDIR', path, 'remove');
 		}
 
 		if (isDir && !fileNode.toStats().isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', path, 'removeEntry');
+			throw ErrnoError.With('ENOTDIR', path, 'remove');
 		}
 
 		// Update directory listing.
