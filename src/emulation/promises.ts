@@ -496,6 +496,9 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
+		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK, credentials)) {
+			throw ErrnoError.With('EACCES', resolved, 'unlink');
+		}
 		await fs.unlink(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
@@ -662,6 +665,9 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 	try {
+		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK, credentials)) {
+			throw ErrnoError.With('EACCES', resolved, 'rmdir');
+		}
 		await fs.rmdir(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
@@ -1052,8 +1058,7 @@ copyFile satisfies typeof promises.copyFile;
  */
 export async function opendir(path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
 	path = normalizePath(path);
-	const dir = new Dir(path);
-	return dir;
+	return new Dir(path);
 }
 opendir satisfies typeof promises.opendir;
 

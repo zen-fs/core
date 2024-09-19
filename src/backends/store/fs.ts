@@ -1,5 +1,5 @@
 import { credentials } from '../../credentials.js';
-import { S_IFDIR, S_IFREG, W_OK } from '../../emulation/constants.js';
+import { S_IFDIR, S_IFREG } from '../../emulation/constants.js';
 import { basename, dirname, join, resolve } from '../../emulation/path.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { PreloadFile } from '../../file.js';
@@ -660,10 +660,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Get file inode.
 		const fileNode = await this.getINode(tx, fileIno, path);
 
-		if (!fileNode.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', path, 'removeEntry');
-		}
-
 		// Remove from directory listing of parent.
 		delete listing[fileName];
 
@@ -707,10 +703,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Get file inode.
 		const fileNode = this.getINodeSync(tx, fileIno, path);
-
-		if (!fileNode.toStats().hasAccess(W_OK, credentials)) {
-			throw ErrnoError.With('EACCES', path, 'removeEntry');
-		}
 
 		// Remove from directory listing of parent.
 		delete listing[fileName];

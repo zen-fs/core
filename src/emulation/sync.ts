@@ -126,6 +126,9 @@ export function unlinkSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
+		if (!fs.statSync(resolved).hasAccess(constants.W_OK, credentials)) {
+			throw ErrnoError.With('EACCES', resolved, 'unlink');
+		}
 		fs.unlinkSync(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
@@ -167,19 +170,15 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 		throw ErrnoError.With('EEXIST', path, '_open');
 	}
 
+	const file = fs.openFileSync(resolved, flag);
+
 	if (!isTruncating(flag)) {
-		return fs.openFileSync(resolved, flag);
+		return file;
 	}
 
-	// Delete file.
-	fs.unlinkSync(resolved);
-	/*
-		Create file. Use the same mode as the old file.
-		Node itself modifies the ctime when this occurs, so this action
-		will preserve that behavior if the underlying file system
-		supports those properties.
-	*/
-	return fs.createFileSync(resolved, flag, stats.mode);
+	file.truncateSync(0);
+	file.syncSync();
+	return file;
 }
 
 /**
@@ -468,6 +467,9 @@ export function rmdirSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	try {
+		if (!fs.statSync(resolved).hasAccess(constants.W_OK, credentials)) {
+			throw ErrnoError.With('EACCES', resolved, 'rmdir');
+		}
 		fs.rmdirSync(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
@@ -876,7 +878,7 @@ writevSync satisfies typeof fs.writevSync;
  */
 export function opendirSync(path: fs.PathLike, options?: fs.OpenDirOptions): Dir {
 	path = normalizePath(path);
-	return new Dir(path); // Re-use existing `Dir` class
+	return new Dir(path);
 }
 opendirSync satisfies typeof fs.opendirSync;
 
