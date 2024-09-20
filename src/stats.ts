@@ -1,5 +1,5 @@
 import type * as Node from 'fs';
-import type { Credentials } from './credentials.js';
+import { credentials, type Credentials } from './credentials.js';
 import { S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK, S_IRWXG, S_IRWXO, S_IRWXU } from './emulation/constants.js';
 import { size_max } from './inode.js';
 
@@ -233,18 +233,17 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Checks if a given user/group has access to this item
 	 * @param mode The requested access, combination of W_OK, R_OK, and X_OK
-	 * @param cred The requesting credentials
 	 * @returns True if the request has access, false if the request does not
 	 * @internal
 	 */
-	public hasAccess(mode: number, cred: Credentials): boolean {
-		if (cred.euid === 0 || cred.egid === 0) {
+	public hasAccess(mode: number): boolean {
+		if (credentials.euid === 0 || credentials.egid === 0) {
 			//Running as root
 			return true;
 		}
 
 		// Mask for
-		const adjusted = (cred.uid == this.uid ? S_IRWXU : 0) | (cred.gid == this.gid ? S_IRWXG : 0) | S_IRWXO;
+		const adjusted = (credentials.uid == this.uid ? S_IRWXU : 0) | (credentials.gid == this.gid ? S_IRWXG : 0) | S_IRWXO;
 		return (mode & this.mode & adjusted) == mode;
 	}
 

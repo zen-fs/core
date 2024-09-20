@@ -18,7 +18,6 @@ import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
-import { credentials } from '../credentials.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
 export * as constants from './constants.js';
@@ -220,7 +219,7 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts?: fs.StatOptions & { bigint?: false }): Promise<Stats>;
 	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
 		const stats = await this.file.stat();
-		if (!stats.hasAccess(constants.R_OK, credentials)) {
+		if (!stats.hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', this.file.path, 'stat');
 		}
 		return opts?.bigint ? new BigIntStats(stats) : stats;
@@ -396,7 +395,7 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 	newPath = normalizePath(newPath);
 	const src = resolveMount(oldPath);
 	const dst = resolveMount(newPath);
-	if (!(await stat(dirname(oldPath))).hasAccess(constants.W_OK, credentials)) {
+	if (!(await stat(dirname(oldPath))).hasAccess(constants.W_OK)) {
 		throw ErrnoError.With('EACCES', oldPath, 'rename');
 	}
 	try {
@@ -444,7 +443,7 @@ export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise
 	const { fs, path: resolved } = resolveMount((await exists(path)) ? await realpath(path) : path);
 	try {
 		const stats = await fs.stat(resolved);
-		if (!stats.hasAccess(constants.R_OK, credentials)) {
+		if (!stats.hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', path, 'stat');
 		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
@@ -496,7 +495,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK, credentials)) {
+		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -527,7 +526,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		}
 		// Create the file
 		const parentStats: Stats = await fs.stat(dirname(resolved));
-		if (!parentStats.hasAccess(constants.W_OK, credentials)) {
+		if (!parentStats.hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', dirname(path), '_open');
 		}
 		if (!parentStats.isDirectory()) {
@@ -536,7 +535,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		return new FileHandle(await fs.createFile(resolved, flag, mode));
 	}
 
-	if (!stats.hasAccess(flagToMode(flag), credentials)) {
+	if (!stats.hasAccess(flagToMode(flag))) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
@@ -663,7 +662,7 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK, credentials)) {
+		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		await fs.rmdir(resolved);
@@ -694,7 +693,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 
 	try {
 		if (!options?.recursive) {
-			if (!(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK, credentials)) {
+			if (!(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
 			await fs.mkdir(resolved, mode);
@@ -708,7 +707,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 			errorPaths[dir] = origDir;
 		}
 		for (const dir of dirs) {
-			if (!(await fs.stat(dirname(dir))).hasAccess(constants.W_OK, credentials)) {
+			if (!(await fs.stat(dirname(dir))).hasAccess(constants.W_OK)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
 			await fs.mkdir(dir, mode);
@@ -738,7 +737,7 @@ export async function readdir(
 	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	path = normalizePath(path);
-	if (!(await stat(path)).hasAccess(constants.R_OK, credentials)) {
+	if (!(await stat(path)).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
 	path = (await exists(path)) ? await realpath(path) : path;
@@ -776,11 +775,11 @@ readdir satisfies typeof promises.readdir;
  */
 export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Promise<void> {
 	targetPath = normalizePath(targetPath);
-	if (!(await stat(dirname(targetPath))).hasAccess(constants.R_OK, credentials)) {
+	if (!(await stat(dirname(targetPath))).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
 	}
 	linkPath = normalizePath(linkPath);
-	if (!(await stat(dirname(linkPath))).hasAccess(constants.W_OK, credentials)) {
+	if (!(await stat(dirname(linkPath))).hasAccess(constants.W_OK)) {
 		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 	}
 
@@ -790,7 +789,7 @@ export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Prom
 		throw ErrnoError.With('EXDEV', linkPath, 'link');
 	}
 	try {
-		if (!(await fs.stat(path)).hasAccess(constants.W_OK, credentials)) {
+		if (!(await fs.stat(path)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
 		return await fs.link(path, link.path);
@@ -969,7 +968,7 @@ watch satisfies typeof promises.watch;
  */
 export async function access(path: fs.PathLike, mode: number = constants.F_OK): Promise<void> {
 	const stats = await stat(path);
-	if (!stats.hasAccess(mode, credentials)) {
+	if (!stats.hasAccess(mode)) {
 		throw new ErrnoError(Errno.EACCES);
 	}
 }

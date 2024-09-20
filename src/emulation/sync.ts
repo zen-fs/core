@@ -10,7 +10,6 @@ import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
-import { credentials } from '../credentials.js';
 import { emitChange } from './watchers.js';
 
 /**
@@ -23,7 +22,7 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	newPath = normalizePath(newPath);
 	const oldMount = resolveMount(oldPath);
 	const newMount = resolveMount(newPath);
-	if (!statSync(dirname(oldPath)).hasAccess(constants.W_OK, credentials)) {
+	if (!statSync(dirname(oldPath)).hasAccess(constants.W_OK)) {
 		throw ErrnoError.With('EACCES', oldPath, 'rename');
 	}
 	try {
@@ -73,7 +72,7 @@ export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | B
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	try {
 		const stats = fs.statSync(resolved);
-		if (!stats.hasAccess(constants.R_OK, credentials)) {
+		if (!stats.hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', path, 'stat');
 		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
@@ -126,7 +125,7 @@ export function unlinkSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (!fs.statSync(resolved).hasAccess(constants.W_OK, credentials)) {
+		if (!fs.statSync(resolved).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		fs.unlinkSync(resolved);
@@ -151,7 +150,7 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 		}
 		// Create the file
 		const parentStats: Stats = fs.statSync(dirname(resolved));
-		if (!parentStats.hasAccess(constants.W_OK, credentials)) {
+		if (!parentStats.hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', dirname(path), '_open');
 		}
 		if (!parentStats.isDirectory()) {
@@ -162,7 +161,7 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 
 	const stats: Stats = fs.statSync(resolved);
 
-	if (!stats.hasAccess(mode, credentials) || !stats.hasAccess(flagToMode(flag), credentials)) {
+	if (!stats.hasAccess(mode) || !stats.hasAccess(flagToMode(flag))) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
@@ -466,7 +465,7 @@ export function rmdirSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	try {
-		if (!fs.statSync(resolved).hasAccess(constants.W_OK, credentials)) {
+		if (!fs.statSync(resolved).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		fs.rmdirSync(resolved);
@@ -496,7 +495,7 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 
 	try {
 		if (!options?.recursive) {
-			if (!fs.statSync(dirname(resolved)).hasAccess(constants.W_OK, credentials)) {
+			if (!fs.statSync(dirname(resolved)).hasAccess(constants.W_OK)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
 			return fs.mkdirSync(resolved, mode);
@@ -508,7 +507,7 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 			errorPaths[dir] = original;
 		}
 		for (const dir of dirs) {
-			if (!fs.statSync(dirname(dir)).hasAccess(constants.W_OK, credentials)) {
+			if (!fs.statSync(dirname(dir)).hasAccess(constants.W_OK)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
 			fs.mkdirSync(dir, mode);
@@ -536,7 +535,7 @@ export function readdirSync(
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	let entries: string[];
-	if (!statSync(path).hasAccess(constants.R_OK, credentials)) {
+	if (!statSync(path).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
 	try {
@@ -578,11 +577,11 @@ readdirSync satisfies typeof fs.readdirSync;
  */
 export function linkSync(targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 	targetPath = normalizePath(targetPath);
-	if (!statSync(dirname(targetPath)).hasAccess(constants.R_OK, credentials)) {
+	if (!statSync(dirname(targetPath)).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
 	}
 	linkPath = normalizePath(linkPath);
-	if (!statSync(dirname(linkPath)).hasAccess(constants.W_OK, credentials)) {
+	if (!statSync(dirname(linkPath)).hasAccess(constants.W_OK)) {
 		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 	}
 
@@ -592,7 +591,7 @@ export function linkSync(targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 		throw ErrnoError.With('EXDEV', linkPath, 'link');
 	}
 	try {
-		if (!fs.statSync(path).hasAccess(constants.W_OK, credentials)) {
+		if (!fs.statSync(path).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
 		return fs.linkSync(path, linkPath);
@@ -753,7 +752,7 @@ realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
  */
 export function accessSync(path: fs.PathLike, mode: number = 0o600): void {
 	const stats = statSync(path);
-	if (!stats.hasAccess(mode, credentials)) {
+	if (!stats.hasAccess(mode)) {
 		throw new ErrnoError(Errno.EACCES);
 	}
 }
