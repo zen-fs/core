@@ -43,7 +43,7 @@ export class PortFile extends File {
 	}
 
 	protected _throwNoSync(syscall: string): never {
-		throw new ErrnoError(Errno.ENOTSUP, 'Syncrohnous operations not support on PortFile', this.path, syscall);
+		throw new ErrnoError(Errno.ENOTSUP, 'Synchronous operations not supported on PortFile', this.path, syscall);
 	}
 
 	public async stat(): Promise<Stats> {

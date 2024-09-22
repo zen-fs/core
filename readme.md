@@ -17,7 +17,7 @@ ZenFS is modular and extensible. The core includes some built-in backends:
 
 ZenFS supports a number of other backends. Many are provided as separate packages under `@zenfs`. More backends can be defined by separate libraries by extending the `FileSystem` class and providing a `Backend` object.
 
-As an added bonus, all ZenFS backends support syncrohnous operations. All of the backends included with the core are cross-platform.
+As an added bonus, all ZenFS backends support synchronous operations. All of the backends included with the core are cross-platform.
 
 For more information, see the [docs](https://zen-fs.github.io/core).
 
