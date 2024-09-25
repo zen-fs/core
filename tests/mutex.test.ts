@@ -5,10 +5,10 @@ import { InMemoryStore } from '../src/backends/memory.js';
 
 describe('LockFS mutex', () => {
 	const fs = new (Mutexed(StoreFS))(new InMemoryStore('test'));
-	fs.checkRootSync();
+	fs._fs.checkRootSync();
 
 	test('lock/unlock', () => {
-		const lock = fs.lockSync('/test');
+		const lock = fs.lockSync('/test', 'lock');
 		expect(fs.isLocked('/test')).toBe(true);
 		lock.unlock();
 		expect(fs.isLocked('/test')).toBe(false);

@@ -4,7 +4,6 @@ import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
 import '../polyfills.js';
 import type { Stats } from '../stats.js';
 import type { Concrete } from '../utils.js';
-import type { ConcreteFS, Mixin } from './shared.js';
 
 export class MutexLock {
 	protected current = Promise.withResolvers<void>();
@@ -35,6 +34,200 @@ export class MutexLock {
 }
 
 /**
+ * @hidden
+ */
+export class __MutexedFS<T extends FileSystem> implements FileSystem {
+	/**
+	 * @internal
+	 */
+	public _fs!: T;
+
+	public async ready(): Promise<void> {
+		return await this._fs.ready();
+	}
+
+	public metadata(): FileSystemMetadata {
+		return this._fs.metadata();
+	}
+
+	/**
+	 * The current locks
+	 */
+	private locks: Map<string, MutexLock> = new Map();
+
+	/**
+	 * Adds a lock for a path
+	 */
+	protected addLock(path: string): MutexLock {
+		const previous = this.locks.get(path);
+		const lock = new MutexLock(path, previous?.isLocked ? previous : undefined);
+		this.locks.set(path, lock);
+		return lock;
+	}
+
+	/**
+	 * Locks `path` asynchronously.
+	 * If the path is currently locked, waits for it to be unlocked.
+	 * @internal
+	 */
+	public async lock(path: string, syscall: string): Promise<MutexLock> {
+		const previous = this.locks.get(path);
+		const lock = this.addLock(path);
+		const stack = new Error().stack;
+		setTimeout(() => {
+			if (lock.isLocked) {
+				const error = ErrnoError.With('EDEADLK', path, syscall);
+				error.stack += stack?.slice('Error'.length);
+				throw error;
+			}
+		}, 5000);
+		await previous?.done();
+		return lock;
+	}
+
+	/**
+	 * Locks `path` asynchronously.
+	 * If the path is currently locked, an error will be thrown
+	 * @internal
+	 */
+	public lockSync(path: string, syscall: string): MutexLock {
+		if (this.locks.has(path)) {
+			throw ErrnoError.With('EBUSY', path, syscall);
+		}
+
+		return this.addLock(path);
+	}
+
+	/**
+	 * Whether `path` is locked
+	 * @internal
+	 */
+	public isLocked(path: string): boolean {
+		return !!this.locks.get(path)?.isLocked;
+	}
+
+	/* eslint-disable @typescript-eslint/no-unused-vars */
+	public async rename(oldPath: string, newPath: string): Promise<void> {
+		using _ = await this.lock(oldPath, 'rename');
+		await this._fs.rename(oldPath, newPath);
+	}
+
+	public renameSync(oldPath: string, newPath: string): void {
+		using _ = this.lockSync(oldPath, 'rename');
+		return this._fs.renameSync(oldPath, newPath);
+	}
+
+	public async stat(path: string): Promise<Stats> {
+		using _ = await this.lock(path, 'stat');
+		return await this._fs.stat(path);
+	}
+
+	public statSync(path: string): Stats {
+		using _ = this.lockSync(path, 'stat');
+		return this._fs.statSync(path);
+	}
+
+	public async openFile(path: string, flag: string): Promise<File> {
+		using _ = await this.lock(path, 'openFile');
+		const file = await this._fs.openFile(path, flag);
+		file.fs = this;
+		return file;
+	}
+
+	public openFileSync(path: string, flag: string): File {
+		using _ = this.lockSync(path, 'openFile');
+		const file = this._fs.openFileSync(path, flag);
+		file.fs = this;
+		return file;
+	}
+
+	public async createFile(path: string, flag: string, mode: number): Promise<File> {
+		using _ = await this.lock(path, 'createFile');
+		const file = await this._fs.createFile(path, flag, mode);
+		file.fs = this;
+		return file;
+	}
+
+	public createFileSync(path: string, flag: string, mode: number): File {
+		using _ = this.lockSync(path, 'createFile');
+		const file = this._fs.createFileSync(path, flag, mode);
+		file.fs = this;
+		return file;
+	}
+
+	public async unlink(path: string): Promise<void> {
+		using _ = await this.lock(path, 'unlink');
+		await this._fs.unlink(path);
+	}
+
+	public unlinkSync(path: string): void {
+		using _ = this.lockSync(path, 'unlink');
+		return this._fs.unlinkSync(path);
+	}
+
+	public async rmdir(path: string): Promise<void> {
+		using _ = await this.lock(path, 'rmdir');
+		await this._fs.rmdir(path);
+	}
+
+	public rmdirSync(path: string): void {
+		using _ = this.lockSync(path, 'rmdir');
+		return this._fs.rmdirSync(path);
+	}
+
+	public async mkdir(path: string, mode: number): Promise<void> {
+		using _ = await this.lock(path, 'mkdir');
+		await this._fs.mkdir(path, mode);
+	}
+
+	public mkdirSync(path: string, mode: number): void {
+		using _ = this.lockSync(path, 'mkdir');
+		return this._fs.mkdirSync(path, mode);
+	}
+
+	public async readdir(path: string): Promise<string[]> {
+		using _ = await this.lock(path, 'readdir');
+		return await this._fs.readdir(path);
+	}
+
+	public readdirSync(path: string): string[] {
+		using _ = this.lockSync(path, 'readdir');
+		return this._fs.readdirSync(path);
+	}
+
+	public async exists(path: string): Promise<boolean> {
+		using _ = await this.lock(path, 'exists');
+		return await this._fs.exists(path);
+	}
+
+	public existsSync(path: string): boolean {
+		using _ = this.lockSync(path, 'exists');
+		return this._fs.existsSync(path);
+	}
+
+	public async link(srcpath: string, dstpath: string): Promise<void> {
+		using _ = await this.lock(srcpath, 'link');
+		await this._fs.link(srcpath, dstpath);
+	}
+
+	public linkSync(srcpath: string, dstpath: string): void {
+		using _ = this.lockSync(srcpath, 'link');
+		return this._fs.linkSync(srcpath, dstpath);
+	}
+
+	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		using _ = await this.lock(path, 'sync');
+		await this._fs.sync(path, data, stats);
+	}
+
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		using _ = this.lockSync(path, 'sync');
+		return this._fs.syncSync(path, data, stats);
+	}
+	/* eslint-enable @typescript-eslint/no-unused-vars */
+}
+
+/**
  * This serializes access to an underlying async filesystem.
  * For example, on an OverlayFS instance with an async lower
  * directory operations like rename and rmdir may involve multiple
@@ -53,201 +246,16 @@ export class MutexLock {
  * @todo Change `using _` to `using void` pending https://github.com/tc39/proposal-discard-binding
  * @internal
  */
-export function Mutexed<T extends Concrete<typeof FileSystem>>(
+export function Mutexed<const T extends Concrete<typeof FileSystem>>(
 	FS: T
-): Mixin<
-	Concrete<typeof FileSystem>,
-	ConcreteFS & {
-		lock(path: string, syscall: string): Promise<MutexLock>;
-		lockSync(path: string, syscall: string): MutexLock;
-		isLocked(path: string): boolean;
-	}
-> {
-	class MutexedFS implements FileSystem {
-		/**
-		 * @internal
-		 */
-		public readonly fs: FileSystem;
-
-		public async ready(): Promise<void> {
-			return await this.fs.ready();
-		}
-
-		public metadata(): FileSystemMetadata {
-			return this.fs.metadata();
-		}
-
+): typeof __MutexedFS<InstanceType<T>> & {
+	new (...args: ConstructorParameters<T>): __MutexedFS<InstanceType<T>>;
+} {
+	class MutexedFS extends __MutexedFS<InstanceType<T>> {
 		public constructor(...args: ConstructorParameters<T>) {
-			this.fs = new FS(...args);
+			super();
+			this._fs = new FS(...args) as InstanceType<T>;
 		}
-
-		/**
-		 * The current locks
-		 */
-		private locks: Map<string, MutexLock> = new Map();
-
-		/**
-		 * Adds a lock for a path
-		 */
-		protected addLock(path: string): MutexLock {
-			const previous = this.locks.get(path);
-			const lock = new MutexLock(path, previous?.isLocked ? previous : undefined);
-			this.locks.set(path, lock);
-			return lock;
-		}
-
-		/**
-		 * Locks `path` asynchronously.
-		 * If the path is currently locked, waits for it to be unlocked.
-		 * @internal
-		 */
-		public async lock(path: string, syscall: string): Promise<MutexLock> {
-			const previous = this.locks.get(path);
-			const lock = this.addLock(path);
-			const stack = new Error().stack;
-			setTimeout(() => {
-				if (lock.isLocked) {
-					const error = ErrnoError.With('EDEADLK', path, syscall);
-					error.stack += stack?.slice('Error'.length);
-					throw error;
-				}
-			}, 5000);
-			await previous?.done();
-			return lock;
-		}
-
-		/**
-		 * Locks `path` asynchronously.
-		 * If the path is currently locked, an error will be thrown
-		 * @internal
-		 */
-		public lockSync(path: string, syscall: string): MutexLock {
-			if (this.locks.has(path)) {
-				throw ErrnoError.With('EBUSY', path, syscall);
-			}
-
-			return this.addLock(path);
-		}
-
-		/**
-		 * Whether `path` is locked
-		 * @internal
-		 */
-		public isLocked(path: string): boolean {
-			return !!this.locks.get(path)?.isLocked;
-		}
-
-		/* eslint-disable @typescript-eslint/no-unused-vars */
-		public async rename(oldPath: string, newPath: string): Promise<void> {
-			using _ = await this.lock(oldPath, 'rename');
-			await this.fs.rename(oldPath, newPath);
-		}
-
-		public renameSync(oldPath: string, newPath: string): void {
-			using _ = this.lockSync(oldPath, 'rename');
-			return this.fs.renameSync(oldPath, newPath);
-		}
-
-		public async stat(path: string): Promise<Stats> {
-			using _ = await this.lock(path, 'stat');
-			return await this.fs.stat(path);
-		}
-
-		public statSync(path: string): Stats {
-			using _ = this.lockSync(path, 'stat');
-			return this.fs.statSync(path);
-		}
-
-		public async openFile(path: string, flag: string): Promise<File> {
-			using _ = await this.lock(path, 'openFile');
-			return await this.fs.openFile(path, flag);
-		}
-
-		public openFileSync(path: string, flag: string): File {
-			using _ = this.lockSync(path, 'openFile');
-			return this.fs.openFileSync(path, flag);
-		}
-
-		public async createFile(path: string, flag: string, mode: number): Promise<File> {
-			using _ = await this.lock(path, 'createFile');
-			return await this.fs.createFile(path, flag, mode);
-		}
-
-		public createFileSync(path: string, flag: string, mode: number): File {
-			using _ = this.lockSync(path, 'createFile');
-			return this.fs.createFileSync(path, flag, mode);
-		}
-
-		public async unlink(path: string): Promise<void> {
-			using _ = await this.lock(path, 'unlink');
-			await this.fs.unlink(path);
-		}
-
-		public unlinkSync(path: string): void {
-			using _ = this.lockSync(path, 'unlink');
-			return this.fs.unlinkSync(path);
-		}
-
-		public async rmdir(path: string): Promise<void> {
-			using _ = await this.lock(path, 'rmdir');
-			await this.fs.rmdir(path);
-		}
-
-		public rmdirSync(path: string): void {
-			using _ = this.lockSync(path, 'rmdir');
-			return this.fs.rmdirSync(path);
-		}
-
-		public async mkdir(path: string, mode: number): Promise<void> {
-			using _ = await this.lock(path, 'mkdir');
-			await this.fs.mkdir(path, mode);
-		}
-
-		public mkdirSync(path: string, mode: number): void {
-			using _ = this.lockSync(path, 'mkdir');
-			return this.fs.mkdirSync(path, mode);
-		}
-
-		public async readdir(path: string): Promise<string[]> {
-			using _ = await this.lock(path, 'readdir');
-			return await this.fs.readdir(path);
-		}
-
-		public readdirSync(path: string): string[] {
-			using _ = this.lockSync(path, 'readdir');
-			return this.fs.readdirSync(path);
-		}
-
-		public async exists(path: string): Promise<boolean> {
-			using _ = await this.lock(path, 'exists');
-			return await this.fs.exists(path);
-		}
-
-		public existsSync(path: string): boolean {
-			using _ = this.lockSync(path, 'exists');
-			return this.fs.existsSync(path);
-		}
-
-		public async link(srcpath: string, dstpath: string): Promise<void> {
-			using _ = await this.lock(srcpath, 'link');
-			await this.fs.link(srcpath, dstpath);
-		}
-
-		public linkSync(srcpath: string, dstpath: string): void {
-			using _ = this.lockSync(srcpath, 'link');
-			return this.fs.linkSync(srcpath, dstpath);
-		}
-
-		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-			using _ = await this.lock(path, 'sync');
-			await this.fs.sync(path, data, stats);
-		}
-
-		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-			using _ = this.lockSync(path, 'sync');
-			return this.fs.syncSync(path, data, stats);
-		}
-		/* eslint-enable @typescript-eslint/no-unused-vars */
 	}
 	return MutexedFS;
 }

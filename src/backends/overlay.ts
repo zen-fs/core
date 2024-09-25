@@ -432,31 +432,29 @@ export class UnmutexedOverlayFS extends FileSystem {
 	 * should they not exist. Use modes from the read-only storage.
 	 */
 	private createParentDirectoriesSync(path: string): void {
-		let parent = dirname(path),
-			toCreate: string[] = [];
+		let parent = dirname(path);
+		const toCreate: string[] = [];
 		while (!this.writable.existsSync(parent)) {
 			toCreate.push(parent);
 			parent = dirname(parent);
 		}
-		toCreate = toCreate.reverse();
 
-		for (const p of toCreate) {
-			this.writable.mkdirSync(p, this.statSync(p).mode);
+		for (const path of toCreate.reverse()) {
+			this.writable.mkdirSync(path, this.statSync(path).mode);
 		}
 	}
 
 	private async createParentDirectories(path: string): Promise<void> {
-		let parent = dirname(path),
-			toCreate: string[] = [];
+		let parent = dirname(path);
+		const toCreate: string[] = [];
 		while (!(await this.writable.exists(parent))) {
 			toCreate.push(parent);
 			parent = dirname(parent);
 		}
-		toCreate = toCreate.reverse();
 
-		for (const p of toCreate) {
-			const stats = await this.stat(p);
-			await this.writable.mkdir(p, stats.mode);
+		for (const path of toCreate.reverse()) {
+			const stats = await this.stat(path);
+			await this.writable.mkdir(path, stats.mode);
 		}
 	}
 

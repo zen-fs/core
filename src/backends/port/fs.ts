@@ -22,12 +22,12 @@ interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Reque
 
 export class PortFile extends File {
 	constructor(
-		public readonly fs: PortFS,
+		public fs: PortFS,
 		public readonly fd: number,
-		public readonly path: string,
+		path: string,
 		public position: number
 	) {
-		super();
+		super(fs, path);
 	}
 
 	public rpc<const T extends FileMethod>(method: T, ...args: Parameters<FileMethods[T]>): Promise<Awaited<ReturnType<FileMethods[T]>>> {

@@ -146,15 +146,22 @@ export function isExclusive(flag: string): boolean {
 }
 
 export abstract class File {
+	constructor(
+		/**
+		 * @internal
+		 * The file system that created the file
+		 */
+		public fs: FileSystem,
+		/**
+		 * The path to the file
+		 */
+		public readonly path: string
+	) {}
+
 	/**
 	 * Get the current file position.
 	 */
 	public abstract position: number;
-
-	/**
-	 * The path to the file
-	 */
-	public abstract readonly path: string;
 
 	/**
 	 * Asynchronous `stat`.
@@ -355,17 +362,15 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	constructor(
 		/**
 		 * The file system that created the file.
+		 * @internal
 		 */
-		protected fs: FS,
-		/**
-		 * Path to the file
-		 */
-		public readonly path: string,
+		public fs: FS,
+		path: string,
 		public readonly flag: string,
 		public readonly stats: Stats,
 		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().noResizableBuffers ? {} : { maxByteLength: size_max }))
 	) {
-		super();
+		super(fs, path);
 
 		/*
 			Note: 
