@@ -13,10 +13,7 @@ export class MutexLock {
 		return this._isLocked;
 	}
 
-	public constructor(
-		public readonly path: string,
-		protected readonly previous?: MutexLock
-	) {}
+	public constructor(protected readonly previous?: MutexLock) {}
 
 	public async done(): Promise<void> {
 		await this.previous?.done();
@@ -53,15 +50,14 @@ export class __MutexedFS<T extends FileSystem> implements FileSystem {
 	/**
 	 * The current locks
 	 */
-	private locks: Map<string, MutexLock> = new Map();
+	private currentLock?: MutexLock;
 
 	/**
 	 * Adds a lock for a path
 	 */
-	protected addLock(path: string): MutexLock {
-		const previous = this.locks.get(path);
-		const lock = new MutexLock(path, previous?.isLocked ? previous : undefined);
-		this.locks.set(path, lock);
+	protected addLock(): MutexLock {
+		const lock = new MutexLock(this.currentLock);
+		this.currentLock = lock;
 		return lock;
 	}
 
@@ -71,8 +67,8 @@ export class __MutexedFS<T extends FileSystem> implements FileSystem {
 	 * @internal
 	 */
 	public async lock(path: string, syscall: string): Promise<MutexLock> {
-		const previous = this.locks.get(path);
-		const lock = this.addLock(path);
+		const previous = this.currentLock;
+		const lock = this.addLock();
 		const stack = new Error().stack;
 		setTimeout(() => {
 			if (lock.isLocked) {
@@ -91,19 +87,19 @@ export class __MutexedFS<T extends FileSystem> implements FileSystem {
 	 * @internal
 	 */
 	public lockSync(path: string, syscall: string): MutexLock {
-		if (this.locks.has(path)) {
+		if (this.currentLock) {
 			throw ErrnoError.With('EBUSY', path, syscall);
 		}
 
-		return this.addLock(path);
+		return this.addLock();
 	}
 
 	/**
 	 * Whether `path` is locked
 	 * @internal
 	 */
-	public isLocked(path: string): boolean {
-		return !!this.locks.get(path)?.isLocked;
+	public isLocked(): boolean {
+		return !!this.currentLock?.isLocked;
 	}
 
 	/* eslint-disable @typescript-eslint/no-unused-vars */
