@@ -9,9 +9,9 @@ describe('LockFS mutex', () => {
 
 	test('lock/unlock', () => {
 		const lock = fs.lockSync('/test', 'lock');
-		expect(fs.isLocked('/test')).toBe(true);
+		expect(fs.isLocked).toBe(true);
 		lock.unlock();
-		expect(fs.isLocked('/test')).toBe(false);
+		expect(fs.isLocked).toBe(false);
 	});
 
 	test('queueing multiple locks', async () => {

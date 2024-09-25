@@ -98,7 +98,7 @@ export class __MutexedFS<T extends FileSystem> implements FileSystem {
 	 * Whether `path` is locked
 	 * @internal
 	 */
-	public isLocked(): boolean {
+	public get isLocked(): boolean {
 		return !!this.currentLock?.isLocked;
 	}
 
