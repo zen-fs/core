@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return */
 import type * as fs from 'node:fs';
-import type { OptionalTuple } from 'utilium';
+import type { ClassLike, OptionalTuple } from 'utilium';
 import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
@@ -262,3 +262,5 @@ export function normalizeOptions(
 		mode: normalizeMode('mode' in options ? options?.mode : null, mode),
 	};
 }
+
+export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: any[]) => InstanceType<T>);

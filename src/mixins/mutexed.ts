@@ -1,9 +1,10 @@
 import { ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import type { FileSystem } from '../filesystem.js';
+import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
 import '../polyfills.js';
 import type { Stats } from '../stats.js';
-import type { Mixin } from './shared.js';
+import type { Concrete } from '../utils.js';
+import type { ConcreteFS, Mixin } from './shared.js';
 
 export class MutexLock {
 	protected current = Promise.withResolvers<void>();
@@ -42,23 +43,44 @@ export class MutexLock {
  * to avoid having to reason about the correctness of
  * multiple requests interleaving.
  *
- * Note: `@ts-expect-error 2513` is needed because `FS` is not properly detected as being concrete
+ * Note:
+ * Instead of extending the passed class, `MutexedFS` stores it internally.
+ * This is to avoid a deadlock caused when a mathod calls another one
+ * The problem is discussed extensivly in [#78](https://github.com/zen-fs/core/issues/78)
+ * Instead of extending `FileSystem`,
+ * `MutexedFS` implements it in order to make sure all of the methods are passed through
  *
  * @todo Change `using _` to `using void` pending https://github.com/tc39/proposal-discard-binding
  * @internal
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function Mutexed<T extends new (...args: any[]) => FileSystem>(
+export function Mutexed<T extends Concrete<typeof FileSystem>>(
 	FS: T
 ): Mixin<
-	T,
-	{
+	Concrete<typeof FileSystem>,
+	ConcreteFS & {
 		lock(path: string, syscall: string): Promise<MutexLock>;
-		lockSync(path: string): MutexLock;
+		lockSync(path: string, syscall: string): MutexLock;
 		isLocked(path: string): boolean;
 	}
 > {
-	class MutexedFS extends FS {
+	class MutexedFS implements FileSystem {
+		/**
+		 * @internal
+		 */
+		public readonly fs: FileSystem;
+
+		public async ready(): Promise<void> {
+			return await this.fs.ready();
+		}
+
+		public metadata(): FileSystemMetadata {
+			return this.fs.metadata();
+		}
+
+		public constructor(...args: ConstructorParameters<T>) {
+			this.fs = new FS(...args);
+		}
+
 		/**
 		 * The current locks
 		 */
@@ -99,10 +121,9 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		 * If the path is currently locked, an error will be thrown
 		 * @internal
 		 */
-		public lockSync(path: string): MutexLock {
+		public lockSync(path: string, syscall: string): MutexLock {
 			if (this.locks.has(path)) {
-				// Non-null assertion: we already checked locks has path
-				throw ErrnoError.With('EBUSY', path, 'lock');
+				throw ErrnoError.With('EBUSY', path, syscall);
 			}
 
 			return this.addLock(path);
@@ -119,132 +140,112 @@ export function Mutexed<T extends new (...args: any[]) => FileSystem>(
 		/* eslint-disable @typescript-eslint/no-unused-vars */
 		public async rename(oldPath: string, newPath: string): Promise<void> {
 			using _ = await this.lock(oldPath, 'rename');
-			// @ts-expect-error 2513
-			await super.rename(oldPath, newPath);
+			await this.fs.rename(oldPath, newPath);
 		}
 
 		public renameSync(oldPath: string, newPath: string): void {
-			using _ = this.lockSync(oldPath);
-			// @ts-expect-error 2513
-			return super.renameSync(oldPath, newPath);
+			using _ = this.lockSync(oldPath, 'rename');
+			return this.fs.renameSync(oldPath, newPath);
 		}
 
 		public async stat(path: string): Promise<Stats> {
 			using _ = await this.lock(path, 'stat');
-			// @ts-expect-error 2513
-			return await super.stat(path);
+			return await this.fs.stat(path);
 		}
 
 		public statSync(path: string): Stats {
-			using _ = this.lockSync(path);
-			// @ts-expect-error 2513
-			return super.statSync(path);
+			using _ = this.lockSync(path, 'stat');
+			return this.fs.statSync(path);
 		}
 
 		public async openFile(path: string, flag: string): Promise<File> {
 			using _ = await this.lock(path, 'openFile');
-			// @ts-expect-error 2513
-			return await super.openFile(path, flag);
+			return await this.fs.openFile(path, flag);
 		}
 
 		public openFileSync(path: string, flag: string): File {
-			using _ = this.lockSync(path);
-			// @ts-expect-error 2513
-			return super.openFileSync(path, flag);
+			using _ = this.lockSync(path, 'openFile');
+			return this.fs.openFileSync(path, flag);
 		}
 
 		public async createFile(path: string, flag: string, mode: number): Promise<File> {
 			using _ = await this.lock(path, 'createFile');
-			// @ts-expect-error 2513
-			return await super.createFile(path, flag, mode);
+			return await this.fs.createFile(path, flag, mode);
 		}
 
 		public createFileSync(path: string, flag: string, mode: number): File {
-			using _ = this.lockSync(path);
-			// @ts-expect-error 2513
-			return super.createFileSync(path, flag, mode);
+			using _ = this.lockSync(path, 'createFile');
+			return this.fs.createFileSync(path, flag, mode);
 		}
 
 		public async unlink(path: string): Promise<void> {
 			using _ = await this.lock(path, 'unlink');
-			// @ts-expect-error 2513
-			await super.unlink(path);
+			await this.fs.unlink(path);
 		}
 
 		public unlinkSync(path: string): void {
-			using _ = this.lockSync(path);
-			// @ts-expect-error 2513
-			return super.unlinkSync(path);
+			using _ = this.lockSync(path, 'unlink');
+			return this.fs.unlinkSync(path);
 		}
 
 		public async rmdir(path: string): Promise<void> {
 			using _ = await this.lock(path, 'rmdir');
-			// @ts-expect-error 2513
-			await super.rmdir(path);
+			await this.fs.rmdir(path);
 		}
 
 		public rmdirSync(path: string): void {
-			using _ = this.lockSync(path);
-			// @ts-expect-error 2513
-			return super.rmdirSync(path);
+			using _ = this.lockSync(path, 'rmdir');
+			return this.fs.rmdirSync(path);
 		}
 
 		public async mkdir(path: string, mode: number): Promise<void> {
 			using _ = await this.lock(path, 'mkdir');
-			// @ts-expect-error 2513
-			await super.mkdir(path, mode);
+			await this.fs.mkdir(path, mode);
 		}
 
 		public mkdirSync(path: string, mode: number): void {
-			using _ = this.lockSync(path);
-			// @ts-expect-error 2513
-			return super.mkdirSync(path, mode);
+			using _ = this.lockSync(path, 'mkdir');
+			return this.fs.mkdirSync(path, mode);
 		}
 
 		public async readdir(path: string): Promise<string[]> {
 			using _ = await this.lock(path, 'readdir');
-			// @ts-expect-error 2513
-			return await super.readdir(path);
+			return await this.fs.readdir(path);
 		}
 
 		public readdirSync(path: string): string[] {
-			using _ = this.lockSync(path);
-			// @ts-expect-error 2513
-			return super.readdirSync(path);
+			using _ = this.lockSync(path, 'readdir');
+			return this.fs.readdirSync(path);
 		}
 
 		public async exists(path: string): Promise<boolean> {
 			using _ = await this.lock(path, 'exists');
-			return await super.exists(path);
+			return await this.fs.exists(path);
 		}
 
 		public existsSync(path: string): boolean {
-			using _ = this.lockSync(path);
-			return super.existsSync(path);
+			using _ = this.lockSync(path, 'exists');
+			return this.fs.existsSync(path);
 		}
 
 		public async link(srcpath: string, dstpath: string): Promise<void> {
 			using _ = await this.lock(srcpath, 'link');
-			// @ts-expect-error 2513
-			await super.link(srcpath, dstpath);
+			await this.fs.link(srcpath, dstpath);
 		}
 
 		public linkSync(srcpath: string, dstpath: string): void {
-			using _ = this.lockSync(srcpath);
-			// @ts-expect-error 2513
-			return super.linkSync(srcpath, dstpath);
+			using _ = this.lockSync(srcpath, 'link');
+			return this.fs.linkSync(srcpath, dstpath);
 		}
 
 		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 			using _ = await this.lock(path, 'sync');
-			// @ts-expect-error 2513
-			await super.sync(path, data, stats);
+			await this.fs.sync(path, data, stats);
 		}
 
 		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-			using _ = this.lockSync(path);
-			// @ts-expect-error 2513
-			return super.syncSync(path, data, stats);
+			using _ = this.lockSync(path, 'sync');
+			return this.fs.syncSync(path, data, stats);
 		}
 		/* eslint-enable @typescript-eslint/no-unused-vars */
 	}
