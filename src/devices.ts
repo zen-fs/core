@@ -1,3 +1,4 @@
+import type { FileReadResult } from 'fs/promises';
 import { S_IFBLK, S_IFCHR } from './emulation/constants.js';
 import { ErrnoError } from './error.js';
 import { File } from './file.js';
@@ -74,4 +75,66 @@ export abstract class DeviceFile extends File {
 		throw ErrnoError.With('ENOTSUP', this.path, '_setType');
 	}
 	/* eslint-enable @typescript-eslint/no-unused-vars */
+}
+
+/**
+ * Simulates the `/dev/zero` device, which provides an infinite stream of zeroes
+ * when read, and discards any data written to it.
+ *
+ * - Reads fill the buffer with zeroes.
+ * - Writes discard data but update the file position.
+ * - Provides basic file metadata, treating it as a character device.
+ */
+export class ZeroDeviceFile extends DeviceFile {
+	public position = 0;
+
+	protected isBlock = false;
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset = 0, length = buffer.byteLength): Promise<FileReadResult<TBuffer>> {
+		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+		for (let i = offset; i < offset + length; i++) {
+			data[i] = 0;
+		}
+		this.position += length;
+		return { bytesRead: length, buffer };
+	}
+
+	public readSync(buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
+		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+		for (let i = offset; i < offset + length; i++) {
+			data[i] = 0;
+		}
+		this.position += length;
+		return length;
+	}
+
+	// Writing to /dev/zero discards data, so simply move the file pointer
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	public async write(buffer: Uint8Array, offset = 0, length = buffer.length): Promise<number> {
+		this.position += length;
+		return length;
+	}
+
+	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.length): number {
+		this.position += length;
+		return length;
+	}
+
+	public async close(): Promise<void> {
+		// No-op
+	}
+
+	public closeSync(): void {
+		// No-op
+	}
+
+	public async sync(): Promise<void> {
+		// No-op
+	}
+
+	public syncSync(): void {
+		// No-op
+	}
 }
