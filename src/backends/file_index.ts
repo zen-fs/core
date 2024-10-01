@@ -118,7 +118,7 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 		this._isInitialized = true;
 	}
 
-	constructor(private indexData: IndexData | Promise<IndexData>) {
+	public constructor(private indexData: IndexData | Promise<IndexData>) {
 		super();
 	}
 

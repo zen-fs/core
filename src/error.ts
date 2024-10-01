@@ -272,7 +272,7 @@ export class ErrnoError extends Error implements NodeJS.ErrnoException {
 	 * @param type The type of the error.
 	 * @param message A descriptive error message.
 	 */
-	constructor(
+	public constructor(
 		public errno: Errno,
 		message: string = errorMessages[errno],
 		public path?: string,

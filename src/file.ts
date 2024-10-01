@@ -146,7 +146,7 @@ export function isExclusive(flag: string): boolean {
 }
 
 export abstract class File {
-	constructor(
+	public constructor(
 		/**
 		 * @internal
 		 * The file system that created the file
@@ -359,7 +359,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 *   contents of the file. PreloadFile will mutate this buffer. If not
 	 *   specified, we assume it is a new file.
 	 */
-	constructor(
+	public constructor(
 		/**
 		 * The file system that created the file.
 		 * @internal
@@ -765,7 +765,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
  * For the filesystems which do not sync to anything..
  */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
-	constructor(fs: T, path: string, flag: string, stats: Stats, contents?: Uint8Array) {
+	public constructor(fs: T, path: string, flag: string, stats: Stats, contents?: Uint8Array) {
 		super(fs, path, flag, stats, contents);
 	}
 	/**

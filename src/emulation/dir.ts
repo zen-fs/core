@@ -11,7 +11,7 @@ export class Dirent implements _Dirent {
 		return basename(this.path);
 	}
 
-	constructor(
+	public constructor(
 		public path: string,
 		protected stats: Stats
 	) {}

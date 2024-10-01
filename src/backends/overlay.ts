@@ -57,7 +57,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 
 	private _ready: Promise<void>;
 
-	constructor({ writable, readable }: OverlayOptions) {
+	public constructor({ writable, readable }: OverlayOptions) {
 		super();
 		this.writable = writable;
 		this.readable = readable;

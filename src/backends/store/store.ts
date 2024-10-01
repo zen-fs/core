@@ -36,7 +36,7 @@ export interface Store {
  * A transaction for a store.
  */
 export abstract class Transaction<T extends Store = Store> {
-	constructor(protected store: T) {}
+	public constructor(protected store: T) {}
 
 	/**
 	 * Whether the transaction was commited or aborted
@@ -134,15 +134,19 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 	public async get(ino: Ino): Promise<Uint8Array> {
 		return this.getSync(ino);
 	}
+
 	public async set(ino: bigint, data: Uint8Array): Promise<void> {
 		return this.setSync(ino, data);
 	}
+
 	public async remove(ino: Ino): Promise<void> {
 		return this.removeSync(ino);
 	}
+
 	public async commit(): Promise<void> {
 		return this.commitSync();
 	}
+
 	public async abort(): Promise<void> {
 		return this.abortSync();
 	}

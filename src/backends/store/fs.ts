@@ -30,7 +30,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._initialized = true;
 	}
 
-	constructor(protected store: T) {
+	public constructor(protected store: T) {
 		super();
 	}
 

@@ -81,7 +81,7 @@ export class Inode implements StatsLike {
 
 	protected view: DataView;
 
-	constructor(buffer?: ArrayBufferLike) {
+	public constructor(buffer?: ArrayBufferLike) {
 		const setDefaults = !buffer;
 		buffer ??= new ArrayBuffer(offsets.end);
 		if (buffer?.byteLength < offsets.end) {

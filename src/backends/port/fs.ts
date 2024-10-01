@@ -21,7 +21,7 @@ interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Reque
 }
 
 export class PortFile extends File {
-	constructor(
+	public constructor(
 		public fs: PortFS,
 		public readonly fd: number,
 		path: string,
@@ -194,27 +194,35 @@ export class PortFS extends Async(FileSystem) {
 	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		return this.rpc('sync', path, data, stats);
 	}
+
 	public openFile(path: string, flag: string): Promise<File> {
 		return this.rpc('openFile', path, flag);
 	}
+
 	public createFile(path: string, flag: string, mode: number): Promise<File> {
 		return this.rpc('createFile', path, flag, mode);
 	}
+
 	public unlink(path: string): Promise<void> {
 		return this.rpc('unlink', path);
 	}
+
 	public rmdir(path: string): Promise<void> {
 		return this.rpc('rmdir', path);
 	}
+
 	public mkdir(path: string, mode: number): Promise<void> {
 		return this.rpc('mkdir', path, mode);
 	}
+
 	public readdir(path: string): Promise<string[]> {
 		return this.rpc('readdir', path);
 	}
+
 	public exists(path: string): Promise<boolean> {
 		return this.rpc('exists', path);
 	}
+
 	public link(srcpath: string, dstpath: string): Promise<void> {
 		return this.rpc('link', srcpath, dstpath);
 	}

@@ -174,7 +174,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Creates a new stats instance from a stats-like object. Can be used to copy stats (note)
 	 */
-	constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino }: Partial<StatsLike> = {}) {
+	public constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino }: Partial<StatsLike> = {}) {
 		const now = Date.now();
 		this.atimeMs = this._convert(atimeMs ?? now);
 		this.mtimeMs = this._convert(mtimeMs ?? now);
@@ -290,12 +290,15 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public get atimeNs(): bigint {
 		return BigInt(this.atimeMs) * 1000n;
 	}
+
 	public get mtimeNs(): bigint {
 		return BigInt(this.mtimeMs) * 1000n;
 	}
+
 	public get ctimeNs(): bigint {
 		return BigInt(this.ctimeMs) * 1000n;
 	}
+
 	public get birthtimeNs(): bigint {
 		return BigInt(this.birthtimeMs) * 1000n;
 	}

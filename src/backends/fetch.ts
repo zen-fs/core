@@ -94,7 +94,7 @@ export class FetchFS extends IndexFS {
 		}
 	}
 
-	constructor({ index = 'index.json', baseUrl = '' }: FetchOptions) {
+	public constructor({ index = 'index.json', baseUrl = '' }: FetchOptions) {
 		super(typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json'));
 
 		// prefix url must end in a directory separator.

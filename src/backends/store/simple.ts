@@ -82,10 +82,6 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 
 	protected declare store: SimpleSyncStore;
 
-	constructor(store: SimpleSyncStore) {
-		super(store);
-	}
-
 	public getSync(ino: Ino): Uint8Array {
 		const val = this.store.get(ino);
 		this.stashOldValue(ino, val);
