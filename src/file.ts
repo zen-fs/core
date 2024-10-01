@@ -194,12 +194,12 @@ export abstract class File {
 	/**
 	 * Asynchronous truncate.
 	 */
-	public abstract truncate(len: number): Promise<void>;
+	public abstract truncate(length: number): Promise<void>;
 
 	/**
 	 * Synchronous truncate.
 	 */
-	public abstract truncateSync(len: number): void;
+	public abstract truncateSync(length: number): void;
 
 	/**
 	 * Asynchronous sync.
