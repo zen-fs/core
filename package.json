@@ -65,7 +65,7 @@
 		"eventemitter3": "^5.0.1",
 		"minimatch": "^9.0.3",
 		"readable-stream": "^4.5.2",
-		"utilium": ">=0.4.0"
+		"utilium": "^0.7.0"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.8.0",
