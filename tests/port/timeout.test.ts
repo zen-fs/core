@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { MessageChannel } from 'node:worker_threads';
 import { Port } from '../../src/backends/port/fs.js';
 import { ErrnoError, InMemory, configure, configureSingle, fs } from '../../src/index.js';
@@ -6,16 +8,10 @@ import { ErrnoError, InMemory, configure, configureSingle, fs } from '../../src/
  * Tests a mis-configured PortFS using a MessageChannel
  */
 
-describe('Timeout', () => {
-	const { port1, port2 } = new MessageChannel();
+const { port1, port2 } = new MessageChannel();
+port2.unref();
 
-	afterAll(() => {
-		port1.close();
-		port1.unref();
-		port2.close();
-		port2.unref();
-	});
-
+await suite('Timeout', { timeout: 1000 }, () => {
 	test('Misconfiguration', async () => {
 		let error: ErrnoError;
 		try {
@@ -26,14 +22,12 @@ describe('Timeout', () => {
 				},
 			});
 		} catch (e) {
-			if (!(e instanceof ErrnoError)) {
-				fail(e);
-			}
+			assert(e instanceof ErrnoError);
 			error = e;
 		}
-		expect(error!).toBeInstanceOf(ErrnoError);
-		expect(error!.code).toBe('EIO');
-		expect(error!.message).toContain('RPC Failed');
+		assert(error! instanceof ErrnoError);
+		assert(error.code === 'EIO');
+		assert(error.message.includes('RPC Failed'));
 	});
 
 	test('Remote not attached', async () => {
@@ -42,13 +36,13 @@ describe('Timeout', () => {
 			await configureSingle({ backend: Port, port: port1, timeout: 100 });
 			await fs.promises.writeFile('/test', 'anything');
 		} catch (e) {
-			if (!(e instanceof ErrnoError)) {
-				fail(e);
-			}
+			assert(e instanceof ErrnoError);
 			error = e;
 		}
-		expect(error!).toBeInstanceOf(ErrnoError);
-		expect(error!.code).toBe('EIO');
-		expect(error!.message).toContain('RPC Failed');
+		assert(error! instanceof ErrnoError);
+		assert(error.code === 'EIO');
+		assert(error.message.includes('RPC Failed'));
 	});
 });
+
+port1.unref();

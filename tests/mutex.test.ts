@@ -2,16 +2,18 @@ import { wait } from 'utilium';
 import { Mutexed } from '../src/mixins/mutexed.js';
 import { StoreFS } from '../src/backends/store/fs.js';
 import { InMemoryStore } from '../src/backends/memory.js';
+import { suite, test } from 'node:test';
+import assert from 'node:assert';
 
-describe('LockFS mutex', () => {
+suite('LockFS mutex', () => {
 	const fs = new (Mutexed(StoreFS))(new InMemoryStore('test'));
 	fs._fs.checkRootSync();
 
 	test('lock/unlock', () => {
 		const lock = fs.lockSync('/test', 'lock');
-		expect(fs.isLocked).toBe(true);
+		assert(fs.isLocked);
 		lock.unlock();
-		expect(fs.isLocked).toBe(false);
+		assert(!fs.isLocked);
 	});
 
 	test('queueing multiple locks', async () => {
@@ -28,20 +30,20 @@ describe('LockFS mutex', () => {
 		});
 
 		// Both locks are queued, so neither should be resolved initially
-		expect(lock1Resolved).toBe(false);
-		expect(lock2Resolved).toBe(false);
+		assert(!lock1Resolved);
+		assert(!lock2Resolved);
 
 		// Wait for the first lock to be resolved
 		await lock1;
 
-		expect(lock1Resolved).toBe(true);
-		expect(lock2Resolved).toBe(false);
+		assert(lock1Resolved);
+		assert(!lock2Resolved);
 
 		// Wait for the second lock to be resolved
 		await lock2;
 
-		expect(lock1Resolved).toBe(true);
-		expect(lock2Resolved).toBe(true);
+		assert(lock1Resolved);
+		assert(lock2Resolved);
 	});
 
 	test('test race conditions', async () => {
@@ -55,6 +57,6 @@ describe('LockFS mutex', () => {
 		}
 
 		await Promise.all([foo(), foo(), foo()]);
-		expect(x).toBe(4);
+		assert(x === 4);
 	});
 });

@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
 // Top-level initialization
@@ -8,15 +10,15 @@ await fs.promises.writeFile(testFilePath, testData);
 const testFilePathWrite = 'test-file-write.txt';
 await fs.promises.writeFile(testFilePathWrite, ''); // Ensure the file exists
 
-describe('ReadStream', () => {
-	test('ReadStream reads data correctly', done => {
+suite('ReadStream', () => {
+	test('ReadStream reads data correctly', (_, done) => {
 		const readStream = fs.createReadStream(testFilePath);
 		let data = '';
 		readStream.on('data', chunk => {
 			data += chunk;
 		});
 		readStream.on('end', () => {
-			expect(data).toEqual(testData);
+			assert(data == testData);
 			done();
 		});
 		readStream.on('error', err => {
@@ -24,50 +26,50 @@ describe('ReadStream', () => {
 		});
 	});
 
-	test('ReadStream close method works', done => {
+	test('ReadStream close method works', (_, done) => {
 		const readStream = fs.createReadStream(testFilePath);
 		let closed = false;
 		readStream.on('close', () => {
 			closed = true;
 		});
 		readStream.close(err => {
-			expect(err).toBeUndefined();
-			expect(closed).toBe(true);
+			assert(err === undefined);
+			assert(closed);
 			done();
 		});
 	});
 
 	test('ReadStream declared properties', () => {
 		const readStream = new fs.ReadStream();
-		expect(readStream.bytesRead).toBeUndefined();
-		expect(readStream.path).toBeUndefined();
-		expect(readStream.pending).toBeUndefined();
+		assert(readStream.bytesRead === undefined);
+		assert(readStream.path === undefined);
+		assert(readStream.pending === undefined);
 
 		// Assign values
 		readStream.bytesRead = 10;
 		readStream.path = testFilePath;
 		readStream.pending = false;
 
-		expect(readStream.bytesRead).toBe(10);
-		expect(readStream.path).toBe(testFilePath);
-		expect(readStream.pending).toBe(false);
+		assert(readStream.bytesRead === 10);
+		assert(readStream.path === testFilePath);
+		assert(!readStream.pending);
 	});
 
-	test('ReadStream close method can be called multiple times', done => {
+	test('ReadStream close method can be called multiple times', (_, done) => {
 		const readStream = new fs.ReadStream();
 		readStream.close(err => {
-			expect(err).toBeUndefined();
+			assert(err === undefined);
 			// Call close again
 			readStream.close(err2 => {
-				expect(err2).toBeUndefined();
+				assert(err2 === undefined);
 				done();
 			});
 		});
 	});
 });
 
-describe('WriteStream', () => {
-	test.skip('WriteStream writes data correctly', done => {
+suite('WriteStream', () => {
+	test.skip('WriteStream writes data correctly', (_, done) => {
 		const writeStream = fs.createWriteStream(testFilePathWrite);
 		writeStream.write(testData, 'utf8', err => {
 			if (err) {
@@ -77,7 +79,7 @@ describe('WriteStream', () => {
 			writeStream.end();
 		});
 		writeStream.on('finish', () => {
-			expect(fs.readFileSync(testFilePathWrite, 'utf8')).toEqual(testData);
+			assert(fs.readFileSync(testFilePathWrite, 'utf8') == testData);
 			done();
 		});
 		writeStream.on('error', err => {
@@ -85,49 +87,49 @@ describe('WriteStream', () => {
 		});
 	});
 
-	test('WriteStream close method works', done => {
+	test('WriteStream close method works', (_, done) => {
 		const writeStream = fs.createWriteStream(testFilePathWrite);
 		let closed = false;
 		writeStream.on('close', () => {
 			closed = true;
 		});
 		writeStream.close(err => {
-			expect(err).toBeUndefined();
-			expect(closed).toBe(true);
+			assert(err === undefined);
+			assert(closed);
 			done();
 		});
 	});
 
 	test('WriteStream declared properties', () => {
 		const writeStream = new fs.WriteStream();
-		expect(writeStream.bytesWritten).toBeUndefined();
-		expect(writeStream.path).toBeUndefined();
-		expect(writeStream.pending).toBeUndefined();
+		assert(writeStream.bytesWritten === undefined);
+		assert(writeStream.path === undefined);
+		assert(writeStream.pending === undefined);
 
 		// Assign values
 		writeStream.bytesWritten = 20;
 		writeStream.path = testFilePathWrite;
 		writeStream.pending = true;
 
-		expect(writeStream.bytesWritten).toBe(20);
-		expect(writeStream.path).toBe(testFilePathWrite);
-		expect(writeStream.pending).toBe(true);
+		assert(writeStream.bytesWritten === 20);
+		assert(writeStream.path === testFilePathWrite);
+		assert(writeStream.pending);
 	});
 
-	test('WriteStream close method can be called multiple times', done => {
+	test('WriteStream close method can be called multiple times', (_, done) => {
 		const writeStream = new fs.WriteStream();
 		writeStream.close(err => {
-			expect(err).toBeUndefined();
+			assert(err === undefined);
 			// Call close again
 			writeStream.close(err2 => {
-				expect(err2).toBeUndefined();
+				assert(err2 === undefined);
 				done();
 			});
 		});
 	});
 });
 
-describe('FileHandle', () => {
+suite('FileHandle', () => {
 	test.skip('FileHandle.createReadStream reads data correctly', async () => {
 		const fileHandle = await fs.promises.open(testFilePath, 'r');
 		const readStream = fileHandle.createReadStream();
@@ -137,7 +139,7 @@ describe('FileHandle', () => {
 				data += chunk;
 			});
 			readStream.on('end', () => {
-				expect(data).toEqual(testData);
+				assert(data == testData);
 				resolve();
 			});
 			readStream.on('error', reject);
@@ -157,23 +159,19 @@ describe('FileHandle', () => {
 			writeStream.on('error', reject);
 		});
 		const data = await fs.promises.readFile(testFilePathWrite, 'utf8');
-		expect(data).toEqual(testData);
+		assert(data == testData);
 		await fileHandle.close();
 	});
 
 	test('FileHandle.createReadStream after close should throw', async () => {
 		const fileHandle = await fs.promises.open(testFilePath, 'r');
 		await fileHandle.close();
-		expect(() => {
-			fileHandle.createReadStream();
-		}).toThrow();
+		assert.throws(() => fileHandle.createReadStream());
 	});
 
 	test.skip('FileHandle.createWriteStream after close should throw', async () => {
 		const fileHandle = await fs.promises.open(testFilePathWrite, 'w');
 		await fileHandle.close();
-		expect(() => {
-			fileHandle.createWriteStream();
-		}).toThrow();
+		assert.throws(() => fileHandle.createWriteStream());
 	});
 });

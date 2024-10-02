@@ -1,3 +1,5 @@
+import assert, { rejects } from 'node:assert';
+import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
 const testFile = 'test-file.txt';
@@ -11,73 +13,73 @@ for (const file of testFiles) {
 	await fs.promises.writeFile(`${testDirPath}/${file}`, 'Sample content');
 }
 
-describe('Dirent', () => {
+suite('Dirent', () => {
 	test('Dirent name and parentPath getters', async () => {
 		const stats = await fs.promises.lstat(testFile);
 		const dirent = new fs.Dirent(testFile, stats);
 
-		expect(dirent.name).toBe(testFile);
-		expect(dirent.parentPath).toBe(testFile);
+		assert(dirent.name === testFile);
+		assert(dirent.parentPath === testFile);
 	});
 
 	test('Dirent.isFile', async () => {
 		const fileStats = await fs.promises.lstat(testFile);
 		const fileDirent = new fs.Dirent(testFile, fileStats);
 
-		expect(fileDirent.isFile()).toBe(true);
-		expect(fileDirent.isDirectory()).toBe(false);
+		assert(fileDirent.isFile());
+		assert(!fileDirent.isDirectory());
 	});
 
 	test('Dirent.isDirectory', async () => {
 		const dirStats = await fs.promises.lstat('test-directory');
 		const dirDirent = new fs.Dirent('test-directory', dirStats);
 
-		expect(dirDirent.isFile()).toBe(false);
-		expect(dirDirent.isDirectory()).toBe(true);
+		assert(!dirDirent.isFile());
+		assert(dirDirent.isDirectory());
 	});
 
 	test('Dirent.isSymbolicLink', async () => {
 		const symlinkStats = await fs.promises.lstat('test-symlink');
 		const symlinkDirent = new fs.Dirent('test-symlink', symlinkStats);
 
-		expect(symlinkDirent.isSymbolicLink()).toBe(true);
+		assert(symlinkDirent.isSymbolicLink());
 	});
 
 	test('Dirent other methods return false', async () => {
 		const fileStats = await fs.promises.lstat(testFile);
 		const fileDirent = new fs.Dirent(testFile, fileStats);
 
-		expect(fileDirent.isBlockDevice()).toBe(false);
-		expect(fileDirent.isCharacterDevice()).toBe(false);
-		expect(fileDirent.isSocket()).toBe(false);
+		assert(!fileDirent.isBlockDevice());
+		assert(!fileDirent.isCharacterDevice());
+		assert(!fileDirent.isSocket());
 	});
 });
 
-describe('Dir', () => {
+suite('Dir', () => {
 	test('Dir read() method (Promise varient)', async () => {
 		const dir = new fs.Dir(testDirPath);
 
 		const dirent1 = await dir.read();
-		expect(dirent1).toBeInstanceOf(fs.Dirent);
-		expect(testFiles).toContain(dirent1?.name);
+		assert(dirent1 instanceof fs.Dirent);
+		assert(testFiles.includes(dirent1?.name));
 
 		const dirent2 = await dir.read();
-		expect(dirent2).toBeInstanceOf(fs.Dirent);
-		expect(testFiles).toContain(dirent2?.name);
+		assert(dirent2 instanceof fs.Dirent);
+		assert(testFiles.includes(dirent2?.name));
 
 		const dirent3 = await dir.read();
-		expect(dirent3).toBeNull();
+		assert(dirent3 === null);
 
 		await dir.close();
 	});
 
-	test('Dir read() method (Callback varient)', done => {
+	test('Dir read() method (Callback varient)', (_, done) => {
 		const dir = new fs.Dir(testDirPath);
 		dir.read((err, dirent) => {
-			expect(err).toBeUndefined();
-			expect(dirent).toBeDefined();
-			expect(dirent).toBeInstanceOf(fs.Dirent);
-			expect(testFiles).toContain(dirent?.name);
+			assert(err === undefined);
+			assert(dirent != undefined);
+			assert(dirent instanceof fs.Dirent);
+			assert(testFiles.includes(dirent?.name));
 			dir.closeSync();
 			done();
 		});
@@ -87,15 +89,15 @@ describe('Dir', () => {
 		const dir = new fs.Dir(testDirPath);
 
 		const dirent1 = dir.readSync();
-		expect(dirent1).toBeInstanceOf(fs.Dirent);
-		expect(testFiles).toContain(dirent1?.name);
+		assert(dirent1 instanceof fs.Dirent);
+		assert(testFiles.includes(dirent1?.name));
 
 		const dirent2 = dir.readSync();
-		expect(dirent2).toBeInstanceOf(fs.Dirent);
-		expect(testFiles).toContain(dirent2?.name);
+		assert(dirent2 instanceof fs.Dirent);
+		assert(testFiles.includes(dirent2?.name));
 
 		const dirent3 = dir.readSync();
-		expect(dirent3).toBeNull();
+		assert(dirent3 === null);
 
 		dir.closeSync();
 	});
@@ -103,13 +105,13 @@ describe('Dir', () => {
 	test('Dir close() method (Promise version)', async () => {
 		const dir = new fs.Dir(testDirPath);
 		await dir.close();
-		await expect(dir.read()).rejects.toThrow('Can not use closed Dir');
+		rejects(dir.read(), 'Can not use closed Dir');
 	});
 
 	test('Dir closeSync() method', () => {
 		const dir = new fs.Dir(testDirPath);
 		dir.closeSync();
-		expect(() => dir.readSync()).toThrow('Can not use closed Dir');
+		assert.throws(() => dir.readSync(), 'Can not use closed Dir');
 	});
 
 	test('Dir asynchronous iteration', async () => {
@@ -120,35 +122,35 @@ describe('Dir', () => {
 			dirents.push(dirent);
 		}
 
-		expect(dirents.length).toBe(2);
-		expect(dirents[0]).toBeInstanceOf(fs.Dirent);
-		expect(testFiles).toContain(dirents[0].name);
-		expect(testFiles).toContain(dirents[1].name);
+		assert(dirents.length === 2);
+		assert(dirents[0] instanceof fs.Dirent);
+		assert(testFiles.includes(dirents[0].name));
+		assert(testFiles.includes(dirents[1].name));
 	});
 
 	test('Dir read after directory is closed', async () => {
 		const dir = new fs.Dir(testDirPath);
 		await dir.close();
-		await expect(dir.read()).rejects.toThrow('Can not use closed Dir');
+		await assert.rejects(dir.read(), 'Can not use closed Dir');
 	});
 
 	test('Dir readSync after directory is closed', () => {
 		const dir = new fs.Dir(testDirPath);
 		dir.closeSync();
-		expect(() => dir.readSync()).toThrow('Can not use closed Dir');
+		assert.throws(() => dir.readSync(), 'Can not use closed Dir');
 	});
 
 	test('Dir close multiple times', async () => {
 		const dir = new fs.Dir(testDirPath);
 		await dir.close();
 		await dir.close(); // Should not throw an error
-		expect(dir['closed']).toBe(true);
+		assert(dir['closed']);
 	});
 
 	test('Dir closeSync multiple times', () => {
 		const dir = new fs.Dir(testDirPath);
 		dir.closeSync();
 		dir.closeSync(); // Should not throw an error
-		expect(dir['closed']).toBe(true);
+		assert(dir['closed']);
 	});
 });

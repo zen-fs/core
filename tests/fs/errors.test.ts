@@ -1,30 +1,29 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { ErrnoError } from '../../src/error.js';
 import { fs } from '../common.js';
 
 const existingFile = '/exit.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function expectError(fn: (...args: any[]) => unknown, path: string, ...args: any[]) {
 	let error: ErrnoError | undefined;
 	try {
 		await fn(path, ...args);
-	} catch (err) {
-		if (!(err instanceof ErrnoError)) {
-			fail(err);
-		}
+	} catch (err: any) {
+		assert(err instanceof ErrnoError);
 		error = err;
 	}
-	expect(error).toBeDefined();
-	expect(error?.path).toBe(path);
-	expect(error?.message).toContain(path);
+	assert(error != undefined);
+	assert(error.path === path);
+	assert(error.message.includes(path));
 }
 
-describe('Error messages', () => {
+suite('Error messages', () => {
 	const path = '/non-existent';
 
 	fs.promises.stat(path).catch((error: ErrnoError) => {
-		expect(error.toString()).toBe(error.message);
-		expect(error.bufferSize()).toBe(4 + JSON.stringify(error.toJSON()).length);
+		assert(error.toString() === error.message);
+		assert(error.bufferSize() === 4 + JSON.stringify(error.toJSON()).length);
 	});
 
 	test('stat', () => expectError(fs.promises.stat, path));

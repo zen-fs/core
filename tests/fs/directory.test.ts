@@ -1,11 +1,13 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { ErrnoError } from '../../src/error.js';
 import { fs } from '../common.js';
 
-describe('Directory', () => {
+suite('Directory', () => {
 	test('mkdir', async () => {
 		await fs.promises.mkdir('/one', 0o755);
-		await expect(fs.promises.exists('/one')).resolves.toBe(true);
-		await expect(fs.promises.mkdir('/one', 0o755)).rejects.toThrow(/EEXIST/);
+		assert(await fs.promises.exists('/one'));
+		await assert.rejects(fs.promises.mkdir('/one', 0o755), /EEXIST/);
 	});
 
 	test('mkdirSync', () => fs.mkdirSync('/two', 0o000));
@@ -13,47 +15,43 @@ describe('Directory', () => {
 	test('mkdir, nested', async () => {
 		try {
 			await fs.promises.mkdir('/nested/dir');
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
-			expect(error.code).toBe('ENOENT');
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'ENOENT');
 		}
-		expect(await fs.promises.exists('/nested/dir')).toBe(false);
+		assert(!(await fs.promises.exists('/nested/dir')));
 	});
 
 	test('mkdir, recursive', async () => {
-		await expect(fs.promises.mkdir('/recursiveP/A/B', { recursive: true, mode: 0o755 })).resolves.toBe('/recursiveP');
-		await expect(fs.promises.mkdir('/recursiveP/A/B/C/D', { recursive: true, mode: 0o777 })).resolves.toBe('/recursiveP/A/B/C');
-		await expect(fs.promises.mkdir('/recursiveP/A/B/C/D', { recursive: true, mode: 0o700 })).resolves.toBeUndefined();
+		assert((await fs.promises.mkdir('/recursiveP/A/B', { recursive: true, mode: 0o755 })) == '/recursiveP');
+		assert((await fs.promises.mkdir('/recursiveP/A/B/C/D', { recursive: true, mode: 0o777 })) == '/recursiveP/A/B/C');
+		assert((await fs.promises.mkdir('/recursiveP/A/B/C/D', { recursive: true, mode: 0o700 })) == undefined);
 
-		await expect(fs.promises.stat('/recursiveP')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
-		await expect(fs.promises.stat('/recursiveP/A')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
-		await expect(fs.promises.stat('/recursiveP/A/B')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
-		await expect(fs.promises.stat('/recursiveP/A/B/C')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o777 });
-		await expect(fs.promises.stat('/recursiveP/A/B/C/D')).resolves.toMatchObject({ mode: fs.constants.S_IFDIR | 0o777 });
+		assert((await fs.promises.stat('/recursiveP')).mode == (fs.constants.S_IFDIR | 0o755));
+		assert((await fs.promises.stat('/recursiveP/A')).mode == (fs.constants.S_IFDIR | 0o755));
+		assert((await fs.promises.stat('/recursiveP/A/B')).mode == (fs.constants.S_IFDIR | 0o755));
+		assert((await fs.promises.stat('/recursiveP/A/B/C')).mode == (fs.constants.S_IFDIR | 0o777));
+		assert((await fs.promises.stat('/recursiveP/A/B/C/D')).mode == (fs.constants.S_IFDIR | 0o777));
 	});
 
 	test('mkdirSync, recursive', () => {
-		expect(fs.mkdirSync('/recursiveS/A/B', { recursive: true, mode: 0o755 })).toBe('/recursiveS');
-		expect(fs.mkdirSync('/recursiveS/A/B/C/D', { recursive: true, mode: 0o777 })).toBe('/recursiveS/A/B/C');
-		expect(fs.mkdirSync('/recursiveS/A/B/C/D', { recursive: true, mode: 0o700 })).toBeUndefined();
+		assert(fs.mkdirSync('/recursiveS/A/B', { recursive: true, mode: 0o755 }) === '/recursiveS');
+		assert(fs.mkdirSync('/recursiveS/A/B/C/D', { recursive: true, mode: 0o777 }) === '/recursiveS/A/B/C');
+		assert(fs.mkdirSync('/recursiveS/A/B/C/D', { recursive: true, mode: 0o700 }) === undefined);
 
-		expect(fs.statSync('/recursiveS')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
-		expect(fs.statSync('/recursiveS/A')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
-		expect(fs.statSync('/recursiveS/A/B')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o755 });
-		expect(fs.statSync('/recursiveS/A/B/C')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o777 });
-		expect(fs.statSync('/recursiveS/A/B/C/D')).toMatchObject({ mode: fs.constants.S_IFDIR | 0o777 });
+		assert(fs.statSync('/recursiveS').mode == (fs.constants.S_IFDIR | 0o755));
+		assert(fs.statSync('/recursiveS/A').mode == (fs.constants.S_IFDIR | 0o755));
+		assert(fs.statSync('/recursiveS/A/B').mode == (fs.constants.S_IFDIR | 0o755));
+		assert(fs.statSync('/recursiveS/A/B/C').mode == (fs.constants.S_IFDIR | 0o777));
+		assert(fs.statSync('/recursiveS/A/B/C/D').mode == (fs.constants.S_IFDIR | 0o777));
 	});
 
 	test('readdirSync without permission', () => {
 		try {
 			fs.readdirSync('/two');
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
-			expect(error.code).toBe('EACCES');
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'EACCES');
 		}
 	});
 
@@ -63,11 +61,9 @@ describe('Directory', () => {
 
 		try {
 			await fs.promises.rmdir('/rmdirTest');
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
-			expect(error.code).toBe('ENOTEMPTY');
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'ENOTEMPTY');
 		}
 	});
 
@@ -76,24 +72,20 @@ describe('Directory', () => {
 
 		try {
 			fs.readdirSync('a.js');
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
 			wasThrown = true;
-			expect(error.code).toBe('ENOTDIR');
+			assert(error.code === 'ENOTDIR');
 		}
-		expect(wasThrown).toBeTruthy();
+		assert(wasThrown);
 	});
 
 	test('readdir on file', async () => {
 		try {
 			await fs.promises.readdir('a.js');
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
-			expect(error.code).toBe('ENOTDIR');
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'ENOTDIR');
 		}
 	});
 
@@ -102,24 +94,20 @@ describe('Directory', () => {
 
 		try {
 			fs.readdirSync('/does/not/exist');
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
 			wasThrown = true;
-			expect(error.code).toBe('ENOENT');
+			assert(error.code === 'ENOENT');
 		}
-		expect(wasThrown).toBeTruthy();
+		assert(wasThrown);
 	});
 
 	test('readdir on non-existant directory', async () => {
 		try {
 			await fs.promises.readdir('/does/not/exist');
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
-			expect(error.code).toBe('ENOENT');
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'ENOENT');
 		}
 	});
 

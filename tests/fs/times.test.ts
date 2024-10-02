@@ -1,64 +1,60 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { wait } from 'utilium';
 import { ErrnoError } from '../../src/error.js';
 import { _toUnixTimestamp } from '../../src/utils.js';
 import { fs } from '../common.js';
 
-describe('times', () => {
+suite('times', () => {
 	const path = 'x.txt';
 
-	function expect_ok(resource: string | number, atime: Date | number, mtime: Date | number) {
+	function expect_assert(resource: string | number, atime: Date | number, mtime: Date | number) {
 		const stats = typeof resource == 'string' ? fs.statSync(resource) : fs.fstatSync(resource);
 		// check up to single-second precision since sub-second precision is OS and fs dependent
-		expect(_toUnixTimestamp(atime)).toEqual(_toUnixTimestamp(stats.atime));
-		expect(_toUnixTimestamp(mtime)).toEqual(_toUnixTimestamp(stats.mtime));
+		assert(_toUnixTimestamp(atime) == _toUnixTimestamp(stats.atime));
+		assert(_toUnixTimestamp(mtime) == _toUnixTimestamp(stats.mtime));
 	}
 
 	async function runTest(atime: Date | number, mtime: Date | number): Promise<void> {
 		await fs.promises.utimes(path, atime, mtime);
-		expect_ok(path, atime, mtime);
+		expect_assert(path, atime, mtime);
 
 		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: ErrnoError) => {
-			expect(error).toBeInstanceOf(ErrnoError);
-			expect(error.code).toBe('ENOENT');
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'ENOENT');
 		});
 
 		// don't close this fd
 		const handle = await fs.promises.open(path, 'r');
 
 		await handle.utimes(atime, mtime);
-		expect_ok(handle.fd, atime, mtime);
+		expect_assert(handle.fd, atime, mtime);
 
 		fs.utimesSync(path, atime, mtime);
-		expect_ok(path, atime, mtime);
+		expect_assert(path, atime, mtime);
 
 		// some systems don't have futimes
 		// if there's an error, it be ENOSYS
 		try {
 			fs.futimesSync(handle.fd, atime, mtime);
-			expect_ok(handle.fd, atime, mtime);
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
-			expect(error.code).toBe('ENOSYS');
+			expect_assert(handle.fd, atime, mtime);
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'ENOSYS');
 		}
 
 		try {
 			fs.utimesSync('foobarbaz', atime, mtime);
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
-			expect(error.code).toBe('ENOENT');
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'ENOENT');
 		}
 
 		try {
 			fs.futimesSync(-1, atime, mtime);
-		} catch (error) {
-			if (!(error instanceof ErrnoError)) {
-				fail(error);
-			}
-			expect(error.code).toEqual('EBADF');
+		} catch (error: any) {
+			assert(error instanceof ErrnoError);
+			assert(error.code == 'EBADF');
 		}
 	}
 
@@ -75,7 +71,7 @@ describe('times', () => {
 		fs.readFileSync(path);
 		await wait(100);
 		const after = fs.statSync(path).atimeMs;
-		expect(before).toBeLessThan(after);
+		assert(before < after);
 	});
 
 	test('write changes mtime', async () => {
@@ -83,6 +79,6 @@ describe('times', () => {
 		fs.writeFileSync(path, 'cool');
 		await wait(100);
 		const after = fs.statSync(path).mtimeMs;
-		expect(before).toBeLessThan(after);
+		assert(before < after);
 	});
 });

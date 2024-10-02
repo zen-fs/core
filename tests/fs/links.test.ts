@@ -1,7 +1,9 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { join } from '../../src/emulation/path.js';
 import { fs } from '../common.js';
 
-describe('Links', () => {
+suite('Links', () => {
 	const target = '/a1.js',
 		symlink = 'symlink1.js',
 		hardlink = 'link1.js';
@@ -12,33 +14,33 @@ describe('Links', () => {
 
 	test('lstat', async () => {
 		const stats = await fs.promises.lstat(symlink);
-		expect(stats.isSymbolicLink()).toBe(true);
+		assert(stats.isSymbolicLink());
 	});
 
 	test('readlink', async () => {
 		const destination = await fs.promises.readlink(symlink);
-		expect(destination).toBe(target);
+		assert(destination === target);
 	});
 
 	test('unlink', async () => {
 		await fs.promises.unlink(symlink);
-		expect(await fs.promises.exists(symlink)).toBe(false);
-		expect(await fs.promises.exists(target)).toBe(true);
+		assert(!(await fs.promises.exists(symlink)));
+		assert(await fs.promises.exists(target));
 	});
 
 	test('link', async () => {
 		await fs.promises.link(target, hardlink);
 		const targetContent = await fs.promises.readFile(target, 'utf8');
 		const linkContent = await fs.promises.readFile(hardlink, 'utf8');
-		expect(targetContent).toBe(linkContent);
+		assert(targetContent === linkContent);
 	});
 
 	test('file inside symlinked directory', async () => {
 		await fs.promises.symlink('.', 'link');
 		const targetContent = await fs.promises.readFile(target, 'utf8');
 		const link = join('link', target);
-		expect(await fs.promises.realpath(link)).toBe(target);
+		assert((await fs.promises.realpath(link)) === target);
 		const linkContent = await fs.promises.readFile(link, 'utf8');
-		expect(targetContent).toBe(linkContent);
+		assert(targetContent === linkContent);
 	});
 });

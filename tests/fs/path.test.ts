@@ -1,32 +1,34 @@
-import { resolve, join, normalize, basename, dirname, extname } from '../../src/emulation/path.js';
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
+import { basename, dirname, extname, join, normalize, resolve } from '../../src/emulation/path.js';
 
-describe('Path emulation', () => {
+suite('Path emulation', () => {
 	test('resolve', () => {
-		expect(resolve('somepath')).toBe('/somepath');
-		expect(resolve('/another', 'path')).toBe('/another/path');
+		assert(resolve('somepath') === '/somepath');
+		assert(resolve('/another', 'path') === '/another/path');
 	});
 
 	test('join', () => {
-		expect(join('/path', 'to', 'file.txt')).toBe('/path/to/file.txt');
-		expect(join('/path/', 'to', '/file.txt')).toBe('/path/to/file.txt');
+		assert(join('/path', 'to', 'file.txt') === '/path/to/file.txt');
+		assert(join('/path/', 'to', '/file.txt') === '/path/to/file.txt');
 	});
 
 	test('normalize', () => {
-		expect(normalize('/path/to/../file.txt')).toBe('/path/file.txt');
-		expect(normalize('/path/to/./file.txt')).toBe('/path/to/file.txt');
+		assert(normalize('/path/to/../file.txt') === '/path/file.txt');
+		assert(normalize('/path/to/./file.txt') === '/path/to/file.txt');
 	});
 
 	test('basename', () => {
-		expect(basename('/path/to/file.txt')).toBe('file.txt');
-		expect(basename('/path/to/file.txt', '.txt')).toBe('file');
+		assert(basename('/path/to/file.txt') === 'file.txt');
+		assert(basename('/path/to/file.txt', '.txt') === 'file');
 	});
 
 	test('dirname', () => {
-		expect(dirname('/path/to/file.txt')).toBe('/path/to');
+		assert(dirname('/path/to/file.txt') === '/path/to');
 	});
 
 	test('extname', () => {
-		expect(extname('/path/to/file.txt')).toBe('.txt');
-		expect(extname('/path/to/file')).toBe('');
+		assert(extname('/path/to/file.txt') === '.txt');
+		assert(extname('/path/to/file') === '');
 	});
 });

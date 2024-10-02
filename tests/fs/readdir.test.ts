@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
 const testDir = 'test-dir';
@@ -12,14 +14,14 @@ for (const dir of testDirectories) {
 	await fs.promises.mkdir(`${testDir}/${dir}`);
 }
 
-describe('readdir and readdirSync', () => {
+suite('readdir and readdirSync', () => {
 	test('readdir returns files and directories', async () => {
 		const dirents = await fs.promises.readdir(testDir, { withFileTypes: true });
 		const files = dirents.filter(dirent => dirent.isFile()).map(dirent => dirent.name);
 		const dirs = dirents.filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
 
-		expect(files).toEqual(expect.arrayContaining(testFiles));
-		expect(dirs).toEqual(expect.arrayContaining(testDirectories));
+		assert(testFiles.every(file => files.includes(file)));
+		assert(testDirectories.every(dir => dirs.includes(dir)));
 	});
 
 	test('readdirSync returns files and directories', () => {
@@ -27,27 +29,29 @@ describe('readdir and readdirSync', () => {
 		const files = dirents.filter(dirent => dirent.isFile()).map(dirent => dirent.name);
 		const dirs = dirents.filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
 
-		expect(files).toEqual(expect.arrayContaining(testFiles));
-		expect(dirs).toEqual(expect.arrayContaining(testDirectories));
+		assert(testFiles.every(file => files.includes(file)));
+		assert(testDirectories.every(dir => dirs.includes(dir)));
 	});
 
 	test('readdir returns Dirent objects', async () => {
 		const dirents = await fs.promises.readdir(testDir, { withFileTypes: true });
-		expect(dirents[0]).toBeInstanceOf(fs.Dirent);
+		assert(dirents[0] instanceof fs.Dirent);
 	});
 
 	test('readdirSync returns Dirent objects', () => {
 		const dirents = fs.readdirSync(testDir, { withFileTypes: true });
-		expect(dirents[0]).toBeInstanceOf(fs.Dirent);
+		assert(dirents[0] instanceof fs.Dirent);
 	});
 
 	test('readdir works without withFileTypes option', async () => {
 		const files = await fs.promises.readdir(testDir);
-		expect(files).toEqual(expect.arrayContaining([...testFiles, ...testDirectories]));
+		assert(testFiles.every(entry => files.includes(entry)));
+		assert(testDirectories.every(entry => files.includes(entry)));
 	});
 
 	test('readdirSync works without withFileTypes option', () => {
 		const files = fs.readdirSync(testDir);
-		expect(files).toEqual(expect.arrayContaining([...testFiles, ...testDirectories]));
+		assert(testFiles.every(entry => files.includes(entry)));
+		assert(testDirectories.every(entry => files.includes(entry)));
 	});
 });

@@ -1,20 +1,15 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { MessageChannel } from 'node:worker_threads';
 import { Port, attachFS } from '../../src/backends/port/fs.js';
 import type { StoreFS } from '../../src/index.js';
 import { InMemory, configureSingle, fs, resolveMountConfig, type InMemoryStore } from '../../src/index.js';
 
-describe('FS with MessageChannel', () => {
-	const { port1, port2 } = new MessageChannel(),
-		content = 'FS is in a port';
-	let tmpfs: StoreFS<InMemoryStore>;
+const { port1, port2 } = new MessageChannel(),
+	content = 'FS is in a port';
+let tmpfs: StoreFS<InMemoryStore>;
 
-	afterAll(() => {
-		port1.close();
-		port1.unref();
-		port2.close();
-		port2.unref();
-	});
-
+await suite('FS with MessageChannel', () => {
 	test('configuration', async () => {
 		tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
 		attachFS(port2, tmpfs);
@@ -27,15 +22,18 @@ describe('FS with MessageChannel', () => {
 
 	test('remote content', () => {
 		fs.mount('/tmp', tmpfs);
-		expect(fs.readFileSync('/tmp/test', 'utf8')).toEqual(content);
+		assert(fs.readFileSync('/tmp/test', 'utf8') == content);
 		fs.umount('/tmp');
 	});
 
 	test('read', async () => {
-		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
+		assert((await fs.promises.readFile('/test', 'utf8')) === content);
 	});
 
 	test('readFileSync should throw', () => {
-		expect(() => fs.readFileSync('/test', 'utf8')).toThrow('ENOTSUP');
+		assert.throws(() => fs.readFileSync('/test', 'utf8'), { code: 'ENOTSUP' });
 	});
 });
+
+port1.unref();
+port2.unref();

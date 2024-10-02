@@ -1,4 +1,6 @@
+import assert from 'node:assert';
 import { dirname } from 'node:path';
+import { suite, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { Port } from '../../src/backends/port/fs.js';
@@ -14,11 +16,11 @@ try {
 	/* nothing */
 }
 
-describe('Remote FS with resolveRemoteMount', () => {
+await suite('Remote FS with resolveRemoteMount', () => {
 	const content = 'FS is in a port';
 
 	test('Build exists for worker', () => {
-		expect(port).toBeDefined();
+		assert(port != undefined);
 	});
 
 	(port ? test : test.skip)('Configuration', async () => {
@@ -30,7 +32,7 @@ describe('Remote FS with resolveRemoteMount', () => {
 	});
 
 	(port ? test : test.skip)('Read', async () => {
-		expect(await fs.promises.readFile('/test', 'utf8')).toBe(content);
+		assert((await fs.promises.readFile('/test', 'utf8')) === content);
 	});
 
 	(port ? test : test.skip)('Cleanup', async () => {
@@ -38,3 +40,7 @@ describe('Remote FS with resolveRemoteMount', () => {
 		port.unref();
 	});
 });
+
+if (port!) {
+	port.unref();
+}

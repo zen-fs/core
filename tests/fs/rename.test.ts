@@ -1,7 +1,9 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { ErrnoError } from '../../src/error.js';
 import { fs } from '../common.js';
 
-describe('Rename', () => {
+suite('Rename', () => {
 	/**
 	 * Creates the following directory structure within the given dir:
 	 * - _rename_me
@@ -19,13 +21,13 @@ describe('Rename', () => {
 	 */
 	async function check_directory(dir: string) {
 		const contents = await fs.promises.readdir(dir);
-		expect(contents.length).toBe(2);
+		assert(contents.length === 2);
 
 		const subConents = await fs.promises.readdir(dir + '/_rename_me');
-		expect(subConents.length).toBe(1);
+		assert(subConents.length === 1);
 
-		expect(await fs.promises.exists(dir + '/file.dat')).toBe(true);
-		expect(await fs.promises.exists(dir + '/_rename_me/lol.txt')).toBe(true);
+		assert(await fs.promises.exists(dir + '/file.dat'));
+		assert(await fs.promises.exists(dir + '/_rename_me/lol.txt'));
 	}
 
 	test('rename directory', async () => {
@@ -44,7 +46,7 @@ describe('Rename', () => {
 
 		await check_directory(newDir);
 
-		expect(await fs.promises.exists(oldDir)).toBe(false);
+		assert(!(await fs.promises.exists(oldDir)));
 
 		await fs.promises.mkdir(oldDir);
 		await populate(oldDir);
@@ -64,8 +66,8 @@ describe('Rename', () => {
 		await fs.promises.writeFile(one, 'hey');
 		await fs.promises.rename(one, two);
 
-		expect(await fs.promises.readFile(two, 'utf8')).toBe('hey');
-		expect(await fs.promises.exists(one)).toBe(false);
+		assert((await fs.promises.readFile(two, 'utf8')) === 'hey');
+		assert(!(await fs.promises.exists(one)));
 	});
 
 	test('File to Directory and Directory to File Rename', async () => {
@@ -76,8 +78,8 @@ describe('Rename', () => {
 		await fs.promises.writeFile(file, 'file contents go here');
 
 		await fs.promises.rename(file, dir).catch((error: ErrnoError) => {
-			expect(error).toBeInstanceOf(ErrnoError);
-			expect(error.code === 'EISDIR' || error.code === 'EPERM').toBe(true);
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'EISDIR' || error.code === 'EPERM');
 		});
 
 		// JV: Removing test for now. I noticed that you can do that in Node v0.12 on Mac,
@@ -98,8 +100,8 @@ describe('Rename', () => {
 		await fs.promises.mkdir(renDir1);
 
 		await fs.promises.rename(renDir1, renDir2).catch((error: ErrnoError) => {
-			expect(error).toBeInstanceOf(ErrnoError);
-			expect(error.code).toBe('EBUSY');
+			assert(error instanceof ErrnoError);
+			assert(error.code === 'EBUSY');
 		});
 	});
 });

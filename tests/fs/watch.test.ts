@@ -1,37 +1,21 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
 const testDir = '/test-watch-dir';
 const testFile = `${testDir}/test.txt`;
 
-describe('Watch Features', () => {
-	beforeAll(async () => {
-		// Set up test directory and file
-		try {
-			await fs.promises.mkdir(testDir);
-		} catch (err) {
-			// Directory might already exist
-		}
-		await fs.promises.writeFile(testFile, 'Initial content');
-	});
+await fs.promises.mkdir(testDir);
+await fs.promises.writeFile(testFile, 'Initial content');
 
-	afterAll(async () => {
-		// Clean up test directory and file
-		try {
-			await fs.promises.unlink(testFile);
-		} catch (err) {
-			// File might already be deleted
-		}
-		try {
-			await fs.promises.rmdir(testDir);
-		} catch (err) {
-			// Directory might already be deleted
-		}
-	});
-
+/**
+ * @todo convert using watcher to void discards pending ES proposal
+ */
+suite('Watch Features', () => {
 	test('fs.watch should emit events on file change', async () => {
 		using watcher = fs.watch(testFile, (eventType, filename) => {
-			expect(eventType).toBe('change');
-			expect(filename).toBe('test.txt');
+			assert(eventType === 'change');
+			assert(filename === 'test.txt');
 		});
 
 		// Modify the file to trigger the event
@@ -40,8 +24,8 @@ describe('Watch Features', () => {
 
 	test('fs.watch should emit events on file rename (delete)', async () => {
 		using watcher = fs.watch(testFile, (eventType, filename) => {
-			expect(eventType).toBe('rename');
-			expect(filename).toBe('test.txt');
+			assert(eventType === 'rename');
+			assert(filename === 'test.txt');
 		});
 
 		// Delete the file to trigger the event
@@ -50,7 +34,7 @@ describe('Watch Features', () => {
 
 	test('fs.watchFile should detect changes to a file', async () => {
 		const listener = (curr: fs.Stats, prev: fs.Stats) => {
-			expect(curr.mtimeMs).not.toBe(prev.mtimeMs);
+			assert(curr.mtimeMs != prev.mtimeMs);
 			fs.unwatchFile(testFile, listener);
 		};
 
@@ -74,13 +58,13 @@ describe('Watch Features', () => {
 		await fs.promises.writeFile(testFile, 'Another change');
 
 		// Wait to see if any change is detected
-		expect(changeDetected).toBe(false);
+		assert(!changeDetected);
 	});
 
 	test('fs.watch should work with directories', async () => {
 		using watcher = fs.watch(testDir, (eventType, filename) => {
-			expect(eventType).toBe('change');
-			expect(filename).toBe('newFile.txt');
+			assert(eventType === 'change');
+			assert(filename === 'newFile.txt');
 		});
 
 		await fs.promises.writeFile(`${testDir}/newFile.txt`, 'Content');
@@ -93,8 +77,8 @@ describe('Watch Features', () => {
 		await fs.promises.writeFile(oldFile, 'Some content');
 
 		using watcher = fs.watch(testDir, (eventType, filename) => {
-			expect(eventType).toBe('rename');
-			expect(filename).toBe('oldFile.txt');
+			assert(eventType === 'rename');
+			assert(filename === 'oldFile.txt');
 		});
 
 		// Rename the file to trigger the event
@@ -107,10 +91,13 @@ describe('Watch Features', () => {
 		await fs.promises.writeFile(tempFile, 'Temporary content');
 
 		using watcher = fs.watch(tempFile, (eventType, filename) => {
-			expect(eventType).toBe('rename');
-			expect(filename).toBe('tempFile.txt');
+			assert(eventType === 'rename');
+			assert(filename === 'tempFile.txt');
 		});
 
 		await fs.promises.unlink(tempFile);
 	});
+}).then(async () => {
+	await fs.promises.rm(testFile);
+	await fs.promises.rm(testDir, { recursive: true, force: true });
 });

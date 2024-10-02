@@ -1,14 +1,16 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
 const s =
 	'南越国是前203年至前111年存在于岭南地区的一个国家，国都位于番禺，疆域包括今天中国的广东、广西两省区的大部份地区，福建省、湖南、贵州、云南的一小部份地区和越南的北部。南越国是秦朝灭亡后，由南海郡尉赵佗于前203年起兵兼并桂林郡和象郡后建立。前196年和前179年，南越国曾先后两次名义上臣属于西汉，成为西汉的“外臣”。前112年，南越国末代君主赵建德与西汉发生战争，被汉武帝于前111年所灭。南越国共存在93年，历经五代君主。南越国是岭南地区的第一个有记载的政权国家，采用封建制和郡县制并存的制度，它的建立保证了秦末乱世岭南地区社会秩序的稳定，有效的改善了岭南地区落后的政治、经济现状。\n';
 
-describe('writeFile', () => {
+suite('writeFile', () => {
 	test('write and read file with specified content', async () => {
 		const filename = 'test.txt';
 		await fs.promises.writeFile(filename, s);
 		const data = await fs.promises.readFile(filename);
-		expect(data.length).toBe(Buffer.from(s).length);
+		assert(data.length === Buffer.from(s).length);
 		await fs.promises.unlink(filename);
 	});
 
@@ -18,7 +20,7 @@ describe('writeFile', () => {
 
 		await fs.promises.writeFile(filename, expected);
 		const actual = await fs.promises.readFile(filename);
-		expect(actual.length).toBe(expected.length);
+		assert(actual.length === expected.length);
 
 		await fs.promises.unlink(filename);
 	});
@@ -33,11 +35,11 @@ describe('writeFile', () => {
 		await fs.promises.writeFile(filePath, buffer);
 
 		const read = await fs.promises.readFile(filePath, 'base64');
-		expect(read).toBe(data);
+		assert(read === data);
 	});
 });
 
-describe('File Writing with Custom Mode', () => {
+suite('File Writing with Custom Mode', () => {
 	test('write file synchronously with custom mode', () => {
 		const file = 'testWriteFileSync.txt';
 		const mode = 0o755;
@@ -45,8 +47,8 @@ describe('File Writing with Custom Mode', () => {
 		fs.writeFileSync(file, '123', { mode });
 
 		const content = fs.readFileSync(file, 'utf8');
-		expect(content).toBe('123');
-		expect(fs.statSync(file).mode & 0o777).toBe(mode);
+		assert(content === '123');
+		assert((fs.statSync(file).mode & 0o777) === mode);
 
 		fs.unlinkSync(file);
 	});
@@ -58,9 +60,9 @@ describe('File Writing with Custom Mode', () => {
 		fs.appendFileSync(file, 'abc', { mode });
 
 		const content = fs.readFileSync(file, { encoding: 'utf8' });
-		expect(content).toBe('abc');
+		assert(content === 'abc');
 
-		expect(fs.statSync(file).mode & 0o777).toBe(mode);
+		assert((fs.statSync(file).mode & 0o777) === mode);
 
 		fs.unlinkSync(file);
 	});

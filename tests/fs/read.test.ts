@@ -1,15 +1,17 @@
+import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
 const filepath: string = 'x.txt';
 const expected: string = 'xyz\n';
 
-describe('read', () => {
+suite('read', () => {
 	test('read file asynchronously', async () => {
 		const handle = await fs.promises.open(filepath, 'r');
 		const { bytesRead, buffer } = await handle.read(Buffer.alloc(expected.length), 0, expected.length, 0);
 
-		expect(bytesRead).toEqual(expected.length);
-		expect(buffer.toString()).toEqual(expected);
+		assert(bytesRead == expected.length);
+		assert(buffer.toString() == expected);
 	});
 
 	test('read file synchronously', () => {
@@ -17,24 +19,24 @@ describe('read', () => {
 		const buffer = Buffer.alloc(expected.length);
 		const bytesRead = fs.readSync(fd, buffer, 0, expected.length, 0);
 
-		expect(bytesRead).toEqual(expected.length);
-		expect(buffer.toString()).toEqual(expected);
+		assert(bytesRead == expected.length);
+		assert(buffer.toString() == expected);
 	});
 });
 
-describe('read binary', () => {
+suite('read binary', () => {
 	test('Read a file and check its binary bytes (asynchronous)', async () => {
 		const buff = await fs.promises.readFile('elipses.txt');
-		expect((buff[1] << 8) | buff[0]).toBe(32994);
+		assert(((buff[1] << 8) | buff[0]) === 32994);
 	});
 
 	test('Read a file and check its binary bytes (synchronous)', () => {
 		const buff = fs.readFileSync('elipses.txt');
-		expect((buff[1] << 8) | buff[0]).toBe(32994);
+		assert(((buff[1] << 8) | buff[0]) === 32994);
 	});
 });
 
-describe('read buffer', () => {
+suite('read buffer', () => {
 	const bufferAsync = Buffer.alloc(expected.length);
 	const bufferSync = Buffer.alloc(expected.length);
 
@@ -42,16 +44,16 @@ describe('read buffer', () => {
 		const handle = await fs.promises.open(filepath, 'r');
 		const { bytesRead } = await handle.read(bufferAsync, 0, expected.length, 0);
 
-		expect(bytesRead).toBe(expected.length);
-		expect(bufferAsync.toString()).toBe(expected);
+		assert(bytesRead === expected.length);
+		assert(bufferAsync.toString() === expected);
 	});
 
 	test('read file synchronously', () => {
 		const fd = fs.openSync(filepath, 'r');
 		const bytesRead = fs.readSync(fd, bufferSync, 0, expected.length, 0);
 
-		expect(bufferSync.toString()).toBe(expected);
-		expect(bytesRead).toBe(expected.length);
+		assert(bufferSync.toString() === expected);
+		assert(bytesRead === expected.length);
 	});
 
 	test('read file synchronously to non-zero offset', () => {
@@ -59,7 +61,7 @@ describe('read buffer', () => {
 		const buffer = Buffer.alloc(expected.length + 10);
 		const bytesRead = fs.readSync(fd, buffer, 10, expected.length, 0);
 
-		expect(buffer.subarray(10, buffer.length).toString()).toBe(expected);
-		expect(bytesRead).toBe(expected.length);
+		assert(buffer.subarray(10, buffer.length).toString() === expected);
+		assert(bytesRead === expected.length);
 	});
 });
