@@ -2,7 +2,7 @@ import tseslint from 'typescript-eslint';
 import shared from './eslint.shared.js';
 
 export default tseslint.config(
-	shared,
+	...shared,
 	{
 		files: ['src/**/*.ts', 'tests/**/*.ts'],
 		name: 'Enable typed checking',
@@ -19,17 +19,6 @@ export default tseslint.config(
 		rules: {
 			'@typescript-eslint/no-explicit-any': 'off',
 			'@typescript-eslint/no-unsafe-argument': 'off',
-		},
-	},
-	{
-		name: 'Tests any overrides',
-		files: ['tests/**/*.ts'],
-		rules: {
-			'@typescript-eslint/no-unsafe-member-access': 'off',
-			'@typescript-eslint/no-unsafe-argument': 'off',
-			'@typescript-eslint/no-unsafe-assignment': 'off',
-			'@typescript-eslint/no-floating-promises': 'off',
-			'@typescript-eslint/no-explicit-any': 'off',
 		},
 	},
 	{ name: 'Ignores', ignores: ['tests/{fixtures,coverage}'] }
