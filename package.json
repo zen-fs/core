@@ -47,7 +47,7 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "tsc -p tsconfig.json --noEmit && eslint src tests",
-		"test": "tsc -p tests/tsconfig.json && tsx --test --experimental-test-coverage",
+		"test": "tsx --test --experimental-test-coverage",
 		"build": "node scripts/build.js --globalName=ZenFS --entry src/index.ts",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",

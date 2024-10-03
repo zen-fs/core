@@ -81,7 +81,7 @@ Other style choices are made to steamline the development process, making faster
 
 You can run tests with the `npm test` command.
 
-Tests are located in the `tests` directory. They are written in Typescript to catch type errors, and test step-by-step using Jest. Suite names are focused around a set of features (directories, links, permissions, etc.) rather than specific functions or classes.
+Tests are located in the `tests` directory. They are written in Typescript to catch type errors, and test step-by-step using Node's native testing. Suite names are focused around a set of features (directories, links, permissions, etc.) rather than specific functions or classes.
 
 There is also a couple of _very_ important files.
 
