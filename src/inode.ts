@@ -1,4 +1,5 @@
 import { Stats, type StatsLike } from './stats.js';
+import { types as t, struct, sizeof, serialize, deserialize } from 'utilium';
 
 /**
  * Alias for an ino.
@@ -34,63 +35,21 @@ export function randomIno(): Ino {
 }
 
 /**
- * Offsets for inode members
- */
-const offsets = {
-	ino: 0,
-	size: 8,
-	mode: 12,
-	nlink: 14,
-	uid: 18,
-	gid: 22,
-	atime: 26,
-	birthtime: 34,
-	mtime: 42,
-	ctime: 50,
-	end: 58,
-};
-
-/**
- *  Offsets for a 64-bit inode's members
- * Currently unused
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const offsets_64 = {
-	ino: 0,
-	size: 8,
-	mode: 16,
-	nlink: 18,
-	uid: 22,
-	gid: 26,
-	atime: 30,
-	birthtime: 38,
-	mtime: 46,
-	ctime: 54,
-	end: 62,
-};
-
-/**
  * Generic inode definition that can easily be serialized.
  */
+@struct()
 export class Inode implements StatsLike {
-	public readonly buffer: ArrayBufferLike;
-
 	public get data(): Uint8Array {
-		return new Uint8Array(this.buffer);
+		return serialize(this);
 	}
 
-	protected view: DataView;
-
 	public constructor(buffer?: ArrayBufferLike) {
-		const setDefaults = !buffer;
-		buffer ??= new ArrayBuffer(offsets.end);
-		if (buffer?.byteLength < offsets.end) {
-			throw new RangeError(`Can not create an inode from a buffer less than ${offsets.end} bytes`);
-		}
-		this.view = new DataView(buffer);
-		this.buffer = buffer;
+		if (buffer) {
+			if (buffer.byteLength < sizeof(Inode)) {
+				throw new RangeError(`Can not create an inode from a buffer less than ${sizeof(Inode)} bytes`);
+			}
 
-		if (!setDefaults) {
+			deserialize(this, buffer);
 			return;
 		}
 
@@ -105,85 +64,16 @@ export class Inode implements StatsLike {
 		this.birthtimeMs = now;
 	}
 
-	public get ino(): Ino {
-		return this.view.getBigUint64(offsets.ino, true);
-	}
-
-	public set ino(value: Ino) {
-		this.view.setBigUint64(offsets.ino, value, true);
-	}
-
-	public get size(): number {
-		return this.view.getUint32(offsets.size, true);
-	}
-
-	public set size(value: number) {
-		this.view.setUint32(offsets.size, value, true);
-	}
-
-	public get mode(): number {
-		return this.view.getUint16(offsets.mode, true);
-	}
-
-	public set mode(value: number) {
-		this.view.setUint16(offsets.mode, value, true);
-	}
-
-	public get nlink(): number {
-		return this.view.getUint32(offsets.nlink, true);
-	}
-
-	public set nlink(value: number) {
-		this.view.setUint32(offsets.nlink, value, true);
-	}
-
-	public get uid(): number {
-		return this.view.getUint32(offsets.uid, true);
-	}
-
-	public set uid(value: number) {
-		this.view.setUint32(offsets.uid, value, true);
-	}
-
-	public get gid(): number {
-		return this.view.getUint32(offsets.gid, true);
-	}
-
-	public set gid(value: number) {
-		this.view.setUint32(offsets.gid, value, true);
-	}
-
-	public get atimeMs(): number {
-		return this.view.getFloat64(offsets.atime, true);
-	}
-
-	public set atimeMs(value: number) {
-		this.view.setFloat64(offsets.atime, value, true);
-	}
-
-	public get birthtimeMs(): number {
-		return this.view.getFloat64(offsets.birthtime, true);
-	}
-
-	public set birthtimeMs(value: number) {
-		this.view.setFloat64(offsets.birthtime, value, true);
-	}
-
-	public get mtimeMs(): number {
-		return this.view.getFloat64(offsets.mtime, true);
-	}
-
-	public set mtimeMs(value: number) {
-		this.view.setFloat64(offsets.mtime, value, true);
-	}
-
-	public get ctimeMs(): number {
-		return this.view.getFloat64(offsets.ctime, true);
-	}
-
-	public set ctimeMs(value: number) {
-		this.view.setFloat64(offsets.ctime, value, true);
-	}
+	@t.uint64 public ino!: Ino;
+	@t.uint32 public size!: number;
+	@t.uint16 public mode!: number;
+	@t.uint32 public nlink!: number;
+	@t.uint32 public uid!: number;
+	@t.uint32 public gid!: number;
+	@t.float64 public atimeMs!: number;
+	@t.float64 public birthtimeMs!: number;
+	@t.float64 public mtimeMs!: number;
+	@t.float64 public ctimeMs!: number;
 
 	/**
 	 * Handy function that converts the Inode to a Node Stats object.
