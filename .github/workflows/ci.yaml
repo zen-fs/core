@@ -9,18 +9,32 @@ on:
     pull_request:
 
 jobs:
-    ubuntu:
-        name: Ubuntu
-        uses: ./.github/workflows/ci-single-platform.yaml
-        with:
-            platform: ubuntu-latest
-    macos:
-        name: MacOS
-        uses: ./.github/workflows/ci-single-platform.yaml
-        with:
-            platform: macos-latest
-    win:
-        name: Windows
-        uses: ./.github/workflows/ci-single-platform.yaml
-        with:
-            platform: windows-latest
+    ci:
+        name: CI
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                shell: bash
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+            - name: Install dependencies
+              run: npm install
+
+            - name: Formatting
+              run: npm run format:check
+
+            - name: Linting
+              run: npm run lint
+
+            - name: Build
+              run: npm run build
+
+            - name: Unit tests
+              run: npm test
