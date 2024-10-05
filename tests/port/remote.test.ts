@@ -2,45 +2,32 @@ import assert from 'node:assert';
 import { dirname } from 'node:path';
 import { suite, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { Worker } from 'node:worker_threads';
+import type { Worker } from 'node:worker_threads';
 import { Port } from '../../src/backends/port/fs.js';
 import { configureSingle, fs } from '../../src/index.js';
+import { createTSWorker } from '../common.js';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
-let port: Worker;
-
-try {
-	port = new Worker(dir + '/remote.worker.js');
-} catch (e) {
-	/* nothing */
-}
+const port: Worker = createTSWorker(dir + '/remote.worker.js');
 
 await suite('Remote FS', () => {
 	const content = 'FS is in a port';
 
-	test('Build exists for worker', () => {
-		assert(port);
-	});
-
-	(port ? test : test.skip)('Configuration', async () => {
+	test('Configuration', async () => {
 		await configureSingle({ backend: Port, port, timeout: 500 });
 	});
 
-	(port ? test : test.skip)('Write', async () => {
+	test('Write', async () => {
 		await fs.promises.writeFile('/test', content);
 	});
 
-	(port ? test : test.skip)('Read', async () => {
+	test('Read', async () => {
 		assert((await fs.promises.readFile('/test', 'utf8')) === content);
 	});
 
-	(port ? test : test.skip)('Cleanup', async () => {
-		await port.terminate();
-		port.unref();
-	});
+	test('Cleanup', async () => {});
 });
 
-if (port!) {
-	port.unref();
-}
+await port.terminate();
+port.unref();
