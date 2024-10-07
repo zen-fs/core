@@ -78,14 +78,15 @@ export abstract class DeviceFile extends File {
 }
 
 /**
- * Simulates the `/dev/zero` device, which provides an infinite stream of zeroes
- * when read, and discards any data written to it.
+ * Simulates the `/dev/zero` device
+ * Provides an infinite stream of zeroes when read.
+ * Discards any data written to it.
  *
  * - Reads fill the buffer with zeroes.
  * - Writes discard data but update the file position.
  * - Provides basic file metadata, treating it as a character device.
  */
-export class ZeroDeviceFile extends DeviceFile {
+export class ZeroDevice extends DeviceFile {
 	public position = 0;
 
 	protected isBlock = false;
