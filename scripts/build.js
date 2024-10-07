@@ -23,6 +23,30 @@ async function exportsOf(name) {
 	return Object.keys(await import(name)).filter(key => key != 'default');
 }
 
+const plugins = [
+	{
+		name: 'tsc+counter',
+		setup({ onStart, onEnd }) {
+			onStart(start);
+
+			if (watch && !quiet) {
+				onEnd(() => console.log(`--------------- Built #${buildCount}`));
+			}
+		},
+	},
+];
+
+if (globalName != 'ZenFS') {
+	plugins.push(
+		globalExternals({
+			'@zenfs/core': {
+				varName: 'ZenFS',
+				namedExports: await exportsOf('@zenfs/core'),
+			},
+		})
+	);
+}
+
 function start() {
 	if (!keep) {
 		rmSync('dist', { force: true, recursive: true });
@@ -45,24 +69,7 @@ const config = {
 	bundle: true,
 	minify: true,
 	platform: 'browser',
-	plugins: [
-		globalExternals({
-			'@zenfs/core': {
-				varName: 'ZenFS',
-				namedExports: await exportsOf('@zenfs/core'),
-			},
-		}),
-		{
-			name: 'tsc+counter',
-			setup({ onStart, onEnd }) {
-				onStart(start);
-
-				if (watch && !quiet) {
-					onEnd(() => console.log(`--------------- Built #${buildCount}`));
-				}
-			},
-		},
-	],
+	plugins,
 };
 
 if (watch) {
