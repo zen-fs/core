@@ -1,6 +1,5 @@
 /* Shared eslint rules */
 import eslint from '@eslint/js';
-import stylistic from '@stylistic/eslint-plugin';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -14,12 +13,9 @@ export default [
 			ecmaVersion: 'latest',
 			sourceType: 'module',
 		},
-		plugins: { stylistic },
 		rules: {
 			'no-useless-escape': 'warn',
-			'stylistic/no-mixed-spaces-and-tabs': 'warn',
 			'no-unreachable': 'warn',
-			'stylistic/no-extra-semi': 'warn',
 			'no-fallthrough': 'warn',
 			'no-empty': 'warn',
 			'no-case-declarations': 'warn',
