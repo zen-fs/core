@@ -14,8 +14,12 @@ export type Mixin<TBase extends typeof FileSystem, TMixin> = (abstract new (...a
 
 /**
  * Asynchronous `FileSystem` methods. This is a convience type.
- * @internal
+ * @hidden
  */
 export type _AsyncFSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<unknown>>;
 
+/**
+ * Concrete `FileSystem`. This is a convience type.
+ * @internal
+ */
 export type ConcreteFS = ExtractProperties<FileSystem, any>;
