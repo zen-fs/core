@@ -20,11 +20,7 @@ const { watch, keep, quiet, globalName, entry } = parseArgs({
 }).values;
 
 async function exportsOf(name) {
-	try {
-		return Object.keys(await import(name)).filter(key => key != 'default');
-	} catch (e) {
-		return [];
-	}
+	return Object.keys(await import(name)).filter(key => key != 'default');
 }
 
 function start() {
@@ -41,7 +37,7 @@ function start() {
 
 const config = {
 	entryPoints: [entry || 'src/index.ts'],
-	target: 'es2022',
+	target: 'es2021',
 	globalName,
 	outfile: 'dist/browser.min.js',
 	sourcemap: true,
