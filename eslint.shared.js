@@ -43,6 +43,7 @@ export default [
 			'@typescript-eslint/no-unsafe-argument': 'warn',
 			'@typescript-eslint/no-redundant-type-constituents': 'warn',
 			'@typescript-eslint/no-unsafe-call': 'warn',
+			'@typescript-eslint/restrict-plus-operands': 'off',
 		},
 	},
 	{
