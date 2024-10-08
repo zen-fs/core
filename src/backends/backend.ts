@@ -41,7 +41,7 @@ export interface SharedConfig {
 	/**
 	 * If set, disables the sync cache and sync operations on async file systems.
 	 */
-	disableAsyncCache: boolean;
+	disableAsyncCache?: boolean;
 }
 
 /**
