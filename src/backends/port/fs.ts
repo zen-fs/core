@@ -323,9 +323,9 @@ const _Port = {
 		return new PortFS(options);
 	},
 } satisfies Backend<PortFS, RPC.Options>;
-type _port = typeof _Port;
+type _Port = typeof _Port;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface Port extends _port {}
+interface Port extends _Port {}
 export const Port: Port = _Port;
 
 export async function resolveRemoteMount<T extends Backend>(port: RPC.Port, config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {

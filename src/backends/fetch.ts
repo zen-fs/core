@@ -175,7 +175,7 @@ const _Fetch = {
 		return new FetchFS(options);
 	},
 } as const satisfies Backend<FetchFS, FetchOptions>;
-type _fetch = typeof _Fetch;
+type _Fetch = typeof _Fetch;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface Fetch extends _fetch {}
+interface Fetch extends _Fetch {}
 export const Fetch: Fetch = _Fetch;

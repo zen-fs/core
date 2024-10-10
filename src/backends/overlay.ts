@@ -553,7 +553,7 @@ const _Overlay = {
 		return new OverlayFS(options);
 	},
 } as const satisfies Backend<OverlayFS, OverlayOptions>;
-type _overlay = typeof _Overlay;
+type _Overlay = typeof _Overlay;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface Overlay extends _overlay {}
+interface Overlay extends _Overlay {}
 export const Overlay: Overlay = _Overlay;

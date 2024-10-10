@@ -44,7 +44,7 @@ const _InMemory = {
 		return fs;
 	},
 } as const satisfies Backend<StoreFS<InMemoryStore>, { name?: string }>;
-type _inmemory = typeof _InMemory;
+type _InMemory = typeof _InMemory;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface InMemory extends _inmemory {}
+interface InMemory extends _InMemory {}
 export const InMemory: InMemory = _InMemory;
