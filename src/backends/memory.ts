@@ -26,7 +26,7 @@ export class InMemoryStore extends Map<Ino, Uint8Array> implements SimpleSyncSto
  * A simple in-memory file system backed by an InMemoryStore.
  * Files are not persisted across page loads.
  */
-export const _InMemory = {
+const _InMemory = {
 	name: 'InMemory',
 	isAvailable(): boolean {
 		return true;

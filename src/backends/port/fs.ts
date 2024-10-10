@@ -293,7 +293,7 @@ export function detachFS(port: RPC.Port, fs: FileSystem): void {
 	RPC.detach<FileOrFSRequest>(port, request => handleRequest(port, fs, request));
 }
 
-export const _Port = {
+const _Port = {
 	name: 'Port',
 
 	options: {
@@ -315,7 +315,7 @@ export const _Port = {
 		},
 	},
 
-	async isAvailable(): Promise<boolean> {
+	isAvailable(): boolean {
 		return true;
 	},
 
