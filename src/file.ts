@@ -213,8 +213,7 @@ export abstract class File {
 
 	/**
 	 * Write buffer to the file.
-	 * Note that it is unsafe to use fs.write multiple times on the same file
-	 * without waiting for the callback.
+	 * Note that it is unsafe to use fs.write multiple times on the same file without waiting for it to resolve
 	 * @param buffer Uint8Array containing the data to write to
 	 *  the file.
 	 * @param offset Offset in the buffer to start reading data from.
@@ -228,8 +227,7 @@ export abstract class File {
 
 	/**
 	 * Write buffer to the file.
-	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
-	 * without waiting for it to return.
+	 * Note that it is unsafe to use fs.writeSync multiple times on the same file without waiting for it to return.
 	 * @param buffer Uint8Array containing the data to write to
 	 *  the file.
 	 * @param offset Offset in the buffer to start reading data from.

@@ -26,6 +26,16 @@ export abstract class DeviceFile extends File {
 		return new Stats(this.stats);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
+	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number): Promise<FileReadResult<TBuffer>> {
+		return { bytesRead: this.readSync(buffer, offset, length), buffer };
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	public async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
+		return this.writeSync(buffer, offset, length, position);
+	}
+
 	public async truncate(length: number): Promise<void> {
 		const { size } = await this.stat();
 
@@ -40,6 +50,14 @@ export abstract class DeviceFile extends File {
 		const buffer = new Uint8Array(length > size ? length - size : 0);
 
 		this.writeSync(buffer, 0, buffer.length, length > size ? size : length);
+	}
+
+	public async close(): Promise<void> {
+		this.closeSync();
+	}
+
+	public async sync(): Promise<void> {
+		this.syncSync();
 	}
 
 	/* eslint-disable @typescript-eslint/no-unused-vars */
@@ -91,16 +109,6 @@ export class ZeroDevice extends DeviceFile {
 
 	protected isBlock = false;
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset = 0, length = buffer.byteLength): Promise<FileReadResult<TBuffer>> {
-		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		for (let i = offset; i < offset + length; i++) {
-			data[i] = 0;
-		}
-		this.position += length;
-		return { bytesRead: length, buffer };
-	}
-
 	public readSync(buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
@@ -111,27 +119,12 @@ export class ZeroDevice extends DeviceFile {
 	}
 
 	// Writing to /dev/zero discards data, so simply move the file pointer
-
-	// eslint-disable-next-line @typescript-eslint/require-await
-	public async write(buffer: Uint8Array, offset = 0, length = buffer.length): Promise<number> {
-		this.position += length;
-		return length;
-	}
-
 	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.length): number {
 		this.position += length;
 		return length;
 	}
 
-	public async close(): Promise<void> {
-		// No-op
-	}
-
 	public closeSync(): void {
-		// No-op
-	}
-
-	public async sync(): Promise<void> {
 		// No-op
 	}
 
