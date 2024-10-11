@@ -12,6 +12,8 @@ import { Stats } from './stats.js';
  * It is up to device drivers to implement the rest of the functionality.
  */
 export abstract class DeviceFile extends File {
+	public position = 0;
+
 	protected abstract isBlock: boolean;
 
 	protected get stats(): Partial<StatsLike> {
@@ -29,6 +31,15 @@ export abstract class DeviceFile extends File {
 	// eslint-disable-next-line @typescript-eslint/require-await
 	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number): Promise<FileReadResult<TBuffer>> {
 		return { bytesRead: this.readSync(buffer, offset, length), buffer };
+	}
+
+	/**
+	 * Default write, increments the file position.
+	 * This is implemented in order to make adding new devices easier.
+	 */
+	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.length, position?: number): number {
+		this.position += length;
+		return length;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
@@ -52,9 +63,19 @@ export abstract class DeviceFile extends File {
 		this.writeSync(buffer, 0, buffer.length, length > size ? size : length);
 	}
 
+	/**
+	 * Default close, does nothing.
+	 */
+	public closeSync(): void {}
+
 	public async close(): Promise<void> {
 		this.closeSync();
 	}
+
+	/**
+	 * Default sync, does nothing.
+	 */
+	public syncSync(): void {}
 
 	public async sync(): Promise<void> {
 		this.syncSync();
@@ -96,6 +117,20 @@ export abstract class DeviceFile extends File {
 }
 
 /**
+ * Simulates the `/dev/null` device.
+ * - Reads return 0 bytes (EOF).
+ * - Writes discard data, advancing the file position.
+ */
+export class NullDevice extends DeviceFile {
+	protected isBlock = false;
+
+	// Reading from /dev/null returns EOF immediately, so return 0.
+	public readSync(): number {
+		return 0;
+	}
+}
+
+/**
  * Simulates the `/dev/zero` device
  * Provides an infinite stream of zeroes when read.
  * Discards any data written to it.
@@ -105,8 +140,24 @@ export abstract class DeviceFile extends File {
  * - Provides basic file metadata, treating it as a character device.
  */
 export class ZeroDevice extends DeviceFile {
-	public position = 0;
+	protected isBlock = false;
 
+	public readSync(buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
+		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+		for (let i = offset; i < offset + length; i++) {
+			data[i] = 0;
+		}
+		this.position += length;
+		return length;
+	}
+}
+
+/**
+ * Simulates the `/dev/full` device.
+ * - Reads behave like `/dev/zero` (returns zeroes).
+ * - Writes always fail with ENOSPC (no space left on device).
+ */
+export class FullDevice extends DeviceFile {
 	protected isBlock = false;
 
 	public readSync(buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
@@ -118,17 +169,43 @@ export class ZeroDevice extends DeviceFile {
 		return length;
 	}
 
-	// Writing to /dev/zero discards data, so simply move the file pointer
-	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.length): number {
+	public writeSync(): number {
+		throw ErrnoError.With('ENOSPC', this.path, 'write');
+	}
+}
+
+/**
+ * Simulates the `/dev/random` device.
+ * - Reads return random bytes.
+ * - Writes discard data, advancing the file position.
+ */
+export class RandomDevice extends DeviceFile {
+	protected isBlock = false;
+
+	// Fill buffer with random bytes
+	public readSync(buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
+		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+		for (let i = offset; i < offset + length; i++) {
+			data[i] = Math.floor(Math.random() * 256);
+		}
 		this.position += length;
 		return length;
 	}
-
-	public closeSync(): void {
-		// No-op
-	}
-
-	public syncSync(): void {
-		// No-op
-	}
 }
+
+/**
+ * Shortcut when importing.
+ * @example
+ * ```ts
+ * import { devices } from '@zenfs/core'
+ * // ...
+ * const myDevFS = InMemory.create({ name: 'devfs' });
+ * const myRNG = new devices.Random(myDevFS, '/dev/random2');
+ * ```
+ */
+export default {
+	Null: NullDevice,
+	Zero: ZeroDevice,
+	Full: FullDevice,
+	RandomDevice: RandomDevice,
+};
