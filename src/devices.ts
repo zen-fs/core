@@ -194,7 +194,7 @@ export class RandomDevice extends DeviceFile {
 }
 
 /**
- * Shortcut when importing.
+ * Shortcuts for importing.
  * @example
  * ```ts
  * import { devices } from '@zenfs/core'
