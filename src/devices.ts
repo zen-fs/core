@@ -1,9 +1,57 @@
 import type { FileReadResult } from 'fs/promises';
 import { S_IFBLK, S_IFCHR } from './emulation/constants.js';
-import { ErrnoError } from './error.js';
+import { Errno, ErrnoError } from './error.js';
 import { File } from './file.js';
 import type { FileType, StatsLike } from './stats.js';
 import { Stats } from './stats.js';
+import { StoreFS } from './backends/store/fs.js';
+import { InMemoryStore } from './backends/memory.js';
+
+/**
+ * A device
+ * @todo Maybe add major/minor number or some other device information, like a UUID?
+ */
+export interface Device {
+	/**
+	 * The device's driver
+	 */
+	driver: DeviceDriver;
+}
+
+/**
+ * A device driver
+ */
+export interface DeviceDriver {
+	/**
+	 * The name of the device driver
+	 */
+	name: string;
+
+	/**
+	 * Whether the device is buffered (a "block" device) or unbuffered (a "character" device)
+	 */
+	isBuffered: boolean;
+
+	/**
+	 * Synchronously read from the device
+	 */
+	read(file: DeviceFile, buffer: ArrayBufferView, offset: number, length: number, position?: number): number;
+
+	/**
+	 * Synchronously write to the device
+	 */
+	write(file: DeviceFile, buffer: Uint8Array, offset: number, length: number, position?: number): number;
+
+	/**
+	 * Sync the device
+	 */
+	sync?(file: DeviceFile): void;
+
+	/**
+	 * Close the device
+	 */
+	close?(file: DeviceFile): void;
+}
 
 /**
  * The base class for device files
@@ -11,13 +59,23 @@ import { Stats } from './stats.js';
  * It implements `truncate` using `write` and it has non-device methods throw.
  * It is up to device drivers to implement the rest of the functionality.
  */
-export abstract class DeviceFile extends File {
+export class DeviceFile extends File {
 	public position = 0;
 
-	protected abstract isBlock: boolean;
+	public constructor(
+		public fs: DeviceFS,
+		path: string,
+		public readonly device: Device
+	) {
+		super(fs, path);
+	}
+
+	public get driver(): DeviceDriver {
+		return this.device.driver;
+	}
 
 	protected get stats(): Partial<StatsLike> {
-		return { mode: (this.isBlock ? S_IFBLK : S_IFCHR) | 0o666 };
+		return { mode: (this.driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666 };
 	}
 
 	public async stat(): Promise<Stats> {
@@ -28,18 +86,17 @@ export abstract class DeviceFile extends File {
 		return new Stats(this.stats);
 	}
 
+	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = Number(this.stats.size), position?: number): number {
+		return this.driver.read(this, buffer, offset, length, position);
+	}
+
 	// eslint-disable-next-line @typescript-eslint/require-await
 	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number): Promise<FileReadResult<TBuffer>> {
 		return { bytesRead: this.readSync(buffer, offset, length), buffer };
 	}
 
-	/**
-	 * Default write, increments the file position.
-	 * This is implemented in order to make adding new devices easier.
-	 */
 	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.length, position?: number): number {
-		this.position += length;
-		return length;
+		return this.driver.write(this, buffer, offset, length, position);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
@@ -63,57 +120,220 @@ export abstract class DeviceFile extends File {
 		this.writeSync(buffer, 0, buffer.length, length > size ? size : length);
 	}
 
-	/**
-	 * Default close, does nothing.
-	 */
-	public closeSync(): void {}
+	public closeSync(): void {
+		this.driver.close?.(this);
+	}
 
 	public async close(): Promise<void> {
 		this.closeSync();
 	}
 
-	/**
-	 * Default sync, does nothing.
-	 */
-	public syncSync(): void {}
+	public syncSync(): void {
+		this.driver.sync?.(this);
+	}
 
 	public async sync(): Promise<void> {
 		this.syncSync();
 	}
 
-	/* eslint-disable @typescript-eslint/no-unused-vars */
-	public chown(uid: number, gid: number): Promise<void> {
+	public chown(): Promise<void> {
 		throw ErrnoError.With('ENOTSUP', this.path, 'chown');
 	}
 
-	public chownSync(uid: number, gid: number): void {
+	public chownSync(): void {
 		throw ErrnoError.With('ENOTSUP', this.path, 'chown');
 	}
 
-	public chmod(mode: number): Promise<void> {
+	public chmod(): Promise<void> {
 		throw ErrnoError.With('ENOTSUP', this.path, 'chmod');
 	}
 
-	public chmodSync(mode: number): void {
+	public chmodSync(): void {
 		throw ErrnoError.With('ENOTSUP', this.path, 'chmod');
 	}
 
-	public utimes(atime: Date, mtime: Date): Promise<void> {
+	public utimes(): Promise<void> {
 		throw ErrnoError.With('ENOTSUP', this.path, 'utimes');
 	}
 
-	public utimesSync(atime: Date, mtime: Date): void {
+	public utimesSync(): void {
 		throw ErrnoError.With('ENOTSUP', this.path, 'utimes');
 	}
 
-	public _setType(type: FileType): Promise<void> {
+	public _setType(): Promise<void> {
 		throw ErrnoError.With('ENOTSUP', this.path, '_setType');
 	}
 
-	public _setTypeSync(type: FileType): void {
+	public _setTypeSync(): void {
 		throw ErrnoError.With('ENOTSUP', this.path, '_setType');
 	}
-	/* eslint-enable @typescript-eslint/no-unused-vars */
+}
+
+export class DeviceFS extends StoreFS {
+	public readonly devices = new Map<string, Device>();
+
+	public constructor() {
+		super(new InMemoryStore('devfs'));
+	}
+
+	public async rename(oldPath: string, newPath: string): Promise<void> {
+		if (this.devices.has(oldPath)) {
+			throw ErrnoError.With('EPERM', oldPath, 'rename');
+		}
+		if (this.devices.has(newPath)) {
+			throw ErrnoError.With('EEXIST', newPath, 'rename');
+		}
+		return super.rename(oldPath, newPath);
+	}
+
+	public renameSync(oldPath: string, newPath: string): void {
+		if (this.devices.has(oldPath)) {
+			throw ErrnoError.With('EPERM', oldPath, 'rename');
+		}
+		if (this.devices.has(newPath)) {
+			throw ErrnoError.With('EEXIST', newPath, 'rename');
+		}
+		return super.renameSync(oldPath, newPath);
+	}
+
+	public async stat(path: string): Promise<Stats> {
+		if (this.devices.has(path)) {
+			await using file = await this.openFile(path, 'r');
+			return file.stat();
+		}
+		return super.stat(path);
+	}
+
+	public statSync(path: string): Stats {
+		if (this.devices.has(path)) {
+			using file = this.openFileSync(path, 'r');
+			return file.statSync();
+		}
+		return super.statSync(path);
+	}
+
+	public async openFile(path: string, flag: string): Promise<File> {
+		if (this.devices.has(path)) {
+			return new DeviceFile(this, path, this.devices.get(path)!);
+		}
+		return await super.openFile(path, flag);
+	}
+
+	public openFileSync(path: string, flag: string): File {
+		if (this.devices.has(path)) {
+			return new DeviceFile(this, path, this.devices.get(path)!);
+		}
+		return super.openFileSync(path, flag);
+	}
+
+	public async createFile(path: string, flag: string, mode: number): Promise<File> {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('EEXIST', path, 'createFile');
+		}
+		return super.createFile(path, flag, mode);
+	}
+
+	public createFileSync(path: string, flag: string, mode: number): File {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('EEXIST', path, 'createFile');
+		}
+		return super.createFileSync(path, flag, mode);
+	}
+
+	public async unlink(path: string): Promise<void> {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('EPERM', path, 'unlink');
+		}
+		return super.unlink(path);
+	}
+
+	public unlinkSync(path: string): void {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('EPERM', path, 'unlink');
+		}
+		return super.unlinkSync(path);
+	}
+
+	public async rmdir(path: string): Promise<void> {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('ENOTDIR', path, 'rmdir');
+		}
+		return super.rmdir(path);
+	}
+
+	public rmdirSync(path: string): void {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('ENOTDIR', path, 'rmdir');
+		}
+		return super.rmdirSync(path);
+	}
+
+	public async mkdir(path: string, mode: number): Promise<void> {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('EEXIST', path, 'mkdir');
+		}
+		return super.mkdir(path, mode);
+	}
+
+	public mkdirSync(path: string, mode: number): void {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('EEXIST', path, 'mkdir');
+		}
+		return super.mkdirSync(path, mode);
+	}
+
+	public async readdir(path: string): Promise<string[]> {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('ENOTDIR', path, 'readdir');
+		}
+		return super.readdir(path);
+	}
+
+	public readdirSync(path: string): string[] {
+		if (this.devices.has(path)) {
+			throw ErrnoError.With('ENOTDIR', path, 'readdirSync');
+		}
+		return super.readdirSync(path);
+	}
+
+	public async link(target: string, link: string): Promise<void> {
+		if (this.devices.has(target)) {
+			throw ErrnoError.With('EPERM', target, 'rmdir');
+		}
+		if (this.devices.has(link)) {
+			throw ErrnoError.With('EEXIST', link, 'link');
+		}
+		return super.link(target, link);
+	}
+
+	public linkSync(target: string, link: string): void {
+		if (this.devices.has(target)) {
+			throw ErrnoError.With('EPERM', target, 'rmdir');
+		}
+		if (this.devices.has(link)) {
+			throw ErrnoError.With('EEXIST', link, 'link');
+		}
+		return super.linkSync(target, link);
+	}
+
+	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		if (this.devices.has(path)) {
+			throw new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync');
+		}
+		return super.sync(path, data, stats);
+	}
+
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		if (this.devices.has(path)) {
+			throw new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync');
+		}
+		return super.syncSync(path, data, stats);
+	}
+}
+
+function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset: number, length: number): number {
+	file.position += length;
+	return length;
 }
 
 /**
@@ -121,14 +341,14 @@ export abstract class DeviceFile extends File {
  * - Reads return 0 bytes (EOF).
  * - Writes discard data, advancing the file position.
  */
-export class NullDevice extends DeviceFile {
-	protected isBlock = false;
-
-	// Reading from /dev/null returns EOF immediately, so return 0.
-	public readSync(): number {
+export const nullDevice: DeviceDriver = {
+	name: 'null',
+	isBuffered: false,
+	read(): number {
 		return 0;
-	}
-}
+	},
+	write: defaultWrite,
+};
 
 /**
  * Simulates the `/dev/zero` device
@@ -139,73 +359,67 @@ export class NullDevice extends DeviceFile {
  * - Writes discard data but update the file position.
  * - Provides basic file metadata, treating it as a character device.
  */
-export class ZeroDevice extends DeviceFile {
-	protected isBlock = false;
-
-	public readSync(buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
+export const zeroDevice: DeviceDriver = {
+	name: 'zero',
+	isBuffered: false,
+	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
 			data[i] = 0;
 		}
-		this.position += length;
+		file.position += length;
 		return length;
-	}
-}
+	},
+	write: defaultWrite,
+};
 
 /**
  * Simulates the `/dev/full` device.
  * - Reads behave like `/dev/zero` (returns zeroes).
  * - Writes always fail with ENOSPC (no space left on device).
  */
-export class FullDevice extends DeviceFile {
-	protected isBlock = false;
-
-	public readSync(buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
+export const fullDevice: DeviceDriver = {
+	name: 'full',
+	isBuffered: false,
+	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
 			data[i] = 0;
 		}
-		this.position += length;
+		file.position += length;
 		return length;
-	}
+	},
 
-	public writeSync(): number {
-		throw ErrnoError.With('ENOSPC', this.path, 'write');
-	}
-}
+	write(file: DeviceFile): number {
+		throw ErrnoError.With('ENOSPC', file.path, 'write');
+	},
+};
 
 /**
  * Simulates the `/dev/random` device.
  * - Reads return random bytes.
  * - Writes discard data, advancing the file position.
  */
-export class RandomDevice extends DeviceFile {
-	protected isBlock = false;
-
-	// Fill buffer with random bytes
-	public readSync(buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
+export const randomDevice: DeviceDriver = {
+	name: 'random',
+	isBuffered: false,
+	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
 			data[i] = Math.floor(Math.random() * 256);
 		}
-		this.position += length;
+		file.position += length;
 		return length;
-	}
-}
+	},
+	write: defaultWrite,
+};
 
 /**
  * Shortcuts for importing.
- * @example
- * ```ts
- * import { devices } from '@zenfs/core'
- * // ...
- * const myDevFS = InMemory.create({ name: 'devfs' });
- * const myRNG = new devices.Random(myDevFS, '/dev/random2');
- * ```
  */
 export default {
-	Null: NullDevice,
-	Zero: ZeroDevice,
-	Full: FullDevice,
-	RandomDevice: RandomDevice,
+	null: nullDevice,
+	zero: zeroDevice,
+	full: fullDevice,
+	random: randomDevice,
 };

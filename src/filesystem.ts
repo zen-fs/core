@@ -14,7 +14,7 @@ export interface FileSystemMetadata {
 	name: string;
 
 	/**
-	 * Wheter the FS is readonly or not
+	 * Whether the FS is readonly or not
 	 */
 	readonly: boolean;
 

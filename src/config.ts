@@ -77,14 +77,24 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * An object mapping mount points to mount configuration
 	 */
 	mounts: { [K in keyof T & AbsolutePath]: MountConfiguration<T[K]> };
+
 	/**
 	 * The uid to use
+	 * @default 0
 	 */
 	uid: number;
+
 	/**
 	 * The gid to use
+	 * @default 0
 	 */
 	gid: number;
+
+	/**
+	 * Whether to automatically add normal Linux devices
+	 * @default false
+	 */
+	addDevices: boolean;
 }
 
 /**
@@ -109,6 +119,9 @@ export async function configure<T extends ConfigMounts>(config: Partial<Configur
 	const gid = 'gid' in config ? config.gid || 0 : 0;
 
 	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
+
+	if (config.addDevices) {
+	}
 
 	if (!config.mounts) {
 		return;
