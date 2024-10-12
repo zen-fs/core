@@ -4,8 +4,6 @@ ZenFS is a file system that emulates the [NodeJS filesystem API](http://nodejs.o
 
 It works using a system of backends, which are used by ZenFS to store and retrieve data. ZenFS can also integrate with other tools.
 
-ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS). If you are using ZenFS in a research paper, you may want to [cite BrowserFS](https://github.com/jvilk/BrowserFS#citing).
-
 ## Backends
 
 ZenFS is modular and extensible. The core includes some built-in backends:
@@ -105,7 +103,7 @@ await configureSingle({ backend: IndexedDB });
 
 const exists = await exists('/myfile.txt');
 if (!exists) {
-	await writeFile('/myfile.txt', 'Lots of persistant data');
+	await writeFile('/myfile.txt', 'Lots of persistent data');
 }
 ```
 
@@ -162,3 +160,7 @@ ZenFS exports a drop-in for Node's `fs` module (up to the version of `@types/nod
 ### Testing
 
 Run unit tests with `npm test`.
+
+### BrowserFS Fork
+
+ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS). If you are using ZenFS in a research paper, you may want to [cite BrowserFS](https://github.com/jvilk/BrowserFS#citing).
