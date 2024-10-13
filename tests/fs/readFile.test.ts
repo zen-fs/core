@@ -10,7 +10,7 @@ suite('Reading', () => {
 	test('Reading past the end of a file should not be an error', async () => {
 		const handle = await fs.promises.open('a.js', 'r');
 		const { bytesRead } = await handle.read(new Uint8Array(10), 0, 10, 10000);
-		assert(bytesRead === 0);
+		assert.strictEqual(bytesRead, 0);
 	});
 });
 
@@ -25,9 +25,9 @@ suite('Read and Unlink', () => {
 	});
 
 	test('read file and verify its content', async () => {
-		const data: Uint8Array = await fs.promises.readFile(file);
-		assert(data.length === data.length);
-		assert(data[0] === 42);
+		const read: Uint8Array = await fs.promises.readFile(file);
+		assert.equal(read.length, data.length);
+		assert.equal(read[0], 42);
 	});
 
 	test('unlink file and remove directory', async () => {
@@ -46,7 +46,7 @@ suite('Read File Test', () => {
 
 	test('read file with utf-8 encoding asynchronously', async () => {
 		const data: string = await fs.promises.readFile(fn, 'utf8');
-		assert(data === '');
+		assert.strictEqual(data, '');
 	});
 
 	test('read file synchronously', () => {
@@ -56,7 +56,7 @@ suite('Read File Test', () => {
 
 	test('read file with utf-8 encoding synchronously', () => {
 		const data: string = fs.readFileSync(fn, 'utf8');
-		assert(data === '');
+		assert.strictEqual(data, '');
 	});
 });
 
