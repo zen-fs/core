@@ -117,6 +117,8 @@ export function levenshtein(a: string, b: string): number {
  */
 export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : (cb: () => unknown) => setTimeout(cb, 0);
 
+const encoder = new TextEncoder();
+
 /**
  * Encodes a string into a buffer
  * @internal
@@ -125,8 +127,10 @@ export function encode(input: string): Uint8Array {
 	if (typeof input != 'string') {
 		throw new ErrnoError(Errno.EINVAL, 'Can not encode a non-string');
 	}
-	return new Uint8Array(Array.from(input).map(char => char.charCodeAt(0)));
+	return encoder.encode(input);
 }
+
+const decoder = new TextDecoder();
 
 /**
  * Decodes a string from a buffer
@@ -137,9 +141,7 @@ export function decode(input?: Uint8Array): string {
 		throw new ErrnoError(Errno.EINVAL, 'Can not decode a non-Uint8Array');
 	}
 
-	return Array.from(input)
-		.map(char => String.fromCharCode(char))
-		.join('');
+	return decoder.decode(input);
 }
 
 /**
