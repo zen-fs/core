@@ -54,4 +54,9 @@ suite('readdir and readdirSync', () => {
 		assert(testFiles.every(entry => files.includes(entry)));
 		assert(testDirectories.every(entry => files.includes(entry)));
 	});
+
+	test('Cyrillic file names', () => {
+		fs.writeFileSync('/мой-файл.txt', 'HELLO!', 'utf-8');
+		assert(fs.readdirSync('/').includes('мой-файл.txt'));
+	});
 });
