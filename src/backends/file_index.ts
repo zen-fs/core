@@ -27,7 +27,7 @@ export const version = 1;
  */
 export class Index extends Map<string, Stats> {
 	/**
-	 * Convience method
+	 * Convenience method
 	 */
 	public files(): Map<string, Stats> {
 		const files = new Map<string, Stats>();
