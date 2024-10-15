@@ -47,9 +47,9 @@
 	"scripts": {
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"lint": "tsc -p tsconfig.json --noEmit && eslint src tests",
+		"lint": "eslint src tests",
 		"test": "tsx --test --experimental-test-coverage",
-		"build": "node scripts/build.js --globalName=ZenFS --entry src/index.ts",
+		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build"
@@ -70,9 +70,7 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.8.0",
-		"@fal-works/esbuild-plugin-global-externals": "^2.1.2",
 		"@types/eslint__js": "^8.42.3",
-		"esbuild": "^0.21.0",
 		"eslint": "^9.8.0",
 		"globals": "^15.9.0",
 		"lint-staged": "^15.2.7",
