@@ -30,7 +30,7 @@ npm install @zenfs/core
 > [!NOTE]
 > The examples are written in ESM.  
 > If you are using CJS, you can `require` the package.  
-> If using a browser environment without support for `type=module` in `script` tags, you can add a `script` tag to your HTML pointing to the `browser.min.js` and use ZenFS with the global `ZenFS` object.
+> If using a browser environment, you can use a `<script>` with `type=module` (you may to use import maps)
 
 ```js
 import fs from '@zenfs/core'; // You can also use the named export, `fs`
