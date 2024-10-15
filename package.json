@@ -10,8 +10,7 @@
 		"storage"
 	],
 	"bin": {
-		"make-index": "scripts/make-index.js",
-		"build": "scripts/build.js"
+		"make-index": "scripts/make-index.js"
 	},
 	"files": [
 		"dist",
