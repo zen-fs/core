@@ -1,11 +1,12 @@
 import type { FileReadResult } from 'fs/promises';
+import { InMemoryStore } from './backends/memory.js';
+import { StoreFS } from './backends/store/fs.js';
 import { S_IFBLK, S_IFCHR } from './emulation/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import { File } from './file.js';
-import type { FileType, StatsLike } from './stats.js';
+import type { StatsLike } from './stats.js';
 import { Stats } from './stats.js';
-import { StoreFS } from './backends/store/fs.js';
-import { InMemoryStore } from './backends/memory.js';
+import { basename, dirname } from './emulation/path.js';
 
 /**
  * A device
@@ -35,7 +36,7 @@ export interface DeviceDriver {
 	/**
 	 * Synchronously read from the device
 	 */
-	read(file: DeviceFile, buffer: ArrayBufferView, offset: number, length: number, position?: number): number;
+	read(file: DeviceFile, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
 
 	/**
 	 * Synchronously write to the device
@@ -86,7 +87,7 @@ export class DeviceFile extends File {
 		return new Stats(this.stats);
 	}
 
-	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = Number(this.stats.size), position?: number): number {
+	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
 		return this.driver.read(this, buffer, offset, length, position);
 	}
 
@@ -286,14 +287,26 @@ export class DeviceFS extends StoreFS {
 		if (this.devices.has(path)) {
 			throw ErrnoError.With('ENOTDIR', path, 'readdir');
 		}
-		return super.readdir(path);
+		const entries = await super.readdir(path);
+		for (const dev of this.devices.keys()) {
+			if (dirname(dev) == path) {
+				entries.push(basename(dev));
+			}
+		}
+		return entries;
 	}
 
 	public readdirSync(path: string): string[] {
 		if (this.devices.has(path)) {
 			throw ErrnoError.With('ENOTDIR', path, 'readdirSync');
 		}
-		return super.readdirSync(path);
+		const entries = super.readdirSync(path);
+		for (const dev of this.devices.keys()) {
+			if (dirname(dev) == path) {
+				entries.push(basename(dev));
+			}
+		}
+		return entries;
 	}
 
 	public async link(target: string, link: string): Promise<void> {

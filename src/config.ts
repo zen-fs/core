@@ -1,6 +1,7 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { credentials } from './credentials.js';
+import { DeviceFS, fullDevice, nullDevice, randomDevice, zeroDevice } from './devices.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
 import type { MountObject } from './emulation/shared.js';
@@ -30,6 +31,7 @@ export async function resolveMountConfig<T extends Backend>(config: MountConfigu
 	}
 
 	if (config instanceof FileSystem) {
+		await config.ready();
 		return config;
 	}
 
@@ -121,6 +123,13 @@ export async function configure<T extends ConfigMounts>(config: Partial<Configur
 	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 
 	if (config.addDevices) {
+		const devfs = new DeviceFS();
+		devfs.devices.set('/null', { driver: nullDevice });
+		devfs.devices.set('/zero', { driver: zeroDevice });
+		devfs.devices.set('/full', { driver: fullDevice });
+		devfs.devices.set('/random', { driver: randomDevice });
+		await devfs.ready();
+		fs.mount('/dev', devfs);
 	}
 
 	if (!config.mounts) {
