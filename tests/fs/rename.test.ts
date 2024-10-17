@@ -5,7 +5,7 @@ import { fs } from '../common.js';
 
 suite('Rename', () => {
 	/**
-	 * Creates the following directory structure within the given dir:
+	 * Creates the following directory structure within `dir`:
 	 * - _rename_me
 	 *   - lol.txt
 	 * - file.dat
@@ -23,8 +23,8 @@ suite('Rename', () => {
 		const contents = await fs.promises.readdir(dir);
 		assert(contents.length === 2);
 
-		const subConents = await fs.promises.readdir(dir + '/_rename_me');
-		assert(subConents.length === 1);
+		const subContents = await fs.promises.readdir(dir + '/_rename_me');
+		assert(subContents.length === 1);
 
 		assert(await fs.promises.exists(dir + '/file.dat'));
 		assert(await fs.promises.exists(dir + '/_rename_me/lol.txt'));

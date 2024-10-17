@@ -13,7 +13,8 @@ import * as RPC from './rpc.js';
 
 type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
 type FileMethod = keyof FileMethods;
-interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request {
+/** @internal */
+export interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request {
 	fd: number;
 	scope: 'file';
 	method: TMethod;
@@ -130,17 +131,18 @@ export class PortFile extends File {
 
 type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | FileSystemMetadata>;
 type FSMethod = keyof FSMethods;
-interface FSRequest<TMethod extends FSMethod = FSMethod> extends RPC.Request {
+/** @internal */
+export interface FSRequest<TMethod extends FSMethod = FSMethod> extends RPC.Request {
 	scope: 'fs';
 	method: TMethod;
 	args: Parameters<FSMethods[TMethod]>;
 }
 
 /**
- * PortFS lets you access a ZenFS instance that is running in a port, or the other way around.
+ * PortFS lets you access an FS instance that is running in a port, or the other way around.
  *
- * Note that synchronous operations are not permitted on the PortFS, regardless
- * of the configuration option of the remote FS.
+ * Note that *direct* synchronous operations are not permitted on the PortFS,
+ * regardless of the configuration option of the remote FS.
  */
 export class PortFS extends Async(FileSystem) {
 	public readonly port: RPC.Port;
@@ -151,8 +153,7 @@ export class PortFS extends Async(FileSystem) {
 	_sync = InMemory.create({ name: 'port-tmpfs' });
 
 	/**
-	 * Constructs a new PortFS instance that connects with ZenFS running on
-	 * the specified port.
+	 * Constructs a new PortFS instance that connects with the FS running on `options.port`.
 	 */
 	public constructor(public readonly options: RPC.Options) {
 		super();
@@ -232,14 +233,10 @@ let nextFd = 0;
 
 const descriptors: Map<number, File> = new Map();
 
-/**
- * @internal
- */
+/** @internal */
 export type FileOrFSRequest = FSRequest | FileRequest;
 
-/**
- * @internal
- */
+/** @internal */
 export async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRequest): Promise<void> {
 	if (!RPC.isMessage(request)) {
 		return;
@@ -325,7 +322,7 @@ const _Port = {
 } satisfies Backend<PortFS, RPC.Options>;
 type _Port = typeof _Port;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface Port extends _Port {}
+export interface Port extends _Port {}
 export const Port: Port = _Port;
 
 export async function resolveRemoteMount<T extends Backend>(port: RPC.Port, config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {

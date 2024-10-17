@@ -113,9 +113,7 @@ export class FetchFS extends IndexFS {
 	}
 
 	/**
-	 * Preload the given file into the index.
-	 * @param path
-	 * @param buffer
+	 * Preload the `path` into the index.
 	 */
 	public preload(path: string, buffer: Uint8Array): void {
 		const stats = this.index.get(path);
@@ -177,5 +175,5 @@ const _Fetch = {
 } as const satisfies Backend<FetchFS, FetchOptions>;
 type _Fetch = typeof _Fetch;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface Fetch extends _Fetch {}
+export interface Fetch extends _Fetch {}
 export const Fetch: Fetch = _Fetch;

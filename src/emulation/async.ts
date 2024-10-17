@@ -26,7 +26,7 @@ export function rename(oldPath: fs.PathLike, newPath: fs.PathLike, cb: Callback 
 rename satisfies Omit<typeof fs.rename, '__promisify__'>;
 
 /**
- * Test whether or not the given path exists by checking with the file system.
+ * Test whether or not `path` exists by checking with the file system.
  * Then call the callback argument with either true or false.
  * @deprecated Use {@link stat} or {@link access} instead.
  */

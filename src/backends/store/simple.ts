@@ -134,7 +134,7 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 	}
 
 	/**
-	 * Marks the given key as modified, and stashes its value if it has not been
+	 * Marks `ino` as modified, and stashes its value if it has not been
 	 * stashed already.
 	 */
 	protected markModified(ino: Ino): void {

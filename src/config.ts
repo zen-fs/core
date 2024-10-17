@@ -17,27 +17,27 @@ function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfigurati
 }
 
 /**
- * Retrieve a file system with the given configuration.
+ * Retrieve a file system with `configuration`.
  * @see MountConfiguration
  */
-export async function resolveMountConfig<T extends Backend>(config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
-	if (typeof config !== 'object' || config == null) {
+export async function resolveMountConfig<T extends Backend>(configuration: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
+	if (typeof configuration !== 'object' || configuration == null) {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration');
 	}
 
-	if (!isMountConfig(config)) {
+	if (!isMountConfig(configuration)) {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid mount configuration');
 	}
 
-	if (config instanceof FileSystem) {
-		return config;
+	if (configuration instanceof FileSystem) {
+		return configuration;
 	}
 
-	if (isBackend(config)) {
-		config = { backend: config } as BackendConfiguration<T>;
+	if (isBackend(configuration)) {
+		configuration = { backend: configuration } as BackendConfiguration<T>;
 	}
 
-	for (const [key, value] of Object.entries(config)) {
+	for (const [key, value] of Object.entries(configuration)) {
 		if (key == 'backend') {
 			continue;
 		}
@@ -50,17 +50,17 @@ export async function resolveMountConfig<T extends Backend>(config: MountConfigu
 			throw new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite');
 		}
 
-		(config as Record<string, FileSystem>)[key] = await resolveMountConfig(value, ++_depth);
+		(configuration as Record<string, FileSystem>)[key] = await resolveMountConfig(value, ++_depth);
 	}
 
-	const { backend } = config;
+	const { backend } = configuration;
 
 	if (!(await backend.isAvailable())) {
 		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name);
 	}
-	await checkOptions(backend, config);
-	const mount = (await backend.create(config)) as FilesystemOf<T>;
-	mount._disableSync = config.disableAsyncCache || false;
+	await checkOptions(backend, configuration);
+	const mount = (await backend.create(configuration)) as FilesystemOf<T>;
+	mount._disableSync = configuration.disableAsyncCache || false;
 	await mount.ready();
 	return mount;
 }
@@ -90,41 +90,41 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 /**
  * Configures ZenFS with single mount point /
  */
-export async function configureSingle<T extends Backend>(config: MountConfiguration<T>): Promise<void> {
-	if (!isBackendConfig(config)) {
+export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>): Promise<void> {
+	if (!isBackendConfig(configuration)) {
 		throw new TypeError('Invalid single mount point configuration');
 	}
 
-	const resolved = await resolveMountConfig(config);
+	const resolved = await resolveMountConfig(configuration);
 	fs.umount('/');
 	fs.mount('/', resolved);
 }
 
 /**
- * Configures ZenFS with the given configuration
+ * Configures ZenFS with `configuration`
  * @see Configuration
  */
-export async function configure<T extends ConfigMounts>(config: Partial<Configuration<T>>): Promise<void> {
-	const uid = 'uid' in config ? config.uid || 0 : 0;
-	const gid = 'gid' in config ? config.gid || 0 : 0;
+export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): Promise<void> {
+	const uid = 'uid' in configuration ? configuration.uid || 0 : 0;
+	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
 
 	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 
-	if (!config.mounts) {
+	if (!configuration.mounts) {
 		return;
 	}
 
-	for (const [point, mountConfig] of Object.entries(config.mounts)) {
+	for (const [point, mountConfig] of Object.entries(configuration.mounts)) {
 		if (!point.startsWith('/')) {
 			throw new ErrnoError(Errno.EINVAL, 'Mount points must have absolute paths');
 		}
 
 		if (isBackendConfig(mountConfig)) {
-			mountConfig.disableAsyncCache ??= config.disableAsyncCache || false;
+			mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;
 		}
 
-		config.mounts[point as keyof T & `/${string}`] = await resolveMountConfig(mountConfig);
+		configuration.mounts[point as keyof T & `/${string}`] = await resolveMountConfig(mountConfig);
 	}
 
-	fs.mountObject(config.mounts as MountObject);
+	fs.mountObject(configuration.mounts as MountObject);
 }

@@ -34,60 +34,60 @@ export function Readonly<T extends typeof FileSystem>(
 		public metadata(): FileSystemMetadata {
 			return { ...super.metadata(), readonly: true };
 		}
-		/* eslint-disable @typescript-eslint/no-unused-vars */
-		public async rename(oldPath: string, newPath: string): Promise<void> {
+
+		public async rename(): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public renameSync(oldPath: string, newPath: string): void {
+		public renameSync(): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async createFile(path: string, flag: string, mode: number): Promise<File> {
+		public async createFile(): Promise<File> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public createFileSync(path: string, flag: string, mode: number): File {
+		public createFileSync(): File {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async unlink(path: string): Promise<void> {
+		public async unlink(): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public unlinkSync(path: string): void {
+		public unlinkSync(): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async rmdir(path: string): Promise<void> {
+		public async rmdir(): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public rmdirSync(path: string): void {
+		public rmdirSync(): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async mkdir(path: string, mode: number): Promise<void> {
+		public async mkdir(): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public mkdirSync(path: string, mode: number): void {
+		public mkdirSync(): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async link(srcpath: string, dstpath: string): Promise<void> {
+		public async link(): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public linkSync(srcpath: string, dstpath: string): void {
+		public linkSync(): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		public async sync(): Promise<void> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		public syncSync(): void {
 			throw new ErrnoError(Errno.EROFS);
 		}
 	}

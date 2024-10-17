@@ -404,7 +404,7 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 rename satisfies typeof promises.rename;
 
 /**
- * Test whether or not the given path exists by checking with the file system.
+ * Test whether or not `path` exists by checking with the file system.
  */
 export async function exists(path: fs.PathLike): Promise<boolean> {
 	try {
@@ -984,7 +984,7 @@ opendir satisfies typeof promises.opendir;
  * @param opts Options for the copy operation. Currently supports these options from Node.js 'fs.await cp':
  *   * `dereference`: Dereference symbolic links.
  *   * `errorOnExist`: Throw an error if the destination file or directory already exists.
- *   * `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy the given source element.
+ *   * `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy `source` element.
  *   * `force`: Overwrite the destination if it exists, and overwrite existing readonly destination files.
  *   * `preserveTimestamps`: Preserve file timestamps.
  *   * `recursive`: If `true`, copies directories recursively.

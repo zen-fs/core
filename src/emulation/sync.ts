@@ -37,7 +37,7 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 renameSync satisfies typeof fs.renameSync;
 
 /**
- * Test whether or not the given path exists by checking with the file system.
+ * Test whether or not `path` exists by checking with the file system.
  */
 export function existsSync(path: fs.PathLike): boolean {
 	path = normalizePath(path);
@@ -294,7 +294,6 @@ fdatasyncSync satisfies typeof fs.fdatasyncSync;
 
 /**
  * Write buffer to the file specified by `fd`.
- * Note that it is unsafe to use fs.write multiple times on the same file without waiting for it to return.
  * @param data Uint8Array containing the data to write to the file.
  * @param offset Offset in the buffer to start reading data from.
  * @param length The amount of bytes to write to the file.
@@ -745,7 +744,7 @@ opendirSync satisfies typeof fs.opendirSync;
  * @param opts Options for the copy operation. Currently supports these options from Node.js 'fs.cpSync':
  * - `dereference`: Dereference symbolic links. *(unconfirmed)*
  * - `errorOnExist`: Throw an error if the destination file or directory already exists.
- * - `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy the given source element.
+ * - `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy `source` element.
  * - `force`: Overwrite the destination if it exists, and overwrite existing readonly destination files. *(unconfirmed)*
  * - `preserveTimestamps`: Preserve file timestamps.
  * - `recursive`: If `true`, copies directories recursively.

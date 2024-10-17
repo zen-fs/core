@@ -36,7 +36,7 @@ export const mounts: Map<string, FileSystem> = new Map();
 mount('/', InMemory.create({ name: 'root' }));
 
 /**
- * Mounts the file system at the given mount point.
+ * Mounts the file system at `mountPoint`.
  */
 export function mount(mountPoint: string, fs: FileSystem): void {
 	if (mountPoint[0] !== '/') {
@@ -50,7 +50,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 }
 
 /**
- * Unmounts the file system at the given mount point.
+ * Unmounts the file system at `mountPoint`.
  */
 export function umount(mountPoint: string): void {
 	if (mountPoint[0] !== '/') {

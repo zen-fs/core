@@ -8,9 +8,7 @@ import { Mutexed } from '../mixins/mutexed.js';
 import { Stats } from '../stats.js';
 import { decode, encode } from '../utils.js';
 import type { Backend } from './backend.js';
-/**
- * @internal
- */
+/** @internal */
 const deletionLogPath = '/.deleted';
 
 /**
@@ -434,8 +432,8 @@ export class UnmutexedOverlayFS extends FileSystem {
 	}
 
 	/**
-	 * With the given path, create the needed parent directories on the writable storage
-	 * should they not exist. Use modes from the read-only storage.
+	 * Create the needed parent directories on the writable storage should they not exist.
+	 * Use modes from the read-only storage.
 	 */
 	private createParentDirectoriesSync(path: string): void {
 		let parent = dirname(path);
@@ -450,6 +448,10 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 	}
 
+	/**
+	 * Create the needed parent directories on the writable storage should they not exist.
+	 * Use modes from the read-only storage.
+	 */
 	private async createParentDirectories(path: string): Promise<void> {
 		let parent = dirname(path);
 		const toCreate: string[] = [];
@@ -562,5 +564,5 @@ const _Overlay = {
 } as const satisfies Backend<OverlayFS, OverlayOptions>;
 type _Overlay = typeof _Overlay;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface Overlay extends _Overlay {}
+export interface Overlay extends _Overlay {}
 export const Overlay: Overlay = _Overlay;

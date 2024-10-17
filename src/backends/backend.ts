@@ -87,25 +87,23 @@ export type OptionsOf<T extends Backend> = T extends Backend<FileSystem, infer T
  */
 export type FilesystemOf<T extends Backend> = T extends Backend<infer FS> ? FS : never;
 
-/**
- * @internal
- */
+/** @internal */
 export function isBackend(arg: unknown): arg is Backend {
 	return arg != null && typeof arg == 'object' && 'isAvailable' in arg && typeof arg.isAvailable == 'function' && 'create' in arg && typeof arg.create == 'function';
 }
 
 /**
- * Checks that the given options object is valid for the file system options.
+ * Checks that `options` object is valid for the file system options.
  * @internal
  */
-export async function checkOptions<T extends Backend>(backend: T, opts: Record<string, unknown>): Promise<void> {
-	if (typeof opts != 'object' || opts === null) {
+export async function checkOptions<T extends Backend>(backend: T, options: Record<string, unknown>): Promise<void> {
+	if (typeof options != 'object' || options === null) {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid options');
 	}
 
 	// Check for required options.
 	for (const [optName, opt] of Object.entries(backend.options)) {
-		const providedValue = opts?.[optName];
+		const providedValue = options?.[optName];
 
 		if (providedValue === undefined || providedValue === null) {
 			if (!opt.required) {
@@ -114,7 +112,7 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Record<s
 			/* Required option not provided.
 			if any incorrect options provided, which ones are close to the provided one?
 			(edit distance 5 === close)*/
-			const incorrectOptions = Object.keys(opts)
+			const incorrectOptions = Object.keys(options)
 				.filter(o => !(o in backend.options))
 				.map((a: string) => {
 					return { str: a, distance: levenshtein(optName, a) };
@@ -156,9 +154,7 @@ export async function checkOptions<T extends Backend>(backend: T, opts: Record<s
  */
 export type BackendConfiguration<T extends Backend> = OptionsOf<T> & Partial<SharedConfig> & { backend: T };
 
-/**
- * @internal
- */
+/** @internal */
 export function isBackendConfig<T extends Backend>(arg: unknown): arg is BackendConfiguration<T> {
 	return arg != null && typeof arg == 'object' && 'backend' in arg && isBackend(arg.backend);
 }
