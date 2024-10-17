@@ -75,7 +75,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		await this.createParentDirectories(path);
+		await this.copyForWrite(path);
 		if (!(await this.writable.exists(path))) {
 			await this.writable.createFile(path, 'w', 0o644);
 		}
@@ -83,7 +83,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-		this.createParentDirectoriesSync(path);
+		this.copyForWriteSync(path);
 		this.writable.syncSync(path, data, stats);
 	}
 
@@ -126,6 +126,8 @@ export class UnmutexedOverlayFS extends FileSystem {
 		this.checkPath(oldPath);
 		this.checkPath(newPath);
 
+		await this.copyForWrite(oldPath);
+
 		try {
 			await this.writable.rename(oldPath, newPath);
 		} catch (e) {
@@ -139,6 +141,8 @@ export class UnmutexedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		this.checkPath(oldPath);
 		this.checkPath(newPath);
+
+		this.copyForWriteSync(oldPath);
 
 		try {
 			this.writable.renameSync(oldPath, newPath);
@@ -158,7 +162,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
 			const oldStat = new Stats(await this.readable.stat(path));
-			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type
+			// Make the oldStat's mode writable.
 			oldStat.mode |= 0o222;
 			return oldStat;
 		}
@@ -173,7 +177,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
 			const oldStat = new Stats(this.readable.statSync(path));
-			// Make the oldStat's mode writable. Preserve the topmost part of the mode, which specifies the type.
+			// Make the oldStat's mode writable.
 			oldStat.mode |= 0o222;
 			return oldStat;
 		}
@@ -185,7 +189,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 		// Create an OverlayFile.
 		const file = await this.readable.openFile(path, parseFlag('r'));
-		const stats = new Stats(await file.stat());
+		const stats = await file.stat();
 		const { buffer } = await file.read(new Uint8Array(stats.size));
 		return new PreloadFile(this, path, flag, stats, buffer);
 	}
@@ -196,7 +200,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 		// Create an OverlayFile.
 		const file = this.readable.openFileSync(path, parseFlag('r'));
-		const stats = new Stats(file.statSync());
+		const stats = file.statSync();
 		const data = new Uint8Array(stats.size);
 		file.readSync(data);
 		return new PreloadFile(this, path, flag, stats, data);
@@ -216,11 +220,13 @@ export class UnmutexedOverlayFS extends FileSystem {
 
 	public async link(srcpath: string, dstpath: string): Promise<void> {
 		this.checkInitialized();
+		await this.copyForWrite(srcpath);
 		await this.writable.link(srcpath, dstpath);
 	}
 
 	public linkSync(srcpath: string, dstpath: string): void {
 		this.checkInitialized();
+		this.copyForWriteSync(srcpath);
 		this.writable.linkSync(srcpath, dstpath);
 	}
 
@@ -266,14 +272,14 @@ export class UnmutexedOverlayFS extends FileSystem {
 		if (await this.writable.exists(path)) {
 			await this.writable.rmdir(path);
 		}
-		if (await this.exists(path)) {
-			// Check if directory is empty.
-			if ((await this.readdir(path)).length > 0) {
-				throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
-			} else {
-				await this.deletePath(path);
-			}
+		if (!(await this.exists(path))) {
+			return;
 		}
+		// Check if directory is empty.
+		if ((await this.readdir(path)).length) {
+			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
+		}
+		await this.deletePath(path);
 	}
 
 	public rmdirSync(path: string): void {
@@ -284,14 +290,14 @@ export class UnmutexedOverlayFS extends FileSystem {
 		if (this.writable.existsSync(path)) {
 			this.writable.rmdirSync(path);
 		}
-		if (this.existsSync(path)) {
-			// Check if directory is empty.
-			if (this.readdirSync(path).length > 0) {
-				throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
-			} else {
-				void this.deletePath(path);
-			}
+		if (!this.existsSync(path)) {
+			return;
 		}
+		// Check if directory is empty.
+		if (this.readdirSync(path).length) {
+			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
+		}
+		void this.deletePath(path);
 	}
 
 	public async mkdir(path: string, mode: number): Promise<void> {
@@ -463,20 +469,25 @@ export class UnmutexedOverlayFS extends FileSystem {
 	 * - Ensures p is on writable before proceeding. Throws an error if it doesn't exist.
 	 * - Calls f to perform operation on writable.
 	 */
-	private operateOnWritable(path: string): void {
+	private copyForWriteSync(path: string): void {
 		if (!this.existsSync(path)) {
-			throw ErrnoError.With('ENOENT', path, 'operateOnWriteable');
+			throw ErrnoError.With('ENOENT', path, 'copyForWrite');
+		}
+		if (!this.writable.existsSync(dirname(path))) {
+			this.createParentDirectoriesSync(path);
 		}
 		if (!this.writable.existsSync(path)) {
-			// File is on readable storage. Copy to writable storage before
-			// changing its mode.
 			this.copyToWritableSync(path);
 		}
 	}
 
-	private async operateOnWritableAsync(path: string): Promise<void> {
+	private async copyForWrite(path: string): Promise<void> {
 		if (!(await this.exists(path))) {
-			throw ErrnoError.With('ENOENT', path, 'operateOnWritable');
+			throw ErrnoError.With('ENOENT', path, 'copyForWrite');
+		}
+
+		if (!(await this.writable.exists(dirname(path)))) {
+			await this.createParentDirectories(path);
 		}
 
 		if (!(await this.writable.exists(path))) {
@@ -496,12 +507,10 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = this.readable.openFileSync(path, parseFlag('r'));
+		using readable = this.readable.openFileSync(path, parseFlag('r'));
 		readable.readSync(data);
-		readable.closeSync();
-		const writable = this.writable.openFileSync(path, parseFlag('w'));
+		using writable = this.writable.openFileSync(path, parseFlag('w'));
 		writable.writeSync(data);
-		writable.closeSync();
 	}
 
 	private async copyToWritable(path: string): Promise<void> {
@@ -512,12 +521,10 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		const readable = await this.readable.openFile(path, parseFlag('r'));
+		await using readable = await this.readable.openFile(path, parseFlag('r'));
 		await readable.read(data);
-		await readable.close();
-		const writable = await this.writable.openFile(path, parseFlag('w'));
+		await using writable = await this.writable.openFile(path, parseFlag('w'));
 		await writable.write(data);
-		await writable.close();
 	}
 }
 
