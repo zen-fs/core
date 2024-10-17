@@ -7,6 +7,7 @@ import { File } from './file.js';
 import type { StatsLike } from './stats.js';
 import { Stats } from './stats.js';
 import { basename, dirname } from './emulation/path.js';
+import type { Ino } from './inode.js';
 
 /**
  * A device
@@ -17,6 +18,11 @@ export interface Device {
 	 * The device's driver
 	 */
 	driver: DeviceDriver;
+
+	/**
+	 * Which inode the device is assigned
+	 */
+	ino: Ino;
 }
 
 /**
@@ -170,8 +176,22 @@ export class DeviceFile extends File {
 	}
 }
 
-export class DeviceFS extends StoreFS {
-	public readonly devices = new Map<string, Device>();
+export class DeviceFS extends StoreFS<InMemoryStore> {
+	protected readonly devices = new Map<string, Device>();
+
+	public createDevice(path: string, driver: DeviceDriver): Device {
+		if (this.existsSync(path)) {
+			throw ErrnoError.With('EEXIST', path, 'mknod');
+		}
+		let ino = 1n;
+		while (this.store.has(ino)) ino++;
+		const dev = {
+			driver,
+			ino,
+		};
+		this.devices.set(path, dev);
+		return dev;
+	}
 
 	public constructor() {
 		super(new InMemoryStore('devfs'));

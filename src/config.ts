@@ -124,10 +124,10 @@ export async function configure<T extends ConfigMounts>(config: Partial<Configur
 
 	if (config.addDevices) {
 		const devfs = new DeviceFS();
-		devfs.devices.set('/null', { driver: nullDevice });
-		devfs.devices.set('/zero', { driver: zeroDevice });
-		devfs.devices.set('/full', { driver: fullDevice });
-		devfs.devices.set('/random', { driver: randomDevice });
+		devfs.createDevice('/null', nullDevice);
+		devfs.createDevice('/zero', zeroDevice);
+		devfs.createDevice('/full', fullDevice);
+		devfs.createDevice('/random', randomDevice);
 		await devfs.ready();
 		fs.mount('/dev', devfs);
 	}
