@@ -328,6 +328,8 @@ export function writeSync(fd: number, data: FileContents, posOrOff?: number | nu
 }
 writeSync satisfies typeof fs.writeSync;
 
+export function readSync(fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions): number;
+export function readSync(fd: number, buffer: ArrayBufferView, offset: number, length: number, position?: fs.ReadPosition | null): number;
 /**
  * Read data from the file specified by `fd`.
  * @param buffer The buffer that the data will be written to.
@@ -336,14 +338,12 @@ writeSync satisfies typeof fs.writeSync;
  * @param position An integer specifying where to begin reading from in the file.
  * If position is null, data will be read from the current file position.
  */
-export function readSync(fd: number, buffer: ArrayBufferView, opts?: fs.ReadSyncOptions): number;
-export function readSync(fd: number, buffer: ArrayBufferView, offset: number, length: number, position?: fs.ReadPosition | null): number;
-export function readSync(fd: number, buffer: ArrayBufferView, opts?: fs.ReadSyncOptions | number, length?: number, position?: fs.ReadPosition | null): number {
+export function readSync(fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions | number, length?: number, position?: fs.ReadPosition | null): number {
 	const file = fd2file(fd);
-	const offset = typeof opts == 'object' ? opts.offset : opts;
-	if (typeof opts == 'object') {
-		length = opts.length;
-		position = opts.position;
+	const offset = typeof options == 'object' ? options.offset : options;
+	if (typeof options == 'object') {
+		length = options.length;
+		position = options.position;
 	}
 
 	position = Number(position);
@@ -393,8 +393,7 @@ export function rmdirSync(path: fs.PathLike): void {
 rmdirSync satisfies typeof fs.rmdirSync;
 
 /**
- * Synchronous `mkdir`.
- * @param mode defaults to o777
+ * Synchronous `mkdir`. Mode defaults to `o777`.
  */
 export function mkdirSync(path: fs.PathLike, options: fs.MakeDirectoryOptions & { recursive: true }): string | undefined;
 export function mkdirSync(path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
@@ -590,12 +589,6 @@ export function lutimesSync(path: fs.PathLike, atime: string | number | Date, mt
 }
 lutimesSync satisfies typeof fs.lutimesSync;
 
-/**
- * Synchronous `realpath`.
- * @param cache An object literal of mapped paths that can be used to force a specific path resolution,
- *  or avoid additional `fs.stat` calls for known real paths.
- * @returns the real path
- */
 export function realpathSync(path: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
 export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption): string;
 export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {

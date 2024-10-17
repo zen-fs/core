@@ -92,6 +92,7 @@ unlink satisfies Omit<typeof fs.unlink, '__promisify__'>;
 /**
  * Asynchronous file open.
  * Exclusive mode ensures that path is newly created.
+ * Mode defaults to `0644`
  *
  * `flags` can be:
  *
@@ -109,7 +110,6 @@ unlink satisfies Omit<typeof fs.unlink, '__promisify__'>;
  * * `'ax+'` - Like 'a+' but opens the file in exclusive mode.
  *
  * @see http://www.manpagez.com/man/2/open/
- * @param mode defaults to `0644`
  */
 export function open(path: fs.PathLike, flag: string, cb?: Callback<[number]>): void;
 export function open(path: fs.PathLike, flag: string, mode: number | string, cb?: Callback<[number]>): void;
@@ -125,9 +125,9 @@ open satisfies Omit<typeof fs.open, '__promisify__'>;
 
 /**
  * Asynchronously reads the entire contents of a file.
- * @option options encoding The string encoding for the file contents. Defaults to `null`.
- * @option options flag Defaults to `'r'`.
- * @param callback If no encoding is specified, then the raw buffer is returned.
+ * @option encoding The string encoding for the file contents. Defaults to `null`.
+ * @option flag Defaults to `'r'`.
+ * @param cb If no encoding is specified, then the raw buffer is returned.
  */
 export function readFile(filename: fs.PathLike, cb: Callback<[Uint8Array]>): void;
 export function readFile(filename: fs.PathLike, options: { flag?: string }, callback?: Callback<[Uint8Array]>): void;
@@ -254,7 +254,7 @@ fdatasync satisfies Omit<typeof fs.fdatasync, '__promisify__'>;
  * @param length The amount of bytes to write to the file.
  * @param position Offset from the beginning of the file where this data should be written.
  * If position is null, the data will be written at the current position.
- * @param callback The number specifies the number of bytes written into the file.
+ * @param cb The number specifies the number of bytes written into the file.
  */
 export function write(fd: number, buffer: Uint8Array, offset: number, length: number, cb?: Callback<[number, Uint8Array]>): void;
 export function write(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number, cb?: Callback<[number, Uint8Array]>): void;
@@ -323,7 +323,7 @@ write satisfies Omit<typeof fs.write, '__promisify__'>;
  * @param length An integer specifying the number of bytes to read.
  * @param position An integer specifying where to begin reading from in the file.
  * If position is null, data will be read from the current file position.
- * @param callback The number is the number of bytes read
+ * @param cb The number is the number of bytes read
  */
 export function read(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number, cb: Callback<[number, Uint8Array]> = nop): void {
 	new promises.FileHandle(fd)
@@ -411,7 +411,7 @@ link satisfies Omit<typeof fs.link, '__promisify__'>;
  * Asynchronous `symlink`.
  * @param target target path
  * @param path link path
- * @param type can be either `'dir'` or `'file'` (default is `'file'`)
+ * Type defaults to file
  */
 export function symlink(target: fs.PathLike, path: fs.PathLike, cb?: Callback): void;
 export function symlink(target: fs.PathLike, path: fs.PathLike, type?: fs.symlink.Type, cb?: Callback): void;
@@ -540,14 +540,14 @@ export function watchFile(path: fs.PathLike, listener: (curr: Stats, prev: Stats
 export function watchFile(path: fs.PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(
 	path: fs.PathLike,
-	optsListener: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
+	options: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
 	listener?: (curr: Stats, prev: Stats) => void
 ): void {
 	const normalizedPath = normalizePath(path.toString());
-	const options: { persistent?: boolean; interval?: number } = typeof optsListener != 'function' ? optsListener : {};
+	options = typeof options != 'function' ? options : {};
 
-	if (typeof optsListener === 'function') {
-		listener = optsListener;
+	if (typeof options === 'function') {
+		listener = options;
 	}
 
 	if (!listener) {
@@ -652,8 +652,8 @@ interface WriteStreamOptions extends StreamOptions {
  * @param options Options for the ReadStream and file opening (e.g., `encoding`, `highWaterMark`, `mode`).
  * @returns A ReadStream object for interacting with the file's contents.
  */
-export function createReadStream(path: fs.PathLike, _options?: BufferEncoding | ReadStreamOptions): ReadStream {
-	const options = typeof _options == 'object' ? _options : { encoding: _options };
+export function createReadStream(path: fs.PathLike, options?: BufferEncoding | ReadStreamOptions): ReadStream {
+	options = typeof options == 'object' ? options : { encoding: options };
 	let handle: promises.FileHandle;
 	const stream = new ReadStream({
 		highWaterMark: options.highWaterMark || 64 * 1024,
@@ -692,8 +692,8 @@ createReadStream satisfies Omit<typeof fs.createReadStream, '__promisify__'>;
  * @param options Options for the WriteStream and file opening (e.g., `encoding`, `highWaterMark`, `mode`).
  * @returns A WriteStream object for writing to the file.
  */
-export function createWriteStream(path: fs.PathLike, _options?: BufferEncoding | WriteStreamOptions): WriteStream {
-	const options = typeof _options == 'object' ? _options : { encoding: _options };
+export function createWriteStream(path: fs.PathLike, options?: BufferEncoding | WriteStreamOptions): WriteStream {
+	options = typeof options == 'object' ? options : { encoding: options };
 	let handle: promises.FileHandle;
 	const stream = new WriteStream({
 		highWaterMark: options?.highWaterMark,
