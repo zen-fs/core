@@ -12,11 +12,6 @@ import { dirname, join, parse } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { emitChange } from './watchers.js';
 
-/**
- * Synchronous rename.
- * @param oldPath
- * @param newPath
- */
 export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
@@ -43,7 +38,6 @@ renameSync satisfies typeof fs.renameSync;
 
 /**
  * Test whether or not the given path exists by checking with the file system.
- * @param path
  */
 export function existsSync(path: fs.PathLike): boolean {
 	path = normalizePath(path);
@@ -60,11 +54,6 @@ export function existsSync(path: fs.PathLike): boolean {
 }
 existsSync satisfies typeof fs.existsSync;
 
-/**
- * Synchronous `stat`.
- * @param path
- * @returns Stats
- */
 export function statSync(path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function statSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
@@ -86,7 +75,6 @@ statSync satisfies typeof fs.statSync;
  * Synchronous `lstat`.
  * `lstat()` is identical to `stat()`, except that if path is a symbolic link,
  * then the link itself is stat-ed, not the file that it refers to.
- * @param path
  */
 export function lstatSync(path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function lstatSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
@@ -102,11 +90,6 @@ export function lstatSync(path: fs.PathLike, options?: fs.StatOptions): Stats | 
 }
 lstatSync satisfies typeof fs.lstatSync;
 
-/**
- * Synchronous `truncate`.
- * @param path
- * @param len
- */
 export function truncateSync(path: fs.PathLike, len: number | null = 0): void {
 	using file = _openSync(path, 'r+');
 	len ||= 0;
@@ -117,10 +100,6 @@ export function truncateSync(path: fs.PathLike, len: number | null = 0): void {
 }
 truncateSync satisfies typeof fs.truncateSync;
 
-/**
- * Synchronous `unlink`.
- * @param path
- */
 export function unlinkSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
@@ -182,10 +161,6 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 /**
  * Synchronous file open.
  * @see http://www.manpagez.com/man/2/open/
- * @param flags Handles the complexity of the various file
- *   modes. See its API for more details.
- * @param mode Mode to use to open the file. Can be ignored if the
- *   filesystem doesn't support permissions.
  */
 export function openSync(path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
 	return file2fd(_openSync(path, flag, mode, true));
@@ -200,9 +175,6 @@ export function lopenSync(path: fs.PathLike, flag: string, mode?: fs.Mode | null
 	return file2fd(_openSync(path, flag, mode, false));
 }
 
-/**
- * Synchronously reads the entire contents of a file.
- */
 function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): Uint8Array {
 	// Get file.
 	using file = _openSync(fname, flag, 0o644, resolveSymlinks);
@@ -215,10 +187,8 @@ function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): U
 
 /**
  * Synchronously reads the entire contents of a file.
- * @param path
- * @param options
- * @option options encoding The string encoding for the file contents. Defaults to `null`.
- * @option options flag Defaults to `'r'`.
+ * @option encoding The string encoding for the file contents. Defaults to `null`.
+ * @option flag Defaults to `'r'`.
  * @returns file contents
  */
 export function readFileSync(path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
@@ -235,16 +205,12 @@ export function readFileSync(path: fs.PathOrFileDescriptor, _options: fs.WriteFi
 readFileSync satisfies typeof fs.readFileSync;
 
 /**
- * Synchronously writes data to a file, replacing the file if it already
- * exists.
+ * Synchronously writes data to a file, replacing the file if it already exists.
  *
  * The encoding option is ignored if data is a buffer.
- * @param path
- * @param data
- * @param options
- * @option options encoding Defaults to `'utf8'`.
- * @option options mode Defaults to `0644`.
- * @option options flag Defaults to `'w'`.
+ * @option encoding Defaults to `'utf8'`.
+ * @option mode Defaults to `0644`.
+ * @option flag Defaults to `'w'`.
  */
 export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents, options?: fs.WriteFileOptions): void;
 export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents, encoding?: BufferEncoding): void;
@@ -268,15 +234,10 @@ export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents,
 writeFileSync satisfies typeof fs.writeFileSync;
 
 /**
- * Asynchronously append data to a file, creating the file if it not yet
- * exists.
- *
- * @param filename
- * @param data
- * @param options
- * @option options encoding Defaults to `'utf8'`.
- * @option options mode Defaults to `0644`.
- * @option options flag Defaults to `'a'`.
+ * Asynchronously append data to a file, creating the file if it not yet exists.
+ * @option encoding Defaults to `'utf8'`.
+ * @option mode Defaults to `0644`.
+ * @option flag Defaults to `'a'`.
  */
 export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions = {}): void {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
@@ -297,7 +258,6 @@ appendFileSync satisfies typeof fs.appendFileSync;
  * Synchronous `fstat`.
  * `fstat()` is identical to `stat()`, except that the file to be stat-ed is
  * specified by the file descriptor `fd`.
- * @param fd
  */
 export function fstatSync(fd: number, options?: { bigint?: boolean }): Stats;
 export function fstatSync(fd: number, options: { bigint: true }): BigIntStats;
@@ -307,21 +267,12 @@ export function fstatSync(fd: number, options?: fs.StatOptions): Stats | BigIntS
 }
 fstatSync satisfies typeof fs.fstatSync;
 
-/**
- * Synchronous close.
- * @param fd
- */
 export function closeSync(fd: number): void {
 	fd2file(fd).closeSync();
 	fdMap.delete(fd);
 }
 closeSync satisfies typeof fs.closeSync;
 
-/**
- * Synchronous ftruncate.
- * @param fd
- * @param len
- */
 export function ftruncateSync(fd: number, len: number | null = 0): void {
 	len ||= 0;
 	if (len < 0) {
@@ -331,19 +282,11 @@ export function ftruncateSync(fd: number, len: number | null = 0): void {
 }
 ftruncateSync satisfies typeof fs.ftruncateSync;
 
-/**
- * Synchronous fsync.
- * @param fd
- */
 export function fsyncSync(fd: number): void {
 	fd2file(fd).syncSync();
 }
 fsyncSync satisfies typeof fs.fsyncSync;
 
-/**
- * Synchronous fdatasync.
- * @param fd
- */
 export function fdatasyncSync(fd: number): void {
 	fd2file(fd).datasyncSync();
 }
@@ -351,16 +294,12 @@ fdatasyncSync satisfies typeof fs.fdatasyncSync;
 
 /**
  * Write buffer to the file specified by `fd`.
- * Note that it is unsafe to use fs.write multiple times on the same file
- * without waiting for it to return.
- * @param fd
- * @param data Uint8Array containing the data to write to
- *   the file.
+ * Note that it is unsafe to use fs.write multiple times on the same file without waiting for it to return.
+ * @param data Uint8Array containing the data to write to the file.
  * @param offset Offset in the buffer to start reading data from.
  * @param length The amount of bytes to write to the file.
- * @param position Offset from the beginning of the file where this
- *   data should be written. If position is null, the data will be written at
- *   the current position.
+ * @param position Offset from the beginning of the file where this data should be written.
+ * If position is null, the data will be written at the current position.
  */
 export function writeSync(fd: number, data: ArrayBufferView, offset?: number | null, length?: number | null, position?: number | null): number;
 export function writeSync(fd: number, data: string, position?: number | null, encoding?: BufferEncoding | null): number;
@@ -391,15 +330,11 @@ writeSync satisfies typeof fs.writeSync;
 
 /**
  * Read data from the file specified by `fd`.
- * @param fd
- * @param buffer The buffer that the data will be
- *   written to.
- * @param offset The offset within the buffer where writing will
- *   start.
+ * @param buffer The buffer that the data will be written to.
+ * @param offset The offset within the buffer where writing will start.
  * @param length An integer specifying the number of bytes to read.
- * @param position An integer specifying where to begin reading from
- *   in the file. If position is null, data will be read from the current file
- *   position.
+ * @param position An integer specifying where to begin reading from in the file.
+ * If position is null, data will be read from the current file position.
  */
 export function readSync(fd: number, buffer: ArrayBufferView, opts?: fs.ReadSyncOptions): number;
 export function readSync(fd: number, buffer: ArrayBufferView, offset: number, length: number, position?: fs.ReadPosition | null): number;
@@ -420,22 +355,11 @@ export function readSync(fd: number, buffer: ArrayBufferView, opts?: fs.ReadSync
 }
 readSync satisfies typeof fs.readSync;
 
-/**
- * Synchronous `fchown`.
- * @param fd
- * @param uid
- * @param gid
- */
 export function fchownSync(fd: number, uid: number, gid: number): void {
 	fd2file(fd).chownSync(uid, gid);
 }
 fchownSync satisfies typeof fs.fchownSync;
 
-/**
- * Synchronous `fchmod`.
- * @param fd
- * @param mode
- */
 export function fchmodSync(fd: number, mode: number | string): void {
 	const numMode = normalizeMode(mode, -1);
 	if (numMode < 0) {
@@ -446,21 +370,13 @@ export function fchmodSync(fd: number, mode: number | string): void {
 fchmodSync satisfies typeof fs.fchmodSync;
 
 /**
- * Change the file timestamps of a file referenced by the supplied file
- * descriptor.
- * @param fd
- * @param atime
- * @param mtime
+ * Change the file timestamps of a file referenced by the supplied file descriptor.
  */
 export function futimesSync(fd: number, atime: string | number | Date, mtime: string | number | Date): void {
 	fd2file(fd).utimesSync(normalizeTime(atime), normalizeTime(mtime));
 }
 futimesSync satisfies typeof fs.futimesSync;
 
-/**
- * Synchronous `rmdir`.
- * @param path
- */
 export function rmdirSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
@@ -478,7 +394,6 @@ rmdirSync satisfies typeof fs.rmdirSync;
 
 /**
  * Synchronous `mkdir`.
- * @param path
  * @param mode defaults to o777
  */
 export function mkdirSync(path: fs.PathLike, options: fs.MakeDirectoryOptions & { recursive: true }): string | undefined;
@@ -520,10 +435,6 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
-/**
- * Synchronous `readdir`. Reads the contents of a directory.
- * @param path
- */
 export function readdirSync(path: fs.PathLike, options?: { recursive?: boolean; encoding?: BufferEncoding | null; withFileTypes?: false } | BufferEncoding | null): string[];
 export function readdirSync(path: fs.PathLike, options: { recursive?: boolean; encoding: 'buffer'; withFileTypes?: false } | 'buffer'): Buffer[];
 export function readdirSync(path: fs.PathLike, options: { recursive?: boolean; withFileTypes: true }): Dirent[];
@@ -570,11 +481,6 @@ readdirSync satisfies typeof fs.readdirSync;
 
 // SYMLINK METHODS
 
-/**
- * Synchronous `link`.
- * @param targetPath
- * @param linkPath
- */
 export function linkSync(targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 	targetPath = normalizePath(targetPath);
 	if (!statSync(dirname(targetPath)).hasAccess(constants.R_OK)) {
@@ -621,10 +527,6 @@ export function symlinkSync(target: fs.PathLike, path: fs.PathLike, type: fs.sym
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
-/**
- * Synchronous readlink.
- * @param path
- */
 export function readlinkSync(path: fs.PathLike, options?: fs.BufferEncodingOption): Buffer;
 export function readlinkSync(path: fs.PathLike, options: fs.EncodingOption | BufferEncoding): string;
 export function readlinkSync(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string;
@@ -640,12 +542,6 @@ readlinkSync satisfies typeof fs.readlinkSync;
 
 // PROPERTY OPERATIONS
 
-/**
- * Synchronous `chown`.
- * @param path
- * @param uid
- * @param gid
- */
 export function chownSync(path: fs.PathLike, uid: number, gid: number): void {
 	const fd = openSync(path, 'r+');
 	fchownSync(fd, uid, gid);
@@ -653,12 +549,6 @@ export function chownSync(path: fs.PathLike, uid: number, gid: number): void {
 }
 chownSync satisfies typeof fs.chownSync;
 
-/**
- * Synchronous `lchown`.
- * @param path
- * @param uid
- * @param gid
- */
 export function lchownSync(path: fs.PathLike, uid: number, gid: number): void {
 	const fd = lopenSync(path, 'r+');
 	fchownSync(fd, uid, gid);
@@ -666,11 +556,6 @@ export function lchownSync(path: fs.PathLike, uid: number, gid: number): void {
 }
 lchownSync satisfies typeof fs.lchownSync;
 
-/**
- * Synchronous `chmod`.
- * @param path
- * @param mode
- */
 export function chmodSync(path: fs.PathLike, mode: fs.Mode): void {
 	const fd = openSync(path, 'r+');
 	fchmodSync(fd, mode);
@@ -678,11 +563,6 @@ export function chmodSync(path: fs.PathLike, mode: fs.Mode): void {
 }
 chmodSync satisfies typeof fs.chmodSync;
 
-/**
- * Synchronous `lchmod`.
- * @param path
- * @param mode
- */
 export function lchmodSync(path: fs.PathLike, mode: number | string): void {
 	const fd = lopenSync(path, 'r+');
 	fchmodSync(fd, mode);
@@ -692,9 +572,6 @@ lchmodSync satisfies typeof fs.lchmodSync;
 
 /**
  * Change file timestamps of the file referenced by the supplied path.
- * @param path
- * @param atime
- * @param mtime
  */
 export function utimesSync(path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): void {
 	const fd = openSync(path, 'r+');
@@ -705,9 +582,6 @@ utimesSync satisfies typeof fs.utimesSync;
 
 /**
  * Change file timestamps of the file referenced by the supplied path.
- * @param path
- * @param atime
- * @param mtime
  */
 export function lutimesSync(path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): void {
 	const fd = lopenSync(path, 'r+');
@@ -718,10 +592,8 @@ lutimesSync satisfies typeof fs.lutimesSync;
 
 /**
  * Synchronous `realpath`.
- * @param path
- * @param cache An object literal of mapped paths that can be used to
- *   force a specific path resolution or avoid additional `fs.stat` calls for
- *   known real paths.
+ * @param cache An object literal of mapped paths that can be used to force a specific path resolution,
+ *  or avoid additional `fs.stat` calls for known real paths.
  * @returns the real path
  */
 export function realpathSync(path: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
@@ -745,11 +617,6 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 }
 realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
 
-/**
- * Synchronous `access`.
- * @param path
- * @param mode
- */
 export function accessSync(path: fs.PathLike, mode: number = 0o600): void {
 	const stats = statSync(path);
 	if (!stats.hasAccess(mode)) {
@@ -812,21 +679,19 @@ mkdtempSync satisfies typeof fs.mkdtempSync;
 
 /**
  * Synchronous `copyFile`. Copies a file.
- * @param src The source file.
- * @param dest The destination file.
  * @param flags Optional flags for the copy operation. Currently supports these flags:
- *    * `fs.constants.COPYFILE_EXCL`: If the destination file already exists, the operation fails.
+ * - `fs.constants.COPYFILE_EXCL`: If the destination file already exists, the operation fails.
  */
-export function copyFileSync(src: fs.PathLike, dest: fs.PathLike, flags?: number): void {
-	src = normalizePath(src);
-	dest = normalizePath(dest);
+export function copyFileSync(source: fs.PathLike, destination: fs.PathLike, flags?: number): void {
+	source = normalizePath(source);
+	destination = normalizePath(destination);
 
-	if (flags && flags & constants.COPYFILE_EXCL && existsSync(dest)) {
-		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists.', dest, 'copyFile');
+	if (flags && flags & constants.COPYFILE_EXCL && existsSync(destination)) {
+		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists.', destination, 'copyFile');
 	}
 
-	writeFileSync(dest, readFileSync(src));
-	emitChange('rename', dest.toString());
+	writeFileSync(destination, readFileSync(source));
+	emitChange('rename', destination.toString());
 }
 copyFileSync satisfies typeof fs.copyFileSync;
 
@@ -885,12 +750,12 @@ opendirSync satisfies typeof fs.opendirSync;
  * @param source The source file or directory.
  * @param destination The destination file or directory.
  * @param opts Options for the copy operation. Currently supports these options from Node.js 'fs.cpSync':
- *   * `dereference`: Dereference symbolic links.
- *   * `errorOnExist`: Throw an error if the destination file or directory already exists.
- *   * `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy the given source element.
- *   * `force`: Overwrite the destination if it exists, and overwrite existing readonly destination files.
- *   * `preserveTimestamps`: Preserve file timestamps.
- *   * `recursive`: If `true`, copies directories recursively.
+ * - `dereference`: Dereference symbolic links. *(unconfirmed)*
+ * - `errorOnExist`: Throw an error if the destination file or directory already exists.
+ * - `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy the given source element.
+ * - `force`: Overwrite the destination if it exists, and overwrite existing readonly destination files. *(unconfirmed)*
+ * - `preserveTimestamps`: Preserve file timestamps.
+ * - `recursive`: If `true`, copies directories recursively.
  */
 export function cpSync(source: fs.PathLike, destination: fs.PathLike, opts?: fs.CopySyncOptions): void {
 	source = normalizePath(source);
@@ -938,7 +803,6 @@ cpSync satisfies typeof fs.cpSync;
  * Synchronous statfs(2). Returns information about the mounted file system which contains path.
  * In case of an error, the err.code will be one of Common System Errors.
  * @param path A path to an existing file or directory on the file system to be queried.
- * @param callback
  */
 export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions & { bigint?: false }): fs.StatsFs;
 export function statfsSync(path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }): fs.BigIntStatsFs;
