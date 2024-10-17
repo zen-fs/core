@@ -507,9 +507,9 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		using readable = this.readable.openFileSync(path, parseFlag('r'));
+		using readable = this.readable.openFileSync(path, 'r');
 		readable.readSync(data);
-		using writable = this.writable.openFileSync(path, parseFlag('w'));
+		using writable = this.writable.createFileSync(path, 'w', stats.mode | 0o222);
 		writable.writeSync(data);
 	}
 
@@ -521,9 +521,9 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		await using readable = await this.readable.openFile(path, parseFlag('r'));
+		await using readable = await this.readable.openFile(path, 'r');
 		await readable.read(data);
-		await using writable = await this.writable.openFile(path, parseFlag('w'));
+		await using writable = await this.writable.createFile(path, 'w', stats.mode | 0o222);
 		await writable.write(data);
 	}
 }
