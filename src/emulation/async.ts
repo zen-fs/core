@@ -544,9 +544,9 @@ export function watchFile(
 	listener?: (curr: Stats, prev: Stats) => void
 ): void {
 	const normalizedPath = normalizePath(path.toString());
-	options = typeof options != 'function' ? options : {};
+	const opts = typeof options != 'function' ? options : {};
 
-	if (typeof options === 'function') {
+	if (typeof options == 'function') {
 		listener = options;
 	}
 
@@ -562,7 +562,7 @@ export function watchFile(
 		return;
 	}
 
-	const watcher = new StatWatcher(normalizedPath, options);
+	const watcher = new StatWatcher(normalizedPath, opts);
 	watcher.on('change', (curr: Stats, prev: Stats) => {
 		const entry = statWatchers.get(normalizedPath);
 		if (!entry) {
