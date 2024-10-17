@@ -174,3 +174,9 @@ export const S_IXOTH = 1;
  * This flag is ignored since a unix-like FS is emulated
  */
 export const UV_FS_O_FILEMAP = 0;
+
+/**
+ * Max 32-bit integer
+ * @hidden
+ */
+export const size_max = 2 ** 32 - 1;

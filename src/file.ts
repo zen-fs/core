@@ -1,8 +1,7 @@
 import type { FileReadResult } from 'node:fs/promises';
-import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT } from './emulation/constants.js';
+import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT, size_max } from './emulation/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
-import { size_max } from './inode.js';
 import { Stats, type FileType } from './stats.js';
 import './polyfills.js';
 
@@ -194,12 +193,12 @@ export abstract class File {
 	/**
 	 * Asynchronous truncate.
 	 */
-	public abstract truncate(len: number): Promise<void>;
+	public abstract truncate(length: number): Promise<void>;
 
 	/**
 	 * Synchronous truncate.
 	 */
-	public abstract truncateSync(len: number): void;
+	public abstract truncateSync(length: number): void;
 
 	/**
 	 * Asynchronous sync.
@@ -213,8 +212,7 @@ export abstract class File {
 
 	/**
 	 * Write buffer to the file.
-	 * Note that it is unsafe to use fs.write multiple times on the same file
-	 * without waiting for the callback.
+	 * Note that it is unsafe to use fs.write multiple times on the same file without waiting for it to resolve
 	 * @param buffer Uint8Array containing the data to write to
 	 *  the file.
 	 * @param offset Offset in the buffer to start reading data from.
@@ -228,8 +226,7 @@ export abstract class File {
 
 	/**
 	 * Write buffer to the file.
-	 * Note that it is unsafe to use fs.writeSync multiple times on the same file
-	 * without waiting for it to return.
+	 * Note that it is unsafe to use fs.writeSync multiple times on the same file without waiting for it to return.
 	 * @param buffer Uint8Array containing the data to write to
 	 *  the file.
 	 * @param offset Offset in the buffer to start reading data from.

@@ -8,12 +8,6 @@ import { types as t, struct, sizeof, serialize, deserialize } from 'utilium';
 export type Ino = bigint;
 
 /**
- * Max 32-bit integer
- * @hidden
- */
-export const size_max = 2 ** 32 - 1;
-
-/**
  * Room inode
  * @hidden
  */
