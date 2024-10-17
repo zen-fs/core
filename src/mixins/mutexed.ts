@@ -33,7 +33,7 @@ export class MutexLock {
 /**
  * @hidden
  */
-export class __MutexedFS<T extends FileSystem> implements FileSystem {
+export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	/**
 	 * @internal
 	 */
@@ -87,7 +87,7 @@ export class __MutexedFS<T extends FileSystem> implements FileSystem {
 	 * @internal
 	 */
 	public lockSync(path: string, syscall: string): MutexLock {
-		if (this.currentLock) {
+		if (this.currentLock?.isLocked) {
 			throw ErrnoError.With('EBUSY', path, syscall);
 		}
 
@@ -244,10 +244,10 @@ export class __MutexedFS<T extends FileSystem> implements FileSystem {
  */
 export function Mutexed<const T extends Concrete<typeof FileSystem>>(
 	FS: T
-): typeof __MutexedFS<InstanceType<T>> & {
-	new (...args: ConstructorParameters<T>): __MutexedFS<InstanceType<T>>;
+): typeof _MutexedFS<InstanceType<T>> & {
+	new (...args: ConstructorParameters<T>): _MutexedFS<InstanceType<T>>;
 } {
-	class MutexedFS extends __MutexedFS<InstanceType<T>> {
+	class MutexedFS extends _MutexedFS<InstanceType<T>> {
 		public constructor(...args: ConstructorParameters<T>) {
 			super();
 			this._fs = new FS(...args) as InstanceType<T>;
