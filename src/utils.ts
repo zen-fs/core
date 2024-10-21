@@ -140,7 +140,6 @@ export function decodeRaw(input?: Uint8Array): string {
 		.join('');
 }
 
-
 const encoder = new TextEncoder();
 
 /**
@@ -154,7 +153,7 @@ export function encodeUTF8(input: string): Uint8Array {
 	return encoder.encode(input);
 }
 
-export { /** @deprecated @hidden */ encodeUTF8 as encode }
+export { /** @deprecated @hidden */ encodeUTF8 as encode };
 
 const decoder = new TextDecoder();
 
@@ -170,7 +169,7 @@ export function decodeUTF8(input?: Uint8Array): string {
 	return decoder.decode(input);
 }
 
-export { /** @deprecated @hidden */ decodeUTF8 as decode }
+export { /** @deprecated @hidden */ decodeUTF8 as decode };
 
 /**
  * Decodes a directory listing
