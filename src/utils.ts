@@ -112,10 +112,34 @@ export function levenshtein(a: string, b: string): number {
 	return dd;
 }
 
-/**
- * @hidden
- */
+/** @hidden */
 export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : (cb: () => unknown) => setTimeout(cb, 0);
+
+/**
+ * Encodes a string into a buffer
+ * @internal
+ */
+export function encodeRaw(input: string): Uint8Array {
+	if (typeof input != 'string') {
+		throw new ErrnoError(Errno.EINVAL, 'Can not encode a non-string');
+	}
+	return new Uint8Array(Array.from(input).map(char => char.charCodeAt(0)));
+}
+
+/**
+ * Decodes a string from a buffer
+ * @internal
+ */
+export function decodeRaw(input?: Uint8Array): string {
+	if (!(input instanceof Uint8Array)) {
+		throw new ErrnoError(Errno.EINVAL, 'Can not decode a non-Uint8Array');
+	}
+
+	return Array.from(input)
+		.map(char => String.fromCharCode(char))
+		.join('');
+}
+
 
 const encoder = new TextEncoder();
 
@@ -123,12 +147,14 @@ const encoder = new TextEncoder();
  * Encodes a string into a buffer
  * @internal
  */
-export function encode(input: string): Uint8Array {
+export function encodeUTF8(input: string): Uint8Array {
 	if (typeof input != 'string') {
 		throw new ErrnoError(Errno.EINVAL, 'Can not encode a non-string');
 	}
 	return encoder.encode(input);
 }
+
+export { /** @deprecated @hidden */ encodeUTF8 as encode }
 
 const decoder = new TextDecoder();
 
@@ -136,7 +162,7 @@ const decoder = new TextDecoder();
  * Decodes a string from a buffer
  * @internal
  */
-export function decode(input?: Uint8Array): string {
+export function decodeUTF8(input?: Uint8Array): string {
 	if (!(input instanceof Uint8Array)) {
 		throw new ErrnoError(Errno.EINVAL, 'Can not decode a non-Uint8Array');
 	}
@@ -144,12 +170,14 @@ export function decode(input?: Uint8Array): string {
 	return decoder.decode(input);
 }
 
+export { /** @deprecated @hidden */ decodeUTF8 as decode }
+
 /**
  * Decodes a directory listing
  * @hidden
  */
 export function decodeDirListing(data: Uint8Array): Record<string, bigint> {
-	return JSON.parse(decode(data), (k, v) => (k == '' ? v : BigInt(v as string)));
+	return JSON.parse(decodeUTF8(data), (k, v) => (k == '' ? v : BigInt(v as string)));
 }
 
 /**
@@ -157,7 +185,7 @@ export function decodeDirListing(data: Uint8Array): Record<string, bigint> {
  * @hidden
  */
 export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
-	return encode(JSON.stringify(data, (k, v) => (k == '' ? v : v.toString())));
+	return encodeUTF8(JSON.stringify(data, (k, v) => (k == '' ? v : v.toString())));
 }
 
 export type Callback<Args extends unknown[] = []> = (e?: ErrnoError, ...args: OptionalTuple<Args>) => unknown;

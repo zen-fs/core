@@ -6,7 +6,7 @@ import type { FileSystemMetadata } from '../filesystem.js';
 import { FileSystem } from '../filesystem.js';
 import { Mutexed } from '../mixins/mutexed.js';
 import { Stats } from '../stats.js';
-import { decode, encode } from '../utils.js';
+import { decodeUTF8, encodeUTF8 } from '../utils.js';
 import type { Backend } from './backend.js';
 /** @internal */
 const deletionLogPath = '/.deleted';
@@ -99,7 +99,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 			const file = await this.writable.openFile(deletionLogPath, parseFlag('r'));
 			const { size } = await file.stat();
 			const { buffer } = await file.read(new Uint8Array(size));
-			this._deleteLog = decode(buffer);
+			this._deleteLog = decodeUTF8(buffer);
 		} catch (err) {
 			if ((err as ErrnoError).errno !== Errno.ENOENT) {
 				throw err;
@@ -386,7 +386,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 		this._deleteLogUpdatePending = true;
 		const log = await this.writable.openFile(deletionLogPath, parseFlag('w'));
 		try {
-			await log.write(encode(this._deleteLog));
+			await log.write(encodeUTF8(this._deleteLog));
 			if (this._deleteLogUpdateNeeded) {
 				this._deleteLogUpdateNeeded = false;
 				await this.updateLog('');

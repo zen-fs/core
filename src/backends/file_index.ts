@@ -8,7 +8,7 @@ import { FileSystem } from '../filesystem.js';
 import { Readonly } from '../mixins/readonly.js';
 import type { StatsLike } from '../stats.js';
 import { Stats } from '../stats.js';
-import { decode, encode } from '../utils.js';
+import { decodeUTF8, encodeUTF8 } from '../utils.js';
 
 /**
  * An Index in JSON form
@@ -83,7 +83,7 @@ export class Index extends Map<string, Stats> {
 		for (const [path, data] of Object.entries(json.entries)) {
 			const stats = new Stats(data);
 			if (stats.isDirectory()) {
-				stats.fileData = encode(JSON.stringify(this.dirEntries(path)));
+				stats.fileData = encodeUTF8(JSON.stringify(this.dirEntries(path)));
 			}
 			this.set(path, stats);
 		}
@@ -195,7 +195,7 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 			throw ErrnoError.With('ENOTDIR', path, 'readdir');
 		}
 
-		const content: unknown = JSON.parse(decode(stats.fileData));
+		const content: unknown = JSON.parse(decodeUTF8(stats.fileData));
 		if (!Array.isArray(content)) {
 			throw ErrnoError.With('ENODATA', path, 'readdir');
 		}

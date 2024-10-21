@@ -6,7 +6,7 @@ import { PreloadFile } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { type Ino, Inode, randomIno, rootIno } from '../../inode.js';
 import type { FileType, Stats } from '../../stats.js';
-import { decodeDirListing, encode, encodeDirListing } from '../../utils.js';
+import { decodeDirListing, encodeUTF8, encodeDirListing } from '../../utils.js';
 import type { Store, Transaction } from './store.js';
 import type { File } from '../../file.js';
 
@@ -226,11 +226,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async mkdir(path: string, mode: number): Promise<void> {
-		await this.commitNew(path, S_IFDIR, mode, encode('{}'));
+		await this.commitNew(path, S_IFDIR, mode, encodeUTF8('{}'));
 	}
 
 	public mkdirSync(path: string, mode: number): void {
-		this.commitNewSync(path, S_IFDIR, mode, encode('{}'));
+		this.commitNewSync(path, S_IFDIR, mode, encodeUTF8('{}'));
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -335,7 +335,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = new Inode();
 		inode.mode = 0o777 | S_IFDIR;
 		// If the root doesn't exist, the first random ID shouldn't exist either.
-		await tx.set(inode.ino, encode('{}'));
+		await tx.set(inode.ino, encodeUTF8('{}'));
 		await tx.set(rootIno, inode.data);
 		await tx.commit();
 	}
@@ -352,7 +352,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = new Inode();
 		inode.mode = 0o777 | S_IFDIR;
 		// If the root doesn't exist, the first random ID shouldn't exist either.
-		tx.setSync(inode.ino, encode('{}'));
+		tx.setSync(inode.ino, encodeUTF8('{}'));
 		tx.setSync(rootIno, inode.data);
 		tx.commitSync();
 	}
