@@ -132,16 +132,6 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		fs.mount('/dev', devfs);
 	}
 
-	if (configuration.addDevices) {
-		const devfs = new DeviceFS();
-		devfs.createDevice('/null', nullDevice);
-		devfs.createDevice('/zero', zeroDevice);
-		devfs.createDevice('/full', fullDevice);
-		devfs.createDevice('/random', randomDevice);
-		await devfs.ready();
-		fs.mount('/dev', devfs);
-	}
-
 	if (!configuration.mounts) {
 		return;
 	}

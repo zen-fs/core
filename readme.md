@@ -165,7 +165,7 @@ fs.writeFileSync('/dev/null', 'Some data to be discarded');
 
 const randomData = new Unit8Array(100);
 
-const random = fs.openSync('/dev/random');
+const random = fs.openSync('/dev/random', 'r');
 fs.readSync(random, randomData);
 fs.closeSync(random);
 ```
