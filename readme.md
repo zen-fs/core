@@ -143,8 +143,61 @@ fs.mount('/mnt/zip', zipfs);
 fs.umount('/mnt/zip'); // finished using the zip
 ```
 
+> [!CAUTION]
+> Instances of backends follow the *internal* API. You should never use a backend's methods unless you are extending a backend.
+
+#### Devices and device files
+
 > [!WARNING]
-> Instances of backends follow the **internal** ZenFS API. You should never use a backend's methods unless you are extending a backend.
+> This is an **experimental** feature. Breaking changes may occur during non-major releases. Using this feature is the fastest way to make it stable.
+
+ZenFS includes experimental support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. You can automatically add some normal devices with the `addDevices` configuration option:
+
+```ts
+await configure({
+	mounts: { /* ... */ },
+	addDevices: true,
+});
+
+fs.writeFileSync('/dev/null', 'Some data to be discarded');
+
+const randomData = new Unit8Array(100);
+
+const random = fs.openSync('/dev/random');
+fs.readSync(random, randomData);
+fs.closeSync(random);
+```
+
+You can create your own devices by implementing a `DeviceDriver`. For example, the null device looks similar to this:
+
+
+```ts
+const customNullDevice = {
+	name: 'custom_null',
+	isBuffered: false,
+	read() {
+		return 0;
+	},
+	write() {},
+}
+```
+
+Note the actual implementation's write is slightly more complicated since it adds to the file position. You can find more information on the docs.
+
+Finally, if you'd like to use your custom device with the file system, you can use so through the aptly named `DeviceFS`.
+
+```ts
+const devfs = fs.mounts.get('/dev') as DeviceFS;
+devfs.createDevice('/custom', customNullDevice);
+
+fs.writeFileSync('/dev/custom', 'This gets discarded.');
+```
+
+In the above example, `createDevice` works relative to the `DeviceFS` mount point.
+
+Additionally, a type assertion (` as ...`) is used since `fs.mounts` does not keep track of which file system type is mapped to which mount point. Doing so would create significant maintenance costs due to the complexity of implementing it.
+
+If you would like to see a more intuitive way adding custom devices (e.g. `fs.mknod`), please feel free to open an issue for a feature request.
 
 ## Using with bundlers
 

@@ -95,6 +95,7 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	/**
 	 * Whether to automatically add normal Linux devices
 	 * @default false
+	 * @experimental
 	 */
 	addDevices: boolean;
 }

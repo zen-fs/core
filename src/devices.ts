@@ -12,6 +12,7 @@ import type { Ino } from './inode.js';
 /**
  * A device
  * @todo Maybe add major/minor number or some other device information, like a UUID?
+ * @experimental
  */
 export interface Device {
 	/**
@@ -27,6 +28,7 @@ export interface Device {
 
 /**
  * A device driver
+ * @experimental
  */
 export interface DeviceDriver {
 	/**
@@ -65,6 +67,7 @@ export interface DeviceDriver {
  * This class only does some simple things:
  * It implements `truncate` using `write` and it has non-device methods throw.
  * It is up to device drivers to implement the rest of the functionality.
+ * @experimental
  */
 export class DeviceFile extends File {
 	public position = 0;
@@ -176,6 +179,9 @@ export class DeviceFile extends File {
 	}
 }
 
+/**
+ * @experimental
+ */
 export class DeviceFS extends StoreFS<InMemoryStore> {
 	protected readonly devices = new Map<string, Device>();
 
@@ -373,6 +379,7 @@ function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset: number, leng
  * Simulates the `/dev/null` device.
  * - Reads return 0 bytes (EOF).
  * - Writes discard data, advancing the file position.
+ * @experimental
  */
 export const nullDevice: DeviceDriver = {
 	name: 'null',
@@ -391,6 +398,7 @@ export const nullDevice: DeviceDriver = {
  * - Reads fill the buffer with zeroes.
  * - Writes discard data but update the file position.
  * - Provides basic file metadata, treating it as a character device.
+ * @experimental
  */
 export const zeroDevice: DeviceDriver = {
 	name: 'zero',
@@ -410,6 +418,7 @@ export const zeroDevice: DeviceDriver = {
  * Simulates the `/dev/full` device.
  * - Reads behave like `/dev/zero` (returns zeroes).
  * - Writes always fail with ENOSPC (no space left on device).
+ * @experimental
  */
 export const fullDevice: DeviceDriver = {
 	name: 'full',
@@ -432,6 +441,7 @@ export const fullDevice: DeviceDriver = {
  * Simulates the `/dev/random` device.
  * - Reads return random bytes.
  * - Writes discard data, advancing the file position.
+ * @experimental
  */
 export const randomDevice: DeviceDriver = {
 	name: 'random',
@@ -449,6 +459,7 @@ export const randomDevice: DeviceDriver = {
 
 /**
  * Shortcuts for importing.
+ * @experimental
  */
 export default {
 	null: nullDevice,
