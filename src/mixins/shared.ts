@@ -8,18 +8,18 @@ import type { FileSystem } from '../filesystem.js';
 
 /**
  * `TBase` with `TMixin` mixed-in.
- * @internal @experimental
+ * @internal
  */
 export type Mixin<TBase extends typeof FileSystem, TMixin> = (abstract new (...args: any[]) => TMixin) & TBase;
 
 /**
- * Asynchronous `FileSystem` methods. This is a convience type.
- * @hidden
+ * Asynchronous `FileSystem` methods. This is a convenience type.
+ * @internal
  */
-export type _AsyncFSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<unknown>>;
+export type AsyncFSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<unknown>>;
 
 /**
- * Concrete `FileSystem`. This is a convience type.
+ * Concrete `FileSystem`. This is a convenience type.
  * @internal
  */
 export type ConcreteFS = ExtractProperties<FileSystem, any>;

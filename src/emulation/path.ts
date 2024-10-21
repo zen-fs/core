@@ -28,9 +28,6 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 
 import type { ParsedPath } from 'node:path';
 
-/**
- * An absolute path
- */
 export type AbsolutePath = `/${string}`;
 
 export let cwd = '/';
@@ -283,13 +280,11 @@ export function basename(path: string, suffix?: string): string {
 					// Try to match the explicit extension
 					if (path[i] === suffix[extIdx]) {
 						if (--extIdx === -1) {
-							// We matched the extension, so mark this as the end of our path
-							// component
+							// We matched the extension, so mark this as the end of our path component
 							end = i;
 						}
 					} else {
-						// Extension does not match, so our result is the entire path
-						// component
+						// Extension does not match, so our result is the entire path component
 						extIdx = -1;
 						end = firstNonSlashEnd;
 					}
@@ -303,15 +298,13 @@ export function basename(path: string, suffix?: string): string {
 	}
 	for (let i = path.length - 1; i >= 0; --i) {
 		if (path[i] === '/') {
-			// If we reached a path separator that was not part of a set of path
-			// separators at the end of the string, stop now
+			// If we reached a path separator that was not part of a set of path separators at the end of the string, stop now
 			if (!matchedSlash) {
 				start = i + 1;
 				break;
 			}
 		} else if (end === -1) {
-			// We saw the first non-path separator, mark this as the end of our
-			// path component
+			// We saw the first non-path separator, mark this as the end of our path component
 			matchedSlash = false;
 			end = i + 1;
 		}

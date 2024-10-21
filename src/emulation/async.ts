@@ -15,11 +15,7 @@ import { FSWatcher, StatWatcher } from './watchers.js';
 const nop = () => {};
 
 /**
- * Asynchronous rename. No arguments other than a possible exception are given
- * to the completion callback.
- * @param oldPath
- * @param newPath
- * @param callback
+ * Asynchronous rename. No arguments other than a possible exception are given to the completion callback.
  */
 export function rename(oldPath: fs.PathLike, newPath: fs.PathLike, cb: Callback = nop): void {
 	promises
@@ -30,10 +26,8 @@ export function rename(oldPath: fs.PathLike, newPath: fs.PathLike, cb: Callback 
 rename satisfies Omit<typeof fs.rename, '__promisify__'>;
 
 /**
- * Test whether or not the given path exists by checking with the file system.
+ * Test whether or not `path` exists by checking with the file system.
  * Then call the callback argument with either true or false.
- * @param path
- * @param callback
  * @deprecated Use {@link stat} or {@link access} instead.
  */
 export function exists(path: fs.PathLike, cb: (exists: boolean) => unknown = nop): void {
@@ -44,11 +38,6 @@ export function exists(path: fs.PathLike, cb: (exists: boolean) => unknown = nop
 }
 exists satisfies Omit<typeof fs.exists, '__promisify__'>;
 
-/**
- * Asynchronous `stat`.
- * @param path
- * @param callback
- */
 export function stat(path: fs.PathLike, callback: Callback<[Stats]>): void;
 export function stat(path: fs.PathLike, options: { bigint?: false }, callback: Callback<[Stats]>): void;
 export function stat(path: fs.PathLike, options: { bigint: true }, callback: Callback<[BigIntStats]>): void;
@@ -66,8 +55,6 @@ stat satisfies Omit<typeof fs.stat, '__promisify__'>;
  * Asynchronous `lstat`.
  * `lstat()` is identical to `stat()`, except that if path is a symbolic link,
  * then the link itself is stat-ed, not the file that it refers to.
- * @param path
- * @param callback
  */
 export function lstat(path: fs.PathLike, callback: Callback<[Stats]>): void;
 export function lstat(path: fs.PathLike, options: fs.StatOptions & { bigint?: false }, callback: Callback<[Stats]>): void;
@@ -82,12 +69,6 @@ export function lstat(path: fs.PathLike, options?: fs.StatOptions | Callback<[St
 }
 lstat satisfies Omit<typeof fs.lstat, '__promisify__'>;
 
-/**
- * Asynchronous `truncate`.
- * @param path
- * @param len
- * @param callback
- */
 export function truncate(path: fs.PathLike, cb?: Callback): void;
 export function truncate(path: fs.PathLike, len: number, cb?: Callback): void;
 export function truncate(path: fs.PathLike, cbLen: number | Callback = 0, cb: Callback = nop): void {
@@ -100,11 +81,6 @@ export function truncate(path: fs.PathLike, cbLen: number | Callback = 0, cb: Ca
 }
 truncate satisfies Omit<typeof fs.truncate, '__promisify__'>;
 
-/**
- * Asynchronous `unlink`.
- * @param path
- * @param callback
- */
 export function unlink(path: fs.PathLike, cb: Callback = nop): void {
 	promises
 		.unlink(path)
@@ -116,6 +92,7 @@ unlink satisfies Omit<typeof fs.unlink, '__promisify__'>;
 /**
  * Asynchronous file open.
  * Exclusive mode ensures that path is newly created.
+ * Mode defaults to `0644`
  *
  * `flags` can be:
  *
@@ -133,10 +110,6 @@ unlink satisfies Omit<typeof fs.unlink, '__promisify__'>;
  * * `'ax+'` - Like 'a+' but opens the file in exclusive mode.
  *
  * @see http://www.manpagez.com/man/2/open/
- * @param path
- * @param flags
- * @param mode defaults to `0644`
- * @param callback
  */
 export function open(path: fs.PathLike, flag: string, cb?: Callback<[number]>): void;
 export function open(path: fs.PathLike, flag: string, mode: number | string, cb?: Callback<[number]>): void;
@@ -152,11 +125,9 @@ open satisfies Omit<typeof fs.open, '__promisify__'>;
 
 /**
  * Asynchronously reads the entire contents of a file.
- * @param filename
- * @param options
- * @option options encoding The string encoding for the file contents. Defaults to `null`.
- * @option options flag Defaults to `'r'`.
- * @param callback If no encoding is specified, then the raw buffer is returned.
+ * @option encoding The string encoding for the file contents. Defaults to `null`.
+ * @option flag Defaults to `'r'`.
+ * @param cb If no encoding is specified, then the raw buffer is returned.
  */
 export function readFile(filename: fs.PathLike, cb: Callback<[Uint8Array]>): void;
 export function readFile(filename: fs.PathLike, options: { flag?: string }, callback?: Callback<[Uint8Array]>): void;
@@ -177,13 +148,9 @@ readFile satisfies Omit<typeof fs.readFile, '__promisify__'>;
  *
  * The encoding option is ignored if data is a buffer.
  *
- * @param filename
- * @param data
- * @param options
  * @option encoding Defaults to `'utf8'`.
  * @option mode Defaults to `0644`.
  * @option flag Defaults to `'w'`.
- * @param callback
  */
 export function writeFile(filename: fs.PathLike, data: FileContents, cb?: Callback): void;
 export function writeFile(filename: fs.PathLike, data: FileContents, encoding?: BufferEncoding, cb?: Callback): void;
@@ -201,13 +168,9 @@ writeFile satisfies Omit<typeof fs.writeFile, '__promisify__'>;
  * Asynchronously append data to a file, creating the file if it not yet
  * exists.
  *
- * @param filename
- * @param data
- * @param options
  * @option encoding Defaults to `'utf8'`.
  * @option mode Defaults to `0644`.
  * @option flag Defaults to `'a'`.
- * @param callback
  */
 export function appendFile(filename: fs.PathLike, data: FileContents, cb?: Callback): void;
 export function appendFile(filename: fs.PathLike, data: FileContents, options?: fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }, cb?: Callback): void;
@@ -229,10 +192,7 @@ appendFile satisfies Omit<typeof fs.appendFile, '__promisify__'>;
 
 /**
  * Asynchronous `fstat`.
- * `fstat()` is identical to `stat()`, except that the file to be stat-ed is
- * specified by the file descriptor `fd`.
- * @param fd
- * @param callback
+ * `fstat()` is identical to `stat()`, except that the file to be stat-ed is specified by the file descriptor `fd`.
  */
 export function fstat(fd: number, cb: Callback<[Stats]>): void;
 export function fstat(fd: number, options: fs.StatOptions & { bigint?: false }, cb: Callback<[Stats]>): void;
@@ -247,11 +207,6 @@ export function fstat(fd: number, options?: fs.StatOptions | Callback<[Stats]>, 
 }
 fstat satisfies Omit<typeof fs.fstat, '__promisify__'>;
 
-/**
- * Asynchronous close.
- * @param fd
- * @param callback
- */
 export function close(fd: number, cb: Callback = nop): void {
 	new promises.FileHandle(fd)
 		.close()
@@ -260,12 +215,6 @@ export function close(fd: number, cb: Callback = nop): void {
 }
 close satisfies Omit<typeof fs.close, '__promisify__'>;
 
-/**
- * Asynchronous ftruncate.
- * @param fd
- * @param len
- * @param callback
- */
 export function ftruncate(fd: number, cb?: Callback): void;
 export function ftruncate(fd: number, len?: number, cb?: Callback): void;
 export function ftruncate(fd: number, lenOrCB?: number | Callback, cb: Callback = nop): void {
@@ -281,11 +230,6 @@ export function ftruncate(fd: number, lenOrCB?: number | Callback, cb: Callback 
 }
 ftruncate satisfies Omit<typeof fs.ftruncate, '__promisify__'>;
 
-/**
- * Asynchronous fsync.
- * @param fd
- * @param callback
- */
 export function fsync(fd: number, cb: Callback = nop): void {
 	fd2file(fd)
 		.sync()
@@ -294,11 +238,6 @@ export function fsync(fd: number, cb: Callback = nop): void {
 }
 fsync satisfies Omit<typeof fs.fsync, '__promisify__'>;
 
-/**
- * Asynchronous fdatasync.
- * @param fd
- * @param callback
- */
 export function fdatasync(fd: number, cb: Callback = nop): void {
 	fd2file(fd)
 		.datasync()
@@ -309,17 +248,13 @@ fdatasync satisfies Omit<typeof fs.fdatasync, '__promisify__'>;
 
 /**
  * Write buffer to the file specified by `fd`.
- * Note that it is unsafe to use fs.write multiple times on the same file
- * without waiting for the callback.
- * @param fd
- * @param buffer Uint8Array containing the data to write to
- *   the file.
+ * Note that it is unsafe to use fs.write multiple times on the same file without waiting for the callback.
+ * @param buffer Uint8Array containing the data to write to the file.
  * @param offset Offset in the buffer to start reading data from.
  * @param length The amount of bytes to write to the file.
- * @param position Offset from the beginning of the file where this
- *   data should be written. If position is null, the data will be written at
- *   the current position.
- * @param callback The number specifies the number of bytes written into the file.
+ * @param position Offset from the beginning of the file where this data should be written.
+ * If position is null, the data will be written at the current position.
+ * @param cb The number specifies the number of bytes written into the file.
  */
 export function write(fd: number, buffer: Uint8Array, offset: number, length: number, cb?: Callback<[number, Uint8Array]>): void;
 export function write(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number, cb?: Callback<[number, Uint8Array]>): void;
@@ -383,15 +318,12 @@ write satisfies Omit<typeof fs.write, '__promisify__'>;
 
 /**
  * Read data from the file specified by `fd`.
- * @param buffer The buffer that the data will be
- *   written to.
- * @param offset The offset within the buffer where writing will
- *   start.
+ * @param buffer The buffer that the data will be written to.
+ * @param offset The offset within the buffer where writing will start.
  * @param length An integer specifying the number of bytes to read.
- * @param position An integer specifying where to begin reading from
- *   in the file. If position is null, data will be read from the current file
- *   position.
- * @param callback The number is the number of bytes read
+ * @param position An integer specifying where to begin reading from in the file.
+ * If position is null, data will be read from the current file position.
+ * @param cb The number is the number of bytes read
  */
 export function read(fd: number, buffer: Uint8Array, offset: number, length: number, position?: number, cb: Callback<[number, Uint8Array]> = nop): void {
 	new promises.FileHandle(fd)
@@ -401,13 +333,6 @@ export function read(fd: number, buffer: Uint8Array, offset: number, length: num
 }
 read satisfies Omit<typeof fs.read, '__promisify__'>;
 
-/**
- * Asynchronous `fchown`.
- * @param fd
- * @param uid
- * @param gid
- * @param callback
- */
 export function fchown(fd: number, uid: number, gid: number, cb: Callback = nop): void {
 	new promises.FileHandle(fd)
 		.chown(uid, gid)
@@ -416,12 +341,6 @@ export function fchown(fd: number, uid: number, gid: number, cb: Callback = nop)
 }
 fchown satisfies Omit<typeof fs.fchown, '__promisify__'>;
 
-/**
- * Asynchronous `fchmod`.
- * @param fd
- * @param mode
- * @param callback
- */
 export function fchmod(fd: number, mode: string | number, cb: Callback): void {
 	new promises.FileHandle(fd)
 		.chmod(mode)
@@ -431,12 +350,7 @@ export function fchmod(fd: number, mode: string | number, cb: Callback): void {
 fchmod satisfies Omit<typeof fs.fchmod, '__promisify__'>;
 
 /**
- * Change the file timestamps of a file referenced by the supplied file
- * descriptor.
- * @param fd
- * @param atime
- * @param mtime
- * @param callback
+ * Change the file timestamps of a file referenced by the supplied file descriptor.
  */
 export function futimes(fd: number, atime: number | Date, mtime: number | Date, cb: Callback = nop): void {
 	new promises.FileHandle(fd)
@@ -446,11 +360,6 @@ export function futimes(fd: number, atime: number | Date, mtime: number | Date, 
 }
 futimes satisfies Omit<typeof fs.futimes, '__promisify__'>;
 
-/**
- * Asynchronous `rmdir`.
- * @param path
- * @param callback
- */
 export function rmdir(path: fs.PathLike, cb: Callback = nop): void {
 	promises
 		.rmdir(path)
@@ -461,9 +370,7 @@ rmdir satisfies Omit<typeof fs.rmdir, '__promisify__'>;
 
 /**
  * Asynchronous `mkdir`.
- * @param path
  * @param mode defaults to `0777`
- * @param callback
  */
 export function mkdir(path: fs.PathLike, mode?: fs.Mode, cb: Callback = nop): void {
 	promises
@@ -477,8 +384,6 @@ mkdir satisfies Omit<typeof fs.mkdir, '__promisify__'>;
  * Asynchronous `readdir`. Reads the contents of a directory.
  * The callback gets two arguments `(err, files)` where `files` is an array of
  * the names of the files in the directory excluding `'.'` and `'..'`.
- * @param path
- * @param callback
  */
 export function readdir(path: fs.PathLike, cb: Callback<[string[]]>): void;
 export function readdir(path: fs.PathLike, options: { withFileTypes?: false }, cb: Callback<[string[]]>): void;
@@ -494,12 +399,6 @@ export function readdir(path: fs.PathLike, _options: { withFileTypes?: boolean }
 }
 readdir satisfies Omit<typeof fs.readdir, '__promisify__'>;
 
-/**
- * Asynchronous `link`.
- * @param existing
- * @param newpath
- * @param callback
- */
 export function link(existing: fs.PathLike, newpath: fs.PathLike, cb: Callback = nop): void {
 	promises
 		.link(existing, newpath)
@@ -512,8 +411,7 @@ link satisfies Omit<typeof fs.link, '__promisify__'>;
  * Asynchronous `symlink`.
  * @param target target path
  * @param path link path
- * @param type can be either `'dir'` or `'file'` (default is `'file'`)
- * @param callback
+ * Type defaults to file
  */
 export function symlink(target: fs.PathLike, path: fs.PathLike, cb?: Callback): void;
 export function symlink(target: fs.PathLike, path: fs.PathLike, type?: fs.symlink.Type, cb?: Callback): void;
@@ -527,11 +425,6 @@ export function symlink(target: fs.PathLike, path: fs.PathLike, typeOrCB?: fs.sy
 }
 symlink satisfies Omit<typeof fs.symlink, '__promisify__'>;
 
-/**
- * Asynchronous readlink.
- * @param path
- * @param callback
- */
 export function readlink(path: fs.PathLike, callback: Callback<[string]> & any): void;
 export function readlink(path: fs.PathLike, options: fs.BufferEncodingOption, callback: Callback<[Uint8Array]>): void;
 export function readlink(path: fs.PathLike, options: fs.EncodingOption, callback: Callback<[string | Uint8Array]>): void;
@@ -549,13 +442,6 @@ export function readlink(
 }
 readlink satisfies Omit<typeof fs.readlink, '__promisify__'>;
 
-/**
- * Asynchronous `chown`.
- * @param path
- * @param uid
- * @param gid
- * @param callback
- */
 export function chown(path: fs.PathLike, uid: number, gid: number, cb: Callback = nop): void {
 	promises
 		.chown(path, uid, gid)
@@ -564,13 +450,6 @@ export function chown(path: fs.PathLike, uid: number, gid: number, cb: Callback 
 }
 chown satisfies Omit<typeof fs.chown, '__promisify__'>;
 
-/**
- * Asynchronous `lchown`.
- * @param path
- * @param uid
- * @param gid
- * @param callback
- */
 export function lchown(path: fs.PathLike, uid: number, gid: number, cb: Callback = nop): void {
 	promises
 		.lchown(path, uid, gid)
@@ -579,12 +458,6 @@ export function lchown(path: fs.PathLike, uid: number, gid: number, cb: Callback
 }
 lchown satisfies Omit<typeof fs.lchown, '__promisify__'>;
 
-/**
- * Asynchronous `chmod`.
- * @param path
- * @param mode
- * @param callback
- */
 export function chmod(path: fs.PathLike, mode: number | string, cb: Callback = nop): void {
 	promises
 		.chmod(path, mode)
@@ -593,12 +466,6 @@ export function chmod(path: fs.PathLike, mode: number | string, cb: Callback = n
 }
 chmod satisfies Omit<typeof fs.chmod, '__promisify__'>;
 
-/**
- * Asynchronous `lchmod`.
- * @param path
- * @param mode
- * @param callback
- */
 export function lchmod(path: fs.PathLike, mode: number | string, cb: Callback = nop): void {
 	promises
 		.lchmod(path, mode)
@@ -609,10 +476,6 @@ lchmod satisfies Omit<typeof fs.lchmod, '__promisify__'>;
 
 /**
  * Change file timestamps of the file referenced by the supplied path.
- * @param path
- * @param atime
- * @param mtime
- * @param callback
  */
 export function utimes(path: fs.PathLike, atime: number | Date, mtime: number | Date, cb: Callback = nop): void {
 	promises
@@ -624,10 +487,6 @@ utimes satisfies Omit<typeof fs.utimes, '__promisify__'>;
 
 /**
  * Change file timestamps of the file referenced by the supplied path.
- * @param path
- * @param atime
- * @param mtime
- * @param callback
  */
 export function lutimes(path: fs.PathLike, atime: number | Date, mtime: number | Date, cb: Callback = nop): void {
 	promises
@@ -640,9 +499,6 @@ lutimes satisfies Omit<typeof fs.lutimes, '__promisify__'>;
 /**
  * Asynchronous `realpath`. The callback gets two arguments
  * `(err, resolvedPath)`. May use `process.cwd` to resolve relative paths.
- *
- * @param path
- * @param callback
  */
 export function realpath(path: fs.PathLike, cb?: Callback<[string]>): void;
 export function realpath(path: fs.PathLike, options: fs.EncodingOption, cb: Callback<[string]>): void;
@@ -655,12 +511,6 @@ export function realpath(path: fs.PathLike, arg2?: Callback<[string]> | fs.Encod
 }
 realpath satisfies Omit<typeof fs.realpath, '__promisify__' | 'native'>;
 
-/**
- * Asynchronous `access`.
- * @param path
- * @param mode
- * @param callback
- */
 export function access(path: fs.PathLike, cb: Callback): void;
 export function access(path: fs.PathLike, mode: number, cb: Callback): void;
 export function access(path: fs.PathLike, cbMode: number | Callback, cb: Callback = nop): void {
@@ -690,14 +540,14 @@ export function watchFile(path: fs.PathLike, listener: (curr: Stats, prev: Stats
 export function watchFile(path: fs.PathLike, options: { persistent?: boolean; interval?: number }, listener: (curr: Stats, prev: Stats) => void): void;
 export function watchFile(
 	path: fs.PathLike,
-	optsListener: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
+	options: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
 	listener?: (curr: Stats, prev: Stats) => void
 ): void {
 	const normalizedPath = normalizePath(path.toString());
-	const options: { persistent?: boolean; interval?: number } = typeof optsListener != 'function' ? optsListener : {};
+	const opts = typeof options != 'function' ? options : {};
 
-	if (typeof optsListener === 'function') {
-		listener = optsListener;
+	if (typeof options == 'function') {
+		listener = options;
 	}
 
 	if (!listener) {
@@ -712,7 +562,7 @@ export function watchFile(
 		return;
 	}
 
-	const watcher = new StatWatcher(normalizedPath, options);
+	const watcher = new StatWatcher(normalizedPath, opts);
 	watcher.on('change', (curr: Stats, prev: Stats) => {
 		const entry = statWatchers.get(normalizedPath);
 		if (!entry) {
@@ -802,8 +652,8 @@ interface WriteStreamOptions extends StreamOptions {
  * @param options Options for the ReadStream and file opening (e.g., `encoding`, `highWaterMark`, `mode`).
  * @returns A ReadStream object for interacting with the file's contents.
  */
-export function createReadStream(path: fs.PathLike, _options?: BufferEncoding | ReadStreamOptions): ReadStream {
-	const options = typeof _options == 'object' ? _options : { encoding: _options };
+export function createReadStream(path: fs.PathLike, options?: BufferEncoding | ReadStreamOptions): ReadStream {
+	options = typeof options == 'object' ? options : { encoding: options };
 	let handle: promises.FileHandle;
 	const stream = new ReadStream({
 		highWaterMark: options.highWaterMark || 64 * 1024,
@@ -842,8 +692,8 @@ createReadStream satisfies Omit<typeof fs.createReadStream, '__promisify__'>;
  * @param options Options for the WriteStream and file opening (e.g., `encoding`, `highWaterMark`, `mode`).
  * @returns A WriteStream object for writing to the file.
  */
-export function createWriteStream(path: fs.PathLike, _options?: BufferEncoding | WriteStreamOptions): WriteStream {
-	const options = typeof _options == 'object' ? _options : { encoding: _options };
+export function createWriteStream(path: fs.PathLike, options?: BufferEncoding | WriteStreamOptions): WriteStream {
+	options = typeof options == 'object' ? options : { encoding: options };
 	let handle: promises.FileHandle;
 	const stream = new WriteStream({
 		highWaterMark: options?.highWaterMark,

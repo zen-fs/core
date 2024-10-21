@@ -77,14 +77,14 @@ export class FileHandle implements promises.FileHandle {
 
 	/**
 	 * Asynchronous ftruncate(2) - Truncate a file to a specified length.
-	 * @param len If not specified, defaults to `0`.
+	 * @param length If not specified, defaults to `0`.
 	 */
-	public async truncate(len?: number | null): Promise<void> {
-		len ||= 0;
-		if (len < 0) {
+	public async truncate(length?: number | null): Promise<void> {
+		length ||= 0;
+		if (length < 0) {
 			throw new ErrnoError(Errno.EINVAL);
 		}
-		await this.file.truncate(len);
+		await this.file.truncate(length);
 		emitChange('change', this.file.path);
 	}
 
@@ -103,10 +103,9 @@ export class FileHandle implements promises.FileHandle {
 	 * The `FileHandle` must have been opened for appending.
 	 * @param data The data to write. If something other than a `Buffer` or `Uint8Array` is provided, the value is coerced to a string.
 	 * @param _options Either the encoding for the file, or an object optionally specifying the encoding, file mode, and flag.
-	 * If `encoding` is not supplied, the default of `'utf8'` is used.
-	 * If `mode` is not supplied, the default of `0o666` is used.
-	 * If `mode` is a string, it is parsed as an octal integer.
-	 * If `flag` is not supplied, the default of `'a'` is used.
+	 * - `encoding` defaults to `'utf8'`.
+	 * - `mode` defaults to `0o666`.
+	 * - `flag` defaults to `'a'`.
 	 */
 	public async appendFile(data: string | Uint8Array, _options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding = {}): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
@@ -161,10 +160,11 @@ export class FileHandle implements promises.FileHandle {
 	/**
 	 * Returns a `ReadableStream` that may be used to read the files data.
 	 *
-	 * An error will be thrown if this method is called more than once or is called after the `FileHandle` is closed
-	 * or closing.
+	 * An error will be thrown if this method is called more than once or is called after the `FileHandle` is closed or closing.
 	 *
-	 * While the `ReadableStream` will read the file to completion, it will not close the `FileHandle` automatically. User code must still call the `fileHandle.close()` method.
+	 * While the `ReadableStream` will read the file to completion,
+	 * it will not close the `FileHandle` automatically.
+	 * User code must still call the `fileHandle.close()` method.
 	 *
 	 * @since v17.0.0
 	 * @experimental
@@ -272,10 +272,9 @@ export class FileHandle implements promises.FileHandle {
 	 * It is unsafe to call `writeFile()` multiple times on the same file without waiting for the `Promise` to be resolved (or rejected).
 	 * @param data The data to write. If something other than a `Buffer` or `Uint8Array` is provided, the value is coerced to a string.
 	 * @param _options Either the encoding for the file, or an object optionally specifying the encoding, file mode, and flag.
-	 * If `encoding` is not supplied, the default of `'utf8'` is used.
-	 * If `mode` is not supplied, the default of `0o666` is used.
-	 * If `mode` is a string, it is parsed as an octal integer.
-	 * If `flag` is not supplied, the default of `'w'` is used.
+	 * - `encoding` defaults to `'utf8'`.
+	 * - `mode` defaults to `0o666`.
+	 * - `flag` defaults to `'w'`.
 	 */
 	public async writeFile(data: string | Uint8Array, _options: fs.WriteFileOptions = {}): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
@@ -332,10 +331,8 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	/**
-	 * Creates a `ReadStream` for reading from the file.
-	 *
+	 * Creates a stream for reading from the file.
 	 * @param options Options for the readable stream
-	 * @returns A `ReadStream` object.
 	 */
 	public createReadStream(options?: CreateReadStreamOptions): ReadStream {
 		const stream = new ReadStream({
@@ -359,10 +356,8 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	/**
-	 * Creates a `WriteStream` for writing to the file.
-	 *
+	 * Creates a stream for writing to the file.
 	 * @param options Options for the writeable stream.
-	 * @returns A `WriteStream` object
 	 */
 	public createWriteStream(options?: CreateWriteStreamOptions): WriteStream {
 		const streamOptions = {
@@ -385,11 +380,6 @@ export class FileHandle implements promises.FileHandle {
 	}
 }
 
-/**
- * Renames a file
- * @param oldPath
- * @param newPath
- */
 export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promise<void> {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
@@ -414,8 +404,7 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 rename satisfies typeof promises.rename;
 
 /**
- * Test whether or not the given path exists by checking with the file system.
- * @param path
+ * Test whether or not `path` exists by checking with the file system.
  */
 export async function exists(path: fs.PathLike): Promise<boolean> {
 	try {
@@ -430,11 +419,6 @@ export async function exists(path: fs.PathLike): Promise<boolean> {
 	}
 }
 
-/**
- * `stat`.
- * @param path
- * @returns Stats
- */
 export async function stat(path: fs.PathLike, options: fs.BigIntOptions): Promise<BigIntStats>;
 export async function stat(path: fs.PathLike, options?: { bigint?: false }): Promise<Stats>;
 export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
@@ -457,8 +441,6 @@ stat satisfies typeof promises.stat;
  * `lstat`.
  * `lstat()` is identical to `stat()`, except that if path is a symbolic link,
  * then the link itself is stat-ed, not the file that it refers to.
- * @param path
- * @return
  */
 export async function lstat(path: fs.PathLike, options?: { bigint?: boolean }): Promise<Stats>;
 export async function lstat(path: fs.PathLike, options: { bigint: true }): Promise<BigIntStats>;
@@ -476,21 +458,12 @@ lstat satisfies typeof promises.lstat;
 
 // FILE-ONLY METHODS
 
-/**
- * `truncate`.
- * @param path
- * @param len
- */
 export async function truncate(path: fs.PathLike, len: number = 0): Promise<void> {
 	await using handle = await open(path, 'r+');
 	await handle.truncate(len);
 }
 truncate satisfies typeof promises.truncate;
 
-/**
- * `unlink`.
- * @param path
- */
 export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
@@ -562,7 +535,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 /**
  * Asynchronous file open.
  * @see http://www.manpagez.com/man/2/open/
- * @param flags Handles the complexity of the various file modes. See its API for more details.
+ * @param flag Handles the complexity of the various file modes. See its API for more details.
  * @param mode Mode to use to open the file. Can be ignored if the filesystem doesn't support permissions.
  */
 export async function open(path: fs.PathLike, flag: fs.OpenMode = 'r', mode: fs.Mode = 0o644): Promise<FileHandle> {
@@ -572,11 +545,9 @@ open satisfies typeof promises.open;
 
 /**
  * Asynchronously reads the entire contents of a file.
- * @param filename
- * @param options
- * options.encoding The string encoding for the file contents. Defaults to `null`.
- * options.flag Defaults to `'r'`.
- * @returns file data
+ * @option encoding The string encoding for the file contents. Defaults to `null`.
+ * @option flag Defaults to `'r'`.
+ * @returns the file data
  */
 export async function readFile(path: fs.PathLike | promises.FileHandle, options?: { encoding?: null; flag?: fs.OpenMode } | null): Promise<Buffer>;
 export async function readFile(path: fs.PathLike | promises.FileHandle, options: { encoding: BufferEncoding; flag?: fs.OpenMode } | BufferEncoding): Promise<string>;
@@ -598,12 +569,9 @@ readFile satisfies typeof promises.readFile;
  * Asynchronously writes data to a file, replacing the file if it already exists.
  *
  * The encoding option is ignored if data is a buffer.
- * @param path
- * @param data Note:
- * @param _options
- * @option options encoding Defaults to `'utf8'`.
- * @option options mode Defaults to `0644`.
- * @option options flag Defaults to `'w'`.
+ * @option encoding Defaults to `'utf8'`.
+ * @option mode Defaults to `0644`.
+ * @option flag Defaults to `'w'`.
  */
 export async function writeFile(
 	path: fs.PathLike | promises.FileHandle,
@@ -622,14 +590,10 @@ export async function writeFile(
 writeFile satisfies typeof promises.writeFile;
 
 /**
- * Asynchronously append data to a file, creating the file if it not yet
- * exists.
- * @param path
- * @param data
- * @param options
- * @option options encoding Defaults to `'utf8'`.
- * @option options mode Defaults to `0644`.
- * @option options flag Defaults to `'a'`.
+ * Asynchronously append data to a file, creating the file if it not yet exists.
+ * @option encoding Defaults to `'utf8'`.
+ * @option mode Defaults to `0644`.
+ * @option flag Defaults to `'a'`.
  */
 export async function appendFile(
 	path: fs.PathLike | promises.FileHandle,
@@ -653,10 +617,6 @@ appendFile satisfies typeof promises.appendFile;
 
 // DIRECTORY-ONLY METHODS
 
-/**
- * `rmdir`.
- * @param path
- */
 export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	path = (await exists(path)) ? await realpath(path) : path;
@@ -723,7 +683,7 @@ mkdir satisfies typeof promises.mkdir;
 /**
  * Asynchronous readdir(3) - read a directory.
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
- * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'` is used.
+ * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'`.
  */
 export async function readdir(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null): Promise<string[]>;
 export async function readdir(path: fs.PathLike, options: fs.BufferEncodingOption & { withFileTypes?: false; recursive?: boolean }): Promise<Buffer[]>;
@@ -768,11 +728,6 @@ readdir satisfies typeof promises.readdir;
 
 // SYMLINK METHODS
 
-/**
- * `link`.
- * @param targetPath
- * @param linkPath
- */
 export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Promise<void> {
 	targetPath = normalizePath(targetPath);
 	if (!(await stat(dirname(targetPath))).hasAccess(constants.R_OK)) {
@@ -820,10 +775,6 @@ export async function symlink(target: fs.PathLike, path: fs.PathLike, type: fs.s
 }
 symlink satisfies typeof promises.symlink;
 
-/**
- * readlink.
- * @param path
- */
 export async function readlink(path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
 export async function readlink(path: fs.PathLike, options?: fs.EncodingOption | null): Promise<string>;
 export async function readlink(path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer>;
@@ -837,46 +788,24 @@ readlink satisfies typeof promises.readlink;
 
 // PROPERTY OPERATIONS
 
-/**
- * `chown`.
- * @param path
- * @param uid
- * @param gid
- */
 export async function chown(path: fs.PathLike, uid: number, gid: number): Promise<void> {
 	await using handle = await open(path, 'r+');
 	await handle.chown(uid, gid);
 }
 chown satisfies typeof promises.chown;
 
-/**
- * `lchown`.
- * @param path
- * @param uid
- * @param gid
- */
 export async function lchown(path: fs.PathLike, uid: number, gid: number): Promise<void> {
 	await using handle: FileHandle = await _open(path, 'r+', 0o644, false);
 	await handle.chown(uid, gid);
 }
 lchown satisfies typeof promises.lchown;
 
-/**
- * `chmod`.
- * @param path
- * @param mode
- */
 export async function chmod(path: fs.PathLike, mode: fs.Mode): Promise<void> {
 	await using handle = await open(path, 'r+');
 	await handle.chmod(mode);
 }
 chmod satisfies typeof promises.chmod;
 
-/**
- * `lchmod`.
- * @param path
- * @param mode
- */
 export async function lchmod(path: fs.PathLike, mode: fs.Mode): Promise<void> {
 	await using handle: FileHandle = await _open(path, 'r+', 0o644, false);
 	await handle.chmod(mode);
@@ -885,9 +814,6 @@ lchmod satisfies typeof promises.lchmod;
 
 /**
  * Change file timestamps of the file referenced by the supplied path.
- * @param path
- * @param atime
- * @param mtime
  */
 export async function utimes(path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): Promise<void> {
 	await using handle = await open(path, 'r+');
@@ -897,9 +823,6 @@ utimes satisfies typeof promises.utimes;
 
 /**
  * Change file timestamps of the file referenced by the supplied path.
- * @param path
- * @param atime
- * @param mtime
  */
 export async function lutimes(path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
 	await using handle: FileHandle = await _open(path, 'r+', 0o644, false);
@@ -910,7 +833,7 @@ lutimes satisfies typeof promises.lutimes;
 /**
  * Asynchronous realpath(3) - return the canonicalized absolute pathname.
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
- * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'` is used.
+ * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. Defaults to `'utf8'`.
  */
 export async function realpath(path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
 export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
@@ -961,11 +884,6 @@ export function watch<T extends string | Buffer>(filename: fs.PathLike, options:
 }
 watch satisfies typeof promises.watch;
 
-/**
- * `access`.
- * @param path
- * @param mode
- */
 export async function access(path: fs.PathLike, mode: number = constants.F_OK): Promise<void> {
 	const stats = await stat(path);
 	if (!stats.hasAccess(mode)) {
@@ -1066,7 +984,7 @@ opendir satisfies typeof promises.opendir;
  * @param opts Options for the copy operation. Currently supports these options from Node.js 'fs.await cp':
  *   * `dereference`: Dereference symbolic links.
  *   * `errorOnExist`: Throw an error if the destination file or directory already exists.
- *   * `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy the given source element.
+ *   * `filter`: A function that takes a source and destination path and returns a boolean, indicating whether to copy `source` element.
  *   * `force`: Overwrite the destination if it exists, and overwrite existing readonly destination files.
  *   * `preserveTimestamps`: Preserve file timestamps.
  *   * `recursive`: If `true`, copies directories recursively.
@@ -1114,8 +1032,8 @@ export async function cp(source: fs.PathLike, destination: fs.PathLike, opts?: f
 cp satisfies typeof promises.cp;
 
 /**
- * @since v18.15.0
- * @return Fulfills with an {fs.StatFs} for the file system.
+ * @since Node v18.15.0
+ * @returns Fulfills with an {fs.StatFs} for the file system.
  */
 export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions & { bigint?: false }): Promise<fs.StatsFs>;
 export async function statfs(path: fs.PathLike, opts: fs.StatFsOptions & { bigint: true }): Promise<fs.BigIntStatsFs>;

@@ -81,25 +81,22 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const nodeId: Ino = oldDirList[oldName];
 		delete oldDirList[oldName];
 
-		// Invariant: Can't move a folder inside itself.
-		// This funny little hack ensures that the check passes only if oldPath
-		// is a subpath of newParent. We append '/' to avoid matching folders that
-		// are a substring of the bottom-most folder in the path.
+		/* 
+			Can't move a folder inside itself.
+			This ensures that the check passes only if `oldPath` is a subpath of `newParent`.
+			We append '/' to avoid matching folders that are a substring of the bottom-most folder in the path.
+		*/
 		if ((newParent + '/').indexOf(oldPath + '/') === 0) {
 			throw new ErrnoError(Errno.EBUSY, oldParent);
 		}
 
 		// Add newPath to parent's directory listing.
-		let newDirNode: Inode, newDirList: typeof oldDirList;
-		if (newParent === oldParent) {
-			// Prevent us from re-grabbing the same directory listing, which still
-			// contains oldName.
-			newDirNode = oldDirNode;
-			newDirList = oldDirList;
-		} else {
-			newDirNode = await this.findINode(tx, newParent);
-			newDirList = await this.getDirListing(tx, newDirNode, newParent);
-		}
+
+		const sameParent = newParent === oldParent;
+
+		// Prevent us from re-grabbing the same directory listing, which still contains `oldName.`
+		const newDirNode: Inode = sameParent ? oldDirNode : await this.findINode(tx, newParent);
+		const newDirList: typeof oldDirList = sameParent ? oldDirList : await this.getDirListing(tx, newDirNode, newParent);
 
 		if (newDirList[newName]) {
 			// If it's a file, delete it, if it's a directory, throw a permissions error.
@@ -133,25 +130,21 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const ino: Ino = oldDirList[oldName];
 		delete oldDirList[oldName];
 
-		// Invariant: Can't move a folder inside itself.
-		// This funny little hack ensures that the check passes only if oldPath
-		// is a subpath of newParent. We append '/' to avoid matching folders that
-		// are a substring of the bottom-most folder in the path.
+		/* 
+			Can't move a folder inside itself.
+			This ensures that the check passes only if `oldPath` is a subpath of `newParent`.
+			We append '/' to avoid matching folders that are a substring of the bottom-most folder in the path.
+		*/
 		if ((newParent + '/').indexOf(oldPath + '/') == 0) {
 			throw new ErrnoError(Errno.EBUSY, oldParent);
 		}
 
 		// Add newPath to parent's directory listing.
-		let newDirNode: Inode, newDirList: typeof oldDirList;
-		if (newParent === oldParent) {
-			// Prevent us from re-grabbing the same directory listing, which still
-			// contains oldName.
-			newDirNode = oldDirNode;
-			newDirList = oldDirList;
-		} else {
-			newDirNode = this.findINodeSync(tx, newParent);
-			newDirList = this.getDirListingSync(tx, newDirNode, newParent);
-		}
+		const sameParent = newParent === oldParent;
+
+		// Prevent us from re-grabbing the same directory listing, which still contains `oldName.`
+		const newDirNode: Inode = sameParent ? oldDirNode : this.findINodeSync(tx, newParent);
+		const newDirList: typeof oldDirList = sameParent ? oldDirList : this.getDirListingSync(tx, newDirNode, newParent);
 
 		if (newDirList[newName]) {
 			// If it's a file, delete it, if it's a directory, throw a permissions error.
@@ -172,16 +165,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public async stat(path: string): Promise<Stats> {
 		await using tx = this.store.transaction();
-		const inode = await this.findINode(tx, path);
-		if (!inode) {
-			throw ErrnoError.With('ENOENT', path, 'stat');
-		}
-		return inode.toStats();
+		return (await this.findINode(tx, path)).toStats();
 	}
 
 	public statSync(path: string): Stats {
 		using tx = this.store.transaction();
-		// Get the inode to the item, convert it into a Stats object.
 		return this.findINodeSync(tx, path).toStats();
 	}
 
@@ -224,7 +212,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async rmdir(path: string): Promise<void> {
-		// Check first if directory is empty.
 		if ((await this.readdir(path)).length) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		}
@@ -232,7 +219,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public rmdirSync(path: string): void {
-		// Check first if directory is empty.
 		if (this.readdirSync(path).length) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		}
@@ -260,7 +246,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Updated the inode and data node at the given path
+	 * Updated the inode and data node at `path`
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
@@ -281,7 +267,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Updated the inode and data node at the given path
+	 * Updated the inode and data node at `path`
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
@@ -429,7 +415,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Finds the Inode of the given path.
+	 * Finds the Inode of `path`.
 	 * @param path The path to look up.
 	 * @todo memoize/cache
 	 */
@@ -439,7 +425,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Finds the Inode of the given path.
+	 * Finds the Inode of `path`.
 	 * @param path The path to look up.
 	 * @return The Inode of the path p.
 	 * @todo memoize/cache
@@ -547,13 +533,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Commits a new file (well, a FILE or a DIRECTORY) to the file system with
-	 * the given mode.
+	 * Commits a new file (well, a FILE or a DIRECTORY) to the file system with `mode`.
 	 * Note: This will commit the transaction.
 	 * @param path The path to the new file.
 	 * @param type The type of the new file.
 	 * @param mode The mode to create the new file with.
-	 * @param cred The UID/GID to create the file with
 	 * @param data The data to store at the file's data node.
 	 */
 	private async commitNew(path: string, type: FileType, mode: number, data: Uint8Array): Promise<Inode> {
@@ -595,7 +579,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Commits a new file (well, a FILE or a DIRECTORY) to the file system with the given mode.
+	 * Commits a new file (well, a FILE or a DIRECTORY) to the file system with `mode`.
 	 * Note: This will commit the transaction.
 	 * @param path The path to the new file.
 	 * @param type The type of the new file.
@@ -640,7 +624,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Remove all traces of the given path from the file system.
+	 * Remove all traces of `path` from the file system.
 	 * @param path The path to remove from the file system.
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
@@ -685,7 +669,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Remove all traces of the given path from the file system.
+	 * Remove all traces of `path` from the file system.
 	 * @param path The path to remove from the file system.
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.

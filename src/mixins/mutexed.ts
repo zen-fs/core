@@ -227,15 +227,15 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
  * This serializes access to an underlying async filesystem.
  * For example, on an OverlayFS instance with an async lower
  * directory operations like rename and rmdir may involve multiple
- * requests involving both the upper and lower filesystems -- they
+ * requests involving both the upper and lower file systems -- they
  * are not executed in a single atomic step. OverlayFS uses this
  * to avoid having to reason about the correctness of
  * multiple requests interleaving.
  *
- * Note:
+ * @privateRemarks
  * Instead of extending the passed class, `MutexedFS` stores it internally.
- * This is to avoid a deadlock caused when a mathod calls another one
- * The problem is discussed extensivly in [#78](https://github.com/zen-fs/core/issues/78)
+ * This is to avoid a deadlock caused when a method calls another one
+ * The problem is discussed extensively in [#78](https://github.com/zen-fs/core/issues/78)
  * Instead of extending `FileSystem`,
  * `MutexedFS` implements it in order to make sure all of the methods are passed through
  *

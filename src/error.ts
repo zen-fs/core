@@ -244,8 +244,7 @@ export interface ErrnoErrorJSON {
 }
 
 /**
- * Represents a ZenFS error. Passed back to applications after a failed
- * call to the ZenFS API.
+ * An error with additional information about what happened
  */
 export class ErrnoError extends Error implements NodeJS.ErrnoException {
 	public static fromJSON(json: ErrnoErrorJSON): ErrnoError {
@@ -263,17 +262,14 @@ export class ErrnoError extends Error implements NodeJS.ErrnoException {
 
 	public declare stack: string;
 
-	/**
-	 * Represents a ZenFS error. Passed back to applications after a failed
-	 * call to the ZenFS API.
-	 *
-	 * Error codes mirror those returned by regular Unix file operations, which is
-	 * what Node returns.
-	 * @param type The type of the error.
-	 * @param message A descriptive error message.
-	 */
 	public constructor(
+		/**
+		 * The kind of error
+		 */
 		public errno: Errno,
+		/**
+		 * A descriptive error message
+		 */
 		message: string = errorMessages[errno],
 		public path?: string,
 		public syscall: string = ''

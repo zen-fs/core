@@ -3,14 +3,12 @@ import { Errno, ErrnoError } from '../error.js';
 import { parseFlag, PreloadFile, type File } from '../file.js';
 import type { FileSystem } from '../filesystem.js';
 import type { Stats } from '../stats.js';
-import type { _AsyncFSMethods, Mixin } from './shared.js';
+import type { AsyncFSMethods, Mixin } from './shared.js';
 
-/**
- * @internal
- */
+/** @internal */
 export type AsyncOperation = {
-	[K in keyof _AsyncFSMethods]: [K, ...Parameters<FileSystem[K]>];
-}[keyof _AsyncFSMethods];
+	[K in keyof AsyncFSMethods]: [K, ...Parameters<FileSystem[K]>];
+}[keyof AsyncFSMethods];
 
 /**
  * Async() implements synchronous methods on an asynchronous file system

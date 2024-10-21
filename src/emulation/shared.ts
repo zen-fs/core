@@ -24,7 +24,6 @@ export function fd2file(fd: number): File {
 	return fdMap.get(fd)!;
 }
 
-// mounting
 export type MountObject = Record<AbsolutePath, FileSystem>;
 
 /**
@@ -33,13 +32,11 @@ export type MountObject = Record<AbsolutePath, FileSystem>;
  */
 export const mounts: Map<string, FileSystem> = new Map();
 
-/*
-Set a default root.
-*/
+// Set a default root.
 mount('/', InMemory.create({ name: 'root' }));
 
 /**
- * Mounts the file system at the given mount point.
+ * Mounts the file system at `mountPoint`.
  */
 export function mount(mountPoint: string, fs: FileSystem): void {
 	if (mountPoint[0] !== '/') {
@@ -53,7 +50,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 }
 
 /**
- * Unmounts the file system at the given mount point.
+ * Unmounts the file system at `mountPoint`.
  */
 export function umount(mountPoint: string): void {
 	if (mountPoint[0] !== '/') {
@@ -89,6 +86,7 @@ export function resolveMount(path: string): { fs: FileSystem; path: string; moun
 
 /**
  * Reverse maps the paths in text from the mounted FileSystem to the global path
+ * @hidden
  */
 export function fixPaths(text: string, paths: Record<string, string>): string {
 	for (const [from, to] of Object.entries(paths)) {
@@ -97,6 +95,10 @@ export function fixPaths(text: string, paths: Record<string, string>): string {
 	return text;
 }
 
+/**
+ * Fix paths in error stacks
+ * @hidden
+ */
 export function fixError<E extends Error>(e: E, paths: Record<string, string>): E {
 	if (typeof e.stack == 'string') {
 		e.stack = fixPaths(e.stack, paths);

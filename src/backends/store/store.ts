@@ -44,47 +44,41 @@ export abstract class Transaction<T extends Store = Store> {
 	protected done: boolean = false;
 
 	/**
-	 * Retrieves the data at the given key.
+	 * Retrieves the data at `ino`.
 	 * @param ino The key to look under for data.
 	 */
 	public abstract get(ino: Ino): Promise<Uint8Array>;
 
 	/**
-	 * Retrieves the data at the given key. Throws an error if an error occurs
-	 * or if the key does not exist.
+	 * Retrieves the data at `ino`.
+	 * Throws an error if an error occurs or if the key does not exist.
 	 * @param ino The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
 	public abstract getSync(ino: Ino): Uint8Array;
 
 	/**
-	 * Adds the data to the store under the given key. Overwrites any existing
-	 * data.
+	 * Adds the data to the store under `ino`. Overwrites any existing data.
 	 * @param ino The key to add the data under.
 	 * @param data The data to add to the store.
-	 * @param overwrite If 'true', overwrite any existing data. If 'false',
-	 *   avoids writing the data if the key exists.
 	 */
 	public abstract set(ino: Ino, data: Uint8Array): Promise<void>;
 
 	/**
-	 * Adds the data to the store under the given key.
+	 * Adds the data to the store under `ino`.
 	 * @param ino The key to add the data under.
 	 * @param data The data to add to the store.
-	 * @param overwrite If 'true', overwrite any existing data. If 'false',
-	 *   avoids storing the data if the key exists.
-	 * @return True if storage succeeded, false otherwise.
 	 */
 	public abstract setSync(ino: Ino, data: Uint8Array): void;
 
 	/**
-	 * Deletes the data at the given key.
+	 * Deletes the data at `ino`.
 	 * @param ino The key to delete from the store.
 	 */
 	public abstract remove(ino: Ino): Promise<void>;
 
 	/**
-	 * Deletes the data at the given key.
+	 * Deletes the data at `ino`.
 	 * @param ino The key to delete from the store.
 	 */
 	public abstract removeSync(ino: Ino): void;

@@ -1,6 +1,6 @@
 {
 	"name": "@zenfs/core",
-	"version": "1.0.10",
+	"version": "1.0.11",
 	"description": "A filesystem, anywhere",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -66,7 +66,7 @@
 		"eventemitter3": "^5.0.1",
 		"minimatch": "^9.0.3",
 		"readable-stream": "^4.5.2",
-		"utilium": "^0.7.4"
+		"utilium": "^1.0.0"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.8.0",
@@ -76,9 +76,9 @@
 		"lint-staged": "^15.2.7",
 		"prettier": "^3.2.5",
 		"tsx": "^4.19.1",
-		"typedoc": "^0.25.13",
+		"typedoc": "^0.26.10",
 		"typedoc-plugin-remove-references": "^0.0.6",
-		"typescript": "^5.4.0",
+		"typescript": "^5.5.0",
 		"typescript-eslint": "^8.0.0"
 	}
 }

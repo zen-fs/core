@@ -3,13 +3,10 @@ import { credentials, type Credentials } from './credentials.js';
 import { S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK, S_IRWXG, S_IRWXO, S_IRWXU, size_max } from './emulation/constants.js';
 
 /**
- * Indicates the type of the given file. Applied to 'mode'.
+ * Indicates the type of a file. Applied to 'mode'.
  */
 export type FileType = typeof S_IFREG | typeof S_IFDIR | typeof S_IFLNK;
 
-/**
- *
- */
 export interface StatsLike<T extends number | bigint = number | bigint> {
 	/**
 	 * Size of the item in bytes.
@@ -18,35 +15,34 @@ export interface StatsLike<T extends number | bigint = number | bigint> {
 	size: T;
 	/**
 	 * Unix-style file mode (e.g. 0o644) that includes the item type
-	 * Type of the item can be FILE, DIRECTORY, SYMLINK, or SOCKET
 	 */
 	mode: T;
 	/**
-	 * time of last access, in milliseconds since epoch
+	 * Time of last access, since epoch
 	 */
 	atimeMs: T;
 	/**
-	 * time of last modification, in milliseconds since epoch
+	 * Time of last modification, since epoch
 	 */
 	mtimeMs: T;
 	/**
-	 * time of last time file status was changed, in milliseconds since epoch
+	 * Time of last time file status was changed, since epoch
 	 */
 	ctimeMs: T;
 	/**
-	 * time of file creation, in milliseconds since epoch
+	 * Time of file creation, since epoch
 	 */
 	birthtimeMs: T;
 	/**
-	 * the id of the user that owns the file
+	 * The id of the user that owns the file
 	 */
 	uid: T;
 	/**
-	 * the id of the group that owns the file
+	 * The id of the group that owns the file
 	 */
 	gid: T;
 	/**
-	 * the ino
+	 * Inode number
 	 */
 	ino: T;
 }
@@ -78,32 +74,32 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public dev: T = this._convert(0);
 
 	/**
-	 * inode number
+	 * Inode number
 	 */
 	public ino: T = this._convert(0);
 
 	/**
-	 * device ID (if special file)
+	 * Device ID (if special file)
 	 */
 	public rdev: T = this._convert(0);
 
 	/**
-	 * number of hard links
+	 * Number of hard links
 	 */
 	public nlink: T = this._convert(1);
 
 	/**
-	 * blocksize for file system I/O
+	 * Block size for file system I/O
 	 */
 	public blksize: T = this._convert(4096);
 
 	/**
-	 * user ID of owner
+	 * User ID of owner
 	 */
 	public uid: T = this._convert(0);
 
 	/**
-	 * group ID of owner
+	 * Group ID of owner
 	 */
 	public gid: T = this._convert(0);
 
@@ -113,7 +109,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public fileData?: Uint8Array;
 
 	/**
-	 * time of last access, in milliseconds since epoch
+	 * Time of last access, since epoch
 	 */
 	public atimeMs: T;
 
@@ -126,7 +122,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	/**
-	 * time of last modification, in milliseconds since epoch
+	 * Time of last modification, since epoch
 	 */
 	public mtimeMs: T;
 
@@ -139,7 +135,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	/**
-	 * time of last time file status was changed, in milliseconds since epoch
+	 * Time of last time file status was changed, since epoch
 	 */
 	public ctimeMs: T;
 
@@ -152,7 +148,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	/**
-	 * time of file creation, in milliseconds since epoch
+	 * Time of file creation, since epoch
 	 */
 	public birthtimeMs: T;
 
@@ -190,28 +186,17 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		}
 	}
 
-	/**
-	 * @returns true if this item is a file.
-	 */
 	public isFile(): boolean {
 		return (this.mode & S_IFMT) === S_IFREG;
 	}
 
-	/**
-	 * @returns True if this item is a directory.
-	 */
 	public isDirectory(): boolean {
 		return (this.mode & S_IFMT) === S_IFDIR;
 	}
 
-	/**
-	 * @returns true if this item is a symbolic link
-	 */
 	public isSymbolicLink(): boolean {
 		return (this.mode & S_IFMT) === S_IFLNK;
 	}
-
-	// Currently unsupported
 
 	public isSocket(): boolean {
 		return (this.mode & S_IFMT) === S_IFSOCK;
@@ -262,8 +247,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	/**
-	 * Change the mode of the file. We use this helper function to prevent messing
-	 * up the type of the file, which is encoded in mode.
+	 * Change the mode of the file.
+	 * We use this helper function to prevent messing up the type of the file.
 	 * @internal
 	 */
 	public chmod(mode: number): void {
@@ -334,9 +319,7 @@ export function isStatsEqual<T extends number | bigint>(left: StatsCommon<T>, ri
 	return left.size == right.size && +left.atime == +right.atime && +left.mtime == +right.mtime && +left.ctime == +right.ctime && left.mode == right.mode;
 }
 
-/**
- * @internal
- */
+/** @internal */
 export const ZenFsType = 0x7a656e6673; // 'z' 'e' 'n' 'f' 's'
 
 /**

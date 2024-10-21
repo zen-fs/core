@@ -6,6 +6,7 @@ import type { FileOrFSRequest } from './fs.js';
 
 type _MessageEvent<T = any> = T | { data: T };
 
+/** @internal */
 export interface Port {
 	postMessage(value: unknown): void;
 	on?(event: 'message', listener: (value: unknown) => void): this;
