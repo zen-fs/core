@@ -144,7 +144,7 @@ fs.umount('/mnt/zip'); // finished using the zip
 ```
 
 > [!CAUTION]
-> Instances of backends follow the *internal* API. You should never use a backend's methods unless you are extending a backend.
+> Instances of backends follow the _internal_ API. You should never use a backend's methods unless you are extending a backend.
 
 #### Devices and device files
 
@@ -155,7 +155,9 @@ ZenFS includes experimental support for device files. These are designed to foll
 
 ```ts
 await configure({
-	mounts: { /* ... */ },
+	mounts: {
+		/* ... */
+	},
 	addDevices: true,
 });
 
@@ -170,7 +172,6 @@ fs.closeSync(random);
 
 You can create your own devices by implementing a `DeviceDriver`. For example, the null device looks similar to this:
 
-
 ```ts
 const customNullDevice = {
 	name: 'custom_null',
@@ -179,7 +180,7 @@ const customNullDevice = {
 		return 0;
 	},
 	write() {},
-}
+};
 ```
 
 Note the actual implementation's write is slightly more complicated since it adds to the file position. You can find more information on the docs.
