@@ -1,6 +1,7 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { credentials } from './credentials.js';
+import { DeviceFS, fullDevice, nullDevice, randomDevice, zeroDevice } from './devices.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
 import type { MountObject } from './emulation/shared.js';
@@ -77,14 +78,25 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * An object mapping mount points to mount configuration
 	 */
 	mounts: { [K in keyof T & AbsolutePath]: MountConfiguration<T[K]> };
+
 	/**
 	 * The uid to use
+	 * @default 0
 	 */
 	uid: number;
+
 	/**
 	 * The gid to use
+	 * @default 0
 	 */
 	gid: number;
+
+	/**
+	 * Whether to automatically add normal Linux devices
+	 * @default false
+	 * @experimental
+	 */
+	addDevices: boolean;
 }
 
 /**
@@ -109,6 +121,16 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
 
 	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
+
+	if (configuration.addDevices) {
+		const devfs = new DeviceFS();
+		devfs.createDevice('/null', nullDevice);
+		devfs.createDevice('/zero', zeroDevice);
+		devfs.createDevice('/full', fullDevice);
+		devfs.createDevice('/random', randomDevice);
+		await devfs.ready();
+		fs.mount('/dev', devfs);
+	}
 
 	if (!configuration.mounts) {
 		return;

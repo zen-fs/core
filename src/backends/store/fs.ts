@@ -8,6 +8,7 @@ import { type Ino, Inode, randomIno, rootIno } from '../../inode.js';
 import type { FileType, Stats } from '../../stats.js';
 import { decodeDirListing, encode, encodeDirListing } from '../../utils.js';
 import type { Store, Transaction } from './store.js';
+import type { File } from '../../file.js';
 
 const maxInodeAllocTries = 5;
 
@@ -172,17 +173,17 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return this.findINodeSync(tx, path).toStats();
 	}
 
-	public async createFile(path: string, flag: string, mode: number): Promise<PreloadFile<this>> {
+	public async createFile(path: string, flag: string, mode: number): Promise<File> {
 		const node = await this.commitNew(path, S_IFREG, mode, new Uint8Array(0));
 		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array(0));
 	}
 
-	public createFileSync(path: string, flag: string, mode: number): PreloadFile<this> {
+	public createFileSync(path: string, flag: string, mode: number): File {
 		this.commitNewSync(path, S_IFREG, mode);
 		return this.openFileSync(path, flag);
 	}
 
-	public async openFile(path: string, flag: string): Promise<PreloadFile<this>> {
+	public async openFile(path: string, flag: string): Promise<File> {
 		await using tx = this.store.transaction();
 		const node = await this.findINode(tx, path),
 			data = await tx.get(node.ino);
@@ -192,7 +193,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new PreloadFile(this, path, flag, node.toStats(), data);
 	}
 
-	public openFileSync(path: string, flag: string): PreloadFile<this> {
+	public openFileSync(path: string, flag: string): File {
 		using tx = this.store.transaction();
 		const node = this.findINodeSync(tx, path),
 			data = tx.getSync(node.ino);
