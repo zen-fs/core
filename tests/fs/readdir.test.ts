@@ -5,7 +5,6 @@ import { fs } from '../common.js';
 const testDir = 'test-dir';
 const testFiles = ['file1.txt', 'file2.txt', 'file3.txt'];
 const testDirectories = ['subdir1', 'subdir2'];
-const testSubdirFiles = ['file4.txt', 'file5.txt'];
 
 await fs.promises.mkdir(testDir);
 for (const file of testFiles) {
@@ -13,7 +12,7 @@ for (const file of testFiles) {
 }
 for (const dir of testDirectories) {
 	await fs.promises.mkdir(`${testDir}/${dir}`);
-	for (const file of testSubdirFiles) {
+	for (const file of ['file4.txt', 'file5.txt']) {
 		await fs.promises.writeFile(`${testDir}/${dir}/${file}`, 'Sample content');
 	}
 }

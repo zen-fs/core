@@ -13,7 +13,7 @@ import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWrit
 import type { FileContents } from '../filesystem.js';
 import '../polyfills.js';
 import { BigIntStats, type Stats } from '../stats.js';
-import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
@@ -726,7 +726,7 @@ export async function readdir(
 
 	const values: (string | Dirent | Buffer)[] = [];
 	const hasOptions = typeof options === 'object';
-	const isRecusive = hasOptions && options?.recursive === true;
+	const isRecusive = hasOptions && options?.recursive;
 	for (const entry of entries) {
 		if (!isRecusive) {
 			values.push(hasOptions && options?.withFileTypes ? new Dirent(entry, await stat(join(path, entry))) : entry);
@@ -734,40 +734,25 @@ export async function readdir(
 		}
 		const fullPath = join(path, entry);
 		const entryStat = await stat(fullPath);
-		const isDirectory = entryStat.isDirectory();
 
-		// Include Dirent objects if withFileTypes is true
-		if (hasOptions && options?.withFileTypes) {
-			values.push(new Dirent(entry, entryStat));
-		} else {
-			values.push(entry);
-		}
+		values.push(hasOptions && options?.withFileTypes ? new Dirent(entry, entryStat) : entry);
 
 		// Handle recursive flag: Recursively read subdirectories
-		if (isDirectory && hasOptions && options?.recursive) {
+		if (entryStat.isDirectory() && hasOptions && options?.recursive) {
 			// types are a bit tricky so its simpler to cast as any as they are the same as received as args
-			const subDirEntries = await readdir(fullPath, options as any);
+			const subDirEntries: (string | Buffer | Dirent)[] = await readdir(fullPath, options as any);
 
-			// Concatenate parent directory (`fullPath`) with each entry from the subdirectory
-			const prefixedSubDirEntries = (subDirEntries as (string | Buffer | Dirent)[]).map(subEntry => {
+			for (const subEntry of subDirEntries) {
 				if (subEntry instanceof Dirent) {
-					// Handle Dirent case by modifying the name field
 					subEntry.path = join(entry, subEntry.path); // Prefix entry with parent
-					return subEntry;
-				}
-				if (Buffer.isBuffer(subEntry)) {
+					values.push(subEntry);
+				} else if (Buffer.isBuffer(subEntry)) {
 					// Convert Buffer to string, prefix with the full path
-					return Buffer.from(join(entry, subEntry.toString()));
+					values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
+				} else {
+					values.push(join(entry, subEntry));
 				}
-				if (typeof subEntry === 'string') {
-					// Handle string or buffer case by prefixing with the full path
-					return join(entry, subEntry);
-				}
-
-				return subEntry;
-			});
-
-			values.push(...prefixedSubDirEntries);
+			}
 		}
 	}
 

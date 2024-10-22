@@ -5,7 +5,7 @@ import type { File } from '../file.js';
 import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, type Stats } from '../stats.js';
-import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
@@ -460,7 +460,8 @@ export function readdirSync(
 		}
 		const entry = mount.slice(path.length);
 		if (entry.includes('/') || entry.length === 0) {
-			continue; // Ignore mounted FSs in subdirectories or mounted at the same path
+			// Ignore mounted FSs in subdirectories or mounted at the same path
+			continue;
 		}
 		entries.push(entry);
 	}
@@ -469,33 +470,25 @@ export function readdirSync(
 	const collectRecursiveEntries = (parentPath: string, entry: string): (string | Dirent | Buffer)[] => {
 		const fullPath = join(parentPath, entry);
 		const entryStat = statSync(fullPath);
-		let result: (string | Dirent | Buffer)[] = [];
 
-		if (entryStat.isDirectory()) {
-			// types are a bit tricky so its simpler to cast as any as they are the same as received as args
-			const subEntries = readdirSync(fullPath, options as any);
+		if (!entryStat.isDirectory()) return [];
 
-			// Prefix parent directory to each sub-entry
-			const prefixedSubEntries = (subEntries as (string | Buffer | Dirent)[]).map(subEntry => {
-				if (subEntry instanceof Dirent) {
-					// Modify the name field to include the parent directory
-					subEntry.path = join(entry, subEntry.path);
-					return subEntry;
-				}
-				if (Buffer.isBuffer(subEntry)) {
-					// Convert Buffer to string, prefix with the full path
-					return Buffer.from(join(entry, subEntry.toString()));
-				}
-				if (typeof subEntry === 'string') {
-					return join(entry, subEntry);
-				}
+		// types are a bit tricky so its simpler to cast as any as they are the same as received as args
+		const subEntries = readdirSync(fullPath, options as any);
+
+		return (subEntries as (string | Buffer | Dirent)[]).map(subEntry => {
+			if (subEntry instanceof Dirent) {
+				subEntry.path = join(entry, subEntry.path);
 				return subEntry;
-			});
-
-			result = prefixedSubEntries;
-		}
-
-		return result;
+			}
+			if (Buffer.isBuffer(subEntry)) {
+				return Buffer.from(join(entry, subEntry.toString()));
+			}
+			if (typeof subEntry === 'string') {
+				return join(entry, subEntry);
+			}
+			return subEntry;
+		});
 	};
 
 	// Iterate over entries and handle recursive case if needed
@@ -503,9 +496,7 @@ export function readdirSync(
 	for (const entry of entries) {
 		const fullPath = join(path, entry);
 		const entryStat = statSync(fullPath);
-		const isDirectory = entryStat.isDirectory();
 
-		// Include Dirent objects if withFileTypes is true
 		if (typeof options === 'object' && options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
 		} else if (options === 'buffer' || (typeof options === 'object' && options?.encoding === 'buffer')) {
@@ -513,10 +504,20 @@ export function readdirSync(
 		} else {
 			values.push(entry);
 		}
+		const isRecursive = typeof options === 'object' && options?.recursive;
+		if (!entryStat.isDirectory() || !isRecursive) continue;
 
-		// Handle recursive flag: Recursively read subdirectories
-		if (isDirectory && typeof options === 'object' && options?.recursive) {
-			values.push(...collectRecursiveEntries(path, entry));
+		// types are a bit tricky so its simpler to cast as any as they are the same as received as args
+		const subEntries = readdirSync(fullPath, options as any);
+		for (const subEntry of subEntries as (string | Buffer | Dirent)[]) {
+			if (subEntry instanceof Dirent) {
+				subEntry.path = join(entry, subEntry.path);
+				values.push(subEntry);
+			} else if (Buffer.isBuffer(subEntry)) {
+				values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
+			} else {
+				values.push(join(entry, subEntry));
+			}
 		}
 	}
 
