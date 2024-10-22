@@ -98,7 +98,7 @@ suite('Watch Features', () => {
 		await fs.promises.unlink(tempFile);
 	});
 
-	test('fs.watch should detect file deletions', async () => {
+	test('fs.promises.watch should detect file deletions', async () => {
 		const tempFile = `${testDir}/tempFile.txt`;
 
 		await fs.promises.writeFile(tempFile, 'Temporary content');
