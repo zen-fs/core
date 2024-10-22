@@ -696,9 +696,9 @@ export async function readdir(
 	path: fs.PathLike,
 	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
+	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
 
-	// Check for read access
 	if (!(await stat(path)).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
@@ -725,33 +725,25 @@ export async function readdir(
 	}
 
 	const values: (string | Dirent | Buffer)[] = [];
-	const hasOptions = typeof options === 'object';
-	const isRecusive = hasOptions && options?.recursive;
 	for (const entry of entries) {
-		if (!isRecusive) {
-			values.push(hasOptions && options?.withFileTypes ? new Dirent(entry, await stat(join(path, entry))) : entry);
+		const fullPath = join(path, entry);
+
+		const stats = options?.recursive || options?.withFileTypes ? await stat(fullPath) : null;
+		values.push(options?.withFileTypes ? new Dirent(entry, stats!) : entry);
+		if (!options?.recursive || !stats?.isDirectory()) {
 			continue;
 		}
-		const fullPath = join(path, entry);
-		const entryStat = await stat(fullPath);
 
-		values.push(hasOptions && options?.withFileTypes ? new Dirent(entry, entryStat) : entry);
-
-		// Handle recursive flag: Recursively read subdirectories
-		if (entryStat.isDirectory() && hasOptions && options?.recursive) {
-			// types are a bit tricky so its simpler to cast as any as they are the same as received as args
-			const subDirEntries: (string | Buffer | Dirent)[] = await readdir(fullPath, options as any);
-
-			for (const subEntry of subDirEntries) {
-				if (subEntry instanceof Dirent) {
-					subEntry.path = join(entry, subEntry.path);
-					values.push(subEntry);
-				} else if (Buffer.isBuffer(subEntry)) {
-					// Convert Buffer to string, prefix with the full path
-					values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
-				} else {
-					values.push(join(entry, subEntry));
-				}
+		// types are a bit tricky so its simpler to cast as any as they are the same as received as args
+		for (const subEntry of (await readdir(fullPath, options as any)) as (string | Buffer | Dirent)[]) {
+			if (subEntry instanceof Dirent) {
+				subEntry.path = join(entry, subEntry.path);
+				values.push(subEntry);
+			} else if (Buffer.isBuffer(subEntry)) {
+				// Convert Buffer to string, prefix with the full path
+				values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
+			} else {
+				values.push(join(entry, subEntry));
 			}
 		}
 	}
