@@ -5,7 +5,7 @@ import type { File } from '../file.js';
 import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, type Stats } from '../stats.js';
-import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
@@ -439,8 +439,13 @@ export function readdirSync(path: fs.PathLike, options: { recursive?: boolean; w
 export function readdirSync(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null): string[] | Buffer[];
 export function readdirSync(
 	path: fs.PathLike,
+	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
+): string[] | Dirent[] | Buffer[];
+export function readdirSync(
+	path: fs.PathLike,
 	options?: { recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null; withFileTypes?: boolean } | BufferEncoding | 'buffer' | null
 ): string[] | Dirent[] | Buffer[] {
+	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
 	let entries: string[];
@@ -452,6 +457,7 @@ export function readdirSync(
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
+
 	for (const mount of mounts.keys()) {
 		if (!mount.startsWith(path)) {
 			continue;
@@ -463,17 +469,35 @@ export function readdirSync(
 		}
 		entries.push(entry);
 	}
-	return entries.map((entry: string) => {
-		if (typeof options == 'object' && options?.withFileTypes) {
-			return new Dirent(entry, statSync(join(path.toString(), entry)));
-		}
 
-		if (options == 'buffer' || (typeof options == 'object' && options?.encoding == 'buffer')) {
-			return Buffer.from(entry);
-		}
+	// Iterate over entries and handle recursive case if needed
+	const values: (string | Dirent | Buffer)[] = [];
+	for (const entry of entries) {
+		const fullPath = join(path, entry);
+		const entryStat = statSync(fullPath);
 
-		return entry;
-	}) as string[] | Dirent[] | Buffer[];
+		if (options?.withFileTypes) {
+			values.push(new Dirent(entry, entryStat));
+		} else if (options?.encoding === 'buffer') {
+			values.push(Buffer.from(entry));
+		} else {
+			values.push(entry);
+		}
+		if (!entryStat.isDirectory() || !options?.recursive) continue;
+
+		for (const subEntry of readdirSync(fullPath, options)) {
+			if (subEntry instanceof Dirent) {
+				subEntry.path = join(entry, subEntry.path);
+				values.push(subEntry);
+			} else if (Buffer.isBuffer(subEntry)) {
+				values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
+			} else {
+				values.push(join(entry, subEntry));
+			}
+		}
+	}
+
+	return values as string[] | Dirent[] | Buffer[];
 }
 readdirSync satisfies typeof fs.readdirSync;
 

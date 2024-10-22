@@ -13,7 +13,7 @@ import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWrit
 import type { FileContents } from '../filesystem.js';
 import '../polyfills.js';
 import { BigIntStats, type Stats } from '../stats.js';
-import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
@@ -695,19 +695,28 @@ export async function readdir(path: fs.PathLike, options: fs.ObjectEncodingOptio
 export async function readdir(
 	path: fs.PathLike,
 	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
+): Promise<string[] | Dirent[] | Buffer[]>;
+export async function readdir(
+	path: fs.PathLike,
+	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
+	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
+
 	if (!(await stat(path)).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
+
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
+
 	let entries: string[];
 	try {
 		entries = await fs.readdir(resolved);
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
+
 	for (const point of mounts.keys()) {
 		if (point.startsWith(path)) {
 			const entry = point.slice(path.length);
@@ -718,15 +727,40 @@ export async function readdir(
 			entries.push(entry);
 		}
 	}
-	const values: (string | Dirent)[] = [];
+
+	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		values.push(typeof options == 'object' && options?.withFileTypes ? new Dirent(entry, await stat(join(path, entry))) : entry);
+		const fullPath = join(path, entry);
+
+		const stats = options?.recursive || options?.withFileTypes ? await stat(fullPath) : null;
+		if (options?.withFileTypes) {
+			values.push(new Dirent(entry, stats!));
+		} else if (options?.encoding === 'buffer') {
+			values.push(Buffer.from(entry));
+		} else {
+			values.push(entry);
+		}
+
+		if (!options?.recursive || !stats?.isDirectory()) {
+			continue;
+		}
+
+		for (const subEntry of await readdir(fullPath, options)) {
+			if (subEntry instanceof Dirent) {
+				subEntry.path = join(entry, subEntry.path);
+				values.push(subEntry);
+			} else if (Buffer.isBuffer(subEntry)) {
+				// Convert Buffer to string, prefix with the full path
+				values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
+			} else {
+				values.push(join(entry, subEntry));
+			}
+		}
 	}
+
 	return values as string[] | Dirent[];
 }
 readdir satisfies typeof promises.readdir;
-
-// SYMLINK METHODS
 
 export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Promise<void> {
 	targetPath = normalizePath(targetPath);
