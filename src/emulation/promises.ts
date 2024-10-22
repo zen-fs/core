@@ -697,36 +697,77 @@ export async function readdir(
 	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	path = normalizePath(path);
+
+	// Check for read access
 	if (!(await stat(path)).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
+
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
+
 	let entries: string[];
 	try {
 		entries = await fs.readdir(resolved);
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
+
+	// Handle mounted points
 	for (const point of mounts.keys()) {
 		if (point.startsWith(path)) {
 			const entry = point.slice(path.length);
-			if (entry.includes('/') || entry.length == 0) {
-				// ignore FSs mounted in subdirectories and any FS mounted to `path`.
-				continue;
+			if (entry.includes('/') || entry.length === 0) {
+				continue; // Ignore FSs mounted in subdirectories or mounted at the same path.
 			}
 			entries.push(entry);
 		}
 	}
-	const values: (string | Dirent)[] = [];
+
+	// Prepare the final list of values
+	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		values.push(typeof options == 'object' && options?.withFileTypes ? new Dirent(entry, await stat(join(path, entry))) : entry);
+		const fullPath = join(path, entry);
+		const entryStat = await stat(fullPath);
+		const isDirectory = entryStat.isDirectory();
+
+		// Include Dirent objects if withFileTypes is true
+		if (typeof options === 'object' && options?.withFileTypes) {
+			values.push(new Dirent(entry, entryStat));
+		} else {
+			values.push(entry);
+		}
+
+		// Handle recursive flag: Recursively read subdirectories
+		if (isDirectory && typeof options === 'object' && options?.recursive) {
+			const subDirEntries = await readdir(fullPath, options as any);
+
+			// Concatenate parent directory (`fullPath`) with each entry from the subdirectory
+			const prefixedSubDirEntries = (subDirEntries as (string | Buffer | Dirent)[]).map(subEntry => {
+				if (subEntry instanceof Dirent) {
+					// Handle Dirent case by modifying the name field
+					subEntry.path = join(entry, subEntry.path); // Prefix entry with parent
+					return subEntry;
+				}
+				if (Buffer.isBuffer(subEntry)) {
+					// Convert Buffer to string, prefix with the full path
+					return Buffer.from(join(entry, subEntry.toString()));
+				}
+				if (typeof subEntry === 'string') {
+					// Handle string or buffer case by prefixing with the full path
+					return join(entry, subEntry);
+				}
+
+				return subEntry;
+			});
+
+			values.push(...prefixedSubDirEntries);
+		}
 	}
+
 	return values as string[] | Dirent[];
 }
 readdir satisfies typeof promises.readdir;
-
-// SYMLINK METHODS
 
 export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Promise<void> {
 	targetPath = normalizePath(targetPath);

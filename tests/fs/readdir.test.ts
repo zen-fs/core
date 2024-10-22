@@ -5,6 +5,7 @@ import { fs } from '../common.js';
 const testDir = 'test-dir';
 const testFiles = ['file1.txt', 'file2.txt', 'file3.txt'];
 const testDirectories = ['subdir1', 'subdir2'];
+const testSubdirFiles = ['file4.txt', 'file5.txt'];
 
 await fs.promises.mkdir(testDir);
 for (const file of testFiles) {
@@ -12,6 +13,9 @@ for (const file of testFiles) {
 }
 for (const dir of testDirectories) {
 	await fs.promises.mkdir(`${testDir}/${dir}`);
+	for (const file of testSubdirFiles) {
+		await fs.promises.writeFile(`${testDir}/${dir}/${file}`, 'Sample content');
+	}
 }
 
 suite('readdir and readdirSync', () => {
@@ -53,6 +57,28 @@ suite('readdir and readdirSync', () => {
 		const files = fs.readdirSync(testDir);
 		assert(testFiles.every(entry => files.includes(entry)));
 		assert(testDirectories.every(entry => files.includes(entry)));
+	});
+
+	test('readdir returns files recursively', async () => {
+		const entries = await fs.promises.readdir(testDir, { recursive: true });
+		assert(entries.includes('file1.txt'));
+		assert(entries.includes('subdir1/file4.txt'));
+		assert(entries.includes('subdir2/file5.txt'));
+	});
+
+	test('readdir returns Dirent recursively', async () => {
+		const entries = await fs.promises.readdir(testDir, { recursive: true, withFileTypes: true });
+		assert(entries[0].path === 'file1.txt');
+		assert(entries[4].path === 'subdir1/file4.txt');
+		assert(entries[entries.length - 1].path === 'subdir2/file5.txt');
+	});
+
+	// New test for readdirSync with recursive: true
+	test('readdirSync returns files recursively', () => {
+		const entries = fs.readdirSync(testDir, { recursive: true });
+		assert(entries.includes('file1.txt'));
+		assert(entries.includes('subdir1/file4.txt'));
+		assert(entries.includes('subdir2/file5.txt'));
 	});
 
 	test('Cyrillic file names', () => {

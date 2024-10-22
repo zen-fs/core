@@ -452,28 +452,74 @@ export function readdirSync(
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
 	}
+
+	// Check for mounted points
 	for (const mount of mounts.keys()) {
 		if (!mount.startsWith(path)) {
 			continue;
 		}
 		const entry = mount.slice(path.length);
-		if (entry.includes('/') || entry.length == 0) {
-			// ignore FSs mounted in subdirectories and any FS mounted to `path`.
-			continue;
+		if (entry.includes('/') || entry.length === 0) {
+			continue; // Ignore mounted FSs in subdirectories or mounted at the same path
 		}
 		entries.push(entry);
 	}
-	return entries.map((entry: string) => {
-		if (typeof options == 'object' && options?.withFileTypes) {
-			return new Dirent(entry, statSync(join(path.toString(), entry)));
+
+	// Helper to collect recursive entries
+	const collectRecursiveEntries = (parentPath: string, entry: string): (string | Dirent | Buffer)[] => {
+		const fullPath = join(parentPath, entry);
+		const entryStat = statSync(fullPath);
+		let result: (string | Dirent | Buffer)[] = [];
+
+		if (entryStat.isDirectory()) {
+			const subEntries = readdirSync(fullPath, options as any);
+
+			// Prefix parent directory to each sub-entry
+			const prefixedSubEntries = (subEntries as (string | Buffer | Dirent)[]).map(subEntry => {
+				if (subEntry instanceof Dirent) {
+					// Modify the name field to include the parent directory
+					subEntry.path = join(entry, subEntry.path);
+					return subEntry;
+				}
+				if (Buffer.isBuffer(subEntry)) {
+					// Convert Buffer to string, prefix with the full path
+					return Buffer.from(join(entry, subEntry.toString()));
+				}
+				if (typeof subEntry === 'string') {
+					return join(entry, subEntry);
+				}
+				return subEntry;
+			});
+
+			result = prefixedSubEntries;
 		}
 
-		if (options == 'buffer' || (typeof options == 'object' && options?.encoding == 'buffer')) {
-			return Buffer.from(entry);
+		return result;
+	};
+
+	// Iterate over entries and handle recursive case if needed
+	const values: (string | Dirent | Buffer)[] = [];
+	for (const entry of entries) {
+		const fullPath = join(path, entry);
+		const entryStat = statSync(fullPath);
+		const isDirectory = entryStat.isDirectory();
+
+		// Include Dirent objects if withFileTypes is true
+		if (typeof options === 'object' && options?.withFileTypes) {
+			values.push(new Dirent(entry, entryStat));
+		} else if (options === 'buffer' || (typeof options === 'object' && options?.encoding === 'buffer')) {
+			values.push(Buffer.from(entry));
+		} else {
+			values.push(entry);
 		}
 
-		return entry;
-	}) as string[] | Dirent[] | Buffer[];
+		// Handle recursive flag: Recursively read subdirectories
+		if (isDirectory && typeof options === 'object' && options?.recursive) {
+			values.push(...collectRecursiveEntries(path, entry));
+		}
+	}
+
+	return values as string[] | Dirent[] | Buffer[];
 }
 readdirSync satisfies typeof fs.readdirSync;
 
