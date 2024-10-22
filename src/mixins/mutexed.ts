@@ -1,9 +1,9 @@
-import { ErrnoError } from '../error.js';
-import type { File } from '../file.js';
-import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
-import '../polyfills.js';
-import type { Stats } from '../stats.js';
-import type { Concrete } from '../utils.js';
+import { ErrnoError } from '../error.ts';
+import type { File } from '../file.ts';
+import type { FileSystem, FileSystemMetadata } from '../filesystem.ts';
+import '../polyfills.ts';
+import type { Stats } from '../stats.ts';
+import type { Concrete } from '../utils.ts';
 
 export class MutexLock {
 	protected current = Promise.withResolvers<void>();

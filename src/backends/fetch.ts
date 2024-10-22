@@ -1,9 +1,9 @@
-import { Errno, ErrnoError } from '../error.js';
-import type { FileSystemMetadata } from '../filesystem.js';
-import type { Stats } from '../stats.js';
-import type { Backend } from './backend.js';
-import { IndexFS } from './file_index.js';
-import type { IndexData } from './file_index.js';
+import { Errno, ErrnoError } from '../error.ts';
+import type { FileSystemMetadata } from '../filesystem.ts';
+import type { Stats } from '../stats.ts';
+import type { Backend } from './backend.ts';
+import type { IndexData } from './file_index.ts';
+import { IndexFS } from './file_index.ts';
 
 /**
  * Asynchronously download a file as a buffer or a JSON object.

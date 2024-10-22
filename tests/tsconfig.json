@@ -8,7 +8,8 @@
 		"moduleResolution": "NodeNext",
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true,
-		"strict": true
+		"strict": true,
+		"allowImportingTsExtensions": true
 	},
 	"include": ["**/*.ts", "*.ts"]
 }

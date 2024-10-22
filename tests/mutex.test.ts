@@ -1,9 +1,9 @@
-import { wait } from 'utilium';
-import { Mutexed } from '../src/mixins/mutexed.js';
-import { StoreFS } from '../src/backends/store/fs.js';
-import { InMemoryStore } from '../src/backends/memory.js';
-import { suite, test } from 'node:test';
 import assert from 'node:assert';
+import { suite, test } from 'node:test';
+import { wait } from 'utilium';
+import { InMemoryStore } from '../src/backends/memory.ts';
+import { StoreFS } from '../src/backends/store/fs.ts';
+import { Mutexed } from '../src/mixins/mutexed.ts';
 
 suite('LockFS mutex', () => {
 	const fs = new (Mutexed(StoreFS))(new InMemoryStore('test'));

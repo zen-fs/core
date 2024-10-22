@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FileReadResult } from 'node:fs/promises';
 import type { ExtractProperties } from 'utilium';
-import { resolveMountConfig, type MountConfiguration } from '../../config.js';
-import { Errno, ErrnoError } from '../../error.js';
-import { File } from '../../file.js';
-import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
-import { Async } from '../../mixins/async.js';
-import { Stats, type FileType } from '../../stats.js';
-import type { Backend, FilesystemOf } from '../backend.js';
-import { InMemory } from '../memory.js';
-import * as RPC from './rpc.js';
+import { resolveMountConfig, type MountConfiguration } from '../../config.ts';
+import { Errno, ErrnoError } from '../../error.ts';
+import { File } from '../../file.ts';
+import { FileSystem, type FileSystemMetadata } from '../../filesystem.ts';
+import { Async } from '../../mixins/async.ts';
+import { Stats, type FileType } from '../../stats.ts';
+import type { Backend, FilesystemOf } from '../backend.ts';
+import { InMemory } from '../memory.ts';
+import * as RPC from './rpc.ts';
 
 type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
 type FileMethod = keyof FileMethods;

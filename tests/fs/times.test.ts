@@ -1,9 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { ErrnoError } from '../../src/error.js';
-import { _toUnixTimestamp } from '../../src/utils.js';
-import { fs } from '../common.js';
+import { ErrnoError } from '../../src/error.ts';
+import { _toUnixTimestamp } from '../../src/utils.ts';
+import { fs } from '../common.ts';
 
 suite('times', () => {
 	const path = 'x.txt';

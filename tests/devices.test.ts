@@ -1,8 +1,8 @@
-import { suite, test } from 'node:test';
 import assert from 'node:assert';
-import { configure } from '../src/config.js';
-import * as fs from '../src/emulation/index.js';
-import { S_IFCHR, S_IFMT } from '../src/emulation/constants.js';
+import { suite, test } from 'node:test';
+import { configure } from '../src/config.ts';
+import { S_IFCHR, S_IFMT } from '../src/emulation/constants.ts';
+import * as fs from '../src/emulation/index.ts';
 
 console.log(fs.mounts);
 

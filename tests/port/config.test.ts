@@ -3,9 +3,9 @@ import { dirname } from 'node:path';
 import { suite, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { Worker } from 'node:worker_threads';
-import { Port } from '../../src/backends/port/fs.js';
-import { configureSingle, fs } from '../../src/index.js';
-import { createTSWorker } from '../common.js';
+import { Port } from '../../src/backends/port/fs.ts';
+import { configureSingle, fs } from '../../src/index.ts';
+import { createTSWorker } from '../common.ts';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 

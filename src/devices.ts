@@ -1,13 +1,13 @@
-import type { FileReadResult } from 'fs/promises';
-import { InMemoryStore } from './backends/memory.js';
-import { StoreFS } from './backends/store/fs.js';
-import { S_IFBLK, S_IFCHR } from './emulation/constants.js';
-import { Errno, ErrnoError } from './error.js';
-import { File } from './file.js';
-import type { StatsLike } from './stats.js';
-import { Stats } from './stats.js';
-import { basename, dirname } from './emulation/path.js';
-import type { Ino } from './inode.js';
+import type { FileReadResult } from 'node:fs/promises';
+import { InMemoryStore } from './backends/memory.ts';
+import { StoreFS } from './backends/store/fs.ts';
+import { S_IFBLK, S_IFCHR } from './emulation/constants.ts';
+import { basename, dirname } from './emulation/path.ts';
+import { Errno, ErrnoError } from './error.ts';
+import { File } from './file.ts';
+import type { Ino } from './inode.ts';
+import type { StatsLike } from './stats.ts';
+import { Stats } from './stats.ts';
 
 /**
  * A device

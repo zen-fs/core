@@ -1,9 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { MessageChannel } from 'node:worker_threads';
-import { Port, attachFS } from '../../src/backends/port/fs.js';
-import type { StoreFS } from '../../src/index.js';
-import { InMemory, configureSingle, fs, resolveMountConfig, type InMemoryStore } from '../../src/index.js';
+import { Port, attachFS } from '../../src/backends/port/fs.ts';
+import type { StoreFS } from '../../src/index.ts';
+import { InMemory, configureSingle, fs, resolveMountConfig, type InMemoryStore } from '../../src/index.ts';
 
 const { port1, port2 } = new MessageChannel(),
 	content = 'FS is in a port';

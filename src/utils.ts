@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return */
 import type * as fs from 'node:fs';
 import type { ClassLike, OptionalTuple } from 'utilium';
-import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
-import { Errno, ErrnoError } from './error.js';
-import type { FileSystem } from './filesystem.js';
+import { dirname, resolve, type AbsolutePath } from './emulation/path.ts';
+import { Errno, ErrnoError } from './error.ts';
+import type { FileSystem } from './filesystem.ts';
 
 declare global {
 	function atob(data: string): string;

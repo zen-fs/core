@@ -1,10 +1,10 @@
-import type { Dir as _Dir, Dirent as _Dirent } from 'fs';
-import { Errno, ErrnoError } from '../error.js';
-import type { Stats } from '../stats.js';
-import type { Callback } from '../utils.js';
-import { basename } from './path.js';
-import { readdir } from './promises.js';
-import { readdirSync } from './sync.js';
+import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
+import { Errno, ErrnoError } from '../error.ts';
+import type { Stats } from '../stats.ts';
+import type { Callback } from '../utils.ts';
+import { basename } from './path.ts';
+import { readdir } from './promises.ts';
+import { readdirSync } from './sync.ts';
 
 export class Dirent implements _Dirent {
 	public get name(): string {

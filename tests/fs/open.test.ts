@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { ErrnoError } from '../../src/error.js';
-import { fs } from '../common.js';
+import { ErrnoError } from '../../src/error.ts';
+import { fs } from '../common.ts';
 
 suite('fs file opening', () => {
-	const filename = 'a.js';
+	const filename = 'a.ts';
 
 	test('throw ENOENT when opening non-existent file (sync)', () => {
 		let caughtException = false;

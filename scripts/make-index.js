@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { readdirSync, statSync, writeFileSync } from 'fs';
 import { minimatch } from 'minimatch';
-import { join, relative, resolve } from 'path/posix';
-import { parseArgs } from 'util';
+import { readdirSync, statSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path/posix';
+import { parseArgs } from 'node:util';
 
 const { values: options, positionals } = parseArgs({
 	options: {

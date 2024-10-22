@@ -1,6 +1,6 @@
-import { ErrnoError } from '../../error.js';
-import type { Ino } from '../../inode.js';
-import '../../polyfills.js';
+import { ErrnoError } from '../../error.ts';
+import type { Ino } from '../../inode.ts';
+import '../../polyfills.ts';
 
 /**
  * Represents a key-value store.

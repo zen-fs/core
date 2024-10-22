@@ -1,7 +1,7 @@
 import type { RequiredKeys } from 'utilium';
-import { ErrnoError, Errno } from '../error.js';
-import type { FileSystem } from '../filesystem.js';
-import { levenshtein } from '../utils.js';
+import { Errno, ErrnoError } from '../error.ts';
+import type { FileSystem } from '../filesystem.ts';
+import { levenshtein } from '../utils.ts';
 
 type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undefined' | 'object' | 'function';
 

@@ -1,12 +1,12 @@
-import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
-import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
-import { credentials } from './credentials.js';
-import { DeviceFS, fullDevice, nullDevice, randomDevice, zeroDevice } from './devices.js';
-import * as fs from './emulation/index.js';
-import type { AbsolutePath } from './emulation/path.js';
-import type { MountObject } from './emulation/shared.js';
-import { Errno, ErrnoError } from './error.js';
-import { FileSystem } from './filesystem.js';
+import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.ts';
+import { checkOptions, isBackend, isBackendConfig } from './backends/backend.ts';
+import { credentials } from './credentials.ts';
+import { DeviceFS, fullDevice, nullDevice, randomDevice, zeroDevice } from './devices.ts';
+import * as fs from './emulation/index.ts';
+import type { AbsolutePath } from './emulation/path.ts';
+import type { MountObject } from './emulation/shared.ts';
+import { Errno, ErrnoError } from './error.ts';
+import { FileSystem } from './filesystem.ts';
 
 /**
  * Configuration for a specific mount point

@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { join } from '../../src/emulation/path.js';
-import { fs } from '../common.js';
+import { join } from '../../src/emulation/path.ts';
+import { fs } from '../common.ts';
 
 suite('Links', () => {
 	const target = '/a1.js',
 		symlink = 'symlink1.js',
-		hardlink = 'link1.js';
+		hardlink = 'link1.ts';
 
 	test('symlink', async () => {
 		await fs.promises.symlink(target, symlink);

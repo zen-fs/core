@@ -1,9 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { ErrnoError } from '../../src/error.js';
-import { fs } from '../common.js';
+import { ErrnoError } from '../../src/error.ts';
+import { fs } from '../common.ts';
 
-const existingFile = '/exit.js';
+const existingFile = '/exit.ts';
 
 async function expectError(fn: (...args: any[]) => unknown, path: string, ...args: any[]) {
 	let error: ErrnoError | undefined;

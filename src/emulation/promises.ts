@@ -1,26 +1,25 @@
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
-import { Buffer } from 'buffer';
+import { Buffer } from 'node:buffer';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo, FileReadResult, FlagAndOpenMode } from 'node:fs/promises';
+import type { Interface as ReadlineInterface } from 'node:readline';
 import type { Stream } from 'node:stream';
-import type { ReadableStream as TReadableStream } from 'node:stream/web';
-import type { Interface as ReadlineInterface } from 'readline';
-import type { ReadableStreamController } from 'stream/web';
-import { Errno, ErrnoError } from '../error.js';
-import type { File } from '../file.js';
-import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
-import type { FileContents } from '../filesystem.js';
-import '../polyfills.js';
-import { BigIntStats, type Stats } from '../stats.js';
-import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
-import * as constants from './constants.js';
-import { Dir, Dirent } from './dir.js';
-import { dirname, join, parse } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
-import { ReadStream, WriteStream } from './streams.js';
-import { FSWatcher, emitChange } from './watchers.js';
-export * as constants from './constants.js';
+import type { ReadableStreamController, ReadableStream as TReadableStream } from 'node:stream/web';
+import { Errno, ErrnoError } from '../error.ts';
+import type { File } from '../file.ts';
+import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.ts';
+import type { FileContents } from '../filesystem.ts';
+import '../polyfills.ts';
+import { BigIntStats, type Stats } from '../stats.ts';
+import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.ts';
+import * as constants from './constants.ts';
+import { Dir, Dirent } from './dir.ts';
+import { dirname, join, parse } from './path.ts';
+import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.ts';
+import { ReadStream, WriteStream } from './streams.ts';
+import { FSWatcher, emitChange } from './watchers.ts';
+export * as constants from './constants.ts';
 
 export class FileHandle implements promises.FileHandle {
 	/**

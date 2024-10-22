@@ -1,11 +1,11 @@
 import { EventEmitter } from 'eventemitter3';
 import type { EventEmitter as NodeEventEmitter } from 'node:events';
 import type * as fs from 'node:fs';
-import { ErrnoError } from '../error.js';
-import { isStatsEqual, type Stats } from '../stats.js';
-import { normalizePath } from '../utils.js';
-import { dirname, basename } from './path.js';
-import { statSync } from './sync.js';
+import { ErrnoError } from '../error.ts';
+import { isStatsEqual, type Stats } from '../stats.ts';
+import { normalizePath } from '../utils.ts';
+import { basename, dirname } from './path.ts';
+import { statSync } from './sync.ts';
 
 /**
  * Base class for file system watchers.

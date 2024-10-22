@@ -1,13 +1,13 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { fs } from '../common.ts';
 
 const asyncMode = 0o777;
 const syncMode = 0o644;
 
 suite('chmod tests', () => {
 	test('chmod', async () => {
-		const file1 = 'a.js';
+		const file1 = 'a.ts';
 
 		await fs.promises.chmod(file1, asyncMode.toString(8));
 
@@ -19,7 +19,7 @@ suite('chmod tests', () => {
 	});
 
 	test('fchmod', async () => {
-		const file2 = 'a1.js';
+		const file2 = 'a1.ts';
 
 		const handle = await fs.promises.open(file2, 'a', 0o644);
 
@@ -34,7 +34,7 @@ suite('chmod tests', () => {
 
 	test('lchmod', async () => {
 		const link = 'symbolic-link';
-		const target = 'a1.js';
+		const target = 'a1.ts';
 
 		await fs.promises.symlink(target, link);
 		await fs.promises.lchmod(link, asyncMode);

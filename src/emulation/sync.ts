@@ -1,16 +1,16 @@
-import { Buffer } from 'buffer';
+import { Buffer } from 'node:buffer';
 import type * as fs from 'node:fs';
-import { Errno, ErrnoError } from '../error.js';
-import type { File } from '../file.js';
-import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
-import type { FileContents } from '../filesystem.js';
-import { BigIntStats, type Stats } from '../stats.js';
-import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
-import * as constants from './constants.js';
-import { Dir, Dirent } from './dir.js';
-import { dirname, join, parse } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
-import { emitChange } from './watchers.js';
+import { Errno, ErrnoError } from '../error.ts';
+import type { File } from '../file.ts';
+import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.ts';
+import type { FileContents } from '../filesystem.ts';
+import { BigIntStats, type Stats } from '../stats.ts';
+import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.ts';
+import * as constants from './constants.ts';
+import { Dir, Dirent } from './dir.ts';
+import { dirname, join, parse } from './path.ts';
+import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.ts';
+import { emitChange } from './watchers.ts';
 
 export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);

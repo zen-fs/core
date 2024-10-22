@@ -1,5 +1,5 @@
-import { Stats, type StatsLike } from './stats.js';
-import { types as t, struct, sizeof, serialize, deserialize } from 'utilium';
+import { deserialize, serialize, sizeof, struct, types as t } from 'utilium';
+import { Stats, type StatsLike } from './stats.ts';
 
 /**
  * Alias for an ino.

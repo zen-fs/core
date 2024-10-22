@@ -1,9 +1,9 @@
-import { join } from '../emulation/path.js';
-import { Errno, ErrnoError } from '../error.js';
-import { parseFlag, PreloadFile, type File } from '../file.js';
-import type { FileSystem } from '../filesystem.js';
-import type { Stats } from '../stats.js';
-import type { AsyncFSMethods, Mixin } from './shared.js';
+import { join } from '../emulation/path.ts';
+import { Errno, ErrnoError } from '../error.ts';
+import { parseFlag, PreloadFile, type File } from '../file.ts';
+import type { FileSystem } from '../filesystem.ts';
+import type { Stats } from '../stats.ts';
+import type { AsyncFSMethods, Mixin } from './shared.ts';
 
 /** @internal */
 export type AsyncOperation = {

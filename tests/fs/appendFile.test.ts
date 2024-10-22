@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { fs } from '../common.ts';
 
 const content = 'Sample content',
 	original = 'ABCD';

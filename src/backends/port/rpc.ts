@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Errno, ErrnoError, type ErrnoErrorJSON } from '../../error.js';
-import type { Backend, FilesystemOf } from '../backend.js';
-import { handleRequest, PortFile, type PortFS } from './fs.js';
-import type { FileOrFSRequest } from './fs.js';
+import { Errno, ErrnoError, type ErrnoErrorJSON } from '../../error.ts';
+import type { Backend, FilesystemOf } from '../backend.ts';
+import type { FileOrFSRequest } from './fs.ts';
+import { handleRequest, PortFile, type PortFS } from './fs.ts';
 
 type _MessageEvent<T = any> = T | { data: T };
 

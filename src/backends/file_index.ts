@@ -1,14 +1,14 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
 import { isJSON } from 'utilium';
-import { basename, dirname } from '../emulation/path.js';
-import { Errno, ErrnoError } from '../error.js';
-import { NoSyncFile, isWriteable } from '../file.js';
-import { FileSystem } from '../filesystem.js';
-import { Readonly } from '../mixins/readonly.js';
-import type { StatsLike } from '../stats.js';
-import { Stats } from '../stats.js';
-import { decodeUTF8, encodeUTF8 } from '../utils.js';
+import { basename, dirname } from '../emulation/path.ts';
+import { Errno, ErrnoError } from '../error.ts';
+import { NoSyncFile, isWriteable } from '../file.ts';
+import { FileSystem } from '../filesystem.ts';
+import { Readonly } from '../mixins/readonly.ts';
+import type { StatsLike } from '../stats.ts';
+import { Stats } from '../stats.ts';
+import { decodeUTF8, encodeUTF8 } from '../utils.ts';
 
 /**
  * An Index in JSON form

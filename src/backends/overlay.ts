@@ -1,13 +1,13 @@
-import { dirname } from '../emulation/path.js';
-import { Errno, ErrnoError } from '../error.js';
-import type { File } from '../file.js';
-import { PreloadFile, parseFlag } from '../file.js';
-import type { FileSystemMetadata } from '../filesystem.js';
-import { FileSystem } from '../filesystem.js';
-import { Mutexed } from '../mixins/mutexed.js';
-import { Stats } from '../stats.js';
-import { decodeUTF8, encodeUTF8 } from '../utils.js';
-import type { Backend } from './backend.js';
+import { dirname } from '../emulation/path.ts';
+import { Errno, ErrnoError } from '../error.ts';
+import type { File } from '../file.ts';
+import { PreloadFile, parseFlag } from '../file.ts';
+import type { FileSystemMetadata } from '../filesystem.ts';
+import { FileSystem } from '../filesystem.ts';
+import { Mutexed } from '../mixins/mutexed.ts';
+import { Stats } from '../stats.ts';
+import { decodeUTF8, encodeUTF8 } from '../utils.ts';
+import type { Backend } from './backend.ts';
 /** @internal */
 const deletionLogPath = '/.deleted';
 

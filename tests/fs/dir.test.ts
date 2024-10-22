@@ -1,6 +1,6 @@
 import assert, { rejects } from 'node:assert';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { fs } from '../common.ts';
 
 const testFile = 'test-file.txt';
 await fs.promises.writeFile(testFile, 'Sample content');

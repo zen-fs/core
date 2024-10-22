@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import type { FileHandle } from '../../src/emulation/promises.js';
-import { fs } from '../common.js';
+import type { FileHandle } from '../../src/emulation/promises.ts';
+import { fs } from '../common.ts';
 
 const path: string = 'truncate-file.txt',
 	size = 1024 * 16,

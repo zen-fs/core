@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { fs } from '../common.ts';
 
 const testDir = 'test-dir';
 const testFiles = ['file1.txt', 'file2.txt', 'file3.txt'];

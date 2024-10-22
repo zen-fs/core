@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { ErrnoError } from '../../src/error.js';
-import { fs } from '../common.js';
+import { ErrnoError } from '../../src/error.ts';
+import { fs } from '../common.ts';
 
 suite('Rename', () => {
 	/**
@@ -55,8 +55,8 @@ suite('Rename', () => {
 
 	test('rename file', async () => {
 		const dir = '/rename_file_test';
-		const one = dir + '/fun.js';
-		const two = dir + '/fun2.js';
+		const one = dir + '/fun.ts';
+		const two = dir + '/fun2.ts';
 
 		await fs.promises.mkdir(dir);
 		await fs.promises.writeFile(one, 'while(1) alert("Hey! Listen!");');

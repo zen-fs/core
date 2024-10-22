@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { R_OK, W_OK, X_OK } from '../../src/emulation/constants.js';
-import { join } from '../../src/emulation/path.js';
-import { ErrnoError } from '../../src/error.js';
-import { encode } from '../../src/utils.js';
-import { fs } from '../common.js';
+import { R_OK, W_OK, X_OK } from '../../src/emulation/constants.ts';
+import { join } from '../../src/emulation/path.ts';
+import { ErrnoError } from '../../src/error.ts';
+import { encode } from '../../src/utils.ts';
+import { fs } from '../common.ts';
 
 suite('Permissions', () => {
 	async function test_item(path: string): Promise<void> {
