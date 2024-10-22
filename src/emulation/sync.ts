@@ -485,7 +485,6 @@ export function readdirSync(
 		}
 		if (!entryStat.isDirectory() || !options?.recursive) continue;
 
-		// types are a bit tricky so its simpler to cast as any as they are the same as received as args
 		for (const subEntry of readdirSync(fullPath, options)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
