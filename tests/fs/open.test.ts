@@ -4,7 +4,7 @@ import { ErrnoError } from '../../src/error.ts';
 import { fs } from '../common.ts';
 
 suite('fs file opening', () => {
-	const filename = 'a.ts';
+	const filename = 'a.js';
 
 	test('throw ENOENT when opening non-existent file (sync)', () => {
 		let caughtException = false;

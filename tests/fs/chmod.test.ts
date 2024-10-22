@@ -7,7 +7,7 @@ const syncMode = 0o644;
 
 suite('chmod tests', () => {
 	test('chmod', async () => {
-		const file1 = 'a.ts';
+		const file1 = 'a.js';
 
 		await fs.promises.chmod(file1, asyncMode.toString(8));
 
