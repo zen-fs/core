@@ -472,6 +472,7 @@ export function readdirSync(
 		let result: (string | Dirent | Buffer)[] = [];
 
 		if (entryStat.isDirectory()) {
+			// types are a bit tricky so its simpler to cast as any as they are the same as received as args
 			const subEntries = readdirSync(fullPath, options as any);
 
 			// Prefix parent directory to each sub-entry

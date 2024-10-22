@@ -740,6 +740,7 @@ export async function readdir(
 
 		// Handle recursive flag: Recursively read subdirectories
 		if (isDirectory && typeof options === 'object' && options?.recursive) {
+			// types are a bit tricky so its simpler to cast as any as they are the same as received as args
 			const subDirEntries = await readdir(fullPath, options as any);
 
 			// Concatenate parent directory (`fullPath`) with each entry from the subdirectory
