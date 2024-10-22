@@ -733,12 +733,18 @@ export async function readdir(
 		const fullPath = join(path, entry);
 
 		const stats = options?.recursive || options?.withFileTypes ? await stat(fullPath) : null;
-		values.push(options?.withFileTypes ? new Dirent(entry, stats!) : entry);
+		if (options?.withFileTypes) {
+			values.push(new Dirent(entry, stats!));
+		} else if (options?.encoding === 'buffer') {
+			values.push(Buffer.from(entry));
+		} else {
+			values.push(entry);
+		}
+
 		if (!options?.recursive || !stats?.isDirectory()) {
 			continue;
 		}
 
-		// types are a bit tricky so its simpler to cast as any as they are the same as received as args
 		for (const subEntry of await readdir(fullPath, options)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
