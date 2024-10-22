@@ -724,22 +724,27 @@ export async function readdir(
 		}
 	}
 
-	// Prepare the final list of values
 	const values: (string | Dirent | Buffer)[] = [];
+	const hasOptions = typeof options === 'object';
+	const isRecusive = hasOptions && options?.recursive === true;
 	for (const entry of entries) {
+		if (!isRecusive) {
+			values.push(hasOptions && options?.withFileTypes ? new Dirent(entry, await stat(join(path, entry))) : entry);
+			continue;
+		}
 		const fullPath = join(path, entry);
 		const entryStat = await stat(fullPath);
 		const isDirectory = entryStat.isDirectory();
 
 		// Include Dirent objects if withFileTypes is true
-		if (typeof options === 'object' && options?.withFileTypes) {
+		if (hasOptions && options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
 		} else {
 			values.push(entry);
 		}
 
 		// Handle recursive flag: Recursively read subdirectories
-		if (isDirectory && typeof options === 'object' && options?.recursive) {
+		if (isDirectory && hasOptions && options?.recursive) {
 			// types are a bit tricky so its simpler to cast as any as they are the same as received as args
 			const subDirEntries = await readdir(fullPath, options as any);
 
