@@ -439,6 +439,10 @@ export function readdirSync(path: fs.PathLike, options: { recursive?: boolean; w
 export function readdirSync(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null): string[] | Buffer[];
 export function readdirSync(
 	path: fs.PathLike,
+	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
+): string[] | Dirent[] | Buffer[];
+export function readdirSync(
+	path: fs.PathLike,
 	options?: { recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null; withFileTypes?: boolean } | BufferEncoding | 'buffer' | null
 ): string[] | Dirent[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
@@ -482,7 +486,7 @@ export function readdirSync(
 		if (!entryStat.isDirectory() || !options?.recursive) continue;
 
 		// types are a bit tricky so its simpler to cast as any as they are the same as received as args
-		for (const subEntry of readdirSync(fullPath, options as any) as (string | Buffer | Dirent)[]) {
+		for (const subEntry of readdirSync(fullPath, options)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);

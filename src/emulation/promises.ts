@@ -695,6 +695,10 @@ export async function readdir(path: fs.PathLike, options: fs.ObjectEncodingOptio
 export async function readdir(
 	path: fs.PathLike,
 	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
+): Promise<string[] | Dirent[] | Buffer[]>;
+export async function readdir(
+	path: fs.PathLike,
+	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
@@ -735,7 +739,7 @@ export async function readdir(
 		}
 
 		// types are a bit tricky so its simpler to cast as any as they are the same as received as args
-		for (const subEntry of (await readdir(fullPath, options as any)) as (string | Buffer | Dirent)[]) {
+		for (const subEntry of await readdir(fullPath, options)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
