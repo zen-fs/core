@@ -710,12 +710,9 @@ export async function readdir(
 	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
-	let entries: string[];
-	try {
-		entries = await fs.readdir(resolved);
-	} catch (e) {
+	const entries = await fs.readdir(resolved).catch((e: Error) => {
 		throw fixError(e as Error, { [resolved]: path });
-	}
+	});
 
 	for (const point of mounts.keys()) {
 		if (point.startsWith(path)) {
