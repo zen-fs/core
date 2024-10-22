@@ -453,43 +453,17 @@ export function readdirSync(
 		throw fixError(e as Error, { [resolved]: path });
 	}
 
-	// Check for mounted points
 	for (const mount of mounts.keys()) {
 		if (!mount.startsWith(path)) {
 			continue;
 		}
 		const entry = mount.slice(path.length);
-		if (entry.includes('/') || entry.length === 0) {
-			// Ignore mounted FSs in subdirectories or mounted at the same path
+		if (entry.includes('/') || entry.length == 0) {
+			// ignore FSs mounted in subdirectories and any FS mounted to `path`.
 			continue;
 		}
 		entries.push(entry);
 	}
-
-	// Helper to collect recursive entries
-	const collectRecursiveEntries = (parentPath: string, entry: string): (string | Dirent | Buffer)[] => {
-		const fullPath = join(parentPath, entry);
-		const entryStat = statSync(fullPath);
-
-		if (!entryStat.isDirectory()) return [];
-
-		// types are a bit tricky so its simpler to cast as any as they are the same as received as args
-		const subEntries = readdirSync(fullPath, options as any);
-
-		return (subEntries as (string | Buffer | Dirent)[]).map(subEntry => {
-			if (subEntry instanceof Dirent) {
-				subEntry.path = join(entry, subEntry.path);
-				return subEntry;
-			}
-			if (Buffer.isBuffer(subEntry)) {
-				return Buffer.from(join(entry, subEntry.toString()));
-			}
-			if (typeof subEntry === 'string') {
-				return join(entry, subEntry);
-			}
-			return subEntry;
-		});
-	};
 
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];

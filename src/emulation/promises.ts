@@ -713,12 +713,12 @@ export async function readdir(
 		throw fixError(e as Error, { [resolved]: path });
 	}
 
-	// Handle mounted points
 	for (const point of mounts.keys()) {
 		if (point.startsWith(path)) {
 			const entry = point.slice(path.length);
-			if (entry.includes('/') || entry.length === 0) {
-				continue; // Ignore FSs mounted in subdirectories or mounted at the same path.
+			if (entry.includes('/') || entry.length == 0) {
+				// ignore FSs mounted in subdirectories and any FS mounted to `path`.
+				continue;
 			}
 			entries.push(entry);
 		}
@@ -744,7 +744,7 @@ export async function readdir(
 
 			for (const subEntry of subDirEntries) {
 				if (subEntry instanceof Dirent) {
-					subEntry.path = join(entry, subEntry.path); // Prefix entry with parent
+					subEntry.path = join(entry, subEntry.path);
 					values.push(subEntry);
 				} else if (Buffer.isBuffer(subEntry)) {
 					// Convert Buffer to string, prefix with the full path
