@@ -891,22 +891,49 @@ export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string)
 export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<promises.FileChangeInfo<T>> {
 	return {
 		[Symbol.asyncIterator](): AsyncIterator<promises.FileChangeInfo<T>> {
-			const watcher = new FSWatcher<T>(filename.toString(), typeof options != 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
+			// Initialize the FSWatcher with the provided filename and options
+			const watcher = new FSWatcher<T>(filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
-			function withDone(done: boolean) {
-				return function () {
-					const event = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
-					watcher.on('change', (eventType, filename) => {
-						event.resolve({ value: { eventType, filename }, done });
-					});
-					return event.promise;
-				};
+			// A queue to hold change events, since we need to resolve them in the async iterator
+			const eventQueue: { resolve: (value: IteratorResult<FileChangeInfo<T>>) => void }[] = [];
+
+			// Listen to the 'change' event from the watcher
+			watcher.on('change', (eventType: FileChangeInfo<T>['eventType'], fileName: T) => {
+				if (eventQueue.length > 0) {
+					// If there are promises waiting to be resolved, resolve one of them
+					const nextResolver = eventQueue.shift();
+					nextResolver?.resolve({ value: { eventType, filename: fileName }, done: false });
+				}
+			});
+
+			// Handle cleanup when the watcher is closed or finished
+			function cleanup() {
+				watcher.close();
+				for (const resolver of eventQueue) {
+					resolver.resolve({ value: null, done: true });
+				}
+				eventQueue.length = 0; // Clear the queue
+			}
+
+			// This will return a new promise every time `next` is called, which resolves with the next change event
+			async function next(): Promise<IteratorResult<FileChangeInfo<T>>> {
+				return new Promise(resolve => {
+					eventQueue.push({ resolve });
+				});
 			}
 
 			return {
-				next: withDone(false),
-				return: withDone(true),
-				throw: withDone(true),
+				async next() {
+					return next();
+				},
+				return() {
+					cleanup(); // Clean up when the iteration is done
+					return Promise.resolve({ value: null, done: true });
+				},
+				async throw() {
+					cleanup(); // Clean up if the iteration is aborted
+					return Promise.resolve({ value: null, done: true });
+				},
 			};
 		},
 	};
