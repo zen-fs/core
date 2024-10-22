@@ -930,7 +930,7 @@ export function watch<T extends string | Buffer>(filename: fs.PathLike, options:
 					cleanup(); // Clean up when the iteration is done
 					return Promise.resolve({ value: null, done: true });
 				},
-				async throw() {
+				throw() {
 					cleanup(); // Clean up if the iteration is aborted
 					return Promise.resolve({ value: null, done: true });
 				},
