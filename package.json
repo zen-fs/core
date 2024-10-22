@@ -2,6 +2,10 @@
 	"name": "@zenfs/core",
 	"version": "1.1.0",
 	"description": "A filesystem, anywhere",
+	"funding": {
+		"type": "individual",
+		"url": "https://github.com/sponsors/james-pre"
+	},
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"keywords": [
