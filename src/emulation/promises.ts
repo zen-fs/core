@@ -2,11 +2,9 @@
 import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
-import type { CreateReadStreamOptions, CreateWriteStreamOptions, FileChangeInfo, FileReadResult, FlagAndOpenMode } from 'node:fs/promises';
 import type { Stream } from 'node:stream';
-import type { ReadableStream as TReadableStream } from 'node:stream/web';
+import type { ReadableStream as TReadableStream, ReadableStreamController } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
-import type { ReadableStreamController } from 'stream/web';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
@@ -107,7 +105,7 @@ export class FileHandle implements promises.FileHandle {
 	 * - `mode` defaults to `0o666`.
 	 * - `flag` defaults to `'a'`.
 	 */
-	public async appendFile(data: string | Uint8Array, _options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding = {}): Promise<void> {
+	public async appendFile(data: string | Uint8Array, _options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {}): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isAppendable(flag)) {
@@ -129,7 +127,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param length The number of bytes to read.
 	 * @param position The offset from the beginning of the file from which data should be read. If `null`, data will be read from the current position.
 	 */
-	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number | null): Promise<FileReadResult<TBuffer>> {
+	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number | null): Promise<promises.FileReadResult<TBuffer>> {
 		if (isNaN(+position!)) {
 			position = this.file.position;
 		}
@@ -143,8 +141,8 @@ export class FileHandle implements promises.FileHandle {
 	 * If a flag is not provided, it defaults to `'r'`.
 	 */
 	public async readFile(_options?: { flag?: fs.OpenMode }): Promise<Buffer>;
-	public async readFile(_options: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string>;
-	public async readFile(_options?: (fs.ObjectEncodingOptions & FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
+	public async readFile(_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string>;
+	public async readFile(_options?: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = parseFlag(options.flag);
 		if (!isReadable(flag)) {
@@ -334,7 +332,7 @@ export class FileHandle implements promises.FileHandle {
 	 * Creates a stream for reading from the file.
 	 * @param options Options for the readable stream
 	 */
-	public createReadStream(options?: CreateReadStreamOptions): ReadStream {
+	public createReadStream(options?: promises.CreateReadStreamOptions): ReadStream {
 		const stream = new ReadStream({
 			highWaterMark: options?.highWaterMark || 64 * 1024,
 			encoding: options!.encoding!,
@@ -359,7 +357,7 @@ export class FileHandle implements promises.FileHandle {
 	 * Creates a stream for writing to the file.
 	 * @param options Options for the writeable stream.
 	 */
-	public createWriteStream(options?: CreateWriteStreamOptions): WriteStream {
+	public createWriteStream(options?: promises.CreateWriteStreamOptions): WriteStream {
 		const streamOptions = {
 			highWaterMark: options?.highWaterMark,
 			encoding: options?.encoding,
@@ -887,17 +885,17 @@ export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | 
 }
 realpath satisfies typeof promises.realpath;
 
-export function watch(filename: fs.PathLike, options?: fs.WatchOptions | BufferEncoding): AsyncIterable<FileChangeInfo<string>>;
-export function watch(filename: fs.PathLike, options: fs.WatchOptions | fs.BufferEncodingOption): AsyncIterable<FileChangeInfo<Buffer>>;
-export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string): AsyncIterable<FileChangeInfo<string>> | AsyncIterable<FileChangeInfo<Buffer>>;
-export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<FileChangeInfo<T>> {
+export function watch(filename: fs.PathLike, options?: fs.WatchOptions | BufferEncoding): AsyncIterable<promises.FileChangeInfo<string>>;
+export function watch(filename: fs.PathLike, options: fs.WatchOptions | fs.BufferEncodingOption): AsyncIterable<promises.FileChangeInfo<Buffer>>;
+export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string): AsyncIterable<promises.FileChangeInfo<string>> | AsyncIterable<promises.FileChangeInfo<Buffer>>;
+export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<promises.FileChangeInfo<T>> {
 	return {
-		[Symbol.asyncIterator](): AsyncIterator<FileChangeInfo<T>> {
+		[Symbol.asyncIterator](): AsyncIterator<promises.FileChangeInfo<T>> {
 			const watcher = new FSWatcher<T>(filename.toString(), typeof options != 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
 			function withDone(done: boolean) {
 				return function () {
-					const event = Promise.withResolvers<IteratorResult<FileChangeInfo<T>>>();
+					const event = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
 					watcher.on('change', (eventType, filename) => {
 						event.resolve({ value: { eventType, filename }, done });
 					});

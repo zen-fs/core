@@ -1,4 +1,4 @@
-import type * as Node from 'fs';
+import type * as Node from 'node:fs';
 import { Readable, Writable } from 'readable-stream';
 import type { Callback } from '../utils.js';
 import { ErrnoError, Errno } from '../error.js';

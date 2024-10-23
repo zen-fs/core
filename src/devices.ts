@@ -1,4 +1,4 @@
-import type { FileReadResult } from 'fs/promises';
+import type { FileReadResult } from 'node:fs/promises';
 import { InMemoryStore } from './backends/memory.js';
 import { StoreFS } from './backends/store/fs.js';
 import { S_IFBLK, S_IFCHR } from './emulation/constants.js';

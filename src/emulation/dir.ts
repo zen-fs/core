@@ -1,4 +1,4 @@
-import type { Dir as _Dir, Dirent as _Dirent } from 'fs';
+import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
 import { Errno, ErrnoError } from '../error.js';
 import type { Stats } from '../stats.js';
 import type { Callback } from '../utils.js';
