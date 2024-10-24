@@ -894,7 +894,7 @@ export function watch<T extends string | Buffer>(filename: fs.PathLike, options:
 			const watcher = new FSWatcher<T>(filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
 			// A queue to hold change events, since we need to resolve them in the async iterator
-			const eventQueue: Array<(value: IteratorResult<promises.FileChangeInfo<T>>) => void> = [];
+			const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];
 
 			watcher.on('change', (eventType: promises.FileChangeInfo<T>['eventType'], filename: T) => {
 				eventQueue.shift()?.({ value: { eventType, filename }, done: false });
