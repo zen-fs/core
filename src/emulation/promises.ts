@@ -938,7 +938,13 @@ access satisfies typeof promises.access;
 export async function rm(path: fs.PathLike, options?: fs.RmOptions) {
 	path = normalizePath(path);
 
-	const stats = await stat(path);
+	const stats = await stat(path).catch((error: ErrnoError) => {
+		if (error.code != 'ENOENT' || !options?.force) throw error;
+	});
+
+	if (!stats) {
+		return;
+	}
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:

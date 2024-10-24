@@ -648,7 +648,16 @@ accessSync satisfies typeof fs.accessSync;
 export function rmSync(path: fs.PathLike, options?: fs.RmOptions): void {
 	path = normalizePath(path);
 
-	const stats = statSync(path);
+	let stats: Stats | undefined;
+	try {
+		stats = statSync(path);
+	} catch (error: any) {
+		if (error.code != 'ENOENT' || !options?.force) throw error;
+	}
+
+	if (!stats) {
+		return;
+	}
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
