@@ -105,18 +105,18 @@ suite('Watch Features', () => {
 
 		const watcher = fs.promises.watch(tempFile);
 
-		const finished = Promise.withResolvers<void>();
+		const { promise, resolve } = Promise.withResolvers<void>();
 		(async () => {
 			for await (const event of watcher) {
 				assert.equal(event.eventType, 'rename');
 				assert.equal(event.filename, 'tempFile.txt');
 				break;
 			}
-			finished.resolve();
+			resolve();
 		})();
 
 		await fs.promises.unlink(tempFile);
-		await finished.promise;
+		await promise;
 	});
 }).then(async () => {
 	await fs.promises.rm(testFile);

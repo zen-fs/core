@@ -894,16 +894,16 @@ export function watch<T extends string | Buffer>(filename: fs.PathLike, options:
 			const watcher = new FSWatcher<T>(filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
 			// A queue to hold change events, since we need to resolve them in the async iterator
-			const eventQueue: { resolve: (value: IteratorResult<promises.FileChangeInfo<T>>) => void }[] = [];
+			const eventQueue: Array<(value: IteratorResult<promises.FileChangeInfo<T>>) => void> = [];
 
 			watcher.on('change', (eventType: promises.FileChangeInfo<T>['eventType'], filename: T) => {
-				eventQueue.shift()?.resolve({ value: { eventType, filename }, done: false });
+				eventQueue.shift?.()?.({ value: { eventType, filename }, done: false });
 			});
 
 			function cleanup() {
 				watcher.close();
-				for (const resolver of eventQueue) {
-					resolver.resolve({ value: null, done: true });
+				for (const resolve of eventQueue) {
+					resolve({ value: null, done: true });
 				}
 				eventQueue.length = 0; // Clear the queue
 				return Promise.resolve({ value: null, done: true as const });
@@ -912,7 +912,7 @@ export function watch<T extends string | Buffer>(filename: fs.PathLike, options:
 			return {
 				async next() {
 					const { promise, resolve } = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
-					eventQueue.push({ resolve });
+					eventQueue.push(resolve);
 					return promise;
 				},
 				return: cleanup,
