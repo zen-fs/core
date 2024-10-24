@@ -97,6 +97,27 @@ suite('Watch Features', () => {
 
 		await fs.promises.unlink(tempFile);
 	});
+
+	test('fs.promises.watch should detect file deletions', async () => {
+		const tempFile = `${testDir}/tempFile.txt`;
+
+		await fs.promises.writeFile(tempFile, 'Temporary content');
+
+		const watcher = fs.promises.watch(tempFile);
+
+		const { promise, resolve } = Promise.withResolvers<void>();
+		(async () => {
+			for await (const event of watcher) {
+				assert.equal(event.eventType, 'rename');
+				assert.equal(event.filename, 'tempFile.txt');
+				break;
+			}
+			resolve();
+		})();
+
+		await fs.promises.unlink(tempFile);
+		await promise;
+	});
 }).then(async () => {
 	await fs.promises.rm(testFile);
 	await fs.promises.rm(testDir, { recursive: true, force: true });

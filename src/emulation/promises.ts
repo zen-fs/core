@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
-import type { ReadableStream as TReadableStream, ReadableStreamController } from 'node:stream/web';
+import type { ReadableStreamController, ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
@@ -891,22 +891,32 @@ export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string)
 export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<promises.FileChangeInfo<T>> {
 	return {
 		[Symbol.asyncIterator](): AsyncIterator<promises.FileChangeInfo<T>> {
-			const watcher = new FSWatcher<T>(filename.toString(), typeof options != 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
+			const watcher = new FSWatcher<T>(filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
-			function withDone(done: boolean) {
-				return function () {
-					const event = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
-					watcher.on('change', (eventType, filename) => {
-						event.resolve({ value: { eventType, filename }, done });
-					});
-					return event.promise;
-				};
+			// A queue to hold change events, since we need to resolve them in the async iterator
+			const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];
+
+			watcher.on('change', (eventType: promises.FileChangeInfo<T>['eventType'], filename: T) => {
+				eventQueue.shift()?.({ value: { eventType, filename }, done: false });
+			});
+
+			function cleanup() {
+				watcher.close();
+				for (const resolve of eventQueue) {
+					resolve({ value: null, done: true });
+				}
+				eventQueue.length = 0; // Clear the queue
+				return Promise.resolve({ value: null, done: true as const });
 			}
 
 			return {
-				next: withDone(false),
-				return: withDone(true),
-				throw: withDone(true),
+				async next() {
+					const { promise, resolve } = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
+					eventQueue.push(resolve);
+					return promise;
+				},
+				return: cleanup,
+				throw: cleanup,
 			};
 		},
 	};
