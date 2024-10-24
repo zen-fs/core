@@ -897,7 +897,7 @@ export function watch<T extends string | Buffer>(filename: fs.PathLike, options:
 			const eventQueue: Array<(value: IteratorResult<promises.FileChangeInfo<T>>) => void> = [];
 
 			watcher.on('change', (eventType: promises.FileChangeInfo<T>['eventType'], filename: T) => {
-				eventQueue.shift?.()?.({ value: { eventType, filename }, done: false });
+				eventQueue.shift()?.({ value: { eventType, filename }, done: false });
 			});
 
 			function cleanup() {
