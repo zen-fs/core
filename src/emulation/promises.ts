@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
-import type { ReadableStream as TReadableStream, ReadableStreamController } from 'node:stream/web';
+import type { ReadableStreamController, ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
@@ -891,49 +891,32 @@ export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string)
 export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<promises.FileChangeInfo<T>> {
 	return {
 		[Symbol.asyncIterator](): AsyncIterator<promises.FileChangeInfo<T>> {
-			// Initialize the FSWatcher with the provided filename and options
 			const watcher = new FSWatcher<T>(filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
 			// A queue to hold change events, since we need to resolve them in the async iterator
-			const eventQueue: { resolve: (value: IteratorResult<FileChangeInfo<T>>) => void }[] = [];
+			const eventQueue: { resolve: (value: IteratorResult<promises.FileChangeInfo<T>>) => void }[] = [];
 
-			// Listen to the 'change' event from the watcher
-			watcher.on('change', (eventType: FileChangeInfo<T>['eventType'], fileName: T) => {
-				if (eventQueue.length > 0) {
-					// If there are promises waiting to be resolved, resolve one of them
-					const nextResolver = eventQueue.shift();
-					nextResolver?.resolve({ value: { eventType, filename: fileName }, done: false });
-				}
+			watcher.on('change', (eventType: promises.FileChangeInfo<T>['eventType'], filename: T) => {
+				eventQueue.shift()?.resolve({ value: { eventType, filename }, done: false });
 			});
 
-			// Handle cleanup when the watcher is closed or finished
 			function cleanup() {
 				watcher.close();
 				for (const resolver of eventQueue) {
 					resolver.resolve({ value: null, done: true });
 				}
 				eventQueue.length = 0; // Clear the queue
-			}
-
-			// This will return a new promise every time `next` is called, which resolves with the next change event
-			async function next(): Promise<IteratorResult<FileChangeInfo<T>>> {
-				return new Promise(resolve => {
-					eventQueue.push({ resolve });
-				});
+				return Promise.resolve({ value: null, done: true as const });
 			}
 
 			return {
 				async next() {
-					return next();
+					const { promise, resolve } = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
+					eventQueue.push({ resolve });
+					return promise;
 				},
-				return() {
-					cleanup(); // Clean up when the iteration is done
-					return Promise.resolve({ value: null, done: true });
-				},
-				throw() {
-					cleanup(); // Clean up if the iteration is aborted
-					return Promise.resolve({ value: null, done: true });
-				},
+				return: cleanup,
+				throw: cleanup,
 			};
 		},
 	};

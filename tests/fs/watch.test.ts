@@ -108,8 +108,8 @@ suite('Watch Features', () => {
 		const finished = Promise.withResolvers<void>();
 		(async () => {
 			for await (const event of watcher) {
-				assert(event.eventType === 'rename');
-				assert(event.filename === 'tempFile.txt');
+				assert.equal(event.eventType, 'rename');
+				assert.equal(event.filename, 'tempFile.txt');
 				break;
 			}
 			finished.resolve();
