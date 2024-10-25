@@ -10,10 +10,6 @@ declare global {
 	function btoa(data: string): string;
 }
 
-declare const globalThis: {
-	setImmediate?: (callback: () => unknown) => void;
-};
-
 /**
  * Synchronous recursive makedir.
  * @hidden
@@ -111,9 +107,6 @@ export function levenshtein(a: string, b: string): number {
 
 	return dd;
 }
-
-/** @hidden */
-export const setImmediate = typeof globalThis.setImmediate == 'function' ? globalThis.setImmediate : (cb: () => unknown) => setTimeout(cb, 0);
 
 /**
  * Encodes a string into a buffer
