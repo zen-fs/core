@@ -123,7 +123,14 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 	path = resolveSymlinks ? realpathSync(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
-	if (!fs.existsSync(resolved)) {
+	let stats: Stats | undefined;
+	try {
+		stats = fs.statSync(resolved);
+	} catch {
+		// nothing
+	}
+
+	if (!stats) {
 		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
 			throw ErrnoError.With('ENOENT', path, '_open');
 		}
@@ -137,8 +144,6 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 		}
 		return fs.createFileSync(resolved, flag, mode);
 	}
-
-	const stats: Stats = fs.statSync(resolved);
 
 	if (!stats.hasAccess(mode) || !stats.hasAccess(flagToMode(flag))) {
 		throw ErrnoError.With('EACCES', path, '_open');
