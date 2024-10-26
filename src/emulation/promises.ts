@@ -396,7 +396,7 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 		await unlink(oldPath);
 		emitChange('rename', oldPath.toString());
 	} catch (e) {
-		throw fixError(e as Error, { [src.path]: oldPath, [dst.path]: newPath });
+		throw fixError(e as ErrnoError, { [src.path]: oldPath, [dst.path]: newPath });
 	}
 }
 rename satisfies typeof promises.rename;
@@ -426,11 +426,11 @@ export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise
 	try {
 		const stats = await fs.stat(resolved);
 		if (!stats.hasAccess(constants.R_OK)) {
-			throw ErrnoError.With('EACCES', path, 'stat');
+			throw ErrnoError.With('EACCES', resolved, 'stat');
 		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
 stat satisfies typeof promises.stat;
@@ -449,7 +449,7 @@ export async function lstat(path: fs.PathLike, options?: fs.StatOptions): Promis
 		const stats = await fs.stat(resolved);
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
 lstat satisfies typeof promises.lstat;
@@ -472,7 +472,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 		await fs.unlink(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
 unlink satisfies typeof promises.unlink;
@@ -626,7 +626,7 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 		await fs.rmdir(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
 rmdir satisfies typeof promises.rmdir;
@@ -672,7 +672,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 		}
 		return dirs[0];
 	} catch (e) {
-		throw fixError(e as Error, errorPaths);
+		throw fixError(e as ErrnoError, errorPaths);
 	}
 }
 mkdir satisfies typeof promises.mkdir;
@@ -700,13 +700,13 @@ export async function readdir(
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = await realpath(normalizePath(path));
 
-	if (!(await stat(path)).hasAccess(constants.R_OK)) {
+	const { fs, path: resolved } = resolveMount(path);
+
+	if (!(await fs.stat(resolved)).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
 
-	const { fs, path: resolved } = resolveMount(path);
-
-	const entries = await fs.readdir(resolved).catch((e: Error) => {
+	const entries = await fs.readdir(resolved).catch((e: ErrnoError) => {
 		throw fixError(e, { [resolved]: path });
 	});
 
@@ -723,9 +723,12 @@ export async function readdir(
 
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		const fullPath = join(path, entry);
-
-		const stats = options?.recursive || options?.withFileTypes ? await stat(fullPath) : null;
+		let stats: Stats | undefined | void;
+		if (options?.recursive || options?.withFileTypes) {
+			stats = await fs.stat(join(resolved, entry)).catch((error: ErrnoError) => {
+				throw fixError(error, { [resolved]: path });
+			});
+		}
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, stats!));
 		} else if (options?.encoding === 'buffer') {
@@ -738,7 +741,7 @@ export async function readdir(
 			continue;
 		}
 
-		for (const subEntry of await readdir(fullPath, options)) {
+		for (const subEntry of await readdir(join(path, entry), options)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -776,7 +779,7 @@ export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Prom
 		}
 		return await fs.link(path, link.path);
 	} catch (e) {
-		throw fixError(e as Error, { [link.path]: linkPath, [path]: targetPath });
+		throw fixError(e as ErrnoError, { [link.path]: linkPath, [path]: targetPath });
 	}
 }
 link satisfies typeof promises.link;
@@ -881,7 +884,7 @@ export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | 
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;
 		}
-		throw fixError(e as Error, { [resolvedPath]: lpath });
+		throw fixError(e as ErrnoError, { [resolvedPath]: lpath });
 	}
 }
 realpath satisfies typeof promises.realpath;

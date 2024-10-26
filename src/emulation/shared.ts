@@ -99,11 +99,11 @@ export function fixPaths(text: string, paths: Record<string, string>): string {
  * Fix paths in error stacks
  * @hidden
  */
-export function fixError<E extends Error>(e: E, paths: Record<string, string>): E {
+export function fixError<E extends ErrnoError>(e: E, paths: Record<string, string>): E {
 	if (typeof e.stack == 'string') {
 		e.stack = fixPaths(e.stack, paths);
 	}
-	e.message = fixPaths(e.message, paths);
+	e.path = fixPaths(e.path!, paths);
 	return e;
 }
 

@@ -31,7 +31,7 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 		unlinkSync(oldPath);
 		emitChange('rename', oldPath.toString());
 	} catch (e) {
-		throw fixError(e as Error, { [oldMount.path]: oldPath, [newMount.path]: newPath });
+		throw fixError(e as ErrnoError, { [oldMount.path]: oldPath, [newMount.path]: newPath });
 	}
 }
 renameSync satisfies typeof fs.renameSync;
@@ -66,7 +66,7 @@ export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | B
 		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
 statSync satisfies typeof fs.statSync;
@@ -85,7 +85,7 @@ export function lstatSync(path: fs.PathLike, options?: fs.StatOptions): Stats | 
 		const stats = fs.statSync(resolved);
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
 lstatSync satisfies typeof fs.lstatSync;
@@ -110,7 +110,7 @@ export function unlinkSync(path: fs.PathLike): void {
 		fs.unlinkSync(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
 unlinkSync satisfies typeof fs.unlinkSync;
@@ -386,7 +386,7 @@ export function rmdirSync(path: fs.PathLike): void {
 		fs.rmdirSync(resolved);
 		emitChange('rename', path.toString());
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
 rmdirSync satisfies typeof fs.rmdirSync;
@@ -427,7 +427,7 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 		}
 		return dirs[0];
 	} catch (e) {
-		throw fixError(e as Error, errorPaths);
+		throw fixError(e as ErrnoError, errorPaths);
 	}
 }
 mkdirSync satisfies typeof fs.mkdirSync;
@@ -454,7 +454,7 @@ export function readdirSync(
 		}
 		entries = fs.readdirSync(resolved);
 	} catch (e) {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 
 	for (const mount of mounts.keys()) {
@@ -522,7 +522,7 @@ export function linkSync(targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 		}
 		return fs.linkSync(path, linkPath);
 	} catch (e) {
-		throw fixError(e as Error, { [path]: targetPath, [link.path]: linkPath });
+		throw fixError(e as ErrnoError, { [path]: targetPath, [link.path]: linkPath });
 	}
 }
 linkSync satisfies typeof fs.linkSync;
@@ -629,7 +629,7 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;
 		}
-		throw fixError(e as Error, { [resolvedPath]: lpath });
+		throw fixError(e as ErrnoError, { [resolvedPath]: lpath });
 	}
 }
 realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
