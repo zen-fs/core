@@ -13,8 +13,8 @@ async function expectError(fn: (...args: any[]) => unknown, path: string, ...arg
 		assert(err instanceof ErrnoError);
 		error = err;
 	}
-	assert(error != undefined);
-	assert(error.path === path);
+	assert(error);
+	assert.equal(error.path, path);
 	assert(error.message.includes(path));
 }
 
@@ -22,8 +22,8 @@ suite('Error messages', () => {
 	const path = '/non-existent';
 
 	fs.promises.stat(path).catch((error: ErrnoError) => {
-		assert(error.toString() === error.message);
-		assert(error.bufferSize() === 4 + JSON.stringify(error.toJSON()).length);
+		assert.equal(error.toString(), error.message);
+		assert.equal(error.bufferSize(), 4 + JSON.stringify(error.toJSON()).length);
 	});
 
 	test('stat', () => expectError(fs.promises.stat, path));
