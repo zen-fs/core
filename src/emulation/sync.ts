@@ -58,7 +58,7 @@ export function statSync(path: fs.PathLike, options?: { bigint?: boolean }): Sta
 export function statSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
+	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	try {
 		const stats = fs.statSync(resolved);
 		if (!stats.hasAccess(constants.R_OK)) {
@@ -120,7 +120,7 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 	const mode = normalizeMode(_mode, 0o644),
 		flag = parseFlag(_flag);
 
-	path = resolveSymlinks && existsSync(path) ? realpathSync(path) : path;
+	path = resolveSymlinks ? realpathSync(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
 	if (!fs.existsSync(resolved)) {
@@ -378,7 +378,7 @@ futimesSync satisfies typeof fs.futimesSync;
 
 export function rmdirSync(path: fs.PathLike): void {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
+	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	try {
 		if (!fs.statSync(resolved).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
@@ -401,8 +401,7 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
-	path = normalizePath(path);
-	path = existsSync(path) ? realpathSync(path) : path;
+	path = realpathSync(normalizePath(path));
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
@@ -447,7 +446,7 @@ export function readdirSync(
 ): string[] | Dirent[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(existsSync(path) ? realpathSync(path) : path);
+	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	let entries: string[];
 	if (!statSync(path).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
