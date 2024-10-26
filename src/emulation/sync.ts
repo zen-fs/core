@@ -62,7 +62,7 @@ export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | B
 	try {
 		const stats = fs.statSync(resolved);
 		if (!stats.hasAccess(constants.R_OK)) {
-			throw ErrnoError.With('EACCES', path, 'stat');
+			throw ErrnoError.With('EACCES', resolved, 'stat');
 		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
 	} catch (e) {
