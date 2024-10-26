@@ -260,7 +260,7 @@ export async function handleRequest(port: RPC.Port, fs: FileSystem, request: Fil
 					};
 				}
 				break;
-			case 'file':
+			case 'file': {
 				const { fd } = request;
 				if (!descriptors.has(fd)) {
 					throw new ErrnoError(Errno.EBADF);
@@ -271,11 +271,12 @@ export async function handleRequest(port: RPC.Port, fs: FileSystem, request: Fil
 					descriptors.delete(fd);
 				}
 				break;
+			}
 			default:
 				return;
 		}
-	} catch (e: any) {
-		value = e instanceof ErrnoError ? e.toJSON() : e.toString();
+	} catch (e) {
+		value = e instanceof ErrnoError ? e.toJSON() : (e as object).toString();
 		error = true;
 	}
 

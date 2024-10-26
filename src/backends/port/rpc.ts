@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Errno, ErrnoError, type ErrnoErrorJSON } from '../../error.js';
+import type { FileSystem } from '../../filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 import { handleRequest, PortFile, type PortFS } from './fs.js';
 import type { FileOrFSRequest } from './fs.js';
@@ -156,10 +157,10 @@ export function catchMessages<T extends Backend>(port: Port): (fs: FilesystemOf<
 	const events: _MessageEvent[] = [];
 	const handler = events.push.bind(events);
 	attach(port, handler);
-	return function (fs: any) {
+	return function (fs: FileSystem) {
 		detach(port, handler);
 		for (const event of events) {
-			const request: FileOrFSRequest = 'data' in event ? event.data : event;
+			const request = ('data' in event ? event.data : event) as FileOrFSRequest;
 			void handleRequest(port, fs, request);
 		}
 	};

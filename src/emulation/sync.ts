@@ -656,8 +656,8 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions): void {
 	let stats: Stats | undefined;
 	try {
 		stats = statSync(path);
-	} catch (error: any) {
-		if (error.code != 'ENOENT' || !options?.force) throw error;
+	} catch (error) {
+		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
 	}
 
 	if (!stats) {
@@ -768,6 +768,7 @@ writevSync satisfies typeof fs.writevSync;
  * @param path The path to the directory.
  * @param options Options for opening the directory.
  * @returns A `Dir` object representing the opened directory.
+ * @todo Handle options
  */
 export function opendirSync(path: fs.PathLike, options?: fs.OpenDirOptions): Dir {
 	path = normalizePath(path);

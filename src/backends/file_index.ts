@@ -202,7 +202,7 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 		if (!content.every(item => typeof item == 'string')) {
 			throw ErrnoError.With('ENODATA', path, 'readdir');
 		}
-		return content as string[];
+		return content;
 	}
 
 	protected abstract getData(path: string, stats: Stats): Promise<Uint8Array>;

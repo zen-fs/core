@@ -202,6 +202,9 @@ export class FileHandle implements promises.FileHandle {
 		return new (_gt as { ReadableStream: new (...args: unknown[]) => TReadableStream<Uint8Array> }).ReadableStream({ start, type: options.type });
 	}
 
+	/**
+	 * @todo Implement
+	 */
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
 		throw ErrnoError.With('ENOSYS', this.file.path, 'FileHandle.readLines');
 	}
@@ -864,6 +867,7 @@ lutimes satisfies typeof promises.lutimes;
  * Asynchronous realpath(3) - return the canonicalized absolute pathname.
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. Defaults to `'utf8'`.
+ * @todo handle options
  */
 export async function realpath(path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
 export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
@@ -1020,9 +1024,9 @@ copyFile satisfies typeof promises.copyFile;
  * @returns A `Dir` object representing the opened directory.
  * @todo Use options
  */
-export async function opendir(path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
+export function opendir(path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
 	path = normalizePath(path);
-	return new Dir(path);
+	return Promise.resolve(new Dir(path));
 }
 opendir satisfies typeof promises.opendir;
 
@@ -1087,8 +1091,8 @@ cp satisfies typeof promises.cp;
 export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions & { bigint?: false }): Promise<fs.StatsFs>;
 export async function statfs(path: fs.PathLike, opts: fs.StatFsOptions & { bigint: true }): Promise<fs.BigIntStatsFs>;
 export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs>;
-export async function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs> {
+export function statfs(path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs> {
 	path = normalizePath(path);
 	const { fs } = resolveMount(path);
-	return _statfs(fs, opts?.bigint);
+	return Promise.resolve(_statfs(fs, opts?.bigint));
 }

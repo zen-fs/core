@@ -47,7 +47,7 @@ suite('Watch Features', () => {
 	test('fs.unwatchFile should stop watching the file', async () => {
 		let changeDetected = false;
 
-		const listener = (curr: fs.Stats, prev: fs.Stats) => {
+		const listener = () => {
 			changeDetected = true;
 		};
 

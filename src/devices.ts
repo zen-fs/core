@@ -134,16 +134,18 @@ export class DeviceFile extends File {
 		this.driver.close?.(this);
 	}
 
-	public async close(): Promise<void> {
+	public close(): Promise<void> {
 		this.closeSync();
+		return Promise.resolve();
 	}
 
 	public syncSync(): void {
 		this.driver.sync?.(this);
 	}
 
-	public async sync(): Promise<void> {
+	public sync(): Promise<void> {
 		this.syncSync();
+		return Promise.resolve();
 	}
 
 	public chown(): Promise<void> {

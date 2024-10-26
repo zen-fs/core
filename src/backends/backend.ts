@@ -1,4 +1,4 @@
-import type { RequiredKeys } from 'utilium';
+import type { Entries, RequiredKeys } from 'utilium';
 import { ErrnoError, Errno } from '../error.js';
 import type { FileSystem } from '../filesystem.js';
 import { levenshtein } from '../utils.js';
@@ -102,7 +102,7 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 	}
 
 	// Check for required options.
-	for (const [optName, opt] of Object.entries(backend.options)) {
+	for (const [optName, opt] of Object.entries(backend.options) as Entries<OptionsConfig<Record<string, any>>>) {
 		const providedValue = options?.[optName];
 
 		if (providedValue === undefined || providedValue === null) {
@@ -133,7 +133,7 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 			throw new ErrnoError(
 				Errno.EINVAL,
 				`${backend.name}: Value provided for option ${optName} is not the proper type. Expected ${
-					Array.isArray(opt.type) ? `one of {${opt.type.join(', ')}}` : opt.type
+					Array.isArray(opt.type) ? `one of {${opt.type.join(', ')}}` : (opt.type as string)
 				}, but received ${typeof providedValue}`
 			);
 		}

@@ -128,7 +128,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 
 		try {
 			await this.writable.rename(oldPath, newPath);
-		} catch (e) {
+		} catch {
 			if (this._deletedFiles.has(oldPath)) {
 				throw ErrnoError.With('ENOENT', oldPath, 'rename');
 			}
@@ -144,7 +144,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 
 		try {
 			this.writable.renameSync(oldPath, newPath);
-		} catch (e) {
+		} catch {
 			if (this._deletedFiles.has(oldPath)) {
 				throw ErrnoError.With('ENOENT', oldPath, 'rename');
 			}
@@ -155,7 +155,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		try {
 			return await this.writable.stat(path);
-		} catch (e) {
+		} catch {
 			if (this._deletedFiles.has(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
@@ -170,7 +170,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 		this.checkInitialized();
 		try {
 			return this.writable.statSync(path);
-		} catch (e) {
+		} catch {
 			if (this._deletedFiles.has(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
@@ -329,12 +329,12 @@ export class UnmutexedOverlayFS extends FileSystem {
 		const contents: string[] = [];
 		try {
 			contents.push(...(await this.writable.readdir(path)));
-		} catch (e) {
+		} catch {
 			// NOP.
 		}
 		try {
 			contents.push(...(await this.readable.readdir(path)).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
-		} catch (e) {
+		} catch {
 			// NOP.
 		}
 		const seenMap: { [name: string]: boolean } = {};
@@ -356,12 +356,12 @@ export class UnmutexedOverlayFS extends FileSystem {
 		let contents: string[] = [];
 		try {
 			contents = contents.concat(this.writable.readdirSync(path));
-		} catch (e) {
+		} catch {
 			// NOP.
 		}
 		try {
 			contents = contents.concat(this.readable.readdirSync(path).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
-		} catch (e) {
+		} catch {
 			// NOP.
 		}
 		const seenMap: { [name: string]: boolean } = {};

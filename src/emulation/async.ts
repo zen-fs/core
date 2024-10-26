@@ -425,7 +425,7 @@ export function symlink(target: fs.PathLike, path: fs.PathLike, typeOrCB?: fs.sy
 }
 symlink satisfies Omit<typeof fs.symlink, '__promisify__'>;
 
-export function readlink(path: fs.PathLike, callback: Callback<[string]> & any): void;
+export function readlink(path: fs.PathLike, callback: Callback<[string]>): void;
 export function readlink(path: fs.PathLike, options: fs.BufferEncodingOption, callback: Callback<[Uint8Array]>): void;
 export function readlink(path: fs.PathLike, options: fs.EncodingOption, callback: Callback<[string | Uint8Array]>): void;
 export function readlink(path: fs.PathLike, options: fs.EncodingOption, callback: Callback<[string]>): void;

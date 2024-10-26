@@ -44,6 +44,7 @@ export default [
 			'@typescript-eslint/no-redundant-type-constituents': 'warn',
 			'@typescript-eslint/no-unsafe-call': 'warn',
 			'@typescript-eslint/restrict-plus-operands': 'off',
+			'@typescript-eslint/no-base-to-string': 'off',
 		},
 	},
 	{
