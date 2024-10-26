@@ -4,8 +4,6 @@ import { configure } from '../src/config.js';
 import * as fs from '../src/emulation/index.js';
 import { S_IFCHR, S_IFMT } from '../src/emulation/constants.js';
 
-console.log(fs.mounts);
-
 await configure({
 	addDevices: true,
 });
