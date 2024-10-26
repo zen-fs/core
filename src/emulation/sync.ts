@@ -627,6 +627,9 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 
 		return realpathSync(mountPoint + readlinkSync(lpath, options).toString());
 	} catch (e) {
+		if ((e as ErrnoError).code == 'ENOENT') {
+			return path;
+		}
 		throw fixError(e as Error, { [resolvedPath]: lpath });
 	}
 }

@@ -876,8 +876,11 @@ export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | 
 			return lpath;
 		}
 
-		return realpath(mountPoint + (await readlink(lpath)));
+		return await realpath(mountPoint + (await readlink(lpath)));
 	} catch (e) {
+		if ((e as ErrnoError).code == 'ENOENT') {
+			return path;
+		}
 		throw fixError(e as Error, { [resolvedPath]: lpath });
 	}
 }

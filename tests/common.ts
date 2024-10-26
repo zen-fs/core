@@ -3,7 +3,7 @@ import { join, relative } from 'path';
 import { statSync, readFileSync, readdirSync } from 'fs';
 import { Worker } from 'worker_threads';
 
-export const fixturesDir = 'tests/fixtures/node';
+export const fixturesDir = join(import.meta.dirname, 'fixtures/node');
 
 /**
  * Creates a Typescript Worker
