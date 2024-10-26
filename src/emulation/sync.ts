@@ -448,10 +448,10 @@ export function readdirSync(
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	let entries: string[];
-	if (!statSync(path).hasAccess(constants.R_OK)) {
-		throw ErrnoError.With('EACCES', path, 'readdir');
-	}
 	try {
+		if (!fs.statSync(resolved).hasAccess(constants.R_OK)) {
+			throw ErrnoError.With('EACCES', path, 'readdir');
+		}
 		entries = fs.readdirSync(resolved);
 	} catch (e) {
 		throw fixError(e as Error, { [resolved]: path });
@@ -472,8 +472,7 @@ export function readdirSync(
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		const fullPath = join(path, entry);
-		const entryStat = statSync(fullPath);
+		const entryStat = fs.statSync(join(resolved, entry));
 
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
@@ -484,7 +483,7 @@ export function readdirSync(
 		}
 		if (!entryStat.isDirectory() || !options?.recursive) continue;
 
-		for (const subEntry of readdirSync(fullPath, options)) {
+		for (const subEntry of readdirSync(join(path, entry), options)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -636,8 +635,7 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
 
 export function accessSync(path: fs.PathLike, mode: number = 0o600): void {
-	const stats = statSync(path);
-	if (!stats.hasAccess(mode)) {
+	if (!statSync(path).hasAccess(mode)) {
 		throw new ErrnoError(Errno.EACCES);
 	}
 }
