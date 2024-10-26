@@ -422,7 +422,7 @@ export async function stat(path: fs.PathLike, options?: { bigint?: false }): Pro
 export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
 export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount((await exists(path)) ? await realpath(path) : path);
+	const { fs, path: resolved } = resolveMount(await realpath(path));
 	try {
 		const stats = await fs.stat(resolved);
 		if (!stats.hasAccess(constants.R_OK)) {
@@ -486,7 +486,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	const mode = normalizeMode(_mode, 0o644),
 		flag = parseFlag(_flag);
 
-	path = resolveSymlinks && (await exists(path)) ? await realpath(path) : path;
+	path = resolveSymlinks ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
 	const stats = await fs.stat(resolved).catch(() => null);
@@ -617,7 +617,7 @@ appendFile satisfies typeof promises.appendFile;
 
 export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
-	path = (await exists(path)) ? await realpath(path) : path;
+	path = await realpath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
 		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
@@ -644,8 +644,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
-	path = normalizePath(path);
-	path = (await exists(path)) ? await realpath(path) : path;
+	path = await realpath(normalizePath(path));
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
@@ -699,17 +698,16 @@ export async function readdir(
 	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	options = typeof options === 'object' ? options : { encoding: options };
-	path = normalizePath(path);
+	path = await realpath(normalizePath(path));
 
 	if (!(await stat(path)).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
 
-	path = (await exists(path)) ? await realpath(path) : path;
 	const { fs, path: resolved } = resolveMount(path);
 
 	const entries = await fs.readdir(resolved).catch((e: Error) => {
-		throw fixError(e as Error, { [resolved]: path });
+		throw fixError(e, { [resolved]: path });
 	});
 
 	for (const point of mounts.keys()) {
