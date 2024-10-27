@@ -32,7 +32,7 @@ npm install @zenfs/core
 ```js
 import { fs } from '@zenfs/core'; // You can also use the default export
 
-fs.writeFileSync('/test.txt', 'Cool, I can do this in any JS environment (including browsers)!');
+fs.writeFileSync('/test.txt', 'You can do this in anywhere (including browsers)!');
 
 const contents = fs.readFileSync('/test.txt', 'utf-8');
 console.log(contents);
