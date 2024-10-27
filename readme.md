@@ -143,7 +143,7 @@ fs.umount('/mnt/zip'); // finished using the zip
 > [!CAUTION]
 > Instances of backends follow the _internal_ API. You should never use a backend's methods unless you are extending a backend.
 
-#### Devices and device files
+### Devices and device files
 
 > [!WARNING]
 > This is an **experimental** feature. Breaking changes may occur during non-major releases. Using this feature is the fastest way to make it stable.
