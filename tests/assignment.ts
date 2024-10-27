@@ -10,8 +10,8 @@
 	- ReadStream and WriteStream are excluded since they are polfilled from another module
 */
 
-import { fs as zen } from '../../src/index.js';
-import type * as node from 'fs';
+import { fs as zen } from '../src/index.js';
+import type * as node from 'node:fs';
 
 type Mock = {
 	[K in Exclude<keyof typeof node, 'ReadStream' | 'WriteStream'>]: Omit<(typeof node)[K], '__promisify__' | 'native'>;

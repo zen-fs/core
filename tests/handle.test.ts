@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { constants, type FileHandle, open } from '../../src/emulation/promises.js';
+import { constants, type FileHandle, open } from '../src/emulation/promises.js';
 
 const content = 'The cake is a lie',
 	appended = '\nAnother lie';

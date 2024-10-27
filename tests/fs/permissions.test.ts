@@ -3,7 +3,7 @@ import { suite, test } from 'node:test';
 import { R_OK, W_OK, X_OK } from '../../src/emulation/constants.js';
 import { join } from '../../src/emulation/path.js';
 import { ErrnoError } from '../../src/error.js';
-import { encode } from '../../src/utils.js';
+import { encodeUTF8 } from '../../src/utils.js';
 import { fs } from '../common.js';
 
 suite('Permissions', () => {
@@ -36,7 +36,7 @@ suite('Permissions', () => {
 
 		if (stats.isDirectory()) {
 			const testFile = join(path, '__test_file_plz_ignore.txt');
-			await fs.promises.writeFile(testFile, encode('this is a test file, please ignore.')).catch(checkError(W_OK));
+			await fs.promises.writeFile(testFile, encodeUTF8('this is a test file, please ignore.')).catch(checkError(W_OK));
 			await fs.promises.unlink(testFile).catch(checkError(W_OK));
 		} else {
 			const handle = await fs.promises.open(path, 'a').catch(checkError(W_OK));
