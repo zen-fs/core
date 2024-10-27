@@ -17,21 +17,21 @@ async function fetchFile<T extends object>(path: string, type: 'json'): Promise<
 async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'): Promise<T | Uint8Array>;
 async function fetchFile<T extends object>(path: string, type: string): Promise<T | Uint8Array> {
 	const response = await fetch(path).catch((e: Error) => {
-		throw new ErrnoError(Errno.EIO, e.message);
+		throw new ErrnoError(Errno.EIO, e.message, path);
 	});
 	if (!response.ok) {
-		throw new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status);
+		throw new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status, path);
 	}
 	switch (type) {
 		case 'buffer': {
 			const arrayBuffer = await response.arrayBuffer().catch((e: Error) => {
-				throw new ErrnoError(Errno.EIO, e.message);
+				throw new ErrnoError(Errno.EIO, e.message, path);
 			});
 			return new Uint8Array(arrayBuffer);
 		}
 		case 'json':
 			return response.json().catch((e: Error) => {
-				throw new ErrnoError(Errno.EIO, e.message);
+				throw new ErrnoError(Errno.EIO, e.message, path);
 			}) as Promise<T>;
 		default:
 			throw new ErrnoError(Errno.EINVAL, 'Invalid download type: ' + type);
@@ -95,12 +95,13 @@ export class FetchFS extends IndexFS {
 	}
 
 	public constructor({ index = 'index.json', baseUrl = '' }: FetchOptions) {
-		super(typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json'));
-
 		// prefix url must end in a directory separator.
 		if (baseUrl.at(-1) != '/') {
 			baseUrl += '/';
 		}
+
+		super(typeof index != 'string' ? index : fetchFile<IndexData>(baseUrl + index, 'json'));
+
 		this.baseUrl = baseUrl;
 	}
 

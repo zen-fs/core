@@ -1,9 +1,8 @@
+import { writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { Worker } from 'node:worker_threads';
 import { fs } from '../src/index.js';
-import { join, relative } from 'path';
-import { statSync, readFileSync, readdirSync } from 'fs';
-import { Worker } from 'worker_threads';
-
-export const fixturesDir = join(import.meta.dirname, 'fixtures/node');
+import { tmp } from './setup/common.js';
 
 /**
  * Creates a Typescript Worker
@@ -14,23 +13,13 @@ export function createTSWorker(source: string): Worker {
 	return new Worker(`import('tsx/esm/api').then(tsx => {tsx.register();import('${source}');});`, { eval: true });
 }
 
-function copy(_path: string) {
-	const path = relative(fixturesDir, _path) || '/';
-	const stats = statSync(_path);
+writeFileSync(join(tmp, '.tests'), Date.now().toString());
 
-	if (!stats.isDirectory()) {
-		fs.writeFileSync(path, readFileSync(_path));
-		return;
-	}
+const setupPath = resolve(process.env.SETUP || join(import.meta.dirname, 'setup/InMemory.ts'));
 
-	if (path != '/') {
-		fs.mkdirSync(path);
-	}
-	for (const file of readdirSync(_path)) {
-		copy(join(_path, file));
-	}
-}
-
-copy(fixturesDir);
+await import(setupPath).catch(error => {
+	console.log('Failed to import test setup:');
+	throw error;
+});
 
 export { fs };

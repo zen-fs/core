@@ -18,7 +18,7 @@
 	},
 	"files": [
 		"dist",
-		"src",
+		"tests",
 		"license.md",
 		"tsconfig.json",
 		"eslint.shared.js"
@@ -52,7 +52,7 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint src tests",
-		"test": "tsx --test --experimental-test-coverage",
+		"test": "rm -f tmp/.tests && tsx --test --experimental-test-coverage",
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",

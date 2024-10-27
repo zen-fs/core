@@ -31,6 +31,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	}
 
 	if (configuration instanceof FileSystem) {
+		await configuration.ready();
 		return configuration;
 	}
 
