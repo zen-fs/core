@@ -1,8 +1,6 @@
-import { writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { Worker } from 'node:worker_threads';
 import { fs } from '../src/index.js';
-import { tmp } from './setup/common.js';
 
 /**
  * Creates a Typescript Worker
@@ -12,8 +10,6 @@ import { tmp } from './setup/common.js';
 export function createTSWorker(source: string): Worker {
 	return new Worker(`import('tsx/esm/api').then(tsx => {tsx.register();import('${source}');});`, { eval: true });
 }
-
-writeFileSync(join(tmp, '.tests'), Date.now().toString());
 
 const setupPath = resolve(process.env.SETUP || join(import.meta.dirname, 'setup/InMemory.ts'));
 
