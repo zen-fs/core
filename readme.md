@@ -29,13 +29,8 @@ npm install @zenfs/core
 
 ## Usage
 
-> [!NOTE]
-> The examples are written in ESM.  
-> If you are using CJS, you can `require` the package.  
-> If using a browser environment, you can use a `<script>` with `type=module` (you may need to use import maps)
-
 ```js
-import fs from '@zenfs/core'; // You can also use the named export, `fs`
+import { fs } from '@zenfs/core'; // You can also use the default export
 
 fs.writeFileSync('/test.txt', 'Cool, I can do this in any JS environment (including browsers)!');
 
