@@ -2,7 +2,7 @@ import { join, relative } from 'node:path';
 import { statSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { fs } from '../../src/index.js';
 
-export const fixtures = join(import.meta.dirname, '../fixtures/node');
+export const data = join(import.meta.dirname, '../data');
 
 export const tmp = join(import.meta.dirname, '../tmp');
 
@@ -11,7 +11,7 @@ if (!existsSync(tmp)) {
 }
 
 export function copy(_path: string) {
-	const path = relative(fixtures, _path) || '/';
+	const path = relative(data, _path) || '/';
 	const stats = statSync(_path);
 
 	if (!stats.isDirectory()) {

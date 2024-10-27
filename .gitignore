@@ -4,7 +4,4 @@ docs
 *.log
 tmp
 build
-tests/fixtures
-!tests/fixtures/files
-!tests/fixtures/README.md
 tests/coverage

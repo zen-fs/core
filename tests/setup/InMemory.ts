@@ -1,3 +1,3 @@
-import { copy, fixtures } from './common.js';
+import { copy, data } from './common.js';
 
-copy(fixtures);
+copy(data);
