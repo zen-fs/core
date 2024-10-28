@@ -36,5 +36,11 @@ jobs:
             - name: Build
               run: npm run build
 
-            - name: Unit tests
-              run: npm test
+            - name: Unit tests (common)
+              run: npm run test:common
+
+            - name: Unit tests (InMemory)
+              run: npx zenfs-test tests/setup/memory.ts
+
+            - name: Unit tests (Overlay+Fetch)
+              run: npx zenfs-test tests/setup/cow+fetch.ts

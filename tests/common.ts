@@ -11,7 +11,7 @@ export function createTSWorker(source: string): Worker {
 	return new Worker(`import('tsx/esm/api').then(tsx => {tsx.register();import('${source}');});`, { eval: true });
 }
 
-const setupPath = resolve(process.env.SETUP || join(import.meta.dirname, 'setup/InMemory.ts'));
+const setupPath = resolve(process.env.SETUP || join(import.meta.dirname, 'setup/memory.ts'));
 
 await import(setupPath).catch(error => {
 	console.log('Failed to import test setup:');
