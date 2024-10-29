@@ -47,7 +47,8 @@
 		"./promises": "./dist/emulation/promises.js",
 		"./mixins": "./dist/mixins/index.js",
 		"./path": "./dist/emulation/path.js",
-		"./eslint": "./eslint.shared.js"
+		"./eslint": "./eslint.shared.js",
+		"./tests/*": "./tests/*"
 	},
 	"scripts": {
 		"format": "prettier --write .",
