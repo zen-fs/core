@@ -469,16 +469,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * listing.
 	 */
 	private async getDirListing(tx: Transaction, inode: Inode, path: string): Promise<{ [fileName: string]: Ino }> {
-		if (!inode.toStats().isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', path, 'getDirListing');
-		}
 		const data = await tx.get(inode.ino);
+		/*
+			Occurs when data is undefined,or corresponds to something other than a directory listing.
+			The latter should never occur unless the file system is corrupted.
+		 */
 		if (!data) {
-			/*
-				Occurs when data is undefined, or corresponds to something other
-				than a directory listing. The latter should never occur unless
-				the file system is corrupted.
-			 */
 			throw ErrnoError.With('ENOENT', path, 'getDirListing');
 		}
 
@@ -489,9 +485,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Given the Inode of a directory, retrieves the corresponding directory listing.
 	 */
 	protected getDirListingSync(tx: Transaction, inode: Inode, p?: string): { [fileName: string]: Ino } {
-		if (!inode.toStats().isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', p, 'getDirListing');
-		}
 		const data = tx.getSync(inode.ino);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', p, 'getDirListing');
@@ -652,10 +645,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			throw ErrnoError.With('EISDIR', path, 'remove');
 		}
 
-		if (isDir && !fileNode.toStats().isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', path, 'remove');
-		}
-
 		await tx.set(parentNode.ino, encodeDirListing(listing));
 
 		if (--fileNode.nlink < 1) {
@@ -694,10 +683,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!isDir && fileNode.toStats().isDirectory()) {
 			throw ErrnoError.With('EISDIR', path, 'remove');
-		}
-
-		if (isDir && !fileNode.toStats().isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', path, 'remove');
 		}
 
 		// Update directory listing.

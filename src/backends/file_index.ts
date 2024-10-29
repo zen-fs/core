@@ -191,10 +191,6 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 			throw ErrnoError.With('ENOENT', path, 'readdir');
 		}
 
-		if (!stats.isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', path, 'readdir');
-		}
-
 		const content: unknown = JSON.parse(decodeUTF8(stats.fileData));
 		if (!Array.isArray(content)) {
 			throw ErrnoError.With('ENODATA', path, 'readdir');

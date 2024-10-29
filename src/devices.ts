@@ -284,16 +284,10 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async rmdir(path: string): Promise<void> {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('ENOTDIR', path, 'rmdir');
-		}
 		return super.rmdir(path);
 	}
 
 	public rmdirSync(path: string): void {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('ENOTDIR', path, 'rmdir');
-		}
 		return super.rmdirSync(path);
 	}
 
@@ -312,9 +306,6 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async readdir(path: string): Promise<string[]> {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('ENOTDIR', path, 'readdir');
-		}
 		const entries = await super.readdir(path);
 		for (const dev of this.devices.keys()) {
 			if (dirname(dev) == path) {
@@ -325,9 +316,6 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public readdirSync(path: string): string[] {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('ENOTDIR', path, 'readdirSync');
-		}
 		const entries = super.readdirSync(path);
 		for (const dev of this.devices.keys()) {
 			if (dirname(dev) == path) {

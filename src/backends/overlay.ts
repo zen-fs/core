@@ -320,10 +320,6 @@ export class UnmutexedOverlayFS extends FileSystem {
 
 	public async readdir(path: string): Promise<string[]> {
 		this.checkInitialized();
-		const dirStats = await this.stat(path);
-		if (!dirStats.isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', path, 'readdir');
-		}
 
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
 		const contents: string[] = [];
@@ -347,10 +343,6 @@ export class UnmutexedOverlayFS extends FileSystem {
 
 	public readdirSync(path: string): string[] {
 		this.checkInitialized();
-		const dirStats = this.statSync(path);
-		if (!dirStats.isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', path, 'readdir');
-		}
 
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
 		let contents: string[] = [];
