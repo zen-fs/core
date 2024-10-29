@@ -12,13 +12,13 @@ import type { FileContents } from '../filesystem.js';
 import '../polyfills.js';
 import { BigIntStats, type Stats } from '../stats.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import * as cache from './cache.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { _statfs, config, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
-import * as cache from './cache.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -221,7 +221,7 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts?: fs.StatOptions & { bigint?: false }): Promise<Stats>;
 	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
 		const stats = await this.file.stat();
-		if (!stats.hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', this.file.path, 'stat');
 		}
 		return opts?.bigint ? new BigIntStats(stats) : stats;
@@ -387,7 +387,7 @@ export async function rename(oldPath: fs.PathLike, newPath: fs.PathLike): Promis
 	newPath = normalizePath(newPath);
 	const src = resolveMount(oldPath);
 	const dst = resolveMount(newPath);
-	if (!(await stat(dirname(oldPath))).hasAccess(constants.W_OK)) {
+	if (config.checkAccess && !(await stat(dirname(oldPath))).hasAccess(constants.W_OK)) {
 		throw ErrnoError.With('EACCES', oldPath, 'rename');
 	}
 	try {
@@ -429,7 +429,7 @@ export async function stat(path: fs.PathLike, options?: fs.StatOptions): Promise
 	const { fs, path: resolved } = resolveMount(await realpath(path));
 	try {
 		const stats = await fs.stat(resolved);
-		if (!stats.hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'stat');
 		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
@@ -470,7 +470,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -501,7 +501,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		}
 		// Create the file
 		const parentStats: Stats = await fs.stat(dirname(resolved));
-		if (!parentStats.hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', dirname(path), '_open');
 		}
 		if (!parentStats.isDirectory()) {
@@ -510,7 +510,7 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 		return new FileHandle(await fs.createFile(resolved, flag, mode));
 	}
 
-	if (!stats.hasAccess(flagToMode(flag))) {
+	if (config.checkAccess && !stats.hasAccess(flagToMode(flag))) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
@@ -624,7 +624,7 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = await realpath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (!(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		await fs.rmdir(resolved);
@@ -654,7 +654,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 
 	try {
 		if (!options?.recursive) {
-			if (!(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK)) {
+			if (config.checkAccess && !(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
 			await fs.mkdir(resolved, mode);
@@ -668,7 +668,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 			errorPaths[dir] = origDir;
 		}
 		for (const dir of dirs) {
-			if (!(await fs.stat(dirname(dir))).hasAccess(constants.W_OK)) {
+			if (config.checkAccess && !(await fs.stat(dirname(dir))).hasAccess(constants.W_OK)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
 			await fs.mkdir(dir, mode);
@@ -681,25 +681,34 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 }
 mkdir satisfies typeof promises.mkdir;
 
+export interface ReaddirOptions {
+	withFileTypes?: boolean;
+	recursive?: boolean;
+	/**
+	 * @hidden
+	 */
+	_isRecursive?: boolean;
+}
+
 /**
  * Asynchronous readdir(3) - read a directory.
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'`.
  */
-export async function readdir(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null): Promise<string[]>;
-export async function readdir(path: fs.PathLike, options: fs.BufferEncodingOption & { withFileTypes?: false; recursive?: boolean }): Promise<Buffer[]>;
+export async function readdir(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null): Promise<string[]>;
+export async function readdir(path: fs.PathLike, options: fs.BufferEncodingOption & { withFileTypes?: false; recursive?: boolean; _isRecursive?: boolean }): Promise<Buffer[]>;
 export async function readdir(
 	path: fs.PathLike,
-	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+	options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null
 ): Promise<string[] | Buffer[]>;
-export async function readdir(path: fs.PathLike, options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean }): Promise<Dirent[]>;
+export async function readdir(path: fs.PathLike, options: fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes: true }): Promise<Dirent[]>;
 export async function readdir(
 	path: fs.PathLike,
-	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
+	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
 ): Promise<string[] | Dirent[] | Buffer[]>;
 export async function readdir(
 	path: fs.PathLike,
-	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
+	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = await realpath(normalizePath(path));
@@ -713,7 +722,7 @@ export async function readdir(
 	const stats = cache.getStats(path) || (await fs.stat(resolved).catch(handleError));
 	cache.setStats(path, stats);
 
-	if (!stats.hasAccess(constants.R_OK)) {
+	if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
 
@@ -751,7 +760,7 @@ export async function readdir(
 
 		if (!options?.recursive || !entryStats?.isDirectory()) continue;
 
-		for (const subEntry of await readdir(join(path, entry), options)) {
+		for (const subEntry of await readdir(join(path, entry), { ...options, _isRecursive: true })) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -771,21 +780,25 @@ readdir satisfies typeof promises.readdir;
 
 export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Promise<void> {
 	targetPath = normalizePath(targetPath);
-	if (!(await stat(dirname(targetPath))).hasAccess(constants.R_OK)) {
-		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
-	}
 	linkPath = normalizePath(linkPath);
-	if (!(await stat(dirname(linkPath))).hasAccess(constants.W_OK)) {
-		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
-	}
 
 	const { fs, path } = resolveMount(targetPath);
 	const link = resolveMount(linkPath);
+
 	if (fs != link.fs) {
 		throw ErrnoError.With('EXDEV', linkPath, 'link');
 	}
+
 	try {
-		if (!(await fs.stat(path)).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await fs.stat(dirname(targetPath))).hasAccess(constants.R_OK)) {
+			throw ErrnoError.With('EACCES', dirname(path), 'link');
+		}
+
+		if (config.checkAccess && !(await stat(dirname(linkPath))).hasAccess(constants.W_OK)) {
+			throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
+		}
+
+		if (config.checkAccess && !(await fs.stat(path)).hasAccess(constants.W_OK | constants.R_OK)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
 		return await fs.link(path, link.path);
@@ -940,6 +953,7 @@ export function watch<T extends string | Buffer>(filename: fs.PathLike, options:
 watch satisfies typeof promises.watch;
 
 export async function access(path: fs.PathLike, mode: number = constants.F_OK): Promise<void> {
+	if (!config.checkAccess) return;
 	const stats = await stat(path);
 	if (!stats.hasAccess(mode)) {
 		throw new ErrnoError(Errno.EACCES);

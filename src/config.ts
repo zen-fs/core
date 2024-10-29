@@ -5,7 +5,7 @@ import { DeviceFS, fullDevice, nullDevice, randomDevice, zeroDevice } from './de
 import * as cache from './emulation/cache.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
-import { type MountObject } from './emulation/shared.js';
+import { config, type MountObject } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
@@ -107,6 +107,14 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * @experimental
 	 */
 	cacheStats: boolean;
+
+	/**
+	 * If true, disables *all* permissions checking.
+	 * This can increase performance
+	 * @default false
+	 * @experimental
+	 */
+	disableAccessChecks: boolean;
 }
 
 /**
@@ -133,6 +141,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 
 	cache.setEnabled(configuration.cacheStats ?? false);
+	config.checkAccess = !configuration.disableAccessChecks;
 
 	if (configuration.addDevices) {
 		const devfs = new DeviceFS();

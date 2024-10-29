@@ -133,3 +133,10 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 		blocks: (bigint ? BigInt : Number)(md.totalSpace / bs),
 	} as T extends true ? BigIntStatsFs : StatsFs;
 }
+
+export const config = {
+	/**
+	 * Whether to perform access checks
+	 */
+	checkAccess: true,
+};
