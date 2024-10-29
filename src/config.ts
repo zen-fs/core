@@ -2,9 +2,10 @@ import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from '
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { credentials } from './credentials.js';
 import { DeviceFS, fullDevice, nullDevice, randomDevice, zeroDevice } from './devices.js';
+import * as cache from './emulation/cache.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
-import type { MountObject } from './emulation/shared.js';
+import { type MountObject } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
@@ -98,6 +99,14 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * @experimental
 	 */
 	addDevices: boolean;
+
+	/**
+	 * If true, enables caching stats for certain operations.
+	 * This should reduce the number of stat calls performed.
+	 * @default false
+	 * @experimental
+	 */
+	cacheStats: boolean;
 }
 
 /**
@@ -122,6 +131,8 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
 
 	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
+
+	cache.setEnabled(configuration.cacheStats ?? false);
 
 	if (configuration.addDevices) {
 		const devfs = new DeviceFS();

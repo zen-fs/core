@@ -18,6 +18,7 @@ import { dirname, join, parse } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
+import * as cache from './cache.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -703,15 +704,24 @@ export async function readdir(
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = await realpath(normalizePath(path));
 
+	const handleError = (e: ErrnoError) => {
+		throw fixError(e, { [resolved]: path });
+	};
+
 	const { fs, path: resolved } = resolveMount(path);
 
-	if (!(await fs.stat(resolved)).hasAccess(constants.R_OK)) {
+	const stats = cache.getStats(path) || (await fs.stat(resolved).catch(handleError));
+	cache.setStats(path, stats);
+
+	if (!stats.hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
 
-	const entries = await fs.readdir(resolved).catch((e: ErrnoError) => {
-		throw fixError(e, { [resolved]: path });
-	});
+	if (!stats.isDirectory()) {
+		throw ErrnoError.With('ENOTDIR', path, 'readdir');
+	}
+
+	const entries = await fs.readdir(resolved).catch(handleError);
 
 	for (const point of mounts.keys()) {
 		if (point.startsWith(path)) {
@@ -726,23 +736,20 @@ export async function readdir(
 
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		let stats: Stats | undefined | void;
+		let entryStats: Stats | undefined;
 		if (options?.recursive || options?.withFileTypes) {
-			stats = await fs.stat(join(resolved, entry)).catch((error: ErrnoError) => {
-				throw fixError(error, { [resolved]: path });
-			});
+			entryStats = cache.getStats(join(path, entry)) || (await fs.stat(join(resolved, entry)).catch(handleError));
+			cache.setStats(join(path, entry), entryStats);
 		}
 		if (options?.withFileTypes) {
-			values.push(new Dirent(entry, stats!));
-		} else if (options?.encoding === 'buffer') {
+			values.push(new Dirent(entry, entryStats!));
+		} else if (options?.encoding == 'buffer') {
 			values.push(Buffer.from(entry));
 		} else {
 			values.push(entry);
 		}
 
-		if (!options?.recursive || !stats?.isDirectory()) {
-			continue;
-		}
+		if (!options?.recursive || !entryStats?.isDirectory()) continue;
 
 		for (const subEntry of await readdir(join(path, entry), options)) {
 			if (subEntry instanceof Dirent) {
@@ -757,6 +764,7 @@ export async function readdir(
 		}
 	}
 
+	cache.clearStats();
 	return values as string[] | Dirent[];
 }
 readdir satisfies typeof promises.readdir;

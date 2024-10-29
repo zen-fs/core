@@ -11,6 +11,7 @@ import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
 import { emitChange } from './watchers.js';
+import * as cache from './cache.js';
 
 export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
@@ -454,8 +455,13 @@ export function readdirSync(
 	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	let entries: string[];
 	try {
-		if (!fs.statSync(resolved).hasAccess(constants.R_OK)) {
-			throw ErrnoError.With('EACCES', path, 'readdir');
+		const stats = cache.getStats(path) || fs.statSync(resolved);
+		cache.setStats(path, stats);
+		if (!stats.hasAccess(constants.R_OK)) {
+			throw ErrnoError.With('EACCES', resolved, 'readdir');
+		}
+		if (!stats.isDirectory()) {
+			throw ErrnoError.With('ENOTDIR', resolved, 'readdir');
 		}
 		entries = fs.readdirSync(resolved);
 	} catch (e) {
@@ -477,11 +483,12 @@ export function readdirSync(
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		const entryStat = fs.statSync(join(resolved, entry));
+		const entryStat = cache.getStats(join(path, entry)) || fs.statSync(join(resolved, entry));
+		cache.setStats(join(path, entry), entryStat);
 
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
-		} else if (options?.encoding === 'buffer') {
+		} else if (options?.encoding == 'buffer') {
 			values.push(Buffer.from(entry));
 		} else {
 			values.push(entry);
@@ -500,6 +507,7 @@ export function readdirSync(
 		}
 	}
 
+	cache.clearStats();
 	return values as string[] | Dirent[] | Buffer[];
 }
 readdirSync satisfies typeof fs.readdirSync;
