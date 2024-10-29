@@ -28,6 +28,8 @@ options:
 	process.exit();
 }
 
+if (options.verbose) console.debug('Forcing tests to exit (--test-force-exit)');
+
 const testsGlob = join(import.meta.dirname, `../tests/fs/${options.test || '*'}.test.ts`);
 
 for (const setupFile of positionals) {
