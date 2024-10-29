@@ -386,7 +386,11 @@ export function rmdirSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	try {
-		if (config.checkAccess && !fs.statSync(resolved).hasAccess(constants.W_OK)) {
+		const stats = cache.getStats(path) || fs.statSync(resolved);
+		if (!stats.isDirectory()) {
+			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
+		}
+		if (config.checkAccess && !stats.hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		fs.rmdirSync(resolved);
@@ -407,7 +411,7 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
-	path = realpathSync(normalizePath(path));
+	path = realpathSync(path);
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 

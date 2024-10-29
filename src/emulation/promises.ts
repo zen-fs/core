@@ -620,11 +620,14 @@ appendFile satisfies typeof promises.appendFile;
 // DIRECTORY-ONLY METHODS
 
 export async function rmdir(path: fs.PathLike): Promise<void> {
-	path = normalizePath(path);
 	path = await realpath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
+		const stats = cache.getStats(path) || (await fs.stat(resolved));
+		if (!stats.isDirectory()) {
+			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
+		}
+		if (config.checkAccess && !stats.hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		await fs.rmdir(resolved);
@@ -648,7 +651,7 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
-	path = await realpath(normalizePath(path));
+	path = await realpath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
@@ -711,7 +714,7 @@ export async function readdir(
 	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
 ): Promise<string[] | Dirent[] | Buffer[]> {
 	options = typeof options === 'object' ? options : { encoding: options };
-	path = await realpath(normalizePath(path));
+	path = await realpath(path);
 
 	const handleError = (e: ErrnoError) => {
 		throw fixError(e, { [resolved]: path });
