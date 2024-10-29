@@ -8,6 +8,7 @@ const { values: options, positionals } = parseArgs({
 	options: {
 		help: { short: 'h', type: 'boolean', default: false },
 		verbose: { type: 'boolean', default: false },
+		test: { type: 'string' },
 	},
 	allowPositionals: true,
 });
@@ -20,12 +21,15 @@ paths: The setup files to run tests on
 options:
 	--help, -h		Outputs this help message
 	--verbose		Output verbose messages
+	--test			Which test suite to run
 	`);
 	process.exit();
 }
 
+const testsGlob = join(import.meta.dirname, `../tests/fs/${options.test || '*'}.test.ts`);
+
 for (const setupFile of positionals) {
 	if (options.verbose) console.debug('Running tests for:', setupFile);
 	process.env.SETUP = setupFile;
-	execSync('tsx --test --experimental-test-coverage ' + join(import.meta.dirname, '../tests/fs/*.test.ts'), { stdio: 'inherit' });
+	execSync('tsx --test --test-force-exit --experimental-test-coverage ' + testsGlob, { stdio: 'inherit' });
 }
