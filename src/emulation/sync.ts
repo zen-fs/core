@@ -9,7 +9,7 @@ import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTi
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { _statfs, config, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { _statfs, config, fd2file, fdMap, file2fd, fixError, mounts, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { emitChange } from './watchers.js';
 import * as cache from './cache.js';
 
@@ -105,7 +105,7 @@ export function unlinkSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !fs.statSync(resolved).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(cache.getStats(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		fs.unlinkSync(resolved);
@@ -442,17 +442,17 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
-export function readdirSync(path: fs.PathLike, options?: { recursive?: boolean; encoding?: BufferEncoding | null; withFileTypes?: false } | BufferEncoding | null): string[];
-export function readdirSync(path: fs.PathLike, options: { recursive?: boolean; encoding: 'buffer'; withFileTypes?: false } | 'buffer'): Buffer[];
-export function readdirSync(path: fs.PathLike, options: { recursive?: boolean; withFileTypes: true }): Dirent[];
-export function readdirSync(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null): string[] | Buffer[];
+export function readdirSync(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null): string[];
+export function readdirSync(path: fs.PathLike, options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }): Buffer[];
+export function readdirSync(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null): string[] | Buffer[];
+export function readdirSync(path: fs.PathLike, options: fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes: true }): Dirent[];
 export function readdirSync(
 	path: fs.PathLike,
-	options?: { withFileTypes?: boolean; recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null } | BufferEncoding | 'buffer' | null
+	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
 ): string[] | Dirent[] | Buffer[];
 export function readdirSync(
 	path: fs.PathLike,
-	options?: { recursive?: boolean; encoding?: BufferEncoding | 'buffer' | null; withFileTypes?: boolean } | BufferEncoding | 'buffer' | null
+	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
 ): string[] | Dirent[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
@@ -499,7 +499,7 @@ export function readdirSync(
 		}
 		if (!entryStat.isDirectory() || !options?.recursive) continue;
 
-		for (const subEntry of readdirSync(join(path, entry), options)) {
+		for (const subEntry of readdirSync(join(path, entry), { ...options, _isIndirect: true })) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -511,7 +511,9 @@ export function readdirSync(
 		}
 	}
 
-	cache.clearStats();
+	if (!options?._isIndirect) {
+		cache.clearStats();
+	}
 	return values as string[] | Dirent[] | Buffer[];
 }
 readdirSync satisfies typeof fs.readdirSync;
@@ -663,12 +665,12 @@ accessSync satisfies typeof fs.accessSync;
  * Synchronous `rm`. Removes files or directories (recursively).
  * @param path The path to the file or directory to remove.
  */
-export function rmSync(path: fs.PathLike, options?: fs.RmOptions): void {
+export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptions): void {
 	path = normalizePath(path);
 
 	let stats: Stats | undefined;
 	try {
-		stats = statSync(path);
+		stats = cache.getStats(path) || statSync(path);
 	} catch (error) {
 		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
 	}
@@ -677,26 +679,33 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions): void {
 		return;
 	}
 
+	cache.setStats(path, stats);
+
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of readdirSync(path)) {
-					rmSync(join(path, entry), options);
+				for (const entry of readdirSync(path, { _isIndirect: true })) {
+					rmSync(join(path, entry), { ...options, _isIndirect: true });
 				}
 			}
 
 			rmdirSync(path);
-			return;
+			break;
 		case constants.S_IFREG:
 		case constants.S_IFLNK:
 			unlinkSync(path);
-			return;
+			break;
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
+			cache.clearStats();
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
+	}
+
+	if (!options?._isIndirect) {
+		cache.clearStats();
 	}
 }
 rmSync satisfies typeof fs.rmSync;

@@ -16,7 +16,7 @@ import * as cache from './cache.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { _statfs, config, fd2file, fdMap, file2fd, fixError, mounts, resolveMount } from './shared.js';
+import { _statfs, config, fd2file, fdMap, file2fd, fixError, mounts, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
 export * as constants from './constants.js';
@@ -470,7 +470,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(await fs.stat(resolved)).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(cache.getStats(path) || (await fs.stat(resolved))).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -684,22 +684,13 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 }
 mkdir satisfies typeof promises.mkdir;
 
-export interface ReaddirOptions {
-	withFileTypes?: boolean;
-	recursive?: boolean;
-	/**
-	 * @hidden
-	 */
-	_isRecursive?: boolean;
-}
-
 /**
  * Asynchronous readdir(3) - read a directory.
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'`.
  */
 export async function readdir(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null): Promise<string[]>;
-export async function readdir(path: fs.PathLike, options: fs.BufferEncodingOption & { withFileTypes?: false; recursive?: boolean; _isRecursive?: boolean }): Promise<Buffer[]>;
+export async function readdir(path: fs.PathLike, options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }): Promise<Buffer[]>;
 export async function readdir(
 	path: fs.PathLike,
 	options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null
@@ -763,7 +754,7 @@ export async function readdir(
 
 		if (!options?.recursive || !entryStats?.isDirectory()) continue;
 
-		for (const subEntry of await readdir(join(path, entry), { ...options, _isRecursive: true })) {
+		for (const subEntry of await readdir(join(path, entry), { ...options, _isIndirect: true })) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -776,7 +767,10 @@ export async function readdir(
 		}
 	}
 
-	cache.clearStats();
+	if (!options?._isIndirect) {
+		cache.clearStats();
+	}
+
 	return values as string[] | Dirent[];
 }
 readdir satisfies typeof promises.readdir;
@@ -968,37 +962,46 @@ access satisfies typeof promises.access;
  * Asynchronous `rm`. Removes files or directories (recursively).
  * @param path The path to the file or directory to remove.
  */
-export async function rm(path: fs.PathLike, options?: fs.RmOptions) {
+export async function rm(path: fs.PathLike, options?: fs.RmOptions & InternalOptions) {
 	path = normalizePath(path);
 
-	const stats = await stat(path).catch((error: ErrnoError) => {
-		if (error.code != 'ENOENT' || !options?.force) throw error;
-	});
+	const stats =
+		cache.getStats(path) ||
+		(await stat(path).catch((error: ErrnoError) => {
+			if (error.code != 'ENOENT' || !options?.force) throw error;
+		}));
 
 	if (!stats) {
 		return;
 	}
 
+	cache.setStats(path, stats);
+
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of await readdir(path)) {
-					await rm(join(path, entry), options);
+				for (const entry of await readdir(path, { _isIndirect: true })) {
+					await rm(join(path, entry), { ...options, _isIndirect: true });
 				}
 			}
 
 			await rmdir(path);
-			return;
+			break;
 		case constants.S_IFREG:
 		case constants.S_IFLNK:
 			await unlink(path);
-			return;
+			break;
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
+			cache.clearStats();
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
+	}
+
+	if (!options?._isIndirect) {
+		cache.clearStats();
 	}
 }
 rm satisfies typeof promises.rm;

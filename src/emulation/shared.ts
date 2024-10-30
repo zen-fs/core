@@ -140,3 +140,21 @@ export const config = {
 	 */
 	checkAccess: true,
 };
+
+/**
+ * Options used for caching, among other things.
+ * @internal *UNSTABLE*
+ */
+export interface InternalOptions {
+	/**
+	 * If true, then this readdir was called from another function.
+	 * In this case, don't clear the cache when done.
+	 * @internal *UNSTABLE*
+	 */
+	_isIndirect?: boolean;
+}
+
+export interface ReaddirOptions extends InternalOptions {
+	withFileTypes?: boolean;
+	recursive?: boolean;
+}
