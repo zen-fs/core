@@ -670,14 +670,13 @@ export async function mkdir(path: fs.PathLike, options?: fs.Mode | fs.MakeDirect
 			dirs.unshift(dir);
 			errorPaths[dir] = origDir;
 		}
-		const _mkdir = async (dir: string) => {
+		for (const dir of dirs) {
 			if (config.checkAccess && !(await fs.stat(dirname(dir))).hasAccess(constants.W_OK)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
 			await fs.mkdir(dir, mode);
 			emitChange('rename', dir);
-		};
-		await Promise.all(dirs.map(_mkdir));
+		}
 		return dirs[0];
 	} catch (e) {
 		throw fixError(e as ErrnoError, errorPaths);

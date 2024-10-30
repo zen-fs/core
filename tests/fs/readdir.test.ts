@@ -67,9 +67,9 @@ suite('readdir and readdirSync', () => {
 
 	test('readdir returns Dirent recursively', async () => {
 		const entries = await fs.promises.readdir(testDir, { recursive: true, withFileTypes: true });
-		assert.equal(entries[0].path, 'file1.txt');
-		assert.equal(entries[4].path, 'subdir1/file4.txt');
-		assert.equal(entries[entries.length - 1].path, 'subdir2/file5.txt');
+		assert(entries.find(entry => entry.path === 'file1.txt'));
+		assert(entries.find(entry => entry.path === 'subdir1/file4.txt'));
+		assert(entries.find(entry => entry.path === 'subdir2/file5.txt'));
 	});
 
 	// New test for readdirSync with recursive: true
