@@ -15,7 +15,7 @@ await suite('Remote FS', () => {
 	const content = 'FS is in a port';
 
 	test('Configuration', async () => {
-		await configureSingle({ backend: Port, port, timeout: 500 });
+		await configureSingle({ backend: Port, port, timeout: 250 });
 	});
 
 	test('Write', async () => {
