@@ -9,6 +9,7 @@ jobs:
     docs:
         name: Docs
         uses: ./.github/workflows/deploy-docs.yaml
+        needs: ci
     release:
         name: Release
         uses: ./.github/workflows/release-common.yaml

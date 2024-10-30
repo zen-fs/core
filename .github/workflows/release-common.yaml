@@ -6,6 +6,7 @@ on:
                 required: true
 jobs:
     release:
+        name: Publish
         runs-on: ubuntu-latest
         permissions:
             id-token: write

@@ -1,12 +1,12 @@
-name: Deploy Docs
+name: Docs
 on:
     workflow_dispatch:
     workflow_call:
 
 jobs:
-    docs:
+    deploy:
         runs-on: ubuntu-latest
-        name: Docs build and deploy
+        name: Deploy
         permissions:
             contents: write
             id-token: write
@@ -26,14 +26,14 @@ jobs:
             - name: Install dependencies
               run: npm install
 
-            - name: Build docs
+            - name: Build
               run: npm run build:docs
 
-            - name: Upload docs artifact
+            - name: Upload artifact
               uses: actions/upload-pages-artifact@v3
               with:
                   path: ./docs
 
-            - name: 'Deploy docs'
+            - name: Deploy
               id: deploy
               uses: actions/deploy-pages@v4
