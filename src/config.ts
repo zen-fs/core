@@ -95,24 +95,24 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 
 	/**
 	 * Whether to automatically add normal Linux devices
-	 * @default false
 	 * @experimental
+	 * @default false
 	 */
 	addDevices: boolean;
 
 	/**
 	 * If true, enables caching stats for certain operations.
 	 * This should reduce the number of stat calls performed.
-	 * @default false
 	 * @experimental
+	 * @default false
 	 */
 	cacheStats: boolean;
 
 	/**
 	 * If true, disables *all* permissions checking.
 	 * This can increase performance
-	 * @default false
 	 * @experimental
+	 * @default false
 	 */
 	disableAccessChecks: boolean;
 }
