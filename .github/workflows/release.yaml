@@ -19,7 +19,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Setup npm authenication
+            - name: Setup npm authentication
               uses: actions/setup-node@v4
               with:
                   node-version: 22
