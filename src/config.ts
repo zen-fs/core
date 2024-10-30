@@ -5,7 +5,8 @@ import { DeviceFS, fullDevice, nullDevice, randomDevice, zeroDevice } from './de
 import * as cache from './emulation/cache.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
-import { config, type MountObject } from './emulation/shared.js';
+import { type MountObject } from './emulation/shared.js';
+import { config } from './emulation/config.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 

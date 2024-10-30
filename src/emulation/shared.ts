@@ -134,18 +134,6 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 	} as T extends true ? BigIntStatsFs : StatsFs;
 }
 
-export const config = {
-	/**
-	 * Whether to perform access checks
-	 */
-	checkAccess: true,
-
-	/**
-	 * Whether to sync atime updates immediately when reading from a file
-	 */
-	syncOnRead: true,
-};
-
 /**
  * Options used for caching, among other things.
  * @internal *UNSTABLE*
