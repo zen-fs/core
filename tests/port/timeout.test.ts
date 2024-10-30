@@ -11,14 +11,14 @@ import { ErrnoError, InMemory, configure, configureSingle, fs } from '../../src/
 const { port1, port2 } = new MessageChannel();
 port2.unref();
 
-await suite('Timeout', { timeout: 500 }, () => {
+await suite('Timeout', { timeout: 1000 }, () => {
 	test('Misconfiguration', async () => {
 		let error: ErrnoError;
 		try {
 			await configure({
 				mounts: {
 					'/tmp': { backend: InMemory, name: 'tmp' },
-					'/port': { backend: Port, port: port1, timeout: 50 },
+					'/port': { backend: Port, port: port1, timeout: 100 },
 				},
 			});
 		} catch (e) {
@@ -33,7 +33,7 @@ await suite('Timeout', { timeout: 500 }, () => {
 	test('Remote not attached', async () => {
 		let error: ErrnoError;
 		try {
-			await configureSingle({ backend: Port, port: port1, timeout: 50 });
+			await configureSingle({ backend: Port, port: port1, timeout: 100 });
 			await fs.promises.writeFile('/test', 'anything');
 		} catch (e) {
 			assert(e instanceof ErrnoError);

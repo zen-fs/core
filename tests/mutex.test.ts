@@ -51,7 +51,7 @@ suite('LockFS mutex', () => {
 
 		async function foo() {
 			const lock = await fs.lock('raceConditions', 'test');
-			await wait(50);
+			await wait(100);
 			x++;
 			lock.unlock();
 		}
