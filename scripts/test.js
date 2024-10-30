@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -35,5 +36,9 @@ const testsGlob = join(import.meta.dirname, `../tests/fs/${options.test || '*'}.
 for (const setupFile of positionals) {
 	if (options.verbose) console.debug('Running tests for:', setupFile);
 	process.env.SETUP = setupFile;
+	if (!existsSync(setupFile)) {
+		console.log('ERROR: Skipping non-existent file:', setupFile);
+		continue;
+	}
 	execSync(['tsx --test --experimental-test-coverage', options.forceExit ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), { stdio: 'inherit' });
 }
