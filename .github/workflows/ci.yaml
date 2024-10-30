@@ -30,11 +30,11 @@ jobs:
             - name: Formatting
               run: npm run format:check
 
-            - name: Linting
-              run: npm run lint
-
             - name: Build
               run: npm run build
+
+            - name: Linting
+              run: npm run lint
 
             - name: Unit tests (common)
               run: npm run test:common
