@@ -1,0 +1,39 @@
+name: Deploy Docs
+on:
+    workflow_dispatch:
+    workflow_call:
+
+jobs:
+    docs:
+        runs-on: ubuntu-latest
+        name: Docs build and deploy
+        permissions:
+            contents: write
+            id-token: write
+            pages: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deploy.outputs.page_url }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+            - name: Install dependencies
+              run: npm install
+
+            - name: Build docs
+              run: npm run build:docs
+
+            - name: Upload docs artifact
+              uses: actions/upload-pages-artifact@v3
+              with:
+                  path: ./docs
+
+            - name: 'Deploy docs'
+              id: deploy
+              uses: actions/deploy-pages@v4
