@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
-import { configureSingle, Fetch, InMemory, Overlay } from '../../src/index.js';
+import { configureSingle, Fetch, InMemory, Overlay } from '../../dist/index.js';
 import { data, tmp } from './common.js';
 
 const port = 26514,

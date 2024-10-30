@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { MessageChannel } from 'node:worker_threads';
-import { Port } from '../../src/backends/port/fs.js';
-import { ErrnoError, InMemory, configure, configureSingle, fs } from '../../src/index.js';
+import { Port } from '../../dist/backends/port/fs.js';
+import { ErrnoError, InMemory, configure, configureSingle, fs } from '../../dist/index.js';
 
 /**
  * Tests a mis-configured PortFS using a MessageChannel

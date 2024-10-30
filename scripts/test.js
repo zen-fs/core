@@ -31,6 +31,11 @@ options:
 
 if (options.verbose) console.debug('Forcing tests to exit (--test-force-exit)');
 
+if (!existsSync(join(import.meta.dirname, '../dist'))) {
+	console.log('ERROR: Missing build. If you are using an installed package, please submit a bug report.');
+	process.exit(1);
+}
+
 const testsGlob = join(import.meta.dirname, `../tests/fs/${options.test || '*'}.test.ts`);
 
 for (const setupFile of positionals) {

@@ -3,8 +3,8 @@ import { dirname } from 'node:path';
 import { suite, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { Worker } from 'node:worker_threads';
-import { Port } from '../../src/backends/port/fs.js';
-import { configureSingle, fs } from '../../src/index.js';
+import { Port } from '../../dist/backends/port/fs.js';
+import { configureSingle, fs } from '../../dist/index.js';
 import { createTSWorker } from '../common.js';
 
 const dir = dirname(fileURLToPath(import.meta.url));

@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { ErrnoError } from '../../src/error.js';
-import { _toUnixTimestamp } from '../../src/utils.js';
+import { ErrnoError } from '../../dist/error.js';
+import { _toUnixTimestamp } from '../../dist/utils.js';
 import { fs } from '../common.js';
 
 suite('times', () => {

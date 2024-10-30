@@ -1,9 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { R_OK, W_OK, X_OK } from '../../src/emulation/constants.js';
-import { join } from '../../src/emulation/path.js';
-import { ErrnoError } from '../../src/error.js';
-import { encodeUTF8 } from '../../src/utils.js';
+import { R_OK, W_OK, X_OK } from '../../dist/emulation/constants.js';
+import { join } from '../../dist/emulation/path.js';
+import { ErrnoError } from '../../dist/error.js';
+import { encodeUTF8 } from '../../dist/utils.js';
 import { fs } from '../common.js';
 
 suite('Permissions', () => {

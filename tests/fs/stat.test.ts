@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { Stats } from '../../src/stats.js';
+import { Stats } from '../../dist/stats.js';
 import { fs } from '../common.js';
 
 suite('Stats', () => {

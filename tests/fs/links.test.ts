@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { join } from '../../src/emulation/path.js';
+import { join } from '../../dist/emulation/path.js';
 import { fs } from '../common.js';
 
 suite('Links', () => {
