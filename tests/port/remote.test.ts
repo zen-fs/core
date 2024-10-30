@@ -2,14 +2,13 @@ import assert from 'node:assert';
 import { dirname } from 'node:path';
 import { suite, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import type { Worker } from 'node:worker_threads';
+import { Worker } from 'node:worker_threads';
 import { Port } from '../../dist/backends/port/fs.js';
 import { configureSingle, fs } from '../../dist/index.js';
-import { createTSWorker } from '../common.js';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
-const port: Worker = createTSWorker(dir + '/remote.worker.js');
+const port = new Worker(dir + '/remote.worker.js');
 
 await suite('Remote FS', () => {
 	const content = 'FS is in a port';
