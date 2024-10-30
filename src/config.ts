@@ -110,11 +110,21 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 
 	/**
 	 * If true, disables *all* permissions checking.
-	 * This can increase performance
+	 *
+	 * This can increase performance.
 	 * @experimental
 	 * @default false
 	 */
 	disableAccessChecks: boolean;
+
+	/**
+	 * If true, disables `read` and `readSync` from immediately syncing the updated atime to the file system.
+	 *
+	 * This can increase performance.
+	 * @experimental
+	 * @default false
+	 */
+	disableSyncOnRead: boolean;
 }
 
 /**
@@ -142,6 +152,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	cache.setEnabled(configuration.cacheStats ?? false);
 	config.checkAccess = !configuration.disableAccessChecks;
+	config.syncOnRead = !configuration.disableSyncOnRead;
 
 	if (configuration.addDevices) {
 		const devfs = new DeviceFS();

@@ -1,9 +1,10 @@
 import type { FileReadResult } from 'node:fs/promises';
 import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT, size_max } from './emulation/constants.js';
+import { config } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
-import { Stats, type FileType } from './stats.js';
 import './polyfills.js';
+import { Stats, type FileType } from './stats.js';
 
 /**
 	Typescript does not include a type declaration for resizable array buffers. 
@@ -541,7 +542,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		const bytesRead = this._read(buffer, offset, length, position);
-		await this.sync();
+		if (config.syncOnRead) await this.sync();
 		return { bytesRead, buffer };
 	}
 
@@ -556,7 +557,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
 		const bytesRead = this._read(buffer, offset, length, position);
-		this.statSync();
+		if (config.syncOnRead) this.syncSync();
 		return bytesRead;
 	}
 
