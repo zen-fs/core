@@ -686,6 +686,8 @@ mkdir satisfies typeof promises.mkdir;
 
 /**
  * Asynchronous readdir(3) - read a directory.
+ *
+ * Note: The order of entries is not guaranteed
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'`.
  */
