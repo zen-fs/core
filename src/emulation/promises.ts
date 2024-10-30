@@ -738,7 +738,7 @@ export async function readdir(
 	}
 
 	const values: (string | Dirent | Buffer)[] = [];
-	for (const entry of entries) {
+	const addEntry = async (entry: string) => {
 		let entryStats: Stats | undefined;
 		if (options?.recursive || options?.withFileTypes) {
 			entryStats = cache.getStats(join(path, entry)) || (await fs.stat(join(resolved, entry)).catch(handleError));
@@ -752,7 +752,7 @@ export async function readdir(
 			values.push(entry);
 		}
 
-		if (!options?.recursive || !entryStats?.isDirectory()) continue;
+		if (!options?.recursive || !entryStats?.isDirectory()) return;
 
 		for (const subEntry of await readdir(join(path, entry), { ...options, _isIndirect: true })) {
 			if (subEntry instanceof Dirent) {
@@ -765,8 +765,8 @@ export async function readdir(
 				values.push(join(entry, subEntry));
 			}
 		}
-	}
-
+	};
+	await Promise.all(entries.map(addEntry));
 	if (!options?._isIndirect) {
 		cache.clearStats();
 	}
@@ -1081,18 +1081,23 @@ export async function cp(source: fs.PathLike, destination: fs.PathLike, opts?: f
 	}
 
 	switch (srcStats.mode & constants.S_IFMT) {
-		case constants.S_IFDIR:
+		case constants.S_IFDIR: {
 			if (!opts?.recursive) {
 				throw new ErrnoError(Errno.EISDIR, source + ' is a directory (not copied)', source, 'cp');
 			}
-			await mkdir(destination, { recursive: true }); // Ensure the destination directory exists
-			for (const dirent of await readdir(source, { withFileTypes: true })) {
+			const [entries] = await Promise.all(
+				[readdir(source, { withFileTypes: true }), mkdir(destination, { recursive: true })] // Ensure the destination directory exists
+			);
+
+			const _cp = async (dirent: Dirent) => {
 				if (opts.filter && !opts.filter(join(source, dirent.name), join(destination, dirent.name))) {
-					continue; // Skip if the filter returns false
+					return; // Skip if the filter returns false
 				}
 				await cp(join(source, dirent.name), join(destination, dirent.name), opts);
-			}
+			};
+			await Promise.all(entries.map(_cp));
 			break;
+		}
 		case constants.S_IFREG:
 		case constants.S_IFLNK:
 			await copyFile(source, destination);
