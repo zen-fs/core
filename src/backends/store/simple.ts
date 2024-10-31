@@ -5,6 +5,7 @@ import { SyncTransaction, type Store } from './store.js';
  * An interface for simple synchronous stores that don't have special support for transactions and such.
  */
 export interface SimpleSyncStore extends Store {
+	keys(): Iterable<Ino>;
 	get(ino: Ino): Uint8Array | undefined;
 	set(ino: Ino, data: Uint8Array): void;
 	delete(ino: Ino): void;
@@ -22,6 +23,10 @@ export abstract class SimpleAsyncStore implements SimpleSyncStore {
 	protected queue: Set<Promise<unknown>> = new Set();
 
 	protected abstract entries(): Promise<Iterable<[Ino, Uint8Array]>>;
+
+	public keys(): Iterable<Ino> {
+		return this.cache.keys();
+	}
 
 	public get(ino: Ino): Uint8Array | undefined {
 		return this.cache.get(ino);
@@ -81,6 +86,10 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 	protected modifiedKeys: Set<Ino> = new Set();
 
 	protected declare store: SimpleSyncStore;
+
+	public keysSync(): Iterable<Ino> {
+		return this.store.keys();
+	}
 
 	public getSync(ino: Ino): Uint8Array {
 		const val = this.store.get(ino);

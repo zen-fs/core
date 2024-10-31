@@ -39,9 +39,19 @@ export abstract class Transaction<T extends Store = Store> {
 	public constructor(protected store: T) {}
 
 	/**
-	 * Whether the transaction was commited or aborted
+	 * Whether the transaction was committed or aborted
 	 */
 	protected done: boolean = false;
+
+	/**
+	 * Gets all of the keys
+	 */
+	public abstract keys(): Promise<Iterable<Ino>>;
+
+	/**
+	 * Gets all of the keys
+	 */
+	public abstract keysSync(): Iterable<Ino>;
 
 	/**
 	 * Retrieves the data at `ino`.
@@ -125,6 +135,9 @@ export abstract class Transaction<T extends Store = Store> {
  */
 export abstract class SyncTransaction<T extends Store = Store> extends Transaction<T> {
 	/* eslint-disable @typescript-eslint/require-await */
+	public async keys(): Promise<Iterable<Ino>> {
+		return this.keysSync();
+	}
 	public async get(ino: Ino): Promise<Uint8Array> {
 		return this.getSync(ino);
 	}
@@ -151,23 +164,27 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
  * Transaction that only supports asynchronous operations
  */
 export abstract class AsyncTransaction<T extends Store = Store> extends Transaction<T> {
-	public getSync(): Uint8Array {
+	public keysSync(): never {
+		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.keysSync');
+	}
+
+	public getSync(): never {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.getSync');
 	}
 
-	public setSync(): void {
+	public setSync(): never {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.setSync');
 	}
 
-	public removeSync(): void {
+	public removeSync(): never {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.removeSync');
 	}
 
-	public commitSync(): void {
+	public commitSync(): never {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.commitSync');
 	}
 
-	public abortSync(): void {
+	public abortSync(): never {
 		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.abortSync');
 	}
 }

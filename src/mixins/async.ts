@@ -1,3 +1,5 @@
+import { StoreFS } from '../backends/store/fs.js';
+import type { Store } from '../backends/store/store.js';
 import { join } from '../emulation/path.js';
 import { Errno, ErrnoError } from '../error.js';
 import { parseFlag, PreloadFile, type File } from '../file.js';
@@ -71,6 +73,22 @@ export function Async<T extends typeof FileSystem>(
 			this.checkSync();
 
 			await this._sync.ready();
+
+			// optimization: for 2 storeFS', we copy at a lower abstraction level.
+			if (this._sync instanceof StoreFS && this instanceof StoreFS) {
+				const sync = (this._sync as StoreFS<Store>)['store'].transaction();
+				const async = (this as StoreFS<Store>)['store'].transaction();
+
+				const promises = [];
+				for (const key of sync.keysSync()) {
+					promises.push(async.set(key, sync.getSync(key)));
+				}
+
+				await Promise.all(promises);
+
+				this._isInitialized = true;
+				return;
+			}
 
 			try {
 				await this.crossCopy('/');
@@ -175,10 +193,11 @@ export function Async<T extends typeof FileSystem>(
 				const stats = await this.stat(path);
 				this._sync.mkdirSync(path, stats.mode);
 			}
-			const files = await this.readdir(path);
-			for (const file of files) {
-				await this.crossCopy(join(path, file));
+			const promises = [];
+			for (const file of await this.readdir(path)) {
+				promises.push(this.crossCopy(join(path, file)));
 			}
+			await Promise.all(promises);
 		}
 
 		/**
