@@ -441,12 +441,12 @@ export class PreloadFile<FS extends FileSystem> extends File {
 
 	public async truncate(length: number): Promise<void> {
 		this._truncate(length);
-		if (config.syncOnWrite) await this.sync();
+		if (config.syncImmediately) await this.sync();
 	}
 
 	public truncateSync(length: number): void {
 		this._truncate(length);
-		if (config.syncOnWrite) this.syncSync();
+		if (config.syncImmediately) this.syncSync();
 	}
 
 	protected _write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
@@ -494,7 +494,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
 		const bytesWritten = this._write(buffer, offset, length, position);
-		if (config.syncOnWrite) await this.sync();
+		if (config.syncImmediately) await this.sync();
 		return bytesWritten;
 	}
 
@@ -509,7 +509,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
 		const bytesWritten = this._write(buffer, offset, length, position);
-		if (config.syncOnWrite) this.syncSync();
+		if (config.syncImmediately) this.syncSync();
 		return bytesWritten;
 	}
 
@@ -517,11 +517,17 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (this.closed) {
 			throw ErrnoError.With('EBADF', this.path, 'File.read');
 		}
+
 		if (!isReadable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
 		}
-		this.dirty = true;
+
+		if (config.updateOnRead) {
+			this.dirty = true;
+		}
+
 		this.stats.atimeMs = Date.now();
+
 		position ??= this.position;
 		let end = position + length;
 		if (end > this.stats.size) {
@@ -547,7 +553,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		const bytesRead = this._read(buffer, offset, length, position);
-		if (config.syncOnRead) await this.sync();
+		if (config.syncImmediately) await this.sync();
 		return { bytesRead, buffer };
 	}
 
@@ -562,7 +568,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
 		const bytesRead = this._read(buffer, offset, length, position);
-		if (config.syncOnRead) this.syncSync();
+		if (config.syncImmediately) this.syncSync();
 		return bytesRead;
 	}
 
@@ -572,7 +578,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		}
 		this.dirty = true;
 		this.stats.chmod(mode);
-		if (config.syncOnWrite) await this.sync();
+		if (config.syncImmediately) await this.sync();
 	}
 
 	public chmodSync(mode: number): void {
@@ -581,7 +587,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		}
 		this.dirty = true;
 		this.stats.chmod(mode);
-		if (config.syncOnWrite) this.syncSync();
+		if (config.syncImmediately) this.syncSync();
 	}
 
 	public async chown(uid: number, gid: number): Promise<void> {
@@ -590,7 +596,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		}
 		this.dirty = true;
 		this.stats.chown(uid, gid);
-		if (config.syncOnWrite) await this.sync();
+		if (config.syncImmediately) await this.sync();
 	}
 
 	public chownSync(uid: number, gid: number): void {
@@ -599,7 +605,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		}
 		this.dirty = true;
 		this.stats.chown(uid, gid);
-		if (config.syncOnWrite) this.syncSync();
+		if (config.syncImmediately) this.syncSync();
 	}
 
 	public async utimes(atime: Date, mtime: Date): Promise<void> {
@@ -609,7 +615,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this.dirty = true;
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
-		if (config.syncOnWrite) await this.sync();
+		if (config.syncImmediately) await this.sync();
 	}
 
 	public utimesSync(atime: Date, mtime: Date): void {
@@ -619,7 +625,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this.dirty = true;
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
-		if (config.syncOnWrite) this.syncSync();
+		if (config.syncImmediately) this.syncSync();
 	}
 
 	public async _setType(type: FileType): Promise<void> {

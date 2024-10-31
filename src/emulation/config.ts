@@ -5,14 +5,14 @@ export const config = {
 	checkAccess: true,
 
 	/**
-	 * Whether to sync atime updates immediately when reading from a file
+	 * Whether to mark a file as dirty after updating its `atime` when read from
 	 */
-	syncOnRead: true,
+	updateOnRead: true,
 
 	/**
-	 * Whether to immediately sync when files are written to
+	 * Whether to immediately sync when files are changed
 	 */
-	syncOnWrite: true,
+	syncImmediately: true,
 
 	/**
 	 * If a file's buffer is not large enough to store content when writing and the buffer can't be resized, reuse the buffer passed to write()

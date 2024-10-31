@@ -163,8 +163,8 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	cache.setEnabled(configuration.cacheStats ?? false);
 	config.checkAccess = !configuration.disableAccessChecks;
-	config.syncOnRead = !configuration.onlySyncOnClose || !configuration.disableUpdateOnRead;
-	config.syncOnWrite = !configuration.onlySyncOnClose;
+	config.updateOnRead = !configuration.disableUpdateOnRead;
+	config.syncImmediately = !configuration.onlySyncOnClose;
 
 	if (configuration.addDevices) {
 		const devfs = new DeviceFS();
