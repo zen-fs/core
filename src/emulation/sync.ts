@@ -159,7 +159,6 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
 
 	if (isTruncating(flag)) {
 		file.truncateSync(0);
-		file.syncSync();
 	}
 
 	return file;

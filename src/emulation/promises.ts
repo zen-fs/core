@@ -529,7 +529,6 @@ async function _open(path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o6
 	*/
 	if (isTruncating(flag)) {
 		await handle.truncate(0);
-		await handle.sync();
 	}
 
 	return handle;
