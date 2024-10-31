@@ -453,17 +453,22 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (this.closed) {
 			throw ErrnoError.With('EBADF', this.path, 'File.write');
 		}
-		this.dirty = true;
+
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
 		}
+
+		this.dirty = true;
 		const end = position + length;
+		const slice = buffer.slice(offset, offset + length);
 
 		if (end > this.stats.size) {
 			this.stats.size = end;
 			if (end > this._buffer.byteLength) {
 				if (this._buffer.buffer.resizable && this._buffer.buffer.maxByteLength! <= end) {
 					this._buffer.buffer.resize(end);
+				} else if (config.unsafeBufferReplace) {
+					this._buffer = slice;
 				} else {
 					// Extend the buffer!
 					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().noResizableBuffers ? {} : { maxByteLength: size_max }));
@@ -472,7 +477,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 				}
 			}
 		}
-		const slice = buffer.slice(offset, offset + length);
+
 		this._buffer.set(slice, position);
 		this.stats.mtimeMs = Date.now();
 		this.position = position + slice.byteLength;
