@@ -520,10 +520,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (!isReadable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
 		}
-		if (config.syncOnRead) {
-			this.dirty = true;
-			this.stats.atimeMs = Date.now();
-		}
+		this.dirty = true;
+		this.stats.atimeMs = Date.now();
 		position ??= this.position;
 		let end = position + length;
 		if (end > this.stats.size) {
@@ -549,7 +547,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		const bytesRead = this._read(buffer, offset, length, position);
-		await this.sync();
+		if (config.syncOnRead) await this.sync();
 		return { bytesRead, buffer };
 	}
 
@@ -564,7 +562,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
 		const bytesRead = this._read(buffer, offset, length, position);
-		this.syncSync();
+		if (config.syncOnRead) this.syncSync();
 		return bytesRead;
 	}
 
@@ -573,8 +571,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		if (config.syncOnWrite) this.stats.chmod(mode);
-		await this.sync();
+		this.stats.chmod(mode);
+		if (config.syncOnWrite) await this.sync();
 	}
 
 	public chmodSync(mode: number): void {
@@ -582,8 +580,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		if (config.syncOnWrite) this.stats.chmod(mode);
-		this.syncSync();
+		this.stats.chmod(mode);
+		if (config.syncOnWrite) this.syncSync();
 	}
 
 	public async chown(uid: number, gid: number): Promise<void> {
@@ -591,8 +589,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 		this.dirty = true;
-		if (config.syncOnWrite) this.stats.chown(uid, gid);
-		await this.sync();
+		this.stats.chown(uid, gid);
+		if (config.syncOnWrite) await this.sync();
 	}
 
 	public chownSync(uid: number, gid: number): void {
@@ -600,8 +598,8 @@ export class PreloadFile<FS extends FileSystem> extends File {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 		this.dirty = true;
-		if (config.syncOnWrite) this.stats.chown(uid, gid);
-		this.syncSync();
+		this.stats.chown(uid, gid);
+		if (config.syncOnWrite) this.syncSync();
 	}
 
 	public async utimes(atime: Date, mtime: Date): Promise<void> {
