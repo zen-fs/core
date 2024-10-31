@@ -126,6 +126,16 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * @default false
 	 */
 	disableUpdateOnRead: boolean;
+
+	/**
+	 * If true, files will only sync to the file system when closed.
+	 *
+	 * This can increase performance.
+	 * @experimental
+	 * @overrides `disableUpdateOnRead`
+	 * @default false
+	 */
+	onlySyncOnClose: boolean;
 }
 
 /**
@@ -153,7 +163,8 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	cache.setEnabled(configuration.cacheStats ?? false);
 	config.checkAccess = !configuration.disableAccessChecks;
-	config.updateOnRead = !configuration.disableUpdateOnRead;
+	config.syncOnRead = !configuration.onlySyncOnClose || !configuration.disableUpdateOnRead;
+	config.syncOnWrite = !configuration.onlySyncOnClose;
 
 	if (configuration.addDevices) {
 		const devfs = new DeviceFS();
