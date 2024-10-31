@@ -19,7 +19,7 @@ suite('Links', () => {
 
 	test('readlink', async () => {
 		const destination = await fs.promises.readlink(symlink);
-		assert(destination === target);
+		assert.strictEqual(destination, target);
 	});
 
 	test('unlink', async () => {
@@ -32,7 +32,7 @@ suite('Links', () => {
 		await fs.promises.link(target, hardlink);
 		const targetContent = await fs.promises.readFile(target, 'utf8');
 		const linkContent = await fs.promises.readFile(hardlink, 'utf8');
-		assert(targetContent === linkContent);
+		assert.strictEqual(targetContent, linkContent);
 	});
 
 	test('file inside symlinked directory', async () => {
@@ -41,6 +41,6 @@ suite('Links', () => {
 		const link = join('link', target);
 		assert((await fs.promises.realpath(link)) === target);
 		const linkContent = await fs.promises.readFile(link, 'utf8');
-		assert(targetContent === linkContent);
+		assert.strictEqual(targetContent, linkContent);
 	});
 });

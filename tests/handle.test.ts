@@ -50,8 +50,8 @@ await suite('FileHandle', () => {
 	test('chown', async () => {
 		await handle.chown(1234, 5678);
 		const stats = await handle.stat();
-		assert(stats.uid === 1234);
-		assert(stats.gid === 5678);
+		assert.equal(stats.uid, 1234);
+		assert.equal(stats.gid, 5678);
 	});
 
 	test('close', async () => {

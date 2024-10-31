@@ -21,7 +21,7 @@ suite('times', () => {
 
 		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'ENOENT');
+			assert.strictEqual(error.code, 'ENOENT');
 		});
 
 		// don't close this fd
@@ -40,21 +40,21 @@ suite('times', () => {
 			expect_assert(handle.fd, atime, mtime);
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'ENOSYS');
+			assert.strictEqual(error.code, 'ENOSYS');
 		}
 
 		try {
 			fs.utimesSync('foobarbaz', atime, mtime);
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'ENOENT');
+			assert.strictEqual(error.code, 'ENOENT');
 		}
 
 		try {
 			fs.futimesSync(-1, atime, mtime);
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error.code == 'EBADF');
+			assert.equal(error.code, 'EBADF');
 		}
 	}
 

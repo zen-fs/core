@@ -65,9 +65,9 @@ suite('fs file reading', () => {
 		const content = fs.readFileSync('elipses.txt', 'utf8');
 
 		for (let i = 0; i < content.length; i++) {
-			assert(content[i] === '…');
+			assert.strictEqual(content[i], '…');
 		}
 
-		assert(content.length === 10000);
+		assert.strictEqual(content.length, 10000);
 	});
 });

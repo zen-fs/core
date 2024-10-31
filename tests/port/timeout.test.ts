@@ -26,7 +26,7 @@ await suite('Timeout', { timeout: 1000 }, () => {
 			error = e;
 		}
 		assert(error! instanceof ErrnoError);
-		assert(error.code === 'EIO');
+		assert.strictEqual(error.code, 'EIO');
 		assert(error.message.includes('RPC Failed'));
 	});
 
@@ -40,7 +40,7 @@ await suite('Timeout', { timeout: 1000 }, () => {
 			error = e;
 		}
 		assert(error! instanceof ErrnoError);
-		assert(error.code === 'EIO');
+		assert.strictEqual(error.code, 'EIO');
 		assert(error.message.includes('RPC Failed'));
 	});
 });

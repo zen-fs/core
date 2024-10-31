@@ -10,7 +10,7 @@ suite('appendFile', () => {
 		const filename = 'append.txt';
 		await fs.promises.appendFile(filename, content);
 		const data = await fs.promises.readFile(filename, 'utf8');
-		assert(data == content);
+		assert.equal(data, content);
 	});
 
 	test('append data to a non-empty file', async () => {
@@ -19,7 +19,7 @@ suite('appendFile', () => {
 		await fs.promises.writeFile(filename, original);
 		await fs.promises.appendFile(filename, content);
 		const data = await fs.promises.readFile(filename, 'utf8');
-		assert(data == original + content);
+		assert.equal(data, original + content);
 	});
 
 	test('append a buffer to the file', async () => {
@@ -28,6 +28,6 @@ suite('appendFile', () => {
 		await fs.promises.writeFile(filename, original);
 		await fs.promises.appendFile(filename, content);
 		const data = await fs.promises.readFile(filename, 'utf8');
-		assert(data == original + content);
+		assert.equal(data, original + content);
 	});
 });

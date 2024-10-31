@@ -18,8 +18,8 @@ suite('Dirent', () => {
 		const stats = await fs.promises.lstat(testFile);
 		const dirent = new fs.Dirent(testFile, stats);
 
-		assert(dirent.name === testFile);
-		assert(dirent.parentPath === testFile);
+		assert.equal(dirent.name, testFile);
+		assert.equal(dirent.parentPath, testFile);
 	});
 
 	test('Dirent.isFile', async () => {
@@ -68,7 +68,7 @@ suite('Dir', () => {
 		assert(testFiles.includes(dirent2?.name));
 
 		const dirent3 = await dir.read();
-		assert(dirent3 === null);
+		assert.strictEqual(dirent3, null);
 
 		await dir.close();
 	});
@@ -76,8 +76,8 @@ suite('Dir', () => {
 	test('Dir read() method (Callback varient)', (_, done) => {
 		const dir = new fs.Dir(testDirPath);
 		dir.read((err, dirent) => {
-			assert(err === undefined);
-			assert(dirent != undefined);
+			assert.strictEqual(err, undefined);
+			assert.notEqual(dirent, undefined);
 			assert(dirent instanceof fs.Dirent);
 			assert(testFiles.includes(dirent?.name));
 			dir.closeSync();
@@ -97,7 +97,7 @@ suite('Dir', () => {
 		assert(testFiles.includes(dirent2?.name));
 
 		const dirent3 = dir.readSync();
-		assert(dirent3 === null);
+		assert.strictEqual(dirent3, null);
 
 		dir.closeSync();
 	});
@@ -122,7 +122,7 @@ suite('Dir', () => {
 			dirents.push(dirent);
 		}
 
-		assert(dirents.length === 2);
+		assert.strictEqual(dirents.length, 2);
 		assert(dirents[0] instanceof fs.Dirent);
 		assert(testFiles.includes(dirents[0].name));
 		assert(testFiles.includes(dirents[1].name));

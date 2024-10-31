@@ -14,8 +14,8 @@ await fs.promises.writeFile(testFile, 'Initial content');
 suite('Watch Features', () => {
 	test('fs.watch should emit events on file change', async () => {
 		using watcher = fs.watch(testFile, (eventType, filename) => {
-			assert(eventType === 'change');
-			assert(filename === 'test.txt');
+			assert.strictEqual(eventType, 'change');
+			assert.strictEqual(filename, 'test.txt');
 		});
 
 		// Modify the file to trigger the event
@@ -24,8 +24,8 @@ suite('Watch Features', () => {
 
 	test('fs.watch should emit events on file rename (delete)', async () => {
 		using watcher = fs.watch(testFile, (eventType, filename) => {
-			assert(eventType === 'rename');
-			assert(filename === 'test.txt');
+			assert.strictEqual(eventType, 'rename');
+			assert.strictEqual(filename, 'test.txt');
 		});
 
 		// Delete the file to trigger the event
@@ -63,8 +63,8 @@ suite('Watch Features', () => {
 
 	test('fs.watch should work with directories', async () => {
 		using watcher = fs.watch(testDir, (eventType, filename) => {
-			assert(eventType === 'change');
-			assert(filename === 'newFile.txt');
+			assert.strictEqual(eventType, 'change');
+			assert.strictEqual(filename, 'newFile.txt');
 		});
 
 		await fs.promises.writeFile(`${testDir}/newFile.txt`, 'Content');
@@ -77,8 +77,8 @@ suite('Watch Features', () => {
 		await fs.promises.writeFile(oldFile, 'Some content');
 
 		using watcher = fs.watch(testDir, (eventType, filename) => {
-			assert(eventType === 'rename');
-			assert(filename === 'oldFile.txt');
+			assert.strictEqual(eventType, 'rename');
+			assert.strictEqual(filename, 'oldFile.txt');
 		});
 
 		// Rename the file to trigger the event
@@ -91,8 +91,8 @@ suite('Watch Features', () => {
 		await fs.promises.writeFile(tempFile, 'Temporary content');
 
 		using watcher = fs.watch(tempFile, (eventType, filename) => {
-			assert(eventType === 'rename');
-			assert(filename === 'tempFile.txt');
+			assert.strictEqual(eventType, 'rename');
+			assert.strictEqual(filename, 'tempFile.txt');
 		});
 
 		await fs.promises.unlink(tempFile);

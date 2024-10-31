@@ -57,6 +57,6 @@ suite('LockFS mutex', () => {
 		}
 
 		await Promise.all([foo(), foo(), foo()]);
-		assert(x === 4);
+		assert.strictEqual(x, 4);
 	});
 });

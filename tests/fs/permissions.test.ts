@@ -10,7 +10,7 @@ suite('Permissions', () => {
 	async function test_item(path: string): Promise<void> {
 		const stats = await fs.promises.stat(path).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'EACCES');
+			assert.strictEqual(error.code, 'EACCES');
 		});
 		if (!stats) {
 			return;

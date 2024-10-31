@@ -12,7 +12,7 @@ suite('fs file opening', () => {
 			fs.openSync('/path/to/file/that/does/not/exist', 'r');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error?.code === 'ENOENT');
+			assert.strictEqual(error?.code, 'ENOENT');
 			caughtException = true;
 		}
 		assert(caughtException);
@@ -23,7 +23,7 @@ suite('fs file opening', () => {
 			await fs.promises.open('/path/to/file/that/does/not/exist', 'r');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error?.code === 'ENOENT');
+			assert.strictEqual(error?.code, 'ENOENT');
 		}
 	});
 

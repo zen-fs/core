@@ -21,10 +21,10 @@ suite('Rename', () => {
 	 */
 	async function check_directory(dir: string) {
 		const contents = await fs.promises.readdir(dir);
-		assert(contents.length === 2);
+		assert.strictEqual(contents.length, 2);
 
 		const subContents = await fs.promises.readdir(dir + '/_rename_me');
-		assert(subContents.length === 1);
+		assert.strictEqual(subContents.length, 1);
 
 		assert(await fs.promises.exists(dir + '/file.dat'));
 		assert(await fs.promises.exists(dir + '/_rename_me/lol.txt'));
@@ -88,7 +88,7 @@ suite('Rename', () => {
 		  if (e == null) {
 			throw new Error("Failed invariant: Cannot rename a directory over a file.");
 		  } else {
-			assert(e.code === 'ENOTDIR');
+			assert.strictEqual(e.code, 'ENOTDIR');
 		  }
 		});*/
 	});
@@ -101,7 +101,7 @@ suite('Rename', () => {
 
 		await fs.promises.rename(renDir1, renDir2).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'EBUSY');
+			assert.strictEqual(error.code, 'EBUSY');
 		});
 	});
 });

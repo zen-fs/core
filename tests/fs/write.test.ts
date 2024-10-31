@@ -10,11 +10,11 @@ suite('write', () => {
 		const handle = await fs.promises.open(fn, 'w', 0o644);
 		await handle.write('', 0, 'utf8');
 		const { bytesWritten } = await handle.write(expected, 0, 'utf8');
-		assert(bytesWritten === Buffer.from(expected).length);
+		assert.strictEqual(bytesWritten, Buffer.from(expected).length);
 		await handle.close();
 
 		const data = await fs.promises.readFile(fn, 'utf8');
-		assert(data === expected);
+		assert.strictEqual(data, expected);
 
 		await fs.promises.unlink(fn);
 	});
@@ -27,7 +27,7 @@ suite('write', () => {
 
 		const written = await handle.write(expected, 0, expected.length, null);
 
-		assert(expected.length === written.bytesWritten);
+		assert.strictEqual(expected.length, written.bytesWritten);
 
 		await handle.close();
 
@@ -43,13 +43,13 @@ suite('writeSync', () => {
 		const fd = fs.openSync(fn, 'w');
 
 		let written = fs.writeSync(fd, '');
-		assert(written === 0);
+		assert.strictEqual(written, 0);
 
 		fs.writeSync(fd, 'foo');
 
 		const data = Buffer.from('bár');
 		written = fs.writeSync(fd, data, 0, data.length);
-		assert(written === 4);
+		assert.strictEqual(written, 4);
 
 		fs.closeSync(fd);
 

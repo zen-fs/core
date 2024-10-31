@@ -10,7 +10,7 @@ suite('writeFile', () => {
 		const filename = 'test.txt';
 		await fs.promises.writeFile(filename, s);
 		const data = await fs.promises.readFile(filename);
-		assert(data.length === Buffer.from(s).length);
+		assert.strictEqual(data.length, Buffer.from(s).length);
 		await fs.promises.unlink(filename);
 	});
 
@@ -20,7 +20,7 @@ suite('writeFile', () => {
 
 		await fs.promises.writeFile(filename, expected);
 		const actual = await fs.promises.readFile(filename);
-		assert(actual.length === expected.length);
+		assert.strictEqual(actual.length, expected.length);
 
 		await fs.promises.unlink(filename);
 	});
@@ -35,7 +35,7 @@ suite('writeFile', () => {
 		await fs.promises.writeFile(filePath, buffer);
 
 		const read = await fs.promises.readFile(filePath, 'base64');
-		assert(read === data);
+		assert.strictEqual(read, data);
 	});
 });
 
@@ -47,7 +47,7 @@ suite('File Writing with Custom Mode', () => {
 		fs.writeFileSync(file, '123', { mode });
 
 		const content = fs.readFileSync(file, 'utf8');
-		assert(content === '123');
+		assert.strictEqual(content, '123');
 		assert((fs.statSync(file).mode & 0o777) === mode);
 
 		fs.unlinkSync(file);
@@ -60,7 +60,7 @@ suite('File Writing with Custom Mode', () => {
 		fs.appendFileSync(file, 'abc', { mode });
 
 		const content = fs.readFileSync(file, { encoding: 'utf8' });
-		assert(content === 'abc');
+		assert.strictEqual(content, 'abc');
 
 		assert((fs.statSync(file).mode & 0o777) === mode);
 

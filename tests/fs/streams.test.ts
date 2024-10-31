@@ -18,7 +18,7 @@ suite('ReadStream', () => {
 			data += chunk;
 		});
 		readStream.on('end', () => {
-			assert(data == testData);
+			assert.equal(data, testData);
 			done();
 		});
 		readStream.on('error', err => {
@@ -33,7 +33,7 @@ suite('ReadStream', () => {
 			closed = true;
 		});
 		readStream.close(err => {
-			assert(err === undefined);
+			assert.strictEqual(err, undefined);
 			assert(closed);
 			done();
 		});
@@ -41,27 +41,27 @@ suite('ReadStream', () => {
 
 	test('ReadStream declared properties', () => {
 		const readStream = new fs.ReadStream();
-		assert(readStream.bytesRead === undefined);
-		assert(readStream.path === undefined);
-		assert(readStream.pending === undefined);
+		assert.strictEqual(readStream.bytesRead, undefined);
+		assert.strictEqual(readStream.path, undefined);
+		assert.strictEqual(readStream.pending, undefined);
 
 		// Assign values
 		readStream.bytesRead = 10;
 		readStream.path = testFilePath;
 		readStream.pending = false;
 
-		assert(readStream.bytesRead === 10);
-		assert(readStream.path === testFilePath);
+		assert.strictEqual(readStream.bytesRead, 10);
+		assert.strictEqual(readStream.path, testFilePath);
 		assert(!readStream.pending);
 	});
 
 	test('ReadStream close method can be called multiple times', (_, done) => {
 		const readStream = new fs.ReadStream();
 		readStream.close(err => {
-			assert(err === undefined);
+			assert.strictEqual(err, undefined);
 			// Call close again
 			readStream.close(err2 => {
-				assert(err2 === undefined);
+				assert.strictEqual(err2, undefined);
 				done();
 			});
 		});
@@ -94,7 +94,7 @@ suite('WriteStream', () => {
 			closed = true;
 		});
 		writeStream.close(err => {
-			assert(err === undefined);
+			assert.strictEqual(err, undefined);
 			assert(closed);
 			done();
 		});
@@ -102,27 +102,27 @@ suite('WriteStream', () => {
 
 	test('WriteStream declared properties', () => {
 		const writeStream = new fs.WriteStream();
-		assert(writeStream.bytesWritten === undefined);
-		assert(writeStream.path === undefined);
-		assert(writeStream.pending === undefined);
+		assert.strictEqual(writeStream.bytesWritten, undefined);
+		assert.strictEqual(writeStream.path, undefined);
+		assert.strictEqual(writeStream.pending, undefined);
 
 		// Assign values
 		writeStream.bytesWritten = 20;
 		writeStream.path = testFilePathWrite;
 		writeStream.pending = true;
 
-		assert(writeStream.bytesWritten === 20);
-		assert(writeStream.path === testFilePathWrite);
+		assert.strictEqual(writeStream.bytesWritten, 20);
+		assert.strictEqual(writeStream.path, testFilePathWrite);
 		assert(writeStream.pending);
 	});
 
 	test('WriteStream close method can be called multiple times', (_, done) => {
 		const writeStream = new fs.WriteStream();
 		writeStream.close(err => {
-			assert(err === undefined);
+			assert.strictEqual(err, undefined);
 			// Call close again
 			writeStream.close(err2 => {
-				assert(err2 === undefined);
+				assert.strictEqual(err2, undefined);
 				done();
 			});
 		});
@@ -139,7 +139,7 @@ suite('FileHandle', () => {
 				data += chunk;
 			});
 			readStream.on('end', () => {
-				assert(data == testData);
+				assert.equal(data, testData);
 				resolve();
 			});
 			readStream.on('error', reject);
@@ -159,7 +159,7 @@ suite('FileHandle', () => {
 			writeStream.on('error', reject);
 		});
 		const data = await fs.promises.readFile(testFilePathWrite, 'utf8');
-		assert(data == testData);
+		assert.equal(data, testData);
 		await fileHandle.close();
 	});
 

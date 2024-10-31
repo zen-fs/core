@@ -10,7 +10,7 @@ suite('read', () => {
 		const handle = await fs.promises.open(filepath, 'r');
 		const { bytesRead, buffer } = await handle.read(Buffer.alloc(expected.length), 0, expected.length, 0);
 
-		assert(bytesRead == expected.length);
+		assert.equal(bytesRead, expected.length);
 		assert(buffer.toString() == expected);
 	});
 
@@ -19,7 +19,7 @@ suite('read', () => {
 		const buffer = Buffer.alloc(expected.length);
 		const bytesRead = fs.readSync(fd, buffer, 0, expected.length, 0);
 
-		assert(bytesRead == expected.length);
+		assert.equal(bytesRead, expected.length);
 		assert(buffer.toString() == expected);
 	});
 });
@@ -44,7 +44,7 @@ suite('read buffer', () => {
 		const handle = await fs.promises.open(filepath, 'r');
 		const { bytesRead } = await handle.read(bufferAsync, 0, expected.length, 0);
 
-		assert(bytesRead === expected.length);
+		assert.strictEqual(bytesRead, expected.length);
 		assert(bufferAsync.toString() === expected);
 	});
 
@@ -53,7 +53,7 @@ suite('read buffer', () => {
 		const bytesRead = fs.readSync(fd, bufferSync, 0, expected.length, 0);
 
 		assert(bufferSync.toString() === expected);
-		assert(bytesRead === expected.length);
+		assert.strictEqual(bytesRead, expected.length);
 	});
 
 	test('read file synchronously to non-zero offset', () => {
@@ -62,6 +62,6 @@ suite('read buffer', () => {
 		const bytesRead = fs.readSync(fd, buffer, 10, expected.length, 0);
 
 		assert(buffer.subarray(10, buffer.length).toString() === expected);
-		assert(bytesRead === expected.length);
+		assert.strictEqual(bytesRead, expected.length);
 	});
 });

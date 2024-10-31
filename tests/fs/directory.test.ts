@@ -17,7 +17,7 @@ suite('Directory', () => {
 			await fs.promises.mkdir('/nested/dir');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'ENOENT');
+			assert.strictEqual(error.code, 'ENOENT');
 		}
 		assert(!(await fs.promises.exists('/nested/dir')));
 	});
@@ -51,7 +51,7 @@ suite('Directory', () => {
 			fs.readdirSync('/two');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'EACCES');
+			assert.strictEqual(error.code, 'EACCES');
 		}
 	});
 
@@ -63,7 +63,7 @@ suite('Directory', () => {
 			await fs.promises.rmdir('/rmdirTest');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'ENOTEMPTY');
+			assert.strictEqual(error.code, 'ENOTEMPTY');
 		}
 	});
 
@@ -75,7 +75,7 @@ suite('Directory', () => {
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
 			wasThrown = true;
-			assert(error.code === 'ENOTDIR');
+			assert.strictEqual(error.code, 'ENOTDIR');
 		}
 		assert(wasThrown);
 	});
@@ -85,7 +85,7 @@ suite('Directory', () => {
 			await fs.promises.readdir('a.js');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'ENOTDIR');
+			assert.strictEqual(error.code, 'ENOTDIR');
 		}
 	});
 
@@ -97,7 +97,7 @@ suite('Directory', () => {
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
 			wasThrown = true;
-			assert(error.code === 'ENOENT');
+			assert.strictEqual(error.code, 'ENOENT');
 		}
 		assert(wasThrown);
 	});
@@ -107,7 +107,7 @@ suite('Directory', () => {
 			await fs.promises.readdir('/does/not/exist');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'ENOENT');
+			assert.strictEqual(error.code, 'ENOENT');
 		}
 	});
 
