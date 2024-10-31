@@ -7,5 +7,5 @@ export const config = {
 	/**
 	 * Whether to sync atime updates immediately when reading from a file
 	 */
-	syncOnRead: true,
+	updateOnRead: true,
 };

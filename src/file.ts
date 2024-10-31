@@ -515,13 +515,15 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (!isReadable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
 		}
-		this.dirty = true;
+		if (config.updateOnRead) {
+			this.dirty = true;
+			this.stats.atimeMs = Date.now();
+		}
 		position ??= this.position;
 		let end = position + length;
 		if (end > this.stats.size) {
 			end = position + Math.max(this.stats.size - position, 0);
 		}
-		this.stats.atimeMs = Date.now();
 		this._position = end;
 		const bytesRead = end - position;
 		if (bytesRead == 0) {
@@ -542,7 +544,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		const bytesRead = this._read(buffer, offset, length, position);
-		if (config.syncOnRead) await this.sync();
+		await this.sync();
 		return { bytesRead, buffer };
 	}
 
@@ -557,7 +559,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 */
 	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
 		const bytesRead = this._read(buffer, offset, length, position);
-		if (config.syncOnRead) this.syncSync();
+		this.syncSync();
 		return bytesRead;
 	}
 

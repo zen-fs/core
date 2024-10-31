@@ -119,13 +119,13 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	disableAccessChecks: boolean;
 
 	/**
-	 * If true, disables `read` and `readSync` from immediately syncing the updated atime to the file system.
+	 * If true, disables `read` and `readSync` from updating the atime.
 	 *
 	 * This can increase performance.
 	 * @experimental
 	 * @default false
 	 */
-	disableSyncOnRead: boolean;
+	disableUpdateOnRead: boolean;
 }
 
 /**
@@ -153,7 +153,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	cache.setEnabled(configuration.cacheStats ?? false);
 	config.checkAccess = !configuration.disableAccessChecks;
-	config.syncOnRead = !configuration.disableSyncOnRead;
+	config.updateOnRead = !configuration.disableUpdateOnRead;
 
 	if (configuration.addDevices) {
 		const devfs = new DeviceFS();
