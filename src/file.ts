@@ -527,7 +527,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this._position = end;
 		const bytesRead = end - position;
 		if (bytesRead == 0) {
-			// No copy/read. Return immediatly for better performance
+			// No copy/read. Return immediately for better performance
 			return bytesRead;
 		}
 		new Uint8Array(buffer.buffer, offset, length).set(this._buffer.slice(position, end));
