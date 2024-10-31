@@ -106,7 +106,7 @@ export function unlinkSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(cache.getStats(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(cache.getStatsSync(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		fs.unlinkSync(resolved);
@@ -387,7 +387,7 @@ export function rmdirSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	try {
-		const stats = cache.getStats(path) || fs.statSync(resolved);
+		const stats = cache.getStatsSync(path) || fs.statSync(resolved);
 		if (!stats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
 		}
@@ -460,8 +460,8 @@ export function readdirSync(
 	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	let entries: string[];
 	try {
-		const stats = cache.getStats(path) || fs.statSync(resolved);
-		cache.setStats(path, stats);
+		const stats = cache.getStatsSync(path) || fs.statSync(resolved);
+		cache.setStatsSync(path, stats);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'readdir');
 		}
@@ -488,8 +488,8 @@ export function readdirSync(
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		const entryStat = cache.getStats(join(path, entry)) || fs.statSync(join(resolved, entry));
-		cache.setStats(join(path, entry), entryStat);
+		const entryStat = cache.getStatsSync(join(path, entry)) || fs.statSync(join(resolved, entry));
+		cache.setStatsSync(join(path, entry), entryStat);
 
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
@@ -513,7 +513,7 @@ export function readdirSync(
 	}
 
 	if (!options?._isIndirect) {
-		cache.clearStats();
+		cache.clearStatsSync();
 	}
 	return values as string[] | Dirent[] | Buffer[];
 }
@@ -671,7 +671,7 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptio
 
 	let stats: Stats | undefined;
 	try {
-		stats = cache.getStats(path) || statSync(path);
+		stats = cache.getStatsSync(path) || statSync(path);
 	} catch (error) {
 		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
 	}
@@ -680,7 +680,7 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptio
 		return;
 	}
 
-	cache.setStats(path, stats);
+	cache.setStatsSync(path, stats);
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
@@ -701,12 +701,12 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptio
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			cache.clearStats();
+			cache.clearStatsSync();
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
 	}
 
 	if (!options?._isIndirect) {
-		cache.clearStats();
+		cache.clearStatsSync();
 	}
 }
 rmSync satisfies typeof fs.rmSync;

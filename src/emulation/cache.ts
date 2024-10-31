@@ -14,12 +14,41 @@ export function setEnabled(value: boolean): void {
 	isEnabled = value;
 }
 
-const stats = new Map<string, Stats>();
+const statsSync = new Map<string, Stats>();
 
 /**
  * Gets stats from the cache, if they exist and the cache is enabled.
  */
-export function getStats(path: string): Stats | undefined {
+export function getStatsSync(path: string): Stats | undefined {
+	if (!isEnabled) return;
+
+	return statsSync.get(path);
+}
+
+/**
+ * Adds stats if the cache is enabled
+ */
+export function setStatsSync(path: string, value: Stats): void {
+	if (!isEnabled) return;
+
+	statsSync.set(path, value);
+}
+
+/**
+ * Clears the cache if it is enabled
+ */
+export function clearStatsSync(): void {
+	if (!isEnabled) return;
+
+	statsSync.clear();
+}
+
+const stats = new Map<string, Promise<Stats | undefined>>();
+
+/**
+ * Gets stats from the cache, if they exist and the cache is enabled.
+ */
+export function getStats(path: string): Promise<Stats | undefined> | undefined {
 	if (!isEnabled) return;
 
 	return stats.get(path);
@@ -28,7 +57,7 @@ export function getStats(path: string): Stats | undefined {
 /**
  * Adds stats if the cache is enabled
  */
-export function setStats(path: string, value: Stats): void {
+export function setStats(path: string, value: Promise<Stats | undefined>): void {
 	if (!isEnabled) return;
 
 	stats.set(path, value);

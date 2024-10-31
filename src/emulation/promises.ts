@@ -471,7 +471,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(cache.getStats(path) || (await fs.stat(resolved))).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await (cache.getStats(path) || fs.stat(resolved)))!.hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -624,7 +624,10 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = await realpath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		const stats = cache.getStats(path) || (await fs.stat(resolved));
+		const stats = await (cache.getStats(path) || fs.stat(resolved));
+		if (!stats) {
+			throw ErrnoError.With('ENOENT', path, 'readdir');
+		}
 		if (!stats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
 		}
@@ -716,8 +719,13 @@ export async function readdir(
 
 	const { fs, path: resolved } = resolveMount(path);
 
-	const stats = cache.getStats(path) || (await fs.stat(resolved).catch(handleError));
-	cache.setStats(path, stats);
+	const _stats = cache.getStats(path) || fs.stat(resolved).catch(handleError);
+	cache.setStats(path, _stats);
+	const stats = await _stats;
+
+	if (!stats) {
+		throw ErrnoError.With('ENOENT', path, 'readdir');
+	}
 
 	if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
@@ -744,8 +752,9 @@ export async function readdir(
 	const addEntry = async (entry: string) => {
 		let entryStats: Stats | undefined;
 		if (options?.recursive || options?.withFileTypes) {
-			entryStats = cache.getStats(join(path, entry)) || (await fs.stat(join(resolved, entry)).catch(handleError));
-			cache.setStats(join(path, entry), entryStats);
+			const _entryStats = cache.getStats(join(path, entry)) || fs.stat(join(resolved, entry)).catch(handleError);
+			cache.setStats(join(path, entry), _entryStats);
+			entryStats = await _entryStats;
 		}
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStats!));
@@ -968,17 +977,19 @@ access satisfies typeof promises.access;
 export async function rm(path: fs.PathLike, options?: fs.RmOptions & InternalOptions) {
 	path = normalizePath(path);
 
-	const stats =
+	const _stats =
 		cache.getStats(path) ||
-		(await stat(path).catch((error: ErrnoError) => {
-			if (error.code != 'ENOENT' || !options?.force) throw error;
-		}));
+		stat(path).catch((error: ErrnoError) => {
+			if (error.code == 'ENOENT' && options?.force) return undefined;
+			throw error;
+		});
+
+	cache.setStats(path, _stats);
+	const stats = await _stats;
 
 	if (!stats) {
 		return;
 	}
-
-	cache.setStats(path, stats);
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
