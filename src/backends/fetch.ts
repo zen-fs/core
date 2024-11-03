@@ -12,11 +12,11 @@ import type { IndexData } from './file_index.js';
  * constants.
  * @hidden
  */
-async function fetchFile(path: string, type: 'buffer'): Promise<Uint8Array>;
-async function fetchFile<T extends object>(path: string, type: 'json'): Promise<T>;
-async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json'): Promise<T | Uint8Array>;
-async function fetchFile<T extends object>(path: string, type: string): Promise<T | Uint8Array> {
-	const response = await fetch(path).catch((e: Error) => {
+async function fetchFile(path: string, type: 'buffer', init?: RequestInit): Promise<Uint8Array>;
+async function fetchFile<T extends object>(path: string, type: 'json', init?: RequestInit): Promise<T>;
+async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json', init?: RequestInit): Promise<T | Uint8Array>;
+async function fetchFile<T extends object>(path: string, type: string, init?: RequestInit): Promise<T | Uint8Array> {
+	const response = await fetch(path, init).catch((e: Error) => {
 		throw new ErrnoError(Errno.EIO, e.message, path);
 	});
 	if (!response.ok) {
@@ -42,6 +42,11 @@ async function fetchFile<T extends object>(path: string, type: string): Promise<
  * Configuration options for FetchFS.
  */
 export interface FetchOptions {
+	/**
+	 * Options to pass through to fetch calls
+	 */
+	requestInit?: RequestInit;
+
 	/**
 	 * URL to a file index as a JSON file or the file index object itself.
 	 * Defaults to `index.json`.
@@ -75,6 +80,7 @@ export interface FetchOptions {
  */
 export class FetchFS extends IndexFS {
 	public readonly baseUrl: string;
+	public readonly requestInit?: RequestInit;
 
 	public async ready(): Promise<void> {
 		if (this._isInitialized) {
@@ -94,13 +100,13 @@ export class FetchFS extends IndexFS {
 		}
 	}
 
-	public constructor({ index = 'index.json', baseUrl = '' }: FetchOptions) {
+	public constructor({ index = 'index.json', baseUrl = '', requestInit }: FetchOptions) {
 		// prefix url must end in a directory separator.
 		if (baseUrl.at(-1) != '/') {
 			baseUrl += '/';
 		}
 
-		super(typeof index != 'string' ? index : fetchFile<IndexData>(baseUrl + index, 'json'));
+		super(typeof index != 'string' ? index : fetchFile<IndexData>(baseUrl + index, 'json', requestInit));
 
 		this.baseUrl = baseUrl;
 	}
@@ -136,7 +142,7 @@ export class FetchFS extends IndexFS {
 			return stats.fileData;
 		}
 
-		const data = await fetchFile(this.baseUrl + (path.startsWith('/') ? path.slice(1) : path), 'buffer');
+		const data = await fetchFile(this.baseUrl + (path.startsWith('/') ? path.slice(1) : path), 'buffer', this.requestInit);
 		stats.fileData = data;
 		return data;
 	}
@@ -154,16 +160,9 @@ const _Fetch = {
 	name: 'Fetch',
 
 	options: {
-		index: {
-			type: ['string', 'object'],
-			required: false,
-			description: 'URL to a file index as a JSON file or the file index object itself, generated with the make-index script. Defaults to `index.json`.',
-		},
-		baseUrl: {
-			type: 'string',
-			required: false,
-			description: 'Used as the URL prefix for fetched files. Default: Fetch files relative to the index.',
-		},
+		index: { type: ['string', 'object'], required: false },
+		baseUrl: { type: 'string', required: false },
+		requestInit: { type: 'object', required: false },
 	},
 
 	isAvailable(): boolean {

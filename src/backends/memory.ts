@@ -32,11 +32,7 @@ const _InMemory = {
 		return true;
 	},
 	options: {
-		name: {
-			type: 'string',
-			required: false,
-			description: 'The name of the store',
-		},
+		name: { type: 'string', required: false },
 	},
 	create({ name }: { name?: string }) {
 		const fs = new StoreFS(new InMemoryStore(name));

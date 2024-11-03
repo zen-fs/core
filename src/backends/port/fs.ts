@@ -298,7 +298,6 @@ const _Port = {
 		port: {
 			type: 'object',
 			required: true,
-			description: 'The target port that you want to connect to',
 			validator(port: RPC.Port) {
 				// Check for a `postMessage` function.
 				if (typeof port?.postMessage != 'function') {
@@ -309,7 +308,6 @@ const _Port = {
 		timeout: {
 			type: 'number',
 			required: false,
-			description: 'How long to wait before the request times out',
 		},
 	},
 
