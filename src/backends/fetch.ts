@@ -109,6 +109,7 @@ export class FetchFS extends IndexFS {
 		super(typeof index != 'string' ? index : fetchFile<IndexData>(baseUrl + index, 'json', requestInit));
 
 		this.baseUrl = baseUrl;
+		this.requestInit = requestInit;
 	}
 
 	public metadata(): FileSystemMetadata {
