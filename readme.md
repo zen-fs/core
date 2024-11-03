@@ -201,6 +201,10 @@ If you would like to see a more intuitive way adding custom devices (e.g. `fs.mk
 
 ZenFS exports a drop-in for Node's `fs` module (up to the version of `@types/node` in package.json), so you can use it for your bundler of preference using the default export.
 
+## Sponsors
+
+A huge thank you to [![Deco.cx logo](https://avatars.githubusercontent.com/deco-cx?size=20) Deco.cx](https://github.com/deco-cx) for sponsoring ZenFS and helping to make this possible.
+
 ## Building
 
 -   Make sure you have Node and NPM installed. You must have Node v18 or newer.
