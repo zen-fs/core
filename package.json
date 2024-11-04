@@ -58,6 +58,7 @@
 		"lint": "eslint src tests",
 		"test:common": "tsx --test --experimental-test-coverage 'tests/**/!(fs)/*.test.ts' 'tests/*.test.ts'",
 		"test": "tsx --test --experimental-test-coverage",
+		"pretest": "npm run build",
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",
