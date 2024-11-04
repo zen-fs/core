@@ -1,3 +1,7 @@
+/*
+This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
+*/
+
 import type { FileReadResult } from 'node:fs/promises';
 import { InMemoryStore } from './backends/memory.js';
 import { StoreFS } from './backends/store/fs.js';
@@ -12,9 +16,10 @@ import type { Ino } from './inode.js';
 /**
  * A device
  * @todo Maybe add major/minor number or some other device information, like a UUID?
- * @experimental
+ * @privateRemarks
+ * UUIDs were considered, however they don't make sense without an easy mechanism for persistance
  */
-export interface Device {
+export interface Device<TData = any> {
 	/**
 	 * The device's driver
 	 */
@@ -24,13 +29,31 @@ export interface Device {
 	 * Which inode the device is assigned
 	 */
 	ino: Ino;
+
+	/**
+	 * Data associated with a device.
+	 * This is meant to be used by device drivers.
+	 * @experimental
+	 */
+	data: TData;
+
+	/**
+	 * Major device number
+	 * @experimental
+	 */
+	major: number;
+
+	/**
+	 * Minor device number
+	 * @experimental
+	 */
+	minor: number;
 }
 
 /**
  * A device driver
- * @experimental
  */
-export interface DeviceDriver {
+export interface DeviceDriver<TData = any> {
 	/**
 	 * The name of the device driver
 	 */
@@ -43,22 +66,37 @@ export interface DeviceDriver {
 	isBuffered?: boolean;
 
 	/**
+	 * Initializes a new device.
+	 * @returns `Device.data`
+	 * @experimental
+	 */
+	init?(ino: Ino): {
+		data?: TData;
+		minor?: number;
+		major?: number;
+	};
+
+	/**
 	 * Synchronously read from the device
+	 * @group File operations
 	 */
 	read(file: DeviceFile, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
 
 	/**
 	 * Synchronously write to the device
+	 * @group File operations
 	 */
 	write(file: DeviceFile, buffer: Uint8Array, offset: number, length: number, position?: number): number;
 
 	/**
 	 * Sync the device
+	 * @group File operations
 	 */
 	sync?(file: DeviceFile): void;
 
 	/**
 	 * Close the device
+	 * @group File operations
 	 */
 	close?(file: DeviceFile): void;
 }
@@ -68,7 +106,6 @@ export interface DeviceDriver {
  * This class only does some simple things:
  * It implements `truncate` using `write` and it has non-device methods throw.
  * It is up to device drivers to implement the rest of the functionality.
- * @experimental
  */
 export class DeviceFile extends File {
 	public position = 0;
@@ -183,13 +220,15 @@ export class DeviceFile extends File {
 }
 
 /**
- * @experimental
  * A temporary file system that manages and interfaces with devices
  */
 export class DeviceFS extends StoreFS<InMemoryStore> {
 	protected readonly devices = new Map<string, Device>();
 
-	public createDevice(path: string, driver: DeviceDriver): Device {
+	/**
+	 * Creates a new device at `path` relative to the `DeviceFS` root.
+	 */
+	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>): Device<TData | Record<string, never>> {
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
 		}
@@ -198,6 +237,10 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		const dev = {
 			driver,
 			ino,
+			data: {},
+			minor: 0,
+			major: 0,
+			...driver.init?.(ino),
 		};
 		this.devices.set(path, dev);
 		return dev;
@@ -375,6 +418,9 @@ function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset: number, leng
  */
 export const nullDevice: DeviceDriver = {
 	name: 'null',
+	init() {
+		return { major: 1, minor: 3 };
+	},
 	read(): number {
 		return 0;
 	},
@@ -393,6 +439,9 @@ export const nullDevice: DeviceDriver = {
  */
 export const zeroDevice: DeviceDriver = {
 	name: 'zero',
+	init() {
+		return { major: 1, minor: 5 };
+	},
 	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
@@ -412,6 +461,9 @@ export const zeroDevice: DeviceDriver = {
  */
 export const fullDevice: DeviceDriver = {
 	name: 'full',
+	init() {
+		return { major: 1, minor: 7 };
+	},
 	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
@@ -434,6 +486,9 @@ export const fullDevice: DeviceDriver = {
  */
 export const randomDevice: DeviceDriver = {
 	name: 'random',
+	init() {
+		return { major: 1, minor: 8 };
+	},
 	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
