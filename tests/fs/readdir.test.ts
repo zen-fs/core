@@ -18,18 +18,18 @@ for (const dir of testDirectories) {
 }
 
 // must make any dirs that are mounted
-fs.mkdirSync('/mnt/tester', { recursive: true })
-fs.mkdirSync('/deep/stuff/here', { recursive: true })
-fs.mkdirSync('/top')
+fs.mkdirSync('/mnt/tester', { recursive: true });
+fs.mkdirSync('/deep/stuff/here', { recursive: true });
+fs.mkdirSync('/top');
 
 await configure({
 	mounts: {
 		'/mnt/tester': InMemory,
 		'/deep/stuff/here': InMemory,
-		'/top': InMemory
-	}
-})
-fs.writeFileSync('/deep/stuff/here/gotcha.txt', 'Hi!')
+		'/top': InMemory,
+	},
+});
+fs.writeFileSync('/deep/stuff/here/gotcha.txt', 'Hi!');
 
 suite('readdir and readdirSync', () => {
 	test('readdir returns files and directories', async () => {
@@ -100,7 +100,7 @@ suite('readdir and readdirSync', () => {
 	});
 
 	test('readdir from a new mount (recursive)', () => {
-		const entries = fs.readdirSync('/', {recursive: true})
-  	assert(entries.includes('deep/stuff/here/gotcha.txt'));
+		const entries = fs.readdirSync('/', { recursive: true });
+		assert(entries.includes('deep/stuff/here/gotcha.txt'));
 	});
 });
