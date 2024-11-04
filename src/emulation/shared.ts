@@ -54,7 +54,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
  */
 export function umount(mountPoint: string): void {
 	if (mountPoint[0] !== '/') {
-		mountPoint = `/${mountPoint}`;
+		mountPoint = '/' + mountPoint;
 	}
 	mountPoint = resolve(mountPoint);
 	if (!mounts.has(mountPoint)) {
