@@ -64,11 +64,10 @@ export function umount(mountPoint: string): void {
 }
 
 /**
- * Gets the internal FileSystem for the path, then returns it along with the path relative to the FS' root
+ * Gets the internal `FileSystem` for the path, then returns it along with the path relative to the FS' root
  */
 export function resolveMount(path: string): { fs: FileSystem; path: string; mountPoint: string } {
 	path = normalizePath(path);
-	// Maybe do something for devices here
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
