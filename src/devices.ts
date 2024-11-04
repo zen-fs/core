@@ -38,8 +38,9 @@ export interface DeviceDriver {
 
 	/**
 	 * Whether the device is buffered (a "block" device) or unbuffered (a "character" device)
+	 * @default false
 	 */
-	isBuffered: boolean;
+	isBuffered?: boolean;
 
 	/**
 	 * Synchronously read from the device
@@ -183,6 +184,7 @@ export class DeviceFile extends File {
 
 /**
  * @experimental
+ * A temporary file system that manages and interfaces with devices
  */
 export class DeviceFS extends StoreFS<InMemoryStore> {
 	protected readonly devices = new Map<string, Device>();
@@ -373,7 +375,6 @@ function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset: number, leng
  */
 export const nullDevice: DeviceDriver = {
 	name: 'null',
-	isBuffered: false,
 	read(): number {
 		return 0;
 	},
@@ -392,7 +393,6 @@ export const nullDevice: DeviceDriver = {
  */
 export const zeroDevice: DeviceDriver = {
 	name: 'zero',
-	isBuffered: false,
 	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
@@ -412,7 +412,6 @@ export const zeroDevice: DeviceDriver = {
  */
 export const fullDevice: DeviceDriver = {
 	name: 'full',
-	isBuffered: false,
 	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
@@ -435,7 +434,6 @@ export const fullDevice: DeviceDriver = {
  */
 export const randomDevice: DeviceDriver = {
 	name: 'random',
-	isBuffered: false,
 	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
 		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		for (let i = offset; i < offset + length; i++) {
