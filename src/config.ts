@@ -1,12 +1,12 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { credentials } from './credentials.js';
-import { DeviceFS, fullDevice, nullDevice, randomDevice, zeroDevice } from './devices.js';
+import { DeviceFS } from './devices.js';
 import * as cache from './emulation/cache.js';
+import { config } from './emulation/config.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
 import { type MountObject } from './emulation/shared.js';
-import { config } from './emulation/config.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
