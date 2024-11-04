@@ -246,6 +246,16 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return dev;
 	}
 
+	/**
+	 * Adds default devices
+	 */
+	public addDefaults(): void {
+		this.createDevice('/null', nullDevice);
+		this.createDevice('/zero', zeroDevice);
+		this.createDevice('/full', fullDevice);
+		this.createDevice('/random', randomDevice);
+	}
+
 	public constructor() {
 		super(new InMemoryStore('devfs'));
 	}
