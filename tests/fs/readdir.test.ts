@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { fs, configure, InMemory } from '../common.js';
 
 const testDir = 'test-dir';
 const testFiles = ['file1.txt', 'file2.txt', 'file3.txt'];
@@ -16,6 +16,20 @@ for (const dir of testDirectories) {
 		await fs.promises.writeFile(`${testDir}/${dir}/${file}`, 'Sample content');
 	}
 }
+
+// must make any dirs that are mounted
+fs.mkdirSync('/mnt/tester', { recursive: true })
+fs.mkdirSync('/deep/stuff/here', { recursive: true })
+fs.mkdirSync('/top')
+
+await configure({
+	mounts: {
+		'/mnt/tester': InMemory,
+		'/deep/stuff/here': InMemory,
+		'/top': InMemory
+	}
+})
+fs.writeFileSync('/deep/stuff/here/gotcha.txt', 'Hi!')
 
 suite('readdir and readdirSync', () => {
 	test('readdir returns files and directories', async () => {
@@ -83,5 +97,10 @@ suite('readdir and readdirSync', () => {
 	test('Cyrillic file names', () => {
 		fs.writeFileSync('/мой-файл.txt', 'HELLO!', 'utf-8');
 		assert(fs.readdirSync('/').includes('мой-файл.txt'));
+	});
+
+	test('readdir from a new mount (recursive)', () => {
+		const entries = fs.readdirSync('/', {recursive: true})
+  	assert(entries.includes('deep/stuff/here/gotcha.txt'));
 	});
 });

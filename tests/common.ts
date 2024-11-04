@@ -1,5 +1,5 @@
 import { join, resolve } from 'node:path';
-import { fs } from '../dist/index.js';
+import { fs, configure, InMemory } from '../dist/index.js';
 
 const setupPath = resolve(process.env.SETUP || join(import.meta.dirname, 'setup/memory.ts'));
 
@@ -8,4 +8,4 @@ await import(setupPath).catch(error => {
 	throw error;
 });
 
-export { fs };
+export { fs, configure, InMemory };
