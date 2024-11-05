@@ -6,7 +6,46 @@ import { ErrnoError } from '../../dist/error.js';
 import { encodeUTF8 } from '../../dist/utils.js';
 import { fs } from '../common.js';
 
+const asyncMode = 0o777;
+const syncMode = 0o644;
+const file = 'a.js';
+
 suite('Permissions', () => {
+	test('chmod', async () => {
+		await fs.promises.chmod(file, asyncMode.toString(8));
+
+		const stats = await fs.promises.stat(file);
+		assert.equal(stats.mode & 0o777, asyncMode);
+
+		fs.chmodSync(file, syncMode);
+		assert.equal(fs.statSync(file).mode & 0o777, syncMode);
+	});
+
+	test('fchmod', async () => {
+		const handle = await fs.promises.open(file, 'a', 0o644);
+
+		await handle.chmod(asyncMode);
+		const stats = await handle.stat();
+
+		assert.equal(stats.mode & 0o777, asyncMode);
+
+		fs.fchmodSync(handle.fd, syncMode);
+		assert.equal(fs.statSync(file).mode & 0o777, syncMode);
+	});
+
+	test('lchmod', async () => {
+		const link = 'symbolic-link';
+
+		await fs.promises.symlink(file, link);
+		await fs.promises.lchmod(link, asyncMode);
+
+		const stats = await fs.promises.lstat(link);
+		assert.equal(stats.mode & 0o777, asyncMode);
+
+		fs.lchmodSync(link, syncMode);
+		assert.equal(fs.lstatSync(link).mode & 0o777, syncMode);
+	});
+
 	async function test_item(path: string): Promise<void> {
 		const stats = await fs.promises.stat(path).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
@@ -27,7 +66,7 @@ suite('Permissions', () => {
 
 		if (stats.isDirectory()) {
 			for (const dir of await fs.promises.readdir(path)) {
-				await test_item(join(path, dir));
+				await test('Access controls: ' + join(path, dir), () => test_item(join(path, dir)));
 			}
 		} else {
 			await fs.promises.readFile(path).catch(checkError(R_OK));
@@ -48,5 +87,5 @@ suite('Permissions', () => {
 		assert(stats.hasAccess(R_OK));
 	}
 
-	test('recursive', () => test_item('/'));
+	test('Access controls: /', () => test_item('/'));
 });

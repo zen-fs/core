@@ -164,7 +164,7 @@ async function mount(path: string, mount: FileSystem): Promise<void> {
 
 	const stats = await fs.promises.stat(path).catch(() => null);
 	if (!stats) {
-		await fs.promises.mkdir(path);
+		await fs.promises.mkdir(path, { recursive: true });
 	} else if (!stats.isDirectory()) {
 		throw ErrnoError.With('ENOTDIR', path, 'configure');
 	}
