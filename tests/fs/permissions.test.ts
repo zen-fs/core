@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
+import { credentials } from '../../dist/credentials.js';
 import { R_OK, W_OK, X_OK } from '../../dist/emulation/constants.js';
 import { join } from '../../dist/emulation/path.js';
 import { ErrnoError } from '../../dist/error.js';
@@ -87,5 +88,8 @@ suite('Permissions', () => {
 		assert(stats.hasAccess(R_OK));
 	}
 
+	const copy = { ...credentials };
+	Object.assign(credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));
+	Object.assign(credentials, copy);
 });
