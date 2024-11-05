@@ -6,7 +6,6 @@ import * as cache from './emulation/cache.js';
 import { config } from './emulation/config.js';
 import * as fs from './emulation/index.js';
 import type { AbsolutePath } from './emulation/path.js';
-import { type MountObject } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
@@ -152,6 +151,27 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
 }
 
 /**
+ * Like `fs.mount`, but it also creates missing directories.
+ * @privateRemarks
+ * This is implemented as a separate function to avoid a circular dependency between emulation/shared.ts and other emulation layer files.
+ * @internal
+ */
+async function mount(path: string, mount: FileSystem): Promise<void> {
+	if (path == '/') {
+		fs.mount(path, mount);
+		return;
+	}
+
+	const stats = await fs.promises.stat(path).catch(() => null);
+	if (!stats) {
+		await fs.promises.mkdir(path);
+	} else if (!stats.isDirectory()) {
+		throw ErrnoError.With('ENOTDIR', path, 'configure');
+	}
+	fs.mount(path, mount);
+}
+
+/**
  * Configures ZenFS with `configuration`
  * @see Configuration
  */
@@ -170,12 +190,15 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();
-		fs.mount('/dev', devfs);
+		await mount('/dev', devfs);
 	}
 
 	if (!configuration.mounts) {
 		return;
 	}
+
+	const toMount: [string, FileSystem][] = [];
+	let unmountRoot = false;
 
 	for (const [point, mountConfig] of Object.entries(configuration.mounts)) {
 		if (!point.startsWith('/')) {
@@ -186,8 +209,11 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 			mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;
 		}
 
-		configuration.mounts[point as keyof T & `/${string}`] = await resolveMountConfig(mountConfig);
+		if (point == '/') unmountRoot = true;
+		toMount.push([point, await resolveMountConfig(mountConfig)]);
 	}
 
-	fs.mountObject(configuration.mounts as MountObject);
+	if (unmountRoot) fs.umount('/');
+
+	await Promise.all(toMount.map(([point, fs]) => mount(point, fs)));
 }

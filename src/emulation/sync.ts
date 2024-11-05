@@ -6,13 +6,13 @@ import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWrit
 import type { FileContents } from '../filesystem.js';
 import { BigIntStats, type Stats } from '../stats.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import * as cache from './cache.js';
+import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
-import { config } from './config.js';
+import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { emitChange } from './watchers.js';
-import * as cache from './cache.js';
 
 export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
@@ -470,18 +470,6 @@ export function readdirSync(
 		entries = fs.readdirSync(resolved);
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [resolved]: path });
-	}
-
-	for (const mount of mounts.keys()) {
-		if (!mount.startsWith(path)) {
-			continue;
-		}
-		const entry = mount.slice(path.length);
-		if (entry.includes('/') || entry.length == 0) {
-			// ignore FSs mounted in subdirectories and any FS mounted to `path`.
-			continue;
-		}
-		entries.push(entry);
 	}
 
 	// Iterate over entries and handle recursive case if needed

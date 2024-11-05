@@ -13,11 +13,11 @@ import '../polyfills.js';
 import { BigIntStats, type Stats } from '../stats.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as cache from './cache.js';
+import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, mounts, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
-import { config } from './config.js';
+import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
 export * as constants from './constants.js';
@@ -625,7 +625,7 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	try {
 		const stats = await (cache.getStats(path) || fs.stat(resolved));
 		if (!stats) {
-			throw ErrnoError.With('ENOENT', path, 'readdir');
+			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
 		if (!stats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
@@ -735,17 +735,6 @@ export async function readdir(
 	}
 
 	const entries = await fs.readdir(resolved).catch(handleError);
-
-	for (const point of mounts.keys()) {
-		if (point.startsWith(path)) {
-			const entry = point.slice(path.length);
-			if (entry.includes('/') || entry.length == 0) {
-				// ignore FSs mounted in subdirectories and any FS mounted to `path`.
-				continue;
-			}
-			entries.push(entry);
-		}
-	}
 
 	const values: (string | Dirent | Buffer)[] = [];
 	const addEntry = async (entry: string) => {

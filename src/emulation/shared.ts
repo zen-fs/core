@@ -106,6 +106,9 @@ export function fixError<E extends ErrnoError>(e: E, paths: Record<string, strin
 	return e;
 }
 
+/**
+ * @deprecated
+ */
 export function mountObject(mounts: MountObject): void {
 	if ('/' in mounts) {
 		umount('/');
