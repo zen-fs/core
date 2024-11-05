@@ -21,6 +21,9 @@ export const credentials: Credentials = {
 	egid: 0,
 };
 
+/**
+ * @deprecated
+ */
 export const rootCredentials: Credentials = {
 	uid: 0,
 	gid: 0,
