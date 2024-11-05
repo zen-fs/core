@@ -12,6 +12,7 @@ suite('Devices', () => {
 			},
 		});
 
-		assert.equal(fs.readdirSync('/').length, 1);
+		assert.deepStrictEqual(fs.readdirSync('/'), ['nested']);
+		assert.deepStrictEqual(fs.readdirSync('/nested'), ['dir']);
 	});
 });
