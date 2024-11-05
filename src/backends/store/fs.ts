@@ -534,21 +534,21 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param data The data to store at the file's data node.
 	 */
 	private async commitNew(path: string, type: FileType, mode: number, data: Uint8Array): Promise<Inode> {
+		/*
+			The root always exists.
+			If we don't check this prior to taking steps below,
+			we will create a file with name '' in root if path is '/'.
+		*/
+		if (path == '/') {
+			throw ErrnoError.With('EEXIST', path, 'commitNew');
+		}
+
 		await using tx = this.store.transaction();
 		const parentPath = dirname(path),
 			parent = await this.findINode(tx, parentPath);
 
 		const fname = basename(path),
 			listing = await this.getDirListing(tx, parent, parentPath);
-
-		/*
-			The root always exists.
-			If we don't check this prior to taking steps below,
-			we will create a file with name '' in root should path == '/'.
-		*/
-		if (path === '/') {
-			throw ErrnoError.With('EEXIST', path, 'commitNew');
-		}
 
 		// Check if file already exists.
 		if (listing[fname]) {
@@ -581,21 +581,21 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @return The Inode for the new file.
 	 */
 	protected commitNewSync(path: string, type: FileType, mode: number, data: Uint8Array = new Uint8Array()): Inode {
+		/*
+			The root always exists.
+			If we don't check this prior to taking steps below,
+			we will create a file with name '' in root if path is '/'.
+		*/
+		if (path == '/') {
+			throw ErrnoError.With('EEXIST', path, 'commitNew');
+		}
+
 		using tx = this.store.transaction();
 		const parentPath = dirname(path),
 			parent = this.findINodeSync(tx, parentPath);
 
 		const fname = basename(path),
 			listing = this.getDirListingSync(tx, parent, parentPath);
-
-		/*
-			The root always exists.
-			If we don't check this prior to taking steps below,
-			we will create a file with name '' in root should p == '/'.
-		*/
-		if (path === '/') {
-			throw ErrnoError.With('EEXIST', path, 'commitNew');
-		}
 
 		// Check if file already exists.
 		if (listing[fname]) {
