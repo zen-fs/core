@@ -4,7 +4,7 @@ import { configure } from '../src/config.js';
 import * as fs from '../src/emulation/index.js';
 import { InMemory } from '../src/index.js';
 
-suite('Devices', () => {
+suite('Mounts', () => {
 	test('Mount in nested directory', async () => {
 		await configure({
 			mounts: {
