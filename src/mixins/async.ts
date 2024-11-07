@@ -80,8 +80,8 @@ export function Async<T extends typeof FileSystem>(
 				const async = (this as StoreFS<Store>)['store'].transaction();
 
 				const promises = [];
-				for (const key of sync.keysSync()) {
-					promises.push(async.set(key, sync.getSync(key)));
+				for (const key of await async.keys()) {
+					promises.push(async.get(key).then(data => sync.setSync(key, data)));
 				}
 
 				await Promise.all(promises);
