@@ -243,10 +243,10 @@ writeFileSync satisfies typeof fs.writeFileSync;
  * Asynchronously append data to a file, creating the file if it not yet exists.
  * @option encoding Defaults to `'utf8'`.
  * @option mode Defaults to `0644`.
- * @option flag Defaults to `'a'`.
+ * @option flag Defaults to `'a+'`.
  */
 export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions = {}): void {
-	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
+	const options = normalizeOptions(_options, 'utf8', 'a+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isAppendable(flag)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending.');
