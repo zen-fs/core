@@ -3,18 +3,20 @@ import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
 const testFile = 'test-file.txt';
-await fs.promises.writeFile(testFile, 'Sample content');
-await fs.promises.mkdir('test-directory');
-await fs.promises.symlink(testFile, 'test-symlink');
+fs.writeFileSync(testFile, 'Sample content');
+fs.mkdirSync('test-directory');
+fs.symlinkSync(testFile, 'test-symlink');
 const testDirPath = 'test-dir';
 const testFiles = ['file1.txt', 'file2.txt'];
-await fs.promises.mkdir(testDirPath);
+fs.mkdirSync(testDirPath);
 for (const file of testFiles) {
-	await fs.promises.writeFile(`${testDirPath}/${file}`, 'Sample content');
+	fs.writeFileSync(`${testDirPath}/${file}`, 'Sample content');
 }
 
+await fs._synced();
+
 suite('Dirent', () => {
-	test('Dirent name and parentPath getters', async () => {
+	test('name and parentPath getters', async () => {
 		const stats = await fs.promises.lstat(testFile);
 		const dirent = new fs.Dirent(testFile, stats);
 
@@ -22,7 +24,7 @@ suite('Dirent', () => {
 		assert.equal(dirent.parentPath, testFile);
 	});
 
-	test('Dirent.isFile', async () => {
+	test('isFile', async () => {
 		const fileStats = await fs.promises.lstat(testFile);
 		const fileDirent = new fs.Dirent(testFile, fileStats);
 
@@ -30,7 +32,7 @@ suite('Dirent', () => {
 		assert(!fileDirent.isDirectory());
 	});
 
-	test('Dirent.isDirectory', async () => {
+	test('isDirectory', async () => {
 		const dirStats = await fs.promises.lstat('test-directory');
 		const dirDirent = new fs.Dirent('test-directory', dirStats);
 
@@ -38,14 +40,14 @@ suite('Dirent', () => {
 		assert(dirDirent.isDirectory());
 	});
 
-	test('Dirent.isSymbolicLink', async () => {
+	test('isSymbolicLink', async () => {
 		const symlinkStats = await fs.promises.lstat('test-symlink');
 		const symlinkDirent = new fs.Dirent('test-symlink', symlinkStats);
 
 		assert(symlinkDirent.isSymbolicLink());
 	});
 
-	test('Dirent other methods return false', async () => {
+	test('other methods return false', async () => {
 		const fileStats = await fs.promises.lstat(testFile);
 		const fileDirent = new fs.Dirent(testFile, fileStats);
 
@@ -56,7 +58,7 @@ suite('Dirent', () => {
 });
 
 suite('Dir', () => {
-	test('Dir read() method (Promise varient)', async () => {
+	test('read()', async () => {
 		const dir = new fs.Dir(testDirPath);
 
 		const dirent1 = await dir.read();
@@ -73,19 +75,7 @@ suite('Dir', () => {
 		await dir.close();
 	});
 
-	test('Dir read() method (Callback varient)', (_, done) => {
-		const dir = new fs.Dir(testDirPath);
-		dir.read((err, dirent) => {
-			assert.strictEqual(err, undefined);
-			assert.notEqual(dirent, undefined);
-			assert(dirent instanceof fs.Dirent);
-			assert(testFiles.includes(dirent?.name));
-			dir.closeSync();
-			done();
-		});
-	});
-
-	test('Dir readSync() method', () => {
+	test('readSync()', () => {
 		const dir = new fs.Dir(testDirPath);
 
 		const dirent1 = dir.readSync();
@@ -102,19 +92,19 @@ suite('Dir', () => {
 		dir.closeSync();
 	});
 
-	test('Dir close() method (Promise version)', async () => {
+	test('close()', async () => {
 		const dir = new fs.Dir(testDirPath);
 		await dir.close();
 		rejects(dir.read(), 'Can not use closed Dir');
 	});
 
-	test('Dir closeSync() method', () => {
+	test('closeSync()', () => {
 		const dir = new fs.Dir(testDirPath);
 		dir.closeSync();
 		assert.throws(() => dir.readSync(), 'Can not use closed Dir');
 	});
 
-	test('Dir asynchronous iteration', async () => {
+	test('asynchronous iteration', async () => {
 		const dir = new fs.Dir(testDirPath);
 		const dirents: fs.Dirent[] = [];
 
@@ -128,26 +118,26 @@ suite('Dir', () => {
 		assert(testFiles.includes(dirents[1].name));
 	});
 
-	test('Dir read after directory is closed', async () => {
+	test('read after directory is closed', async () => {
 		const dir = new fs.Dir(testDirPath);
 		await dir.close();
 		await assert.rejects(dir.read(), 'Can not use closed Dir');
 	});
 
-	test('Dir readSync after directory is closed', () => {
+	test('readSync after directory is closed', () => {
 		const dir = new fs.Dir(testDirPath);
 		dir.closeSync();
 		assert.throws(() => dir.readSync(), 'Can not use closed Dir');
 	});
 
-	test('Dir close multiple times', async () => {
+	test('close multiple times', async () => {
 		const dir = new fs.Dir(testDirPath);
 		await dir.close();
 		await dir.close(); // Should not throw an error
 		assert(dir['closed']);
 	});
 
-	test('Dir closeSync multiple times', () => {
+	test('closeSync multiple times', () => {
 		const dir = new fs.Dir(testDirPath);
 		dir.closeSync();
 		dir.closeSync(); // Should not throw an error

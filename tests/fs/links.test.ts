@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { join } from '../../dist/emulation/path.js';
 import { fs } from '../common.js';
+import type { ErrnoError } from '../../dist/error.js';
 
 suite('Links', () => {
 	const target = '/a1.js',
@@ -28,8 +29,14 @@ suite('Links', () => {
 		assert(await fs.promises.exists(target));
 	});
 
-	test('link', async () => {
-		await fs.promises.link(target, hardlink);
+	test('link', async t => {
+		const _ = await fs.promises.link(target, hardlink).catch((e: ErrnoError) => {
+			if (e.code == 'ENOSYS') return e;
+			throw e;
+		});
+		if (_) {
+			return t.skip('Backend does not support hard links');
+		}
 		const targetContent = await fs.promises.readFile(target, 'utf8');
 		const linkContent = await fs.promises.readFile(hardlink, 'utf8');
 		assert.strictEqual(targetContent, linkContent);

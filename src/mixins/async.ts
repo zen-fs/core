@@ -67,6 +67,7 @@ export function Async<T extends typeof FileSystem>(
 
 		public async ready(): Promise<void> {
 			await super.ready();
+			await this.queueDone();
 			if (this._isInitialized || this._disableSync) {
 				return;
 			}
@@ -128,7 +129,7 @@ export function Async<T extends typeof FileSystem>(
 
 		public openFileSync(path: string, flag: string): PreloadFile<this> {
 			this.checkSync(path, 'openFile');
-			const file = this._sync.openFileSync(path, flag);
+			const file = this._sync.openFileSync(path, flag + '+');
 			const stats = file.statSync();
 			const buffer = new Uint8Array(stats.size);
 			file.readSync(buffer);

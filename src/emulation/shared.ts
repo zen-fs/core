@@ -84,6 +84,16 @@ export function resolveMount(path: string): { fs: FileSystem; path: string; moun
 }
 
 /**
+ * Wait for all file systems to be ready and synced.
+ * May be removed at some point.
+ * @experimental @internal
+ */
+export async function _synced(): Promise<void> {
+	await Promise.all([...mounts.values()].map(m => m.ready()));
+	return;
+}
+
+/**
  * Reverse maps the paths in text from the mounted FileSystem to the global path
  * @hidden
  */
