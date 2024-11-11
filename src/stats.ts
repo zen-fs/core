@@ -221,14 +221,24 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @internal
 	 */
 	public hasAccess(mode: number): boolean {
+		// Assuming 'credentials' and 'this.uid', 'this.gid', 'this.mode' are accessible
 		if (credentials.euid === 0 || credentials.egid === 0) {
-			//Running as root
+			// Running as root
 			return true;
 		}
 
-		// Mask for
-		const adjusted = (credentials.uid == this.uid ? S_IRWXU : 0) | (credentials.gid == this.gid ? S_IRWXG : 0) | S_IRWXO;
-		return (mode & this.mode & adjusted) == mode;
+		// Build the adjusted permission mask based on ownership
+		let adjusted = 0;
+		if (credentials.uid === this.uid) {
+			adjusted |= S_IRWXU; // Include owner permissions
+		}
+		if (credentials.gid === this.gid) {
+			adjusted |= S_IRWXG; // Include group permissions
+		}
+		adjusted |= S_IRWXO; // Always include others' permissions
+
+		// Perform the access check
+		return (this.mode & adjusted & mode) === mode;
 	}
 
 	/**
