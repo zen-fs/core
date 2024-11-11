@@ -1,5 +1,5 @@
+import { deserialize, serialize, sizeof, struct, types as t } from 'utilium';
 import { Stats, type StatsLike } from './stats.js';
-import { types as t, struct, sizeof, serialize, deserialize } from 'utilium';
 
 /**
  * Alias for an ino.
@@ -108,8 +108,8 @@ export class Inode implements StatsLike {
 			hasChanged = true;
 		}
 
-		if (this.uid !== stats.uid) {
-			this.uid = stats.uid;
+		if (this.gid !== stats.gid) {
+			this.gid = stats.gid;
 			hasChanged = true;
 		}
 

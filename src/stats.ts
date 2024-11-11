@@ -1,6 +1,28 @@
 import type * as Node from 'node:fs';
 import { credentials, type Credentials } from './credentials.js';
-import { S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IFSOCK, S_IRWXG, S_IRWXO, S_IRWXU, size_max } from './emulation/constants.js';
+import {
+	R_OK,
+	S_IFBLK,
+	S_IFCHR,
+	S_IFDIR,
+	S_IFIFO,
+	S_IFLNK,
+	S_IFMT,
+	S_IFREG,
+	S_IFSOCK,
+	S_IRGRP,
+	S_IROTH,
+	S_IRUSR,
+	S_IWGRP,
+	S_IWOTH,
+	S_IWUSR,
+	S_IXGRP,
+	S_IXOTH,
+	S_IXUSR,
+	size_max,
+	W_OK,
+	X_OK,
+} from './emulation/constants.js';
 
 /**
  * Indicates the type of a file. Applied to 'mode'.
@@ -221,24 +243,32 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @internal
 	 */
 	public hasAccess(mode: number): boolean {
-		// Assuming 'credentials' and 'this.uid', 'this.gid', 'this.mode' are accessible
 		if (credentials.euid === 0 || credentials.egid === 0) {
-			// Running as root
+			//Running as root
 			return true;
 		}
 
-		// Build the adjusted permission mask based on ownership
-		let adjusted = 0;
+		let perm = 0;
+
 		if (credentials.uid === this.uid) {
-			adjusted |= S_IRWXU; // Include owner permissions
+			// Owner permissions
+			if (this.mode & S_IRUSR) perm |= R_OK;
+			if (this.mode & S_IWUSR) perm |= W_OK;
+			if (this.mode & S_IXUSR) perm |= X_OK;
+		} else if (credentials.gid === this.gid) {
+			// Group permissions
+			if (this.mode & S_IRGRP) perm |= R_OK;
+			if (this.mode & S_IWGRP) perm |= W_OK;
+			if (this.mode & S_IXGRP) perm |= X_OK;
+		} else {
+			// Others permissions
+			if (this.mode & S_IROTH) perm |= R_OK;
+			if (this.mode & S_IWOTH) perm |= W_OK;
+			if (this.mode & S_IXOTH) perm |= X_OK;
 		}
-		if (credentials.gid === this.gid) {
-			adjusted |= S_IRWXG; // Include group permissions
-		}
-		adjusted |= S_IRWXO; // Always include others' permissions
 
 		// Perform the access check
-		return (this.mode & adjusted & mode) === mode;
+		return (perm & mode) === mode;
 	}
 
 	/**
