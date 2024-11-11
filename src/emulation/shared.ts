@@ -102,7 +102,9 @@ export function fixError<E extends ErrnoError>(e: E, paths: Record<string, strin
 	if (typeof e.stack == 'string') {
 		e.stack = fixPaths(e.stack, paths);
 	}
-	e.message = fixPaths(e.message, paths);
+	try {
+		e.message = fixPaths(e.message, paths);
+	} catch {}
 	return e;
 }
 
