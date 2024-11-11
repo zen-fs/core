@@ -16,7 +16,7 @@ suite('times', () => {
 	}
 
 	async function runTest(atime: Date | number, mtime: Date | number): Promise<void> {
-		await fs.promises.utimes(path, atime, mtime);
+		fs.utimesSync(path, atime, mtime);
 		expect_assert(path, atime, mtime);
 
 		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: ErrnoError) => {
