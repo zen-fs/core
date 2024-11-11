@@ -244,24 +244,28 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 */
 	public hasAccess(mode: number): boolean {
 		if (credentials.euid === 0 || credentials.egid === 0) {
-			//Running as root
+			// Running as root
 			return true;
 		}
 
 		let perm = 0;
 
+		// Owner permissions
 		if (credentials.uid === this.uid) {
-			// Owner permissions
 			if (this.mode & S_IRUSR) perm |= R_OK;
 			if (this.mode & S_IWUSR) perm |= W_OK;
 			if (this.mode & S_IXUSR) perm |= X_OK;
-		} else if (credentials.gid === this.gid) {
-			// Group permissions
+		}
+
+		// Group permissions
+		if (credentials.gid === this.gid) {
 			if (this.mode & S_IRGRP) perm |= R_OK;
 			if (this.mode & S_IWGRP) perm |= W_OK;
 			if (this.mode & S_IXGRP) perm |= X_OK;
-		} else {
-			// Others permissions
+		}
+
+		// Others permissions
+		if (credentials.uid !== this.uid && credentials.gid !== this.gid) {
 			if (this.mode & S_IROTH) perm |= R_OK;
 			if (this.mode & S_IWOTH) perm |= W_OK;
 			if (this.mode & S_IXOTH) perm |= X_OK;
