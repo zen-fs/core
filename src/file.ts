@@ -1,6 +1,6 @@
 import type { FileReadResult } from 'node:fs/promises';
-import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT, size_max } from './emulation/constants.js';
 import { config } from './emulation/config.js';
+import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT, size_max } from './emulation/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
