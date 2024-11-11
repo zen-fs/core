@@ -16,18 +16,29 @@ type Fn<T extends FnName> = T extends `promises.${infer U extends Fn_Promises}` 
  * Not implemented.
  * @experimental
  */
-export class FSContext {
-	public constructor(
-		public readonly root: AbsolutePath,
-		public readonly creds: Credentials = credentials
-	) {}
+export interface FSContext {
+	readonly root: AbsolutePath;
+	readonly creds: Credentials;
 
-	public call<const K extends FnName>(method: K, ...args: Parameters<Fn<K>>): ReturnType<Fn<K>> {
-		// @ts-expect-error 2349
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-		const value = getByString(fs, method)(...args);
+	call<const K extends FnName>(method: K, ...args: Parameters<Fn<K>>): ReturnType<Fn<K>>;
+}
 
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-		return value;
-	}
+/**
+ * Allows you to restrict operations to a specific root path and set of credentials.
+ * Not implemented.
+ * @experimental
+ */
+export function createContext(root: AbsolutePath, creds: Credentials = credentials): FSContext {
+	return {
+		root,
+		creds,
+		call<const K extends FnName>(method: K, ...args: Parameters<Fn<K>>): ReturnType<Fn<K>> {
+			// @ts-expect-error 2349
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+			const value = getByString(fs, method)(...args);
+
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			return value;
+		},
+	};
 }
