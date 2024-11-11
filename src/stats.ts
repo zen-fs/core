@@ -265,11 +265,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		}
 
 		// Others permissions
-		if (credentials.uid !== this.uid && credentials.gid !== this.gid) {
-			if (this.mode & S_IROTH) perm |= R_OK;
-			if (this.mode & S_IWOTH) perm |= W_OK;
-			if (this.mode & S_IXOTH) perm |= X_OK;
-		}
+		if (this.mode & S_IROTH) perm |= R_OK;
+		if (this.mode & S_IWOTH) perm |= W_OK;
+		if (this.mode & S_IXOTH) perm |= X_OK;
 
 		// Perform the access check
 		return (perm & mode) === mode;
