@@ -266,3 +266,11 @@ export function normalizeOptions(
 }
 
 export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: any[]) => InstanceType<T>);
+
+/**
+ * Generate a random ino
+ * @internal
+ */
+export function randomBigInt(): bigint {
+	return crypto.getRandomValues(new BigUint64Array(1))[0];
+}

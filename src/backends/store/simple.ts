@@ -1,14 +1,13 @@
-import type { Ino } from '../../inode.js';
 import { SyncTransaction, type Store } from './store.js';
 
 /**
  * An interface for simple synchronous stores that don't have special support for transactions and such.
  */
 export interface SimpleSyncStore extends Store {
-	keys(): Iterable<Ino>;
-	get(ino: Ino): Uint8Array | undefined;
-	set(ino: Ino, data: Uint8Array): void;
-	delete(ino: Ino): void;
+	keys(): Iterable<bigint>;
+	get(id: bigint): Uint8Array | undefined;
+	set(id: bigint, data: Uint8Array): void;
+	delete(id: bigint): void;
 }
 
 /**
@@ -18,33 +17,33 @@ export interface SimpleSyncStore extends Store {
 export abstract class SimpleAsyncStore implements SimpleSyncStore {
 	public abstract name: string;
 
-	protected cache: Map<Ino, Uint8Array> = new Map();
+	protected cache: Map<bigint, Uint8Array> = new Map();
 
 	protected queue: Set<Promise<unknown>> = new Set();
 
-	protected abstract entries(): Promise<Iterable<[Ino, Uint8Array]>>;
+	protected abstract entries(): Promise<Iterable<[bigint, Uint8Array]>>;
 
-	public keys(): Iterable<Ino> {
+	public keys(): Iterable<bigint> {
 		return this.cache.keys();
 	}
 
-	public get(ino: Ino): Uint8Array | undefined {
-		return this.cache.get(ino);
+	public get(id: bigint): Uint8Array | undefined {
+		return this.cache.get(id);
 	}
 
-	public set(ino: Ino, data: Uint8Array): void {
-		this.cache.set(ino, data);
-		this.queue.add(this._set(ino, data));
+	public set(id: bigint, data: Uint8Array): void {
+		this.cache.set(id, data);
+		this.queue.add(this._set(id, data));
 	}
 
-	protected abstract _set(ino: Ino, data: Uint8Array): Promise<void>;
+	protected abstract _set(ino: bigint, data: Uint8Array): Promise<void>;
 
-	public delete(ino: Ino): void {
-		this.cache.delete(ino);
-		this.queue.add(this._delete(ino));
+	public delete(id: bigint): void {
+		this.cache.delete(id);
+		this.queue.add(this._delete(id));
 	}
 
-	protected abstract _delete(ino: Ino): Promise<void>;
+	protected abstract _delete(ino: bigint): Promise<void>;
 
 	public clearSync(): void {
 		this.cache.clear();
@@ -79,32 +78,32 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	protected originalData: Map<Ino, Uint8Array | void> = new Map();
+	protected originalData: Map<bigint, Uint8Array | void> = new Map();
 	/**
 	 * List of keys modified in this transaction, if any.
 	 */
-	protected modifiedKeys: Set<Ino> = new Set();
+	protected modifiedKeys: Set<bigint> = new Set();
 
 	protected declare store: SimpleSyncStore;
 
-	public keysSync(): Iterable<Ino> {
+	public keysSync(): Iterable<bigint> {
 		return this.store.keys();
 	}
 
-	public getSync(ino: Ino): Uint8Array {
-		const val = this.store.get(ino);
-		this.stashOldValue(ino, val);
+	public getSync(id: bigint): Uint8Array {
+		const val = this.store.get(id);
+		this.stashOldValue(id, val);
 		return val!;
 	}
 
-	public setSync(ino: Ino, data: Uint8Array): void {
-		this.markModified(ino);
-		return this.store.set(ino, data);
+	public setSync(id: bigint, data: Uint8Array): void {
+		this.markModified(id);
+		return this.store.set(id, data);
 	}
 
-	public removeSync(ino: Ino): void {
-		this.markModified(ino);
-		this.store.delete(ino);
+	public removeSync(id: bigint): void {
+		this.markModified(id);
+		this.store.delete(id);
 	}
 
 	public commitSync(): void {
@@ -135,10 +134,10 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 	 * prevent needless `get` requests if the program modifies the data later
 	 * on during the transaction.
 	 */
-	protected stashOldValue(ino: Ino, value?: Uint8Array): void {
+	protected stashOldValue(id: bigint, value?: Uint8Array): void {
 		// Keep only the earliest value in the transaction.
-		if (!this.originalData.has(ino)) {
-			this.originalData.set(ino, value);
+		if (!this.originalData.has(id)) {
+			this.originalData.set(id, value);
 		}
 	}
 
@@ -146,10 +145,10 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 	 * Marks `ino` as modified, and stashes its value if it has not been
 	 * stashed already.
 	 */
-	protected markModified(ino: Ino): void {
-		this.modifiedKeys.add(ino);
-		if (!this.originalData.has(ino)) {
-			this.originalData.set(ino, this.store.get(ino));
+	protected markModified(id: bigint): void {
+		this.modifiedKeys.add(id);
+		if (!this.originalData.has(id)) {
+			this.originalData.set(id, this.store.get(id));
 		}
 	}
 }

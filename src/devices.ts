@@ -11,7 +11,6 @@ import { File } from './file.js';
 import type { StatsLike } from './stats.js';
 import { Stats } from './stats.js';
 import { basename, dirname } from './emulation/path.js';
-import type { Ino } from './inode.js';
 
 /**
  * A device
@@ -28,7 +27,7 @@ export interface Device<TData = any> {
 	/**
 	 * Which inode the device is assigned
 	 */
-	ino: Ino;
+	ino: bigint;
 
 	/**
 	 * Data associated with a device.
@@ -70,7 +69,7 @@ export interface DeviceDriver<TData = any> {
 	 * @returns `Device.data`
 	 * @experimental
 	 */
-	init?(ino: Ino): {
+	init?(ino: bigint): {
 		data?: TData;
 		minor?: number;
 		major?: number;

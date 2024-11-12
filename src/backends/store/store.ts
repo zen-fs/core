@@ -1,5 +1,4 @@
 import { ErrnoError } from '../../error.js';
-import type { Ino } from '../../inode.js';
 import '../../polyfills.js';
 
 /**
@@ -46,52 +45,52 @@ export abstract class Transaction<T extends Store = Store> {
 	/**
 	 * Gets all of the keys
 	 */
-	public abstract keys(): Promise<Iterable<Ino>>;
+	public abstract keys(): Promise<Iterable<bigint>>;
 
 	/**
 	 * Gets all of the keys
 	 */
-	public abstract keysSync(): Iterable<Ino>;
+	public abstract keysSync(): Iterable<bigint>;
 
 	/**
-	 * Retrieves the data at `ino`.
-	 * @param ino The key to look under for data.
+	 * Retrieves data.
+	 * @param id The key to look under for data.
 	 */
-	public abstract get(ino: Ino): Promise<Uint8Array>;
+	public abstract get(id: bigint): Promise<Uint8Array>;
 
 	/**
-	 * Retrieves the data at `ino`.
+	 * Retrieves data.
 	 * Throws an error if an error occurs or if the key does not exist.
-	 * @param ino The key to look under for data.
+	 * @param id The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	public abstract getSync(ino: Ino): Uint8Array;
+	public abstract getSync(id: bigint): Uint8Array;
 
 	/**
-	 * Adds the data to the store under `ino`. Overwrites any existing data.
-	 * @param ino The key to add the data under.
+	 * Adds the data to the store under an id. Overwrites any existing data.
+	 * @param id The key to add the data under.
 	 * @param data The data to add to the store.
 	 */
-	public abstract set(ino: Ino, data: Uint8Array): Promise<void>;
+	public abstract set(id: bigint, data: Uint8Array): Promise<void>;
 
 	/**
-	 * Adds the data to the store under `ino`.
-	 * @param ino The key to add the data under.
+	 * Adds the data to the store under and id.
+	 * @param id The key to add the data under.
 	 * @param data The data to add to the store.
 	 */
-	public abstract setSync(ino: Ino, data: Uint8Array): void;
+	public abstract setSync(id: bigint, data: Uint8Array): void;
 
 	/**
 	 * Deletes the data at `ino`.
-	 * @param ino The key to delete from the store.
+	 * @param id The key to delete from the store.
 	 */
-	public abstract remove(ino: Ino): Promise<void>;
+	public abstract remove(id: bigint): Promise<void>;
 
 	/**
 	 * Deletes the data at `ino`.
-	 * @param ino The key to delete from the store.
+	 * @param id The key to delete from the store.
 	 */
-	public abstract removeSync(ino: Ino): void;
+	public abstract removeSync(id: bigint): void;
 
 	/**
 	 * Commits the transaction.
@@ -135,19 +134,19 @@ export abstract class Transaction<T extends Store = Store> {
  */
 export abstract class SyncTransaction<T extends Store = Store> extends Transaction<T> {
 	/* eslint-disable @typescript-eslint/require-await */
-	public async keys(): Promise<Iterable<Ino>> {
+	public async keys(): Promise<Iterable<bigint>> {
 		return this.keysSync();
 	}
-	public async get(ino: Ino): Promise<Uint8Array> {
-		return this.getSync(ino);
+	public async get(id: bigint): Promise<Uint8Array> {
+		return this.getSync(id);
 	}
 
-	public async set(ino: bigint, data: Uint8Array): Promise<void> {
-		return this.setSync(ino, data);
+	public async set(id: bigint, data: Uint8Array): Promise<void> {
+		return this.setSync(id, data);
 	}
 
-	public async remove(ino: Ino): Promise<void> {
-		return this.removeSync(ino);
+	public async remove(id: bigint): Promise<void> {
+		return this.removeSync(id);
 	}
 
 	public async commit(): Promise<void> {

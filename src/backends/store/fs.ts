@@ -5,10 +5,11 @@ import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { PreloadFile } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
-import { type Ino, Inode, randomIno, rootIno } from '../../inode.js';
+import { Inode, rootIno } from '../../inode.js';
 import type { FileType, Stats } from '../../stats.js';
-import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
+import { decodeDirListing, encodeDirListing, encodeUTF8, randomBigInt } from '../../utils.js';
 import type { Store, Transaction } from './store.js';
+import { serialize } from 'utilium';
 
 const maxInodeAllocTries = 5;
 
@@ -70,13 +71,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const _old = parse(oldPath),
 			_new = parse(newPath),
 			// Remove oldPath from parent's directory listing.
-			oldDirNode = await this.findINode(tx, _old.dir, 'rename'),
-			oldDirList = await this.getDirListing(tx, oldDirNode, _old.dir);
+			oldDirNode = await this.findInode(tx, _old.dir, 'rename'),
+			oldDirList = decodeDirListing(await this.get(tx, oldDirNode.data, _old.dir, 'rename'));
 
 		if (!oldDirList[_old.base]) {
 			throw ErrnoError.With('ENOENT', oldPath, 'rename');
 		}
-		const nodeId: Ino = oldDirList[_old.base];
+		const ino: bigint = oldDirList[_old.base];
 		delete oldDirList[_old.base];
 
 		/* 
@@ -93,8 +94,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const sameParent = _new.dir == _old.dir;
 
 		// Prevent us from re-grabbing the same directory listing, which still contains `old_path.base.`
-		const newDirNode: Inode = sameParent ? oldDirNode : await this.findINode(tx, _new.dir, 'rename');
-		const newDirList: typeof oldDirList = sameParent ? oldDirList : await this.getDirListing(tx, newDirNode, _new.dir);
+		const newDirNode: Inode = sameParent ? oldDirNode : await this.findInode(tx, _new.dir, 'rename');
+		const newDirList: typeof oldDirList = sameParent ? oldDirList : decodeDirListing(await this.get(tx, newDirNode.data, _new.dir, 'rename'));
 
 		if (newDirList[_new.base]) {
 			// If it's a file, delete it, if it's a directory, throw a permissions error.
@@ -102,13 +103,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			if (!existing.toStats().isFile()) {
 				throw ErrnoError.With('EPERM', newPath, 'rename');
 			}
-			await tx.remove(existing.ino);
+			await tx.remove(existing.data);
 			await tx.remove(newDirList[_new.base]);
 		}
-		newDirList[_new.base] = nodeId;
+		newDirList[_new.base] = ino;
 		// Commit the two changed directory listings.
-		await tx.set(oldDirNode.ino, encodeDirListing(oldDirList));
-		await tx.set(newDirNode.ino, encodeDirListing(newDirList));
+		await tx.set(oldDirNode.data, encodeDirListing(oldDirList));
+		await tx.set(newDirNode.data, encodeDirListing(newDirList));
 		await tx.commit();
 	}
 
@@ -117,13 +118,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const _old = parse(oldPath),
 			_new = parse(newPath),
 			// Remove oldPath from parent's directory listing.
-			oldDirNode = this.findINodeSync(tx, _old.dir, 'rename'),
-			oldDirList = this.getDirListingSync(tx, oldDirNode, _old.dir);
+			oldDirNode = this.findInodeSync(tx, _old.dir, 'rename'),
+			oldDirList = decodeDirListing(this.getSync(tx, oldDirNode.data, _old.dir, 'rename'));
 
 		if (!oldDirList[_old.base]) {
 			throw ErrnoError.With('ENOENT', oldPath, 'rename');
 		}
-		const ino: Ino = oldDirList[_old.base];
+		const ino: bigint = oldDirList[_old.base];
 		delete oldDirList[_old.base];
 
 		/* 
@@ -139,8 +140,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const sameParent = _new.dir === _old.dir;
 
 		// Prevent us from re-grabbing the same directory listing, which still contains `old_path.base.`
-		const newDirNode: Inode = sameParent ? oldDirNode : this.findINodeSync(tx, _new.dir, 'rename');
-		const newDirList: typeof oldDirList = sameParent ? oldDirList : this.getDirListingSync(tx, newDirNode, _new.dir);
+		const newDirNode: Inode = sameParent ? oldDirNode : this.findInodeSync(tx, _new.dir, 'rename');
+		const newDirList: typeof oldDirList = sameParent ? oldDirList : decodeDirListing(this.getSync(tx, newDirNode.data, _new.dir, 'rename'));
 
 		if (newDirList[_new.base]) {
 			// If it's a file, delete it, if it's a directory, throw a permissions error.
@@ -148,41 +149,41 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			if (!existing.toStats().isFile()) {
 				throw ErrnoError.With('EPERM', newPath, 'rename');
 			}
-			tx.removeSync(existing.ino);
+			tx.removeSync(existing.data);
 			tx.removeSync(newDirList[_new.base]);
 		}
 		newDirList[_new.base] = ino;
 
 		// Commit the two changed directory listings.
-		tx.setSync(oldDirNode.ino, encodeDirListing(oldDirList));
-		tx.setSync(newDirNode.ino, encodeDirListing(newDirList));
+		tx.setSync(oldDirNode.data, encodeDirListing(oldDirList));
+		tx.setSync(newDirNode.data, encodeDirListing(newDirList));
 		tx.commitSync();
 	}
 
 	public async stat(path: string): Promise<Stats> {
 		await using tx = this.store.transaction();
-		return (await this.findINode(tx, path, 'stat')).toStats();
+		return (await this.findInode(tx, path, 'stat')).toStats();
 	}
 
 	public statSync(path: string): Stats {
 		using tx = this.store.transaction();
-		return this.findINodeSync(tx, path, 'stat').toStats();
+		return this.findInodeSync(tx, path, 'stat').toStats();
 	}
 
 	public async createFile(path: string, flag: string, mode: number): Promise<File> {
-		const node = await this.commitNew(path, S_IFREG, mode, new Uint8Array(0));
-		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array(0));
+		const node = await this.commitNew(path, S_IFREG, mode, new Uint8Array(), 'createFile');
+		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
 	}
 
 	public createFileSync(path: string, flag: string, mode: number): File {
-		this.commitNewSync(path, S_IFREG, mode);
-		return this.openFileSync(path, flag);
+		const node = this.commitNewSync(path, S_IFREG, mode, new Uint8Array(), 'createFile');
+		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {
 		await using tx = this.store.transaction();
-		const node = await this.findINode(tx, path, 'openFile'),
-			data = await tx.get(node.ino);
+		const node = await this.findInode(tx, path, 'openFile'),
+			data = await tx.get(node.data);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
@@ -191,8 +192,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public openFileSync(path: string, flag: string): File {
 		using tx = this.store.transaction();
-		const node = this.findINodeSync(tx, path, 'openFile'),
-			data = tx.getSync(node.ino);
+		const node = this.findInodeSync(tx, path, 'openFile'),
+			data = tx.getSync(node.data);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, 'openFile');
 		}
@@ -222,23 +223,23 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async mkdir(path: string, mode: number): Promise<void> {
-		await this.commitNew(path, S_IFDIR, mode, encodeUTF8('{}'));
+		await this.commitNew(path, S_IFDIR, mode, encodeUTF8('{}'), 'mkdir');
 	}
 
 	public mkdirSync(path: string, mode: number): void {
-		this.commitNewSync(path, S_IFDIR, mode, encodeUTF8('{}'));
+		this.commitNewSync(path, S_IFDIR, mode, encodeUTF8('{}'), 'mkdir');
 	}
 
 	public async readdir(path: string): Promise<string[]> {
 		await using tx = this.store.transaction();
-		const node = await this.findINode(tx, path, 'readdir');
-		return Object.keys(await this.getDirListing(tx, node, path));
+		const node = await this.findInode(tx, path, 'readdir');
+		return Object.keys(decodeDirListing(await this.get(tx, node.data, path, 'readdir')));
 	}
 
 	public readdirSync(path: string): string[] {
 		using tx = this.store.transaction();
-		const node = this.findINodeSync(tx, path, 'readdir');
-		return Object.keys(this.getDirListingSync(tx, node, path));
+		const node = this.findInodeSync(tx, path, 'readdir');
+		return Object.keys(decodeDirListing(this.getSync(tx, node.data, path, 'readdir')));
 	}
 
 	/**
@@ -248,15 +249,15 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		await using tx = this.store.transaction();
 		// We use _findInode because we actually need the INode id.
-		const fileInodeId = await this._findINode(tx, path, 'sync'),
+		const fileInodeId = await this._findInode(tx, path, 'sync'),
 			fileInode = new Inode(await this.get(tx, fileInodeId, path, 'sync')),
 			inodeChanged = fileInode.update(stats);
 
 		// Sync data.
-		await tx.set(fileInode.ino, data);
+		await tx.set(fileInode.data, data);
 		// Sync metadata.
 		if (inodeChanged) {
-			await tx.set(fileInodeId, fileInode.data);
+			await tx.set(fileInodeId, serialize(fileInode));
 		}
 
 		await tx.commit();
@@ -269,15 +270,15 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		using tx = this.store.transaction();
 		// We use _findInode because we actually need the INode id.
-		const fileInodeId = this._findINodeSync(tx, path, 'sync'),
+		const fileInodeId = this._findInodeSync(tx, path, 'sync'),
 			fileInode = new Inode(this.getSync(tx, fileInodeId, path, 'sync')),
 			inodeChanged = fileInode.update(stats);
 
 		// Sync data.
-		tx.setSync(fileInode.ino, data);
+		tx.setSync(fileInode.data, data);
 		// Sync metadata.
 		if (inodeChanged) {
-			tx.setSync(fileInodeId, fileInode.data);
+			tx.setSync(fileInodeId, serialize(fileInode));
 		}
 
 		tx.commitSync();
@@ -287,17 +288,17 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.store.transaction();
 
 		const newDir: string = dirname(link),
-			newDirNode = await this.findINode(tx, newDir, 'link'),
-			listing = await this.getDirListing(tx, newDirNode, newDir);
+			newDirNode = await this.findInode(tx, newDir, 'link'),
+			listing = decodeDirListing(await this.get(tx, newDirNode.data, newDir, 'link'));
 
-		const ino = await this._findINode(tx, target, 'link');
+		const ino = await this._findInode(tx, target, 'link');
 		const node = new Inode(await this.get(tx, ino, target, 'link'));
 
 		node.nlink++;
 		listing[basename(link)] = ino;
 
-		tx.setSync(ino, node.data);
-		tx.setSync(newDirNode.ino, encodeDirListing(listing));
+		tx.setSync(ino, serialize(node));
+		tx.setSync(newDirNode.data, encodeDirListing(listing));
 		tx.commitSync();
 	}
 
@@ -305,17 +306,17 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		using tx = this.store.transaction();
 
 		const newDir: string = dirname(link),
-			newDirNode = this.findINodeSync(tx, newDir, 'link'),
-			listing = this.getDirListingSync(tx, newDirNode, newDir);
+			newDirNode = this.findInodeSync(tx, newDir, 'link'),
+			listing = decodeDirListing(this.getSync(tx, newDirNode.data, newDir, 'link'));
 
-		const ino = this._findINodeSync(tx, target, 'link');
+		const ino = this._findInodeSync(tx, target, 'link');
 		const node = new Inode(this.getSync(tx, ino, target, 'link'));
 
 		node.nlink++;
 		listing[basename(link)] = ino;
 
-		tx.setSync(ino, node.data);
-		tx.setSync(newDirNode.ino, encodeDirListing(listing));
+		tx.setSync(ino, serialize(node));
+		tx.setSync(newDirNode.data, encodeDirListing(listing));
 		tx.commitSync();
 	}
 
@@ -329,10 +330,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 		// Create new inode. o777, owned by root:root
 		const inode = new Inode();
+		inode.ino = rootIno;
 		inode.mode = 0o777 | S_IFDIR;
 		// If the root doesn't exist, the first random ID shouldn't exist either.
-		await tx.set(inode.ino, encodeUTF8('{}'));
-		await tx.set(rootIno, inode.data);
+		await tx.set(inode.data, encodeUTF8('{}'));
+		await tx.set(rootIno, serialize(inode));
 		await tx.commit();
 	}
 
@@ -346,10 +348,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 		// Create new inode, mode o777, owned by root:root
 		const inode = new Inode();
+		inode.ino = rootIno;
 		inode.mode = 0o777 | S_IFDIR;
 		// If the root doesn't exist, the first random ID shouldn't exist either.
-		tx.setSync(inode.ino, encodeUTF8('{}'));
-		tx.setSync(rootIno, inode.data);
+		tx.setSync(inode.data, encodeUTF8('{}'));
+		tx.setSync(rootIno, serialize(inode));
 		tx.commitSync();
 	}
 
@@ -359,7 +362,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param filename The filename of the inode we are attempting to find, minus
 	 *   the parent.
 	 */
-	private async _findINode(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<Ino> {
+	private async _findInode(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<bigint> {
 		if (visited.has(path)) {
 			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path);
 		}
@@ -371,8 +374,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		const { dir: parent, base: filename } = parse(path);
-		const inode = parent == '/' ? new Inode(await this.get(tx, rootIno, parent, syscall)) : await this.findINode(tx, parent, syscall, visited);
-		const dirList = await this.getDirListing(tx, inode, parent);
+		const inode = parent == '/' ? new Inode(await this.get(tx, rootIno, parent, syscall)) : await this.findInode(tx, parent, syscall, visited);
+		const dirList = decodeDirListing(await this.get(tx, inode.data, parent, syscall));
 
 		if (!(filename in dirList)) {
 			throw ErrnoError.With('ENOENT', resolve(parent, filename), syscall);
@@ -388,7 +391,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 *   the parent.
 	 * @return string The ID of the file's inode in the file system.
 	 */
-	protected _findINodeSync(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Ino {
+	protected _findInodeSync(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): bigint {
 		if (visited.has(path)) {
 			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path);
 		}
@@ -400,8 +403,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		const { dir: parent, base: filename } = parse(path);
-		const inode = parent == '/' ? new Inode(this.getSync(tx, rootIno, parent, syscall)) : this.findINodeSync(tx, parent, syscall, visited);
-		const dir = this.getDirListingSync(tx, inode, parent);
+		const inode = parent == '/' ? new Inode(this.getSync(tx, rootIno, parent, syscall)) : this.findInodeSync(tx, parent, syscall, visited);
+		const dir = decodeDirListing(this.getSync(tx, inode.data, parent, syscall));
 
 		if (!(filename in dir)) {
 			throw ErrnoError.With('ENOENT', resolve(parent, filename), syscall);
@@ -415,8 +418,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The path to look up.
 	 * @todo memoize/cache
 	 */
-	private async findINode(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<Inode> {
-		const ino = await this._findINode(tx, path, syscall, visited);
+	private async findInode(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<Inode> {
+		const ino = await this._findInode(tx, path, syscall, visited);
 		return new Inode(await this.get(tx, ino, path, syscall));
 	}
 
@@ -426,8 +429,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @return The Inode of the path p.
 	 * @todo memoize/cache
 	 */
-	protected findINodeSync(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Inode {
-		const ino = this._findINodeSync(tx, path, syscall, visited);
+	protected findInodeSync(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Inode {
+		const ino = this._findInodeSync(tx, path, syscall, visited);
 		return new Inode(this.getSync(tx, ino, path, syscall));
 	}
 
@@ -437,7 +440,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private async get(tx: Transaction, ino: Ino, path: string, syscall: string): Promise<Uint8Array> {
+	private async get(tx: Transaction, ino: bigint, path: string, syscall: string): Promise<Uint8Array> {
 		const data = await tx.get(ino);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, syscall);
@@ -451,7 +454,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The corresponding path to the file (used for error messages).
 	 * @param ino The ID to look up.
 	 */
-	protected getSync(tx: Transaction, ino: Ino, path: string, syscall: string): Uint8Array {
+	private getSync(tx: Transaction, ino: bigint, path: string, syscall: string): Uint8Array {
 		const data = tx.getSync(ino);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, syscall);
@@ -460,64 +463,34 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Given the Inode of a directory, retrieves the corresponding directory
-	 * listing.
-	 */
-	private async getDirListing(tx: Transaction, inode: Inode, path: string): Promise<{ [fileName: string]: Ino }> {
-		const data = await tx.get(inode.ino);
-		/*
-			Occurs when data is undefined,or corresponds to something other than a directory listing.
-			The latter should never occur unless the file system is corrupted.
-		 */
-		if (!data) {
-			throw ErrnoError.With('ENOENT', path, 'getDirListing');
-		}
-
-		return decodeDirListing(data);
-	}
-
-	/**
-	 * Given the Inode of a directory, retrieves the corresponding directory listing.
-	 */
-	protected getDirListingSync(tx: Transaction, inode: Inode, p?: string): { [fileName: string]: Ino } {
-		const data = tx.getSync(inode.ino);
-		if (!data) {
-			throw ErrnoError.With('ENOENT', p, 'getDirListing');
-		}
-		return decodeDirListing(data);
-	}
-
-	/**
 	 * Adds a new node under a random ID. Retries before giving up in
-	 * the exceedingly unlikely chance that we try to reuse a random ino.
+	 * the exceedingly unlikely chance that we try to reuse a random id.
 	 */
-	private async addNew(tx: Transaction, data: Uint8Array, path: string): Promise<Ino> {
+	private async allocNew(tx: Transaction, path: string, syscall: string): Promise<bigint> {
 		for (let i = 0; i < maxInodeAllocTries; i++) {
-			const ino: Ino = randomIno();
+			const ino: bigint = randomBigInt();
 			if (await tx.get(ino)) {
 				continue;
 			}
-			await tx.set(ino, data);
 			return ino;
 		}
-		throw new ErrnoError(Errno.ENOSPC, 'No inode IDs available', path, 'addNewNode');
+		throw new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall);
 	}
 
 	/**
 	 * Creates a new node under a random ID. Retries before giving up in
-	 * the exceedingly unlikely chance that we try to reuse a random ino.
+	 * the exceedingly unlikely chance that we try to reuse a random id.
 	 * @return The ino that the data was stored under.
 	 */
-	protected addNewSync(tx: Transaction, data: Uint8Array, path: string): Ino {
+	private allocNewSync(tx: Transaction, path: string, syscall: string): bigint {
 		for (let i = 0; i < maxInodeAllocTries; i++) {
-			const ino: Ino = randomIno();
+			const ino: bigint = randomBigInt();
 			if (tx.getSync(ino)) {
 				continue;
 			}
-			tx.setSync(ino, data);
 			return ino;
 		}
-		throw new ErrnoError(Errno.ENOSPC, 'No inode IDs available', path, 'addNewNode');
+		throw new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall);
 	}
 
 	/**
@@ -528,7 +501,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param mode The mode to create the new file with.
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNew(path: string, type: FileType, mode: number, data: Uint8Array = new Uint8Array(), syscall: string = '[[commitNew]]'): Promise<Inode> {
+	private async commitNew(path: string, type: FileType, mode: number, data: Uint8Array, syscall: string): Promise<Inode> {
 		/*
 			The root always exists.
 			If we don't check this prior to taking steps below,
@@ -541,8 +514,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.store.transaction();
 
 		const { dir: parentPath, base: fname } = parse(path);
-		const parent = await this.findINode(tx, parentPath, syscall);
-		const listing = await this.getDirListing(tx, parent, parentPath);
+		const parent = await this.findInode(tx, parentPath, syscall);
+		const listing = decodeDirListing(await this.get(tx, parent.data, parentPath, syscall));
 
 		// Check if file already exists.
 		if (listing[fname]) {
@@ -551,15 +524,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Commit data.
 		const inode = new Inode();
-		inode.ino = await this.addNew(tx, data, path);
+		inode.ino = await this.allocNew(tx, path, syscall);
+		inode.data = await this.allocNew(tx, path, syscall);
 		inode.mode = mode | type;
 		inode.uid = parent.mode & S_ISUID ? parent.uid : credentials.uid;
 		inode.gid = parent.mode & S_ISGID ? parent.gid : credentials.gid;
 		inode.size = data.length;
+		await tx.set(inode.ino, serialize(inode));
+		await tx.set(inode.data, data);
 
 		// Update and commit parent directory listing.
-		listing[fname] = await this.addNew(tx, inode.data, path);
-		await tx.set(parent.ino, encodeDirListing(listing));
+		listing[fname] = inode.ino;
+		await tx.set(parent.data, encodeDirListing(listing));
 		await tx.commit();
 		return inode;
 	}
@@ -573,7 +549,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	protected commitNewSync(path: string, type: FileType, mode: number, data: Uint8Array = new Uint8Array(), syscall: string = '[[commitNew]]'): Inode {
+	private commitNewSync(path: string, type: FileType, mode: number, data: Uint8Array, syscall: string): Inode {
 		/*
 			The root always exists.
 			If we don't check this prior to taking steps below,
@@ -586,9 +562,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		using tx = this.store.transaction();
 
 		const { dir: parentPath, base: fname } = parse(path);
-		const parent = this.findINodeSync(tx, parentPath, syscall);
+		const parent = this.findInodeSync(tx, parentPath, syscall);
 
-		const listing = this.getDirListingSync(tx, parent, parentPath);
+		const listing = decodeDirListing(this.getSync(tx, parent.data, parentPath, syscall));
 
 		// Check if file already exists.
 		if (listing[fname]) {
@@ -596,17 +572,20 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		// Commit data.
-		const node = new Inode();
-		node.ino = this.addNewSync(tx, data, path);
-		node.size = data.length;
-		node.mode = mode | type;
-		node.uid = parent.mode & S_ISUID ? parent.uid : credentials.uid;
-		node.gid = parent.mode & S_ISGID ? parent.gid : credentials.gid;
+		const inode = new Inode();
+		inode.ino = this.allocNewSync(tx, path, syscall);
+		inode.data = this.allocNewSync(tx, path, syscall);
+		inode.size = data.length;
+		inode.mode = mode | type;
+		inode.uid = parent.mode & S_ISUID ? parent.uid : credentials.uid;
+		inode.gid = parent.mode & S_ISGID ? parent.gid : credentials.gid;
 		// Update and commit parent directory listing.
-		listing[fname] = this.addNewSync(tx, node.data, path);
-		tx.setSync(parent.ino, encodeDirListing(listing));
+		tx.setSync(inode.ino, serialize(inode));
+		tx.setSync(inode.data, data);
+		listing[fname] = inode.ino;
+		tx.setSync(parent.data, encodeDirListing(listing));
 		tx.commitSync();
-		return node;
+		return inode;
 	}
 
 	/**
@@ -619,8 +598,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.store.transaction();
 
 		const { dir: parent, base: fileName } = parse(path),
-			parentNode = await this.findINode(tx, parent, syscall),
-			listing = await this.getDirListing(tx, parentNode, parent);
+			parentNode = await this.findInode(tx, parent, syscall),
+			listing = decodeDirListing(await this.get(tx, parentNode.data, parent, syscall));
 
 		if (!listing[fileName]) {
 			throw ErrnoError.With('ENOENT', path, 'remove');
@@ -638,11 +617,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			throw ErrnoError.With('EISDIR', path, 'remove');
 		}
 
-		await tx.set(parentNode.ino, encodeDirListing(listing));
+		await tx.set(parentNode.data, encodeDirListing(listing));
 
 		if (--fileNode.nlink < 1) {
 			// remove file
-			await tx.remove(fileNode.ino);
+			await tx.remove(fileNode.data);
 			await tx.remove(fileIno);
 		}
 
@@ -656,12 +635,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
 	 */
-	protected removeSync(path: string, isDir: boolean, syscall: string): void {
+	private removeSync(path: string, isDir: boolean, syscall: string): void {
 		using tx = this.store.transaction();
 		const { dir: parent, base: fileName } = parse(path),
-			parentNode = this.findINodeSync(tx, parent, syscall),
-			listing = this.getDirListingSync(tx, parentNode, parent),
-			fileIno: Ino = listing[fileName];
+			parentNode = this.findInodeSync(tx, parent, syscall),
+			listing = decodeDirListing(this.getSync(tx, parentNode.data, parent, syscall)),
+			fileIno: bigint = listing[fileName];
 
 		if (!fileIno) {
 			throw ErrnoError.With('ENOENT', path, 'remove');
@@ -678,11 +657,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		// Update directory listing.
-		tx.setSync(parentNode.ino, encodeDirListing(listing));
+		tx.setSync(parentNode.data, encodeDirListing(listing));
 
 		if (--fileNode.nlink < 1) {
 			// remove file
-			tx.removeSync(fileNode.ino);
+			tx.removeSync(fileNode.data);
 			tx.removeSync(fileIno);
 		}
 

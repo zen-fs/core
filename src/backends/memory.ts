@@ -1,4 +1,3 @@
-import type { Ino } from '../inode.js';
 import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
 import { SimpleTransaction, type SimpleSyncStore } from './store/simple.js';
@@ -6,7 +5,7 @@ import { SimpleTransaction, type SimpleSyncStore } from './store/simple.js';
 /**
  * A simple in-memory store
  */
-export class InMemoryStore extends Map<Ino, Uint8Array> implements SimpleSyncStore {
+export class InMemoryStore extends Map<bigint, Uint8Array> implements SimpleSyncStore {
 	public constructor(public name: string = 'tmp') {
 		super();
 	}
