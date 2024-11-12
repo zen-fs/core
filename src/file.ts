@@ -166,12 +166,12 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 	public abstract close(): Promise<void>;
 	public abstract closeSync(): void;
 
-	public [Symbol.asyncDispose](): Promise<void> {
-		return this.close();
+	public async [Symbol.asyncDispose](): Promise<void> {
+		await this.close();
 	}
 
 	public [Symbol.dispose](): void {
-		return this.closeSync();
+		this.closeSync();
 	}
 
 	public abstract truncate(len: number): Promise<void>;
@@ -427,12 +427,12 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (length > this._buffer.length) {
 			const data = new Uint8Array(length - this._buffer.length);
 			// Write will set stats.size and handle syncing.
-			this.writeSync(data, 0, data.length, this._buffer.length);
+			this._write(data, 0, data.length, this._buffer.length);
 			return;
 		}
 		this.stats.size = length;
 		// Truncate.
-		this._buffer = this._buffer.slice(0, length);
+		this._buffer = length ? this._buffer.slice(0, length) : new Uint8Array();
 	}
 
 	public async truncate(length: number): Promise<void> {
@@ -640,14 +640,6 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		this.dirty = true;
 		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
 		this.syncSync();
-	}
-
-	public async [Symbol.asyncDispose]() {
-		await this.close();
-	}
-
-	public [Symbol.dispose]() {
-		this.closeSync();
 	}
 }
 
