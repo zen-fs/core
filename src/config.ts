@@ -181,7 +181,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 
-	cache.setEnabled(configuration.cacheStats ?? false);
+	cache.stats.isEnabled = configuration.cacheStats ?? false;
 	config.checkAccess = !configuration.disableAccessChecks;
 	config.updateOnRead = !configuration.disableUpdateOnRead;
 	config.syncImmediately = !configuration.onlySyncOnClose;

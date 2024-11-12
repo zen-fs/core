@@ -471,7 +471,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(await (cache.getStats(path) || fs.stat(resolved)))!.hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await (cache.stats.get(path) || fs.stat(resolved)))!.hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -623,7 +623,7 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = await realpath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		const stats = await (cache.getStats(path) || fs.stat(resolved));
+		const stats = await (cache.stats.get(path) || fs.stat(resolved));
 		if (!stats) {
 			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
@@ -718,8 +718,8 @@ export async function readdir(
 
 	const { fs, path: resolved } = resolveMount(path);
 
-	const _stats = cache.getStats(path) || fs.stat(resolved).catch(handleError);
-	cache.setStats(path, _stats);
+	const _stats = cache.stats.get(path) || fs.stat(resolved).catch(handleError);
+	cache.stats.set(path, _stats);
 	const stats = await _stats;
 
 	if (!stats) {
@@ -740,8 +740,8 @@ export async function readdir(
 	const addEntry = async (entry: string) => {
 		let entryStats: Stats | undefined;
 		if (options?.recursive || options?.withFileTypes) {
-			const _entryStats = cache.getStats(join(path, entry)) || fs.stat(join(resolved, entry)).catch(handleError);
-			cache.setStats(join(path, entry), _entryStats);
+			const _entryStats = cache.stats.get(join(path, entry)) || fs.stat(join(resolved, entry)).catch(handleError);
+			cache.stats.set(join(path, entry), _entryStats);
 			entryStats = await _entryStats;
 		}
 		if (options?.withFileTypes) {
@@ -768,7 +768,7 @@ export async function readdir(
 	};
 	await Promise.all(entries.map(addEntry));
 	if (!options?._isIndirect) {
-		cache.clearStats();
+		cache.stats.clear();
 	}
 
 	return values as string[] | Dirent[];
@@ -966,13 +966,13 @@ export async function rm(path: fs.PathLike, options?: fs.RmOptions & InternalOpt
 	path = normalizePath(path);
 
 	const _stats =
-		cache.getStats(path) ||
+		cache.stats.get(path) ||
 		stat(path).catch((error: ErrnoError) => {
 			if (error.code == 'ENOENT' && options?.force) return undefined;
 			throw error;
 		});
 
-	cache.setStats(path, _stats);
+	cache.stats.set(path, _stats);
 	const stats = await _stats;
 
 	if (!stats) {
@@ -998,12 +998,12 @@ export async function rm(path: fs.PathLike, options?: fs.RmOptions & InternalOpt
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			cache.clearStats();
+			cache.stats.clear();
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
 	}
 
 	if (!options?._isIndirect) {
-		cache.clearStats();
+		cache.stats.clear();
 	}
 }
 rm satisfies typeof promises.rm;

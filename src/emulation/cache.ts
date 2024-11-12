@@ -2,72 +2,66 @@
 
 import type { Stats } from '../stats.js';
 
-/**
- * Whether the cache is enabled
- */
-export let isEnabled = false;
+export class Cache<T> {
+	public isEnabled: boolean = false;
 
-/**
- * Sets whether the cache is enabled or not
- */
-export function setEnabled(value: boolean): void {
-	isEnabled = value;
+	protected sync = new Map<string, T>();
+
+	protected async = new Map<string, Promise<T | undefined>>();
+
+	/**
+	 * Gets data from the cache, if is exists and the cache is enabled.
+	 */
+	getSync(path: string): T | undefined {
+		if (!this.isEnabled) return;
+
+		return this.sync.get(path);
+	}
+
+	/**
+	 * Adds data if the cache is enabled
+	 */
+	setSync(path: string, value: T): void {
+		if (!this.isEnabled) return;
+
+		this.sync.set(path, value);
+	}
+
+	/**
+	 * Clears the cache if it is enabled
+	 */
+	clearSync(): void {
+		if (!this.isEnabled) return;
+
+		this.sync.clear();
+	}
+
+	/**
+	 * Gets data from the cache, if it exists and the cache is enabled.
+	 */
+	get(path: string): Promise<T | undefined> | undefined {
+		if (!this.isEnabled) return;
+
+		return this.async.get(path);
+	}
+
+	/**
+	 * Adds data if the cache is enabled
+	 */
+	set(path: string, value: Promise<T | undefined>): void {
+		if (!this.isEnabled) return;
+
+		this.async.set(path, value);
+	}
+
+	/**
+	 * Clears the cache if it is enabled
+	 */
+	clear(): void {
+		if (!this.isEnabled) return;
+
+		this.async.clear();
+	}
 }
 
-const statsSync = new Map<string, Stats>();
-
-/**
- * Gets stats from the cache, if they exist and the cache is enabled.
- */
-export function getStatsSync(path: string): Stats | undefined {
-	if (!isEnabled) return;
-
-	return statsSync.get(path);
-}
-
-/**
- * Adds stats if the cache is enabled
- */
-export function setStatsSync(path: string, value: Stats): void {
-	if (!isEnabled) return;
-
-	statsSync.set(path, value);
-}
-
-/**
- * Clears the cache if it is enabled
- */
-export function clearStatsSync(): void {
-	if (!isEnabled) return;
-
-	statsSync.clear();
-}
-
-const stats = new Map<string, Promise<Stats | undefined>>();
-
-/**
- * Gets stats from the cache, if they exist and the cache is enabled.
- */
-export function getStats(path: string): Promise<Stats | undefined> | undefined {
-	if (!isEnabled) return;
-
-	return stats.get(path);
-}
-
-/**
- * Adds stats if the cache is enabled
- */
-export function setStats(path: string, value: Promise<Stats | undefined>): void {
-	if (!isEnabled) return;
-
-	stats.set(path, value);
-}
-
-/**
- * Clears the cache if it is enabled
- */
-export function clearStats(): void {
-	if (!isEnabled) return;
-
-	stats.clear();
-}
+export const stats = new Cache<Stats>();
