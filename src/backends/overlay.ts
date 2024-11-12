@@ -159,7 +159,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 			if (this._deletedFiles.has(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
-			const oldStat = new Stats(await this.readable.stat(path));
+			const oldStat = await this.readable.stat(path);
 			// Make the oldStat's mode writable.
 			oldStat.mode |= 0o222;
 			return oldStat;
@@ -174,7 +174,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 			if (this._deletedFiles.has(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
-			const oldStat = new Stats(this.readable.statSync(path));
+			const oldStat = this.readable.statSync(path);
 			// Make the oldStat's mode writable.
 			oldStat.mode |= 0o222;
 			return oldStat;
