@@ -23,3 +23,13 @@ export * from './emulation/index.js';
 import * as fs from './emulation/index.js';
 export { fs };
 export default fs;
+
+declare global {
+	/**
+	 * Global FS emulation. Do not use unless absolutely needed.
+	 * @hidden
+	 */
+	// eslint-disable-next-line no-var
+	var __zenfs__: typeof fs;
+}
+globalThis.__zenfs__ = fs;
