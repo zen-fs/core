@@ -37,7 +37,7 @@ export class Inode implements StatsLike {
 		return serialize(this);
 	}
 
-	public constructor(buffer?: ArrayBufferLike) {
+	public constructor(buffer?: ArrayBufferLike | ArrayBufferView) {
 		if (buffer) {
 			if (buffer.byteLength < sizeof(Inode)) {
 				throw new RangeError(`Can not create an inode from a buffer less than ${sizeof(Inode)} bytes`);
