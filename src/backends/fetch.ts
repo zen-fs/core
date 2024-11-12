@@ -106,7 +106,7 @@ export class FetchFS extends IndexFS {
 			baseUrl += '/';
 		}
 
-		super(typeof index != 'string' ? index : fetchFile<IndexData>(baseUrl + index, 'json', requestInit));
+		super(typeof index != 'string' ? index : fetchFile<IndexData>((baseUrl + index).replaceAll('//', '/'), 'json', requestInit));
 
 		this.baseUrl = baseUrl;
 		this.requestInit = requestInit;
