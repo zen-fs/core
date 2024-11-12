@@ -622,7 +622,7 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption): st
 export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
 	const { base, dir } = parse(path);
-	const lpath = join(dir == '/' ? '/' : realpathSync(dir), base);
+	const lpath = join(dir == '/' ? '/' : cache.paths.getSync(dir) || realpathSync(dir), base);
 	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
@@ -631,7 +631,8 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 			return lpath;
 		}
 
-		return realpathSync(mountPoint + readlinkSync(lpath, options).toString());
+		const target = mountPoint + readlinkSync(lpath, options).toString();
+		return cache.paths.getSync(target) || realpathSync(target);
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;

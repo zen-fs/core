@@ -2,12 +2,16 @@
 
 import type { Stats } from '../stats.js';
 
+/**
+ * Used for caching data
+ * @internal
+ */
 export class Cache<T> {
 	public isEnabled: boolean = false;
 
 	protected sync = new Map<string, T>();
 
-	protected async = new Map<string, Promise<T | undefined>>();
+	protected async = new Map<string, Promise<T>>();
 
 	/**
 	 * Gets data from the cache, if is exists and the cache is enabled.
@@ -25,6 +29,7 @@ export class Cache<T> {
 		if (!this.isEnabled) return;
 
 		this.sync.set(path, value);
+		this.async.set(path, Promise.resolve(value));
 	}
 
 	/**
@@ -39,7 +44,7 @@ export class Cache<T> {
 	/**
 	 * Gets data from the cache, if it exists and the cache is enabled.
 	 */
-	get(path: string): Promise<T | undefined> | undefined {
+	get(path: string): Promise<T> | undefined {
 		if (!this.isEnabled) return;
 
 		return this.async.get(path);
@@ -48,10 +53,11 @@ export class Cache<T> {
 	/**
 	 * Adds data if the cache is enabled
 	 */
-	set(path: string, value: Promise<T | undefined>): void {
+	set(path: string, value: Promise<T>): void {
 		if (!this.isEnabled) return;
 
 		this.async.set(path, value);
+		void value.then(v => this.sync.set(path, v));
 	}
 
 	/**
@@ -64,4 +70,12 @@ export class Cache<T> {
 	}
 }
 
+/**
+ * Used to cache
+ */
 export const stats = new Cache<Stats>();
+
+/**
+ * Used to cache realpath lookups
+ */
+export const paths = new Cache<string>();

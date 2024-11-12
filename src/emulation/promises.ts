@@ -892,16 +892,19 @@ export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | 
 export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Promise<string | Buffer> {
 	path = normalizePath(path);
 	const { base, dir } = parse(path);
-	const lpath = join(dir == '/' ? '/' : await realpath(dir), base);
+	const lpath = join(dir == '/' ? '/' : await (cache.paths.get(dir) || realpath(dir)), base);
 	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
-		const stats = await fs.stat(resolvedPath);
-		if (!stats.isSymbolicLink()) {
+		const _stats = cache.stats.get(lpath) || fs.stat(resolvedPath);
+		cache.stats.set(lpath, _stats);
+		if (!(await _stats).isSymbolicLink()) {
 			return lpath;
 		}
 
-		return await realpath(mountPoint + (await readlink(lpath)));
+		const target = mountPoint + (await readlink(lpath));
+
+		return await (cache.paths.get(target) || realpath(target));
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;
@@ -965,19 +968,17 @@ access satisfies typeof promises.access;
 export async function rm(path: fs.PathLike, options?: fs.RmOptions & InternalOptions) {
 	path = normalizePath(path);
 
-	const _stats =
-		cache.stats.get(path) ||
+	const stats = await (cache.stats.get(path) ||
 		stat(path).catch((error: ErrnoError) => {
 			if (error.code == 'ENOENT' && options?.force) return undefined;
 			throw error;
-		});
-
-	cache.stats.set(path, _stats);
-	const stats = await _stats;
+		}));
 
 	if (!stats) {
 		return;
 	}
+
+	cache.stats.setSync(path, stats);
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:

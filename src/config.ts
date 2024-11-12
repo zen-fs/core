@@ -109,6 +109,15 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	cacheStats: boolean;
 
 	/**
+	 * If true, enables caching realpath output
+	 *
+	 * This can increase performance.
+	 * @experimental
+	 * @default false
+	 */
+	cachePaths: boolean;
+
+	/**
 	 * If true, disables *all* permissions checking.
 	 *
 	 * This can increase performance.
@@ -182,6 +191,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
 
 	cache.stats.isEnabled = configuration.cacheStats ?? false;
+	cache.paths.isEnabled = configuration.cachePaths ?? false;
 	config.checkAccess = !configuration.disableAccessChecks;
 	config.updateOnRead = !configuration.disableUpdateOnRead;
 	config.syncImmediately = !configuration.onlySyncOnClose;
