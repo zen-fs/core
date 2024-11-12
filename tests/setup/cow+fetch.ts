@@ -33,11 +33,13 @@ server
 	.listen(port)
 	.unref();
 
+const baseUrl = 'http://localhost:' + port;
+
 await configureSingle({
 	backend: Overlay,
 	readable: Fetch.create({
-		baseUrl: `http://localhost:${port}/`,
-		index: '.index.json',
+		baseUrl,
+		index: baseUrl + '/.index.json',
 	}),
 	writable: InMemory.create({ name: 'cow' }),
 });
