@@ -182,21 +182,17 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public async openFile(path: string, flag: string): Promise<File> {
 		await using tx = this.store.transaction();
-		const node = await this.findInode(tx, path, 'openFile'),
-			data = await tx.get(node.data);
-		if (!data) {
-			throw ErrnoError.With('ENOENT', path, 'openFile');
-		}
+		const node = await this.findInode(tx, path, 'openFile');
+		const data = await this.get(tx, node.data, path, 'openFile');
+
 		return new PreloadFile(this, path, flag, node.toStats(), data);
 	}
 
 	public openFileSync(path: string, flag: string): File {
 		using tx = this.store.transaction();
-		const node = this.findInodeSync(tx, path, 'openFile'),
-			data = tx.getSync(node.data);
-		if (!data) {
-			throw ErrnoError.With('ENOENT', path, 'openFile');
-		}
+		const node = this.findInodeSync(tx, path, 'openFile');
+		const data = this.getSync(tx, node.data, path, 'openFile');
+
 		return new PreloadFile(this, path, flag, node.toStats(), data);
 	}
 
@@ -435,13 +431,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Given the ID of a node, retrieves the corresponding Inode.
+	 * Given an ID, retrieves the corresponding data.
 	 * @param tx The transaction to use.
 	 * @param path The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private async get(tx: Transaction, ino: bigint, path: string, syscall: string): Promise<Uint8Array> {
-		const data = await tx.get(ino);
+	private async get(tx: Transaction, id: bigint, path: string, syscall: string): Promise<Uint8Array> {
+		const data = await tx.get(id);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, syscall);
 		}
@@ -449,13 +445,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Given the ID of a node, retrieves the corresponding Inode.
+	 * Given an ID, retrieves the corresponding data.
 	 * @param tx The transaction to use.
 	 * @param path The corresponding path to the file (used for error messages).
-	 * @param ino The ID to look up.
+	 * @param id The ID to look up.
 	 */
-	private getSync(tx: Transaction, ino: bigint, path: string, syscall: string): Uint8Array {
-		const data = tx.getSync(ino);
+	private getSync(tx: Transaction, id: bigint, path: string, syscall: string): Uint8Array {
+		const data = tx.getSync(id);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, syscall);
 		}
