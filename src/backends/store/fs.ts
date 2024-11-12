@@ -1,6 +1,6 @@
 import { credentials } from '../../credentials.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID } from '../../emulation/constants.js';
-import { basename, dirname, join, resolve } from '../../emulation/path.js';
+import { basename, dirname, join, parse, resolve } from '../../emulation/path.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { PreloadFile } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
@@ -252,7 +252,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		await using tx = this.store.transaction();
 		// We use _findInode because we actually need the INode id.
-		const fileInodeId = await this._findINode(tx, dirname(path), basename(path)),
+		const fileInodeId = await this._findINode(tx, path),
 			fileInode = await this.getINode(tx, fileInodeId, path),
 			inodeChanged = fileInode.update(stats);
 
@@ -273,7 +273,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		using tx = this.store.transaction();
 		// We use _findInode because we actually need the INode id.
-		const fileInodeId = this._findINodeSync(tx, dirname(path), basename(path)),
+		const fileInodeId = this._findINodeSync(tx, path),
 			fileInode = this.getINodeSync(tx, fileInodeId, path),
 			inodeChanged = fileInode.update(stats);
 
@@ -294,7 +294,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			newDirNode = await this.findINode(tx, newDir),
 			listing = await this.getDirListing(tx, newDirNode, newDir);
 
-		const ino = await this._findINode(tx, dirname(target), basename(target));
+		const ino = await this._findINode(tx, target);
 		const node = await this.getINode(tx, ino, target);
 
 		node.nlink++;
@@ -312,7 +312,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			newDirNode = this.findINodeSync(tx, newDir),
 			listing = this.getDirListingSync(tx, newDirNode, newDir);
 
-		const ino = this._findINodeSync(tx, dirname(target), basename(target));
+		const ino = this._findINodeSync(tx, target);
 		const node = this.getINodeSync(tx, ino, target);
 
 		node.nlink++;
@@ -363,18 +363,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param filename The filename of the inode we are attempting to find, minus
 	 *   the parent.
 	 */
-	private async _findINode(tx: Transaction, parent: string, filename: string, visited: Set<string> = new Set()): Promise<Ino> {
-		const currentPath = join(parent, filename);
-		if (visited.has(currentPath)) {
-			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', currentPath);
+	private async _findINode(tx: Transaction, path: string, visited: Set<string> = new Set()): Promise<Ino> {
+		if (visited.has(path)) {
+			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path);
 		}
 
-		visited.add(currentPath);
+		visited.add(path);
 
-		if (parent == '/' && filename === '') {
+		if (path == '/') {
 			return rootIno;
 		}
 
+		const { dir: parent, base: filename } = parse(path);
 		const inode = parent == '/' ? await this.getINode(tx, rootIno, parent) : await this.findINode(tx, parent, visited);
 		const dirList = await this.getDirListing(tx, inode, parent);
 
@@ -392,18 +392,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 *   the parent.
 	 * @return string The ID of the file's inode in the file system.
 	 */
-	protected _findINodeSync(tx: Transaction, parent: string, filename: string, visited: Set<string> = new Set()): Ino {
-		const currentPath = join(parent, filename);
-		if (visited.has(currentPath)) {
-			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', currentPath);
+	protected _findINodeSync(tx: Transaction, path: string, visited: Set<string> = new Set()): Ino {
+		if (visited.has(path)) {
+			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path);
 		}
 
-		visited.add(currentPath);
+		visited.add(path);
 
-		if (parent == '/' && filename === '') {
+		if (path == '/') {
 			return rootIno;
 		}
 
+		const { dir: parent, base: filename } = parse(path);
 		const inode = parent == '/' ? this.getINodeSync(tx, rootIno, parent) : this.findINodeSync(tx, parent, visited);
 		const dir = this.getDirListingSync(tx, inode, parent);
 
@@ -420,7 +420,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo memoize/cache
 	 */
 	private async findINode(tx: Transaction, path: string, visited: Set<string> = new Set()): Promise<Inode> {
-		const id = await this._findINode(tx, dirname(path), basename(path), visited);
+		const id = await this._findINode(tx, path, visited);
 		return this.getINode(tx, id, path);
 	}
 
@@ -431,7 +431,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo memoize/cache
 	 */
 	protected findINodeSync(tx: Transaction, path: string, visited: Set<string> = new Set()): Inode {
-		const ino = this._findINodeSync(tx, dirname(path), basename(path), visited);
+		const ino = this._findINodeSync(tx, path, visited);
 		return this.getINodeSync(tx, ino, path);
 	}
 
