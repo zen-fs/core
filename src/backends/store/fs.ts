@@ -1,5 +1,5 @@
 import { credentials } from '../../credentials.js';
-import { S_IFDIR, S_IFREG } from '../../emulation/constants.js';
+import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID } from '../../emulation/constants.js';
 import { basename, dirname, join, resolve } from '../../emulation/path.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { PreloadFile } from '../../file.js';
@@ -552,7 +552,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Check if file already exists.
 		if (listing[fname]) {
-			await tx.abort();
 			throw ErrnoError.With('EEXIST', path, 'commitNew');
 		}
 
@@ -560,8 +559,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = new Inode();
 		inode.ino = await this.addNew(tx, data, path);
 		inode.mode = mode | type;
-		inode.uid = credentials.uid;
-		inode.gid = credentials.gid;
+		inode.uid = parent.mode & S_ISUID ? parent.uid : credentials.uid;
+		inode.gid = parent.mode & S_ISGID ? parent.gid : credentials.gid;
 		inode.size = data.length;
 
 		// Update and commit parent directory listing.
@@ -607,8 +606,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		node.ino = this.addNewSync(tx, data, path);
 		node.size = data.length;
 		node.mode = mode | type;
-		node.uid = credentials.uid;
-		node.gid = credentials.gid;
+		node.uid = parent.mode & S_ISUID ? parent.uid : credentials.uid;
+		node.gid = parent.mode & S_ISGID ? parent.gid : credentials.gid;
 		// Update and commit parent directory listing.
 		listing[fname] = this.addNewSync(tx, node.data, path);
 		tx.setSync(parent.ino, encodeDirListing(listing));
