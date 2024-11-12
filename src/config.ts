@@ -5,7 +5,8 @@ import { DeviceFS } from './devices.js';
 import * as cache from './emulation/cache.js';
 import { config } from './emulation/config.js';
 import * as fs from './emulation/index.js';
-import type { AbsolutePath } from './emulation/path.js';
+import { parse, type AbsolutePath } from './emulation/path.js';
+import { resolveMount } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
@@ -196,34 +197,32 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	config.updateOnRead = !configuration.disableUpdateOnRead;
 	config.syncImmediately = !configuration.onlySyncOnClose;
 
+	if (configuration.mounts) {
+		const toMount: [string, FileSystem][] = [];
+		let unmountRoot = false;
+
+		for (const [point, mountConfig] of Object.entries(configuration.mounts)) {
+			if (!point.startsWith('/')) {
+				throw new ErrnoError(Errno.EINVAL, 'Mount points must have absolute paths');
+			}
+
+			if (isBackendConfig(mountConfig)) {
+				mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;
+			}
+
+			if (point == '/') unmountRoot = true;
+			toMount.push([point, await resolveMountConfig(mountConfig)]);
+		}
+
+		if (unmountRoot) fs.umount('/');
+
+		await Promise.all(toMount.map(([point, fs]) => mount(point, fs)));
+	}
+
 	if (configuration.addDevices) {
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();
 		await mount('/dev', devfs);
 	}
-
-	if (!configuration.mounts) {
-		return;
-	}
-
-	const toMount: [string, FileSystem][] = [];
-	let unmountRoot = false;
-
-	for (const [point, mountConfig] of Object.entries(configuration.mounts)) {
-		if (!point.startsWith('/')) {
-			throw new ErrnoError(Errno.EINVAL, 'Mount points must have absolute paths');
-		}
-
-		if (isBackendConfig(mountConfig)) {
-			mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;
-		}
-
-		if (point == '/') unmountRoot = true;
-		toMount.push([point, await resolveMountConfig(mountConfig)]);
-	}
-
-	if (unmountRoot) fs.umount('/');
-
-	await Promise.all(toMount.map(([point, fs]) => mount(point, fs)));
 }
