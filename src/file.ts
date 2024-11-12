@@ -145,7 +145,7 @@ export function isExclusive(flag: string): boolean {
 	return flag.indexOf('x') !== -1;
 }
 
-export abstract class File {
+export abstract class File<FS extends FileSystem = FileSystem> {
 	public constructor(
 		/**
 		 * @internal
@@ -269,7 +269,7 @@ export abstract class File {
  * An implementation of `File` that operates completely in-memory.
  * `PreloadFile`s are backed by a `Uint8Array`.
  */
-export class PreloadFile<FS extends FileSystem> extends File {
+export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	/**
 	 * Current position
 	 */
@@ -290,11 +290,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * Note that, if contents is specified, it will be mutated by the file.
 	 */
 	public constructor(
-		/**
-		 * The file system that created the file.
-		 * @internal
-		 */
-		public fs: FS,
+		fs: FS,
 		path: string,
 		public readonly flag: string,
 		public readonly stats: Stats,
