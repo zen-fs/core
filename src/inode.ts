@@ -11,13 +11,30 @@ export const rootIno = 0n;
 /**
  * Generic inode definition that can easily be serialized.
  * @internal
+ * @todo [BREAKING]
  */
 @struct()
 export class Inode implements StatsLike {
 	public constructor(buffer?: ArrayBufferLike | ArrayBufferView) {
 		if (buffer) {
-			if (buffer.byteLength < sizeof(Inode)) {
-				throw new RangeError(`Can not create an inode from a buffer less than ${sizeof(Inode)} bytes`);
+			const sz_inode = sizeof(Inode);
+			const oldSize = sz_inode - sizeof('uint64');
+			if (buffer.byteLength < oldSize) {
+				throw new RangeError(`Can not create an inode from a buffer less than ${oldSize} bytes`);
+			}
+
+			// Expand the buffer so it is the right size
+			if (buffer.byteLength < sz_inode) {
+				const newBuffer = new Uint32Array(sz_inode);
+				// Fill the new buffer with current data
+				newBuffer.set(new Uint32Array(ArrayBuffer.isView(buffer) ? buffer.buffer : buffer));
+				/* 	Add a random ino. 
+					This will be different from the actual one,
+					but `ino` isn't used anywhere so it should be fine.
+				*/
+				const randomIno = crypto.getRandomValues(new Uint32Array(2));
+				newBuffer.set(randomIno, sz_inode - 2);
+				buffer = newBuffer;
 			}
 
 			deserialize(this, buffer);
