@@ -25,9 +25,9 @@ export class Inode implements StatsLike {
 
 			// Expand the buffer so it is the right size
 			if (buffer.byteLength < sz_inode) {
-				const newBuffer = new Uint32Array(sz_inode);
+				const newBuffer = new Uint8Array(sz_inode);
 				// Fill the new buffer with current data
-				newBuffer.set(new Uint32Array(ArrayBuffer.isView(buffer) ? buffer.buffer : buffer));
+				newBuffer.set(new Uint8Array(ArrayBuffer.isView(buffer) ? buffer.buffer : buffer));
 				/* 	Add a random ino. 
 					This will be different from the actual one,
 					but `ino` isn't used anywhere so it should be fine.
