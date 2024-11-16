@@ -1,11 +1,6 @@
+import { deserialize, sizeof, struct, types as t } from 'utilium';
 import { Stats, type StatsLike } from './stats.js';
-import { types as t, struct, sizeof, serialize, deserialize } from 'utilium';
-
-/**
- * Alias for an ino.
- * This will be helpful if in the future inode numbers/IDs are changed to strings or numbers.
- */
-export type Ino = bigint;
+import { randomBigInt } from './utils.js';
 
 /**
  * Room inode
@@ -14,33 +9,32 @@ export type Ino = bigint;
 export const rootIno = 0n;
 
 /**
- * Generates a random 32 bit integer, then converts to a hex string
- */
-function _random() {
-	return Math.round(Math.random() * 2 ** 32).toString(16);
-}
-
-/**
- * Generate a random ino
- * @internal
- */
-export function randomIno(): Ino {
-	return BigInt('0x' + _random() + _random());
-}
-
-/**
  * Generic inode definition that can easily be serialized.
+ * @internal
+ * @todo [BREAKING]
  */
 @struct()
 export class Inode implements StatsLike {
-	public get data(): Uint8Array {
-		return serialize(this);
-	}
-
-	public constructor(buffer?: ArrayBufferLike) {
+	public constructor(buffer?: ArrayBufferLike | ArrayBufferView) {
 		if (buffer) {
-			if (buffer.byteLength < sizeof(Inode)) {
-				throw new RangeError(`Can not create an inode from a buffer less than ${sizeof(Inode)} bytes`);
+			const sz_inode = sizeof(Inode);
+			const oldSize = sz_inode - sizeof('uint64');
+			if (buffer.byteLength < oldSize) {
+				throw new RangeError(`Can not create an inode from a buffer less than ${oldSize} bytes`);
+			}
+
+			// Expand the buffer so it is the right size
+			if (buffer.byteLength < sz_inode) {
+				const newBuffer = new Uint8Array(sz_inode);
+				// Fill the new buffer with current data
+				newBuffer.set(new Uint8Array(ArrayBuffer.isView(buffer) ? buffer.buffer : buffer));
+				/* 	Add a random ino. 
+					This will be different from the actual one,
+					but `ino` isn't used anywhere so it should be fine.
+				*/
+				const randomIno = crypto.getRandomValues(new Uint32Array(2));
+				newBuffer.set(randomIno, sz_inode - 2);
+				buffer = newBuffer;
 			}
 
 			deserialize(this, buffer);
@@ -48,7 +42,8 @@ export class Inode implements StatsLike {
 		}
 
 		// set defaults on a fresh inode
-		this.ino = randomIno();
+		this.ino = randomBigInt();
+		this.data = randomBigInt();
 		this.nlink = 1;
 		this.size = 4096;
 		const now = Date.now();
@@ -58,7 +53,7 @@ export class Inode implements StatsLike {
 		this.birthtimeMs = now;
 	}
 
-	@t.uint64 public ino!: Ino;
+	@t.uint64 public data!: bigint;
 	@t.uint32 public size!: number;
 	@t.uint16 public mode!: number;
 	@t.uint32 public nlink!: number;
@@ -68,6 +63,7 @@ export class Inode implements StatsLike {
 	@t.float64 public birthtimeMs!: number;
 	@t.float64 public mtimeMs!: number;
 	@t.float64 public ctimeMs!: number;
+	@t.uint64 public ino!: bigint;
 
 	/**
 	 * Handy function that converts the Inode to a Node Stats object.
@@ -108,8 +104,8 @@ export class Inode implements StatsLike {
 			hasChanged = true;
 		}
 
-		if (this.uid !== stats.uid) {
-			this.uid = stats.uid;
+		if (this.gid !== stats.gid) {
+			this.gid = stats.gid;
 			hasChanged = true;
 		}
 

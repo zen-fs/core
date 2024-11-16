@@ -183,22 +183,6 @@ export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 export type Callback<Args extends unknown[] = []> = (e?: ErrnoError, ...args: OptionalTuple<Args>) => unknown;
 
 /**
- * converts Date or number to a integer UNIX timestamp
- * Grabbed from NodeJS sources (lib/fs.js)
- *
- * @internal
- */
-export function _toUnixTimestamp(time: Date | number): number {
-	if (typeof time === 'number') {
-		return Math.floor(time);
-	}
-	if (time instanceof Date) {
-		return Math.floor(time.getTime() / 1000);
-	}
-	throw new Error('Cannot parse time');
-}
-
-/**
  * Normalizes a mode
  * @internal
  */
@@ -230,15 +214,11 @@ export function normalizeTime(time: string | number | Date): Date {
 		return time;
 	}
 
-	if (typeof time == 'number') {
-		return new Date(time * 1000);
-	}
-
-	if (typeof time == 'string') {
+	try {
 		return new Date(time);
+	} catch {
+		throw new ErrnoError(Errno.EINVAL, 'Invalid time.');
 	}
-
-	throw new ErrnoError(Errno.EINVAL, 'Invalid time.');
 }
 
 /**
@@ -286,3 +266,11 @@ export function normalizeOptions(
 }
 
 export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: any[]) => InstanceType<T>);
+
+/**
+ * Generate a random ino
+ * @internal
+ */
+export function randomBigInt(): bigint {
+	return crypto.getRandomValues(new BigUint64Array(1))[0];
+}

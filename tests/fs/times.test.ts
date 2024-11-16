@@ -2,22 +2,33 @@ import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
 import { ErrnoError } from '../../dist/error.js';
-import { _toUnixTimestamp } from '../../dist/utils.js';
+import type { StatsLike } from '../../dist/stats.js';
 import { fs } from '../common.js';
 
 const path = 'x.txt';
 
-suite('times', () => {
-	function expect_assert(resource: string | number, atime: Date | number, mtime: Date | number) {
-		const stats = typeof resource == 'string' ? fs.statSync(resource) : fs.fstatSync(resource);
-		// check up to single-second precision since sub-second precision is OS and fs dependent
-		assert.equal(_toUnixTimestamp(atime), _toUnixTimestamp(stats.atime));
-		assert.equal(_toUnixTimestamp(mtime), _toUnixTimestamp(stats.mtime));
-	}
+/**
+ * Gets unix timestamps from stats
+ *
+ * @internal
+ */
+export function unixTimestamps(stats: StatsLike<number>): Record<'atime' | 'mtime', number> {
+	return {
+		atime: Math.floor(stats.atimeMs),
+		mtime: Math.floor(stats.mtimeMs),
+	};
+}
 
+suite('times', () => {
 	async function runTest(atime: Date | number, mtime: Date | number): Promise<void> {
-		fs.utimesSync(path, atime, mtime);
-		expect_assert(path, atime, mtime);
+		const times = {
+			atime: typeof atime == 'number' ? Math.floor(atime) : atime.getTime(),
+			mtime: typeof mtime == 'number' ? Math.floor(mtime) : mtime.getTime(),
+		};
+
+		await fs.promises.utimes(path, atime, mtime);
+
+		assert.deepStrictEqual(unixTimestamps(await fs.promises.stat(path)), times);
 
 		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
@@ -27,10 +38,10 @@ suite('times', () => {
 		await using handle = await fs.promises.open(path, 'r');
 
 		await handle.utimes(atime, mtime);
-		expect_assert(handle.fd, atime, mtime);
+		assert.deepStrictEqual(unixTimestamps(await handle.stat()), times);
 
 		fs.utimesSync(path, atime, mtime);
-		expect_assert(path, atime, mtime);
+		assert.deepStrictEqual(unixTimestamps(fs.statSync(path)), times);
 
 		try {
 			fs.utimesSync('foobarbaz', atime, mtime);

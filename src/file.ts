@@ -1,6 +1,6 @@
 import type { FileReadResult } from 'node:fs/promises';
-import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT, size_max } from './emulation/constants.js';
 import { config } from './emulation/config.js';
+import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT, size_max } from './emulation/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
@@ -145,7 +145,7 @@ export function isExclusive(flag: string): boolean {
 	return flag.indexOf('x') !== -1;
 }
 
-export abstract class File {
+export abstract class File<FS extends FileSystem = FileSystem> {
 	public constructor(
 		/**
 		 * @internal
@@ -166,12 +166,12 @@ export abstract class File {
 	public abstract close(): Promise<void>;
 	public abstract closeSync(): void;
 
-	public [Symbol.asyncDispose](): Promise<void> {
-		return this.close();
+	public async [Symbol.asyncDispose](): Promise<void> {
+		await this.close();
 	}
 
 	public [Symbol.dispose](): void {
-		return this.closeSync();
+		this.closeSync();
 	}
 
 	public abstract truncate(len: number): Promise<void>;
@@ -269,7 +269,7 @@ export abstract class File {
  * An implementation of `File` that operates completely in-memory.
  * `PreloadFile`s are backed by a `Uint8Array`.
  */
-export class PreloadFile<FS extends FileSystem> extends File {
+export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	/**
 	 * Current position
 	 */
@@ -290,11 +290,7 @@ export class PreloadFile<FS extends FileSystem> extends File {
 	 * Note that, if contents is specified, it will be mutated by the file.
 	 */
 	public constructor(
-		/**
-		 * The file system that created the file.
-		 * @internal
-		 */
-		public fs: FS,
+		fs: FS,
 		path: string,
 		public readonly flag: string,
 		public readonly stats: Stats,
@@ -431,12 +427,12 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		if (length > this._buffer.length) {
 			const data = new Uint8Array(length - this._buffer.length);
 			// Write will set stats.size and handle syncing.
-			this.writeSync(data, 0, data.length, this._buffer.length);
+			this._write(data, 0, data.length, this._buffer.length);
 			return;
 		}
 		this.stats.size = length;
 		// Truncate.
-		this._buffer = this._buffer.slice(0, length);
+		this._buffer = length ? this._buffer.slice(0, length) : new Uint8Array();
 	}
 
 	public async truncate(length: number): Promise<void> {
@@ -644,14 +640,6 @@ export class PreloadFile<FS extends FileSystem> extends File {
 		this.dirty = true;
 		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
 		this.syncSync();
-	}
-
-	public async [Symbol.asyncDispose]() {
-		await this.close();
-	}
-
-	public [Symbol.dispose]() {
-		this.closeSync();
 	}
 }
 

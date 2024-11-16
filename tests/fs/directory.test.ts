@@ -7,16 +7,18 @@ const testDir = 'test-dir';
 const testFiles = ['file1.txt', 'file2.txt', 'file3.txt'];
 const testDirectories = ['subdir1', 'subdir2'];
 
-await fs.promises.mkdir(testDir);
+fs.mkdirSync(testDir);
 for (const file of testFiles) {
-	await fs.promises.writeFile(`${testDir}/${file}`, 'Sample content');
+	fs.writeFileSync(`${testDir}/${file}`, 'Sample content');
 }
 for (const dir of testDirectories) {
-	await fs.promises.mkdir(`${testDir}/${dir}`);
+	fs.mkdirSync(`${testDir}/${dir}`);
 	for (const file of ['file4.txt', 'file5.txt']) {
-		await fs.promises.writeFile(`${testDir}/${dir}/${file}`, 'Sample content');
+		fs.writeFileSync(`${testDir}/${dir}/${file}`, 'Sample content');
 	}
 }
+
+await fs._synced();
 
 suite('Directories', () => {
 	test('mkdir', async () => {

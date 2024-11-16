@@ -13,6 +13,28 @@ export type AsyncOperation = {
 }[keyof AsyncFSMethods];
 
 /**
+ * @internal
+ */
+export interface Async {
+	/**
+	 * @internal @protected
+	 */
+	_sync?: FileSystem;
+	queueDone(): Promise<void>;
+	ready(): Promise<void>;
+	renameSync(oldPath: string, newPath: string): void;
+	statSync(path: string): Stats;
+	createFileSync(path: string, flag: string, mode: number): File;
+	openFileSync(path: string, flag: string): File;
+	unlinkSync(path: string): void;
+	rmdirSync(path: string): void;
+	mkdirSync(path: string, mode: number): void;
+	readdirSync(path: string): string[];
+	linkSync(srcpath: string, dstpath: string): void;
+	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+}
+
+/**
  * Async() implements synchronous methods on an asynchronous file system
  *
  * Implementing classes must define `_sync` for the synchronous file system used as a cache.
@@ -22,29 +44,7 @@ export type AsyncOperation = {
  * During loading, the contents of the async file system are preloaded into the synchronous store.
  *
  */
-export function Async<T extends typeof FileSystem>(
-	FS: T
-): Mixin<
-	T,
-	{
-		/**
-		 * @internal @protected
-		 */
-		_sync?: FileSystem;
-		queueDone(): Promise<void>;
-		ready(): Promise<void>;
-		renameSync(oldPath: string, newPath: string): void;
-		statSync(path: string): Stats;
-		createFileSync(path: string, flag: string, mode: number): File;
-		openFileSync(path: string, flag: string): File;
-		unlinkSync(path: string): void;
-		rmdirSync(path: string): void;
-		mkdirSync(path: string, mode: number): void;
-		readdirSync(path: string): string[];
-		linkSync(srcpath: string, dstpath: string): void;
-		syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
-	}
-> {
+export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, Async> {
 	abstract class AsyncFS extends FS {
 		/**
 		 * Queue of pending asynchronous operations.
@@ -67,6 +67,7 @@ export function Async<T extends typeof FileSystem>(
 
 		public async ready(): Promise<void> {
 			await super.ready();
+			await this.queueDone();
 			if (this._isInitialized || this._disableSync) {
 				return;
 			}
@@ -128,7 +129,7 @@ export function Async<T extends typeof FileSystem>(
 
 		public openFileSync(path: string, flag: string): PreloadFile<this> {
 			this.checkSync(path, 'openFile');
-			const file = this._sync.openFileSync(path, flag);
+			const file = this._sync.openFileSync(path, flag + '+');
 			const stats = file.statSync();
 			const buffer = new Uint8Array(stats.size);
 			file.readSync(buffer);
@@ -225,3 +226,5 @@ export function Async<T extends typeof FileSystem>(
 
 	return AsyncFS;
 }
+
+export function asyncPatch<T extends typeof FileSystem>(fs: Mixin<T, Async>) {}

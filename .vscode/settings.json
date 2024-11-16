@@ -18,5 +18,5 @@
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"editor.formatOnSave": true,
-	"cSpell.words": ["mknod"]
+	"cSpell.words": ["canonicalized", "mknod"]
 }

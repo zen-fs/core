@@ -43,8 +43,8 @@ suite('Permissions', () => {
 		const stats = await fs.promises.lstat(link);
 		assert.equal(stats.mode & 0o777, asyncMode);
 
-		fs.lchmodSync(link, syncMode);
-		assert.equal(fs.lstatSync(link).mode & 0o777, syncMode);
+		await fs.promises.lchmod(link, syncMode);
+		assert.equal((await fs.promises.lstat(link)).mode & 0o777, syncMode);
 	});
 
 	async function test_item(path: string): Promise<void> {
