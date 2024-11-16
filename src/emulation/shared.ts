@@ -8,6 +8,7 @@ import type { FileSystem } from '../filesystem.js';
 import { normalizePath } from '../utils.js';
 import { resolve, type AbsolutePath } from './path.js';
 import { size_max } from './constants.js';
+import type { V_Context } from '../context.js';
 
 // descriptors
 export const fdMap: Map<number, File> = new Map();
@@ -66,15 +67,16 @@ export function umount(mountPoint: string): void {
 /**
  * Gets the internal `FileSystem` for the path, then returns it along with the path relative to the FS' root
  */
-export function resolveMount(path: string): { fs: FileSystem; path: string; mountPoint: string } {
-	path = normalizePath(path);
+export function resolveMount(path: string, ctx: V_Context): { fs: FileSystem; path: string; mountPoint: string } {
+	const root = typeof ctx == 'object' && typeof ctx.root == 'string' ? ctx.root : '/';
+	path = normalizePath(root + path);
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
 		if (mountPoint.length <= path.length && path.startsWith(mountPoint)) {
 			path = path.slice(mountPoint.length > 1 ? mountPoint.length : 0); // Resolve the path relative to the mount point
 			if (path === '') {
-				path = '/';
+				path = root;
 			}
 			return { fs, path, mountPoint };
 		}

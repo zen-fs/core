@@ -13,13 +13,14 @@ import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { emitChange } from './watchers.js';
+import type { V_Context } from '../context.js';
 
-export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
+export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
-	const oldMount = resolveMount(oldPath);
-	const newMount = resolveMount(newPath);
-	if (config.checkAccess && !statSync(dirname(oldPath)).hasAccess(constants.W_OK)) {
+	const oldMount = resolveMount(oldPath, this);
+	const newMount = resolveMount(newPath, this);
+	if (config.checkAccess && !statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath)).hasAccess(constants.W_OK)) {
 		throw ErrnoError.With('EACCES', oldPath, 'rename');
 	}
 	try {
@@ -29,8 +30,8 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 			return;
 		}
 
-		writeFileSync(newPath, readFileSync(oldPath));
-		unlinkSync(oldPath);
+		writeFileSync.call(this, newPath, readFileSync(oldPath));
+		unlinkSync.call(this, oldPath);
 		emitChange('rename', oldPath.toString());
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [oldMount.path]: oldPath, [newMount.path]: newPath });
@@ -41,10 +42,10 @@ renameSync satisfies typeof fs.renameSync;
 /**
  * Test whether or not `path` exists by checking with the file system.
  */
-export function existsSync(path: fs.PathLike): boolean {
+export function existsSync(this: V_Context, path: fs.PathLike): boolean {
 	path = normalizePath(path);
 	try {
-		const { fs, path: resolvedPath } = resolveMount(realpathSync(path));
+		const { fs, path: resolvedPath } = resolveMount(realpathSync(path), this);
 		return fs.existsSync(resolvedPath);
 	} catch (e) {
 		if ((e as ErrnoError).errno == Errno.ENOENT) {
@@ -56,11 +57,11 @@ export function existsSync(path: fs.PathLike): boolean {
 }
 existsSync satisfies typeof fs.existsSync;
 
-export function statSync(path: fs.PathLike, options?: { bigint?: boolean }): Stats;
-export function statSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
-export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
+export function statSync(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Stats;
+export function statSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
+export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync(path));
+	const { fs, path: resolved } = resolveMount(realpathSync(path), this);
 	try {
 		const stats = fs.statSync(resolved);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
@@ -71,18 +72,18 @@ export function statSync(path: fs.PathLike, options?: fs.StatOptions): Stats | B
 		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
 }
-statSync satisfies typeof fs.statSync;
+statSync satisfies fs.StatSyncFn;
 
 /**
  * Synchronous `lstat`.
  * `lstat()` is identical to `stat()`, except that if path is a symbolic link,
  * then the link itself is stat-ed, not the file that it refers to.
  */
-export function lstatSync(path: fs.PathLike, options?: { bigint?: boolean }): Stats;
-export function lstatSync(path: fs.PathLike, options: { bigint: true }): BigIntStats;
-export function lstatSync(path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
+export function lstatSync(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Stats;
+export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
+export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(path);
+	const { fs, path: resolved } = resolveMount(path, this);
 	try {
 		const stats = fs.statSync(resolved);
 		return options?.bigint ? new BigIntStats(stats) : stats;
@@ -92,7 +93,7 @@ export function lstatSync(path: fs.PathLike, options?: fs.StatOptions): Stats | 
 }
 lstatSync satisfies typeof fs.lstatSync;
 
-export function truncateSync(path: fs.PathLike, len: number | null = 0): void {
+export function truncateSync(this: V_Context, path: fs.PathLike, len: number | null = 0): void {
 	using file = _openSync(path, 'r+');
 	len ||= 0;
 	if (len < 0) {
@@ -102,9 +103,9 @@ export function truncateSync(path: fs.PathLike, len: number | null = 0): void {
 }
 truncateSync satisfies typeof fs.truncateSync;
 
-export function unlinkSync(path: fs.PathLike): void {
+export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(path);
+	const { fs, path: resolved } = resolveMount(path, this);
 	try {
 		if (config.checkAccess && !(cache.stats.getSync(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
@@ -117,13 +118,13 @@ export function unlinkSync(path: fs.PathLike): void {
 }
 unlinkSync satisfies typeof fs.unlinkSync;
 
-function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null, resolveSymlinks: boolean = true): File {
+function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null, resolveSymlinks: boolean = true): File {
 	path = normalizePath(path);
 	const mode = normalizeMode(_mode, 0o644),
 		flag = parseFlag(_flag);
 
-	path = resolveSymlinks ? realpathSync(path) : path;
-	const { fs, path: resolved } = resolveMount(path);
+	path = resolveSymlinks ? realpathSync.call(this, path) : path;
+	const { fs, path: resolved } = resolveMount(path, this);
 
 	let stats: Stats | undefined;
 	try {
@@ -168,8 +169,8 @@ function _openSync(path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null
  * Synchronous file open.
  * @see http://www.manpagez.com/man/2/open/
  */
-export function openSync(path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
-	return file2fd(_openSync(path, flag, mode, true));
+export function openSync(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
+	return file2fd(_openSync.call(this, path, flag, mode, true));
 }
 openSync satisfies typeof fs.openSync;
 
@@ -177,13 +178,13 @@ openSync satisfies typeof fs.openSync;
  * Opens a file or symlink
  * @internal
  */
-export function lopenSync(path: fs.PathLike, flag: string, mode?: fs.Mode | null): number {
-	return file2fd(_openSync(path, flag, mode, false));
+export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode?: fs.Mode | null): number {
+	return file2fd(_openSync.call(this, path, flag, mode, false));
 }
 
-function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): Uint8Array {
+function _readFileSync(this: V_Context, fname: string, flag: string, resolveSymlinks: boolean): Uint8Array {
 	// Get file.
-	using file = _openSync(fname, flag, 0o644, resolveSymlinks);
+	using file = _openSync.call(this, fname, flag, 0o644, resolveSymlinks);
 	const stat = file.statSync();
 	// Allocate buffer.
 	const data = new Uint8Array(stat.size);
@@ -197,15 +198,15 @@ function _readFileSync(fname: string, flag: string, resolveSymlinks: boolean): U
  * @option flag Defaults to `'r'`.
  * @returns file contents
  */
-export function readFileSync(path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
-export function readFileSync(path: fs.PathOrFileDescriptor, options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null): string;
-export function readFileSync(path: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
+export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
+export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null): string;
+export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	const data: Buffer = Buffer.from(_readFileSync(typeof path == 'number' ? fd2file(path).path : path.toString(), options.flag, true));
+	const data: Buffer = Buffer.from(_readFileSync.call(this, typeof path == 'number' ? fd2file(path).path : path.toString(), options.flag, true));
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFileSync satisfies typeof fs.readFileSync;
@@ -218,9 +219,9 @@ readFileSync satisfies typeof fs.readFileSync;
  * @option mode Defaults to `0644`.
  * @option flag Defaults to `'w'`.
  */
-export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents, options?: fs.WriteFileOptions): void;
-export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents, encoding?: BufferEncoding): void;
-export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions | BufferEncoding = {}): void {
+export function writeFileSync(this: V_Context, path: fs.PathOrFileDescriptor, data: FileContents, options?: fs.WriteFileOptions): void;
+export function writeFileSync(this: V_Context, path: fs.PathOrFileDescriptor, data: FileContents, encoding?: BufferEncoding): void;
+export function writeFileSync(this: V_Context, path: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions | BufferEncoding = {}): void {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isWriteable(flag)) {
@@ -233,7 +234,7 @@ export function writeFileSync(path: fs.PathOrFileDescriptor, data: FileContents,
 	if (!encodedData) {
 		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
 	}
-	using file = _openSync(typeof path == 'number' ? fd2file(path).path : path.toString(), flag, options.mode, true);
+	using file = _openSync.call(this, typeof path == 'number' ? fd2file(path).path : path.toString(), flag, options.mode, true);
 	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
 	emitChange('change', path.toString());
 }
@@ -245,7 +246,7 @@ writeFileSync satisfies typeof fs.writeFileSync;
  * @option mode Defaults to `0644`.
  * @option flag Defaults to `'a+'`.
  */
-export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions = {}): void {
+export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions = {}): void {
 	const options = normalizeOptions(_options, 'utf8', 'a+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isAppendable(flag)) {
@@ -255,7 +256,7 @@ export function appendFileSync(filename: fs.PathOrFileDescriptor, data: FileCont
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	using file = _openSync(typeof filename == 'number' ? fd2file(filename).path : filename.toString(), flag, options.mode, true);
+	using file = _openSync.call(this, typeof filename == 'number' ? fd2file(filename).path : filename.toString(), flag, options.mode, true);
 	file.writeSync(encodedData, 0, encodedData.byteLength);
 }
 appendFileSync satisfies typeof fs.appendFileSync;
@@ -265,21 +266,21 @@ appendFileSync satisfies typeof fs.appendFileSync;
  * `fstat()` is identical to `stat()`, except that the file to be stat-ed is
  * specified by the file descriptor `fd`.
  */
-export function fstatSync(fd: number, options?: { bigint?: boolean }): Stats;
-export function fstatSync(fd: number, options: { bigint: true }): BigIntStats;
-export function fstatSync(fd: number, options?: fs.StatOptions): Stats | BigIntStats {
+export function fstatSync(this: V_Context, fd: number, options?: { bigint?: boolean }): Stats;
+export function fstatSync(this: V_Context, fd: number, options: { bigint: true }): BigIntStats;
+export function fstatSync(this: V_Context, fd: number, options?: fs.StatOptions): Stats | BigIntStats {
 	const stats: Stats = fd2file(fd).statSync();
 	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 fstatSync satisfies typeof fs.fstatSync;
 
-export function closeSync(fd: number): void {
+export function closeSync(this: V_Context, fd: number): void {
 	fd2file(fd).closeSync();
 	fdMap.delete(fd);
 }
 closeSync satisfies typeof fs.closeSync;
 
-export function ftruncateSync(fd: number, len: number | null = 0): void {
+export function ftruncateSync(this: V_Context, fd: number, len: number | null = 0): void {
 	len ||= 0;
 	if (len < 0) {
 		throw new ErrnoError(Errno.EINVAL);
@@ -288,12 +289,12 @@ export function ftruncateSync(fd: number, len: number | null = 0): void {
 }
 ftruncateSync satisfies typeof fs.ftruncateSync;
 
-export function fsyncSync(fd: number): void {
+export function fsyncSync(this: V_Context, fd: number): void {
 	fd2file(fd).syncSync();
 }
 fsyncSync satisfies typeof fs.fsyncSync;
 
-export function fdatasyncSync(fd: number): void {
+export function fdatasyncSync(this: V_Context, fd: number): void {
 	fd2file(fd).datasyncSync();
 }
 fdatasyncSync satisfies typeof fs.fdatasyncSync;
@@ -306,9 +307,9 @@ fdatasyncSync satisfies typeof fs.fdatasyncSync;
  * @param position Offset from the beginning of the file where this data should be written.
  * If position is null, the data will be written at the current position.
  */
-export function writeSync(fd: number, data: ArrayBufferView, offset?: number | null, length?: number | null, position?: number | null): number;
-export function writeSync(fd: number, data: string, position?: number | null, encoding?: BufferEncoding | null): number;
-export function writeSync(fd: number, data: FileContents, posOrOff?: number | null, lenOrEnc?: BufferEncoding | number | null, pos?: number | null): number {
+export function writeSync(this: V_Context, fd: number, data: ArrayBufferView, offset?: number | null, length?: number | null, position?: number | null): number;
+export function writeSync(this: V_Context, fd: number, data: string, position?: number | null, encoding?: BufferEncoding | null): number;
+export function writeSync(this: V_Context, fd: number, data: FileContents, posOrOff?: number | null, lenOrEnc?: BufferEncoding | number | null, pos?: number | null): number {
 	let buffer: Uint8Array, offset: number | undefined, length: number, position: number | null;
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]])
@@ -333,8 +334,8 @@ export function writeSync(fd: number, data: FileContents, posOrOff?: number | nu
 }
 writeSync satisfies typeof fs.writeSync;
 
-export function readSync(fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions): number;
-export function readSync(fd: number, buffer: ArrayBufferView, offset: number, length: number, position?: fs.ReadPosition | null): number;
+export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions): number;
+export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, offset: number, length: number, position?: fs.ReadPosition | null): number;
 /**
  * Read data from the file specified by `fd`.
  * @param buffer The buffer that the data will be written to.
@@ -343,7 +344,7 @@ export function readSync(fd: number, buffer: ArrayBufferView, offset: number, le
  * @param position An integer specifying where to begin reading from in the file.
  * If position is null, data will be read from the current file position.
  */
-export function readSync(fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions | number, length?: number, position?: fs.ReadPosition | null): number {
+export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions | number, length?: number, position?: fs.ReadPosition | null): number {
 	const file = fd2file(fd);
 	const offset = typeof options == 'object' ? options.offset : options;
 	if (typeof options == 'object') {
@@ -360,12 +361,12 @@ export function readSync(fd: number, buffer: ArrayBufferView, options?: fs.ReadS
 }
 readSync satisfies typeof fs.readSync;
 
-export function fchownSync(fd: number, uid: number, gid: number): void {
+export function fchownSync(this: V_Context, fd: number, uid: number, gid: number): void {
 	fd2file(fd).chownSync(uid, gid);
 }
 fchownSync satisfies typeof fs.fchownSync;
 
-export function fchmodSync(fd: number, mode: number | string): void {
+export function fchmodSync(this: V_Context, fd: number, mode: number | string): void {
 	const numMode = normalizeMode(mode, -1);
 	if (numMode < 0) {
 		throw new ErrnoError(Errno.EINVAL, `Invalid mode.`);
@@ -377,14 +378,14 @@ fchmodSync satisfies typeof fs.fchmodSync;
 /**
  * Change the file timestamps of a file referenced by the supplied file descriptor.
  */
-export function futimesSync(fd: number, atime: string | number | Date, mtime: string | number | Date): void {
+export function futimesSync(this: V_Context, fd: number, atime: string | number | Date, mtime: string | number | Date): void {
 	fd2file(fd).utimesSync(normalizeTime(atime), normalizeTime(mtime));
 }
 futimesSync satisfies typeof fs.futimesSync;
 
-export function rmdirSync(path: fs.PathLike): void {
+export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync(path));
+	const { fs, path: resolved } = resolveMount(realpathSync(path), this);
 	try {
 		const stats = cache.stats.getSync(path) || fs.statSync(resolved);
 		if (!stats.isDirectory()) {
@@ -404,15 +405,15 @@ rmdirSync satisfies typeof fs.rmdirSync;
 /**
  * Synchronous `mkdir`. Mode defaults to `o777`.
  */
-export function mkdirSync(path: fs.PathLike, options: fs.MakeDirectoryOptions & { recursive: true }): string | undefined;
-export function mkdirSync(path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
-export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined;
-export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined | void {
+export function mkdirSync(this: V_Context, path: fs.PathLike, options: fs.MakeDirectoryOptions & { recursive: true }): string | undefined;
+export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
+export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined;
+export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined | void {
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
-	path = realpathSync(path);
-	const { fs, path: resolved } = resolveMount(path);
+	path = realpathSync.call(this, path);
+	const { fs, path: resolved } = resolveMount(path, this);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
 	try {
@@ -442,21 +443,31 @@ export function mkdirSync(path: fs.PathLike, options?: fs.Mode | fs.MakeDirector
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
-export function readdirSync(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null): string[];
-export function readdirSync(path: fs.PathLike, options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }): Buffer[];
-export function readdirSync(path: fs.PathLike, options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null): string[] | Buffer[];
-export function readdirSync(path: fs.PathLike, options: fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes: true }): Dirent[];
 export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null
+): string[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }): Buffer[];
+export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null
+): string[] | Buffer[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options: fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes: true }): Dirent[];
+export function readdirSync(
+	this: V_Context,
 	path: fs.PathLike,
 	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
 ): string[] | Dirent[] | Buffer[];
 export function readdirSync(
+	this: V_Context,
 	path: fs.PathLike,
 	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
 ): string[] | Dirent[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync(path));
+	const { fs, path: resolved } = resolveMount(realpathSync(path), this);
 	let entries: string[];
 	try {
 		const stats = cache.stats.getSync(path) || fs.statSync(resolved);
@@ -487,7 +498,7 @@ export function readdirSync(
 		}
 		if (!entryStat.isDirectory() || !options?.recursive) continue;
 
-		for (const subEntry of readdirSync(join(path, entry), { ...options, _isIndirect: true })) {
+		for (const subEntry of readdirSync.call(this, join(path, entry), { ...options, _isIndirect: true })) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -506,9 +517,7 @@ export function readdirSync(
 }
 readdirSync satisfies typeof fs.readdirSync;
 
-// SYMLINK METHODS
-
-export function linkSync(targetPath: fs.PathLike, linkPath: fs.PathLike): void {
+export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 	targetPath = normalizePath(targetPath);
 	if (config.checkAccess && !statSync(dirname(targetPath)).hasAccess(constants.R_OK)) {
 		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
@@ -518,8 +527,8 @@ export function linkSync(targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 	}
 
-	const { fs, path } = resolveMount(targetPath);
-	const link = resolveMount(linkPath);
+	const { fs, path } = resolveMount(targetPath, this);
+	const link = resolveMount(linkPath, this);
 	if (fs != link.fs) {
 		throw ErrnoError.With('EXDEV', linkPath, 'link');
 	}
@@ -540,25 +549,25 @@ linkSync satisfies typeof fs.linkSync;
  * @param path link path
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
-export function symlinkSync(target: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | null = 'file'): void {
+export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | null = 'file'): void {
 	if (!['file', 'dir', 'junction'].includes(type!)) {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid type: ' + type);
 	}
-	if (existsSync(path)) {
+	if (existsSync.call(this, path)) {
 		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
 	}
 
-	writeFileSync(path, target.toString());
-	const file = _openSync(path, 'r+', 0o644, false);
+	writeFileSync.call(this, path, target.toString());
+	const file = _openSync.call(this, path, 'r+', 0o644, false);
 	file._setTypeSync(constants.S_IFLNK);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
-export function readlinkSync(path: fs.PathLike, options?: fs.BufferEncodingOption): Buffer;
-export function readlinkSync(path: fs.PathLike, options: fs.EncodingOption | BufferEncoding): string;
-export function readlinkSync(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string;
-export function readlinkSync(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string {
-	const value: Buffer = Buffer.from(_readFileSync(path.toString(), 'r', false));
+export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption): Buffer;
+export function readlinkSync(this: V_Context, path: fs.PathLike, options: fs.EncodingOption | BufferEncoding): string;
+export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string;
+export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string {
+	const value: Buffer = Buffer.from(_readFileSync.call(this, path.toString(), 'r', false));
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	if (encoding == 'buffer') {
 		return value;
@@ -567,31 +576,29 @@ export function readlinkSync(path: fs.PathLike, options?: fs.EncodingOption | Bu
 }
 readlinkSync satisfies typeof fs.readlinkSync;
 
-// PROPERTY OPERATIONS
-
-export function chownSync(path: fs.PathLike, uid: number, gid: number): void {
-	const fd = openSync(path, 'r+');
+export function chownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
+	const fd = openSync.call(this, path, 'r+');
 	fchownSync(fd, uid, gid);
 	closeSync(fd);
 }
 chownSync satisfies typeof fs.chownSync;
 
-export function lchownSync(path: fs.PathLike, uid: number, gid: number): void {
-	const fd = lopenSync(path, 'r+');
+export function lchownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
+	const fd = lopenSync.call(this, path, 'r+');
 	fchownSync(fd, uid, gid);
 	closeSync(fd);
 }
 lchownSync satisfies typeof fs.lchownSync;
 
-export function chmodSync(path: fs.PathLike, mode: fs.Mode): void {
-	const fd = openSync(path, 'r+');
+export function chmodSync(this: V_Context, path: fs.PathLike, mode: fs.Mode): void {
+	const fd = openSync.call(this, path, 'r+');
 	fchmodSync(fd, mode);
 	closeSync(fd);
 }
 chmodSync satisfies typeof fs.chmodSync;
 
-export function lchmodSync(path: fs.PathLike, mode: number | string): void {
-	const fd = lopenSync(path, 'r+');
+export function lchmodSync(this: V_Context, path: fs.PathLike, mode: number | string): void {
+	const fd = lopenSync.call(this, path, 'r+');
 	fchmodSync(fd, mode);
 	closeSync(fd);
 }
@@ -600,8 +607,8 @@ lchmodSync satisfies typeof fs.lchmodSync;
 /**
  * Change file timestamps of the file referenced by the supplied path.
  */
-export function utimesSync(path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): void {
-	const fd = openSync(path, 'r+');
+export function utimesSync(this: V_Context, path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): void {
+	const fd = openSync.call(this, path, 'r+');
 	futimesSync(fd, atime, mtime);
 	closeSync(fd);
 }
@@ -610,20 +617,20 @@ utimesSync satisfies typeof fs.utimesSync;
 /**
  * Change file timestamps of the file referenced by the supplied path.
  */
-export function lutimesSync(path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): void {
-	const fd = lopenSync(path, 'r+');
+export function lutimesSync(this: V_Context, path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): void {
+	const fd = lopenSync.call(this, path, 'r+');
 	futimesSync(fd, atime, mtime);
 	closeSync(fd);
 }
 lutimesSync satisfies typeof fs.lutimesSync;
 
-export function realpathSync(path: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
-export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption): string;
-export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
+export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
+export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
+export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
 	const { base, dir } = parse(path);
-	const lpath = join(dir == '/' ? '/' : cache.paths.getSync(dir) || realpathSync(dir), base);
-	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
+	const lpath = join(dir == '/' ? '/' : cache.paths.getSync(dir) || realpathSync.call(this, dir), base);
+	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath, this);
 
 	try {
 		const stats = fs.statSync(resolvedPath);
@@ -631,8 +638,8 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 			return lpath;
 		}
 
-		const target = mountPoint + readlinkSync(lpath, options).toString();
-		return cache.paths.getSync(target) || realpathSync(target);
+		const target = mountPoint + readlinkSync.call(this, lpath, options).toString();
+		return cache.paths.getSync(target) || realpathSync.call(this, target);
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;
@@ -642,9 +649,9 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 }
 realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
 
-export function accessSync(path: fs.PathLike, mode: number = 0o600): void {
+export function accessSync(this: V_Context, path: fs.PathLike, mode: number = 0o600): void {
 	if (!config.checkAccess) return;
-	if (!statSync(path).hasAccess(mode)) {
+	if (!statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, path).hasAccess(mode)) {
 		throw new ErrnoError(Errno.EACCES);
 	}
 }
@@ -654,7 +661,7 @@ accessSync satisfies typeof fs.accessSync;
  * Synchronous `rm`. Removes files or directories (recursively).
  * @param path The path to the file or directory to remove.
  */
-export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptions): void {
+export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOptions & InternalOptions): void {
 	path = normalizePath(path);
 
 	let stats: Stats | undefined;
@@ -673,16 +680,16 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptio
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of readdirSync(path, { _isIndirect: true })) {
-					rmSync(join(path, entry), { ...options, _isIndirect: true });
+				for (const entry of readdirSync.call<V_Context, [string, any], string[]>(this, path, { _isIndirect: true })) {
+					rmSync.call(this, join(path, entry), { ...options, _isIndirect: true });
 				}
 			}
 
-			rmdirSync(path);
+			rmdirSync.call(this, path);
 			break;
 		case constants.S_IFREG:
 		case constants.S_IFLNK:
-			unlinkSync(path);
+			unlinkSync.call(this, path);
 			break;
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
@@ -705,14 +712,14 @@ rmSync satisfies typeof fs.rmSync;
  * @param options The encoding (or an object including `encoding`).
  * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
-export function mkdtempSync(prefix: string, options: fs.BufferEncodingOption): Buffer;
-export function mkdtempSync(prefix: string, options?: fs.EncodingOption): string;
-export function mkdtempSync(prefix: string, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
+export function mkdtempSync(this: V_Context, prefix: string, options: fs.BufferEncodingOption): Buffer;
+export function mkdtempSync(this: V_Context, prefix: string, options?: fs.EncodingOption): string;
+export function mkdtempSync(this: V_Context, prefix: string, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
 	const fsName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}`;
 	const resolvedPath = '/tmp/' + fsName;
 
-	mkdirSync(resolvedPath);
+	mkdirSync.call(this, resolvedPath);
 
 	return encoding == 'buffer' ? Buffer.from(resolvedPath) : resolvedPath;
 }
@@ -723,7 +730,7 @@ mkdtempSync satisfies typeof fs.mkdtempSync;
  * @param flags Optional flags for the copy operation. Currently supports these flags:
  * - `fs.constants.COPYFILE_EXCL`: If the destination file already exists, the operation fails.
  */
-export function copyFileSync(source: fs.PathLike, destination: fs.PathLike, flags?: number): void {
+export function copyFileSync(this: V_Context, source: fs.PathLike, destination: fs.PathLike, flags?: number): void {
 	source = normalizePath(source);
 	destination = normalizePath(destination);
 
@@ -731,7 +738,7 @@ export function copyFileSync(source: fs.PathLike, destination: fs.PathLike, flag
 		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists.', destination, 'copyFile');
 	}
 
-	writeFileSync(destination, readFileSync(source));
+	writeFileSync.call(this, destination, readFileSync(source));
 	emitChange('rename', destination.toString());
 }
 copyFileSync satisfies typeof fs.copyFileSync;
@@ -743,7 +750,7 @@ copyFileSync satisfies typeof fs.copyFileSync;
  * @param position The position in the file where to begin reading.
  * @returns The number of bytes read.
  */
-export function readvSync(fd: number, buffers: readonly NodeJS.ArrayBufferView[], position?: number): number {
+export function readvSync(this: V_Context, fd: number, buffers: readonly NodeJS.ArrayBufferView[], position?: number): number {
 	const file = fd2file(fd);
 	let bytesRead = 0;
 
@@ -762,7 +769,7 @@ readvSync satisfies typeof fs.readvSync;
  * @param position The position in the file where to begin writing.
  * @returns The number of bytes written.
  */
-export function writevSync(fd: number, buffers: readonly ArrayBufferView[], position?: number): number {
+export function writevSync(this: V_Context, fd: number, buffers: readonly ArrayBufferView[], position?: number): number {
 	const file = fd2file(fd);
 	let bytesWritten = 0;
 
@@ -781,7 +788,7 @@ writevSync satisfies typeof fs.writevSync;
  * @returns A `Dir` object representing the opened directory.
  * @todo Handle options
  */
-export function opendirSync(path: fs.PathLike, options?: fs.OpenDirOptions): Dir {
+export function opendirSync(this: V_Context, path: fs.PathLike, options?: fs.OpenDirOptions): Dir {
 	path = normalizePath(path);
 	return new Dir(path);
 }
@@ -799,13 +806,13 @@ opendirSync satisfies typeof fs.opendirSync;
  * - `preserveTimestamps`: Preserve file timestamps.
  * - `recursive`: If `true`, copies directories recursively.
  */
-export function cpSync(source: fs.PathLike, destination: fs.PathLike, opts?: fs.CopySyncOptions): void {
+export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.PathLike, opts?: fs.CopySyncOptions): void {
 	source = normalizePath(source);
 	destination = normalizePath(destination);
 
-	const srcStats = lstatSync(source); // Use lstat to follow symlinks if not dereferencing
+	const srcStats = lstatSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
 
-	if (opts?.errorOnExist && existsSync(destination)) {
+	if (opts?.errorOnExist && existsSync.call(this, destination)) {
 		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
 	}
 
@@ -814,17 +821,17 @@ export function cpSync(source: fs.PathLike, destination: fs.PathLike, opts?: fs.
 			if (!opts?.recursive) {
 				throw new ErrnoError(Errno.EISDIR, source + ' is a directory (not copied)', source, 'cp');
 			}
-			mkdirSync(destination, { recursive: true }); // Ensure the destination directory exists
-			for (const dirent of readdirSync(source, { withFileTypes: true })) {
+			mkdirSync.call(this, destination, { recursive: true }); // Ensure the destination directory exists
+			for (const dirent of readdirSync.call<V_Context, [string, any], Dirent[]>(this, source, { withFileTypes: true })) {
 				if (opts.filter && !opts.filter(join(source, dirent.name), join(destination, dirent.name))) {
 					continue; // Skip if the filter returns false
 				}
-				cpSync(join(source, dirent.name), join(destination, dirent.name), opts);
+				cpSync.call(this, join(source, dirent.name), join(destination, dirent.name), opts);
 			}
 			break;
 		case constants.S_IFREG:
 		case constants.S_IFLNK:
-			copyFileSync(source, destination);
+			copyFileSync.call(this, source, destination);
 			break;
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
@@ -836,7 +843,7 @@ export function cpSync(source: fs.PathLike, destination: fs.PathLike, opts?: fs.
 
 	// Optionally preserve timestamps
 	if (opts?.preserveTimestamps) {
-		utimesSync(destination, srcStats.atime, srcStats.mtime);
+		utimesSync.call(this, destination, srcStats.atime, srcStats.mtime);
 	}
 }
 cpSync satisfies typeof fs.cpSync;
@@ -846,11 +853,11 @@ cpSync satisfies typeof fs.cpSync;
  * In case of an error, the err.code will be one of Common System Errors.
  * @param path A path to an existing file or directory on the file system to be queried.
  */
-export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions & { bigint?: false }): fs.StatsFs;
-export function statfsSync(path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }): fs.BigIntStatsFs;
-export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs;
-export function statfsSync(path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs {
+export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.StatFsOptions & { bigint?: false }): fs.StatsFs;
+export function statfsSync(this: V_Context, path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }): fs.BigIntStatsFs;
+export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs;
+export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs {
 	path = normalizePath(path);
-	const { fs } = resolveMount(path);
+	const { fs } = resolveMount(path, this);
 	return _statfs(fs, options?.bigint);
 }
