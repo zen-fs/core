@@ -795,7 +795,7 @@ export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Prom
 			throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 		}
 
-		if (config.checkAccess && !(await fs.stat(path)).hasAccess(constants.W_OK | constants.R_OK)) {
+		if (config.checkAccess && !(await fs.stat(path)).hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
 		return await fs.link(path, link.path);
