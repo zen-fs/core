@@ -116,7 +116,9 @@ export function fixError<E extends ErrnoError>(e: E, paths: Record<string, strin
 	}
 	try {
 		e.message = fixPaths(e.message, paths);
-	} catch {}
+	} catch {
+		// `message` is read only
+	}
 	return e;
 }
 

@@ -471,7 +471,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(await (cache.stats.get(path) || fs.stat(resolved)))!.hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await (cache.stats.get(path) || fs.stat(resolved))).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -795,7 +795,7 @@ export async function link(targetPath: fs.PathLike, linkPath: fs.PathLike): Prom
 			throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 		}
 
-		if (config.checkAccess && !(await fs.stat(path)).hasAccess(constants.W_OK | constants.R_OK)) {
+		if (config.checkAccess && !(await fs.stat(path)).hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
 		return await fs.link(path, link.path);

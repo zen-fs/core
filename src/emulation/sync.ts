@@ -533,7 +533,7 @@ export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.
 		throw ErrnoError.With('EXDEV', linkPath, 'link');
 	}
 	try {
-		if (config.checkAccess && !fs.statSync(path).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !fs.statSync(path).hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
 		return fs.linkSync(path, linkPath);
