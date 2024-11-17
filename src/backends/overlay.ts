@@ -5,7 +5,7 @@ import { PreloadFile, parseFlag } from '../file.js';
 import type { FileSystemMetadata } from '../filesystem.js';
 import { FileSystem } from '../filesystem.js';
 import { Mutexed } from '../mixins/mutexed.js';
-import { Stats } from '../stats.js';
+import type { Stats } from '../stats.js';
 import { decodeUTF8, encodeUTF8 } from '../utils.js';
 import type { Backend } from './backend.js';
 /** @internal */

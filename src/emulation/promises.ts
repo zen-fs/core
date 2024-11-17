@@ -471,7 +471,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(await (cache.stats.get(path) || fs.stat(resolved)))!.hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await (cache.stats.get(path) || fs.stat(resolved))).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
