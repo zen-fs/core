@@ -208,14 +208,6 @@ export class DeviceFile extends File {
 	public utimesSync(): void {
 		throw ErrnoError.With('ENOTSUP', this.path, 'utimes');
 	}
-
-	public _setType(): Promise<void> {
-		throw ErrnoError.With('ENOTSUP', this.path, '_setType');
-	}
-
-	public _setTypeSync(): void {
-		throw ErrnoError.With('ENOTSUP', this.path, '_setType');
-	}
 }
 
 /**

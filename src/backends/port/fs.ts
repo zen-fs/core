@@ -104,14 +104,6 @@ export class PortFile extends File<PortFS> {
 		this._throwNoSync('utimes');
 	}
 
-	public _setType(type: FileType): Promise<void> {
-		return this.rpc('_setType', type);
-	}
-
-	public _setTypeSync(): void {
-		this._throwNoSync('_setType');
-	}
-
 	public close(): Promise<void> {
 		return this.rpc('close');
 	}
