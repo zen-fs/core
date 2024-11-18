@@ -200,6 +200,10 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('openFile', path, flag);
 	}
 
+	public readFile(path: string): Promise<Uint8Array> {
+		return this.rpc('readFile', path);
+	}
+
 	public createFile(path: string, flag: string, mode: number): Promise<File> {
 		return this.rpc('createFile', path, flag, mode);
 	}

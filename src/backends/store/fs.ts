@@ -196,6 +196,21 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new PreloadFile(this, path, flag, node.toStats(), data);
 	}
 
+	public async readFile(path: string): Promise<Uint8Array> {
+		await using tx = this.store.transaction();
+		const node = await this.findInode(tx, path, 'read');
+		const data = await this.get(tx, node.data, path, 'read');
+		return data;
+	}
+
+	public readFileSync(path: string): Uint8Array {
+		using tx = this.store.transaction();
+		const node = this.findInodeSync(tx, path, 'openFile');
+		const data = this.getSync(tx, node.data, path, 'openFile');
+
+		return data;
+	}
+
 	public async unlink(path: string): Promise<void> {
 		return this.remove(path, false, 'unlink');
 	}

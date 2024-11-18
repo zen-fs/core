@@ -26,6 +26,7 @@ export interface Async {
 	statSync(path: string): Stats;
 	createFileSync(path: string, flag: string, mode: number): File;
 	openFileSync(path: string, flag: string): File;
+	readFileSync(path: string): Uint8Array;
 	unlinkSync(path: string): void;
 	rmdirSync(path: string): void;
 	mkdirSync(path: string, mode: number): void;
@@ -134,6 +135,11 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, Async>
 			const buffer = new Uint8Array(stats.size);
 			file.readSync(buffer);
 			return new PreloadFile(this, path, flag, stats, buffer);
+		}
+
+		public readFileSync(path: string): Uint8Array {
+			this.checkSync(path, 'readFile');
+			return this._sync.readFileSync(path);
 		}
 
 		public unlinkSync(path: string): void {

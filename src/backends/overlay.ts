@@ -204,6 +204,20 @@ export class UnmutexedOverlayFS extends FileSystem {
 		return new PreloadFile(this, path, flag, stats, data);
 	}
 
+	public async readFile(path: string): Promise<Uint8Array> {
+		if (await this.writable.exists(path)) {
+			return this.writable.readFile(path);
+		}
+		return this.readable.readFile(path);
+	}
+
+	public readFileSync(path: string): Uint8Array {
+		if (this.writable.existsSync(path)) {
+			return this.writable.readFileSync(path);
+		}
+		return this.readable.readFileSync(path);
+	}
+
 	public async createFile(path: string, flag: string, mode: number): Promise<File> {
 		this.checkInitialized();
 		await this.writable.createFile(path, flag, mode);
