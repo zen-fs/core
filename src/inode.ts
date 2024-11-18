@@ -82,45 +82,14 @@ export class Inode implements StatsLike {
 	 *   file system.
 	 * @return True if any changes have occurred.
 	 */
-	public update(stats: Readonly<Stats>): boolean {
+	public update(stats: Readonly<Partial<Stats>>): boolean {
 		let hasChanged = false;
-		if (this.size !== stats.size) {
-			this.size = stats.size;
-			hasChanged = true;
-		}
 
-		if (this.mode !== stats.mode) {
-			this.mode = stats.mode;
-			hasChanged = true;
-		}
-
-		if (this.nlink !== stats.nlink) {
-			this.nlink = stats.nlink;
-			hasChanged = true;
-		}
-
-		if (this.uid !== stats.uid) {
-			this.uid = stats.uid;
-			hasChanged = true;
-		}
-
-		if (this.gid !== stats.gid) {
-			this.gid = stats.gid;
-			hasChanged = true;
-		}
-
-		if (this.atimeMs !== stats.atimeMs) {
-			this.atimeMs = stats.atimeMs;
-			hasChanged = true;
-		}
-		if (this.mtimeMs !== stats.mtimeMs) {
-			this.mtimeMs = stats.mtimeMs;
-			hasChanged = true;
-		}
-
-		if (this.ctimeMs !== stats.ctimeMs) {
-			this.ctimeMs = stats.ctimeMs;
-			hasChanged = true;
+		for (const key of ['size', 'mode', 'nlink', 'uid', 'gid', 'atimeMs', 'mtimeMs', 'ctimeMs'] as const satisfies (keyof StatsLike)[]) {
+			if (stats[key] !== undefined && stats[key] !== null && this[key] !== stats[key]) {
+				this[key] = stats[key];
+				hasChanged = true;
+			}
 		}
 
 		return hasChanged;

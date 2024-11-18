@@ -172,6 +172,6 @@ export abstract class FileSystem {
 	public abstract link(target: string, link: string): Promise<void>;
 	public abstract linkSync(target: string, link: string): void;
 
-	public abstract sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
-	public abstract syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	public abstract sync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): Promise<void>;
+	public abstract syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void;
 }

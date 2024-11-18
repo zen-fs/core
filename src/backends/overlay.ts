@@ -72,7 +72,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 		};
 	}
 
-	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+	public async sync(path: string, data: Uint8Array | false, stats: Readonly<Stats>): Promise<void> {
 		await this.copyForWrite(path);
 		if (!(await this.writable.exists(path))) {
 			await this.writable.createFile(path, 'w', 0o644);
@@ -80,7 +80,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 		await this.writable.sync(path, data, stats);
 	}
 
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+	public syncSync(path: string, data: Uint8Array | false, stats: Readonly<Stats>): void {
 		this.copyForWriteSync(path);
 		this.writable.syncSync(path, data, stats);
 	}

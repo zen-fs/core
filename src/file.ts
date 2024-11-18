@@ -4,7 +4,7 @@ import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY,
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
-import { Stats, type FileType } from './stats.js';
+import { _chown, Stats, type FileType, type StatsLike } from './stats.js';
 
 /**
 	Typescript does not include a type declaration for resizable array buffers. 
@@ -151,7 +151,7 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 		 * @internal
 		 * The file system that created the file
 		 */
-		public fs: FileSystem,
+		public fs: FS,
 		public readonly path: string
 	) {}
 
@@ -293,7 +293,26 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		super(fs, path);
 	}
 
-	protected stats?: Stats;
+	private _size?: number;
+
+	protected get size(): number {
+		if (this._size) return this._size;
+		if (this.stats?.size) {
+			this._size = this.stats.size;
+			return this.stats?.size;
+		}
+
+		this.stats = Object.assign(this.statSync(), this.stats);
+		this._size = this.stats.size;
+		return this.stats.size!;
+	}
+
+	protected set size(value: number) {
+		this._size = value;
+		if (this.stats) this.stats.size = value;
+	}
+
+	protected stats: Partial<Stats> = {};
 	protected buffer?: Uint8Array;
 
 	/**
@@ -307,8 +326,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 */
 	public get position(): number {
 		if (isAppendable(this.flag)) {
-			this.stats ||= this.statSync();
-			return this.stats.size;
+			return this.size;
 		}
 		return this._position;
 	}
@@ -324,8 +342,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		if (!this.dirty) {
 			return;
 		}
-		this.stats ||= await this.stat();
-		this.buffer ||= await this.fs.readFile(this.path);
+
 		await this.fs.sync(this.path, this.buffer, this.stats);
 		this.dirty = false;
 	}
@@ -337,8 +354,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		if (!this.dirty) {
 			return;
 		}
-		this.stats ||= this.statSync();
-		this.buffer ||= this.fs.readFileSync(this.path);
+
 		this.fs.syncSync(this.path, this.buffer, this.stats);
 		this.dirty = false;
 	}
@@ -371,7 +387,6 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		}
 
 		delete this.buffer;
-		delete this.stats;
 
 		this.closed = true;
 	}
@@ -397,37 +412,36 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
 		}
-		this.stats!.mtimeMs = Date.now();
+		this.size = length;
+		this.stats.mtimeMs = Date.now();
 		if (length == 0) {
 			this._write(new Uint8Array(), 0, 0, 0);
 			return;
 		}
-		if (length > this.stats!.size) {
+		if (length > this.size) {
 			const data = new Uint8Array(length);
 			// Write will set stats.size and handle syncing.
 			this._write(data, 0, data.length, 0);
 			return;
 		}
-		this.stats!.size = length;
+
 		// Truncate.
 		this.buffer = this.buffer!.slice(0, length);
 	}
 
 	public async truncate(length: number): Promise<void> {
-		this.stats ||= await this.stat();
 		this.buffer ||= await this.fs.readFile(this.path);
 		this._truncate(length);
 		if (config.syncImmediately) await this.sync();
 	}
 
 	public truncateSync(length: number): void {
-		this.stats ||= this.statSync();
 		this.buffer ||= this.fs.readFileSync(this.path);
 		this._truncate(length);
 		if (config.syncImmediately) this.syncSync();
 	}
 
-	protected _write(buffer: Uint8Array, offset: number = 0, length: number = this.stats!.size, position: number = this.position): number {
+	protected _write(buffer: Uint8Array, offset: number = 0, length: number = this.size, position: number = this.position): number {
 		if (this.closed) {
 			throw ErrnoError.With('EBADF', this.path, 'File.write');
 		}
@@ -440,8 +454,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		const end = position + length;
 		const slice = buffer.slice(offset, offset + length);
 
-		if (end > this.stats!.size) {
-			this.stats!.size = end;
+		if (end > this.size) {
+			this.size = end;
 			if (end > this.buffer!.byteLength) {
 				if (this.buffer!.buffer.resizable && this.buffer!.buffer.maxByteLength! <= end) {
 					this.buffer!.buffer.resize(end);
@@ -457,7 +471,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		}
 
 		this.buffer!.set(slice, position);
-		this.stats!.mtimeMs = Date.now();
+		this.stats.mtimeMs = Date.now();
 		this.position = position + slice.byteLength;
 		return slice.byteLength;
 	}
@@ -471,7 +485,6 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * If position is null, the data will be written at  the current position.
 	 */
 	public async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
-		this.stats ||= await this.stat();
 		this.buffer ||= await this.fs.readFile(this.path);
 		const bytesWritten = this._write(buffer, offset, length, position);
 		if (config.syncImmediately) await this.sync();
@@ -488,14 +501,13 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * @returns bytes written
 	 */
 	public writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number {
-		this.stats ||= this.statSync();
 		this.buffer ||= this.fs.readFileSync(this.path);
 		const bytesWritten = this._write(buffer, offset, length, position);
 		if (config.syncImmediately) this.syncSync();
 		return bytesWritten;
 	}
 
-	protected _read(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats!.size, position?: number): number {
+	protected _read(buffer: ArrayBufferView, offset: number = 0, length: number = this.size, position?: number): number {
 		if (this.closed) {
 			throw ErrnoError.With('EBADF', this.path, 'File.read');
 		}
@@ -508,12 +520,12 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			this.dirty = true;
 		}
 
-		this.stats!.atimeMs = Date.now();
+		this.stats.atimeMs = Date.now();
 
 		position ??= this.position;
 		let end = position + length;
-		if (end > this.stats!.size) {
-			end = position + Math.max(this.stats!.size - position, 0);
+		if (end > this.size) {
+			end = position + Math.max(this.size - position, 0);
 		}
 		this._position = end;
 		const bytesRead = end - position;
@@ -534,7 +546,6 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * If position is null, data will be read from the current file position.
 	 */
 	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
-		this.stats ||= await this.stat();
 		this.buffer ||= await this.fs.readFile(this.path);
 		const bytesRead = this._read(buffer, offset, length, position);
 		if (config.syncImmediately) await this.sync();
@@ -551,7 +562,6 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * @returns number of bytes written
 	 */
 	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
-		this.stats ||= this.statSync();
 		this.buffer ||= this.fs.readFileSync(this.path);
 		const bytesRead = this._read(buffer, offset, length, position);
 		if (config.syncImmediately) this.syncSync();
@@ -563,9 +573,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 
-		this.stats ||= await this.stat();
 		this.dirty = true;
-		this.stats.chmod(mode);
+		this.stats.mode = (this.stats.mode ?? 0 & S_IFMT) | mode;
 		if (config.syncImmediately) await this.sync();
 	}
 
@@ -574,9 +583,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 
-		this.stats ||= this.statSync();
 		this.dirty = true;
-		this.stats.chmod(mode);
+		this.stats.mode = (this.stats.mode ?? 0 & S_IFMT) | mode;
 		if (config.syncImmediately) this.syncSync();
 	}
 
@@ -585,9 +593,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 
-		this.stats ||= await this.stat();
 		this.dirty = true;
-		this.stats.chown(uid, gid);
+		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) await this.sync();
 	}
 
@@ -596,9 +603,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 
-		this.stats ||= this.statSync();
 		this.dirty = true;
-		this.stats.chown(uid, gid);
+		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) this.syncSync();
 	}
 
@@ -607,7 +613,6 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.utimes');
 		}
 
-		this.stats ||= await this.stat();
 		this.dirty = true;
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
@@ -619,7 +624,6 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.utimes');
 		}
 
-		this.stats ||= this.statSync();
 		this.dirty = true;
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
@@ -631,9 +635,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File._setType');
 		}
 
-		this.stats ||= await this.stat();
 		this.dirty = true;
-		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
+		this.stats.mode = (this.stats.mode ?? 0 & ~S_IFMT) | type;
 		await this.sync();
 	}
 
@@ -642,9 +645,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File._setType');
 		}
 
-		this.stats ||= this.statSync();
 		this.dirty = true;
-		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
+		this.stats.mode = (this.stats.mode ?? 0 & ~S_IFMT) | type;
 		this.syncSync();
 	}
 }
@@ -957,7 +959,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		this.stats.chmod(mode);
+		this.stats.mode = (this.stats.mode ?? 0 & S_IFMT) | mode;
 		if (config.syncImmediately) await this.sync();
 	}
 
@@ -966,7 +968,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		this.stats.chmod(mode);
+		this.stats.mode = (this.stats.mode ?? 0 & S_IFMT) | mode;
 		if (config.syncImmediately) this.syncSync();
 	}
 
@@ -975,7 +977,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 		this.dirty = true;
-		this.stats.chown(uid, gid);
+		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) await this.sync();
 	}
 
@@ -984,7 +986,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 		this.dirty = true;
-		this.stats.chown(uid, gid);
+		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) this.syncSync();
 	}
 

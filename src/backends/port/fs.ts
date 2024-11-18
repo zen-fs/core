@@ -21,9 +21,9 @@ export interface FileRequest<TMethod extends FileMethod = FileMethod> extends RP
 	args: Parameters<FileMethods[TMethod]>;
 }
 
-export class PortFile extends File {
+export class PortFile extends File<PortFS> {
 	public constructor(
-		public fs: PortFS,
+		fs: PortFS,
 		public readonly fd: number,
 		path: string,
 		public position: number
@@ -192,7 +192,7 @@ export class PortFS extends Async(FileSystem) {
 		return new Stats(await this.rpc('stat', path));
 	}
 
-	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+	public sync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): Promise<void> {
 		return this.rpc('sync', path, data, stats);
 	}
 
