@@ -1,6 +1,6 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
-import { credentials } from './credentials.js';
+import { useCredentials } from './credentials.js';
 import { DeviceFS } from './devices.js';
 import * as cache from './emulation/cache.js';
 import { config } from './emulation/config.js';
@@ -188,7 +188,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	const uid = 'uid' in configuration ? configuration.uid || 0 : 0;
 	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
 
-	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
+	useCredentials({ uid, gid });
 
 	cache.stats.isEnabled = configuration.cacheStats ?? false;
 	cache.paths.isEnabled = configuration.cachePaths ?? false;

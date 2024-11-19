@@ -1,5 +1,5 @@
 import type * as Node from 'node:fs';
-import { credentials, type Credentials } from './credentials.js';
+import { credentials } from './credentials.js';
 import {
 	R_OK,
 	S_IFBLK,
@@ -23,6 +23,7 @@ import {
 	W_OK,
 	X_OK,
 } from './emulation/constants.js';
+import { Errno, ErrnoError } from './error.js';
 
 /**
  * Indicates the type of a file. Applied to 'mode'.
@@ -275,17 +276,10 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	/**
 	 * Convert the current stats object into a credentials object
-	 * @internal
+	 * @internal @deprecated
 	 */
-	public cred(uid: number = Number(this.uid), gid: number = Number(this.gid)): Credentials {
-		return {
-			uid,
-			gid,
-			suid: Number(this.uid),
-			sgid: Number(this.gid),
-			euid: uid,
-			egid: gid,
-		};
+	public cred(): never {
+		throw new ErrnoError(Errno.ENOTSUP, 'Operation deprecated', undefined, 'StatsCommon.cred');
 	}
 
 	/**
