@@ -26,8 +26,8 @@ export function Readonly<T extends typeof FileSystem>(
 		mkdirSync(path: string, mode: number): void;
 		link(srcpath: string, dstpath: string): Promise<void>;
 		linkSync(srcpath: string, dstpath: string): void;
-		sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
-		syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+		sync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): Promise<void>;
+		syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void;
 	}
 > {
 	abstract class ReadonlyFS extends FS {

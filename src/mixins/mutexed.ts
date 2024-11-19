@@ -137,6 +137,16 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return file;
 	}
 
+	public async readFile(path: string): Promise<Uint8Array> {
+		using _ = await this.lock(path, 'readFile');
+		return await this._fs.readFile(path);
+	}
+
+	public readFileSync(path: string): Uint8Array {
+		using _ = this.lockSync(path, 'readFile');
+		return this._fs.readFileSync(path);
+	}
+
 	public async createFile(path: string, flag: string, mode: number): Promise<File> {
 		using _ = await this.lock(path, 'createFile');
 		const file = await this._fs.createFile(path, flag, mode);
@@ -211,12 +221,12 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.linkSync(srcpath, dstpath);
 	}
 
-	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+	public async sync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): Promise<void> {
 		using _ = await this.lock(path, 'sync');
 		await this._fs.sync(path, data, stats);
 	}
 
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+	public syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void {
 		using _ = this.lockSync(path, 'sync');
 		return this._fs.syncSync(path, data, stats);
 	}

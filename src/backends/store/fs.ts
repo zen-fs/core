@@ -196,6 +196,21 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new PreloadFile(this, path, flag, node.toStats(), data);
 	}
 
+	public async readFile(path: string): Promise<Uint8Array> {
+		await using tx = this.store.transaction();
+		const node = await this.findInode(tx, path, 'read');
+		const data = await this.get(tx, node.data, path, 'read');
+		return data;
+	}
+
+	public readFileSync(path: string): Uint8Array {
+		using tx = this.store.transaction();
+		const node = this.findInodeSync(tx, path, 'openFile');
+		const data = this.getSync(tx, node.data, path, 'openFile');
+
+		return data;
+	}
+
 	public async unlink(path: string): Promise<void> {
 		return this.remove(path, false, 'unlink');
 	}
@@ -242,7 +257,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Updated the inode and data node at `path`
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
-	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+	public async sync(path: string, data?: Uint8Array | false, stats: Readonly<Partial<Stats>> = {}): Promise<void> {
 		await using tx = this.store.transaction();
 		// We use _findInode because we actually need the INode id.
 		const fileInodeId = await this._findInode(tx, path, 'sync'),
@@ -250,7 +265,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			inodeChanged = fileInode.update(stats);
 
 		// Sync data.
-		await tx.set(fileInode.data, data);
+		if (data) await tx.set(fileInode.data, data);
 		// Sync metadata.
 		if (inodeChanged) {
 			await tx.set(fileInodeId, serialize(fileInode));
@@ -263,7 +278,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Updated the inode and data node at `path`
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+	public syncSync(path: string, data?: Uint8Array | false, stats: Readonly<Partial<Stats>> = {}): void {
 		using tx = this.store.transaction();
 		// We use _findInode because we actually need the INode id.
 		const fileInodeId = this._findInodeSync(tx, path, 'sync'),
@@ -271,7 +286,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			inodeChanged = fileInode.update(stats);
 
 		// Sync data.
-		tx.setSync(fileInode.data, data);
+		if (data) tx.setSync(fileInode.data, data);
 		// Sync metadata.
 		if (inodeChanged) {
 			tx.setSync(fileInodeId, serialize(fileInode));

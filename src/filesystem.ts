@@ -118,6 +118,9 @@ export abstract class FileSystem {
 	 */
 	public abstract openFileSync(path: string, flag: string): File;
 
+	public abstract readFile(path: string): Promise<Uint8Array>;
+	public abstract readFileSync(path: string): Uint8Array;
+
 	/**
 	 * Create the file at `path` with `mode`. Then, open it with `flag`.
 	 */
@@ -169,6 +172,6 @@ export abstract class FileSystem {
 	public abstract link(target: string, link: string): Promise<void>;
 	public abstract linkSync(target: string, link: string): void;
 
-	public abstract sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
-	public abstract syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	public abstract sync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): Promise<void>;
+	public abstract syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void;
 }

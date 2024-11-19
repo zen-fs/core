@@ -148,6 +148,14 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 		return this.index.get(path)!;
 	}
 
+	public async readFile(path: string): Promise<Uint8Array> {
+		return this.getData(path, await this.stat(path));
+	}
+
+	public readFileSync(path: string): Uint8Array {
+		return this.getDataSync(path, this.statSync(path));
+	}
+
 	public async openFile(path: string, flag: string): Promise<NoSyncFile<this>> {
 		if (isWriteable(flag)) {
 			// You can't write to files on this file system.

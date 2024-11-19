@@ -49,7 +49,7 @@ export function Sync<T extends typeof FileSystem>(FS: T): Mixin<T, AsyncFSMethod
 			return this.linkSync(srcpath, dstpath);
 		}
 
-		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		public async sync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): Promise<void> {
 			return this.syncSync(path, data, stats);
 		}
 	}

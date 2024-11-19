@@ -4,7 +4,7 @@ import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY,
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
-import { Stats, type FileType } from './stats.js';
+import { _chown, Stats, type FileType, type StatsLike } from './stats.js';
 
 /**
 	Typescript does not include a type declaration for resizable array buffers. 
@@ -151,7 +151,7 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 		 * @internal
 		 * The file system that created the file
 		 */
-		public fs: FileSystem,
+		public fs: FS,
 		public readonly path: string
 	) {}
 
@@ -251,18 +251,372 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 	 * Change the file timestamps of the file.
 	 */
 	public abstract utimesSync(atime: Date, mtime: Date): void;
+}
+
+export class LazyFile<FS extends FileSystem> extends File<FS> {
+	/**
+	 * Current position
+	 */
+	protected _position: number = 0;
 
 	/**
-	 * Set the file type
-	 * @internal
+	 * Whether the file has changes which have not been written to the FS
 	 */
-	public abstract _setType(type: FileType): Promise<void>;
+	protected dirty: boolean = false;
 
 	/**
-	 * Set the file type
-	 * @internal
+	 * Whether the file is open or closed
 	 */
-	public abstract _setTypeSync(type: FileType): void;
+	protected closed: boolean = false;
+
+	/**
+	 * Creates a file with `path` and, optionally, the given contents.
+	 * Note that, if contents is specified, it will be mutated by the file.
+	 */
+	public constructor(
+		fs: FS,
+		path: string,
+		public readonly flag: string
+	) {
+		super(fs, path);
+	}
+
+	private _size?: number;
+
+	protected get size(): number {
+		if (this._size) return this._size;
+		if (this.stats?.size) {
+			this._size = this.stats.size;
+			return this.stats?.size;
+		}
+
+		this.stats = Object.assign(this.statSync(), this.stats);
+		this._size = this.stats.size;
+		return this.stats.size!;
+	}
+
+	protected set size(value: number) {
+		this._size = value;
+		if (this.stats) this.stats.size = value;
+	}
+
+	protected stats: Partial<Stats> = {};
+	protected buffer?: Uint8Array;
+
+	/**
+	 * Get the current file position.
+	 *
+	 * We emulate the following bug mentioned in the Node documentation:
+	 *
+	 * On Linux, positional writes don't work when the file is opened in append mode.
+	 * The kernel ignores the position argument and always appends the data to the end of the file.
+	 * @returns The current file position.
+	 */
+	public get position(): number {
+		if (isAppendable(this.flag)) {
+			return this.size;
+		}
+		return this._position;
+	}
+
+	public set position(value: number) {
+		this._position = value;
+	}
+
+	public async sync(): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.sync');
+		}
+		if (!this.dirty) {
+			return;
+		}
+
+		await this.fs.sync(this.path, this.buffer, this.stats);
+		this.dirty = false;
+	}
+
+	public syncSync(): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.sync');
+		}
+		if (!this.dirty) {
+			return;
+		}
+
+		this.fs.syncSync(this.path, this.buffer, this.stats);
+		this.dirty = false;
+	}
+
+	public async close(): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.close');
+		}
+		await this.sync();
+		this.dispose();
+	}
+
+	public closeSync(): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.close');
+		}
+		this.syncSync();
+		this.dispose();
+	}
+
+	/**
+	 * Cleans up. This will *not* sync the file data to the FS
+	 */
+	protected dispose(force?: boolean): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.dispose');
+		}
+		if (this.dirty && !force) {
+			throw ErrnoError.With('EBUSY', this.path, 'File.dispose');
+		}
+
+		delete this.buffer;
+
+		this.closed = true;
+	}
+
+	public stat(): Promise<Stats> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.stat');
+		}
+		return this.fs.stat(this.path);
+	}
+
+	public statSync(): Stats {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.stat');
+		}
+		return this.fs.statSync(this.path);
+	}
+
+	protected _truncate(length: number): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.truncate');
+		}
+		if (!isWriteable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+		}
+		this.size = length;
+		this.stats.mtimeMs = Date.now();
+		if (length == 0) {
+			this._write(new Uint8Array(), 0, 0, 0);
+			return;
+		}
+		if (length > this.size) {
+			const data = new Uint8Array(length);
+			// Write will set stats.size and handle syncing.
+			this._write(data, 0, data.length, 0);
+			return;
+		}
+
+		// Truncate.
+		this.buffer = this.buffer!.slice(0, length);
+	}
+
+	public async truncate(length: number): Promise<void> {
+		this.buffer ||= await this.fs.readFile(this.path);
+		this._truncate(length);
+		if (config.syncImmediately) await this.sync();
+	}
+
+	public truncateSync(length: number): void {
+		this.buffer ||= this.fs.readFileSync(this.path);
+		this._truncate(length);
+		if (config.syncImmediately) this.syncSync();
+	}
+
+	protected _write(buffer: Uint8Array, offset: number = 0, length: number = this.size, position: number = this.position): number {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.write');
+		}
+
+		if (!isWriteable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+		}
+
+		this.dirty = true;
+		const end = position + length;
+		const slice = buffer.slice(offset, offset + length);
+
+		if (end > this.size) {
+			this.size = end;
+			if (end > this.buffer!.byteLength) {
+				if (this.buffer!.buffer.resizable && this.buffer!.buffer.maxByteLength! <= end) {
+					this.buffer!.buffer.resize(end);
+				} else if (config.unsafeBufferReplace) {
+					this.buffer = slice;
+				} else {
+					// Extend the buffer!
+					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().noResizableBuffers ? {} : { maxByteLength: size_max }));
+					newBuffer.set(this.buffer!);
+					this.buffer = newBuffer;
+				}
+			}
+		}
+
+		this.buffer!.set(slice, position);
+		this.stats.mtimeMs = Date.now();
+		this.position = position + slice.byteLength;
+		return slice.byteLength;
+	}
+
+	/**
+	 * Write buffer to the file.
+	 * @param buffer Uint8Array containing the data to write to the file.
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this data should be written.
+	 * If position is null, the data will be written at  the current position.
+	 */
+	public async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
+		this.buffer ||= await this.fs.readFile(this.path);
+		const bytesWritten = this._write(buffer, offset, length, position);
+		if (config.syncImmediately) await this.sync();
+		return bytesWritten;
+	}
+
+	/**
+	 * Write buffer to the file.
+	 * @param buffer Uint8Array containing the data to write to the file.
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this data should be written.
+	 * If position is null, the data will be written at  the current position.
+	 * @returns bytes written
+	 */
+	public writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number {
+		this.buffer ||= this.fs.readFileSync(this.path);
+		const bytesWritten = this._write(buffer, offset, length, position);
+		if (config.syncImmediately) this.syncSync();
+		return bytesWritten;
+	}
+
+	protected _read(buffer: ArrayBufferView, offset: number = 0, length: number = this.size, position?: number): number {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.read');
+		}
+
+		if (!isReadable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
+		}
+
+		if (config.updateOnRead) {
+			this.dirty = true;
+		}
+
+		this.stats.atimeMs = Date.now();
+
+		position ??= this.position;
+		let end = position + length;
+		if (end > this.size) {
+			end = position + Math.max(this.size - position, 0);
+		}
+		this._position = end;
+		const bytesRead = end - position;
+		if (bytesRead == 0) {
+			// No copy/read. Return immediately for better performance
+			return bytesRead;
+		}
+		new Uint8Array(buffer.buffer, offset, length).set(this.buffer!.slice(position, end));
+		return bytesRead;
+	}
+
+	/**
+	 * Read data from the file.
+	 * @param buffer The buffer that the data will be written to.
+	 * @param offset The offset within the buffer where writing will start.
+	 * @param length An integer specifying the number of bytes to read.
+	 * @param position An integer specifying where to begin reading from in the file.
+	 * If position is null, data will be read from the current file position.
+	 */
+	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
+		this.buffer ||= await this.fs.readFile(this.path);
+		const bytesRead = this._read(buffer, offset, length, position);
+		if (config.syncImmediately) await this.sync();
+		return { bytesRead, buffer };
+	}
+
+	/**
+	 * Read data from the file.
+	 * @param buffer The buffer that the data will be written to.
+	 * @param offset The offset within the buffer where writing will start.
+	 * @param length An integer specifying the number of bytes to read.
+	 * @param position An integer specifying where to begin reading from in the file.
+	 * If position is null, data will be read from the current file position.
+	 * @returns number of bytes written
+	 */
+	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
+		this.buffer ||= this.fs.readFileSync(this.path);
+		const bytesRead = this._read(buffer, offset, length, position);
+		if (config.syncImmediately) this.syncSync();
+		return bytesRead;
+	}
+
+	public async chmod(mode: number): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
+		}
+
+		this.dirty = true;
+		this.stats.mode = ((this.stats.mode ?? 0) & S_IFMT) | mode;
+		if (config.syncImmediately || mode > S_IFMT) await this.sync();
+	}
+
+	public chmodSync(mode: number): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
+		}
+
+		this.dirty = true;
+		this.stats.mode = ((this.stats.mode ?? 0) & S_IFMT) | mode;
+		if (config.syncImmediately || mode > S_IFMT) this.syncSync();
+	}
+
+	public async chown(uid: number, gid: number): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.chown');
+		}
+
+		this.dirty = true;
+		_chown(this.stats, uid, gid);
+		if (config.syncImmediately) await this.sync();
+	}
+
+	public chownSync(uid: number, gid: number): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.chown');
+		}
+
+		this.dirty = true;
+		_chown(this.stats, uid, gid);
+		if (config.syncImmediately) this.syncSync();
+	}
+
+	public async utimes(atime: Date, mtime: Date): Promise<void> {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.utimes');
+		}
+
+		this.dirty = true;
+		this.stats.atime = atime;
+		this.stats.mtime = mtime;
+		if (config.syncImmediately) await this.sync();
+	}
+
+	public utimesSync(atime: Date, mtime: Date): void {
+		if (this.closed) {
+			throw ErrnoError.With('EBADF', this.path, 'File.utimes');
+		}
+
+		this.dirty = true;
+		this.stats.atime = atime;
+		this.stats.mtime = mtime;
+		if (config.syncImmediately) this.syncSync();
+	}
 }
 
 /**
@@ -573,8 +927,8 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		this.stats.chmod(mode);
-		if (config.syncImmediately) await this.sync();
+		this.stats.mode = (this.stats.mode & S_IFMT) | mode;
+		if (config.syncImmediately || mode > S_IFMT) await this.sync();
 	}
 
 	public chmodSync(mode: number): void {
@@ -582,8 +936,8 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		this.stats.chmod(mode);
-		if (config.syncImmediately) this.syncSync();
+		this.stats.mode = (this.stats.mode & S_IFMT) | mode;
+		if (config.syncImmediately || mode > S_IFMT) this.syncSync();
 	}
 
 	public async chown(uid: number, gid: number): Promise<void> {
@@ -591,7 +945,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 		this.dirty = true;
-		this.stats.chown(uid, gid);
+		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) await this.sync();
 	}
 
@@ -600,7 +954,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 		this.dirty = true;
-		this.stats.chown(uid, gid);
+		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) this.syncSync();
 	}
 
@@ -622,24 +976,6 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
 		if (config.syncImmediately) this.syncSync();
-	}
-
-	public async _setType(type: FileType): Promise<void> {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File._setType');
-		}
-		this.dirty = true;
-		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
-		await this.sync();
-	}
-
-	public _setTypeSync(type: FileType): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File._setType');
-		}
-		this.dirty = true;
-		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
-		this.syncSync();
 	}
 }
 

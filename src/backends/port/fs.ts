@@ -21,9 +21,9 @@ export interface FileRequest<TMethod extends FileMethod = FileMethod> extends RP
 	args: Parameters<FileMethods[TMethod]>;
 }
 
-export class PortFile extends File {
+export class PortFile extends File<PortFS> {
 	public constructor(
-		public fs: PortFS,
+		fs: PortFS,
 		public readonly fd: number,
 		path: string,
 		public position: number
@@ -102,14 +102,6 @@ export class PortFile extends File {
 
 	public utimesSync(): void {
 		this._throwNoSync('utimes');
-	}
-
-	public _setType(type: FileType): Promise<void> {
-		return this.rpc('_setType', type);
-	}
-
-	public _setTypeSync(): void {
-		this._throwNoSync('_setType');
 	}
 
 	public close(): Promise<void> {
@@ -192,12 +184,16 @@ export class PortFS extends Async(FileSystem) {
 		return new Stats(await this.rpc('stat', path));
 	}
 
-	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+	public sync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): Promise<void> {
 		return this.rpc('sync', path, data, stats);
 	}
 
 	public openFile(path: string, flag: string): Promise<File> {
 		return this.rpc('openFile', path, flag);
+	}
+
+	public readFile(path: string): Promise<Uint8Array> {
+		return this.rpc('readFile', path);
 	}
 
 	public createFile(path: string, flag: string, mode: number): Promise<File> {

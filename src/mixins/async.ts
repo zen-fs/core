@@ -26,12 +26,13 @@ export interface Async {
 	statSync(path: string): Stats;
 	createFileSync(path: string, flag: string, mode: number): File;
 	openFileSync(path: string, flag: string): File;
+	readFileSync(path: string): Uint8Array;
 	unlinkSync(path: string): void;
 	rmdirSync(path: string): void;
 	mkdirSync(path: string, mode: number): void;
 	readdirSync(path: string): string[];
 	linkSync(srcpath: string, dstpath: string): void;
-	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void;
 }
 
 /**
@@ -136,6 +137,11 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, Async>
 			return new PreloadFile(this, path, flag, stats, buffer);
 		}
 
+		public readFileSync(path: string): Uint8Array {
+			this.checkSync(path, 'readFile');
+			return this._sync.readFileSync(path);
+		}
+
 		public unlinkSync(path: string): void {
 			this.checkSync(path, 'unlinkSync');
 			this._sync.unlinkSync(path);
@@ -165,7 +171,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, Async>
 			this.queue('link', srcpath, dstpath);
 		}
 
-		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		public syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void {
 			this.checkSync(path, 'sync');
 			this._sync.syncSync(path, data, stats);
 			this.queue('sync', path, data, stats);

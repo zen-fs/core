@@ -550,7 +550,7 @@ export function symlinkSync(target: fs.PathLike, path: fs.PathLike, type: fs.sym
 
 	writeFileSync(path, target.toString());
 	const file = _openSync(path, 'r+', 0o644, false);
-	file._setTypeSync(constants.S_IFLNK);
+	file.chmodSync(constants.S_IFLNK);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
