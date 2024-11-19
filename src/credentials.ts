@@ -11,7 +11,7 @@ export interface Credentials {
 	euid: number;
 	egid: number;
 	/**
-	 * List of group IDs. Must include the primary group id.
+	 * List of group IDs.
 	 */
 	groups: number[];
 }

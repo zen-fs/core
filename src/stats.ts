@@ -259,7 +259,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		}
 
 		// Group permissions
-		if (credentials.gid === this.gid) {
+		if (credentials.gid === this.gid || credentials.groups.includes(Number(this.gid))) {
 			if (this.mode & S_IRGRP) perm |= R_OK;
 			if (this.mode & S_IWGRP) perm |= W_OK;
 			if (this.mode & S_IXGRP) perm |= X_OK;
