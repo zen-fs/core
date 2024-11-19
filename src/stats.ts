@@ -23,7 +23,6 @@ import {
 	W_OK,
 	X_OK,
 } from './emulation/constants.js';
-import { Errno, ErrnoError } from './error.js';
 
 /**
  * Indicates the type of a file. Applied to 'mode'.
