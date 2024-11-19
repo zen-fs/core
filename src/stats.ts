@@ -275,14 +275,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	/**
-	 * Convert the current stats object into a credentials object
-	 * @internal @deprecated
-	 */
-	public cred(): never {
-		throw new ErrnoError(Errno.ENOTSUP, 'Operation deprecated', undefined, 'StatsCommon.cred');
-	}
-
-	/**
 	 * Change the mode of the file.
 	 * We use this helper function to prevent messing up the type of the file.
 	 * @internal
