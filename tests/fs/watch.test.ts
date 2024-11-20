@@ -118,6 +118,27 @@ suite('Watch Features', () => {
 		await fs.promises.unlink(tempFile);
 		await promise;
 	});
+	test('fs.promises.watch should detect file creations recursively', async () => {
+		const rootDir = '/';
+		const subDir = `${testDir}sub-dir`;
+		const tempFile = `${subDir}/tempFile.txt`;
+		await fs.promises.mkdir(subDir);
+		const watcher = fs.promises.watch(rootDir);
+
+		await fs.promises.writeFile(tempFile, 'Temporary content');
+		const { promise, resolve } = Promise.withResolvers<void>();
+		(async () => {
+			for await (const event of watcher) {
+				assert.equal(event.eventType, 'rename');
+				assert.equal(event.filename, tempFile.substring(rootDir.length));
+				break;
+			}
+			resolve();
+		})();
+
+		await fs.promises.unlink(tempFile);
+		await promise;
+	});
 }).then(async () => {
 	await fs.promises.rm(testFile);
 	await fs.promises.rm(testDir, { recursive: true, force: true });
