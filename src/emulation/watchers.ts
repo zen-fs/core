@@ -171,24 +171,24 @@ export function removeWatcher(path: string, watcher: FSWatcher) {
 }
 
 export function emitChange(eventType: fs.WatchEventType, filename: string) {
-	let normalizedFilename: string = normalizePath(filename);
+	filename = normalizePath(filename);
 	// Notify watchers on the specific file
-	if (watchers.has(normalizedFilename)) {
-		for (const watcher of watchers.get(normalizedFilename)!) {
+	if (watchers.has(filename)) {
+		for (const watcher of watchers.get(filename)!) {
 			watcher.emit('change', eventType, basename(filename));
 		}
 	}
 
 	// Notify watchers on parent directories if they are watching recursively
-	let parent = dirname(normalizedFilename);
-	do {
-		const offset = parent == '/' ? 0 : 1; // used to remove the leading slash
-		if (watchers.has(parent)) {
-			for (const watcher of watchers.get(parent)!) {
-				watcher.emit('change', eventType, filename.substring(parent.length + offset));
-			}
-		}
+	let parent = filename,
+		normalizedFilename;
+	while (parent !== normalizedFilename) {
 		normalizedFilename = parent;
 		parent = dirname(parent);
-	} while (parent !== normalizedFilename);
+		if (watchers.has(parent)) {
+			for (const watcher of watchers.get(parent)!) {
+				watcher.emit('change', eventType, filename.slice(parent.length + (parent == '/' ? 0 : 1)));
+			}
+		}
+	}
 }
