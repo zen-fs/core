@@ -4,7 +4,7 @@ import type * as fs from 'node:fs';
 import { ErrnoError } from '../error.js';
 import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';
-import { dirname, basename } from './path.js';
+import { dirname } from './path.js';
 import { statSync } from './sync.js';
 
 /**
@@ -175,19 +175,19 @@ export function emitChange(eventType: fs.WatchEventType, filename: string) {
 	// Notify watchers on the specific file
 	if (watchers.has(normalizedFilename)) {
 		for (const watcher of watchers.get(normalizedFilename)!) {
-			watcher.emit('change', eventType, basename(filename));
+			watcher.emit('change', eventType, filename.substring(normalizedFilename.length));
 		}
 	}
 
 	// Notify watchers on parent directories if they are watching recursively
 	let parent = dirname(normalizedFilename);
-	while (parent !== normalizedFilename && parent !== '/') {
+	do {
 		if (watchers.has(parent)) {
 			for (const watcher of watchers.get(parent)!) {
-				watcher.emit('change', eventType, basename(filename));
+				watcher.emit('change', eventType, filename.substring(parent.length));
 			}
 		}
 		normalizedFilename = parent;
 		parent = dirname(parent);
-	}
+	} while (parent !== normalizedFilename);
 }
