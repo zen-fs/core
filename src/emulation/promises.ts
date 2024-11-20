@@ -822,7 +822,7 @@ export async function symlink(target: fs.PathLike, path: fs.PathLike, type: fs.s
 
 	await using handle = await _open(path, 'w+', 0o644, false);
 	await handle.writeFile(target.toString());
-	await handle.file._setType(constants.S_IFLNK);
+	await handle.file.chmod(constants.S_IFLNK);
 }
 symlink satisfies typeof promises.symlink;
 

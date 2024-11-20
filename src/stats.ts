@@ -67,6 +67,10 @@ export interface StatsLike<T extends number | bigint = number | bigint> {
 	 * Inode number
 	 */
 	ino: T;
+	/**
+	 * Number of hard links
+	 */
+	nlink: T;
 }
 
 /**
@@ -277,6 +281,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * Change the mode of the file.
 	 * We use this helper function to prevent messing up the type of the file.
 	 * @internal
+	 * @deprecated This will be removed in the next minor release since it is internal
 	 */
 	public chmod(mode: number): void {
 		this.mode = this._convert((this.mode & S_IFMT) | mode);
@@ -286,8 +291,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * Change the owner user/group of the file.
 	 * This function makes sure it is a valid UID/GID (that is, a 32 unsigned int)
 	 * @internal
+	 * @deprecated This will be removed in the next minor release since it is internal
 	 */
-	public chown(uid: number | bigint, gid: number | bigint): void {
+	public chown(uid: number, gid: number): void {
 		uid = Number(uid);
 		gid = Number(gid);
 		if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {
@@ -312,6 +318,18 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	public get birthtimeNs(): bigint {
 		return BigInt(this.birthtimeMs) * 1000n;
+	}
+}
+
+/**
+ * @hidden @internal
+ */
+export function _chown(stats: Partial<StatsLike<number>>, uid: number, gid: number) {
+	if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {
+		stats.uid = uid;
+	}
+	if (!isNaN(gid) && 0 <= gid && gid < 2 ** 32) {
+		stats.gid = gid;
 	}
 }
 

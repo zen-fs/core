@@ -6,7 +6,7 @@ import { Errno, ErrnoError } from '../../error.js';
 import { File } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
 import { Async } from '../../mixins/async.js';
-import { Stats, type FileType } from '../../stats.js';
+import { Stats } from '../../stats.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
@@ -102,10 +102,6 @@ export class PortFile extends File {
 
 	public utimesSync(): void {
 		this._throwNoSync('utimes');
-	}
-
-	public _setType(type: FileType): Promise<void> {
-		return this.rpc('_setType', type);
 	}
 
 	public _setTypeSync(): void {
