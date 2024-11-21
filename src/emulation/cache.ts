@@ -33,15 +33,6 @@ export class Cache<T> {
 	}
 
 	/**
-	 * Clears the cache if it is enabled
-	 */
-	clearSync(): void {
-		if (!this.isEnabled) return;
-
-		this.sync.clear();
-	}
-
-	/**
 	 * Gets data from the cache, if it exists and the cache is enabled.
 	 */
 	get(path: string): Promise<T> | undefined {
@@ -65,7 +56,7 @@ export class Cache<T> {
 	 */
 	clear(): void {
 		if (!this.isEnabled) return;
-
+		this.sync.clear();
 		this.async.clear();
 	}
 }

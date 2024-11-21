@@ -500,7 +500,7 @@ export function readdirSync(
 	}
 
 	if (!options?._isIndirect) {
-		cache.stats.clearSync();
+		cache.stats.clear();
 	}
 	return values as string[] | Dirent[] | Buffer[];
 }
@@ -689,12 +689,12 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptio
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			cache.stats.clearSync();
+			cache.stats.clear();
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
 	}
 
 	if (!options?._isIndirect) {
-		cache.stats.clearSync();
+		cache.stats.clear();
 	}
 }
 rmSync satisfies typeof fs.rmSync;

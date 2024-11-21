@@ -8,6 +8,7 @@ import type { FileSystem } from '../filesystem.js';
 import { normalizePath } from '../utils.js';
 import { resolve, type AbsolutePath } from './path.js';
 import { size_max } from './constants.js';
+import { paths as pathCache } from './cache.js';
 
 // descriptors
 export const fdMap: Map<number, File> = new Map();
@@ -47,6 +48,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 		throw new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already in use.');
 	}
 	mounts.set(mountPoint, fs);
+	pathCache.clear();
 }
 
 /**
@@ -61,6 +63,7 @@ export function umount(mountPoint: string): void {
 		throw new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already unmounted.');
 	}
 	mounts.delete(mountPoint);
+	pathCache.clear();
 }
 
 /**
