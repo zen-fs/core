@@ -10,7 +10,7 @@ import * as cache from './cache.js';
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
-import { dirname, join, parse } from './path.js';
+import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { emitChange } from './watchers.js';
 
@@ -623,8 +623,9 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 	path = normalizePath(path);
 	if (cache.paths.has(path)) return cache.paths.get(path)!;
 	const { base, dir } = parse(path);
-	const lpath = join(dir == '/' ? '/' : cache.paths.get(dir) || realpathSync(dir), base);
-	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
+	const realDir = dir == '/' ? '/' : cache.paths.get(dir) || realpathSync(dir);
+	const lpath = join(realDir, base);
+	const { fs, path: resolvedPath } = resolveMount(lpath);
 
 	try {
 		const stats = cache.stats.get(lpath) || fs.statSync(resolvedPath);
@@ -634,7 +635,7 @@ export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs
 			return lpath;
 		}
 
-		const target = mountPoint + readlinkSync(lpath, options).toString();
+		const target = resolve(realDir, readlinkSync(lpath, options).toString());
 		const real = cache.paths.get(target) || realpathSync(target);
 		cache.paths.set(path, real);
 		return real;

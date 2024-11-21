@@ -23,6 +23,10 @@ suite('Links', () => {
 		assert.strictEqual(destination, target);
 	});
 
+	test('read target contents', async () => {
+		assert.equal(await fs.promises.readFile(target, 'utf-8'), await fs.promises.readFile(symlink, 'utf-8'));
+	});
+
 	test('unlink', async () => {
 		await fs.promises.unlink(symlink);
 		assert(!(await fs.promises.exists(symlink)));
