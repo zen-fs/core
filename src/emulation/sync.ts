@@ -682,10 +682,10 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptio
 			break;
 		case constants.S_IFREG:
 		case constants.S_IFLNK:
-			unlinkSync(path);
-			break;
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
+			unlinkSync(path);
+			break;
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:

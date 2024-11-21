@@ -993,10 +993,10 @@ export async function rm(path: fs.PathLike, options?: fs.RmOptions & InternalOpt
 			break;
 		case constants.S_IFREG:
 		case constants.S_IFLNK:
-			await unlink(path);
-			break;
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
+			await unlink(path);
+			break;
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
