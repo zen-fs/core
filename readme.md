@@ -64,6 +64,8 @@ await configure({
 };
 ```
 
+Note that while you aren't required to use absolute paths for the keys of `mounts`, it is a good practice to do so.
+
 > [!TIP]
 > When configuring a mount point, you can pass in
 >
