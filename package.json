@@ -74,9 +74,11 @@
 		"@types/readable-stream": "^4.0.10",
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
-		"minimatch": "^9.0.3",
 		"readable-stream": "^4.5.2",
 		"utilium": "^1.0.0"
+	},
+	"optionalDependencies": {
+		"minimatch": "^9.0.3"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.8.0",
