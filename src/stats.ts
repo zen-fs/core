@@ -247,10 +247,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @internal
 	 */
 	public hasAccess(mode: number): boolean {
-		if (credentials.euid === 0 || credentials.egid === 0) {
-			// Running as root
-			return true;
-		}
+		if (this.isSymbolicLink() || credentials.euid === 0 || credentials.egid === 0) return true;
 
 		let perm = 0;
 
