@@ -26,6 +26,7 @@ export function renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
 		if (oldMount === newMount) {
 			oldMount.fs.renameSync(oldMount.path, newMount.path);
 			emitChange('rename', oldPath.toString());
+			emitChange('change', newPath.toString());
 			return;
 		}
 
