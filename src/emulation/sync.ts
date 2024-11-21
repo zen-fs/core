@@ -621,18 +621,23 @@ export function realpathSync(path: fs.PathLike, options: fs.BufferEncodingOption
 export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption): string;
 export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
+	if (cache.paths.hasSync(path)) return cache.paths.getSync(path)!;
 	const { base, dir } = parse(path);
 	const lpath = join(dir == '/' ? '/' : cache.paths.getSync(dir) || realpathSync(dir), base);
 	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
-		const stats = fs.statSync(resolvedPath);
+		const stats = cache.stats.getSync(lpath) || fs.statSync(resolvedPath);
+		cache.stats.setSync(lpath, stats);
 		if (!stats.isSymbolicLink()) {
+			cache.paths.setSync(path, lpath);
 			return lpath;
 		}
 
 		const target = mountPoint + readlinkSync(lpath, options).toString();
-		return cache.paths.getSync(target) || realpathSync(target);
+		const real = cache.paths.getSync(target) || realpathSync(target);
+		cache.paths.setSync(path, real);
+		return real;
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;

@@ -14,6 +14,13 @@ export class Cache<T> {
 	protected async = new Map<string, Promise<T>>();
 
 	/**
+	 * Whether the data exists in the cache
+	 */
+	hasSync(path: string): boolean {
+		return this.isEnabled && this.sync.has(path);
+	}
+
+	/**
 	 * Gets data from the cache, if is exists and the cache is enabled.
 	 */
 	getSync(path: string): T | undefined {
@@ -30,6 +37,13 @@ export class Cache<T> {
 
 		this.sync.set(path, value);
 		this.async.set(path, Promise.resolve(value));
+	}
+
+	/**
+	 * Whether the data exists in the cache
+	 */
+	has(path: string): boolean {
+		return this.isEnabled && this.async.has(path);
 	}
 
 	/**

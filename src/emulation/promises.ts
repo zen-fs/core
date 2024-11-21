@@ -892,6 +892,7 @@ export async function realpath(path: fs.PathLike, options: fs.BufferEncodingOpti
 export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
 export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Promise<string | Buffer> {
 	path = normalizePath(path);
+	if (cache.paths.has(path)) return cache.paths.get(path)!;
 	const { base, dir } = parse(path);
 	const lpath = join(dir == '/' ? '/' : await (cache.paths.get(dir) || realpath(dir)), base);
 	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
@@ -900,12 +901,15 @@ export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | 
 		const _stats = cache.stats.get(lpath) || fs.stat(resolvedPath);
 		cache.stats.set(lpath, _stats);
 		if (!(await _stats).isSymbolicLink()) {
+			cache.paths.setSync(path, lpath);
 			return lpath;
 		}
 
 		const target = mountPoint + (await readlink(lpath));
 
-		return await (cache.paths.get(target) || realpath(target));
+		const real = cache.paths.get(target) || realpath(target);
+		cache.paths.set(path, real);
+		return await real;
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;
