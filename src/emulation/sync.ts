@@ -106,7 +106,7 @@ export function unlinkSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(cache.stats.getSync(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(cache.stats.get(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		fs.unlinkSync(resolved);
@@ -386,7 +386,7 @@ export function rmdirSync(path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	try {
-		const stats = cache.stats.getSync(path) || fs.statSync(resolved);
+		const stats = cache.stats.get(path) || fs.statSync(resolved);
 		if (!stats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
 		}
@@ -459,8 +459,8 @@ export function readdirSync(
 	const { fs, path: resolved } = resolveMount(realpathSync(path));
 	let entries: string[];
 	try {
-		const stats = cache.stats.getSync(path) || fs.statSync(resolved);
-		cache.stats.setSync(path, stats);
+		const stats = cache.stats.get(path) || fs.statSync(resolved);
+		cache.stats.set(path, stats);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'readdir');
 		}
@@ -475,8 +475,8 @@ export function readdirSync(
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		const entryStat = cache.stats.getSync(join(path, entry)) || fs.statSync(join(resolved, entry));
-		cache.stats.setSync(join(path, entry), entryStat);
+		const entryStat = cache.stats.get(join(path, entry)) || fs.statSync(join(resolved, entry));
+		cache.stats.set(join(path, entry), entryStat);
 
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
@@ -621,22 +621,22 @@ export function realpathSync(path: fs.PathLike, options: fs.BufferEncodingOption
 export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption): string;
 export function realpathSync(path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
-	if (cache.paths.hasSync(path)) return cache.paths.getSync(path)!;
+	if (cache.paths.has(path)) return cache.paths.get(path)!;
 	const { base, dir } = parse(path);
-	const lpath = join(dir == '/' ? '/' : cache.paths.getSync(dir) || realpathSync(dir), base);
+	const lpath = join(dir == '/' ? '/' : cache.paths.get(dir) || realpathSync(dir), base);
 	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
-		const stats = cache.stats.getSync(lpath) || fs.statSync(resolvedPath);
-		cache.stats.setSync(lpath, stats);
+		const stats = cache.stats.get(lpath) || fs.statSync(resolvedPath);
+		cache.stats.set(lpath, stats);
 		if (!stats.isSymbolicLink()) {
-			cache.paths.setSync(path, lpath);
+			cache.paths.set(path, lpath);
 			return lpath;
 		}
 
 		const target = mountPoint + readlinkSync(lpath, options).toString();
-		const real = cache.paths.getSync(target) || realpathSync(target);
-		cache.paths.setSync(path, real);
+		const real = cache.paths.get(target) || realpathSync(target);
+		cache.paths.set(path, real);
 		return real;
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
@@ -664,7 +664,7 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptio
 
 	let stats: Stats | undefined;
 	try {
-		stats = cache.stats.getSync(path) || statSync(path);
+		stats = cache.stats.get(path) || statSync(path);
 	} catch (error) {
 		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
 	}
@@ -673,7 +673,7 @@ export function rmSync(path: fs.PathLike, options?: fs.RmOptions & InternalOptio
 		return;
 	}
 
-	cache.stats.setSync(path, stats);
+	cache.stats.set(path, stats);
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:

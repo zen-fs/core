@@ -16,14 +16,14 @@ export class Cache<T> {
 	/**
 	 * Whether the data exists in the cache
 	 */
-	hasSync(path: string): boolean {
+	has(path: string): boolean {
 		return this.isEnabled && this.sync.has(path);
 	}
 
 	/**
 	 * Gets data from the cache, if is exists and the cache is enabled.
 	 */
-	getSync(path: string): T | undefined {
+	get(path: string): T | undefined {
 		if (!this.isEnabled) return;
 
 		return this.sync.get(path);
@@ -32,7 +32,7 @@ export class Cache<T> {
 	/**
 	 * Adds data if the cache is enabled
 	 */
-	setSync(path: string, value: T): void {
+	set(path: string, value: T): void {
 		if (!this.isEnabled) return;
 
 		this.sync.set(path, value);
@@ -42,14 +42,14 @@ export class Cache<T> {
 	/**
 	 * Whether the data exists in the cache
 	 */
-	has(path: string): boolean {
+	hasAsync(path: string): boolean {
 		return this.isEnabled && this.async.has(path);
 	}
 
 	/**
 	 * Gets data from the cache, if it exists and the cache is enabled.
 	 */
-	get(path: string): Promise<T> | undefined {
+	getAsync(path: string): Promise<T> | undefined {
 		if (!this.isEnabled) return;
 
 		return this.async.get(path);
@@ -58,7 +58,7 @@ export class Cache<T> {
 	/**
 	 * Adds data if the cache is enabled
 	 */
-	set(path: string, value: Promise<T>): void {
+	setAsync(path: string, value: Promise<T>): void {
 		if (!this.isEnabled) return;
 
 		this.async.set(path, value);

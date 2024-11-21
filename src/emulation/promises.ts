@@ -472,7 +472,7 @@ export async function unlink(path: fs.PathLike): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		if (config.checkAccess && !(await (cache.stats.get(path) || fs.stat(resolved))).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await (cache.stats.getAsync(path) || fs.stat(resolved))).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -624,7 +624,7 @@ export async function rmdir(path: fs.PathLike): Promise<void> {
 	path = await realpath(path);
 	const { fs, path: resolved } = resolveMount(path);
 	try {
-		const stats = await (cache.stats.get(path) || fs.stat(resolved));
+		const stats = await (cache.stats.getAsync(path) || fs.stat(resolved));
 		if (!stats) {
 			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
@@ -719,8 +719,8 @@ export async function readdir(
 
 	const { fs, path: resolved } = resolveMount(path);
 
-	const _stats = cache.stats.get(path) || fs.stat(resolved).catch(handleError);
-	cache.stats.set(path, _stats);
+	const _stats = cache.stats.getAsync(path) || fs.stat(resolved).catch(handleError);
+	cache.stats.setAsync(path, _stats);
 	const stats = await _stats;
 
 	if (!stats) {
@@ -741,8 +741,8 @@ export async function readdir(
 	const addEntry = async (entry: string) => {
 		let entryStats: Stats | undefined;
 		if (options?.recursive || options?.withFileTypes) {
-			const _entryStats = cache.stats.get(join(path, entry)) || fs.stat(join(resolved, entry)).catch(handleError);
-			cache.stats.set(join(path, entry), _entryStats);
+			const _entryStats = cache.stats.getAsync(join(path, entry)) || fs.stat(join(resolved, entry)).catch(handleError);
+			cache.stats.setAsync(join(path, entry), _entryStats);
 			entryStats = await _entryStats;
 		}
 		if (options?.withFileTypes) {
@@ -892,23 +892,23 @@ export async function realpath(path: fs.PathLike, options: fs.BufferEncodingOpti
 export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
 export async function realpath(path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Promise<string | Buffer> {
 	path = normalizePath(path);
-	if (cache.paths.has(path)) return cache.paths.get(path)!;
+	if (cache.paths.hasAsync(path)) return cache.paths.getAsync(path)!;
 	const { base, dir } = parse(path);
-	const lpath = join(dir == '/' ? '/' : await (cache.paths.get(dir) || realpath(dir)), base);
+	const lpath = join(dir == '/' ? '/' : await (cache.paths.getAsync(dir) || realpath(dir)), base);
 	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath);
 
 	try {
-		const _stats = cache.stats.get(lpath) || fs.stat(resolvedPath);
-		cache.stats.set(lpath, _stats);
+		const _stats = cache.stats.getAsync(lpath) || fs.stat(resolvedPath);
+		cache.stats.setAsync(lpath, _stats);
 		if (!(await _stats).isSymbolicLink()) {
-			cache.paths.setSync(path, lpath);
+			cache.paths.set(path, lpath);
 			return lpath;
 		}
 
 		const target = mountPoint + (await readlink(lpath));
 
-		const real = cache.paths.get(target) || realpath(target);
-		cache.paths.set(path, real);
+		const real = cache.paths.getAsync(target) || realpath(target);
+		cache.paths.setAsync(path, real);
 		return await real;
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
@@ -973,7 +973,7 @@ access satisfies typeof promises.access;
 export async function rm(path: fs.PathLike, options?: fs.RmOptions & InternalOptions) {
 	path = normalizePath(path);
 
-	const stats = await (cache.stats.get(path) ||
+	const stats = await (cache.stats.getAsync(path) ||
 		stat(path).catch((error: ErrnoError) => {
 			if (error.code == 'ENOENT' && options?.force) return undefined;
 			throw error;
@@ -983,7 +983,7 @@ export async function rm(path: fs.PathLike, options?: fs.RmOptions & InternalOpt
 		return;
 	}
 
-	cache.stats.setSync(path, stats);
+	cache.stats.set(path, stats);
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
