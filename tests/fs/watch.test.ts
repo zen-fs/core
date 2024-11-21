@@ -71,18 +71,29 @@ suite('Watch Features', () => {
 	});
 
 	test('fs.watch should detect file renames', async () => {
-		const oldFile = `${testDir}/oldFile.txt`;
-		const newFile = `${testDir}/newFile.txt`;
+		const oldFileName = `oldFile.txt`;
+		const newFileName = `newFile.txt`;
+		const oldFile = `${testDir}/${oldFileName}`;
+		const newFile = `${testDir}/${newFileName}`;
 
 		await fs.promises.writeFile(oldFile, 'Some content');
+		const oldFileResolver = Promise.withResolvers<void>();
+		const newFileResolver = Promise.withResolvers<void>();
 
+		const fileResolvers: Record<string, { resolver: PromiseWithResolvers<void>; eventType: string }> = {
+			[oldFileName]: { resolver: oldFileResolver, eventType: 'rename' },
+			[newFileName]: { resolver: newFileResolver, eventType: 'change' },
+		};
 		using watcher = fs.watch(testDir, (eventType, filename) => {
-			assert.strictEqual(eventType, 'rename');
-			assert.strictEqual(filename, 'oldFile.txt');
+			const resolver = fileResolvers[filename];
+			assert.notEqual(resolver, undefined); // should have a resolver so file is expected
+			assert.strictEqual(eventType, resolver.eventType);
+			resolver.resolver.resolve();
 		});
 
 		// Rename the file to trigger the event
 		await fs.promises.rename(oldFile, newFile);
+		await Promise.all([newFileResolver.promise, oldFileResolver.promise]);
 	});
 
 	test('fs.watch should detect file deletions', async () => {
