@@ -4,7 +4,7 @@ import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY,
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
-import { Stats, type FileType } from './stats.js';
+import { _chown, Stats } from './stats.js';
 
 /**
 	Typescript does not include a type declaration for resizable array buffers. 
@@ -251,18 +251,6 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 	 * Change the file timestamps of the file.
 	 */
 	public abstract utimesSync(atime: Date, mtime: Date): void;
-
-	/**
-	 * Set the file type
-	 * @internal
-	 */
-	public abstract _setType(type: FileType): Promise<void>;
-
-	/**
-	 * Set the file type
-	 * @internal
-	 */
-	public abstract _setTypeSync(type: FileType): void;
 }
 
 /**
@@ -573,8 +561,8 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		this.stats.chmod(mode);
-		if (config.syncImmediately) await this.sync();
+		this.stats.mode = (this.stats.mode & (mode > S_IFMT ? ~S_IFMT : S_IFMT)) | mode;
+		if (config.syncImmediately || mode > S_IFMT) await this.sync();
 	}
 
 	public chmodSync(mode: number): void {
@@ -582,8 +570,8 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		this.stats.chmod(mode);
-		if (config.syncImmediately) this.syncSync();
+		this.stats.mode = (this.stats.mode & (mode > S_IFMT ? ~S_IFMT : S_IFMT)) | mode;
+		if (config.syncImmediately || mode > S_IFMT) this.syncSync();
 	}
 
 	public async chown(uid: number, gid: number): Promise<void> {
@@ -591,7 +579,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 		this.dirty = true;
-		this.stats.chown(uid, gid);
+		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) await this.sync();
 	}
 
@@ -600,7 +588,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chown');
 		}
 		this.dirty = true;
-		this.stats.chown(uid, gid);
+		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) this.syncSync();
 	}
 
@@ -622,24 +610,6 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		this.stats.atime = atime;
 		this.stats.mtime = mtime;
 		if (config.syncImmediately) this.syncSync();
-	}
-
-	public async _setType(type: FileType): Promise<void> {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File._setType');
-		}
-		this.dirty = true;
-		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
-		await this.sync();
-	}
-
-	public _setTypeSync(type: FileType): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File._setType');
-		}
-		this.dirty = true;
-		this.stats.mode = (this.stats.mode & ~S_IFMT) | type;
-		this.syncSync();
 	}
 }
 

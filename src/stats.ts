@@ -1,5 +1,5 @@
 import type * as Node from 'node:fs';
-import { credentials, type Credentials } from './credentials.js';
+import { credentials } from './credentials.js';
 import {
 	R_OK,
 	S_IFBLK,
@@ -67,6 +67,10 @@ export interface StatsLike<T extends number | bigint = number | bigint> {
 	 * Inode number
 	 */
 	ino: T;
+	/**
+	 * Number of hard links
+	 */
+	nlink: T;
 }
 
 /**
@@ -243,10 +247,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @internal
 	 */
 	public hasAccess(mode: number): boolean {
-		if (credentials.euid === 0 || credentials.egid === 0) {
-			// Running as root
-			return true;
-		}
+		if (this.isSymbolicLink() || credentials.euid === 0 || credentials.egid === 0) return true;
 
 		let perm = 0;
 
@@ -258,7 +259,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		}
 
 		// Group permissions
-		if (credentials.gid === this.gid) {
+		if (credentials.gid === this.gid || credentials.groups.includes(Number(this.gid))) {
 			if (this.mode & S_IRGRP) perm |= R_OK;
 			if (this.mode & S_IWGRP) perm |= W_OK;
 			if (this.mode & S_IXGRP) perm |= X_OK;
@@ -274,24 +275,10 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	/**
-	 * Convert the current stats object into a credentials object
-	 * @internal
-	 */
-	public cred(uid: number = Number(this.uid), gid: number = Number(this.gid)): Credentials {
-		return {
-			uid,
-			gid,
-			suid: Number(this.uid),
-			sgid: Number(this.gid),
-			euid: uid,
-			egid: gid,
-		};
-	}
-
-	/**
 	 * Change the mode of the file.
 	 * We use this helper function to prevent messing up the type of the file.
 	 * @internal
+	 * @deprecated This will be removed in the next minor release since it is internal
 	 */
 	public chmod(mode: number): void {
 		this.mode = this._convert((this.mode & S_IFMT) | mode);
@@ -301,8 +288,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * Change the owner user/group of the file.
 	 * This function makes sure it is a valid UID/GID (that is, a 32 unsigned int)
 	 * @internal
+	 * @deprecated This will be removed in the next minor release since it is internal
 	 */
-	public chown(uid: number | bigint, gid: number | bigint): void {
+	public chown(uid: number, gid: number): void {
 		uid = Number(uid);
 		gid = Number(gid);
 		if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {
@@ -327,6 +315,18 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	public get birthtimeNs(): bigint {
 		return BigInt(this.birthtimeMs) * 1000n;
+	}
+}
+
+/**
+ * @hidden @internal
+ */
+export function _chown(stats: Partial<StatsLike<number>>, uid: number, gid: number) {
+	if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {
+		stats.uid = uid;
+	}
+	if (!isNaN(gid) && 0 <= gid && gid < 2 ** 32) {
+		stats.gid = gid;
 	}
 }
 

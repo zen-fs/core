@@ -1,11 +1,10 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
-import { credentials } from './credentials.js';
+import { useCredentials } from './credentials.js';
 import { DeviceFS } from './devices.js';
 import * as cache from './emulation/cache.js';
 import { config } from './emulation/config.js';
 import * as fs from './emulation/index.js';
-import type { AbsolutePath } from './emulation/path.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
@@ -68,8 +67,11 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	return mount;
 }
 
+/**
+ * An object mapping mount points to backends
+ */
 export interface ConfigMounts {
-	[K: AbsolutePath]: Backend;
+	[K: string]: Backend;
 }
 
 /**
@@ -79,7 +81,7 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	/**
 	 * An object mapping mount points to mount configuration
 	 */
-	mounts: { [K in keyof T & AbsolutePath]: MountConfiguration<T[K]> };
+	mounts: { [K in keyof T]: MountConfiguration<T[K]> };
 
 	/**
 	 * The uid to use
@@ -188,7 +190,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	const uid = 'uid' in configuration ? configuration.uid || 0 : 0;
 	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
 
-	Object.assign(credentials, { uid, gid, suid: uid, sgid: gid, euid: uid, egid: gid });
+	useCredentials({ uid, gid });
 
 	cache.stats.isEnabled = configuration.cacheStats ?? false;
 	cache.paths.isEnabled = configuration.cachePaths ?? false;
@@ -200,10 +202,8 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		const toMount: [string, FileSystem][] = [];
 		let unmountRoot = false;
 
-		for (const [point, mountConfig] of Object.entries(configuration.mounts)) {
-			if (!point.startsWith('/')) {
-				throw new ErrnoError(Errno.EINVAL, 'Mount points must have absolute paths');
-			}
+		for (const [_point, mountConfig] of Object.entries(configuration.mounts)) {
+			const point = _point.startsWith('/') ? _point : '/' + _point;
 
 			if (isBackendConfig(mountConfig)) {
 				mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;

@@ -4,7 +4,7 @@ import type * as fs from 'node:fs';
 import { ErrnoError } from '../error.js';
 import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';
-import { dirname, basename } from './path.js';
+import { basename, dirname } from './path.js';
 import { statSync } from './sync.js';
 
 /**
@@ -171,23 +171,24 @@ export function removeWatcher(path: string, watcher: FSWatcher) {
 }
 
 export function emitChange(eventType: fs.WatchEventType, filename: string) {
-	let normalizedFilename: string = normalizePath(filename);
+	filename = normalizePath(filename);
 	// Notify watchers on the specific file
-	if (watchers.has(normalizedFilename)) {
-		for (const watcher of watchers.get(normalizedFilename)!) {
+	if (watchers.has(filename)) {
+		for (const watcher of watchers.get(filename)!) {
 			watcher.emit('change', eventType, basename(filename));
 		}
 	}
 
 	// Notify watchers on parent directories if they are watching recursively
-	let parent = dirname(normalizedFilename);
-	while (parent !== normalizedFilename && parent !== '/') {
-		if (watchers.has(parent)) {
-			for (const watcher of watchers.get(parent)!) {
-				watcher.emit('change', eventType, basename(filename));
-			}
-		}
+	let parent = filename,
+		normalizedFilename;
+	while (parent !== normalizedFilename) {
 		normalizedFilename = parent;
 		parent = dirname(parent);
+		if (watchers.has(parent)) {
+			for (const watcher of watchers.get(parent)!) {
+				watcher.emit('change', eventType, filename.slice(parent.length + (parent == '/' ? 0 : 1)));
+			}
+		}
 	}
 }

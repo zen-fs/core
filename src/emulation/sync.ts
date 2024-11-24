@@ -10,7 +10,7 @@ import * as cache from './cache.js';
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
-import { dirname, join, parse } from './path.js';
+import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { emitChange } from './watchers.js';
 import type { V_Context } from '../context.js';
@@ -27,6 +27,7 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 		if (oldMount === newMount) {
 			oldMount.fs.renameSync(oldMount.path, newMount.path);
 			emitChange('rename', oldPath.toString());
+			emitChange('change', newPath.toString());
 			return;
 		}
 
@@ -107,7 +108,7 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		if (config.checkAccess && !(cache.stats.getSync(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(cache.stats.get(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		fs.unlinkSync(resolved);
@@ -387,7 +388,7 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync(path), this);
 	try {
-		const stats = cache.stats.getSync(path) || fs.statSync(resolved);
+		const stats = cache.stats.get(path) || fs.statSync(resolved);
 		if (!stats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
 		}
@@ -470,8 +471,8 @@ export function readdirSync(
 	const { fs, path: resolved } = resolveMount(realpathSync(path), this);
 	let entries: string[];
 	try {
-		const stats = cache.stats.getSync(path) || fs.statSync(resolved);
-		cache.stats.setSync(path, stats);
+		const stats = cache.stats.get(path) || fs.statSync(resolved);
+		cache.stats.set(path, stats);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'readdir');
 		}
@@ -486,8 +487,8 @@ export function readdirSync(
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		const entryStat = cache.stats.getSync(join(path, entry)) || fs.statSync(join(resolved, entry));
-		cache.stats.setSync(join(path, entry), entryStat);
+		const entryStat = cache.stats.get(join(path, entry)) || fs.statSync(join(resolved, entry));
+		cache.stats.set(join(path, entry), entryStat);
 
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
@@ -511,7 +512,7 @@ export function readdirSync(
 	}
 
 	if (!options?._isIndirect) {
-		cache.stats.clearSync();
+		cache.stats.clear();
 	}
 	return values as string[] | Dirent[] | Buffer[];
 }
@@ -559,7 +560,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 
 	writeFileSync.call(this, path, target.toString());
 	const file = _openSync.call(this, path, 'r+', 0o644, false);
-	file._setTypeSync(constants.S_IFLNK);
+	file.chmodSync(constants.S_IFLNK);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
@@ -628,18 +629,24 @@ export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.Buf
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
+	if (cache.paths.has(path)) return cache.paths.get(path)!;
 	const { base, dir } = parse(path);
-	const lpath = join(dir == '/' ? '/' : cache.paths.getSync(dir) || realpathSync.call(this, dir), base);
-	const { fs, path: resolvedPath, mountPoint } = resolveMount(lpath, this);
+	const realDir = dir == '/' ? '/' : cache.paths.get(dir) || realpathSync.call(this, dir);
+	const lpath = join(realDir, base);
+	const { fs, path: resolvedPath } = resolveMount(lpath, this);
 
 	try {
-		const stats = fs.statSync(resolvedPath);
+		const stats = cache.stats.get(lpath) || fs.statSync(resolvedPath);
+		cache.stats.set(lpath, stats);
 		if (!stats.isSymbolicLink()) {
+			cache.paths.set(path, lpath);
 			return lpath;
 		}
 
-		const target = mountPoint + readlinkSync.call(this, lpath, options).toString();
-		return cache.paths.getSync(target) || realpathSync.call(this, target);
+		const target = resolve(realDir, readlinkSync.call(this, lpath, options).toString());
+		const real = cache.paths.get(target) || realpathSync.call(this, target);
+		cache.paths.set(path, real);
+		return real;
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;
@@ -666,7 +673,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 
 	let stats: Stats | undefined;
 	try {
-		stats = cache.stats.getSync(path) || statSync(path);
+		stats = cache.stats.get(path) || statSync(path);
 	} catch (error) {
 		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
 	}
@@ -675,7 +682,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 		return;
 	}
 
-	cache.stats.setSync(path, stats);
+	cache.stats.set(path, stats);
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
@@ -689,19 +696,19 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 			break;
 		case constants.S_IFREG:
 		case constants.S_IFLNK:
-			unlinkSync.call(this, path);
-			break;
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
+			unlinkSync.call(this, path);
+			break;
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			cache.stats.clearSync();
+			cache.stats.clear();
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
 	}
 
 	if (!options?._isIndirect) {
-		cache.stats.clearSync();
+		cache.stats.clear();
 	}
 }
 rmSync satisfies typeof fs.rmSync;
