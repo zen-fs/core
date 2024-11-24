@@ -88,9 +88,7 @@ export class Dir implements _Dir {
 	protected async _read(): Promise<Dirent | null> {
 		this.checkClosed();
 		this._entries ??= await readdir.call<V_Context, [string, any], Promise<Dirent[]>>(this.context, this.path, { withFileTypes: true });
-		if (!this._entries.length) {
-			return null;
-		}
+		if (!this._entries.length) return null;
 		return this._entries.shift() ?? null;
 	}
 
@@ -117,9 +115,7 @@ export class Dir implements _Dir {
 	public readSync(): Dirent | null {
 		this.checkClosed();
 		this._entries ??= readdirSync.call<V_Context, [string, any], Dirent[]>(this.context, this.path, { withFileTypes: true });
-		if (!this._entries.length) {
-			return null;
-		}
+		if (!this._entries.length) return null;
 		return this._entries.shift() ?? null;
 	}
 

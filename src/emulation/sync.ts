@@ -437,7 +437,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			fs.mkdirSync(dir, mode);
 			emitChange('rename', dir);
 		}
-		return root + dirs[0];
+		return dirs[0]?.slice(root.length);
 	} catch (e) {
 		throw fixError(e as ErrnoError, errorPaths);
 	}

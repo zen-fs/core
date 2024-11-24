@@ -59,7 +59,7 @@ suite('Dirent', () => {
 
 suite('Dir', () => {
 	test('read()', async () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 
 		const dirent1 = await dir.read();
 		assert(dirent1 instanceof fs.Dirent);
@@ -76,7 +76,7 @@ suite('Dir', () => {
 	});
 
 	test('readSync()', () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 
 		const dirent1 = dir.readSync();
 		assert(dirent1 instanceof fs.Dirent);
@@ -93,19 +93,19 @@ suite('Dir', () => {
 	});
 
 	test('close()', async () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
 		rejects(dir.read(), 'Can not use closed Dir');
 	});
 
 	test('closeSync()', () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
 		assert.throws(() => dir.readSync(), 'Can not use closed Dir');
 	});
 
 	test('asynchronous iteration', async () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 		const dirents: Dirent[] = [];
 
 		for await (const dirent of dir) {
@@ -119,26 +119,26 @@ suite('Dir', () => {
 	});
 
 	test('read after directory is closed', async () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
 		await assert.rejects(dir.read(), 'Can not use closed Dir');
 	});
 
 	test('readSync after directory is closed', () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
 		assert.throws(() => dir.readSync(), 'Can not use closed Dir');
 	});
 
 	test('close multiple times', async () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
 		await dir.close(); // Should not throw an error
 		assert(dir['closed']);
 	});
 
 	test('closeSync multiple times', () => {
-		const dir = new fs.Dir(testDirPath);
+		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
 		dir.closeSync(); // Should not throw an error
 		assert(dir['closed']);

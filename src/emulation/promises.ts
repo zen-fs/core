@@ -690,7 +690,7 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mod
 			await fs.mkdir(dir, mode);
 			emitChange('rename', dir);
 		}
-		return root + dirs[0];
+		return dirs[0]?.slice(root.length);
 	} catch (e) {
 		throw fixError(e as ErrnoError, errorPaths);
 	}
