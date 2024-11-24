@@ -386,7 +386,7 @@ futimesSync satisfies typeof fs.futimesSync;
 
 export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync(path), this);
+	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	try {
 		const stats = cache.stats.get(path) || fs.statSync(resolved);
 		if (!stats.isDirectory()) {
@@ -414,7 +414,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 	const mode = normalizeMode(options?.mode, 0o777);
 
 	path = realpathSync.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, path: resolved, root } = resolveMount(path, this);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
 	try {
@@ -437,7 +437,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			fs.mkdirSync(dir, mode);
 			emitChange('rename', dir);
 		}
-		return dirs[0];
+		return root + dirs[0];
 	} catch (e) {
 		throw fixError(e as ErrnoError, errorPaths);
 	}
@@ -468,7 +468,7 @@ export function readdirSync(
 ): string[] | Dirent[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync(path), this);
+	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	let entries: string[];
 	try {
 		const stats = cache.stats.get(path) || fs.statSync(resolved);

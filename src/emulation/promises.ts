@@ -413,7 +413,7 @@ rename satisfies typeof promises.rename;
  */
 export async function exists(this: V_Context, path: fs.PathLike): Promise<boolean> {
 	try {
-		const { fs, path: resolved } = resolveMount(await realpath(path), this);
+		const { fs, path: resolved } = resolveMount(await realpath.call(this, path), this);
 		return await fs.exists(resolved);
 	} catch (e) {
 		if (e instanceof ErrnoError && e.code == 'ENOENT') {
@@ -429,7 +429,7 @@ export async function stat(this: V_Context, path: fs.PathLike, options?: { bigin
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(await realpath(path), this);
+	const { fs, path: resolved } = resolveMount(await realpath.call(this, path), this);
 	try {
 		const stats = await fs.stat(resolved);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
@@ -493,7 +493,7 @@ async function _open(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mo
 	const mode = normalizeMode(_mode, 0o644),
 		flag = parseFlag(_flag);
 
-	path = resolveSymlinks ? await realpath(path) : path;
+	path = resolveSymlinks ? await realpath.call(this, path) : path;
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	const stats = await fs.stat(resolved).catch(() => null);
@@ -665,7 +665,7 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mod
 	const mode = normalizeMode(options?.mode, 0o777);
 
 	path = await realpath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, path: resolved, root } = resolveMount(path, this);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
 	try {
@@ -690,7 +690,7 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mod
 			await fs.mkdir(dir, mode);
 			emitChange('rename', dir);
 		}
-		return dirs[0];
+		return root + dirs[0];
 	} catch (e) {
 		throw fixError(e as ErrnoError, errorPaths);
 	}
@@ -771,7 +771,7 @@ export async function readdir(
 
 		if (!options?.recursive || !entryStats?.isDirectory()) return;
 
-		for (const subEntry of await readdir(join(path, entry), { ...options, _isIndirect: true })) {
+		for (const subEntry of await readdir.call(this, join(path, entry), { ...options, _isIndirect: true })) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);

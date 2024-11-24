@@ -67,10 +67,17 @@ export function umount(mountPoint: string): void {
 	pathCache.clear();
 }
 
+export interface ResolvedMount {
+	fs: FileSystem;
+	path: string;
+	mountPoint: string;
+	root: string;
+}
+
 /**
  * Gets the internal `FileSystem` for the path, then returns it along with the path relative to the FS' root
  */
-export function resolveMount(path: string, ctx: V_Context): { fs: FileSystem; path: string; mountPoint: string } {
+export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 	const root = typeof ctx == 'object' && typeof ctx.root == 'string' ? ctx.root : '/';
 	path = normalizePath(join(root, path));
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
@@ -81,11 +88,11 @@ export function resolveMount(path: string, ctx: V_Context): { fs: FileSystem; pa
 			if (path === '') {
 				path = root;
 			}
-			return { fs, path, mountPoint };
+			return { fs, path, mountPoint, root };
 		}
 	}
 
-	throw new ErrnoError(Errno.EIO, 'ZenFS not initialized with a file system');
+	throw new ErrnoError(Errno.EIO, 'No file system');
 }
 
 /**
