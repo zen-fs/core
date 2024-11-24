@@ -46,7 +46,7 @@ renameSync satisfies typeof fs.renameSync;
 export function existsSync(this: V_Context, path: fs.PathLike): boolean {
 	path = normalizePath(path);
 	try {
-		const { fs, path: resolvedPath } = resolveMount(realpathSync(path), this);
+		const { fs, path: resolvedPath } = resolveMount(realpathSync.call(this, path), this);
 		return fs.existsSync(resolvedPath);
 	} catch (e) {
 		if ((e as ErrnoError).errno == Errno.ENOENT) {
@@ -62,7 +62,7 @@ export function statSync(this: V_Context, path: fs.PathLike, options?: { bigint?
 export function statSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync(path), this);
+	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	try {
 		const stats = fs.statSync(resolved);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
@@ -95,7 +95,7 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatO
 lstatSync satisfies typeof fs.lstatSync;
 
 export function truncateSync(this: V_Context, path: fs.PathLike, len: number | null = 0): void {
-	using file = _openSync(path, 'r+');
+	using file = _openSync.call(this, path, 'r+');
 	len ||= 0;
 	if (len < 0) {
 		throw new ErrnoError(Errno.EINVAL);
@@ -673,7 +673,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 
 	let stats: Stats | undefined;
 	try {
-		stats = cache.stats.get(path) || statSync(path);
+		stats = cache.stats.get(path) || (statSync.bind(this) as typeof statSync)(path);
 	} catch (error) {
 		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
 	}
@@ -797,7 +797,7 @@ writevSync satisfies typeof fs.writevSync;
  */
 export function opendirSync(this: V_Context, path: fs.PathLike, options?: fs.OpenDirOptions): Dir {
 	path = normalizePath(path);
-	return new Dir(path);
+	return new Dir(path, this);
 }
 opendirSync satisfies typeof fs.opendirSync;
 

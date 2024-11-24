@@ -1,6 +1,6 @@
 import assert, { rejects } from 'node:assert';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { fs, type Dirent } from '../common.js';
 
 const testFile = 'test-file.txt';
 fs.writeFileSync(testFile, 'Sample content');
@@ -106,7 +106,7 @@ suite('Dir', () => {
 
 	test('asynchronous iteration', async () => {
 		const dir = new fs.Dir(testDirPath);
-		const dirents: fs.Dirent[] = [];
+		const dirents: Dirent[] = [];
 
 		for await (const dirent of dir) {
 			dirents.push(dirent);

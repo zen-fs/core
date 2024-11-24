@@ -6,7 +6,7 @@ import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import type { FileSystem } from '../filesystem.js';
 import { normalizePath } from '../utils.js';
-import { resolve, type AbsolutePath } from './path.js';
+import { join, resolve, type AbsolutePath } from './path.js';
 import { size_max } from './constants.js';
 import type { V_Context } from '../context.js';
 import { paths as pathCache } from './cache.js';
@@ -72,7 +72,7 @@ export function umount(mountPoint: string): void {
  */
 export function resolveMount(path: string, ctx: V_Context): { fs: FileSystem; path: string; mountPoint: string } {
 	const root = typeof ctx == 'object' && typeof ctx.root == 'string' ? ctx.root : '/';
-	path = normalizePath(root + path);
+	path = normalizePath(join(root, path));
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
@@ -122,6 +122,7 @@ export function fixError<E extends ErrnoError>(e: E, paths: Record<string, strin
 	} catch {
 		// `message` is read only
 	}
+	if (e.path) e.path = fixPaths(e.path, paths);
 	return e;
 }
 

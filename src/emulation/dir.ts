@@ -5,6 +5,7 @@ import type { Callback } from '../utils.js';
 import { basename } from './path.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';
+import type { V_Context } from '../context.js';
 
 export class Dirent implements _Dirent {
 	public get name(): string {
@@ -57,7 +58,10 @@ export class Dir implements _Dir {
 
 	protected _entries?: Dirent[];
 
-	public constructor(public readonly path: string) {}
+	public constructor(
+		public readonly path: string,
+		protected readonly context: V_Context
+	) {}
 
 	/**
 	 * Asynchronously close the directory's underlying resource handle.
@@ -83,7 +87,7 @@ export class Dir implements _Dir {
 
 	protected async _read(): Promise<Dirent | null> {
 		this.checkClosed();
-		this._entries ??= await readdir(this.path, { withFileTypes: true });
+		this._entries ??= await readdir.call<V_Context, [string, any], Promise<Dirent[]>>(this.context, this.path, { withFileTypes: true });
 		if (!this._entries.length) {
 			return null;
 		}
@@ -112,7 +116,7 @@ export class Dir implements _Dir {
 	 */
 	public readSync(): Dirent | null {
 		this.checkClosed();
-		this._entries ??= readdirSync(this.path, { withFileTypes: true });
+		this._entries ??= readdirSync.call<V_Context, [string, any], Dirent[]>(this.context, this.path, { withFileTypes: true });
 		if (!this._entries.length) {
 			return null;
 		}
