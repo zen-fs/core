@@ -9,6 +9,7 @@ export * from './backends/store/simple.js';
 export * from './backends/store/store.js';
 export * from './backends/backend.js';
 export * from './config.js';
+export * from './context.js';
 export * from './credentials.js';
 export * from './devices.js';
 export { default as devices } from './devices.js';
