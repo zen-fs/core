@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { type ExtractProperties } from 'utilium';
-import { credentials as defaultCredentials, type Credentials } from './credentials.js';
+import { createCredentials, credentials as defaultCredentials, type CredentialInit, type Credentials } from './credentials.js';
 import * as fs from './emulation/index.js';
 
 type Fn_FS = Omit<ExtractProperties<typeof fs, (...args: any[]) => any>, 'mountObject'>;
@@ -42,10 +42,10 @@ export interface BoundContext extends Fn_FS, FSContext {
  * Note that the credentials of a bound context are copied.
  * @experimental
  */
-export function bindContext(root: string, credentials: Credentials = defaultCredentials): BoundContext {
+export function bindContext(root: string, credentials: CredentialInit = defaultCredentials): BoundContext {
 	const ctx = {
 		root,
-		credentials: structuredClone(credentials),
+		credentials: structuredClone(createCredentials(credentials)),
 	} satisfies FSContext;
 
 	const fn_fs = _bindFunctions<Fn_FS>(fs, ctx);

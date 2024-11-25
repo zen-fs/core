@@ -33,17 +33,23 @@ export interface CredentialInit {
 	sgid?: number;
 	euid?: number;
 	egid?: number;
+	groups?: number[];
+}
+
+export function createCredentials(source: CredentialInit): Credentials {
+	return {
+		suid: source.uid,
+		sgid: source.gid,
+		euid: source.uid,
+		egid: source.gid,
+		groups: [],
+		...source,
+	};
 }
 
 /**
  * Uses credentials from the provided uid and gid.
  */
 export function useCredentials(source: CredentialInit): void {
-	Object.assign(credentials, {
-		suid: source.uid,
-		sgid: source.gid,
-		euid: source.uid,
-		egid: source.gid,
-		...source,
-	});
+	Object.assign(credentials, createCredentials(source));
 }
