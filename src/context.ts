@@ -42,10 +42,10 @@ export interface BoundContext extends Fn_FS, FSContext {
  * Note that the credentials of a bound context are copied.
  * @experimental
  */
-export function bindContext(root: string, credentials: CredentialInit = defaultCredentials): BoundContext {
+export function bindContext(root: string, credentials: CredentialInit = structuredClone(defaultCredentials)): BoundContext {
 	const ctx = {
 		root,
-		credentials: structuredClone(createCredentials(credentials)),
+		credentials: createCredentials(credentials),
 	} satisfies FSContext;
 
 	const fn_fs = _bindFunctions<Fn_FS>(fs, ctx);
