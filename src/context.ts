@@ -24,6 +24,10 @@ export interface FSContext {
 	readonly credentials: Credentials;
 }
 
+/**
+ * maybe an FS context
+ * @experimental @hidden
+ */
 export type V_Context = Partial<FSContext> | void | Record<string, unknown>;
 
 /**
