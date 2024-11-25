@@ -26,14 +26,12 @@ export const credentials: Credentials = {
 	groups: [],
 };
 
-export interface CredentialInit {
+/**
+ * Initialization for a set of credentials
+ */
+export interface CredentialInit extends Partial<Credentials> {
 	uid: number;
 	gid: number;
-	suid?: number;
-	sgid?: number;
-	euid?: number;
-	egid?: number;
-	groups?: number[];
 }
 
 export function createCredentials(source: CredentialInit): Credentials {
