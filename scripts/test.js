@@ -44,6 +44,14 @@ if (options.quiet && options.verbose) {
 
 options.verbose && options.force && console.debug('Forcing tests to exit (--test-force-exit)');
 
+if (options.build) {
+	try {
+		execSync('npm run build');
+	} catch {
+		console.warn('Build failed, continuing without it.');
+	}
+}
+
 if (!existsSync(join(import.meta.dirname, '../dist'))) {
 	console.error('ERROR: Missing build. If you are using an installed package, please submit a bug report.');
 	process.exit(1);
