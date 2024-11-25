@@ -14,5 +14,23 @@ suite('Mounts', () => {
 
 		assert.deepStrictEqual(fs.readdirSync('/'), ['nested']);
 		assert.deepStrictEqual(fs.readdirSync('/nested'), ['dir']);
+
+		// cleanup
+		fs.umount('/nested/dir');
+		fs.rmSync('/nested', { recursive: true, force: true });
+	});
+
+	test('Race conditions', async () => {
+		await configure({
+			mounts: {
+				one: InMemory,
+				two: InMemory,
+				three: InMemory,
+				four: InMemory,
+			},
+		});
+
+		assert.equal(fs.mounts.size, 5); // 4 + default `/` mount
+		assert.equal(fs.readdirSync('/').length, 4);
 	});
 });
