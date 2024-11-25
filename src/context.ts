@@ -19,7 +19,7 @@ function _bindFunctions<T extends Record<string, unknown>>(fns: T, thisValue: an
  * @experimental
  */
 export interface FSContext {
-	readonly root: string;
+	root: string;
 	readonly credentials: Credentials;
 }
 
@@ -39,12 +39,13 @@ export interface BoundContext extends Fn_FS, FSContext {
 
 /**
  * Allows you to restrict operations to a specific root path and set of credentials.
+ * Note that the credentials of a bound context are copied.
  * @experimental
  */
 export function bindContext(root: string, credentials: Credentials = defaultCredentials): BoundContext {
 	const ctx = {
 		root,
-		credentials,
+		credentials: structuredClone(credentials),
 	} satisfies FSContext;
 
 	const fn_fs = _bindFunctions<Fn_FS>(fs, ctx);

@@ -2,14 +2,14 @@
 
 import type { BigIntStatsFs, StatsFs } from 'node:fs';
 import { InMemory } from '../backends/memory.js';
+import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import type { FileSystem } from '../filesystem.js';
 import { normalizePath } from '../utils.js';
-import { join, resolve, type AbsolutePath } from './path.js';
-import { size_max } from './constants.js';
-import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { paths as pathCache } from './cache.js';
+import { size_max } from './constants.js';
+import { join, resolve, type AbsolutePath } from './path.js';
 
 // descriptors
 
@@ -202,9 +202,20 @@ export interface ReaddirOptions extends InternalOptions {
 }
 
 /**
- * Change
+ * Change the root path
+ * @param inPlace if true, this changes the root for the current context instead of creating a new one (if associated with a context).
  * @experimental
  */
-export function chroot(this: V_Context, path: string): BoundContext {
-	return bindContext(join(this?.root || '/', path));
+export function chroot(this: V_Context, path: string, inPlace?: false): BoundContext;
+export function chroot<T extends V_Context>(this: T, path: string, inPlace: true): T;
+export function chroot<T extends V_Context>(this: T & V_Context, path: string, inPlace?: boolean): T | BoundContext {
+	const creds = this?.credentials;
+	if (creds?.uid && creds?.gid && creds?.euid && creds?.egid) {
+		throw new ErrnoError(Errno.EPERM, 'Can not chroot() as non-root user');
+	}
+	if (inPlace && this) {
+		this.root += path;
+		return this;
+	}
+	return bindContext(join(this?.root || '/', path), creds);
 }
