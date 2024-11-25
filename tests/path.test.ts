@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { basename, dirname, extname, join, normalize, resolve } from '../src/emulation/path.js';
+import { basename, dirname, extname, join, normalize, resolve } from '../dist/emulation/path.js';
 
 suite('Path emulation', () => {
 	test('resolve', () => {
