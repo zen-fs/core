@@ -45,6 +45,7 @@ if (options.quiet && options.verbose) {
 options.verbose && options.force && console.debug('Forcing tests to exit (--test-force-exit)');
 
 if (options.build) {
+	!options.quiet && console.log('Building...');
 	try {
 		execSync('npm run build');
 	} catch {
