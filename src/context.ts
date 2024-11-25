@@ -40,8 +40,6 @@ export function bindContext(root: AbsolutePath, credentials: Credentials = defau
 		credentials,
 	} satisfies FSContext;
 
-	fs.mkdirSync(root, { recursive: true });
-
 	const fn_fs = _bindFunctions<Fn_FS>(fs, ctx);
 	const fn_promises = _bindFunctions<Fn_Promises>(fs.promises, ctx);
 
