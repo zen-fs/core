@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, globSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -9,10 +9,12 @@ const { values: options, positionals } = parseArgs({
 	options: {
 		help: { short: 'h', type: 'boolean', default: false },
 		verbose: { short: 'w', type: 'boolean', default: false },
-		test: { short: 't', type: 'string' },
-		forceExit: { short: 'f', type: 'boolean', default: false },
-		common: { short: 'C', type: 'boolean', default: false },
 		quiet: { short: 'q', type: 'boolean', default: false },
+		test: { short: 't', type: 'string' },
+		force: { short: 'f', type: 'boolean', default: false },
+		auto: { short: 'a', type: 'boolean', default: false },
+		build: { short: 'b', type: 'boolean', default: false },
+		common: { short: 'c', type: 'boolean', default: false },
 	},
 	allowPositionals: true,
 });
@@ -25,10 +27,13 @@ Paths: The setup files to run tests on
 Options:
     --help, -h          Outputs this help message
     --verbose,-w        Output verbose messages
+    --quiet, -q         Don't output normal messages
     --test,-t <glob>    Which test(s) to run
-    --forceExit, -f	    Whether to use --test-force-exit
-    --common, -C        Also run tests not specific to any backend
-	--quiet, -q         Don't output normal messages`);
+    --force, -f     Whether to use --test-force-exit
+    --auto, -a          Automatically detect setup files
+	--build, -b         Run the npm build script prior to running tests
+    --common, -c        Also run tests not specific to any backend
+`);
 	process.exit();
 }
 
@@ -37,11 +42,23 @@ if (options.quiet && options.verbose) {
 	process.exit(1);
 }
 
-options.verbose && options.forceExit && console.debug('Forcing tests to exit (--test-force-exit)');
+options.verbose && options.force && console.debug('Forcing tests to exit (--test-force-exit)');
 
 if (!existsSync(join(import.meta.dirname, '../dist'))) {
 	console.error('ERROR: Missing build. If you are using an installed package, please submit a bug report.');
 	process.exit(1);
+}
+
+if (options.auto) {
+	let sum = 0;
+
+	for (const pattern of ['**/tests/setup/*.ts', '**/tests/setup-*.ts']) {
+		const files = await globSync(pattern);
+		sum += files.length;
+		positionals.push(...files);
+	}
+
+	!options.quiet && console.log(`Auto-detected ${sum} test setup files`);
 }
 
 const coverage = join(import.meta.dirname, '../.coverage');
@@ -72,7 +89,7 @@ for (const setupFile of positionals) {
 	process.env.SETUP = setupFile;
 
 	try {
-		execSync(['tsx --test --experimental-test-coverage', options.forceExit ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), {
+		execSync(['tsx --test --experimental-test-coverage', options.force ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), {
 			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 		});
 	} catch {
