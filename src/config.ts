@@ -199,23 +199,18 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	config.syncImmediately = !configuration.onlySyncOnClose;
 
 	if (configuration.mounts) {
-		const toMount: [string, FileSystem][] = [];
-		let unmountRoot = false;
-
-		for (const [_point, mountConfig] of Object.entries(configuration.mounts)) {
+		// sort to make sure any root replacement is done first
+		for (const [_point, mountConfig] of Object.entries(configuration.mounts).sort(([a], [b]) => (a.length > b.length ? 1 : -1))) {
 			const point = _point.startsWith('/') ? _point : '/' + _point;
 
 			if (isBackendConfig(mountConfig)) {
 				mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;
 			}
 
-			if (point == '/') unmountRoot = true;
-			toMount.push([point, await resolveMountConfig(mountConfig)]);
+			if (point == '/') fs.umount('/');
+
+			await mount(point, await resolveMountConfig(mountConfig));
 		}
-
-		if (unmountRoot) fs.umount('/');
-
-		await Promise.all(toMount.map(([point, fs]) => mount(point, fs)));
 	}
 
 	if (configuration.addDevices) {
