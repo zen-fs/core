@@ -301,10 +301,7 @@ const _Port = {
 				}
 			},
 		},
-		timeout: {
-			type: 'number',
-			required: false,
-		},
+		timeout: { type: 'number', required: false },
 	},
 
 	isAvailable(): boolean {

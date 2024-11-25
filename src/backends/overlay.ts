@@ -534,16 +534,8 @@ const _Overlay = {
 	name: 'Overlay',
 
 	options: {
-		writable: {
-			type: 'object',
-			required: true,
-			description: 'The file system to write modified files to.',
-		},
-		readable: {
-			type: 'object',
-			required: true,
-			description: 'The file system that initially populates this file system.',
-		},
+		writable: { type: 'object', required: true },
+		readable: { type: 'object', required: true },
 	},
 
 	isAvailable(): boolean {
