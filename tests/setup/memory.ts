@@ -1,3 +1,3 @@
-import { copy, data } from './common.js';
+import { copy, data } from '../setup.js';
 
 copy(data);

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { configureSingle, Fetch, InMemory, Overlay } from '../../dist/index.js';
-import { data, tmp } from './common.js';
+import { data, tmp } from '../setup.js';
 
 const port = 26514,
 	index = tmp + '/index.json';

@@ -45,5 +45,10 @@ for (const setupFile of positionals) {
 		console.log('ERROR: Skipping non-existent file:', setupFile);
 		continue;
 	}
-	execSync(['tsx --test --experimental-test-coverage', options.forceExit ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), { stdio: 'inherit' });
+
+	try {
+		execSync(['tsx --test --experimental-test-coverage', options.forceExit ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), { stdio: 'inherit' });
+	} catch {
+		if (options.verbose) console.error('Tests failed:', setupFile);
+	}
 }

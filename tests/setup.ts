@@ -1,11 +1,11 @@
 import { join, relative } from 'node:path';
 import { statSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
-import { fs as _fs } from '../../dist/index.js';
-import type { BoundContext } from '../../dist/context.js';
+import { fs as _fs } from '../dist/index.js';
+import type { BoundContext } from '../dist/context.js';
 
-export const data = join(import.meta.dirname, '../data');
+export const data = join(import.meta.dirname, 'data');
 
-export const tmp = join(import.meta.dirname, '../tmp');
+export const tmp = join(import.meta.dirname, 'tmp');
 
 if (!existsSync(tmp)) {
 	mkdirSync(tmp);

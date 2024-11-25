@@ -1,7 +1,7 @@
 import { wait } from 'utilium';
-import { Mutexed } from '../dist/mixins/mutexed.js';
-import { StoreFS } from '../dist/backends/store/fs.js';
-import { InMemoryStore } from '../dist/backends/memory.js';
+import { Mutexed } from '../../dist/mixins/mutexed.js';
+import { StoreFS } from '../../dist/backends/store/fs.js';
+import { InMemoryStore } from '../../dist/backends/memory.js';
 import { suite, test } from 'node:test';
 import assert from 'node:assert';
 

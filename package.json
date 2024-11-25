@@ -14,8 +14,8 @@
 		"storage"
 	],
 	"bin": {
-		"make-index": "scripts/make-index.js",
-		"zenfs-test": "scripts/test.js"
+		"make-index": "scripts/make-index.js --",
+		"zenfs-test": "scripts/test.js --"
 	},
 	"files": [
 		"dist",
