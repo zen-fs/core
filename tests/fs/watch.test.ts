@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { fs, type Stats } from '../common.js';
 
 const testDir = '/test-watch-dir';
 const testFile = `${testDir}/test.txt`;
@@ -33,7 +33,7 @@ suite('Watch Features', () => {
 	});
 
 	test('fs.watchFile should detect changes to a file', async () => {
-		const listener = (curr: fs.Stats, prev: fs.Stats) => {
+		const listener = (curr: Stats, prev: Stats) => {
 			assert(curr.mtimeMs != prev.mtimeMs);
 			fs.unwatchFile(testFile, listener);
 		};

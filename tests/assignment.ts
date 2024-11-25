@@ -7,7 +7,7 @@
 	Notes on omissions and exclusions:
 	- __promisify__ is omitted as it is metadata
 	- native is omitted as zenfs isn't native
-	- ReadStream and WriteStream are excluded since they are polfilled from another module
+	- ReadStream and WriteStream are excluded since they are polyfilled from another module
 */
 
 import { fs as zen } from '../src/index.js';
