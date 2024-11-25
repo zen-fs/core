@@ -32,7 +32,7 @@ export interface Async {
 	mkdirSync(path: string, mode: number): void;
 	readdirSync(path: string): string[];
 	linkSync(srcpath: string, dstpath: string): void;
-	syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void;
+	syncSync(path: string, data?: Uint8Array, stats?: Readonly<Partial<Stats>>): void;
 }
 
 /**
@@ -171,7 +171,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, Async>
 			this.queue('link', srcpath, dstpath);
 		}
 
-		public syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void {
+		public syncSync(path: string, data?: Uint8Array, stats?: Readonly<Partial<Stats>>): void {
 			this.checkSync(path, 'sync');
 			this._sync.syncSync(path, data, stats);
 			this.queue('sync', path, data, stats);

@@ -391,14 +391,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.linkSync(target, link);
 	}
 
-	public async sync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): Promise<void> {
+	public async sync(path: string, data?: Uint8Array, stats?: Readonly<Partial<Stats>>): Promise<void> {
 		if (this.devices.has(path)) {
 			throw new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync');
 		}
 		return super.sync(path, data, stats);
 	}
 
-	public syncSync(path: string, data?: Uint8Array | false, stats?: Readonly<Partial<Stats>>): void {
+	public syncSync(path: string, data?: Uint8Array, stats?: Readonly<Partial<Stats>>): void {
 		if (this.devices.has(path)) {
 			throw new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync');
 		}

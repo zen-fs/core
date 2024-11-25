@@ -257,7 +257,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Updated the inode and data node at `path`
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
-	public async sync(path: string, data?: Uint8Array | false, stats: Readonly<Partial<Stats>> = {}): Promise<void> {
+	public async sync(path: string, data?: Uint8Array, stats: Readonly<Partial<Stats>> = {}): Promise<void> {
 		await using tx = this.store.transaction();
 		// We use _findInode because we actually need the INode id.
 		const fileInodeId = await this._findInode(tx, path, 'sync'),
@@ -278,7 +278,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Updated the inode and data node at `path`
 	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
-	public syncSync(path: string, data?: Uint8Array | false, stats: Readonly<Partial<Stats>> = {}): void {
+	public syncSync(path: string, data?: Uint8Array, stats: Readonly<Partial<Stats>> = {}): void {
 		using tx = this.store.transaction();
 		// We use _findInode because we actually need the INode id.
 		const fileInodeId = this._findInodeSync(tx, path, 'sync'),
