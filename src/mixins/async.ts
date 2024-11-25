@@ -15,7 +15,7 @@ export type AsyncOperation = {
 /**
  * @internal
  */
-export interface Async {
+export interface AsyncMixin {
 	/**
 	 * @internal @protected
 	 */
@@ -44,7 +44,7 @@ export interface Async {
  * During loading, the contents of the async file system are preloaded into the synchronous store.
  *
  */
-export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, Async> {
+export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncMixin> {
 	abstract class AsyncFS extends FS {
 		/**
 		 * Queue of pending asynchronous operations.
@@ -227,4 +227,4 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, Async>
 	return AsyncFS;
 }
 
-export function asyncPatch<T extends typeof FileSystem>(fs: Mixin<T, Async>) {}
+export function asyncPatch<T extends typeof FileSystem>(fs: Mixin<T, AsyncMixin>) {}
