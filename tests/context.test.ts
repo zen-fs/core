@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { bindContext } from '../src/context.js';
 import * as fs from '../src/emulation/index.js';
 
+fs.mkdirSync('/new_root');
 const c_fs = bindContext('/new_root');
 
 suite('Context', () => {
