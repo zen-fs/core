@@ -27,7 +27,7 @@ export interface FSContext {
  * maybe an FS context
  * @experimental @hidden
  */
-export type V_Context = void | (Partial<FSContext> & Record<string, unknown>);
+export type V_Context = void | (Partial<FSContext> & object);
 
 /**
  * Allows you to restrict operations to a specific root path and set of credentials.

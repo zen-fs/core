@@ -12,13 +12,25 @@ import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { paths as pathCache } from './cache.js';
 
 // descriptors
+
+/**
+ * @internal @hidden
+ */
 export const fdMap: Map<number, File> = new Map();
 let nextFd = 100;
+
+/**
+ * @internal @hidden
+ */
 export function file2fd(file: File): number {
 	const fd = nextFd++;
 	fdMap.set(fd, file);
 	return fd;
 }
+
+/**
+ * @internal @hidden
+ */
 export function fd2file(fd: number): File {
 	if (!fdMap.has(fd)) {
 		throw new ErrnoError(Errno.EBADF);
@@ -26,6 +38,9 @@ export function fd2file(fd: number): File {
 	return fdMap.get(fd)!;
 }
 
+/**
+ * @internal @hidden
+ */
 export type MountObject = Record<AbsolutePath, FileSystem>;
 
 /**
@@ -39,6 +54,7 @@ mount('/', InMemory.create({ name: 'root' }));
 
 /**
  * Mounts the file system at `mountPoint`.
+ * @internal
  */
 export function mount(mountPoint: string, fs: FileSystem): void {
 	if (mountPoint[0] !== '/') {
@@ -67,6 +83,9 @@ export function umount(mountPoint: string): void {
 	pathCache.clear();
 }
 
+/**
+ * @internal @hidden
+ */
 export interface ResolvedMount {
 	fs: FileSystem;
 	path: string;
@@ -76,6 +95,7 @@ export interface ResolvedMount {
 
 /**
  * Gets the internal `FileSystem` for the path, then returns it along with the path relative to the FS' root
+ * @internal @hidden
  */
 export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 	const root = ctx?.root || '/';
@@ -107,7 +127,7 @@ export async function _synced(): Promise<void> {
 
 /**
  * Reverse maps the paths in text from the mounted FileSystem to the global path
- * @hidden
+ * @internal @hidden
  */
 export function fixPaths(text: string, paths: Record<string, string>): string {
 	for (const [from, to] of Object.entries(paths)) {
@@ -118,7 +138,7 @@ export function fixPaths(text: string, paths: Record<string, string>): string {
 
 /**
  * Fix paths in error stacks
- * @hidden
+ * @internal @hidden
  */
 export function fixError<E extends ErrnoError>(e: E, paths: Record<string, string>): E {
 	if (typeof e.stack == 'string') {
@@ -134,7 +154,7 @@ export function fixError<E extends ErrnoError>(e: E, paths: Record<string, strin
 }
 
 /**
- * @deprecated
+ * @internal @deprecated
  */
 export function mountObject(mounts: MountObject): void {
 	if ('/' in mounts) {
@@ -146,7 +166,7 @@ export function mountObject(mounts: MountObject): void {
 }
 
 /**
- * @hidden
+ * @internal @hidden
  */
 export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T extends true ? BigIntStatsFs : StatsFs {
 	const md = fs.metadata();
@@ -165,7 +185,7 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 
 /**
  * Options used for caching, among other things.
- * @internal *UNSTABLE*
+ * @internal @hidden *UNSTABLE*
  */
 export interface InternalOptions {
 	/**
