@@ -44,3 +44,6 @@ jobs:
 
             - name: Unit tests (Overlay+Fetch)
               run: npx zenfs-test tests/setup/cow+fetch.ts
+
+            - name: Unit tests (contexts)
+              run: npx zenfs-test tests/setup/context.ts
