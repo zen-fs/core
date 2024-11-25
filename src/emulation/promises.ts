@@ -5,6 +5,7 @@ import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
 import type { ReadableStreamController, ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
+import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
@@ -20,7 +21,6 @@ import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
-import type { V_Context } from '../context.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -909,9 +909,10 @@ export async function realpath(this: V_Context, path: fs.PathLike, options: fs.B
 export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
 export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Promise<string | Buffer> {
 	path = normalizePath(path);
-	if (cache.paths.hasAsync(path)) return cache.paths.getAsync(path)!;
+	const ctx_path = (this?.root || '') + path;
+	if (cache.paths.hasAsync(ctx_path)) return cache.paths.getAsync(ctx_path)!;
 	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : await (cache.paths.getAsync(dir) || realpath.call(this, dir));
+	const realDir = dir == '/' ? '/' : await (cache.paths.getAsync((this?.root || '') + dir) || realpath.call(this, dir));
 	const lpath = join(realDir, base);
 	const { fs, path: resolvedPath } = resolveMount(lpath, this);
 
@@ -925,8 +926,8 @@ export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.
 
 		const target = resolve(realDir, (await readlink.call(this, lpath)).toString());
 
-		const real = cache.paths.getAsync(target) || realpath.call(this, target);
-		cache.paths.setAsync(path, real);
+		const real = cache.paths.getAsync((this?.root || '') + target) || realpath.call(this, target);
+		cache.paths.setAsync(ctx_path, real);
 		return await real;
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {

@@ -629,9 +629,10 @@ export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.Buf
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
-	if (cache.paths.has(path)) return cache.paths.get(path)!;
+	const ctx_path = (this?.root || '') + path;
+	if (cache.paths.has(ctx_path)) return cache.paths.get(ctx_path)!;
 	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : cache.paths.get(dir) || realpathSync.call(this, dir);
+	const realDir = dir == '/' ? '/' : cache.paths.get((this?.root || '') + dir) || realpathSync.call(this, dir);
 	const lpath = join(realDir, base);
 	const { fs, path: resolvedPath } = resolveMount(lpath, this);
 
@@ -644,8 +645,8 @@ export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.En
 		}
 
 		const target = resolve(realDir, readlinkSync.call(this, lpath, options).toString());
-		const real = cache.paths.get(target) || realpathSync.call(this, target);
-		cache.paths.set(path, real);
+		const real = cache.paths.get((this?.root || '') + target) || realpathSync.call(this, target);
+		cache.paths.set(ctx_path, real);
 		return real;
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
