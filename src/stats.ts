@@ -1,5 +1,6 @@
 import type * as Node from 'node:fs';
-import { credentials, type Credentials } from './credentials.js';
+import type { V_Context } from './context.js';
+import { credentials } from './credentials.js';
 import {
 	R_OK,
 	S_IFBLK,
@@ -23,7 +24,6 @@ import {
 	W_OK,
 	X_OK,
 } from './emulation/constants.js';
-import type { V_Context } from './context.js';
 
 /**
  * Indicates the type of a file. Applied to 'mode'.
@@ -248,8 +248,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @internal
 	 */
 	public hasAccess(mode: number, context?: V_Context): boolean {
-		context ||= { credentials };
-		const creds = (typeof context.credentials == 'object' && (context.credentials as Credentials)) || credentials;
+		const creds = context?.credentials || credentials;
 
 		if (this.isSymbolicLink() || creds.euid === 0 || creds.egid === 0) return true;
 

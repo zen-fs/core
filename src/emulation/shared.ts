@@ -8,7 +8,7 @@ import type { FileSystem } from '../filesystem.js';
 import { normalizePath } from '../utils.js';
 import { join, resolve, type AbsolutePath } from './path.js';
 import { size_max } from './constants.js';
-import type { V_Context } from '../context.js';
+import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { paths as pathCache } from './cache.js';
 
 // descriptors
@@ -78,7 +78,7 @@ export interface ResolvedMount {
  * Gets the internal `FileSystem` for the path, then returns it along with the path relative to the FS' root
  */
 export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
-	const root = typeof ctx == 'object' && typeof ctx.root == 'string' ? ctx.root : '/';
+	const root = ctx?.root || '/';
 	path = normalizePath(join(root, path));
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
@@ -179,4 +179,12 @@ export interface InternalOptions {
 export interface ReaddirOptions extends InternalOptions {
 	withFileTypes?: boolean;
 	recursive?: boolean;
+}
+
+/**
+ * Change
+ * @experimental
+ */
+export function chroot(this: V_Context, path: string): BoundContext {
+	return bindContext(join(this?.root || '/', path));
 }

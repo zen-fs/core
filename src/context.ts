@@ -2,7 +2,6 @@
 import { type ExtractProperties } from 'utilium';
 import { credentials as defaultCredentials, type Credentials } from './credentials.js';
 import * as fs from './emulation/index.js';
-import type { AbsolutePath } from './emulation/path.js';
 
 type Fn_FS = Omit<ExtractProperties<typeof fs, (...args: any[]) => any>, 'mountObject'>;
 type Fn_Promises = ExtractProperties<typeof fs.promises, (...args: any[]) => any>;
@@ -20,7 +19,7 @@ function _bindFunctions<T extends Record<string, unknown>>(fns: T, thisValue: an
  * @experimental
  */
 export interface FSContext {
-	readonly root: AbsolutePath;
+	readonly root: string;
 	readonly credentials: Credentials;
 }
 
@@ -28,7 +27,7 @@ export interface FSContext {
  * maybe an FS context
  * @experimental @hidden
  */
-export type V_Context = Partial<FSContext> | void | Record<string, unknown>;
+export type V_Context = void | (Partial<FSContext> & Record<string, unknown>);
 
 /**
  * Allows you to restrict operations to a specific root path and set of credentials.
@@ -42,7 +41,7 @@ export interface BoundContext extends Fn_FS, FSContext {
  * Allows you to restrict operations to a specific root path and set of credentials.
  * @experimental
  */
-export function bindContext(root: AbsolutePath, credentials: Credentials = defaultCredentials): BoundContext {
+export function bindContext(root: string, credentials: Credentials = defaultCredentials): BoundContext {
 	const ctx = {
 		root,
 		credentials,
