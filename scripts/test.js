@@ -11,6 +11,8 @@ const { values: options, positionals } = parseArgs({
 		verbose: { short: 'w', type: 'boolean', default: false },
 		test: { short: 't', type: 'string' },
 		forceExit: { short: 'f', type: 'boolean', default: false },
+		common: { short: 'C', type: 'boolean', default: false },
+		quiet: { short: 'q', type: 'boolean', default: false },
 	},
 	allowPositionals: true,
 });
@@ -24,14 +26,21 @@ Options:
     --help, -h          Outputs this help message
     --verbose,-w        Output verbose messages
     --test,-t <glob>    Which test(s) to run
-    --forceExit, -f	    Whether to use --test-force-exit`);
+    --forceExit, -f	    Whether to use --test-force-exit
+    --common, -C        Also run tests not specific to any backend
+	--quiet, -q         Don't output normal messages`);
 	process.exit();
 }
 
-if (options.verbose) console.debug('Forcing tests to exit (--test-force-exit)');
+if (options.quiet && options.verbose) {
+	console.error('ERROR: Can not specify --verbose and --quiet');
+	process.exit(1);
+}
+
+options.verbose && options.forceExit && console.debug('Forcing tests to exit (--test-force-exit)');
 
 if (!existsSync(join(import.meta.dirname, '../dist'))) {
-	console.log('ERROR: Missing build. If you are using an installed package, please submit a bug report.');
+	console.error('ERROR: Missing build. If you are using an installed package, please submit a bug report.');
 	process.exit(1);
 }
 
@@ -40,15 +49,26 @@ if (existsSync(coverage)) rmSync(coverage, { recursive: true });
 mkdirSync(coverage);
 process.env.NODE_V8_COVERAGE = coverage;
 
+if (options.common) {
+	!options.quiet && console.log('Running common tests...');
+	try {
+		execSync("tsx --test --experimental-test-coverage 'tests/**/!(fs)/*.test.ts'", {
+			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
+		});
+	} catch {
+		console.error('Common tests failed');
+	}
+}
+
 const testsGlob = join(import.meta.dirname, `../tests/fs/${options.test || '*'}.test.ts`);
 
 for (const setupFile of positionals) {
 	if (!existsSync(setupFile)) {
-		console.warn('ERROR: Skipping non-existent file:', setupFile);
+		!options.quiet && console.warn('Skipping tests for non-existent setup file:', setupFile);
 		continue;
 	}
 
-	if (options.verbose) console.debug('Running tests for:', setupFile);
+	!options.quiet && console.debug('Running tests using setup:', setupFile);
 	process.env.SETUP = setupFile;
 
 	try {
@@ -56,7 +76,7 @@ for (const setupFile of positionals) {
 			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 		});
 	} catch {
-		if (options.verbose) console.error('Tests failed:', setupFile);
+		!options.quiet && console.error('Tests failed:', setupFile);
 	}
 }
 
