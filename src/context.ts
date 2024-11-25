@@ -15,6 +15,10 @@ function _bindFunctions<T extends Record<string, unknown>>(fns: T, thisValue: an
 	return Object.fromEntries(Object.entries(fns).map(([k, v]) => [k, typeof v == 'function' ? v.bind(thisValue) : v])) as T;
 }
 
+/**
+ * Represents some context used for FS operations
+ * @experimental
+ */
 export interface FSContext {
 	readonly root: AbsolutePath;
 	readonly credentials: Credentials;
