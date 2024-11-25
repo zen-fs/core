@@ -549,4 +549,10 @@ const _Overlay = {
 type _Overlay = typeof _Overlay;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Overlay extends _Overlay {}
+
+/**
+ * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.
+ * Deletes are persisted via metadata stored on the writable file system.
+ * @internal
+ */
 export const Overlay: Overlay = _Overlay;

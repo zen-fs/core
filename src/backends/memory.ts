@@ -21,10 +21,6 @@ export class InMemoryStore extends Map<bigint, Uint8Array> implements SimpleSync
 	}
 }
 
-/**
- * A simple in-memory file system backed by an InMemoryStore.
- * Files are not persisted across page loads.
- */
 const _InMemory = {
 	name: 'InMemory',
 	isAvailable(): boolean {
@@ -42,4 +38,9 @@ const _InMemory = {
 type _InMemory = typeof _InMemory;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface InMemory extends _InMemory {}
+
+/**
+ * A simple in-memory file system backed by an InMemoryStore.
+ * Files are not persisted across page loads.
+ */
 export const InMemory: InMemory = _InMemory;
