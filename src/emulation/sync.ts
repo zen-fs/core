@@ -20,7 +20,7 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	newPath = normalizePath(newPath);
 	const oldMount = resolveMount(oldPath, this);
 	const newMount = resolveMount(newPath, this);
-	if (config.checkAccess && !statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath)).hasAccess(constants.W_OK)) {
+	if (config.checkAccess && !statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath)).hasAccess(constants.W_OK, this)) {
 		throw ErrnoError.With('EACCES', oldPath, 'rename');
 	}
 	try {
@@ -65,7 +65,7 @@ export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOp
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	try {
 		const stats = fs.statSync(resolved);
-		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !stats.hasAccess(constants.R_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'stat');
 		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
@@ -108,7 +108,7 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		if (config.checkAccess && !(cache.stats.get(path) || fs.statSync(resolved)).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(cache.stats.get(path) || fs.statSync(resolved)).hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		fs.unlinkSync(resolved);
@@ -140,7 +140,7 @@ function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode
 		}
 		// Create the file
 		const parentStats: Stats = fs.statSync(dirname(resolved));
-		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', dirname(path), '_open');
 		}
 		if (!parentStats.isDirectory()) {
@@ -149,7 +149,7 @@ function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode
 		return fs.createFileSync(resolved, flag, mode);
 	}
 
-	if (config.checkAccess && (!stats.hasAccess(mode) || !stats.hasAccess(flagToMode(flag)))) {
+	if (config.checkAccess && (!stats.hasAccess(mode, this) || !stats.hasAccess(flagToMode(flag), this))) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
@@ -392,7 +392,7 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 		if (!stats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
 		}
-		if (config.checkAccess && !stats.hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !stats.hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		fs.rmdirSync(resolved);
@@ -419,7 +419,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 
 	try {
 		if (!options?.recursive) {
-			if (config.checkAccess && !fs.statSync(dirname(resolved)).hasAccess(constants.W_OK)) {
+			if (config.checkAccess && !fs.statSync(dirname(resolved)).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
 			return fs.mkdirSync(resolved, mode);
@@ -431,7 +431,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			errorPaths[dir] = original;
 		}
 		for (const dir of dirs) {
-			if (config.checkAccess && !fs.statSync(dirname(dir)).hasAccess(constants.W_OK)) {
+			if (config.checkAccess && !fs.statSync(dirname(dir)).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
 			fs.mkdirSync(dir, mode);
@@ -473,7 +473,7 @@ export function readdirSync(
 	try {
 		const stats = cache.stats.get(path) || fs.statSync(resolved);
 		cache.stats.set(path, stats);
-		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !stats.hasAccess(constants.R_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'readdir');
 		}
 		if (!stats.isDirectory()) {
@@ -520,11 +520,11 @@ readdirSync satisfies typeof fs.readdirSync;
 
 export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 	targetPath = normalizePath(targetPath);
-	if (config.checkAccess && !statSync(dirname(targetPath)).hasAccess(constants.R_OK)) {
+	if (config.checkAccess && !statSync(dirname(targetPath)).hasAccess(constants.R_OK, this)) {
 		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
 	}
 	linkPath = normalizePath(linkPath);
-	if (config.checkAccess && !statSync(dirname(linkPath)).hasAccess(constants.W_OK)) {
+	if (config.checkAccess && !statSync(dirname(linkPath)).hasAccess(constants.W_OK, this)) {
 		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 	}
 
@@ -534,7 +534,7 @@ export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.
 		throw ErrnoError.With('EXDEV', linkPath, 'link');
 	}
 	try {
-		if (config.checkAccess && !fs.statSync(path).hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !fs.statSync(path).hasAccess(constants.R_OK, this)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
 		return fs.linkSync(path, linkPath);
@@ -658,7 +658,7 @@ realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
 
 export function accessSync(this: V_Context, path: fs.PathLike, mode: number = 0o600): void {
 	if (!config.checkAccess) return;
-	if (!statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, path).hasAccess(mode)) {
+	if (!statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, path).hasAccess(mode, this)) {
 		throw new ErrnoError(Errno.EACCES);
 	}
 }

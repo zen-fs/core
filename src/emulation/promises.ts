@@ -35,7 +35,10 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public readonly file: File;
 
-	public constructor(fdOrFile: number | File) {
+	public constructor(
+		fdOrFile: number | File,
+		protected context?: V_Context
+	) {
 		const isFile = typeof fdOrFile != 'number';
 		this.fd = isFile ? file2fd(fdOrFile) : fdOrFile;
 		this.file = isFile ? fdOrFile : fd2file(fdOrFile);
@@ -223,7 +226,7 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts?: fs.StatOptions & { bigint?: false }): Promise<Stats>;
 	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
 		const stats = await this.file.stat();
-		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !stats.hasAccess(constants.R_OK, this.context)) {
 			throw ErrnoError.With('EACCES', this.file.path, 'stat');
 		}
 		return opts?.bigint ? new BigIntStats(stats) : stats;
@@ -389,7 +392,7 @@ export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.
 	newPath = normalizePath(newPath);
 	const src = resolveMount(oldPath, this);
 	const dst = resolveMount(newPath, this);
-	if (config.checkAccess && !(await stat.call(this, dirname(oldPath))).hasAccess(constants.W_OK)) {
+	if (config.checkAccess && !(await stat.call(this, dirname(oldPath))).hasAccess(constants.W_OK, this)) {
 		throw ErrnoError.With('EACCES', oldPath, 'rename');
 	}
 	try {
@@ -432,7 +435,7 @@ export async function stat(this: V_Context, path: fs.PathLike, options?: fs.Stat
 	const { fs, path: resolved } = resolveMount(await realpath.call(this, path), this);
 	try {
 		const stats = await fs.stat(resolved);
-		if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !stats.hasAccess(constants.R_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'stat');
 		}
 		return options?.bigint ? new BigIntStats(stats) : stats;
@@ -473,7 +476,7 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		if (config.checkAccess && !(await (cache.stats.getAsync(path) || fs.stat(resolved))).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await (cache.stats.getAsync(path) || fs.stat(resolved))).hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -504,16 +507,16 @@ async function _open(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mo
 		}
 		// Create the file
 		const parentStats: Stats = await fs.stat(dirname(resolved));
-		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', dirname(path), '_open');
 		}
 		if (!parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
-		return new FileHandle(await fs.createFile(resolved, flag, mode));
+		return new FileHandle(await fs.createFile(resolved, flag, mode), this);
 	}
 
-	if (config.checkAccess && !stats.hasAccess(flagToMode(flag))) {
+	if (config.checkAccess && !stats.hasAccess(flagToMode(flag), this)) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
@@ -521,7 +524,7 @@ async function _open(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mo
 		throw ErrnoError.With('EEXIST', path, '_open');
 	}
 
-	const handle = new FileHandle(await fs.openFile(resolved, flag));
+	const handle = new FileHandle(await fs.openFile(resolved, flag), this);
 
 	/*
 		In a previous implementation, we deleted the file and
@@ -640,7 +643,7 @@ export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 		if (!stats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
 		}
-		if (config.checkAccess && !stats.hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !stats.hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		await fs.rmdir(resolved);
@@ -670,7 +673,7 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mod
 
 	try {
 		if (!options?.recursive) {
-			if (config.checkAccess && !(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK)) {
+			if (config.checkAccess && !(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
 			await fs.mkdir(resolved, mode);
@@ -684,7 +687,7 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mod
 			errorPaths[dir] = origDir;
 		}
 		for (const dir of dirs) {
-			if (config.checkAccess && !(await fs.stat(dirname(dir))).hasAccess(constants.W_OK)) {
+			if (config.checkAccess && !(await fs.stat(dirname(dir))).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
 			await fs.mkdir(dir, mode);
@@ -743,7 +746,7 @@ export async function readdir(
 		throw ErrnoError.With('ENOENT', path, 'readdir');
 	}
 
-	if (config.checkAccess && !stats.hasAccess(constants.R_OK)) {
+	if (config.checkAccess && !stats.hasAccess(constants.R_OK, this)) {
 		throw ErrnoError.With('EACCES', path, 'readdir');
 	}
 
@@ -804,15 +807,15 @@ export async function link(this: V_Context, targetPath: fs.PathLike, linkPath: f
 	}
 
 	try {
-		if (config.checkAccess && !(await fs.stat(dirname(targetPath))).hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !(await fs.stat(dirname(targetPath))).hasAccess(constants.R_OK, this)) {
 			throw ErrnoError.With('EACCES', dirname(path), 'link');
 		}
 
-		if (config.checkAccess && !(await stat.call(this, dirname(linkPath))).hasAccess(constants.W_OK)) {
+		if (config.checkAccess && !(await stat.call(this, dirname(linkPath))).hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 		}
 
-		if (config.checkAccess && !(await fs.stat(path)).hasAccess(constants.R_OK)) {
+		if (config.checkAccess && !(await fs.stat(path)).hasAccess(constants.R_OK, this)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
 		return await fs.link(path, link.path);
@@ -975,7 +978,7 @@ watch satisfies typeof promises.watch;
 export async function access(this: V_Context, path: fs.PathLike, mode: number = constants.F_OK): Promise<void> {
 	if (!config.checkAccess) return;
 	const stats = await stat.call(this, path);
-	if (!stats.hasAccess(mode)) {
+	if (!stats.hasAccess(mode, this)) {
 		throw new ErrnoError(Errno.EACCES);
 	}
 }

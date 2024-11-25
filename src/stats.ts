@@ -1,5 +1,5 @@
 import type * as Node from 'node:fs';
-import { credentials } from './credentials.js';
+import { credentials, type Credentials } from './credentials.js';
 import {
 	R_OK,
 	S_IFBLK,
@@ -23,6 +23,7 @@ import {
 	W_OK,
 	X_OK,
 } from './emulation/constants.js';
+import type { V_Context } from './context.js';
 
 /**
  * Indicates the type of a file. Applied to 'mode'.
@@ -246,20 +247,23 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @returns True if the request has access, false if the request does not
 	 * @internal
 	 */
-	public hasAccess(mode: number): boolean {
-		if (this.isSymbolicLink() || credentials.euid === 0 || credentials.egid === 0) return true;
+	public hasAccess(mode: number, context?: V_Context): boolean {
+		context ||= { credentials };
+		const creds = (typeof context.credentials == 'object' && (context.credentials as Credentials)) || credentials;
+
+		if (this.isSymbolicLink() || creds.euid === 0 || creds.egid === 0) return true;
 
 		let perm = 0;
 
 		// Owner permissions
-		if (credentials.uid === this.uid) {
+		if (creds.uid === this.uid) {
 			if (this.mode & S_IRUSR) perm |= R_OK;
 			if (this.mode & S_IWUSR) perm |= W_OK;
 			if (this.mode & S_IXUSR) perm |= X_OK;
 		}
 
 		// Group permissions
-		if (credentials.gid === this.gid || credentials.groups.includes(Number(this.gid))) {
+		if (creds.gid === this.gid || creds.groups.includes(Number(this.gid))) {
 			if (this.mode & S_IRGRP) perm |= R_OK;
 			if (this.mode & S_IWGRP) perm |= W_OK;
 			if (this.mode & S_IXGRP) perm |= X_OK;
