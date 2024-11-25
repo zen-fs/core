@@ -5,3 +5,4 @@ docs
 tmp
 build
 tests/coverage
+.coverage
