@@ -993,7 +993,7 @@ export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOpti
 	path = normalizePath(path);
 
 	const stats = await (cache.stats.getAsync(path) ||
-		stat.call<V_Context, [string], Promise<Stats>>(this, path).catch((error: ErrnoError) => {
+		lstat.call<V_Context, [string], Promise<Stats>>(this, path).catch((error: ErrnoError) => {
 			if (error.code == 'ENOENT' && options?.force) return undefined;
 			throw error;
 		}));

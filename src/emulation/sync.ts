@@ -674,7 +674,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 
 	let stats: Stats | undefined;
 	try {
-		stats = cache.stats.get(path) || (statSync.bind(this) as typeof statSync)(path);
+		stats = cache.stats.get(path) || (lstatSync.bind(this) as typeof statSync)(path);
 	} catch (error) {
 		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
 	}
