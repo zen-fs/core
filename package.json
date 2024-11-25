@@ -54,7 +54,6 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint src tests",
-		"test:common": "tsx --test --experimental-test-coverage 'tests/**/!(fs)/*.test.ts'",
 		"test": "tsx --test --experimental-test-coverage",
 		"pretest": "npm run build",
 		"build": "tsc -p tsconfig.json",

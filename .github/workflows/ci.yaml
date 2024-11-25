@@ -37,7 +37,7 @@ jobs:
               run: npm run lint
 
             - name: Unit tests (common)
-              run: npm run test:common
+              run: npx zenfs-test --common
 
             - name: Unit tests (InMemory)
               run: npx zenfs-test tests/setup/memory.ts
