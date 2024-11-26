@@ -39,7 +39,7 @@ export interface BoundContext extends Fn_FS, FSContext {
 
 /**
  * Allows you to restrict operations to a specific root path and set of credentials.
- * Note that the credentials of a bound context are copied.
+ * Note that the default credentials of a bound context are copied from the global credentials.
  * @experimental
  */
 export function bindContext(root: string, credentials: CredentialInit = structuredClone(defaultCredentials)): BoundContext {
