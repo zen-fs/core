@@ -51,7 +51,7 @@ The following example mounts a zip file to `/zip`, in-memory storage to `/tmp`, 
 ```js
 import { configure, InMemory } from '@zenfs/core';
 import { IndexedDB } from '@zenfs/dom';
-import { Zip } from '@zenfs/zip';
+import { Zip } from '@zenfs/archives';
 
 const res = await fetch('mydata.zip');
 
@@ -122,7 +122,7 @@ You can then mount and unmount the backend instance by using `mount` and `umount
 ```js
 import { configure, resolveMountConfig, InMemory } from '@zenfs/core';
 import { IndexedDB } from '@zenfs/dom';
-import { Zip } from '@zenfs/zip';
+import { Zip } from '@zenfs/archives';
 
 await configure({
 	mounts: {

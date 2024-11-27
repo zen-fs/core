@@ -15,6 +15,7 @@ const { values: options, positionals } = parseArgs({
 		auto: { short: 'a', type: 'boolean', default: false },
 		build: { short: 'b', type: 'boolean', default: false },
 		common: { short: 'c', type: 'boolean', default: false },
+		coverage: { type: 'string', default: 'tests/.coverage' },
 	},
 	allowPositionals: true,
 });
@@ -70,10 +71,9 @@ if (options.auto) {
 	!options.quiet && console.log(`Auto-detected ${sum} test setup files`);
 }
 
-const coverage = join(import.meta.dirname, '../.coverage');
-if (existsSync(coverage)) rmSync(coverage, { recursive: true });
-mkdirSync(coverage);
-process.env.NODE_V8_COVERAGE = coverage;
+if (existsSync(options.coverage)) rmSync(options.coverage, { recursive: true });
+mkdirSync(options.coverage);
+process.env.NODE_V8_COVERAGE = options.coverage;
 
 if (options.common) {
 	!options.quiet && console.log('Running common tests...');
@@ -107,4 +107,4 @@ for (const setupFile of positionals) {
 }
 
 execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
-rmSync('.coverage', { recursive: true });
+rmSync(options.coverage, { recursive: true });
