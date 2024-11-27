@@ -63,7 +63,7 @@ if (options.auto) {
 	let sum = 0;
 
 	for (const pattern of ['**/tests/setup/*.ts', '**/tests/setup-*.ts']) {
-		const files = await globSync(pattern);
+		const files = await globSync(pattern).filter(f => !f.includes('node_modules'));
 		sum += files.length;
 		positionals.push(...files);
 	}
@@ -78,7 +78,7 @@ process.env.NODE_V8_COVERAGE = options.coverage;
 if (options.common) {
 	!options.quiet && console.log('Running common tests...');
 	try {
-		execSync("tsx --test --experimental-test-coverage 'tests/**/!(fs)/*.test.ts'", {
+		execSync("tsx --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'", {
 			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 		});
 	} catch {
