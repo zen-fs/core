@@ -72,7 +72,7 @@
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
 		"readable-stream": "^4.5.2",
-		"utilium": "^1.0.0"
+		"utilium": "^1.1.1"
 	},
 	"optionalDependencies": {
 		"minimatch": "^9.0.3"
@@ -81,14 +81,14 @@
 		"@eslint/js": "^9.8.0",
 		"@types/eslint__js": "^8.42.3",
 		"c8": "^10.1.2",
-		"eslint": "^9.8.0",
+		"eslint": "^9.15.0",
 		"globals": "^15.9.0",
 		"lint-staged": "^15.2.7",
 		"prettier": "^3.2.5",
 		"tsx": "^4.19.1",
-		"typedoc": "^0.26.10",
+		"typedoc": "^0.27.1",
 		"typedoc-plugin-remove-references": "^0.0.6",
-		"typescript": "^5.5.0",
-		"typescript-eslint": "^8.0.0"
+		"typescript": "^5.7.2",
+		"typescript-eslint": "^8.16.0"
 	}
 }
