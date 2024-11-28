@@ -81,7 +81,7 @@
 		"@eslint/js": "^9.8.0",
 		"@types/eslint__js": "^8.42.3",
 		"c8": "^10.1.2",
-		"eslint": "^9.8.0",
+		"eslint": "^9.15.0",
 		"globals": "^15.9.0",
 		"lint-staged": "^15.2.7",
 		"prettier": "^3.2.5",
@@ -89,6 +89,6 @@
 		"typedoc": "^0.27.1",
 		"typedoc-plugin-remove-references": "^0.0.6",
 		"typescript": "^5.7.2",
-		"typescript-eslint": "^8.0.0"
+		"typescript-eslint": "^8.16.0"
 	}
 }

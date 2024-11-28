@@ -6,17 +6,6 @@ import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
 import { _chown, Stats } from './stats.js';
 
-/**
-	Typescript does not include a type declaration for resizable array buffers. 
-	It has been standardized into ECMAScript though
-	@todo Remove this if TS adds them to lib declarations
-*/
-declare global {
-	interface ArrayBufferConstructor {
-		new (byteLength: number, options: { maxByteLength?: number }): ArrayBuffer;
-	}
-}
-
 const validFlags = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
 
 export function parseFlag(flag: string | number): string {
@@ -433,10 +422,11 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (end > this.stats.size) {
 			this.stats.size = end;
 			if (end > this._buffer.byteLength) {
-				if ((this._buffer.buffer as ArrayBuffer).resizable && this._buffer.buffer.maxByteLength! <= end) {
-					(this._buffer.buffer as ArrayBuffer).resize(end);
-				} else if ((this._buffer.buffer as SharedArrayBuffer).growable && this._buffer.buffer.maxByteLength! <= end) {
-					(this._buffer.buffer as SharedArrayBuffer).grow(end);
+				const { buffer } = this._buffer;
+				if ('resizable' in buffer && buffer.resizable && buffer.maxByteLength <= end) {
+					buffer.resize(end);
+				} else if ('growable' in buffer && buffer.growable && buffer.maxByteLength <= end) {
+					buffer.grow(end);
 				} else if (config.unsafeBufferReplace) {
 					this._buffer = slice;
 				} else {
