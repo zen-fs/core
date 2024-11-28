@@ -12,22 +12,6 @@ import { _chown, Stats } from './stats.js';
 	@todo Remove this if TS adds them to lib declarations
 */
 declare global {
-	interface ArrayBuffer {
-		readonly resizable: boolean;
-
-		readonly maxByteLength?: number;
-
-		resize(newLength: number): void;
-	}
-
-	interface SharedArrayBuffer {
-		readonly resizable: boolean;
-
-		readonly maxByteLength?: number;
-
-		resize(newLength: number): void;
-	}
-
 	interface ArrayBufferConstructor {
 		new (byteLength: number, options: { maxByteLength?: number }): ArrayBuffer;
 	}
@@ -449,8 +433,10 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (end > this.stats.size) {
 			this.stats.size = end;
 			if (end > this._buffer.byteLength) {
-				if (this._buffer.buffer.resizable && this._buffer.buffer.maxByteLength! <= end) {
-					this._buffer.buffer.resize(end);
+				if ((this._buffer.buffer as ArrayBuffer).resizable && this._buffer.buffer.maxByteLength! <= end) {
+					(this._buffer.buffer as ArrayBuffer).resize(end);
+				} else if ((this._buffer.buffer as SharedArrayBuffer).growable && this._buffer.buffer.maxByteLength! <= end) {
+					(this._buffer.buffer as SharedArrayBuffer).grow(end);
 				} else if (config.unsafeBufferReplace) {
 					this._buffer = slice;
 				} else {
