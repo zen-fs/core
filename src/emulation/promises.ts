@@ -595,9 +595,14 @@ export async function writeFile(
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	await using handle = path instanceof FileHandle ? path : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
 
-	const _data = typeof data == 'string' ? data : data;
+	const _data = typeof data == 'string' ? data : data instanceof DataView ? new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)) : data;
 	if (typeof _data != 'string' && !(_data instanceof Uint8Array)) {
-		throw new ErrnoError(Errno.EINVAL, 'Iterables and streams not supported', handle.file.path, 'writeFile');
+		throw new ErrnoError(
+			Errno.EINVAL,
+			'The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received ' + typeof data,
+			handle.file.path,
+			'writeFile'
+		);
 	}
 	await handle.writeFile(_data, options);
 }
