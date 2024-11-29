@@ -103,7 +103,7 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
-		if (isParentOf(mountPoint, path)) {
+		if (_isParentOf(mountPoint, path)) {
 			path = path.slice(mountPoint.length > 1 ? mountPoint.length : 0); // Resolve the path relative to the mount point
 			if (path === '') {
 				path = root;
@@ -223,7 +223,7 @@ export function chroot<T extends V_Context>(this: T & V_Context, path: string, i
 /**
  * @internal @hidden
  */
-export function isParentOf(parent: string, child: string): boolean {
+export function _isParentOf(parent: string, child: string): boolean {
 	if (parent === '/' || parent === child) return true;
 
 	if (!parent.endsWith('/')) parent += '/';
