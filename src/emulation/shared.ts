@@ -223,7 +223,7 @@ export function chroot<T extends V_Context>(this: T & V_Context, path: string, i
 /**
  * @internal @hidden
  */
-export function _isParentOf(parent: string, child: string): boolean {
+function _isParentOf(parent: string, child: string): boolean {
 	if (parent === '/' || parent === child) return true;
 
 	if (!parent.endsWith('/')) parent += '/';
