@@ -124,7 +124,7 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 		 * @internal
 		 * The file system that created the file
 		 */
-		public fs: FileSystem,
+		public fs: FS,
 		public readonly path: string
 	) {}
 
