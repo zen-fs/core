@@ -220,11 +220,13 @@ export function chroot<T extends V_Context>(this: T & V_Context, path: string, i
 	return bindContext(join(this?.root || '/', path), creds);
 }
 
-export function isParentOf(parent: string, child: string)
-{
-	if (parent === "/" || parent === child)
-		return true;
+/**
+ * @internal @hidden
+ */
+export function isParentOf(parent: string, child: string): boolean {
+	if (parent === '/' || parent === child) return true;
 
-	parent = parent + (parent.endsWith("/") ? "" : "/");
+	if (!parent.endsWith('/')) parent += '/';
+
 	return child.startsWith(parent);
 }
