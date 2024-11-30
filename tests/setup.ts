@@ -1,7 +1,6 @@
 import { join, relative } from 'node:path';
 import { statSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { fs as _fs } from '../dist/index.js';
-import type { BoundContext } from '../dist/context.js';
 
 export const data = join(import.meta.dirname, 'data');
 
@@ -11,7 +10,7 @@ if (!existsSync(tmp)) {
 	mkdirSync(tmp);
 }
 
-export function copy(_path: string, fs: typeof _fs | BoundContext = _fs) {
+export function copy(_path: string, fs: typeof _fs = _fs) {
 	const path = relative(data, _path) || '/';
 	const stats = statSync(_path);
 

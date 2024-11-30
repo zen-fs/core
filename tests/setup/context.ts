@@ -4,6 +4,6 @@ import { copy, data } from '../setup.js';
 
 _fs.mkdirSync('/new_root');
 
-export const fs = bindContext('/new_root');
+export const { fs } = bindContext('/new_root');
 
 copy(data, fs);

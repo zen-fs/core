@@ -4,7 +4,7 @@ import { bindContext } from '../../dist/context.js';
 import * as fs from '../../dist/emulation/index.js';
 
 fs.mkdirSync('/new_root');
-const c_fs = bindContext('/new_root');
+const { fs: c_fs } = bindContext('/new_root');
 
 suite('Context', () => {
 	test('create a file', () => {

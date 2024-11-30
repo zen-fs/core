@@ -3,7 +3,7 @@ import { type ExtractProperties } from 'utilium';
 import { createCredentials, credentials as defaultCredentials, type CredentialInit, type Credentials } from './credentials.js';
 import * as fs from './emulation/index.js';
 
-type Fn_FS = Omit<ExtractProperties<typeof fs, (...args: any[]) => any>, 'mountObject'>;
+type Fn_FS = ExtractProperties<typeof fs, (...args: any[]) => any>;
 type Fn_Promises = ExtractProperties<typeof fs.promises, (...args: any[]) => any>;
 
 /**
@@ -34,7 +34,7 @@ export type V_Context = void | (Partial<FSContext> & object);
  * @experimental
  */
 export interface BoundContext extends FSContext {
-	fs: Fn_FS & { promises: Fn_Promises };
+	fs: typeof fs;
 }
 
 /**
@@ -51,5 +51,5 @@ export function bindContext(root: string, credentials: CredentialInit = structur
 	const fn_fs = _bindFunctions<Fn_FS>(fs, ctx);
 	const fn_promises = _bindFunctions<Fn_Promises>(fs.promises, ctx);
 
-	return { ...ctx, fs: { ...fn_fs, promises: fn_promises } };
+	return { ...ctx, fs: { ...fs, ...fn_fs, promises: { ...fs.promises, ...fn_promises } } };
 }
