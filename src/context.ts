@@ -33,8 +33,8 @@ export type V_Context = void | (Partial<FSContext> & object);
  * Allows you to restrict operations to a specific root path and set of credentials.
  * @experimental
  */
-export interface BoundContext extends Fn_FS, FSContext {
-	promises: Fn_Promises;
+export interface BoundContext extends FSContext {
+	fs: Fn_FS & { promises: Fn_Promises };
 }
 
 /**
@@ -51,5 +51,5 @@ export function bindContext(root: string, credentials: CredentialInit = structur
 	const fn_fs = _bindFunctions<Fn_FS>(fs, ctx);
 	const fn_promises = _bindFunctions<Fn_Promises>(fs.promises, ctx);
 
-	return { ...ctx, ...fn_fs, promises: fn_promises };
+	return { ...ctx, fs: { ...fn_fs, promises: fn_promises } };
 }
