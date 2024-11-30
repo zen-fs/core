@@ -21,7 +21,6 @@
 		"dist",
 		"tests",
 		"license.md",
-		"tsconfig.json",
 		"eslint.shared.js"
 	],
 	"type": "module",
