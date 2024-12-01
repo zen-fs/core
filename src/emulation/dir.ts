@@ -47,7 +47,7 @@ export class Dirent implements _Dirent {
 /**
  * A class representing a directory stream.
  */
-export class Dir implements _Dir {
+export class Dir implements _Dir, AsyncIterator<Dirent> {
 	protected closed = false;
 
 	protected checkClosed(): void {
@@ -132,7 +132,11 @@ export class Dir implements _Dir {
 	/**
 	 * Asynchronously iterates over the directory via `readdir(3)` until all entries have been read.
 	 */
-	public [Symbol.asyncIterator](): AsyncIterableIterator<Dirent> {
+	public [Symbol.asyncIterator](): this {
 		return this;
+	}
+
+	public [Symbol.asyncDispose]() {
+		return Promise.resolve();
 	}
 }
