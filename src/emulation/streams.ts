@@ -13,6 +13,10 @@ export class ReadStream extends Readable implements Node.ReadStream {
 			callback(new ErrnoError(Errno.EIO, (err as Error).toString()));
 		}
 	}
+	wrap(oldStream: NodeJS.ReadableStream): this {
+		super.wrap(oldStream as any);
+		return this;
+	}
 	declare bytesRead: number;
 	declare path: string | Buffer;
 	declare pending: boolean;
