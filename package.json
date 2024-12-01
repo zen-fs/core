@@ -58,7 +58,8 @@
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",
-		"prepublishOnly": "npm run build"
+		"prepublishOnly": "npm run build",
+		"postinstall": "patch-package"
 	},
 	"lint-staged": {
 		"*": [
@@ -83,6 +84,7 @@
 		"eslint": "^9.15.0",
 		"globals": "^15.9.0",
 		"lint-staged": "^15.2.7",
+		"patch-package": "^8.0.0",
 		"prettier": "^3.2.5",
 		"tsx": "^4.19.1",
 		"typedoc": "^0.27.1",

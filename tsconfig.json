@@ -3,7 +3,7 @@
 		"module": "NodeNext",
 		"target": "ES2020",
 		"outDir": "dist",
-		"lib": ["ESNext", "ESNext.Disposable"],
+		"lib": ["ESNext"],
 		"moduleResolution": "NodeNext",
 		"declaration": true,
 		"strict": true
