@@ -11,7 +11,7 @@ import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse, resolve } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
+import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type _AnyGlobOptions, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { emitChange } from './watchers.js';
 import type { V_Context } from '../context.js';
 
@@ -869,3 +869,13 @@ export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.Stat
 	const { fs } = resolveMount(path, this);
 	return _statfs(fs, options?.bigint);
 }
+
+/**
+ * Retrieves the files matching the specified pattern.
+ */
+export function globSync(pattern: string | string[]): string[];
+export function globSync(pattern: string | string[], options: fs.GlobOptionsWithFileTypes): Dirent[];
+export function globSync(pattern: string | string[], options: fs.GlobOptionsWithoutFileTypes): string[];
+export function globSync(pattern: string | string[], options: fs.GlobOptions): Dirent[] | string[];
+export function globSync(pattern: string | string[], options?: _AnyGlobOptions): Dirent[] | string[] {}
+globSync satisfies typeof fs.globSync;

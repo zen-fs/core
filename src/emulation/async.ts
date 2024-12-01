@@ -8,12 +8,23 @@ import { R_OK } from './constants.js';
 import type { Dirent } from './dir.js';
 import type { Dir } from './dir.js';
 import * as promises from './promises.js';
-import { fd2file, fdMap } from './shared.js';
+import { fd2file, fdMap, type _AnyGlobOptions } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, StatWatcher } from './watchers.js';
 import type { V_Context } from '../context.js';
 
 const nop = () => {};
+
+/**
+ * Helper to collect an async iterator into an array
+ */
+async function collectAsyncIterator<T>(it: NodeJS.AsyncIterator<T>): Promise<T[]> {
+	const results: T[] = [];
+	for await (const result of it) {
+		results.push(result);
+	}
+	return results;
+}
 
 /**
  * Asynchronous rename. No arguments other than a possible exception are given to the completion callback.
@@ -863,3 +874,29 @@ export async function openAsBlob(this: V_Context, path: fs.PathLike, options?: f
 	return new Blob([buffer], options);
 }
 openAsBlob satisfies typeof fs.openAsBlob;
+
+/**
+ * Retrieves the files matching the specified pattern.
+ */
+export function glob(this: V_Context, pattern: string | string[], callback: Callback<[string[]], null>): void;
+export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptionsWithFileTypes, callback: Callback<[Dirent[]], null>): void;
+export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptionsWithoutFileTypes, callback: Callback<[string[]], null>): void;
+export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptions, callback: Callback<[Dirent[] | string[]], null>): void;
+export function glob(
+	this: V_Context,
+	pattern: string | string[],
+	options: _AnyGlobOptions | Callback<[string[]], null>,
+	callback: Callback<[Dirent[]], null> | Callback<[string[]], null> = nop
+): void {
+	callback = typeof options == 'function' ? options : callback;
+
+	const it = promises.glob.call<V_Context, [string | string[], _AnyGlobOptions?], NodeJS.AsyncIterator<Dirent | string>>(
+		this,
+		pattern,
+		typeof options === 'function' ? undefined : options
+	);
+	collectAsyncIterator(it)
+		.then(results => callback(null, results as any))
+		.catch((e: ErrnoError) => callback(e));
+}
+glob satisfies typeof fs.glob;

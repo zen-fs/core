@@ -1,6 +1,6 @@
 // Utilities and shared data
 
-import type { BigIntStatsFs, StatsFs } from 'node:fs';
+import type * as fs from 'node:fs';
 import { InMemory } from '../backends/memory.js';
 import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../error.js';
@@ -158,7 +158,7 @@ export function mountObject(mounts: MountObject): void {
 /**
  * @internal @hidden
  */
-export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T extends true ? BigIntStatsFs : StatsFs {
+export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T extends true ? fs.BigIntStatsFs : fs.StatsFs {
 	const md = fs.metadata();
 	const bs = md.blockSize || 4096;
 
@@ -170,7 +170,7 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 		bavail: (bigint ? BigInt : Number)(md.freeSpace / bs),
 		bfree: (bigint ? BigInt : Number)(md.freeSpace / bs),
 		blocks: (bigint ? BigInt : Number)(md.totalSpace / bs),
-	} as T extends true ? BigIntStatsFs : StatsFs;
+	} as T extends true ? fs.BigIntStatsFs : fs.StatsFs;
 }
 
 /**
@@ -190,6 +190,11 @@ export interface ReaddirOptions extends InternalOptions {
 	withFileTypes?: boolean;
 	recursive?: boolean;
 }
+
+/**
+ * @hidden
+ */
+export type _AnyGlobOptions = fs.GlobOptionsWithFileTypes | fs.GlobOptionsWithoutFileTypes | fs.GlobOptions;
 
 /**
  * Change the root path

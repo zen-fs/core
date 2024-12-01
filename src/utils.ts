@@ -180,7 +180,7 @@ export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
 	return encodeUTF8(JSON.stringify(data, (k, v) => (k == '' ? v : v.toString())));
 }
 
-export type Callback<Args extends unknown[] = []> = (e?: ErrnoError, ...args: OptionalTuple<Args>) => unknown;
+export type Callback<Args extends unknown[] = [], NoError = undefined | void> = (e: ErrnoError | NoError, ...args: OptionalTuple<Args>) => unknown;
 
 /**
  * Normalizes a mode

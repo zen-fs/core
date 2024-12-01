@@ -4,11 +4,11 @@ import type { Callback } from '../utils.js';
 import { ErrnoError, Errno } from '../error.js';
 
 export class ReadStream extends Readable implements Node.ReadStream {
-	close(callback: Callback = () => null): void {
+	close(callback: Callback<[void], null> = () => null): void {
 		try {
 			super.destroy();
 			super.emit('close');
-			callback();
+			callback(null);
 		} catch (err) {
 			callback(new ErrnoError(Errno.EIO, (err as Error).toString()));
 		}
@@ -23,11 +23,11 @@ export class ReadStream extends Readable implements Node.ReadStream {
 }
 
 export class WriteStream extends Writable implements Node.WriteStream {
-	close(callback: Callback = () => null): void {
+	close(callback: Callback<[void], null> = () => null): void {
 		try {
 			super.destroy();
 			super.emit('close');
-			callback();
+			callback(null);
 		} catch (err) {
 			callback(new ErrnoError(Errno.EIO, (err as Error).toString()));
 		}

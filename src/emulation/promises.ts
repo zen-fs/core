@@ -18,7 +18,7 @@ import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse, resolve } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type InternalOptions, type ReaddirOptions } from './shared.js';
+import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type _AnyGlobOptions, type InternalOptions, type ReaddirOptions } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
 export * as constants from './constants.js';
@@ -1181,3 +1181,31 @@ export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatF
 	const { fs } = resolveMount(path, this);
 	return Promise.resolve(_statfs(fs, opts?.bigint));
 }
+
+/**
+ * Retrieves the files matching the specified pattern.
+ * @todo Implement
+ */
+export function glob(this: V_Context, pattern: string | string[]): NodeJS.AsyncIterator<string>;
+export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithFileTypes): NodeJS.AsyncIterator<Dirent>;
+export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithoutFileTypes): NodeJS.AsyncIterator<string>;
+export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptions): NodeJS.AsyncIterator<Dirent | string>;
+export function glob(this: V_Context, pattern: string | string[], opt?: _AnyGlobOptions): NodeJS.AsyncIterator<Dirent | string> {
+	pattern = Array.isArray(pattern) ? pattern : [pattern];
+	for (const p of pattern) {
+		const { fs } = resolveMount(p, this);
+	}
+
+	return {
+		next(): Promise<IteratorResult<any>> {
+			return Promise.resolve() as any;
+		},
+		[Symbol.asyncIterator]() {
+			return this;
+		},
+		[Symbol.asyncDispose]() {
+			return Promise.resolve();
+		},
+	};
+}
+glob satisfies typeof promises.glob;
