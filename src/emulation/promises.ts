@@ -133,11 +133,33 @@ export class FileHandle implements promises.FileHandle {
 	 * @param length The number of bytes to read.
 	 * @param position The offset from the beginning of the file from which data should be read. If `null`, data will be read from the current position.
 	 */
-	public read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number | null): Promise<promises.FileReadResult<TBuffer>> {
+	public async read<T extends NodeJS.ArrayBufferView>(buffer: T, offset?: number, length?: number, position?: number | null): Promise<promises.FileReadResult<T>>;
+	public async read<T extends NodeJS.ArrayBufferView = Buffer>(buffer: T, options?: promises.FileReadOptions<T>): Promise<promises.FileReadResult<T>>;
+	public async read<T extends NodeJS.ArrayBufferView = Buffer>(options?: promises.FileReadOptions<T>): Promise<promises.FileReadResult<T>>;
+	public async read<T extends NodeJS.ArrayBufferView = Buffer>(
+		buffer?: T | promises.FileReadOptions<T>,
+		offset?: number | null | promises.FileReadOptions<T>,
+		length?: number | null,
+		position?: number | null
+	) {
+		if (typeof offset == 'object' && offset != null) {
+			position = offset.position;
+			length = offset.length;
+			offset = offset.offset;
+		}
+
+		if (!ArrayBuffer.isView(buffer) && typeof buffer == 'object') {
+			position = buffer.position;
+			length = buffer.length;
+			offset = buffer.offset;
+			buffer = buffer.buffer;
+		}
+
 		if (isNaN(+position!)) {
 			position = this.file.position;
 		}
-		return this.file.read(buffer, offset, length, position!);
+		buffer ||= new Uint8Array((await this.file.stat()).size) as T;
+		return this.file.read(buffer, offset ?? undefined, length ?? undefined, position ?? undefined);
 	}
 
 	/**
