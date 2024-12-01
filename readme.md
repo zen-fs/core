@@ -174,30 +174,30 @@ You can create your own devices by implementing a `DeviceDriver`. For example, t
 ```ts
 const customNullDevice = {
 	name: 'custom_null',
+	// only 1 can exist per DeviceFS
+	singleton: true,
+	// optional if false
 	isBuffered: false,
 	read() {
 		return 0;
 	},
-	write() {},
+	write() {
+		return 0;
+	},
 };
 ```
 
 Note the actual implementation's write is slightly more complicated since it adds to the file position. You can find more information on the docs.
 
-Finally, if you'd like to use your custom device with the file system, you can use so through the aptly named `DeviceFS`.
+Finally, if you'd like to use your custom device with the file system:
 
 ```ts
-const devfs = fs.mounts.get('/dev') as DeviceFS;
-devfs.createDevice('/custom', customNullDevice);
+import { addDevice, fs } from '@zenfs/core';
+
+addDevice(customNullDevice);
 
 fs.writeFileSync('/dev/custom', 'This gets discarded.');
 ```
-
-In the above example, `createDevice` works relative to the `DeviceFS` mount point.
-
-Additionally, a type assertion (` as ...`) is used since `fs.mounts` does not keep track of which file system type is mapped to which mount point. Doing so would create significant maintenance costs due to the complexity of implementing it.
-
-If you would like to see a more intuitive way adding custom devices (e.g. `fs.mknod`), please feel free to open an issue for a feature request.
 
 ## Using with bundlers
 

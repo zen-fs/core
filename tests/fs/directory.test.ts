@@ -18,8 +18,6 @@ for (const dir of testDirectories) {
 	}
 }
 
-await fs._synced();
-
 suite('Directories', () => {
 	test('mkdir', async () => {
 		await fs.promises.mkdir('/one', 0o755);

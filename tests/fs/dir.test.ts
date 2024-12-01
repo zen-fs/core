@@ -13,8 +13,6 @@ for (const file of testFiles) {
 	fs.writeFileSync(`${testDirPath}/${file}`, 'Sample content');
 }
 
-await fs._synced();
-
 suite('Dirent', () => {
 	test('name and parentPath getters', async () => {
 		const stats = await fs.promises.lstat(testFile);

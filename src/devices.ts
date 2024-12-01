@@ -11,6 +11,7 @@ import { File } from './file.js';
 import type { StatsLike } from './stats.js';
 import { Stats } from './stats.js';
 import { basename, dirname } from './emulation/path.js';
+import { decodeUTF8 } from './utils.js';
 
 /**
  * A device
@@ -59,6 +60,12 @@ export interface DeviceDriver<TData = any> {
 	name: string;
 
 	/**
+	 * If true, only a single device can exist per device FS.
+	 * Note that if this is unset or false, auto-named devices will have a number suffix
+	 */
+	singleton?: boolean;
+
+	/**
 	 * Whether the device is buffered (a "block" device) or unbuffered (a "character" device)
 	 * @default false
 	 */
@@ -69,35 +76,39 @@ export interface DeviceDriver<TData = any> {
 	 * @returns `Device.data`
 	 * @experimental
 	 */
-	init?(ino: bigint): {
+	init?(
+		ino: bigint,
+		options: object
+	): {
 		data?: TData;
 		minor?: number;
 		major?: number;
+		name?: string;
 	};
 
 	/**
 	 * Synchronously read from the device
 	 * @group File operations
 	 */
-	read(file: DeviceFile, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
+	read(file: DeviceFile<TData>, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
 
 	/**
 	 * Synchronously write to the device
 	 * @group File operations
 	 */
-	write(file: DeviceFile, buffer: Uint8Array, offset: number, length: number, position?: number): number;
+	write(file: DeviceFile<TData>, buffer: Uint8Array, offset: number, length: number, position?: number): number;
 
 	/**
 	 * Sync the device
 	 * @group File operations
 	 */
-	sync?(file: DeviceFile): void;
+	sync?(file: DeviceFile<TData>): void;
 
 	/**
 	 * Close the device
 	 * @group File operations
 	 */
-	close?(file: DeviceFile): void;
+	close?(file: DeviceFile<TData>): void;
 }
 
 /**
@@ -106,18 +117,18 @@ export interface DeviceDriver<TData = any> {
  * It implements `truncate` using `write` and it has non-device methods throw.
  * It is up to device drivers to implement the rest of the functionality.
  */
-export class DeviceFile extends File {
+export class DeviceFile<TData = any> extends File {
 	public position = 0;
 
 	public constructor(
 		public fs: DeviceFS,
 		path: string,
-		public readonly device: Device
+		public readonly device: Device<TData>
 	) {
 		super(fs, path);
 	}
 
-	public get driver(): DeviceDriver {
+	public get driver(): DeviceDriver<TData> {
 		return this.device.driver;
 	}
 
@@ -226,8 +237,9 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 
 	/**
 	 * Creates a new device at `path` relative to the `DeviceFS` root.
+	 * @deprecated
 	 */
-	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>): Device<TData | Record<string, never>> {
+	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
 		}
@@ -239,8 +251,46 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			data: {},
 			minor: 0,
 			major: 0,
-			...driver.init?.(ino),
+			...driver.init?.(ino, options),
 		};
+		this.devices.set(path, dev);
+		return dev;
+	}
+
+	protected devicesWithDriver(driver: DeviceDriver<unknown> | string, forceIdentity?: boolean): Device[] {
+		if (forceIdentity && typeof driver == 'string') {
+			throw new ErrnoError(Errno.EINVAL, 'Can not fetch devices using only a driver name');
+		}
+		const devs: Device[] = [];
+		for (const device of this.devices.values()) {
+			if (forceIdentity && device.driver != driver) continue;
+
+			const name = typeof driver == 'string' ? driver : driver.name;
+
+			if (name == device.driver.name) devs.push(device);
+		}
+
+		return devs;
+	}
+
+	/**
+	 * @internal
+	 */
+	_createDevice<TData = any>(driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
+		let ino = 1n;
+		while (this.store.has(ino)) ino++;
+		const dev = {
+			driver,
+			ino,
+			data: {},
+			minor: 0,
+			major: 0,
+			...driver.init?.(ino, options),
+		};
+		const path = '/' + (dev.name || driver.name) + (driver.singleton ? '' : this.devicesWithDriver(driver).length);
+		if (this.existsSync(path)) {
+			throw ErrnoError.With('EEXIST', path, 'mknod');
+		}
 		this.devices.set(path, dev);
 		return dev;
 	}
@@ -249,10 +299,11 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	 * Adds default devices
 	 */
 	public addDefaults(): void {
-		this.createDevice('/null', nullDevice);
-		this.createDevice('/zero', zeroDevice);
-		this.createDevice('/full', fullDevice);
-		this.createDevice('/random', randomDevice);
+		this._createDevice(nullDevice);
+		this._createDevice(zeroDevice);
+		this._createDevice(fullDevice);
+		this._createDevice(randomDevice);
+		this._createDevice(consoleDevice);
 	}
 
 	public constructor() {
@@ -423,10 +474,11 @@ function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset: number, leng
  * Simulates the `/dev/null` device.
  * - Reads return 0 bytes (EOF).
  * - Writes discard data, advancing the file position.
- * @experimental
+ * @experimental @internal
  */
 export const nullDevice: DeviceDriver = {
 	name: 'null',
+	singleton: true,
 	init() {
 		return { major: 1, minor: 3 };
 	},
@@ -444,10 +496,11 @@ export const nullDevice: DeviceDriver = {
  * - Reads fill the buffer with zeroes.
  * - Writes discard data but update the file position.
  * - Provides basic file metadata, treating it as a character device.
- * @experimental
+ * @experimental @internal
  */
 export const zeroDevice: DeviceDriver = {
 	name: 'zero',
+	singleton: true,
 	init() {
 		return { major: 1, minor: 5 };
 	},
@@ -466,10 +519,11 @@ export const zeroDevice: DeviceDriver = {
  * Simulates the `/dev/full` device.
  * - Reads behave like `/dev/zero` (returns zeroes).
  * - Writes always fail with ENOSPC (no space left on device).
- * @experimental
+ * @experimental @internal
  */
 export const fullDevice: DeviceDriver = {
 	name: 'full',
+	singleton: true,
 	init() {
 		return { major: 1, minor: 7 };
 	},
@@ -491,10 +545,11 @@ export const fullDevice: DeviceDriver = {
  * Simulates the `/dev/random` device.
  * - Reads return random bytes.
  * - Writes discard data, advancing the file position.
- * @experimental
+ * @experimental @internal
  */
 export const randomDevice: DeviceDriver = {
 	name: 'random',
+	singleton: true,
 	init() {
 		return { major: 1, minor: 8 };
 	},
@@ -510,12 +565,36 @@ export const randomDevice: DeviceDriver = {
 };
 
 /**
+ * Simulates the `/dev/console` device.
+ * @experimental @internal
+ */
+const consoleDevice: DeviceDriver<{ output: (text: string) => unknown }> = {
+	name: 'console',
+	singleton: true,
+	init(ino: bigint, { output = console.log }: { output?: (text: string) => unknown } = {}) {
+		return { major: 5, minor: 1, data: { output } };
+	},
+
+	read(): number {
+		return 0;
+	},
+
+	write(file, buffer: Uint8Array, offset: number, length: number): number {
+		const text = decodeUTF8(buffer.slice(offset, offset + length));
+		file.device.data.output(text);
+		file.position += length;
+		return length;
+	},
+};
+
+/**
  * Shortcuts for importing.
  * @experimental
  */
-export default {
+export const devices = {
 	null: nullDevice,
 	zero: zeroDevice,
 	full: fullDevice,
 	random: randomDevice,
+	console: consoleDevice,
 };

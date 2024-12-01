@@ -1,10 +1,11 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { useCredentials } from './credentials.js';
-import { DeviceFS } from './devices.js';
+import { DeviceFS, type Device, type DeviceDriver } from './devices.js';
 import * as cache from './emulation/cache.js';
 import { config } from './emulation/config.js';
 import * as fs from './emulation/index.js';
+import { mounts } from './emulation/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
@@ -180,6 +181,12 @@ async function mount(path: string, mount: FileSystem): Promise<void> {
 		throw ErrnoError.With('ENOTDIR', path, 'configure');
 	}
 	fs.mount(path, mount);
+}
+
+export function addDevice(driver: DeviceDriver, options?: object): Device {
+	const devfs = mounts.get('/dev');
+	if (!(devfs instanceof DeviceFS)) throw new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system');
+	return devfs._createDevice(driver, options);
 }
 
 /**

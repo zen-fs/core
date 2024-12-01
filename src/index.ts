@@ -12,7 +12,6 @@ export * from './config.js';
 export * from './context.js';
 export * from './credentials.js';
 export * from './devices.js';
-export { default as devices } from './devices.js';
 export * from './file.js';
 export * from './filesystem.js';
 export * from './inode.js';
