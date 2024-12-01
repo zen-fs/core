@@ -260,39 +260,34 @@ export class FileHandle implements promises.FileHandle {
 	 * It is unsafe to call `write()` multiple times on the same file without waiting for the `Promise`
 	 * to be resolved (or rejected). For this scenario, `fs.createWriteStream` is strongly recommended.
 	 */
-	public async write(
-		data: FileContents,
-		posOrOff?: number | null,
-		lenOrEnc?: BufferEncoding | number,
+	public async write<T extends FileContents>(
+		data: T,
+		options?: number | null | { offset?: number; length?: number; position?: number },
+		lenOrEnc?: BufferEncoding | number | null,
 		position?: number | null
-	): Promise<{ bytesWritten: number; buffer: FileContents }>;
-	public async write<TBuffer extends Uint8Array>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesWritten: number; buffer: TBuffer }>;
-	public async write(data: string, position?: number, encoding?: BufferEncoding): Promise<{ bytesWritten: number; buffer: string }>;
-	public async write(
-		data: FileContents,
-		posOrOff?: number,
-		lenOrEnc?: BufferEncoding | number,
-		position?: number | null
-	): Promise<{ bytesWritten: number; buffer: FileContents }> {
+	): Promise<{ bytesWritten: number; buffer: T }> {
 		let buffer: Uint8Array, offset: number | null | undefined, length: number;
+		if (typeof options == 'object') {
+			lenOrEnc = options?.length;
+			position = options?.position;
+			options = options?.offset;
+		}
 		if (typeof data === 'string') {
-			// Signature 1: (fd, string, [position?, [encoding?]])
-			position = typeof posOrOff === 'number' ? posOrOff : null;
+			position = typeof options === 'number' ? options : null;
 			const encoding = typeof lenOrEnc === 'string' ? lenOrEnc : ('utf8' as BufferEncoding);
 			offset = 0;
 			buffer = Buffer.from(data, encoding);
 			length = buffer.length;
 		} else {
-			// Signature 2: (fd, buffer, offset, length, position?)
 			buffer = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-			offset = posOrOff;
+			offset = options;
 			length = lenOrEnc as number;
 			position = typeof position === 'number' ? position : null;
 		}
 		position ??= this.file.position;
 		const bytesWritten = await this.file.write(buffer, offset, length, position);
 		emitChange('change', this.file.path);
-		return { buffer, bytesWritten };
+		return { buffer: data, bytesWritten };
 	}
 
 	/**
@@ -997,6 +992,9 @@ export function watch<T extends string | Buffer>(filename: fs.PathLike, options:
 				},
 				return: cleanup,
 				throw: cleanup,
+				[Symbol.asyncDispose]() {
+					return Promise.resolve();
+				},
 			};
 		},
 	};
