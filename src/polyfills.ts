@@ -14,3 +14,8 @@ Promise.withResolvers ??= function <T>(): PromiseWithResolvers<T> {
 Symbol['dispose'] ??= Symbol('Symbol.dispose');
 // @ts-expect-error 2540
 Symbol['asyncDispose'] ??= Symbol('Symbol.asyncDispose');
+
+declare global {
+	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+	interface AsyncIterator<T, TReturn, TNext> extends AsyncDisposable {}
+}

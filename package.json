@@ -21,8 +21,7 @@
 		"dist",
 		"tests",
 		"license.md",
-		"eslint.shared.js",
-		"patches"
+		"eslint.shared.js"
 	],
 	"type": "module",
 	"homepage": "https://github.com/zen-fs/core",
@@ -59,8 +58,7 @@
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",
-		"prepublishOnly": "npm run build",
-		"postinstall": "patch-package"
+		"prepublishOnly": "npm run build"
 	},
 	"lint-staged": {
 		"*": [
@@ -73,8 +71,7 @@
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
 		"readable-stream": "^4.5.2",
-		"utilium": "^1.1.1",
-		"patch-package": "^8.0.0"
+		"utilium": "^1.1.1"
 	},
 	"optionalDependencies": {
 		"minimatch": "^9.0.3"
