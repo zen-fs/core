@@ -26,14 +26,14 @@ export class Inode implements StatsLike {
 			// Expand the buffer so it is the right size
 			if (buffer.byteLength < sz_inode) {
 				const newBuffer = new Uint8Array(sz_inode);
+				const buf = ArrayBuffer.isView(buffer) ? buffer.buffer : buffer;
 				// Fill the new buffer with current data
-				newBuffer.set(new Uint8Array(ArrayBuffer.isView(buffer) ? buffer.buffer : buffer));
+				newBuffer.set(new Uint8Array(buf));
 				/* 	Add a random ino. 
 					This will be different from the actual one,
 					but `ino` isn't used anywhere so it should be fine.
 				*/
-				const randomIno = crypto.getRandomValues(new Uint32Array(2));
-				newBuffer.set(randomIno, sz_inode - 2);
+				new DataView(newBuffer.buffer).setBigUint64(sz_inode - 2, randomBigInt());
 				buffer = newBuffer;
 			}
 

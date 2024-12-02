@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return */
 import type * as fs from 'node:fs';
-import type { ClassLike, OptionalTuple } from 'utilium';
+import { randomHex, type ClassLike, type OptionalTuple } from 'utilium';
 import { dirname, resolve, type AbsolutePath } from './emulation/path.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
@@ -272,5 +272,10 @@ export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: an
  * @internal
  */
 export function randomBigInt(): bigint {
-	return crypto.getRandomValues(new BigUint64Array(1))[0];
+	try {
+		return crypto.getRandomValues(new BigUint64Array(1))[0];
+	} catch {
+		// fallback
+		return BigInt('0x' + randomHex(16 /* 4 bits per char */));
+	}
 }
