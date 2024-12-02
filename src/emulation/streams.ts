@@ -1,9 +1,9 @@
-import type * as Node from 'node:fs';
+import type * as fs from 'node:fs';
 import { Readable, Writable } from 'readable-stream';
 import type { Callback } from '../utils.js';
 import { ErrnoError, Errno } from '../error.js';
 
-export class ReadStream extends Readable implements Node.ReadStream {
+export class ReadStream extends Readable implements fs.ReadStream {
 	close(callback: Callback<[void], null> = () => null): void {
 		try {
 			super.destroy();
@@ -22,7 +22,7 @@ export class ReadStream extends Readable implements Node.ReadStream {
 	declare pending: boolean;
 }
 
-export class WriteStream extends Writable implements Node.WriteStream {
+export class WriteStream extends Writable implements fs.WriteStream {
 	close(callback: Callback<[void], null> = () => null): void {
 		try {
 			super.destroy();

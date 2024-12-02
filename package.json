@@ -59,7 +59,7 @@
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build",
-		"postinstall": "patch-package"
+		"install": "patch-package"
 	},
 	"lint-staged": {
 		"*": [
