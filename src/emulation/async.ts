@@ -876,18 +876,20 @@ export async function openAsBlob(this: V_Context, path: fs.PathLike, options?: f
 }
 openAsBlob satisfies typeof fs.openAsBlob;
 
+type GlobCallback<Args extends unknown[]> = (e: ErrnoError | null, ...args: Args) => unknown;
+
 /**
  * Retrieves the files matching the specified pattern.
  */
-export function glob(this: V_Context, pattern: string | string[], callback: Callback<[string[]], null>): void;
-export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptionsWithFileTypes, callback: Callback<[Dirent[]], null>): void;
-export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptionsWithoutFileTypes, callback: Callback<[string[]], null>): void;
-export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptions, callback: Callback<[Dirent[] | string[]], null>): void;
+export function glob(this: V_Context, pattern: string | string[], callback: GlobCallback<[string[]]>): void;
+export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptionsWithFileTypes, callback: GlobCallback<[Dirent[]]>): void;
+export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptionsWithoutFileTypes, callback: GlobCallback<[string[]]>): void;
+export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptions, callback: GlobCallback<[Dirent[] | string[]]>): void;
 export function glob(
 	this: V_Context,
 	pattern: string | string[],
-	options: GlobOptionsU | Callback<[string[]], null>,
-	callback: Callback<[Dirent[]], null> | Callback<[string[]], null> = nop
+	options: GlobOptionsU | GlobCallback<[string[]]>,
+	callback: GlobCallback<[Dirent[]]> | GlobCallback<[string[]]> = nop
 ): void {
 	callback = typeof options == 'function' ? options : callback;
 
@@ -897,7 +899,7 @@ export function glob(
 		typeof options === 'function' ? undefined : options
 	);
 	collectAsyncIterator(it)
-		.then(results => callback(null, results as any))
+		.then(results => callback(null, (results as any) ?? []))
 		.catch((e: ErrnoError) => callback(e));
 }
 glob satisfies typeof fs.glob;
