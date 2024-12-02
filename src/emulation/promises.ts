@@ -192,9 +192,6 @@ export class FileHandle implements promises.FileHandle {
 	 * While the `ReadableStream` will read the file to completion,
 	 * it will not close the `FileHandle` automatically.
 	 * User code must still call the `fileHandle.close()` method.
-	 *
-	 * @since v17.0.0
-	 * @experimental
 	 */
 	public readableWebStream(options: promises.ReadableWebStreamOptions = {}): TReadableStream<Uint8Array> {
 		// Note: using an arrow function to preserve `this`

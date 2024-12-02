@@ -17,7 +17,7 @@ import { decodeUTF8 } from './utils.js';
  * A device
  * @todo Maybe add major/minor number or some other device information, like a UUID?
  * @privateRemarks
- * UUIDs were considered, however they don't make sense without an easy mechanism for persistance
+ * UUIDs were considered, however they don't make sense without an easy mechanism for persistence
  */
 export interface Device<TData = any> {
 	/**
@@ -33,19 +33,16 @@ export interface Device<TData = any> {
 	/**
 	 * Data associated with a device.
 	 * This is meant to be used by device drivers.
-	 * @experimental
 	 */
 	data: TData;
 
 	/**
 	 * Major device number
-	 * @experimental
 	 */
 	major: number;
 
 	/**
 	 * Minor device number
-	 * @experimental
 	 */
 	minor: number;
 }
@@ -74,7 +71,6 @@ export interface DeviceDriver<TData = any> {
 	/**
 	 * Initializes a new device.
 	 * @returns `Device.data`
-	 * @experimental
 	 */
 	init?(
 		ino: bigint,
@@ -474,7 +470,7 @@ function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset: number, leng
  * Simulates the `/dev/null` device.
  * - Reads return 0 bytes (EOF).
  * - Writes discard data, advancing the file position.
- * @experimental @internal
+ * @internal
  */
 export const nullDevice: DeviceDriver = {
 	name: 'null',
@@ -496,7 +492,7 @@ export const nullDevice: DeviceDriver = {
  * - Reads fill the buffer with zeroes.
  * - Writes discard data but update the file position.
  * - Provides basic file metadata, treating it as a character device.
- * @experimental @internal
+ * @internal
  */
 export const zeroDevice: DeviceDriver = {
 	name: 'zero',
@@ -519,7 +515,7 @@ export const zeroDevice: DeviceDriver = {
  * Simulates the `/dev/full` device.
  * - Reads behave like `/dev/zero` (returns zeroes).
  * - Writes always fail with ENOSPC (no space left on device).
- * @experimental @internal
+ * @internal
  */
 export const fullDevice: DeviceDriver = {
 	name: 'full',
@@ -545,7 +541,7 @@ export const fullDevice: DeviceDriver = {
  * Simulates the `/dev/random` device.
  * - Reads return random bytes.
  * - Writes discard data, advancing the file position.
- * @experimental @internal
+ * @internal
  */
 export const randomDevice: DeviceDriver = {
 	name: 'random',
@@ -589,7 +585,6 @@ const consoleDevice: DeviceDriver<{ output: (text: string) => unknown }> = {
 
 /**
  * Shortcuts for importing.
- * @experimental
  */
 export const devices = {
 	null: nullDevice,
