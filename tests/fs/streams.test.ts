@@ -33,7 +33,7 @@ suite('ReadStream', () => {
 			closed = true;
 		});
 		readStream.close(err => {
-			assert.strictEqual(err, undefined);
+			assert.equal(err, null);
 			assert(closed);
 			done();
 		});
@@ -58,10 +58,10 @@ suite('ReadStream', () => {
 	test('ReadStream close method can be called multiple times', (_, done) => {
 		const readStream = new fs.ReadStream();
 		readStream.close(err => {
-			assert.strictEqual(err, undefined);
+			assert.equal(err, null);
 			// Call close again
 			readStream.close(err2 => {
-				assert.strictEqual(err2, undefined);
+				assert.equal(err2, null);
 				done();
 			});
 		});
@@ -94,7 +94,7 @@ suite('WriteStream', () => {
 			closed = true;
 		});
 		writeStream.close(err => {
-			assert.strictEqual(err, undefined);
+			assert.equal(err, null);
 			assert(closed);
 			done();
 		});
@@ -119,10 +119,10 @@ suite('WriteStream', () => {
 	test('WriteStream close method can be called multiple times', (_, done) => {
 		const writeStream = new fs.WriteStream();
 		writeStream.close(err => {
-			assert.strictEqual(err, undefined);
+			assert.equal(err, null);
 			// Call close again
 			writeStream.close(err2 => {
-				assert.strictEqual(err2, undefined);
+				assert.equal(err2, null);
 				done();
 			});
 		});

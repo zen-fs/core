@@ -11,9 +11,10 @@ import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse, resolve } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type _AnyGlobOptions, type InternalOptions, type ReaddirOptions } from './shared.js';
+import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
 import { emitChange } from './watchers.js';
 import type { V_Context } from '../context.js';
+import type { GlobOptionsU, ReaddirOptsI, ReaddirOptsU, InternalOptions, ReaddirOptions, NullEnc } from './types.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
@@ -444,28 +445,12 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
-export function readdirSync(
-	this: V_Context,
-	path: fs.PathLike,
-	options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null
-): string[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): string[];
 export function readdirSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }): Buffer[];
-export function readdirSync(
-	this: V_Context,
-	path: fs.PathLike,
-	options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null
-): string[] | Buffer[];
-export function readdirSync(this: V_Context, path: fs.PathLike, options: fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes: true }): Dirent[];
-export function readdirSync(
-	this: V_Context,
-	path: fs.PathLike,
-	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
-): string[] | Dirent[] | Buffer[];
-export function readdirSync(
-	this: V_Context,
-	path: fs.PathLike,
-	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
-): string[] | Dirent[] | Buffer[] {
+export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): string[] | Buffer[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options: ReaddirOptsI<{ withFileTypes: true }>): Dirent[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc): string[] | Dirent[] | Buffer[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc): string[] | Dirent[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
@@ -877,5 +862,44 @@ export function globSync(pattern: string | string[]): string[];
 export function globSync(pattern: string | string[], options: fs.GlobOptionsWithFileTypes): Dirent[];
 export function globSync(pattern: string | string[], options: fs.GlobOptionsWithoutFileTypes): string[];
 export function globSync(pattern: string | string[], options: fs.GlobOptions): Dirent[] | string[];
-export function globSync(pattern: string | string[], options?: _AnyGlobOptions): Dirent[] | string[] {}
+export function globSync(pattern: string | string[], options: GlobOptionsU = {}): Dirent[] | string[] {
+	pattern = Array.isArray(pattern) ? pattern : [pattern];
+	const { cwd = '/', withFileTypes = false, exclude = () => false } = options;
+
+	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
+
+	// Escape special characters in pattern
+	const regexPatterns = pattern.map(p => {
+		p = p
+			.replace(/([.?+^$(){}|[\]/])/g, '\\$1')
+			.replace(/\*\*/g, '.*')
+			.replace(/\*/g, '[^/]*')
+			.replace(/\?/g, '.');
+		return new RegExp(`^${p}$`);
+	});
+
+	const results: string[] = [];
+	function recursiveList(dir: string) {
+		const entries = readdirSync(dir, { withFileTypes, encoding: 'utf8' });
+
+		for (const entry of entries as Entries) {
+			const fullPath = withFileTypes ? entry.path : dir + '/' + entry;
+			if (exclude((withFileTypes ? entry : fullPath) as any)) continue;
+
+			/**
+			 * @todo it the pattern.source check correct?
+			 */
+			if (statSync(fullPath).isDirectory() && regexPatterns.some(pattern => pattern.source.includes('.*'))) {
+				recursiveList(fullPath);
+			}
+
+			if (regexPatterns.some(pattern => pattern.test(fullPath.replace(/^\/+/g, '')))) {
+				results.push(withFileTypes ? entry.path : fullPath.replace(/^\/+/g, ''));
+			}
+		}
+	}
+
+	recursiveList(cwd);
+	return results;
+}
 globSync satisfies typeof fs.globSync;

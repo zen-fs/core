@@ -8,10 +8,11 @@ import { R_OK } from './constants.js';
 import type { Dirent } from './dir.js';
 import type { Dir } from './dir.js';
 import * as promises from './promises.js';
-import { fd2file, fdMap, type _AnyGlobOptions } from './shared.js';
+import { fd2file, fdMap } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, StatWatcher } from './watchers.js';
 import type { V_Context } from '../context.js';
+import type { GlobOptionsU } from './types.js';
 
 const nop = () => {};
 
@@ -885,12 +886,12 @@ export function glob(this: V_Context, pattern: string | string[], options: fs.Gl
 export function glob(
 	this: V_Context,
 	pattern: string | string[],
-	options: _AnyGlobOptions | Callback<[string[]], null>,
+	options: GlobOptionsU | Callback<[string[]], null>,
 	callback: Callback<[Dirent[]], null> | Callback<[string[]], null> = nop
 ): void {
 	callback = typeof options == 'function' ? options : callback;
 
-	const it = promises.glob.call<V_Context, [string | string[], _AnyGlobOptions?], NodeJS.AsyncIterator<Dirent | string>>(
+	const it = promises.glob.call<V_Context, [string | string[], GlobOptionsU?], NodeJS.AsyncIterator<Dirent | string>>(
 		this,
 		pattern,
 		typeof options === 'function' ? undefined : options

@@ -18,9 +18,10 @@ import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse, resolve } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount, type _AnyGlobOptions, type InternalOptions, type ReaddirOptions } from './shared.js';
+import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
+import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -729,28 +730,12 @@ mkdir satisfies typeof promises.mkdir;
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'`.
  */
-export async function readdir(
-	this: V_Context,
-	path: fs.PathLike,
-	options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null
-): Promise<string[]>;
+export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): Promise<string[]>;
 export async function readdir(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }): Promise<Buffer[]>;
-export async function readdir(
-	this: V_Context,
-	path: fs.PathLike,
-	options?: (fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes?: false }) | BufferEncoding | null
-): Promise<string[] | Buffer[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options: fs.ObjectEncodingOptions & ReaddirOptions & { withFileTypes: true }): Promise<Dirent[]>;
-export async function readdir(
-	this: V_Context,
-	path: fs.PathLike,
-	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
-): Promise<string[] | Dirent[] | Buffer[]>;
-export async function readdir(
-	this: V_Context,
-	path: fs.PathLike,
-	options?: (ReaddirOptions & (fs.ObjectEncodingOptions | fs.BufferEncodingOption)) | BufferEncoding | null
-): Promise<string[] | Dirent[] | Buffer[]> {
+export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): Promise<string[] | Buffer[]>;
+export async function readdir(this: V_Context, path: fs.PathLike, options: ReaddirOptsI<{ withFileTypes: true }>): Promise<Dirent[]>;
+export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc): Promise<string[] | Dirent[] | Buffer[]>;
+export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc): Promise<string[] | Dirent[] | Buffer[]> {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = await realpath.call(this, path);
 
@@ -1190,22 +1175,42 @@ export function glob(this: V_Context, pattern: string | string[]): NodeJS.AsyncI
 export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithFileTypes): NodeJS.AsyncIterator<Dirent>;
 export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithoutFileTypes): NodeJS.AsyncIterator<string>;
 export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptions): NodeJS.AsyncIterator<Dirent | string>;
-export function glob(this: V_Context, pattern: string | string[], opt?: _AnyGlobOptions): NodeJS.AsyncIterator<Dirent | string> {
+export function glob(this: V_Context, pattern: string | string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
-	for (const p of pattern) {
-		const { fs } = resolveMount(p, this);
+	const { cwd = '/', withFileTypes = false, exclude = () => false } = opt || {};
+
+	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
+
+	// Escape special characters in pattern
+	const regexPatterns = pattern.map(p => {
+		p = p
+			.replace(/([.?+^$(){}|[\]/])/g, '$1')
+			.replace(/\*\*/g, '.*')
+			.replace(/\*/g, '[^/]*')
+			.replace(/\?/g, '.');
+		return new RegExp(`^${p}$`);
+	});
+
+	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
+		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
+
+		for (const entry of entries as Entries) {
+			const fullPath = withFileTypes ? entry.path : dir + '/' + entry;
+			if (exclude((withFileTypes ? entry : fullPath) as any)) continue;
+
+			/**
+			 * @todo it the pattern.source check correct?
+			 */
+			if ((await stat(fullPath)).isDirectory() && regexPatterns.some(pattern => pattern.source.includes('.*'))) {
+				yield* recursiveList(fullPath);
+			}
+
+			if (regexPatterns.some(pattern => pattern.test(fullPath.replace(/^\/+/g, '')))) {
+				yield withFileTypes ? entry : fullPath.replace(/^\/+/g, '');
+			}
+		}
 	}
 
-	return {
-		next(): Promise<IteratorResult<any>> {
-			return Promise.resolve() as any;
-		},
-		[Symbol.asyncIterator]() {
-			return this;
-		},
-		[Symbol.asyncDispose]() {
-			return Promise.resolve();
-		},
-	};
+	return recursiveList(cwd);
 }
 glob satisfies typeof promises.glob;

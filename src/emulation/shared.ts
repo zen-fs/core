@@ -174,29 +174,6 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 }
 
 /**
- * Options used for caching, among other things.
- * @internal @hidden *UNSTABLE*
- */
-export interface InternalOptions {
-	/**
-	 * If true, then this readdir was called from another function.
-	 * In this case, don't clear the cache when done.
-	 * @internal *UNSTABLE*
-	 */
-	_isIndirect?: boolean;
-}
-
-export interface ReaddirOptions extends InternalOptions {
-	withFileTypes?: boolean;
-	recursive?: boolean;
-}
-
-/**
- * @hidden
- */
-export type _AnyGlobOptions = fs.GlobOptionsWithFileTypes | fs.GlobOptionsWithoutFileTypes | fs.GlobOptions;
-
-/**
  * Change the root path
  * @param inPlace if true, this changes the root for the current context instead of creating a new one (if associated with a context).
  * @experimental
