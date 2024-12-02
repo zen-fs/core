@@ -21,7 +21,8 @@
 		"dist",
 		"tests",
 		"license.md",
-		"eslint.shared.js"
+		"eslint.shared.js",
+		"patches"
 	],
 	"type": "module",
 	"homepage": "https://github.com/zen-fs/core",
