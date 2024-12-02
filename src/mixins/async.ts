@@ -226,5 +226,3 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 
 	return AsyncFS;
 }
-
-export function asyncPatch<T extends typeof FileSystem>(fs: Mixin<T, AsyncMixin>) {}
