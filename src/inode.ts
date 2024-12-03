@@ -33,7 +33,7 @@ export class Inode implements StatsLike {
 					This will be different from the actual one,
 					but `ino` isn't used anywhere so it should be fine.
 				*/
-				new DataView(newBuffer.buffer).setBigUint64(sz_inode - 2, randomBigInt());
+				new DataView(newBuffer.buffer).setBigUint64(sz_inode - 1, randomBigInt());
 				buffer = newBuffer;
 			}
 
