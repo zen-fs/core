@@ -11,7 +11,7 @@ export const rootIno = 0n;
 /**
  * Generic inode definition that can easily be serialized.
  * @internal
- * @todo [BREAKING]
+ * @todo [BREAKING] Remove 58 byte Inode upgrade path
  */
 @struct()
 export class Inode implements StatsLike {

@@ -1166,7 +1166,6 @@ export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatF
 
 /**
  * Retrieves the files matching the specified pattern.
- * @todo Implement
  */
 export function glob(this: V_Context, pattern: string | string[]): NodeJS.AsyncIterator<string>;
 export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithFileTypes): NodeJS.AsyncIterator<Dirent>;

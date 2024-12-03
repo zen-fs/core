@@ -15,7 +15,7 @@ import { decodeUTF8 } from './utils.js';
 
 /**
  * A device
- * @todo Maybe add major/minor number or some other device information, like a UUID?
+ * @todo Maybe add some other device information, like a UUID?
  * @privateRemarks
  * UUIDs were considered, however they don't make sense without an easy mechanism for persistence
  */
