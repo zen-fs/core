@@ -5,7 +5,7 @@ import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { PreloadFile } from '../../file.js';
 import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
-import { Inode, rootIno } from '../../inode.js';
+import { Inode, rootIno } from './inode.js';
 import type { FileType, Stats } from '../../stats.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8, randomBigInt } from '../../utils.js';
 import type { Store, Transaction } from './store.js';

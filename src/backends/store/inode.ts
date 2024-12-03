@@ -1,6 +1,6 @@
 import { deserialize, sizeof, struct, types as t } from 'utilium';
-import { Stats, type StatsLike } from './stats.js';
-import { randomBigInt } from './utils.js';
+import { Stats, type StatsLike } from '../../stats.js';
+import { randomBigInt } from '../../utils.js';
 
 /**
  * Room inode

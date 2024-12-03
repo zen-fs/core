@@ -14,7 +14,7 @@ export * from './credentials.js';
 export * from './devices.js';
 export * from './file.js';
 export * from './filesystem.js';
-export * from './inode.js';
+export * from './backends/store/inode.js';
 export * from './mixins/index.js';
 export * from './stats.js';
 export * from './utils.js';
