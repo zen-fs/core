@@ -532,16 +532,10 @@ export class OverlayFS extends Mutexed(UnmutexedOverlayFS) {}
 
 const _Overlay = {
 	name: 'Overlay',
-
 	options: {
 		writable: { type: 'object', required: true },
 		readable: { type: 'object', required: true },
 	},
-
-	isAvailable(): boolean {
-		return true;
-	},
-
 	create(options: OverlayOptions) {
 		return new OverlayFS(options);
 	},

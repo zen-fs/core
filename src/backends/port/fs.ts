@@ -303,11 +303,6 @@ const _Port = {
 		},
 		timeout: { type: 'number', required: false },
 	},
-
-	isAvailable(): boolean {
-		return true;
-	},
-
 	create(options: RPC.Options) {
 		return new PortFS(options);
 	},

@@ -23,9 +23,6 @@ export class InMemoryStore extends Map<bigint, Uint8Array> implements SimpleSync
 
 const _InMemory = {
 	name: 'InMemory',
-	isAvailable(): boolean {
-		return true;
-	},
 	options: {
 		name: { type: 'string', required: false },
 	},
