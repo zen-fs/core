@@ -1,8 +1,6 @@
 # ZenFS
 
-ZenFS is a file system that emulates the [NodeJS filesystem API](http://nodejs.org/api/fs.html).
-
-It works using a system of backends, which are used by ZenFS to store and retrieve data. ZenFS can also integrate with other tools.
+ZenFS is a file system that emulates the [NodeJS filesystem API](http://nodejs.org/api/fs.html). It works using a system of backends, which are used by ZenFS to store and retrieve data. ZenFS can also integrate with other tools.
 
 ## Backends
 
@@ -26,6 +24,8 @@ For more information, see the [docs](https://zenfs.dev/core).
 ```sh
 npm install @zenfs/core
 ```
+
+If you're using ZenFS, especially for big projects, please consider supporting the project. Thousands of hours have been dedicated to its development, and your acknowledgment or financial support would go a long way toward improving ZenFS and its community.
 
 ## Usage
 
