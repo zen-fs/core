@@ -522,7 +522,7 @@ export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.
 		if (config.checkAccess && !fs.statSync(path).hasAccess(constants.R_OK, this)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
-		return fs.linkSync(path, linkPath);
+		return fs.linkSync(path, link.path);
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [path]: targetPath, [link.path]: linkPath });
 	}
