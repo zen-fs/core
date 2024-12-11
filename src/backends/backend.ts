@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Entries, RequiredKeys } from 'utilium';
 import { ErrnoError, Errno } from '../error.js';
 import type { FileSystem } from '../filesystem.js';
-import { levenshtein } from '../utils.js';
 
-type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undefined' | 'object' | 'function';
+type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undefined' | 'object' | 'function' | (abstract new (...args: any[]) => any);
 
 /**
  * Resolves the type of Backend.options from the options interface
@@ -104,43 +104,35 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 
 	// Check for required options.
 	for (const [optName, opt] of Object.entries(backend.options) as Entries<OptionsConfig<Record<string, any>>>) {
-		const providedValue = options?.[optName];
+		const value = options?.[optName];
 
-		if (providedValue === undefined || providedValue === null) {
+		if (value === undefined || value === null) {
 			if (!opt.required) {
 				continue;
 			}
-			/* Required option not provided.
-			if any incorrect options provided, which ones are close to the provided one?
-			(edit distance 5 === close)*/
-			const incorrectOptions = Object.keys(options)
-				.filter(o => !(o in backend.options))
-				.map((a: string) => {
-					return { str: a, distance: levenshtein(optName, a) };
-				})
-				.filter(o => o.distance < 5)
-				.sort((a, b) => a.distance - b.distance);
 
-			throw new ErrnoError(
-				Errno.EINVAL,
-				`${backend.name}: Required option '${optName}' not provided.${
-					incorrectOptions.length > 0 ? ` You provided '${incorrectOptions[0].str}', did you mean '${optName}'.` : ''
-				}`
-			);
+			throw new ErrnoError(Errno.EINVAL, 'Missing required option: ' + optName);
 		}
+
 		// Option provided, check type.
-		const typeMatches = Array.isArray(opt.type) ? opt.type.indexOf(typeof providedValue) != -1 : typeof providedValue == opt.type;
-		if (!typeMatches) {
-			throw new ErrnoError(
-				Errno.EINVAL,
-				`${backend.name}: Value provided for option ${optName} is not the proper type. Expected ${
-					Array.isArray(opt.type) ? `one of {${opt.type.join(', ')}}` : (opt.type as string)
-				}, but received ${typeof providedValue}`
-			);
+
+		type T = typeof opt.type extends (infer U)[] ? U : typeof opt.type;
+
+		const isType = (value: unknown): value is T => (typeof opt.type == 'function' ? value instanceof opt.type : typeof value === opt.type);
+
+		if (Array.isArray(opt.type) ? !opt.type.some(isType) : !isType(value)) {
+			// The type of the value as a string
+			const type = typeof value == 'object' && 'constructor' in value ? value.constructor.name : typeof value;
+
+			// The expected type (as a string)
+			const name = (type: OptionType) => (typeof type == 'function' ? type.name : type);
+			const expected = Array.isArray(opt.type) ? `one of ${opt.type.map(name).join(', ')}` : name(opt.type as OptionType);
+
+			throw new ErrnoError(Errno.EINVAL, `Incorrect type for "${optName}": ${type} (expected ${expected})`);
 		}
 
 		if (opt.validator) {
-			await opt.validator(providedValue);
+			await opt.validator(value);
 		}
 		// Otherwise: All good!
 	}
