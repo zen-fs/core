@@ -147,9 +147,6 @@ fs.umount('/mnt/zip'); // finished using the zip
 
 ### Devices and device files
 
-> [!WARNING]
-> This is an **experimental** feature. Breaking changes may occur during non-major releases. Using this feature is the fastest way to make it stable.
-
 ZenFS includes experimental support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. You can automatically add some normal devices with the `addDevices` configuration option:
 
 ```ts
