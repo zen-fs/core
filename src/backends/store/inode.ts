@@ -1,6 +1,7 @@
 import { deserialize, sizeof, struct, types as t } from 'utilium';
 import { Stats, type StatsLike } from '../../stats.js';
 import { randomBigInt } from '../../utils.js';
+import * as log from '../../log.js';
 
 /**
  * Room inode
@@ -20,6 +21,7 @@ export class Inode implements StatsLike {
 			const sz_inode = sizeof(Inode);
 			const oldSize = sz_inode - sizeof('uint64');
 			if (buffer.byteLength < oldSize) {
+				log.write(log.Level.ERR, 'Invalid inode buffer size: ' + buffer.byteLength);
 				throw new RangeError(`Can not create an inode from a buffer less than ${oldSize} bytes`);
 			}
 
