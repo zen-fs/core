@@ -20,8 +20,8 @@ import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
-import { FSWatcher, emitChange } from './watchers.js';
 import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import { FSWatcher, emitChange } from './watchers.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -857,7 +857,8 @@ export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.
 	await using handle = await _open.call(this, normalizePath(path), 'r', 0o644, false);
 	const value = await handle.readFile();
 	const encoding = typeof options == 'object' ? options?.encoding : options;
-	return encoding == 'buffer' ? value : value.toString(encoding! as BufferEncoding);
+	// always defaults to utf-8 to avoid wrangler (cloudflare) worker "unknown encoding" exception
+	return encoding == 'buffer' ? value : value.toString((encoding ?? 'utf-8') as BufferEncoding);
 }
 readlink satisfies typeof promises.readlink;
 
