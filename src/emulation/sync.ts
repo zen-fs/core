@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
+import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
@@ -12,9 +13,8 @@ import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
+import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 import { emitChange } from './watchers.js';
-import type { V_Context } from '../context.js';
-import type { GlobOptionsU, ReaddirOptsI, ReaddirOptsU, InternalOptions, ReaddirOptions, NullEnc } from './types.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
@@ -558,7 +558,8 @@ export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.En
 	if (encoding == 'buffer') {
 		return value;
 	}
-	return value.toString(encoding!);
+	// always defaults to utf-8 to avoid wrangler (cloudflare) worker "unknown encoding" exception
+	return value.toString(encoding ?? 'utf-8');
 }
 readlinkSync satisfies typeof fs.readlinkSync;
 
