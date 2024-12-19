@@ -20,6 +20,10 @@ export interface AsyncMixin {
 	 * @internal @protected
 	 */
 	_sync?: FileSystem;
+	/**
+	 * @internal @protected
+	 */
+	_patchAsync(): void;
 	queueDone(): Promise<void>;
 	ready(): Promise<void>;
 	renameSync(oldPath: string, newPath: string): void;
@@ -93,7 +97,6 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 
 			try {
 				await this.crossCopy('/');
-				this._patchAsync();
 				this._isInitialized = true;
 			} catch (e) {
 				this._isInitialized = false;
@@ -210,10 +213,10 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 				return;
 			}
 
-			const [method, ...args] = this._queue[0];
+			const [method, ...args] = this._queue.shift()!;
+
 			// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
 			await this[method](...args);
-			this._queue.shift();
 			await this._next();
 		}
 
@@ -226,26 +229,26 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		}
 
 		/**
-		 * @internal
+		 * @internal @protected
 		 * Patch all async methods to also call their synchronous counterparts unless called from the queue
 		 */
-		private _patchAsync() {
-			for (const _key of Object.getOwnPropertyNames(this) as (keyof AsyncFS)[]) {
-				const key = _key as Exclude<keyof AsyncFS, `_${string}` | `${string}Sync`>;
-				if (typeof this[key] !== 'function' || key.startsWith('_') || key.endsWith('Sync') || key == 'metadata' || key == 'ready' || key == 'queueDone') {
-					continue;
-				}
+		_patchAsync(): void {
+			const asyncFSMethodKeys = ['rename', 'stat', 'createFile', 'openFile', 'unlink', 'rmdir', 'mkdir', 'readdir', 'link', 'sync', 'exists'] as const;
+			for (const key of asyncFSMethodKeys) {
+				if (typeof this[key] !== 'function') continue;
 
 				const originalMethod = this[key] as (...args: unknown[]) => Promise<unknown>;
 
 				(this as any)[key] = async (...args: unknown[]) => {
 					const result = await originalMethod.apply(this, args);
-					if (/at \w+\.queue/.test(new Error().stack!)) return result;
+
+					if (new Error().stack!.includes(`at async ${this.constructor.name}._next`)) return result;
+
 					try {
 						// @ts-expect-error 2556
-						this._sync?.[(key + 'Sync') as `${typeof key}Sync`]?.(...args);
+						this._sync?.[`${key}Sync` as const]?.(...args);
 					} catch (e: any) {
-						throw new ErrnoError(Errno.ESTALE, 'Out of sync: ' + e.message, args[0] as string, key);
+						throw new ErrnoError(e.errno, 'Out of sync! (' + e.message + ')', args[0] as string, key);
 					}
 					return result;
 				};
