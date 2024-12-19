@@ -25,6 +25,8 @@ import {
 	X_OK,
 } from './emulation/constants.js';
 
+const n1000 = BigInt(1000) as 1000n;
+
 /**
  * Indicates the type of a file. Applied to 'mode'.
  */
@@ -305,19 +307,19 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	public get atimeNs(): bigint {
-		return BigInt(this.atimeMs) * 1000n;
+		return BigInt(this.atimeMs) * n1000;
 	}
 
 	public get mtimeNs(): bigint {
-		return BigInt(this.mtimeMs) * 1000n;
+		return BigInt(this.mtimeMs) * n1000;
 	}
 
 	public get ctimeNs(): bigint {
-		return BigInt(this.ctimeMs) * 1000n;
+		return BigInt(this.ctimeMs) * n1000;
 	}
 
 	public get birthtimeNs(): bigint {
-		return BigInt(this.birthtimeMs) * 1000n;
+		return BigInt(this.birthtimeMs) * n1000;
 	}
 }
 
@@ -392,15 +394,15 @@ export class StatsFs implements Node.StatsFsBase<number> {
  */
 export class BigIntStatsFs implements Node.StatsFsBase<bigint> {
 	/** Type of file system. */
-	public type: bigint = 0x7a656e6673n;
+	public type: bigint = BigInt('0x7a656e6673');
 	/**  Optimal transfer block size. */
-	public bsize: bigint = 4096n;
+	public bsize: bigint = BigInt(4096);
 	/**  Total data blocks in file system. */
-	public blocks: bigint = 0n;
+	public blocks: bigint = BigInt(0);
 	/** Free blocks in file system. */
-	public bfree: bigint = 0n;
+	public bfree: bigint = BigInt(0);
 	/** Available blocks for unprivileged users */
-	public bavail: bigint = 0n;
+	public bavail: bigint = BigInt(0);
 	/** Total file nodes in file system. */
 	public files: bigint = BigInt(size_max);
 	/** Free file nodes in file system. */

@@ -6,7 +6,7 @@ import { randomBigInt } from '../../utils.js';
  * Room inode
  * @hidden
  */
-export const rootIno = 0n;
+export const rootIno = BigInt(0) as 0n;
 
 /**
  * Generic inode definition that can easily be serialized.

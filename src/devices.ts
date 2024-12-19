@@ -239,7 +239,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
 		}
-		let ino = 1n;
+		let ino = BigInt(1) as 1n;
 		while (this.store.has(ino)) ino++;
 		const dev = {
 			driver,
@@ -273,7 +273,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	 * @internal
 	 */
 	_createDevice<TData = any>(driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
-		let ino = 1n;
+		let ino = BigInt(1) as 1n;
 		while (this.store.has(ino)) ino++;
 		const dev = {
 			driver,
