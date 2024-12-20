@@ -2,10 +2,10 @@ import { StoreFS } from '../backends/store/fs.js';
 import type { Store } from '../backends/store/store.js';
 import { join } from '../emulation/path.js';
 import { Errno, ErrnoError } from '../error.js';
-import { parseFlag, PreloadFile, type File } from '../file.js';
+import { parseFlag, PreloadFile } from '../file.js';
 import type { FileSystem } from '../filesystem.js';
 import type { Stats } from '../stats.js';
-import type { AsyncFSMethods, Mixin } from './shared.js';
+import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
 /** @internal */
 export type AsyncOperation = {
@@ -15,27 +15,13 @@ export type AsyncOperation = {
 /**
  * @internal
  */
-export interface AsyncMixin {
+export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'existsSync'>> {
 	/**
 	 * @internal @protected
 	 */
 	_sync?: FileSystem;
-	/**
-	 * @internal @protected
-	 */
-	_patchAsync(): void;
 	queueDone(): Promise<void>;
 	ready(): Promise<void>;
-	renameSync(oldPath: string, newPath: string): void;
-	statSync(path: string): Stats;
-	createFileSync(path: string, flag: string, mode: number): File;
-	openFileSync(path: string, flag: string): File;
-	unlinkSync(path: string): void;
-	rmdirSync(path: string): void;
-	mkdirSync(path: string, mode: number): void;
-	readdirSync(path: string): string[];
-	linkSync(srcpath: string, dstpath: string): void;
-	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
 }
 
 /**
@@ -67,7 +53,12 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 
 		private _isInitialized: boolean = false;
 
-		_sync?: FileSystem;
+		abstract _sync?: FileSystem;
+
+		public constructor(...args: any[]) {
+			super(...args);
+			this._patchAsync();
+		}
 
 		public async ready(): Promise<void> {
 			await super.ready();
@@ -229,10 +220,10 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		}
 
 		/**
-		 * @internal @protected
+		 * @internal
 		 * Patch all async methods to also call their synchronous counterparts unless called from the queue
 		 */
-		_patchAsync(): void {
+		private _patchAsync(): void {
 			const asyncFSMethodKeys = ['rename', 'stat', 'createFile', 'openFile', 'unlink', 'rmdir', 'mkdir', 'readdir', 'link', 'sync', 'exists'] as const;
 			for (const key of asyncFSMethodKeys) {
 				if (typeof this[key] !== 'function') continue;

@@ -14,14 +14,16 @@ export type Mixin<TBase extends typeof FileSystem, TMixin> = (abstract new (...a
 
 /**
  * @internal @hidden
+ * Note this include `existsSync`, even though it is a concrete method.
  */
-type _SyncFSKeys = Extract<keyof FileSystem, `${string}Sync`>;
+export type _SyncFSKeys = Exclude<Extract<keyof FileSystem, `${string}Sync`>, '_disableSync'>;
 
 /**
  * @internal @hidden
+ * Note this include `exists`, even though it is a concrete method.
  */
-type _AsyncFSKeys = {
-	[K in _SyncFSKeys]: K extends `${infer T}Sync` ? (T extends '_disable' ? never : T) : never;
+export type _AsyncFSKeys = {
+	[K in _SyncFSKeys]: K extends `${infer T}Sync` ? T : never;
 }[_SyncFSKeys];
 
 /**

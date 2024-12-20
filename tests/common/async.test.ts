@@ -10,19 +10,12 @@ class ExampleAsyncFS extends Async(StoreFS) {
 
 	public constructor() {
 		super(new InMemoryStore('test'));
-		this._patchAsync();
 	}
 }
 
 const asyncFS = new ExampleAsyncFS();
 
-asyncFS.existsSync('/');
-
-await configure({
-	mounts: {
-		'/': asyncFS,
-	},
-});
+await configure({ mounts: { '/': asyncFS } });
 
 suite('Async Mixin', () => {
 	test('async -> cache syncing', async () => {
