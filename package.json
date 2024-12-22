@@ -59,11 +59,6 @@
 		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build"
 	},
-	"lint-staged": {
-		"*": [
-			"prettier --write"
-		]
-	},
 	"dependencies": {
 		"@types/node": "^22.10.1",
 		"@types/readable-stream": "^4.0.10",
@@ -80,7 +75,6 @@
 		"@types/eslint__js": "^8.42.3",
 		"eslint": "^9.15.0",
 		"globals": "^15.9.0",
-		"lint-staged": "^15.2.7",
 		"prettier": "^3.2.5",
 		"tsx": "^4.19.1",
 		"typedoc": "^0.27.1",
