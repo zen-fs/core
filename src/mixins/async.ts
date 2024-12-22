@@ -233,7 +233,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 				(this as any)[key] = async (...args: unknown[]) => {
 					const result = await originalMethod.apply(this, args);
 
-					if (new Error().stack!.includes(`at async ${this.constructor.name}._next`)) return result;
+					if (new Error().stack!.includes(`at async ${this.constructor.name}._next`) || !this._isInitialized) return result;
 
 					try {
 						// @ts-expect-error 2556
