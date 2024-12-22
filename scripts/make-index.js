@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readdirSync, statSync, writeFileSync } from 'node:fs';
-import _path from 'node:path/posix';
+import { matchesGlob, relative, join, resolve } from 'node:path/posix';
 import { parseArgs } from 'node:util';
 
 const { values: options, positionals } = parseArgs({
@@ -34,24 +34,6 @@ options:
 if (options.quiet && options.verbose) {
 	console.log('Can not use both --verbose and --quiet.');
 	process.exit();
-}
-
-let matchesGlob = _path.matchesGlob;
-
-if (matchesGlob && options.verbose) {
-	console.debug('[debug] path.matchesGlob is available.');
-}
-
-if (!matchesGlob) {
-	console.warn('Warning: path.matchesGlob is not available, falling back to minimatch. (Node 20.17.0+ or 22.5.0+ needed)');
-
-	try {
-		const { minimatch } = await import('minimatch');
-		matchesGlob = minimatch;
-	} catch {
-		console.error('Fatal error: Failed to fall back to minimatch (is it installed?)');
-		process.exit(1);
-	}
 }
 
 function fixSlash(path) {
@@ -96,7 +78,7 @@ function computeEntries(path) {
 		const stats = statSync(path);
 
 		if (stats.isFile()) {
-			entries.set('/' + _path.relative(resolvedRoot, path), stats);
+			entries.set('/' + relative(resolvedRoot, path), stats);
 			if (options.verbose) {
 				console.log(`${color('green', 'file')} ${path}`);
 			}
@@ -104,9 +86,9 @@ function computeEntries(path) {
 		}
 
 		for (const file of readdirSync(path)) {
-			computeEntries(_path.join(path, file));
+			computeEntries(join(path, file));
 		}
-		entries.set('/' + _path.relative(resolvedRoot, path), stats);
+		entries.set('/' + relative(resolvedRoot, path), stats);
 		if (options.verbose) {
 			console.log(`${color('bright_green', ' dir')} ${path}`);
 		}
@@ -119,7 +101,7 @@ function computeEntries(path) {
 
 computeEntries(resolvedRoot);
 if (!options.quiet) {
-	console.log('Generated listing for ' + fixSlash(_path.resolve(root)));
+	console.log('Generated listing for ' + fixSlash(resolve(root)));
 }
 
 const index = {

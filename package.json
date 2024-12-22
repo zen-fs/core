@@ -73,7 +73,6 @@
 		"utilium": "^1.1.1"
 	},
 	"optionalDependencies": {
-		"minimatch": "^9.0.3",
 		"c8": "^10.1.2"
 	},
 	"devDependencies": {
