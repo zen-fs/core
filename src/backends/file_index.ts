@@ -15,7 +15,7 @@ import { decodeUTF8, encodeUTF8 } from '../utils.js';
  * @internal
  */
 export interface IndexData {
-	version: 1;
+	version: number;
 	entries: Record<string, StatsLike<number>>;
 }
 
