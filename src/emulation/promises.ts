@@ -943,13 +943,17 @@ export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.
 }
 realpath satisfies typeof promises.realpath;
 
-export function watch(filename: fs.PathLike, options?: fs.WatchOptions | BufferEncoding): AsyncIterable<promises.FileChangeInfo<string>>;
-export function watch(filename: fs.PathLike, options: fs.WatchOptions | fs.BufferEncodingOption): AsyncIterable<promises.FileChangeInfo<Buffer>>;
-export function watch(filename: fs.PathLike, options?: fs.WatchOptions | string): AsyncIterable<promises.FileChangeInfo<string>> | AsyncIterable<promises.FileChangeInfo<Buffer>>;
-export function watch<T extends string | Buffer>(filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<promises.FileChangeInfo<T>> {
+export function watch(this: V_Context, filename: fs.PathLike, options?: fs.WatchOptions | BufferEncoding): AsyncIterable<promises.FileChangeInfo<string>>;
+export function watch(this: V_Context, filename: fs.PathLike, options: fs.WatchOptions | fs.BufferEncodingOption): AsyncIterable<promises.FileChangeInfo<Buffer>>;
+export function watch(
+	this: V_Context,
+	filename: fs.PathLike,
+	options?: fs.WatchOptions | string
+): AsyncIterable<promises.FileChangeInfo<string>> | AsyncIterable<promises.FileChangeInfo<Buffer>>;
+export function watch<T extends string | Buffer>(this: V_Context, filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<promises.FileChangeInfo<T>> {
 	return {
 		[Symbol.asyncIterator](): AsyncIterator<promises.FileChangeInfo<T>> {
-			const watcher = new FSWatcher<T>(filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
+			const watcher = new FSWatcher<T>(this, filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
 			// A queue to hold change events, since we need to resolve them in the async iterator
 			const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];

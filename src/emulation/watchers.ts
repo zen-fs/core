@@ -1,6 +1,7 @@
 import { EventEmitter } from 'eventemitter3';
 import type { EventEmitter as NodeEventEmitter } from 'node:events';
 import type * as fs from 'node:fs';
+import type { V_Context } from '../context.js';
 import { ErrnoError } from '../error.js';
 import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';
@@ -24,7 +25,13 @@ class Watcher<TEvents extends Record<string, unknown[]> = Record<string, unknown
 	}
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 
-	public constructor(public readonly path: string) {
+	public constructor(
+		/**
+		 * @internal
+		 */
+		public readonly _context: V_Context,
+		public readonly path: string
+	) {
 		super();
 	}
 
@@ -71,10 +78,11 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 	implements fs.FSWatcher
 {
 	public constructor(
+		context: V_Context,
 		path: string,
 		public readonly options: fs.WatchOptions
 	) {
-		super(path);
+		super(context, path);
 		addWatcher(path.toString(), this);
 	}
 
@@ -105,10 +113,11 @@ export class StatWatcher
 	private previous?: Stats;
 
 	public constructor(
+		context: V_Context,
 		path: string,
 		private options: { persistent?: boolean; interval?: number }
 	) {
-		super(path);
+		super(context, path);
 		this.start();
 	}
 
@@ -185,10 +194,16 @@ export function emitChange(eventType: fs.WatchEventType, filename: string) {
 	while (parent !== normalizedFilename) {
 		normalizedFilename = parent;
 		parent = dirname(parent);
-		if (watchers.has(parent)) {
-			for (const watcher of watchers.get(parent)!) {
-				watcher.emit('change', eventType, filename.slice(parent.length + (parent == '/' ? 0 : 1)));
-			}
+		if (!watchers.has(parent)) continue;
+
+		for (const watcher of watchers.get(parent)!) {
+			// Strip the context root from the path if the watcher has a context
+
+			const root = watcher._context?.root;
+			const contextPath = root && filename.startsWith(root) ? filename.slice(root.length) : filename;
+			const relativePath = contextPath.slice(parent.length + (parent == '/' ? 0 : 1));
+
+			watcher.emit('change', eventType, relativePath);
 		}
 	}
 }

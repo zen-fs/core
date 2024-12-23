@@ -588,7 +588,7 @@ export function watchFile(
 		return;
 	}
 
-	const watcher = new StatWatcher(normalizedPath, opts);
+	const watcher = new StatWatcher(this, normalizedPath, opts);
 	watcher.on('change', (curr: Stats, prev: Stats) => {
 		const entry = statWatchers.get(normalizedPath);
 		if (!entry) {
@@ -639,7 +639,7 @@ export function watch(
 	options?: fs.WatchOptions | ((event: string, filename: string) => any),
 	listener?: (event: string, filename: string) => any
 ): FSWatcher {
-	const watcher = new FSWatcher<string>(normalizePath(path), typeof options == 'object' ? options : {});
+	const watcher = new FSWatcher<string>(this, normalizePath(path), typeof options == 'object' ? options : {});
 	listener = typeof options == 'function' ? options : listener;
 	watcher.on('change', listener || nop);
 	return watcher;
