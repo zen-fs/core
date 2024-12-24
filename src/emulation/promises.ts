@@ -951,9 +951,10 @@ export function watch(
 	options?: fs.WatchOptions | string
 ): AsyncIterable<promises.FileChangeInfo<string>> | AsyncIterable<promises.FileChangeInfo<Buffer>>;
 export function watch<T extends string | Buffer>(this: V_Context, filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<promises.FileChangeInfo<T>> {
+	const context = this;
 	return {
 		[Symbol.asyncIterator](): AsyncIterator<promises.FileChangeInfo<T>> {
-			const watcher = new FSWatcher<T>(this, filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
+			const watcher = new FSWatcher<T>(context, filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
 
 			// A queue to hold change events, since we need to resolve them in the async iterator
 			const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];

@@ -16,4 +16,21 @@ suite('Context', () => {
 	test('break-out fails', () => {
 		assert.deepEqual(c_fs.readdirSync('/../../'), ['example.txt']);
 	});
+
+	test('watch should consider context', async () => {
+		let lastFile: string,
+			events = 0;
+		const watcher = c_fs.promises.watch('/', { recursive: true });
+
+		(async () => {
+			for await (const event of watcher) {
+				lastFile = event.filename!;
+				if (++events == 2) return;
+			}
+		})();
+		await c_fs.promises.writeFile('/xpto.txt', 'in real root');
+		assert.strictEqual(lastFile!, 'xpto.txt');
+		await c_fs.promises.unlink('/xpto.txt');
+		assert.strictEqual(lastFile, 'xpto.txt');
+	});
 });
