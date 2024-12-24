@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return */
 import type * as fs from 'node:fs';
 import { randomHex, type ClassLike, type OptionalTuple } from 'utilium';
 import { resolve, type AbsolutePath } from './emulation/path.js';

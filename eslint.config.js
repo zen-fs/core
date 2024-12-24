@@ -18,7 +18,6 @@ export default tseslint.config(
 		files: ['src/emulation/{sync,async,promises}.ts'],
 		rules: {
 			'@typescript-eslint/no-explicit-any': 'off',
-			'@typescript-eslint/no-unsafe-argument': 'off',
 		},
 	},
 	{ name: 'Ignores', ignores: ['tests/{fixtures,coverage}'] }
