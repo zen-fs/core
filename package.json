@@ -48,6 +48,10 @@
 		"./eslint": "./eslint.shared.js",
 		"./tests/*": "./tests/*"
 	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
 	"scripts": {
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
