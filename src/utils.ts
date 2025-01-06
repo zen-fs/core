@@ -1,6 +1,6 @@
 import type * as fs from 'node:fs';
 import { randomHex, type ClassLike, type OptionalTuple } from 'utilium';
-import { resolve, type AbsolutePath } from './emulation/path.js';
+import { resolve, type AbsolutePath } from './vfs/path.js';
 import { Errno, ErrnoError } from './error.js';
 
 declare global {

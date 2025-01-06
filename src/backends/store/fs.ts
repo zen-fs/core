@@ -1,6 +1,6 @@
 import { credentials } from '../../credentials.js';
-import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID } from '../../emulation/constants.js';
-import { basename, dirname, parse, resolve } from '../../emulation/path.js';
+import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID } from '../../vfs/constants.js';
+import { basename, dirname, parse, resolve } from '../../vfs/path.js';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { PreloadFile } from '../../file.js';

@@ -1,6 +1,6 @@
 import { StoreFS } from '../backends/store/fs.js';
 import type { Store } from '../backends/store/store.js';
-import { join } from '../emulation/path.js';
+import { join } from '../vfs/path.js';
 import { Errno, ErrnoError } from '../error.js';
 import { parseFlag, PreloadFile } from '../file.js';
 import type { FileSystem } from '../filesystem.js';

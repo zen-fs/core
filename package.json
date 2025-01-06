@@ -43,8 +43,9 @@
 	"exports": {
 		".": "./dist/index.js",
 		"./*": "./dist/*",
-		"./promises": "./dist/emulation/promises.js",
-		"./path": "./dist/emulation/path.js",
+		"./emulation/*": "./dist/vfs/*",
+		"./promises": "./dist/vfs/promises.js",
+		"./path": "./dist/vfs/path.js",
 		"./eslint": "./eslint.shared.js",
 		"./tests/*": "./tests/*"
 	},

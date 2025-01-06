@@ -5,12 +5,12 @@ This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/dev
 import type { FileReadResult } from 'node:fs/promises';
 import { InMemoryStore } from './backends/memory.js';
 import { StoreFS } from './backends/store/fs.js';
-import { S_IFBLK, S_IFCHR } from './emulation/constants.js';
+import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import { File } from './file.js';
 import type { StatsLike } from './stats.js';
 import { Stats } from './stats.js';
-import { basename, dirname } from './emulation/path.js';
+import { basename, dirname } from './vfs/path.js';
 import { decodeUTF8 } from './utils.js';
 
 /**

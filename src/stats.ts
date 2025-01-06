@@ -23,7 +23,7 @@ import {
 	size_max,
 	W_OK,
 	X_OK,
-} from './emulation/constants.js';
+} from './vfs/constants.js';
 
 const n1000 = BigInt(1000) as 1000n;
 

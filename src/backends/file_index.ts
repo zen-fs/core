@@ -1,7 +1,7 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
 import { isJSON } from 'utilium';
-import { basename, dirname } from '../emulation/path.js';
+import { basename, dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from '../error.js';
 import { NoSyncFile, isWriteable } from '../file.js';
 import { FileSystem } from '../filesystem.js';

@@ -1,4 +1,4 @@
-import { dirname } from '../emulation/path.js';
+import { dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
 import { PreloadFile, parseFlag } from '../file.js';

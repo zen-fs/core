@@ -19,8 +19,8 @@ export * from './mixins/index.js';
 export * from './stats.js';
 export * from './utils.js';
 
-export * from './emulation/index.js';
-import * as fs from './emulation/index.js';
+export * from './vfs/index.js';
+import * as fs from './vfs/index.js';
 export { fs };
 export default fs;
 

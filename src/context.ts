@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { type ExtractProperties } from 'utilium';
 import { createCredentials, credentials as defaultCredentials, type CredentialInit, type Credentials } from './credentials.js';
-import * as fs from './emulation/index.js';
+import * as fs from './vfs/index.js';
 
 type Fn_FS = ExtractProperties<typeof fs, (...args: any[]) => any>;
 type Fn_Promises = ExtractProperties<typeof fs.promises, (...args: any[]) => any>;

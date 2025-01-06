@@ -2,10 +2,10 @@ import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from '
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { useCredentials } from './credentials.js';
 import { DeviceFS, type Device, type DeviceDriver } from './devices.js';
-import * as cache from './emulation/cache.js';
-import { config } from './emulation/config.js';
-import * as fs from './emulation/index.js';
-import { mounts } from './emulation/shared.js';
+import * as cache from './vfs/cache.js';
+import { config } from './vfs/config.js';
+import * as fs from './vfs/index.js';
+import { mounts } from './vfs/shared.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 
