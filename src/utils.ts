@@ -172,10 +172,5 @@ export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: an
  * @internal
  */
 export function randomBigInt(): bigint {
-	try {
-		return crypto.getRandomValues(new BigUint64Array(1))[0];
-	} catch {
-		// fallback
-		return BigInt('0x' + randomHex(16 /* 4 bits per char */));
-	}
+	return BigInt('0x' + randomHex(8));
 }
