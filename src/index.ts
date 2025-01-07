@@ -26,7 +26,7 @@ export default fs;
 
 declare global {
 	/**
-	 * Global FS emulation. Do not use unless absolutely needed.
+	 * Global VFS. Do not use unless absolutely needed.
 	 * @hidden
 	 */
 	// eslint-disable-next-line no-var

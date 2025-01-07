@@ -1,7 +1,7 @@
 import { suite, test } from 'node:test';
 import assert from 'node:assert';
 import { bindContext } from '../../dist/context.js';
-import * as fs from '../../dist/emulation/index.js';
+import * as fs from '../../dist/vfs/index.js';
 
 fs.mkdirSync('/new_root');
 const { fs: c_fs } = bindContext('/new_root');

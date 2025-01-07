@@ -18,7 +18,7 @@ export interface ReaddirOptions extends InternalOptions {
 	recursive?: boolean;
 }
 
-// Helper types to make the emulation types more readable
+// Helper types to make the vfs types more readable
 
 /** Helper union @hidden */
 export type GlobOptionsU = fs.GlobOptionsWithFileTypes | fs.GlobOptionsWithoutFileTypes | fs.GlobOptions;

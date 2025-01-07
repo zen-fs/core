@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path';
 import { fs as defaultFS } from '../dist/index.js';
-export type * from '../dist/emulation/index.js';
+export type * from '../dist/vfs/index.js';
 
 const setupPath = resolve(process.env.SETUP || join(import.meta.dirname, 'setup/memory.ts'));
 

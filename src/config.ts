@@ -165,7 +165,7 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
 /**
  * Like `fs.mount`, but it also creates missing directories.
  * @privateRemarks
- * This is implemented as a separate function to avoid a circular dependency between emulation/shared.ts and other emulation layer files.
+ * This is implemented as a separate function to avoid a circular dependency between vfs/shared.ts and other vfs layer files.
  * @internal
  */
 async function mount(path: string, mount: FileSystem): Promise<void> {

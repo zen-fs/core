@@ -1,8 +1,8 @@
 import { suite, test } from 'node:test';
 import assert from 'node:assert';
 import { configure } from '../../dist/config.js';
-import * as fs from '../../dist/emulation/index.js';
-import { S_IFCHR, S_IFMT } from '../../dist/emulation/constants.js';
+import * as fs from '../../dist/vfs/index.js';
+import { S_IFCHR, S_IFMT } from '../../dist/vfs/constants.js';
 
 await configure({
 	addDevices: true,

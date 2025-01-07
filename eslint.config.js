@@ -14,8 +14,8 @@ export default tseslint.config(
 		},
 	},
 	{
-		name: 'Allow explicit any in primary emulation layer files',
-		files: ['src/emulation/{sync,async,promises}.ts'],
+		name: 'Allow explicit any in primary vfs layer files',
+		files: ['src/vfs/{sync,async,promises}.ts'],
 		rules: {
 			'@typescript-eslint/no-explicit-any': 'off',
 		},
