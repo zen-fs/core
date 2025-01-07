@@ -73,19 +73,56 @@ if (options.auto) {
 	!options.quiet && console.log(`Auto-detected ${sum} test setup files`);
 }
 
+/**
+ * Colorizes some text
+ * @param {string} text Text to color
+ * @param {string | number} code ANSI escape code
+ * @returns
+ */
+function color(text, code) {
+	return `\x1b[${code}m${text}\x1b[0m`;
+}
+
+function status(name) {
+	const start = performance.now();
+
+	const time = () => {
+		let delta = Math.round(performance.now() - start),
+			unit = 'ms';
+
+		if (delta > 5000) {
+			delta /= 1000;
+			unit = 's';
+		}
+
+		return color(`(${delta} ${unit})`, '2;37');
+	};
+
+	return {
+		pass() {
+			if (!options.quiet) console.log(`${color('passed', 32)}: ${name} ${time()}`);
+		},
+		fail() {
+			console.error(`${color('failed', '1;31')}: ${name} ${time()}`);
+			if (options['exit-on-fail']) process.exit(1);
+		},
+	};
+}
+
 if (existsSync(options.coverage)) rmSync(options.coverage, { recursive: true });
 mkdirSync(options.coverage);
 process.env.NODE_V8_COVERAGE = options.coverage;
 
 if (options.common) {
 	!options.quiet && console.log('Running common tests...');
+	const { pass, fail } = status('Common tests');
 	try {
 		execSync("tsx --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'", {
 			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 		});
+		pass();
 	} catch {
-		console.error('Common tests failed');
-		if (options['exit-on-fail']) process.exit(1);
+		fail();
 	}
 }
 
@@ -97,16 +134,18 @@ for (const setupFile of positionals) {
 		continue;
 	}
 
-	!options.quiet && console.debug('Running tests using setup:', setupFile);
+	!options.quiet && console.log('Running tests:', setupFile);
 	process.env.SETUP = setupFile;
+
+	const { pass, fail } = status(setupFile);
 
 	try {
 		execSync(['tsx --test --experimental-test-coverage', options.force ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), {
 			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 		});
+		pass();
 	} catch {
-		!options.quiet && console.error('Tests failed:', setupFile);
-		if (options['exit-on-fail']) process.exit(1);
+		fail();
 	}
 }
 

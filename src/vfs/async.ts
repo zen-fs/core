@@ -78,7 +78,7 @@ export function lstat(this: V_Context, path: fs.PathLike, options: fs.StatOption
 export function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions | Callback<[Stats]>, callback: Callback<[Stats]> | Callback<[BigIntStats]> = nop): void {
 	callback = typeof options == 'function' ? options : callback;
 	promises.lstat
-		.call<V_Context, [fs.PathLike, object | undefined], Promise<Stats>>(this, path, typeof options != 'function' ? options : ({} as object))
+		.call<V_Context, [fs.PathLike, fs.StatOptions?], Promise<Stats>>(this, path, typeof options != 'function' ? options : {})
 		.then(stats => (callback as Callback<[Stats] | [BigIntStats]>)(undefined, stats))
 		.catch(callback);
 }

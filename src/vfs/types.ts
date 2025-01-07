@@ -13,6 +13,22 @@ export interface InternalOptions {
 	_isIndirect?: boolean;
 }
 
+/**
+ * @internal @hidden Used for the internal `_open` functions
+ */
+export interface OpenOptions {
+	flag: fs.OpenMode;
+	mode?: fs.Mode | null;
+	/**
+	 * If true, do not resolve symlinks
+	 */
+	preserveSymlinks?: boolean;
+	/**
+	 * If true, allows opening directories
+	 */
+	allowDirectory?: boolean;
+}
+
 export interface ReaddirOptions extends InternalOptions {
 	withFileTypes?: boolean;
 	recursive?: boolean;

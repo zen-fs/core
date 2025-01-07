@@ -3,7 +3,7 @@ import type { V_Context } from '../context.js';
 import type { File } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import type { Stats } from '../stats.js';
-import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { GlobOptionsU, InternalOptions, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { credentials } from '../credentials.js';
@@ -99,7 +99,7 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatO
 lstatSync satisfies typeof fs.lstatSync;
 
 export function truncateSync(this: V_Context, path: fs.PathLike, len: number | null = 0): void {
-	using file = _openSync.call(this, path, 'r+');
+	using file = _openSync.call(this, path, { flag: 'r+' });
 	len ||= 0;
 	if (len < 0) {
 		throw new ErrnoError(Errno.EINVAL);
@@ -136,12 +136,12 @@ function applySetId(file: File, uid: number, gid: number) {
 	);
 }
 
-function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null, resolveSymlinks: boolean = true): File {
+function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): File {
 	path = normalizePath(path);
-	const mode = normalizeMode(_mode, 0o644),
-		flag = parseFlag(_flag);
+	const mode = normalizeMode(opt.mode, 0o644),
+		flag = parseFlag(opt.flag);
 
-	path = resolveSymlinks ? realpathSync.call(this, path) : path;
+	path = opt.preserveSymlinks ? path : realpathSync.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	let stats: Stats | undefined;
@@ -165,6 +165,7 @@ function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode
 		}
 		const { euid: uid, egid: gid } = this?.credentials ?? credentials;
 		const file = fs.createFileSync(resolved, flag, mode, { uid, gid });
+		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw ErrnoError.With('EISDIR', path, '_open');
 		applySetId(file, uid, gid);
 		return file;
 	}
@@ -183,6 +184,8 @@ function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode
 		file.truncateSync(0);
 	}
 
+	if (!opt.allowDirectory && stats.mode & constants.S_IFDIR) throw ErrnoError.With('EISDIR', path, '_open');
+
 	return file;
 }
 
@@ -191,7 +194,7 @@ function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode
  * @see http://www.manpagez.com/man/2/open/
  */
 export function openSync(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
-	return file2fd(_openSync.call(this, path, flag, mode, true));
+	return file2fd(_openSync.call(this, path, { flag, mode }));
 }
 openSync satisfies typeof fs.openSync;
 
@@ -200,12 +203,12 @@ openSync satisfies typeof fs.openSync;
  * @internal
  */
 export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode?: fs.Mode | null): number {
-	return file2fd(_openSync.call(this, path, flag, mode, false));
+	return file2fd(_openSync.call(this, path, { flag, mode, preserveSymlinks: true }));
 }
 
-function _readFileSync(this: V_Context, fname: string, flag: string, resolveSymlinks: boolean): Uint8Array {
+function _readFileSync(this: V_Context, fname: string, flag: string, preserveSymlinks: boolean): Uint8Array {
 	// Get file.
-	using file = _openSync.call(this, fname, flag, 0o644, resolveSymlinks);
+	using file = _openSync.call(this, fname, { flag, mode: 0o644, preserveSymlinks });
 	const stat = file.statSync();
 	// Allocate buffer.
 	const data = new Uint8Array(stat.size);
@@ -227,7 +230,7 @@ export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _op
 	if (!isReadable(flag)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	const data: Buffer = Buffer.from(_readFileSync.call(this, typeof path == 'number' ? fd2file(path).path : path.toString(), options.flag, true));
+	const data: Buffer = Buffer.from(_readFileSync.call(this, typeof path == 'number' ? fd2file(path).path : path.toString(), options.flag, false));
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFileSync satisfies typeof fs.readFileSync;
@@ -255,7 +258,11 @@ export function writeFileSync(this: V_Context, path: fs.PathOrFileDescriptor, da
 	if (!encodedData) {
 		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
 	}
-	using file = _openSync.call(this, typeof path == 'number' ? fd2file(path).path : path.toString(), flag, options.mode, true);
+	using file = _openSync.call(this, typeof path == 'number' ? fd2file(path).path : path.toString(), {
+		flag,
+		mode: options.mode,
+		preserveSymlinks: true,
+	});
 	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
 	emitChange('change', path.toString());
 }
@@ -277,7 +284,7 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	using file = _openSync.call(this, typeof filename == 'number' ? fd2file(filename).path : filename.toString(), flag, options.mode, true);
+	using file = _openSync.call(this, typeof filename == 'number' ? fd2file(filename).path : filename.toString(), { flag, mode: options.mode, preserveSymlinks: true });
 	file.writeSync(encodedData, 0, encodedData.byteLength);
 }
 appendFileSync satisfies typeof fs.appendFileSync;
@@ -567,7 +574,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 	}
 
 	writeFileSync.call(this, path, target.toString());
-	const file = _openSync.call(this, path, 'r+', 0o644, false);
+	const file = _openSync.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true });
 	file.chmodSync(constants.S_IFLNK);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
@@ -576,7 +583,7 @@ export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.Bu
 export function readlinkSync(this: V_Context, path: fs.PathLike, options: fs.EncodingOption | BufferEncoding): string;
 export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string;
 export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string {
-	const value: Buffer = Buffer.from(_readFileSync.call(this, path.toString(), 'r', false));
+	const value: Buffer = Buffer.from(_readFileSync.call(this, path.toString(), 'r', true));
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	if (encoding == 'buffer') {
 		return value;

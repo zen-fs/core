@@ -8,7 +8,7 @@ import type { V_Context } from '../context.js';
 import type { File } from '../file.js';
 import type { FileContents } from '../filesystem.js';
 import type { Stats } from '../stats.js';
-import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { GlobOptionsU, InternalOptions, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { credentials } from '../credentials.js';
@@ -522,12 +522,12 @@ async function applySetId(file: File, uid: number, gid: number) {
  * Opens a file. This helper handles the complexity of file flags.
  * @internal
  */
-async function _open(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode: fs.Mode = 0o644, resolveSymlinks: boolean): Promise<FileHandle> {
+async function _open(this: V_Context, path: fs.PathLike, opt: OpenOptions): Promise<FileHandle> {
 	path = normalizePath(path);
-	const mode = normalizeMode(_mode, 0o644),
-		flag = parseFlag(_flag);
+	const mode = normalizeMode(opt.mode, 0o644),
+		flag = parseFlag(opt.flag);
 
-	path = resolveSymlinks ? await realpath.call(this, path) : path;
+	path = opt.preserveSymlinks ? path : await realpath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	const stats = await fs.stat(resolved).catch(() => null);
@@ -580,7 +580,7 @@ async function _open(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mo
  * @param mode Mode to use to open the file. Can be ignored if the filesystem doesn't support permissions.
  */
 export async function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode = 'r', mode: fs.Mode = 0o644): Promise<FileHandle> {
-	return await _open.call(this, path, flag, mode, true);
+	return await _open.call(this, path, { flag, mode });
 }
 open satisfies typeof promises.open;
 
@@ -866,7 +866,7 @@ export async function symlink(this: V_Context, target: fs.PathLike, path: fs.Pat
 		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
 	}
 
-	await using handle = await _open.call(this, path, 'w+', 0o644, false);
+	await using handle = await _open.call(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
 	await handle.writeFile(target.toString());
 	await handle.file.chmod(constants.S_IFLNK);
 }
@@ -876,7 +876,7 @@ export async function readlink(this: V_Context, path: fs.PathLike, options: fs.B
 export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | null): Promise<string>;
 export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer>;
 export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer> {
-	await using handle = await _open.call(this, normalizePath(path), 'r', 0o644, false);
+	await using handle = await _open.call(this, normalizePath(path), { flag: 'r', mode: 0o644, preserveSymlinks: true });
 	const value = await handle.readFile();
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	// always defaults to utf-8 to avoid wrangler (cloudflare) worker "unknown encoding" exception
@@ -891,7 +891,7 @@ export async function chown(this: V_Context, path: fs.PathLike, uid: number, gid
 chown satisfies typeof promises.chown;
 
 export async function lchown(this: V_Context, path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, 'r+', 0o644, false);
+	await using handle: FileHandle = await _open.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true, allowDirectory: true });
 	await handle.chown(uid, gid);
 }
 lchown satisfies typeof promises.lchown;
@@ -903,7 +903,7 @@ export async function chmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): 
 chmod satisfies typeof promises.chmod;
 
 export async function lchmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, 'r+', 0o644, false);
+	await using handle: FileHandle = await _open.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true, allowDirectory: true });
 	await handle.chmod(mode);
 }
 lchmod satisfies typeof promises.lchmod;
@@ -921,7 +921,7 @@ utimes satisfies typeof promises.utimes;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export async function lutimes(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, 'r+', 0o644, false);
+	await using handle: FileHandle = await _open.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true, allowDirectory: true });
 	await handle.utimes(new Date(atime), new Date(mtime));
 }
 lutimes satisfies typeof promises.lutimes;
