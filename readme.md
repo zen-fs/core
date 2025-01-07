@@ -26,7 +26,7 @@ For more information, see the [docs](https://zenfs.dev/core).
 npm install @zenfs/core
 ```
 
-If you're using ZenFS, especially for big projects, please consider supporting the project. Thousands of hours have been dedicated to its development, and your acknowledgment or financial support would go a long way toward improving ZenFS and its community.
+If you're using ZenFS, especially for big projects, please consider supporting the project. Thousands of hours have been dedicated to its development. Your acknowledgment or financial support would go a long way toward improving ZenFS and its community.
 
 ## Usage
 
