@@ -16,6 +16,7 @@ const { values: options, positionals } = parseArgs({
 		build: { short: 'b', type: 'boolean', default: false },
 		common: { short: 'c', type: 'boolean', default: false },
 		coverage: { type: 'string', default: 'tests/.coverage' },
+		'exit-on-fail': { short: 'e', type: 'boolean' },
 	},
 	allowPositionals: true,
 });
@@ -26,15 +27,16 @@ if (options.help) {
 Paths: The setup files to run tests on
 
 Options:
-    --help, -h          Outputs this help message
-    --verbose,-w        Output verbose messages
-    --quiet, -q         Don't output normal messages
-    --test,-t <glob>    Which test(s) to run
-    --force, -f     Whether to use --test-force-exit
-    --auto, -a          Automatically detect setup files
-	--build, -b         Run the npm build script prior to running tests
-    --common, -c        Also run tests not specific to any backend
-`);
+    -a, --auto          Automatically detect setup files
+    -b, --build         Run the npm build script prior to running tests
+    -c, --common        Also run tests not specific to any backend
+    -e, --exit-on-fail  If any tests suites fail, exit immediately
+    -h, --help          Outputs this help message
+    -w, --verbose       Output verbose messages
+    -q, --quiet         Don't output normal messages
+    -t, --test <glob>   Which FS test suite(s) to run
+    -f, --force         Whether to use --test-force-exit
+    --coverage <dir>    Override the default coverage data directory`);
 	process.exit();
 }
 
@@ -83,6 +85,7 @@ if (options.common) {
 		});
 	} catch {
 		console.error('Common tests failed');
+		if (options['exit-on-fail']) process.exit(1);
 	}
 }
 
@@ -103,6 +106,7 @@ for (const setupFile of positionals) {
 		});
 	} catch {
 		!options.quiet && console.error('Tests failed:', setupFile);
+		if (options['exit-on-fail']) process.exit(1);
 	}
 }
 

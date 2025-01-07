@@ -213,7 +213,11 @@ A huge thank you to [![Deco.cx logo](https://avatars.githubusercontent.com/deco-
 
 ### Testing
 
-Run unit tests with `npm test`.
+Run unit tests with:
+
+-   `npm test` to run all tests using the default configuration
+-   `npx zenfs-test -abc` to run the common tests and run the full FS suite against all included backends
+    -   You can also run this command to test your own backends, the `--auto` (`-a`) flag will automatically detect any setup scripts matching `tests/setup/*` or `tests/setup-*.ts`. If you do, you'll need to include the `c8` dependency for coverage.
 
 ### BrowserFS Fork
 
