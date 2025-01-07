@@ -509,7 +509,7 @@ unlink satisfies typeof promises.unlink;
  * Manually apply setuid/setgid.
  */
 async function applySetId(file: File, uid: number, gid: number) {
-	if (file.fs.metadata().features.includes('setid')) return;
+	if (file.fs.metadata().features?.includes('setid')) return;
 
 	const parent = await file.fs.stat(dirname(file.path));
 	await file.chown(

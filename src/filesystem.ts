@@ -69,7 +69,7 @@ export interface FileSystemMetadata {
 	 * These are used by the VFS for optimizations.
 	 * - setid:	The FS supports setuid and setgid when creating files and directories.
 	 */
-	features: ('setid' | '')[];
+	features?: ('setid' | '')[];
 }
 
 /**

@@ -127,7 +127,7 @@ unlinkSync satisfies typeof fs.unlinkSync;
  * Manually apply setuid/setgid.
  */
 function applySetId(file: File, uid: number, gid: number) {
-	if (file.fs.metadata().features.includes('setid')) return;
+	if (file.fs.metadata().features?.includes('setid')) return;
 
 	const parent = file.fs.statSync(dirname(file.path));
 	file.chownSync(
