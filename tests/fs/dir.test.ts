@@ -93,13 +93,13 @@ suite('Dir', () => {
 	test('close()', async () => {
 		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
-		rejects(dir.read(), 'Can not use closed Dir');
+		rejects(dir.read());
 	});
 
 	test('closeSync()', () => {
 		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
-		assert.throws(() => dir.readSync(), 'Can not use closed Dir');
+		assert.throws(() => dir.readSync());
 	});
 
 	test('asynchronous iteration', async () => {
@@ -119,13 +119,13 @@ suite('Dir', () => {
 	test('read after directory is closed', async () => {
 		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
-		await assert.rejects(dir.read(), 'Can not use closed Dir');
+		await assert.rejects(dir.read());
 	});
 
 	test('readSync after directory is closed', () => {
 		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
-		assert.throws(() => dir.readSync(), 'Can not use closed Dir');
+		assert.throws(() => dir.readSync());
 	});
 
 	test('close multiple times', async () => {

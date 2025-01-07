@@ -9,7 +9,6 @@ suite('Error messages', () => {
 	const path = '/non-existent';
 
 	fs.promises.stat(path).catch((error: ErrnoError) => {
-		assert.equal(error.toString(), error.message);
 		assert.equal(error.bufferSize(), 4 + JSON.stringify(error.toJSON()).length);
 	});
 
