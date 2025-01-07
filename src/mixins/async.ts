@@ -240,7 +240,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 						// @ts-expect-error 2556
 						this._sync?.[`${key}Sync` as const]?.(...args);
 					} catch (e: any) {
-						throw new ErrnoError(e.errno, 'Out of sync! (' + e.message + ')', args[0] as string, key);
+						throw new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key);
 					}
 					return result;
 				};

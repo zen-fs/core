@@ -270,20 +270,19 @@ export class ErrnoError extends Error implements NodeJS.ErrnoException {
 		/**
 		 * A descriptive error message
 		 */
-		message: string = errorMessages[errno],
+		public message: string = errorMessages[errno],
 		public path?: string,
 		public syscall: string = ''
 	) {
 		super(message);
 		this.code = Errno[errno] as keyof typeof Errno;
-		this.message = this.code + ': ' + message + (this.path ? `, '${this.path}'` : '');
 	}
 
 	/**
 	 * @returns A friendly error message.
 	 */
 	public toString(): string {
-		return this.message;
+		return this.code + ': ' + this.message + (this.path ? `, '${this.path}'` : '');
 	}
 
 	public toJSON(): ErrnoErrorJSON {

@@ -13,8 +13,8 @@ suite('Error messages', () => {
 		assert.equal(error.bufferSize(), 4 + JSON.stringify(error.toJSON()).length);
 	});
 
-	const missing = { path, message: new RegExp(path) };
-	const existing = { path: existingFile, message: new RegExp(existingFile) };
+	const missing = { path };
+	const existing = { path: existingFile };
 
 	test('stat', () => assert.rejects(() => fs.promises.stat(path), missing));
 	test('mkdir', () => assert.rejects(() => fs.promises.mkdir(existingFile, 0o666), existing));
