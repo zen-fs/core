@@ -1,18 +1,20 @@
-import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
-import { Errno, ErrnoError } from '../error.js';
+import type { V_Context } from '../context.js';
 import type { FileContents } from '../filesystem.js';
-import { BigIntStats, type Stats } from '../stats.js';
-import { normalizeMode, normalizePath, type Callback } from '../utils.js';
+import type { Stats } from '../stats.js';
+import type { Callback } from '../utils.js';
+import type { Dir, Dirent } from './dir.js';
+import type { GlobOptionsU } from './types.js';
+
+import { Buffer } from 'buffer';
+import { Errno, ErrnoError } from '../error.js';
+import { BigIntStats } from '../stats.js';
+import { normalizeMode, normalizePath } from '../utils.js';
 import { R_OK } from './constants.js';
-import type { Dirent } from './dir.js';
-import type { Dir } from './dir.js';
 import * as promises from './promises.js';
 import { fd2file, fdMap } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, StatWatcher } from './watchers.js';
-import type { V_Context } from '../context.js';
-import type { GlobOptionsU } from './types.js';
 
 const nop = () => {};
 

@@ -1,7 +1,6 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
 import { isJSON } from 'utilium';
-import { basename, dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from '../error.js';
 import { NoSyncFile, isWriteable } from '../file.js';
 import { FileSystem } from '../filesystem.js';
@@ -9,6 +8,7 @@ import { Readonly } from '../mixins/readonly.js';
 import type { StatsLike } from '../stats.js';
 import { Stats } from '../stats.js';
 import { decodeUTF8, encodeUTF8 } from '../utils.js';
+import { basename, dirname } from '../vfs/path.js';
 
 /**
  * An Index in JSON form

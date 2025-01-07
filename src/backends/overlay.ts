@@ -1,13 +1,15 @@
-import { dirname } from '../vfs/path.js';
-import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
+import type { CreationOptions, FileSystemMetadata } from '../filesystem.js';
+import type { Stats } from '../stats.js';
+import type { Backend } from './backend.js';
+
+import { Errno, ErrnoError } from '../error.js';
 import { PreloadFile, parseFlag } from '../file.js';
-import type { FileSystemMetadata } from '../filesystem.js';
 import { FileSystem } from '../filesystem.js';
 import { Mutexed } from '../mixins/mutexed.js';
-import type { Stats } from '../stats.js';
 import { decodeUTF8, encodeUTF8 } from '../utils.js';
-import type { Backend } from './backend.js';
+import { dirname } from '../vfs/path.js';
+
 /** @internal */
 const deletionLogPath = '/.deleted';
 
@@ -75,7 +77,7 @@ export class UnmutexedOverlayFS extends FileSystem {
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		await this.copyForWrite(path);
 		if (!(await this.writable.exists(path))) {
-			await this.writable.createFile(path, 'w', 0o644);
+			await this.writable.createFile(path, 'w', 0o644, stats);
 		}
 		await this.writable.sync(path, data, stats);
 	}
@@ -204,15 +206,15 @@ export class UnmutexedOverlayFS extends FileSystem {
 		return new PreloadFile(this, path, flag, stats, data);
 	}
 
-	public async createFile(path: string, flag: string, mode: number): Promise<File> {
+	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
 		this.checkInitialized();
-		await this.writable.createFile(path, flag, mode);
+		await this.writable.createFile(path, flag, mode, options);
 		return this.openFile(path, flag);
 	}
 
-	public createFileSync(path: string, flag: string, mode: number): File {
+	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
 		this.checkInitialized();
-		this.writable.createFileSync(path, flag, mode);
+		this.writable.createFileSync(path, flag, mode, options);
 		return this.openFileSync(path, flag);
 	}
 
@@ -298,24 +300,24 @@ export class UnmutexedOverlayFS extends FileSystem {
 		void this.deletePath(path);
 	}
 
-	public async mkdir(path: string, mode: number): Promise<void> {
+	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
 		this.checkInitialized();
 		if (await this.exists(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mkdir');
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
 		await this.createParentDirectories(path);
-		await this.writable.mkdir(path, mode);
+		await this.writable.mkdir(path, mode, options);
 	}
 
-	public mkdirSync(path: string, mode: number): void {
+	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
 		this.checkInitialized();
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mkdir');
 		}
 		// The below will throw should any of the parent directories fail to exist on _writable.
 		this.createParentDirectoriesSync(path);
-		this.writable.mkdirSync(path, mode);
+		this.writable.mkdirSync(path, mode, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -436,7 +438,8 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 
 		for (const path of toCreate.reverse()) {
-			this.writable.mkdirSync(path, this.statSync(path).mode);
+			const { uid, gid, mode } = this.statSync(path);
+			this.writable.mkdirSync(path, mode, { uid, gid });
 		}
 	}
 
@@ -453,8 +456,8 @@ export class UnmutexedOverlayFS extends FileSystem {
 		}
 
 		for (const path of toCreate.reverse()) {
-			const stats = await this.stat(path);
-			await this.writable.mkdir(path, stats.mode);
+			const { uid, gid, mode } = await this.stat(path);
+			await this.writable.mkdir(path, mode, { uid, gid });
 		}
 	}
 
@@ -496,28 +499,28 @@ export class UnmutexedOverlayFS extends FileSystem {
 	private copyToWritableSync(path: string): void {
 		const stats = this.statSync(path);
 		if (stats.isDirectory()) {
-			this.writable.mkdirSync(path, stats.mode);
+			this.writable.mkdirSync(path, stats.mode, stats);
 			return;
 		}
 
 		const data = new Uint8Array(stats.size);
 		using readable = this.readable.openFileSync(path, 'r');
 		readable.readSync(data);
-		using writable = this.writable.createFileSync(path, 'w', stats.mode | 0o222);
+		using writable = this.writable.createFileSync(path, 'w', stats.mode | 0o222, stats);
 		writable.writeSync(data);
 	}
 
 	private async copyToWritable(path: string): Promise<void> {
 		const stats = await this.stat(path);
 		if (stats.isDirectory()) {
-			await this.writable.mkdir(path, stats.mode);
+			await this.writable.mkdir(path, stats.mode, stats);
 			return;
 		}
 
 		const data = new Uint8Array(stats.size);
 		await using readable = await this.readable.openFile(path, 'r');
 		await readable.read(data);
-		await using writable = await this.writable.createFile(path, 'w', stats.mode | 0o222);
+		await using writable = await this.writable.createFile(path, 'w', stats.mode | 0o222, stats);
 		await writable.write(data);
 	}
 }

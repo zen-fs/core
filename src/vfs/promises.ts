@@ -1,17 +1,21 @@
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
-import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
 import type { ReadableStreamController, ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
 import type { V_Context } from '../context.js';
-import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
+import type { Stats } from '../stats.js';
+import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+
+import { Buffer } from 'buffer';
+import { credentials } from '../credentials.js';
+import { Errno, ErrnoError } from '../error.js';
+import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import '../polyfills.js';
-import { BigIntStats, type Stats } from '../stats.js';
+import { BigIntStats } from '../stats.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as cache from './cache.js';
 import { config } from './config.js';
@@ -20,7 +24,6 @@ import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
-import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 import { FSWatcher, emitChange } from './watchers.js';
 export * as constants from './constants.js';
 
@@ -503,6 +506,19 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 unlink satisfies typeof promises.unlink;
 
 /**
+ * Manually apply setuid/setgid.
+ */
+async function applySetId(file: File, uid: number, gid: number) {
+	if (file.fs.metadata().features.includes('setid')) return;
+
+	const parent = await file.fs.stat(dirname(file.path));
+	await file.chown(
+		parent.mode & constants.S_ISUID ? parent.uid : uid, // manually apply setuid/setgid
+		parent.mode & constants.S_ISGID ? parent.gid : gid
+	);
+}
+
+/**
  * Opens a file. This helper handles the complexity of file flags.
  * @internal
  */
@@ -528,7 +544,10 @@ async function _open(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mo
 		if (!parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
-		return new FileHandle(await fs.createFile(resolved, flag, mode), this);
+		const { euid: uid, egid: gid } = this?.credentials ?? credentials;
+		const file = await fs.createFile(resolved, flag, mode, { uid, gid });
+		await applySetId(file, uid, gid);
+		return new FileHandle(file, this);
 	}
 
 	if (config.checkAccess && !stats.hasAccess(flagToMode(flag), this)) {
@@ -684,6 +703,7 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options: fs.Make
 export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false | undefined }) | null): Promise<void>;
 export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined>;
 export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined | void> {
+	const { euid: uid, egid: gid } = this?.credentials ?? credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
@@ -696,7 +716,8 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mod
 			if (config.checkAccess && !(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
-			await fs.mkdir(resolved, mode);
+			await fs.mkdir(resolved, mode, { uid, gid });
+			await applySetId(await fs.openFile(resolved, 'r+'), uid, gid);
 			emitChange('rename', path.toString());
 			return;
 		}
@@ -710,7 +731,8 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mod
 			if (config.checkAccess && !(await fs.stat(dirname(dir))).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
-			await fs.mkdir(dir, mode);
+			await fs.mkdir(dir, mode, { uid, gid });
+			await applySetId(await fs.openFile(dir, 'r+'), uid, gid);
 			emitChange('rename', dir);
 		}
 		return root.length == 1 ? dirs[0] : dirs[0]?.slice(root.length);

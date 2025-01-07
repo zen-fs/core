@@ -1,11 +1,15 @@
-import { Buffer } from 'buffer';
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
-import { Errno, ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
 import type { FileContents } from '../filesystem.js';
-import { BigIntStats, type Stats } from '../stats.js';
+import type { Stats } from '../stats.js';
+import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+
+import { Buffer } from 'buffer';
+import { credentials } from '../credentials.js';
+import { Errno, ErrnoError } from '../error.js';
+import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../file.js';
+import { BigIntStats } from '../stats.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as cache from './cache.js';
 import { config } from './config.js';
@@ -13,7 +17,6 @@ import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
-import type { GlobOptionsU, InternalOptions, NullEnc, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 import { emitChange } from './watchers.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
@@ -120,6 +123,19 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 }
 unlinkSync satisfies typeof fs.unlinkSync;
 
+/**
+ * Manually apply setuid/setgid.
+ */
+function applySetId(file: File, uid: number, gid: number) {
+	if (file.fs.metadata().features.includes('setid')) return;
+
+	const parent = file.fs.statSync(dirname(file.path));
+	file.chownSync(
+		parent.mode & constants.S_ISUID ? parent.uid : uid, // manually apply setuid/setgid
+		parent.mode & constants.S_ISGID ? parent.gid : gid
+	);
+}
+
 function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode?: fs.Mode | null, resolveSymlinks: boolean = true): File {
 	path = normalizePath(path);
 	const mode = normalizeMode(_mode, 0o644),
@@ -147,7 +163,10 @@ function _openSync(this: V_Context, path: fs.PathLike, _flag: fs.OpenMode, _mode
 		if (!parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
-		return fs.createFileSync(resolved, flag, mode);
+		const { euid: uid, egid: gid } = this?.credentials ?? credentials;
+		const file = fs.createFileSync(resolved, flag, mode, { uid, gid });
+		applySetId(file, uid, gid);
+		return file;
 	}
 
 	if (config.checkAccess && (!stats.hasAccess(mode, this) || !stats.hasAccess(flagToMode(flag), this))) {
@@ -411,6 +430,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options: fs.MakeDi
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined;
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined | void {
+	const { euid: uid, egid: gid } = this?.credentials ?? credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
@@ -423,7 +443,9 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			if (config.checkAccess && !fs.statSync(dirname(resolved)).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
-			return fs.mkdirSync(resolved, mode);
+			fs.mkdirSync(resolved, mode, { uid, gid });
+			applySetId(fs.openFileSync(resolved, 'r+'), uid, gid);
+			return;
 		}
 
 		const dirs: string[] = [];
@@ -435,7 +457,8 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			if (config.checkAccess && !fs.statSync(dirname(dir)).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
-			fs.mkdirSync(dir, mode);
+			fs.mkdirSync(dir, mode, { uid, gid });
+			applySetId(fs.openFileSync(dir, 'r+'), uid, gid);
 			emitChange('rename', dir);
 		}
 		return root.length == 1 ? dirs[0] : dirs[0]?.slice(root.length);

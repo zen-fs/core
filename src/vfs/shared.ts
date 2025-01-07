@@ -1,11 +1,12 @@
 // Utilities and shared data
 
 import type * as fs from 'node:fs';
+import type { File } from '../file.js';
+import type { FileSystem } from '../filesystem.js';
+
 import { InMemory } from '../backends/memory.js';
 import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../error.js';
-import type { File } from '../file.js';
-import type { FileSystem } from '../filesystem.js';
 import { normalizePath } from '../utils.js';
 import { paths as pathCache } from './cache.js';
 import { size_max } from './constants.js';

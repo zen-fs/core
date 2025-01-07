@@ -1,5 +1,5 @@
 import type { File } from '../file.js';
-import type { FileSystem } from '../filesystem.js';
+import type { CreationOptions, FileSystem } from '../filesystem.js';
 import type { Stats } from '../stats.js';
 import type { Mixin, AsyncFSMethods } from './shared.js';
 
@@ -21,8 +21,8 @@ export function Sync<T extends typeof FileSystem>(FS: T): Mixin<T, AsyncFSMethod
 			return this.statSync(path);
 		}
 
-		public async createFile(path: string, flag: string, mode: number): Promise<File> {
-			return this.createFileSync(path, flag, mode);
+		public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
+			return this.createFileSync(path, flag, mode, options);
 		}
 
 		public async openFile(path: string, flag: string): Promise<File> {
@@ -37,8 +37,8 @@ export function Sync<T extends typeof FileSystem>(FS: T): Mixin<T, AsyncFSMethod
 			return this.rmdirSync(path);
 		}
 
-		public async mkdir(path: string, mode: number): Promise<void> {
-			return this.mkdirSync(path, mode);
+		public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
+			return this.mkdirSync(path, mode, options);
 		}
 
 		public async readdir(path: string): Promise<string[]> {

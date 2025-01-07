@@ -1,6 +1,7 @@
 import type { ErrnoError } from './error.js';
 import type { File } from './file.js';
-import { ZenFsType, type Stats } from './stats.js';
+import type { Stats } from './stats.js';
+import { ZenFsType } from './stats.js';
 
 export type FileContents = ArrayBufferView | string;
 
@@ -62,6 +63,31 @@ export interface FileSystemMetadata {
 	 * The type of the FS
 	 */
 	type: number;
+
+	/**
+	 * Various features the file system supports.
+	 * These are used by the VFS for optimizations.
+	 * - setid:	The FS supports setuid and setgid when creating files and directories.
+	 */
+	features: ('setid' | '')[];
+}
+
+/**
+ * Options used when creating files and directories
+ * @todo [BREAKING] Move the `mode` parameter of `createFile` and `mkdir` into this
+ * @internal
+ */
+export interface CreationOptions {
+	/**
+	 * The uid to create the file.
+	 * This is ignored if the FS supports setuid and the setuid bit is set
+	 */
+	uid: number;
+	/**
+	 * The gid to create the file.
+	 * This is ignored if the FS supports setgid and the setgid bit is set
+	 */
+	gid: number;
 }
 
 /**
@@ -82,6 +108,7 @@ export abstract class FileSystem {
 			freeSpace: 0,
 			noResizableBuffers: false,
 			noAsyncCache: this._disableSync ?? false,
+			features: [],
 			type: ZenFsType,
 		};
 	}
@@ -119,14 +146,14 @@ export abstract class FileSystem {
 	public abstract openFileSync(path: string, flag: string): File;
 
 	/**
-	 * Create the file at `path` with `mode`. Then, open it with `flag`.
+	 * Create the file at `path` with the given options. Then, open it with `flag`.
 	 */
-	public abstract createFile(path: string, flag: string, mode: number): Promise<File>;
+	public abstract createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File>;
 
 	/**
-	 * Create the file at `path` with `mode`. Then, open it with `flag`.
+	 * Create the file at `path` with the given options. Then, open it with `flag`.
 	 */
-	public abstract createFileSync(path: string, flag: string, mode: number): File;
+	public abstract createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File;
 
 	public abstract unlink(path: string): Promise<void>;
 	public abstract unlinkSync(path: string): void;
@@ -136,8 +163,8 @@ export abstract class FileSystem {
 	public abstract rmdir(path: string): Promise<void>;
 	public abstract rmdirSync(path: string): void;
 
-	public abstract mkdir(path: string, mode: number): Promise<void>;
-	public abstract mkdirSync(path: string, mode: number): void;
+	public abstract mkdir(path: string, mode: number, options: CreationOptions): Promise<void>;
+	public abstract mkdirSync(path: string, mode: number, options: CreationOptions): void;
 
 	public abstract readdir(path: string): Promise<string[]>;
 	public abstract readdirSync(path: string): string[];

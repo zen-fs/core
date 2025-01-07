@@ -1,13 +1,14 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { useCredentials } from './credentials.js';
-import { DeviceFS, type Device, type DeviceDriver } from './devices.js';
+import type { Device, DeviceDriver } from './devices.js';
+import { DeviceFS } from './devices.js';
+import { Errno, ErrnoError } from './error.js';
+import { FileSystem } from './filesystem.js';
 import * as cache from './vfs/cache.js';
 import { config } from './vfs/config.js';
 import * as fs from './vfs/index.js';
 import { mounts } from './vfs/shared.js';
-import { Errno, ErrnoError } from './error.js';
-import { FileSystem } from './filesystem.js';
 
 /**
  * Configuration for a specific mount point

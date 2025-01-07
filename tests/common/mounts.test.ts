@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { configure } from '../../dist/config.js';
 import * as fs from '../../dist/vfs/index.js';
-import { InMemory } from '../../dist/index.js';
+import { InMemory, mounts } from '../../dist/index.js';
 
 suite('Mounts', () => {
 	test('Mount in nested directory', async () => {
@@ -30,7 +30,7 @@ suite('Mounts', () => {
 			},
 		});
 
-		assert.equal(fs.mounts.size, 5); // 4 + default `/` mount
+		assert.equal(mounts.size, 5); // 4 + default `/` mount
 		assert.equal(fs.readdirSync('/').length, 4);
 	});
 });

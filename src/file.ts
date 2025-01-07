@@ -1,10 +1,10 @@
 import type { FileReadResult } from 'node:fs/promises';
-import { config } from './vfs/config.js';
-import { O_APPEND, O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_SYNC, O_TRUNC, O_WRONLY, S_IFMT, size_max } from './vfs/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
 import { _chown, Stats } from './stats.js';
+import { config } from './vfs/config.js';
+import * as c from './vfs/constants.js';
 
 const validFlags = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
 
@@ -20,29 +20,29 @@ export function parseFlag(flag: string | number): string {
 
 export function flagToString(flag: number): string {
 	switch (flag) {
-		case O_RDONLY:
+		case c.O_RDONLY:
 			return 'r';
-		case O_RDONLY | O_SYNC:
+		case c.O_RDONLY | c.O_SYNC:
 			return 'rs';
-		case O_RDWR:
+		case c.O_RDWR:
 			return 'r+';
-		case O_RDWR | O_SYNC:
+		case c.O_RDWR | c.O_SYNC:
 			return 'rs+';
-		case O_TRUNC | O_CREAT | O_WRONLY:
+		case c.O_TRUNC | c.O_CREAT | c.O_WRONLY:
 			return 'w';
-		case O_TRUNC | O_CREAT | O_WRONLY | O_EXCL:
+		case c.O_TRUNC | c.O_CREAT | c.O_WRONLY | c.O_EXCL:
 			return 'wx';
-		case O_TRUNC | O_CREAT | O_RDWR:
+		case c.O_TRUNC | c.O_CREAT | c.O_RDWR:
 			return 'w+';
-		case O_TRUNC | O_CREAT | O_RDWR | O_EXCL:
+		case c.O_TRUNC | c.O_CREAT | c.O_RDWR | c.O_EXCL:
 			return 'wx+';
-		case O_APPEND | O_CREAT | O_WRONLY:
+		case c.O_APPEND | c.O_CREAT | c.O_WRONLY:
 			return 'a';
-		case O_APPEND | O_CREAT | O_WRONLY | O_EXCL:
+		case c.O_APPEND | c.O_CREAT | c.O_WRONLY | c.O_EXCL:
 			return 'ax';
-		case O_APPEND | O_CREAT | O_RDWR:
+		case c.O_APPEND | c.O_CREAT | c.O_RDWR:
 			return 'a+';
-		case O_APPEND | O_CREAT | O_RDWR | O_EXCL:
+		case c.O_APPEND | c.O_CREAT | c.O_RDWR | c.O_EXCL:
 			return 'ax+';
 		default:
 			throw new Error('Invalid flag number: ' + flag);
@@ -52,29 +52,29 @@ export function flagToString(flag: number): string {
 export function flagToNumber(flag: string): number {
 	switch (flag) {
 		case 'r':
-			return O_RDONLY;
+			return c.O_RDONLY;
 		case 'rs':
-			return O_RDONLY | O_SYNC;
+			return c.O_RDONLY | c.O_SYNC;
 		case 'r+':
-			return O_RDWR;
+			return c.O_RDWR;
 		case 'rs+':
-			return O_RDWR | O_SYNC;
+			return c.O_RDWR | c.O_SYNC;
 		case 'w':
-			return O_TRUNC | O_CREAT | O_WRONLY;
+			return c.O_TRUNC | c.O_CREAT | c.O_WRONLY;
 		case 'wx':
-			return O_TRUNC | O_CREAT | O_WRONLY | O_EXCL;
+			return c.O_TRUNC | c.O_CREAT | c.O_WRONLY | c.O_EXCL;
 		case 'w+':
-			return O_TRUNC | O_CREAT | O_RDWR;
+			return c.O_TRUNC | c.O_CREAT | c.O_RDWR;
 		case 'wx+':
-			return O_TRUNC | O_CREAT | O_RDWR | O_EXCL;
+			return c.O_TRUNC | c.O_CREAT | c.O_RDWR | c.O_EXCL;
 		case 'a':
-			return O_APPEND | O_CREAT | O_WRONLY;
+			return c.O_APPEND | c.O_CREAT | c.O_WRONLY;
 		case 'ax':
-			return O_APPEND | O_CREAT | O_WRONLY | O_EXCL;
+			return c.O_APPEND | c.O_CREAT | c.O_WRONLY | c.O_EXCL;
 		case 'a+':
-			return O_APPEND | O_CREAT | O_RDWR;
+			return c.O_APPEND | c.O_CREAT | c.O_RDWR;
 		case 'ax+':
-			return O_APPEND | O_CREAT | O_RDWR | O_EXCL;
+			return c.O_APPEND | c.O_CREAT | c.O_RDWR | c.O_EXCL;
 		default:
 			throw new Error('Invalid flag string: ' + flag);
 	}
@@ -258,7 +258,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		/**
 		 * A buffer containing the entire contents of the file.
 		 */
-		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().noResizableBuffers ? {} : { maxByteLength: size_max }))
+		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().noResizableBuffers ? {} : { maxByteLength: c.size_max }))
 	) {
 		super(fs, path);
 
@@ -431,7 +431,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 					this._buffer = slice;
 				} else {
 					// Extend the buffer!
-					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().noResizableBuffers ? {} : { maxByteLength: size_max }));
+					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().noResizableBuffers ? {} : { maxByteLength: c.size_max }));
 					newBuffer.set(this._buffer);
 					this._buffer = newBuffer;
 				}
@@ -537,8 +537,8 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		this.stats.mode = (this.stats.mode & (mode > S_IFMT ? ~S_IFMT : S_IFMT)) | mode;
-		if (config.syncImmediately || mode > S_IFMT) await this.sync();
+		this.stats.mode = (this.stats.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
+		if (config.syncImmediately || mode > c.S_IFMT) await this.sync();
 	}
 
 	public chmodSync(mode: number): void {
@@ -546,8 +546,8 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
 		}
 		this.dirty = true;
-		this.stats.mode = (this.stats.mode & (mode > S_IFMT ? ~S_IFMT : S_IFMT)) | mode;
-		if (config.syncImmediately || mode > S_IFMT) this.syncSync();
+		this.stats.mode = (this.stats.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
+		if (config.syncImmediately || mode > c.S_IFMT) this.syncSync();
 	}
 
 	public async chown(uid: number, gid: number): Promise<void> {

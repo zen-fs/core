@@ -1,11 +1,12 @@
 import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
-import { Errno, ErrnoError } from '../error.js';
+import type { V_Context } from '../context.js';
 import type { Stats } from '../stats.js';
 import type { Callback } from '../utils.js';
+
+import { Errno, ErrnoError } from '../error.js';
 import { basename } from './path.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';
-import type { V_Context } from '../context.js';
 
 export class Dirent implements _Dirent {
 	public get name(): string {

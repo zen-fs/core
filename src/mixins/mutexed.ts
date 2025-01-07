@@ -1,9 +1,10 @@
-import { ErrnoError } from '../error.js';
 import type { File } from '../file.js';
-import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
-import '../polyfills.js';
+import type { CreationOptions, FileSystem, FileSystemMetadata } from '../filesystem.js';
 import type { Stats } from '../stats.js';
 import type { Concrete } from '../utils.js';
+
+import { ErrnoError } from '../error.js';
+import '../polyfills.js';
 
 export class MutexLock {
 	protected current = Promise.withResolvers<void>();
@@ -137,16 +138,16 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return file;
 	}
 
-	public async createFile(path: string, flag: string, mode: number): Promise<File> {
+	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
 		using _ = await this.lock(path, 'createFile');
-		const file = await this._fs.createFile(path, flag, mode);
+		const file = await this._fs.createFile(path, flag, mode, options);
 		file.fs = this;
 		return file;
 	}
 
-	public createFileSync(path: string, flag: string, mode: number): File {
+	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
 		using _ = this.lockSync(path, 'createFile');
-		const file = this._fs.createFileSync(path, flag, mode);
+		const file = this._fs.createFileSync(path, flag, mode, options);
 		file.fs = this;
 		return file;
 	}
@@ -171,14 +172,14 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, mode: number): Promise<void> {
+	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
 		using _ = await this.lock(path, 'mkdir');
-		await this._fs.mkdir(path, mode);
+		await this._fs.mkdir(path, mode, options);
 	}
 
-	public mkdirSync(path: string, mode: number): void {
+	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
 		using _ = this.lockSync(path, 'mkdir');
-		return this._fs.mkdirSync(path, mode);
+		return this._fs.mkdirSync(path, mode, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {

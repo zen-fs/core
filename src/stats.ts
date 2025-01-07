@@ -1,36 +1,14 @@
 import type * as Node from 'node:fs';
 import type { V_Context } from './context.js';
 import { credentials } from './credentials.js';
-import {
-	R_OK,
-	S_IFBLK,
-	S_IFCHR,
-	S_IFDIR,
-	S_IFIFO,
-	S_IFLNK,
-	S_IFMT,
-	S_IFREG,
-	S_IFSOCK,
-	S_IRGRP,
-	S_IROTH,
-	S_IRUSR,
-	S_IWGRP,
-	S_IWOTH,
-	S_IWUSR,
-	S_IXGRP,
-	S_IXOTH,
-	S_IXUSR,
-	size_max,
-	W_OK,
-	X_OK,
-} from './vfs/constants.js';
+import * as c from './vfs/constants.js';
 
 const n1000 = BigInt(1000) as 1000n;
 
 /**
  * Indicates the type of a file. Applied to 'mode'.
  */
-export type FileType = typeof S_IFREG | typeof S_IFDIR | typeof S_IFLNK;
+export type FileType = typeof c.S_IFREG | typeof c.S_IFDIR | typeof c.S_IFLNK;
 
 export interface StatsLike<T extends number | bigint = number | bigint> {
 	/**
@@ -208,39 +186,39 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.gid = this._convert(gid ?? 0);
 		this.size = this._convert(size ?? 0);
 		this.ino = this._convert(ino ?? 0);
-		this.mode = this._convert(mode ?? 0o644 & S_IFREG);
+		this.mode = this._convert(mode ?? 0o644 & c.S_IFREG);
 
-		if ((this.mode & S_IFMT) == 0) {
-			this.mode = (this.mode | this._convert(S_IFREG)) as T;
+		if ((this.mode & c.S_IFMT) == 0) {
+			this.mode = (this.mode | this._convert(c.S_IFREG)) as T;
 		}
 	}
 
 	public isFile(): boolean {
-		return (this.mode & S_IFMT) === S_IFREG;
+		return (this.mode & c.S_IFMT) === c.S_IFREG;
 	}
 
 	public isDirectory(): boolean {
-		return (this.mode & S_IFMT) === S_IFDIR;
+		return (this.mode & c.S_IFMT) === c.S_IFDIR;
 	}
 
 	public isSymbolicLink(): boolean {
-		return (this.mode & S_IFMT) === S_IFLNK;
+		return (this.mode & c.S_IFMT) === c.S_IFLNK;
 	}
 
 	public isSocket(): boolean {
-		return (this.mode & S_IFMT) === S_IFSOCK;
+		return (this.mode & c.S_IFMT) === c.S_IFSOCK;
 	}
 
 	public isBlockDevice(): boolean {
-		return (this.mode & S_IFMT) === S_IFBLK;
+		return (this.mode & c.S_IFMT) === c.S_IFBLK;
 	}
 
 	public isCharacterDevice(): boolean {
-		return (this.mode & S_IFMT) === S_IFCHR;
+		return (this.mode & c.S_IFMT) === c.S_IFCHR;
 	}
 
 	public isFIFO(): boolean {
-		return (this.mode & S_IFMT) === S_IFIFO;
+		return (this.mode & c.S_IFMT) === c.S_IFIFO;
 	}
 
 	/**
@@ -258,22 +236,22 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 		// Owner permissions
 		if (creds.uid === this.uid) {
-			if (this.mode & S_IRUSR) perm |= R_OK;
-			if (this.mode & S_IWUSR) perm |= W_OK;
-			if (this.mode & S_IXUSR) perm |= X_OK;
+			if (this.mode & c.S_IRUSR) perm |= c.R_OK;
+			if (this.mode & c.S_IWUSR) perm |= c.W_OK;
+			if (this.mode & c.S_IXUSR) perm |= c.X_OK;
 		}
 
 		// Group permissions
 		if (creds.gid === this.gid || creds.groups.includes(Number(this.gid))) {
-			if (this.mode & S_IRGRP) perm |= R_OK;
-			if (this.mode & S_IWGRP) perm |= W_OK;
-			if (this.mode & S_IXGRP) perm |= X_OK;
+			if (this.mode & c.S_IRGRP) perm |= c.R_OK;
+			if (this.mode & c.S_IWGRP) perm |= c.W_OK;
+			if (this.mode & c.S_IXGRP) perm |= c.X_OK;
 		}
 
 		// Others permissions
-		if (this.mode & S_IROTH) perm |= R_OK;
-		if (this.mode & S_IWOTH) perm |= W_OK;
-		if (this.mode & S_IXOTH) perm |= X_OK;
+		if (this.mode & c.S_IROTH) perm |= c.R_OK;
+		if (this.mode & c.S_IWOTH) perm |= c.W_OK;
+		if (this.mode & c.S_IXOTH) perm |= c.X_OK;
 
 		// Perform the access check
 		return (perm & mode) === mode;
@@ -286,7 +264,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @deprecated This will be removed in the next minor release since it is internal
 	 */
 	public chmod(mode: number): void {
-		this.mode = this._convert((this.mode & S_IFMT) | mode);
+		this.mode = this._convert((this.mode & c.S_IFMT) | mode);
 	}
 
 	/**
@@ -384,9 +362,9 @@ export class StatsFs implements Node.StatsFsBase<number> {
 	/** Available blocks for unprivileged users */
 	public bavail: number = 0;
 	/** Total file nodes in file system. */
-	public files: number = size_max;
+	public files: number = c.size_max;
 	/** Free file nodes in file system. */
-	public ffree: number = size_max;
+	public ffree: number = c.size_max;
 }
 
 /**
@@ -404,7 +382,7 @@ export class BigIntStatsFs implements Node.StatsFsBase<bigint> {
 	/** Available blocks for unprivileged users */
 	public bavail: bigint = BigInt(0);
 	/** Total file nodes in file system. */
-	public files: bigint = BigInt(size_max);
+	public files: bigint = BigInt(c.size_max);
 	/** Free file nodes in file system. */
-	public ffree: bigint = BigInt(size_max);
+	public ffree: bigint = BigInt(c.size_max);
 }

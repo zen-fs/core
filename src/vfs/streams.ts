@@ -1,7 +1,8 @@
 import type * as fs from 'node:fs';
-import { Readable, Writable } from 'readable-stream';
 import type { Callback } from '../utils.js';
-import { ErrnoError, Errno } from '../error.js';
+
+import { Readable, Writable } from 'readable-stream';
+import { Errno, ErrnoError } from '../error.js';
 
 export class ReadStream extends Readable implements fs.ReadStream {
 	close(callback: Callback<[void], null> = () => null): void {

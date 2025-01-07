@@ -1,7 +1,8 @@
-import { EventEmitter } from 'eventemitter3';
 import type { EventEmitter as NodeEventEmitter } from 'node:events';
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
+
+import { EventEmitter } from 'eventemitter3';
 import { ErrnoError } from '../error.js';
 import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';

@@ -1,11 +1,12 @@
-import { StoreFS } from '../backends/store/fs.js';
 import type { Store } from '../backends/store/store.js';
-import { join } from '../vfs/path.js';
-import { Errno, ErrnoError } from '../error.js';
-import { parseFlag, PreloadFile } from '../file.js';
-import type { FileSystem } from '../filesystem.js';
+import type { CreationOptions, FileSystem } from '../filesystem.js';
 import type { Stats } from '../stats.js';
 import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
+
+import { StoreFS } from '../backends/store/fs.js';
+import { Errno, ErrnoError } from '../error.js';
+import { parseFlag, PreloadFile } from '../file.js';
+import { join } from '../vfs/path.js';
 
 /** @internal */
 export type AsyncOperation = {
@@ -115,10 +116,10 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 			return this._sync.statSync(path);
 		}
 
-		public createFileSync(path: string, flag: string, mode: number): PreloadFile<this> {
+		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): PreloadFile<this> {
 			this.checkSync(path, 'createFile');
-			this._sync.createFileSync(path, flag, mode);
-			this.queue('createFile', path, flag, mode);
+			this._sync.createFileSync(path, flag, mode, options);
+			this.queue('createFile', path, flag, mode, options);
 			return this.openFileSync(path, flag);
 		}
 
@@ -143,10 +144,10 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 			this.queue('rmdir', path);
 		}
 
-		public mkdirSync(path: string, mode: number): void {
+		public mkdirSync(path: string, mode: number, options: CreationOptions): void {
 			this.checkSync(path, 'mkdir');
-			this._sync.mkdirSync(path, mode);
-			this.queue('mkdir', path, mode);
+			this._sync.mkdirSync(path, mode, options);
+			this.queue('mkdir', path, mode, options);
 		}
 
 		public readdirSync(path: string): string[] {
@@ -179,7 +180,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 			const stats = await this.stat(path);
 			if (!stats.isDirectory()) {
 				await using asyncFile = await this.openFile(path, parseFlag('r'));
-				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode);
+				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats);
 				const buffer = new Uint8Array(stats.size);
 				await asyncFile.read(buffer);
 				syncFile.writeSync(buffer, 0, stats.size);
@@ -187,7 +188,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 			}
 			if (path !== '/') {
 				const stats = await this.stat(path);
-				this._sync.mkdirSync(path, stats.mode);
+				this._sync.mkdirSync(path, stats.mode, stats);
 			}
 			const promises = [];
 			for (const file of await this.readdir(path)) {

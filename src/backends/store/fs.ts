@@ -40,6 +40,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return {
 			...super.metadata(),
 			name: this.store.name,
+			features: ['setid'],
 		};
 	}
 

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Entries, RequiredKeys } from 'utilium';
-import { ErrnoError, Errno } from '../error.js';
+import { Errno, ErrnoError } from '../error.js';
 import type { FileSystem } from '../filesystem.js';
 
 type OptionType = 'string' | 'number' | 'bigint' | 'boolean' | 'symbol' | 'undefined' | 'object' | 'function' | (abstract new (...args: any[]) => any);

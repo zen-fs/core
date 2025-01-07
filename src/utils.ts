@@ -1,7 +1,9 @@
 import type * as fs from 'node:fs';
-import { randomHex, type ClassLike, type OptionalTuple } from 'utilium';
-import { resolve, type AbsolutePath } from './vfs/path.js';
+import type { ClassLike, OptionalTuple } from 'utilium';
+import { randomHex } from 'utilium';
 import { Errno, ErrnoError } from './error.js';
+import type { AbsolutePath } from './vfs/path.js';
+import { resolve } from './vfs/path.js';
 
 declare global {
 	function atob(data: string): string;

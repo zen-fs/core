@@ -1,13 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FileReadResult } from 'node:fs/promises';
 import type { ExtractProperties } from 'utilium';
-import { resolveMountConfig, type MountConfiguration } from '../../config.js';
+import type { MountConfiguration } from '../../config.js';
+import type { CreationOptions, FileSystemMetadata } from '../../filesystem.js';
+import type { Backend, FilesystemOf } from '../backend.js';
+
+import { resolveMountConfig } from '../../config.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { File } from '../../file.js';
-import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
+import { FileSystem } from '../../filesystem.js';
 import { Async } from '../../mixins/async.js';
 import { Stats } from '../../stats.js';
-import type { Backend, FilesystemOf } from '../backend.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
 
@@ -196,8 +199,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('openFile', path, flag);
 	}
 
-	public createFile(path: string, flag: string, mode: number): Promise<File> {
-		return this.rpc('createFile', path, flag, mode);
+	public createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
+		return this.rpc('createFile', path, flag, mode, options);
 	}
 
 	public unlink(path: string): Promise<void> {
@@ -208,8 +211,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('rmdir', path);
 	}
 
-	public mkdir(path: string, mode: number): Promise<void> {
-		return this.rpc('mkdir', path, mode);
+	public mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
+		return this.rpc('mkdir', path, mode, options);
 	}
 
 	public readdir(path: string): Promise<string[]> {
