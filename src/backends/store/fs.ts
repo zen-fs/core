@@ -1,15 +1,14 @@
-import { credentials } from '../../credentials.js';
-import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID } from '../../vfs/constants.js';
-import { basename, dirname, parse, resolve } from '../../vfs/path.js';
+import { serialize } from 'utilium';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { PreloadFile } from '../../file.js';
-import { FileSystem, type FileSystemMetadata } from '../../filesystem.js';
-import { Inode, rootIno } from './inode.js';
+import { FileSystem, type PureCreationOptions, type CreationOptions, type FileSystemMetadata } from '../../filesystem.js';
 import type { FileType, Stats } from '../../stats.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8, randomBigInt } from '../../utils.js';
+import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID } from '../../vfs/constants.js';
+import { basename, dirname, parse, resolve } from '../../vfs/path.js';
+import { Inode, rootIno } from './inode.js';
 import type { Store, Transaction } from './store.js';
-import { serialize } from 'utilium';
 
 const maxInodeAllocTries = 5;
 
@@ -171,13 +170,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return this.findInodeSync(tx, path, 'stat').toStats();
 	}
 
-	public async createFile(path: string, flag: string, mode: number): Promise<File> {
-		const node = await this.commitNew(path, S_IFREG, mode, new Uint8Array(), 'createFile');
+	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
+		const node = await this.commitNew(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
 		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
 	}
 
-	public createFileSync(path: string, flag: string, mode: number): File {
-		const node = this.commitNewSync(path, S_IFREG, mode, new Uint8Array(), 'createFile');
+	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
+		const node = this.commitNewSync(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
 		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
 	}
 
@@ -219,12 +218,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this.removeSync(path, true, 'rmdir');
 	}
 
-	public async mkdir(path: string, mode: number): Promise<void> {
-		await this.commitNew(path, S_IFDIR, mode, encodeUTF8('{}'), 'mkdir');
+	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
+		await this.commitNew(path, S_IFDIR, { mode, ...options }, encodeUTF8('{}'), 'mkdir');
 	}
 
-	public mkdirSync(path: string, mode: number): void {
-		this.commitNewSync(path, S_IFDIR, mode, encodeUTF8('{}'), 'mkdir');
+	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
+		this.commitNewSync(path, S_IFDIR, { mode, ...options }, encodeUTF8('{}'), 'mkdir');
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -498,7 +497,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param mode The mode to create the new file with.
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNew(path: string, type: FileType, mode: number, data: Uint8Array, syscall: string): Promise<Inode> {
+	private async commitNew(path: string, type: FileType, options: PureCreationOptions, data: Uint8Array, syscall: string): Promise<Inode> {
 		/*
 			The root always exists.
 			If we don't check this prior to taking steps below,
@@ -523,9 +522,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = new Inode();
 		inode.ino = await this.allocNew(tx, path, syscall);
 		inode.data = await this.allocNew(tx, path, syscall);
-		inode.mode = mode | type;
-		inode.uid = parent.mode & S_ISUID ? parent.uid : credentials.uid;
-		inode.gid = parent.mode & S_ISGID ? parent.gid : credentials.gid;
+		inode.mode = options.mode | type;
+		inode.uid = parent.mode & S_ISUID ? parent.uid : options.uid;
+		inode.gid = parent.mode & S_ISGID ? parent.gid : options.gid;
 		inode.size = data.length;
 		await tx.set(inode.ino, serialize(inode));
 		await tx.set(inode.data, data);
@@ -546,7 +545,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	private commitNewSync(path: string, type: FileType, mode: number, data: Uint8Array, syscall: string): Inode {
+	private commitNewSync(path: string, type: FileType, options: PureCreationOptions, data: Uint8Array, syscall: string): Inode {
 		/*
 			The root always exists.
 			If we don't check this prior to taking steps below,
@@ -573,9 +572,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		inode.ino = this.allocNewSync(tx, path, syscall);
 		inode.data = this.allocNewSync(tx, path, syscall);
 		inode.size = data.length;
-		inode.mode = mode | type;
-		inode.uid = parent.mode & S_ISUID ? parent.uid : credentials.uid;
-		inode.gid = parent.mode & S_ISGID ? parent.gid : credentials.gid;
+		inode.mode = options.mode | type;
+		inode.uid = parent.mode & S_ISUID ? parent.uid : options.uid;
+		inode.gid = parent.mode & S_ISGID ? parent.gid : options.gid;
 		// Update and commit parent directory listing.
 		tx.setSync(inode.ino, serialize(inode));
 		tx.setSync(inode.data, data);

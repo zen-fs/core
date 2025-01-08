@@ -12,6 +12,7 @@ import { Stats } from './stats.js';
 import { decodeUTF8 } from './utils.js';
 import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
 import { basename, dirname } from './vfs/path.js';
+import type { CreationOptions } from './filesystem.js';
 
 /**
  * A device
@@ -356,18 +357,18 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.openFileSync(path, flag);
 	}
 
-	public async createFile(path: string, flag: string, mode: number): Promise<File> {
+	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
 		if (this.devices.has(path)) {
 			throw ErrnoError.With('EEXIST', path, 'createFile');
 		}
-		return super.createFile(path, flag, mode);
+		return super.createFile(path, flag, mode, options);
 	}
 
-	public createFileSync(path: string, flag: string, mode: number): File {
+	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
 		if (this.devices.has(path)) {
 			throw ErrnoError.With('EEXIST', path, 'createFile');
 		}
-		return super.createFileSync(path, flag, mode);
+		return super.createFileSync(path, flag, mode, options);
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -392,18 +393,18 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, mode: number): Promise<void> {
+	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
 		if (this.devices.has(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mkdir');
 		}
-		return super.mkdir(path, mode);
+		return super.mkdir(path, mode, options);
 	}
 
-	public mkdirSync(path: string, mode: number): void {
+	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
 		if (this.devices.has(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mkdir');
 		}
-		return super.mkdirSync(path, mode);
+		return super.mkdirSync(path, mode, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {

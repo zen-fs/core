@@ -73,7 +73,8 @@ export interface FileSystemMetadata {
 }
 
 /**
- * Options used when creating files and directories
+ * Options used when creating files and directories.
+ * This weird naming and such is to preserve backward compatibility.
  * @todo [BREAKING] Move the `mode` parameter of `createFile` and `mkdir` into this
  * @internal
  */
@@ -83,11 +84,27 @@ export interface CreationOptions {
 	 * This is ignored if the FS supports setuid and the setuid bit is set
 	 */
 	uid: number;
+
 	/**
 	 * The gid to create the file.
 	 * This is ignored if the FS supports setgid and the setgid bit is set
 	 */
 	gid: number;
+
+	/**
+	 * The mode to create the file with.
+	 */
+	mode?: number;
+}
+
+/**
+ * This is the correct type that will be used when the API is updated in a breaking release
+ */
+export interface PureCreationOptions extends CreationOptions {
+	/**
+	 * The mode to create the file with.
+	 */
+	mode: number;
 }
 
 /**
