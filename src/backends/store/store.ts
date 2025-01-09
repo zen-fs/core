@@ -45,18 +45,18 @@ export abstract class Transaction<T extends Store = Store> {
 	/**
 	 * Gets all of the keys
 	 */
-	public abstract keys(): Promise<Iterable<bigint>>;
+	public abstract keys(): Promise<Iterable<number>>;
 
 	/**
 	 * Gets all of the keys
 	 */
-	public abstract keysSync(): Iterable<bigint>;
+	public abstract keysSync(): Iterable<number>;
 
 	/**
 	 * Retrieves data.
 	 * @param id The key to look under for data.
 	 */
-	public abstract get(id: bigint): Promise<Uint8Array>;
+	public abstract get(id: number): Promise<Uint8Array>;
 
 	/**
 	 * Retrieves data.
@@ -64,33 +64,33 @@ export abstract class Transaction<T extends Store = Store> {
 	 * @param id The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	public abstract getSync(id: bigint): Uint8Array;
+	public abstract getSync(id: number): Uint8Array;
 
 	/**
 	 * Adds the data to the store under an id. Overwrites any existing data.
 	 * @param id The key to add the data under.
 	 * @param data The data to add to the store.
 	 */
-	public abstract set(id: bigint, data: Uint8Array): Promise<void>;
+	public abstract set(id: number, data: Uint8Array, isMetadata?: boolean): Promise<void>;
 
 	/**
 	 * Adds the data to the store under and id.
 	 * @param id The key to add the data under.
 	 * @param data The data to add to the store.
 	 */
-	public abstract setSync(id: bigint, data: Uint8Array): void;
+	public abstract setSync(id: number, data: Uint8Array, isMetadata?: boolean): void;
 
 	/**
 	 * Deletes the data at `ino`.
 	 * @param id The key to delete from the store.
 	 */
-	public abstract remove(id: bigint): Promise<void>;
+	public abstract remove(id: number): Promise<void>;
 
 	/**
 	 * Deletes the data at `ino`.
 	 * @param id The key to delete from the store.
 	 */
-	public abstract removeSync(id: bigint): void;
+	public abstract removeSync(id: number): void;
 
 	/**
 	 * Commits the transaction.
@@ -134,18 +134,18 @@ export abstract class Transaction<T extends Store = Store> {
  */
 export abstract class SyncTransaction<T extends Store = Store> extends Transaction<T> {
 	/* eslint-disable @typescript-eslint/require-await */
-	public async keys(): Promise<Iterable<bigint>> {
+	public async keys(): Promise<Iterable<number>> {
 		return this.keysSync();
 	}
-	public async get(id: bigint): Promise<Uint8Array> {
+	public async get(id: number): Promise<Uint8Array> {
 		return this.getSync(id);
 	}
 
-	public async set(id: bigint, data: Uint8Array): Promise<void> {
-		return this.setSync(id, data);
+	public async set(id: number, data: Uint8Array, isMetadata?: boolean): Promise<void> {
+		return this.setSync(id, data, isMetadata);
 	}
 
-	public async remove(id: bigint): Promise<void> {
+	public async remove(id: number): Promise<void> {
 		return this.removeSync(id);
 	}
 

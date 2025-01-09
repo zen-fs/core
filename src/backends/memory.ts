@@ -5,7 +5,7 @@ import { SimpleTransaction, type SimpleSyncStore } from './store/simple.js';
 /**
  * A simple in-memory store
  */
-export class InMemoryStore extends Map<bigint, Uint8Array> implements SimpleSyncStore {
+export class InMemoryStore extends Map<number, Uint8Array> implements SimpleSyncStore {
 	public constructor(public name: string = 'tmp') {
 		super();
 	}

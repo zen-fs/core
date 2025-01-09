@@ -1,12 +1,17 @@
-import { deserialize, sizeof, struct, types as t } from 'utilium';
+import { deserialize, pick, randomInt, sizeof, struct, types as t } from 'utilium';
 import { Stats, type StatsLike } from '../../stats.js';
-import { randomBigInt } from '../../utils.js';
+import { size_max } from '../../vfs/constants.js';
 
 /**
- * Room inode
+ * Root inode
  * @hidden
  */
-export const rootIno = BigInt(0) as 0n;
+export const rootIno = 0;
+
+export interface InodeLike extends StatsLike<number> {
+	data: number;
+	flags?: number;
+}
 
 /**
  * Generic inode definition that can easily be serialized.
@@ -14,56 +19,52 @@ export const rootIno = BigInt(0) as 0n;
  * @todo [BREAKING] Remove 58 byte Inode upgrade path
  */
 @struct()
-export class Inode implements StatsLike {
-	public constructor(buffer?: ArrayBufferLike | ArrayBufferView) {
-		if (buffer) {
-			const sz_inode = sizeof(Inode);
-			const oldSize = sz_inode - sizeof('uint64');
-			if (buffer.byteLength < oldSize) {
-				throw new RangeError(`Can not create an inode from a buffer less than ${oldSize} bytes`);
-			}
+export class Inode implements InodeLike {
+	public constructor(data?: ArrayBufferLike | ArrayBufferView | InodeLike) {
+		if (!data) return;
 
-			// Expand the buffer so it is the right size
-			if (buffer.byteLength < sz_inode) {
-				const newBuffer = new Uint8Array(sz_inode);
-				const buf = ArrayBuffer.isView(buffer) ? buffer.buffer : buffer;
-				// Fill the new buffer with current data
-				newBuffer.set(new Uint8Array(buf));
-				/* 	Add a random ino. 
-					This will be different from the actual one,
-					but `ino` isn't used anywhere so it should be fine.
-				*/
-				new DataView(newBuffer.buffer).setBigUint64(sz_inode - 1, randomBigInt());
-				buffer = newBuffer;
-			}
-
-			deserialize(this, buffer);
+		if (!('byteLength' in data)) {
+			Object.assign(this, data);
 			return;
 		}
 
-		// set defaults on a fresh inode
-		this.ino = randomBigInt();
-		this.data = randomBigInt();
-		this.nlink = 1;
-		this.size = 4096;
-		const now = Date.now();
-		this.atimeMs = now;
-		this.mtimeMs = now;
-		this.ctimeMs = now;
-		this.birthtimeMs = now;
+		if (data.byteLength < 58) {
+			throw new RangeError('Can not create an inode from a buffer less than 58 bytes');
+		}
+
+		// Expand the buffer so it is the right size
+		if (data.byteLength < sz_inode) {
+			const buf = ArrayBuffer.isView(data) ? data.buffer : data;
+			const newBuffer = new Uint8Array(sz_inode);
+			newBuffer.set(new Uint8Array(buf));
+			data = newBuffer;
+		}
+
+		deserialize(this, data);
 	}
 
-	@t.uint64 public data!: bigint;
-	@t.uint32 public size!: number;
-	@t.uint16 public mode!: number;
-	@t.uint32 public nlink!: number;
-	@t.uint32 public uid!: number;
-	@t.uint32 public gid!: number;
-	@t.float64 public atimeMs!: number;
-	@t.float64 public birthtimeMs!: number;
-	@t.float64 public mtimeMs!: number;
-	@t.float64 public ctimeMs!: number;
-	@t.uint64 public ino!: bigint;
+	@t.uint32 public data: number = randomInt(0, size_max);
+	/** For future use */
+	@t.uint32 public __data_old: number = 0;
+	@t.uint32 public size: number = 4096;
+	@t.uint16 public mode: number = 0;
+	@t.uint32 public nlink: number = 1;
+	@t.uint32 public uid: number = 0;
+	@t.uint32 public gid: number = 0;
+	@t.float64 public atimeMs: number = Date.now();
+	@t.float64 public birthtimeMs: number = Date.now();
+	@t.float64 public mtimeMs: number = Date.now();
+	@t.float64 public ctimeMs: number = Date.now();
+	@t.uint32 public ino: number = randomInt(0, size_max);
+	/** For future use */
+	@t.uint32 public __ino_old: number = 0;
+	@t.uint32 public flags: number = 0;
+	/** For future use */
+	@t.uint16 public __padding: number = 0;
+
+	public toJSON(): InodeLike {
+		return pick(this, 'ino', 'data', 'size', 'mode', 'flags', 'nlink', 'uid', 'gid', 'atimeMs', 'birthtimeMs', 'mtimeMs', 'ctimeMs');
+	}
 
 	/**
 	 * Handy function that converts the Inode to a Node Stats object.
@@ -80,7 +81,7 @@ export class Inode implements StatsLike {
 	 *   metadata changes locally -- typically in a Stats object.
 	 * - Program closes file. File object's metadata changes are synced with the
 	 *   file system.
-	 * @return True if any changes have occurred.
+	 * @returns whether any changes have occurred.
 	 */
 	public update(stats: Readonly<Stats>): boolean {
 		let hasChanged = false;
@@ -126,3 +127,5 @@ export class Inode implements StatsLike {
 		return hasChanged;
 	}
 }
+
+const sz_inode = sizeof(Inode);

@@ -29,7 +29,7 @@ export interface Device<TData = any> {
 	/**
 	 * Which inode the device is assigned
 	 */
-	ino: bigint;
+	ino: number;
 
 	/**
 	 * Data associated with a device.
@@ -74,7 +74,7 @@ export interface DeviceDriver<TData = any> {
 	 * @returns `Device.data`
 	 */
 	init?(
-		ino: bigint,
+		ino: number,
 		options: object
 	): {
 		data?: TData;
@@ -240,7 +240,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
 		}
-		let ino = BigInt(1) as 1n;
+		let ino = 1;
 		while (this.store.has(ino)) ino++;
 		const dev = {
 			driver,
@@ -274,7 +274,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	 * @internal
 	 */
 	_createDevice<TData = any>(driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
-		let ino = BigInt(1) as 1n;
+		let ino = 1;
 		while (this.store.has(ino)) ino++;
 		const dev = {
 			driver,
@@ -568,7 +568,7 @@ export const randomDevice: DeviceDriver = {
 const consoleDevice: DeviceDriver<{ output: (text: string) => unknown }> = {
 	name: 'console',
 	singleton: true,
-	init(ino: bigint, { output = console.log }: { output?: (text: string) => unknown } = {}) {
+	init(ino: number, { output = console.log }: { output?: (text: string) => unknown } = {}) {
 		return { major: 5, minor: 1, data: { output } };
 	},
 

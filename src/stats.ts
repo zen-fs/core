@@ -112,8 +112,10 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	/**
 	 * Some file systems stash data on stats objects.
+	 * @todo [BREAKING] Remove this
+	 * @deprecated @hidden
 	 */
-	public fileData?: Uint8Array;
+	public fileData?: unknown;
 
 	/**
 	 * Time of last access, since epoch

@@ -354,11 +354,6 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			throw ErrnoError.With('EBUSY', this.path, 'File.dispose');
 		}
 
-		// @ts-expect-error 2790
-		delete this._buffer;
-		// @ts-expect-error 2790
-		delete this.stats;
-
 		this.closed = true;
 	}
 
@@ -591,6 +586,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 
 /**
  * For the file systems which do not sync to anything.
+ * @deprecated
  */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 	public sync(): Promise<void> {

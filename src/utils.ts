@@ -70,16 +70,16 @@ export { /** @deprecated @hidden */ decodeUTF8 as decode };
  * Decodes a directory listing
  * @hidden
  */
-export function decodeDirListing(data: Uint8Array): Record<string, bigint> {
-	return JSON.parse(decodeUTF8(data), (k, v) => (k == '' ? v : BigInt(v as string)));
+export function decodeDirListing(data: Uint8Array): Record<string, number> {
+	return JSON.parse(decodeUTF8(data), (k, v) => (k == '' ? v : typeof v == 'string' ? BigInt(v).toString(16).slice(0, Math.min(v.length, 8)) : (v as number)));
 }
 
 /**
  * Encodes a directory listing
  * @hidden
  */
-export function encodeDirListing(data: Record<string, bigint>): Uint8Array {
-	return encodeUTF8(JSON.stringify(data, (k, v) => (k == '' ? v : v.toString())));
+export function encodeDirListing(data: Record<string, number>): Uint8Array {
+	return encodeUTF8(JSON.stringify(data));
 }
 
 export type Callback<Args extends unknown[] = [], NoError = undefined | void> = (e: ErrnoError | NoError, ...args: OptionalTuple<Args>) => unknown;

@@ -1,14 +1,17 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
-import { isJSON } from 'utilium';
+import { isJSON, randomInt } from 'utilium';
 import { Errno, ErrnoError } from '../error.js';
-import { NoSyncFile, isWriteable } from '../file.js';
-import { FileSystem } from '../filesystem.js';
-import { Readonly } from '../mixins/readonly.js';
-import type { StatsLike } from '../stats.js';
+import type { File } from '../file.js';
+import { PreloadFile } from '../file.js';
+import type { CreationOptions } from '../filesystem.js';
 import { Stats } from '../stats.js';
-import { decodeUTF8, encodeUTF8 } from '../utils.js';
+import { S_IFDIR, S_IFMT, S_IFREG, size_max } from '../vfs/constants.js';
 import { basename, dirname } from '../vfs/path.js';
+import { StoreFS } from './store/fs.js';
+import type { InodeLike } from './store/inode.js';
+import { Inode } from './store/inode.js';
+import type { Store } from './store/store.js';
 
 /**
  * An Index in JSON form
@@ -16,7 +19,7 @@ import { basename, dirname } from '../vfs/path.js';
  */
 export interface IndexData {
 	version: number;
-	entries: Record<string, StatsLike<number>>;
+	entries: Record<string, InodeLike>;
 }
 
 export const version = 1;
@@ -25,19 +28,8 @@ export const version = 1;
  * An index of files
  * @internal
  */
-export class Index extends Map<string, Stats> {
-	/**
-	 * Convenience method
-	 */
-	public files(): Map<string, Stats> {
-		const files = new Map<string, Stats>();
-		for (const [path, stats] of this) {
-			if (stats.isFile()) {
-				files.set(path, stats);
-			}
-		}
-		return files;
-	}
+export class Index extends Map<string, Readonly<Inode>> {
+	public readonly directories = new Map<string, string[]>();
 
 	/**
 	 * Converts the index to JSON
@@ -45,7 +37,7 @@ export class Index extends Map<string, Stats> {
 	public toJSON(): IndexData {
 		return {
 			version,
-			entries: Object.fromEntries(this),
+			entries: Object.fromEntries([...this].map(([k, v]) => [k, v.toJSON()])),
 		};
 	}
 
@@ -54,20 +46,6 @@ export class Index extends Map<string, Stats> {
 	 */
 	public toString(): string {
 		return JSON.stringify(this.toJSON());
-	}
-
-	/**
-	 * Returns the files in the directory `dir`.
-	 * This is expensive so it is only called once per directory.
-	 */
-	protected dirEntries(dir: string): string[] {
-		const entries = [];
-		for (const entry of this.keys()) {
-			if (dirname(entry) == dir) {
-				entries.push(basename(entry));
-			}
-		}
-		return entries;
 	}
 
 	/**
@@ -80,12 +58,21 @@ export class Index extends Map<string, Stats> {
 
 		this.clear();
 
-		for (const [path, data] of Object.entries(json.entries)) {
-			const stats = new Stats(data);
-			if (stats.isDirectory()) {
-				stats.fileData = encodeUTF8(JSON.stringify(this.dirEntries(path)));
+		for (const [path, node] of Object.entries(json.entries)) {
+			node.data ??= randomInt(1, size_max);
+
+			if (path == '/') node.ino = 0;
+
+			this.set(path, new Inode(node));
+
+			if ((node.mode & S_IFMT) != S_IFDIR) continue;
+
+			const entries = [];
+			for (const entry of this.keys()) {
+				if (dirname(entry) == path) entries.push(basename(entry));
 			}
-			this.set(path, stats);
+
+			this.directories.set(path, entries);
 		}
 	}
 
@@ -104,80 +91,73 @@ export class Index extends Map<string, Stats> {
 	}
 }
 
-export abstract class IndexFS extends Readonly(FileSystem) {
-	protected index: Index = new Index();
+/**
+ * Uses an `Index` for metadata.
+ *
+ * Implementors: You *must* populate the underlying store for read operations to work!
+ */
+export abstract class IndexFS<T extends Store> extends StoreFS<T> {
+	protected readonly index: Index = new Index();
 
 	protected _isInitialized: boolean = false;
 
 	public async ready(): Promise<void> {
 		await super.ready();
-		if (this._isInitialized) {
-			return;
-		}
+		if (this._isInitialized) return;
+
 		this.index.fromJSON(await this.indexData);
 		this._isInitialized = true;
 	}
 
-	public constructor(private indexData: IndexData | Promise<IndexData>) {
-		super();
+	public constructor(
+		store: T,
+		private indexData: IndexData | Promise<IndexData>
+	) {
+		super(store);
 	}
 
-	public async reloadFiles(): Promise<void> {
-		for (const [path, stats] of this.index.files()) {
-			delete stats.fileData;
-			stats.fileData = await this.getData(path, stats);
-		}
-	}
+	/**
+	 * @deprecated
+	 */
+	public async reloadFiles(): Promise<void> {}
 
-	public reloadFilesSync(): void {
-		for (const [path, stats] of this.index.files()) {
-			delete stats.fileData;
-			stats.fileData = this.getDataSync(path, stats);
-		}
-	}
+	/**
+	 * @deprecated
+	 */
+	public reloadFilesSync(): void {}
 
 	public stat(path: string): Promise<Stats> {
 		return Promise.resolve(this.statSync(path));
 	}
 
 	public statSync(path: string): Stats {
-		if (!this.index.has(path)) {
-			throw ErrnoError.With('ENOENT', path, 'stat');
-		}
+		if (!this.index.has(path)) throw ErrnoError.With('ENOENT', path, 'stat');
 
-		return this.index.get(path)!;
+		return new Stats(this.index.get(path));
 	}
 
-	public async openFile(path: string, flag: string): Promise<NoSyncFile<this>> {
-		if (isWriteable(flag)) {
-			// You can't write to files on this file system.
-			throw new ErrnoError(Errno.EPERM, path);
-		}
-
-		// Check if the path exists, and is a file.
-		const stats = this.index.get(path);
-
-		if (!stats) {
-			throw ErrnoError.With('ENOENT', path, 'openFile');
-		}
-
-		return new NoSyncFile(this, path, flag, stats, stats.isDirectory() ? stats.fileData : await this.getData(path, stats));
+	public override async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
+		const node = await this.commitNew(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
+		const file = new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
+		this.index.set(path, node);
+		return file;
 	}
 
-	public openFileSync(path: string, flag: string): NoSyncFile<this> {
-		if (isWriteable(flag)) {
-			// You can't write to files on this file system.
-			throw new ErrnoError(Errno.EPERM, path);
-		}
+	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
+		const node = this.commitNewSync(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
+		const file = new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
+		this.index.set(path, node);
+		return file;
+	}
 
-		// Check if the path exists, and is a file.
-		const stats = this.index.get(path);
+	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
+		await super.mkdir(path, mode, options);
+		this.index.directories.set(path, []);
+	}
 
-		if (!stats) {
-			throw ErrnoError.With('ENOENT', path, 'openFile');
-		}
-
-		return new NoSyncFile(this, path, flag, stats, stats.isDirectory() ? stats.fileData : this.getDataSync(path, stats));
+	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
+		super.mkdirSync(path, mode, options);
+		this.index.directories.set(path, []);
 	}
 
 	public readdir(path: string): Promise<string[]> {
@@ -185,22 +165,22 @@ export abstract class IndexFS extends Readonly(FileSystem) {
 	}
 
 	public readdirSync(path: string): string[] {
-		// Check if it exists.
-		const stats = this.index.get(path);
-		if (!stats) {
-			throw ErrnoError.With('ENOENT', path, 'readdir');
-		}
+		if (!this.index.has(path)) throw ErrnoError.With('ENOENT', path, 'readdir');
 
-		const content: unknown = JSON.parse(decodeUTF8(stats.fileData));
-		if (!Array.isArray(content)) {
-			throw ErrnoError.With('ENODATA', path, 'readdir');
-		}
-		if (!content.every(item => typeof item == 'string')) {
-			throw ErrnoError.With('ENODATA', path, 'readdir');
-		}
-		return content;
+		const data = this.index.directories.get(path);
+
+		if (!data) throw ErrnoError.With('ENOTDIR', path, 'readdir');
+
+		return data;
 	}
 
-	protected abstract getData(path: string, stats: Stats): Promise<Uint8Array>;
-	protected abstract getDataSync(path: string, stats: Stats): Uint8Array;
+	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		this.index.get(path)?.update(stats);
+		await super.sync(path, data, stats);
+	}
+
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		this.index.get(path)?.update(stats);
+		super.syncSync(path, data, stats);
+	}
 }

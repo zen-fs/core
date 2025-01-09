@@ -1,15 +1,16 @@
+import { serialize } from 'utilium';
 import { Errno, ErrnoError } from '../error.js';
-import type { FileSystemMetadata } from '../filesystem.js';
-import type { Stats } from '../stats.js';
+import { S_IFMT, S_IFREG } from '../vfs/constants.js';
 import type { Backend } from './backend.js';
 import type { IndexData } from './file_index.js';
 import { IndexFS } from './file_index.js';
+import { InMemoryStore } from './memory.js';
+import type { Store } from './store/store.js';
 
 /**
  * Asynchronously download a file as a buffer or a JSON object.
- * Note that the third function signature with a non-specialized type is
- * invalid, but TypeScript requires it when you specialize string arguments to
- * constants.
+ * Note that the third function signature with a non-specialized type is invalid,
+ * but TypeScript requires it when you specialize string arguments to constants.
  * @hidden
  */
 async function fetchFile(path: string, type: 'buffer', init?: RequestInit): Promise<Uint8Array>;
@@ -57,6 +58,12 @@ export interface FetchOptions {
 	 * Default: Fetch files relative to the index.
 	 */
 	baseUrl?: string;
+
+	/**
+	 * A store to use for caching content.
+	 * Defaults to an in-memory store
+	 */
+	store?: Store;
 }
 
 /**
@@ -70,7 +77,7 @@ export interface FetchOptions {
  * 	"version": 1,
  * 	"entries": {
  * 		"/home": { ... },
- * 		"/home/jvilk": { ... },
+ * 		"/home/john": { ... },
  * 		"/home/james": { ... }
  * 	}
  * }
@@ -78,10 +85,7 @@ export interface FetchOptions {
  *
  * Each entry contains the stats associated with the file.
  */
-export class FetchFS extends IndexFS {
-	public readonly baseUrl: string;
-	public readonly requestInit?: RequestInit;
-
+export class FetchFS extends IndexFS<Store> {
 	public async ready(): Promise<void> {
 		if (this._isInitialized) {
 			return;
@@ -92,68 +96,59 @@ export class FetchFS extends IndexFS {
 			return;
 		}
 
+		using tx = this.store.transaction();
+
 		/**
 		 * Iterate over all of the files and cache their contents
 		 */
-		for (const [path, stats] of this.index.files()) {
-			await this.getData(path, stats);
+		for (const [path, node] of this.index) {
+			if (!(node.mode & S_IFREG)) return;
+
+			const content = await this.fetch(path, '[init]');
+
+			tx.setSync(node.ino, serialize(node));
+			tx.setSync(node.data, content);
 		}
+
+		tx.commitSync();
 	}
 
-	public constructor({ index = 'index.json', baseUrl = '', requestInit }: FetchOptions) {
+	public constructor(
+		index: IndexData | string = 'index.json',
+		store: Store = new InMemoryStore('fetch'),
+		public readonly baseUrl: string = '',
+		public readonly requestInit?: RequestInit
+	) {
 		// prefix url must end in a directory separator.
 		if (baseUrl.at(-1) != '/') {
 			baseUrl += '/';
 		}
 
-		super(typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json', requestInit));
+		const indexData = typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json', requestInit);
 
-		this.baseUrl = baseUrl;
-		this.requestInit = requestInit;
+		super(store, indexData);
 	}
 
-	public metadata(): FileSystemMetadata {
-		return {
-			...super.metadata(),
-			name: FetchFS.name,
-			readonly: true,
-		};
+	/* public async openFile(path: string, flag: string): Promise<File> {
+		const file = await super.openFile(path, flag);
 	}
 
-	/**
-	 * Preload the `path` into the index.
-	 */
-	public preload(path: string, buffer: Uint8Array): void {
-		const stats = this.index.get(path);
-		if (!stats) {
-			throw ErrnoError.With('ENOENT', path, 'preload');
-		}
-		if (!stats.isFile()) {
-			throw ErrnoError.With('EISDIR', path, 'preload');
-		}
-		stats.size = buffer.length;
-		stats.fileData = buffer;
-	}
+	public openFileSync(path: string, flag: string): File {
+		super.openFileSync(path, flag);
+	} */
 
 	/**
 	 * @todo Be lazier about actually requesting the data?
 	 */
-	protected async getData(path: string, stats: Stats): Promise<Uint8Array> {
-		if (stats.fileData) {
-			return stats.fileData;
-		}
+	protected async fetch(path: string, syscall: string): Promise<Uint8Array> {
+		const node = this.index.get(path);
+		if (!node) throw ErrnoError.With('ENOENT', path, syscall);
+		if ((node.mode & S_IFMT) != S_IFREG) throw ErrnoError.With('EISDIR', path, syscall);
 
-		const data = await fetchFile(this.baseUrl + (path.startsWith('/') ? path.slice(1) : path), 'buffer', this.requestInit);
-		stats.fileData = data;
-		return data;
-	}
+		const url = this.baseUrl + (path.startsWith('/') ? path.slice(1) : path);
+		const content = await fetchFile(url, 'buffer', this.requestInit);
 
-	protected getDataSync(path: string, stats: Stats): Uint8Array {
-		if (stats.fileData) {
-			return stats.fileData;
-		}
-
-		throw new ErrnoError(Errno.ENODATA, '', path, 'getData');
+		return content;
 	}
 }
 
@@ -164,6 +159,7 @@ const _Fetch = {
 		index: { type: ['string', 'object'], required: false },
 		baseUrl: { type: 'string', required: false },
 		requestInit: { type: 'object', required: false },
+		store: { type: 'object', required: false },
 	},
 
 	isAvailable(): boolean {
@@ -171,7 +167,7 @@ const _Fetch = {
 	},
 
 	create(options: FetchOptions) {
-		return new FetchFS(options);
+		return new FetchFS(options.index, options.store, options.baseUrl, options.requestInit);
 	},
 } as const satisfies Backend<FetchFS, FetchOptions>;
 type _Fetch = typeof _Fetch;

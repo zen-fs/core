@@ -1,11 +1,11 @@
-import { serialize } from 'utilium';
+import { randomInt, serialize } from 'utilium';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { PreloadFile } from '../../file.js';
-import { FileSystem, type PureCreationOptions, type CreationOptions, type FileSystemMetadata } from '../../filesystem.js';
+import { FileSystem, type CreationOptions, type FileSystemMetadata, type PureCreationOptions } from '../../filesystem.js';
 import type { FileType, Stats } from '../../stats.js';
-import { decodeDirListing, encodeDirListing, encodeUTF8, randomBigInt } from '../../utils.js';
-import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID } from '../../vfs/constants.js';
+import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
+import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, parse, resolve } from '../../vfs/path.js';
 import { Inode, rootIno } from './inode.js';
 import type { Store, Transaction } from './store.js';
@@ -16,8 +16,9 @@ const maxInodeAllocTries = 5;
  * A file system which uses a key-value store.
  *
  * We use a unique ID for each node in the file system. The root node has a fixed ID.
- * @todo Introduce Node ID caching.
- * @todo Check modes.
+ *
+ * @todo Introduce Node ID caching?
+ * @todo Check modes?
  * @internal
  */
 export class StoreFS<T extends Store = Store> extends FileSystem {
@@ -77,7 +78,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		if (!oldDirList[_old.base]) {
 			throw ErrnoError.With('ENOENT', oldPath, 'rename');
 		}
-		const ino: bigint = oldDirList[_old.base];
+		const ino: number = oldDirList[_old.base];
 		delete oldDirList[_old.base];
 
 		/* 
@@ -124,7 +125,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		if (!oldDirList[_old.base]) {
 			throw ErrnoError.With('ENOENT', oldPath, 'rename');
 		}
-		const ino: bigint = oldDirList[_old.base];
+		const ino: number = oldDirList[_old.base];
 		delete oldDirList[_old.base];
 
 		/* 
@@ -358,7 +359,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param filename The filename of the inode we are attempting to find, minus
 	 *   the parent.
 	 */
-	private async _findInode(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<bigint> {
+	protected async _findInode(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<number> {
 		if (visited.has(path)) {
 			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path);
 		}
@@ -387,7 +388,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 *   the parent.
 	 * @return string The ID of the file's inode in the file system.
 	 */
-	protected _findInodeSync(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): bigint {
+	protected _findInodeSync(tx: Transaction, path: string, syscall: string, visited: Set<string> = new Set()): number {
 		if (visited.has(path)) {
 			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path);
 		}
@@ -436,7 +437,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private async get(tx: Transaction, id: bigint, path: string, syscall: string): Promise<Uint8Array> {
+	protected async get(tx: Transaction, id: number, path: string, syscall: string): Promise<Uint8Array> {
 		const data = await tx.get(id);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, syscall);
@@ -450,7 +451,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	private getSync(tx: Transaction, id: bigint, path: string, syscall: string): Uint8Array {
+	protected getSync(tx: Transaction, id: number, path: string, syscall: string): Uint8Array {
 		const data = tx.getSync(id);
 		if (!data) {
 			throw ErrnoError.With('ENOENT', path, syscall);
@@ -462,9 +463,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Adds a new node under a random ID. Retries before giving up in
 	 * the exceedingly unlikely chance that we try to reuse a random id.
 	 */
-	private async allocNew(tx: Transaction, path: string, syscall: string): Promise<bigint> {
+	protected async allocNew(tx: Transaction, path: string, syscall: string): Promise<number> {
 		for (let i = 0; i < maxInodeAllocTries; i++) {
-			const ino: bigint = randomBigInt();
+			const ino = randomInt(0, size_max);
 			if (await tx.get(ino)) {
 				continue;
 			}
@@ -478,9 +479,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * the exceedingly unlikely chance that we try to reuse a random id.
 	 * @return The ino that the data was stored under.
 	 */
-	private allocNewSync(tx: Transaction, path: string, syscall: string): bigint {
+	protected allocNewSync(tx: Transaction, path: string, syscall: string): number {
 		for (let i = 0; i < maxInodeAllocTries; i++) {
-			const ino: bigint = randomBigInt();
+			const ino = randomInt(0, size_max);
 			if (tx.getSync(ino)) {
 				continue;
 			}
@@ -497,7 +498,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param mode The mode to create the new file with.
 	 * @param data The data to store at the file's data node.
 	 */
-	private async commitNew(path: string, type: FileType, options: PureCreationOptions, data: Uint8Array, syscall: string): Promise<Inode> {
+	protected async commitNew(path: string, type: FileType, options: PureCreationOptions, data: Uint8Array, syscall: string): Promise<Inode> {
 		/*
 			The root always exists.
 			If we don't check this prior to taking steps below,
@@ -545,7 +546,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	private commitNewSync(path: string, type: FileType, options: PureCreationOptions, data: Uint8Array, syscall: string): Inode {
+	protected commitNewSync(path: string, type: FileType, options: PureCreationOptions, data: Uint8Array, syscall: string): Inode {
 		/*
 			The root always exists.
 			If we don't check this prior to taking steps below,
@@ -590,7 +591,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
 	 */
-	private async remove(path: string, isDir: boolean, syscall: string): Promise<void> {
+	protected async remove(path: string, isDir: boolean, syscall: string): Promise<void> {
 		await using tx = this.store.transaction();
 
 		const { dir: parent, base: fileName } = parse(path),
@@ -631,12 +632,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 * @todo Update mtime.
 	 */
-	private removeSync(path: string, isDir: boolean, syscall: string): void {
+	protected removeSync(path: string, isDir: boolean, syscall: string): void {
 		using tx = this.store.transaction();
 		const { dir: parent, base: fileName } = parse(path),
 			parentNode = this.findInodeSync(tx, parent, syscall),
 			listing = decodeDirListing(this.getSync(tx, parentNode.data, parent, syscall)),
-			fileIno: bigint = listing[fileName];
+			fileIno: number = listing[fileName];
 
 		if (!fileIno) {
 			throw ErrnoError.With('ENOENT', path, 'remove');
