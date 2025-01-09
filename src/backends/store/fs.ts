@@ -2,13 +2,15 @@ import { randomInt, serialize } from 'utilium';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { PreloadFile } from '../../file.js';
-import { FileSystem, type CreationOptions, type FileSystemMetadata, type PureCreationOptions } from '../../filesystem.js';
+import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
+import { FileSystem } from '../../filesystem.js';
 import type { FileType, Stats } from '../../stats.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, parse, resolve } from '../../vfs/path.js';
 import { Inode, rootIno } from './inode.js';
 import type { Store, Transaction } from './store.js';
+import { Index } from './file_index.js';
 
 const maxInodeAllocTries = 5;
 
@@ -22,7 +24,7 @@ const maxInodeAllocTries = 5;
  * @internal
  */
 export class StoreFS<T extends Store = Store> extends FileSystem {
-	private _initialized: boolean = false;
+	protected _initialized: boolean = false;
 
 	public async ready(): Promise<void> {
 		if (this._initialized) {
@@ -62,6 +64,88 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this.store.clearSync();
 		// Root always exists.
 		this.checkRootSync();
+	}
+
+	/**
+	 * Load an index into the StoreFS.
+	 * You *must* manually add non-directory files
+	 */
+	public async loadIndex(index: Index): Promise<void> {
+		await using tx = this.store.transaction();
+
+		const dirs = index.directories();
+
+		for (const [path, inode] of index) {
+			await tx.set(inode.ino, serialize(inode));
+			if (dirs.has(path)) await tx.set(inode.data, encodeDirListing(dirs.get(path)!));
+		}
+	}
+
+	/**
+	 * Load an index into the StoreFS.
+	 * You *must* manually add non-directory files
+	 */
+	public loadIndexSync(index: Index): void {
+		using tx = this.store.transaction();
+
+		const dirs = index.directories();
+
+		for (const [path, inode] of index) {
+			tx.setSync(inode.ino, serialize(inode));
+			if (dirs.has(path)) tx.setSync(inode.data, encodeDirListing(dirs.get(path)!));
+		}
+	}
+
+	public async createIndex(): Promise<Index> {
+		const index = new Index();
+
+		await using tx = this.store.transaction();
+
+		const queue: [path: string, ino: number][] = [['/', 0]];
+
+		while (queue.length) {
+			const [path, ino] = queue.shift()!;
+
+			const inode = new Inode(await tx.get(ino));
+
+			index.set(path, inode);
+
+			if (inode.mode & S_IFDIR) {
+				const dir = decodeDirListing(await tx.get(inode.data));
+
+				for (const [name, id] of Object.entries(dir)) {
+					queue.push([path + '/' + name, id]);
+				}
+			}
+		}
+
+		return index;
+	}
+
+	public createIndexSync(): Index {
+		const index = new Index();
+
+		using tx = this.store.transaction();
+
+		const queue: [path: string, ino: number][] = [['/', 0]];
+
+		while (queue.length) {
+			const [path, ino] = queue.shift()!;
+
+			const inode = new Inode(tx.getSync(ino));
+
+			index.set(path, inode);
+
+			if (inode.mode & S_IFDIR) {
+				const dir = decodeDirListing(tx.getSync(inode.data));
+
+				for (const [name, id] of Object.entries(dir)) {
+					queue.push([path + '/' + name, id]);
+				}
+			}
+		}
+
+		return index;
 	}
 
 	/**
@@ -184,7 +268,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async openFile(path: string, flag: string): Promise<File> {
 		await using tx = this.store.transaction();
 		const node = await this.findInode(tx, path, 'openFile');
-		const data = await this.get(tx, node.data, path, 'openFile');
+		const data = await this.get(tx, node.data, path, 'openFile', 'ENODATA');
 
 		return new PreloadFile(this, path, flag, node.toStats(), data);
 	}
@@ -437,10 +521,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	protected async get(tx: Transaction, id: number, path: string, syscall: string): Promise<Uint8Array> {
+	protected async get(tx: Transaction, id: number, path: string, syscall: string, code: keyof typeof Errno = 'ENOENT'): Promise<Uint8Array> {
 		const data = await tx.get(id);
 		if (!data) {
-			throw ErrnoError.With('ENOENT', path, syscall);
+			throw ErrnoError.With(code, path, syscall);
 		}
 		return data;
 	}
@@ -451,10 +535,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The corresponding path to the file (used for error messages).
 	 * @param id The ID to look up.
 	 */
-	protected getSync(tx: Transaction, id: number, path: string, syscall: string): Uint8Array {
+	protected getSync(tx: Transaction, id: number, path: string, syscall: string, code: keyof typeof Errno = 'ENOENT'): Uint8Array {
 		const data = tx.getSync(id);
 		if (!data) {
-			throw ErrnoError.With('ENOENT', path, syscall);
+			throw ErrnoError.With(code, path, syscall);
 		}
 		return data;
 	}

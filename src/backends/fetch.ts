@@ -1,10 +1,9 @@
-import { serialize } from 'utilium';
 import { Errno, ErrnoError } from '../error.js';
-import { S_IFMT, S_IFREG } from '../vfs/constants.js';
+import { S_IFREG } from '../vfs/constants.js';
 import type { Backend } from './backend.js';
-import type { IndexData } from './file_index.js';
-import { IndexFS } from './file_index.js';
 import { InMemoryStore } from './memory.js';
+import { StoreFS } from './store/fs.js';
+import { Index, type IndexData } from './store/file_index.js';
 import type { Store } from './store/store.js';
 
 /**
@@ -85,32 +84,32 @@ export interface FetchOptions {
  *
  * Each entry contains the stats associated with the file.
  */
-export class FetchFS extends IndexFS<Store> {
+export class FetchFS extends StoreFS {
+	private indexData: IndexData | Promise<IndexData>;
+
 	public async ready(): Promise<void> {
-		if (this._isInitialized) {
-			return;
-		}
+		if (this._initialized) return;
 		await super.ready();
 
-		if (this._disableSync) {
-			return;
+		const index = new Index();
+
+		index.fromJSON(await this.indexData);
+
+		await this.loadIndex(index);
+
+		if (this._disableSync) return;
+
+		await using tx = this.store.transaction();
+
+		// Iterate over all of the files and cache their contents
+		for (const [path, node] of index) {
+			if (!(node.mode & S_IFREG)) continue;
+
+			const url = this.baseUrl + (path.startsWith('/') ? path.slice(1) : path);
+			const content = await fetchFile(url, 'buffer', this.requestInit);
+
+			await tx.set(node.data, content);
 		}
-
-		using tx = this.store.transaction();
-
-		/**
-		 * Iterate over all of the files and cache their contents
-		 */
-		for (const [path, node] of this.index) {
-			if (!(node.mode & S_IFREG)) return;
-
-			const content = await this.fetch(path, '[init]');
-
-			tx.setSync(node.ino, serialize(node));
-			tx.setSync(node.data, content);
-		}
-
-		tx.commitSync();
 	}
 
 	public constructor(
@@ -119,36 +118,14 @@ export class FetchFS extends IndexFS<Store> {
 		public readonly baseUrl: string = '',
 		public readonly requestInit?: RequestInit
 	) {
+		super(store);
+
 		// prefix url must end in a directory separator.
 		if (baseUrl.at(-1) != '/') {
 			baseUrl += '/';
 		}
 
-		const indexData = typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json', requestInit);
-
-		super(store, indexData);
-	}
-
-	/* public async openFile(path: string, flag: string): Promise<File> {
-		const file = await super.openFile(path, flag);
-	}
-
-	public openFileSync(path: string, flag: string): File {
-		super.openFileSync(path, flag);
-	} */
-
-	/**
-	 * @todo Be lazier about actually requesting the data?
-	 */
-	protected async fetch(path: string, syscall: string): Promise<Uint8Array> {
-		const node = this.index.get(path);
-		if (!node) throw ErrnoError.With('ENOENT', path, syscall);
-		if ((node.mode & S_IFMT) != S_IFREG) throw ErrnoError.With('EISDIR', path, syscall);
-
-		const url = this.baseUrl + (path.startsWith('/') ? path.slice(1) : path);
-		const content = await fetchFile(url, 'buffer', this.requestInit);
-
-		return content;
+		this.indexData = typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json', requestInit);
 	}
 }
 

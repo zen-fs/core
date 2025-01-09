@@ -1,17 +1,17 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
 import { isJSON, randomInt } from 'utilium';
-import { Errno, ErrnoError } from '../error.js';
-import type { File } from '../file.js';
-import { PreloadFile } from '../file.js';
-import type { CreationOptions } from '../filesystem.js';
-import { Stats } from '../stats.js';
-import { S_IFDIR, S_IFMT, S_IFREG, size_max } from '../vfs/constants.js';
-import { basename, dirname } from '../vfs/path.js';
-import { StoreFS } from './store/fs.js';
-import type { InodeLike } from './store/inode.js';
-import { Inode } from './store/inode.js';
-import type { Store } from './store/store.js';
+import { Errno, ErrnoError } from '../../error.js';
+import type { File } from '../../file.js';
+import { PreloadFile } from '../../file.js';
+import type { CreationOptions } from '../../filesystem.js';
+import { Stats } from '../../stats.js';
+import { S_IFDIR, S_IFMT, S_IFREG, size_max } from '../../vfs/constants.js';
+import { basename, dirname } from '../../vfs/path.js';
+import { StoreFS } from './fs.js';
+import type { InodeLike } from './inode.js';
+import { Inode } from './inode.js';
+import type { Store } from './store.js';
 
 /**
  * An Index in JSON form
@@ -29,7 +29,7 @@ export const version = 1;
  * @internal
  */
 export class Index extends Map<string, Readonly<Inode>> {
-	public readonly directories = new Map<string, string[]>();
+	protected _directories?: Map<string, Record<string, number>>;
 
 	/**
 	 * Converts the index to JSON
@@ -49,6 +49,30 @@ export class Index extends Map<string, Readonly<Inode>> {
 	}
 
 	/**
+	 * Gets a list of entries for each directory in the index. Memoized.
+	 */
+	public directories(): Map<string, Record<string, number>> {
+		if (this._directories) return this._directories;
+
+		const dirs = new Map<string, Record<string, number>>();
+		for (const [path, node] of this) {
+			if ((node.mode & S_IFMT) != S_IFDIR) continue;
+
+			const entries: Record<string, number> = {};
+
+			for (const entry of this.keys()) {
+				if (dirname(entry) == path) entries[basename(entry)] = this.get(entry)!.ino;
+			}
+
+			dirs.set(path, entries);
+		}
+
+		this._directories = dirs;
+
+		return dirs;
+	}
+
+	/**
 	 * Loads the index from JSON data
 	 */
 	public fromJSON(json: IndexData): void {
@@ -64,15 +88,6 @@ export class Index extends Map<string, Readonly<Inode>> {
 			if (path == '/') node.ino = 0;
 
 			this.set(path, new Inode(node));
-
-			if ((node.mode & S_IFMT) != S_IFDIR) continue;
-
-			const entries = [];
-			for (const entry of this.keys()) {
-				if (dirname(entry) == path) entries.push(basename(entry));
-			}
-
-			this.directories.set(path, entries);
 		}
 	}
 
@@ -95,6 +110,7 @@ export class Index extends Map<string, Readonly<Inode>> {
  * Uses an `Index` for metadata.
  *
  * Implementors: You *must* populate the underlying store for read operations to work!
+ * @deprecated
  */
 export abstract class IndexFS<T extends Store> extends StoreFS<T> {
 	protected readonly index: Index = new Index();
@@ -148,30 +164,6 @@ export abstract class IndexFS<T extends Store> extends StoreFS<T> {
 		const file = new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
 		this.index.set(path, node);
 		return file;
-	}
-
-	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		await super.mkdir(path, mode, options);
-		this.index.directories.set(path, []);
-	}
-
-	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
-		super.mkdirSync(path, mode, options);
-		this.index.directories.set(path, []);
-	}
-
-	public readdir(path: string): Promise<string[]> {
-		return Promise.resolve(this.readdirSync(path));
-	}
-
-	public readdirSync(path: string): string[] {
-		if (!this.index.has(path)) throw ErrnoError.With('ENOENT', path, 'readdir');
-
-		const data = this.index.directories.get(path);
-
-		if (!data) throw ErrnoError.With('ENOTDIR', path, 'readdir');
-
-		return data;
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
