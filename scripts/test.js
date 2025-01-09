@@ -104,7 +104,8 @@ function status(name) {
 		},
 		fail() {
 			console.error(`${color('failed', '1;31')}: ${name} ${time()}`);
-			if (options['exit-on-fail']) process.exit(1);
+			process.exitCode = 1;
+			if (options['exit-on-fail']) process.exit();
 		},
 	};
 }
