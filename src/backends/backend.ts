@@ -118,9 +118,9 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 
 		type T = typeof opt.type extends (infer U)[] ? U : typeof opt.type;
 
-		const isType = (value: unknown): value is T => (typeof opt.type == 'function' ? value instanceof opt.type : typeof value === opt.type);
+		const isType = (type: OptionType, _ = value): _ is T => (typeof type == 'function' ? value instanceof type : typeof value === type);
 
-		if (Array.isArray(opt.type) ? !opt.type.some(isType) : !isType(value)) {
+		if (Array.isArray(opt.type) ? !opt.type.some(v => isType(v)) : !isType(opt.type as OptionType)) {
 			// The type of the value as a string
 			const type = typeof value == 'object' && 'constructor' in value ? value.constructor.name : typeof value;
 
@@ -131,9 +131,7 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 			throw new ErrnoError(Errno.EINVAL, `Incorrect type for "${optName}": ${type} (expected ${expected})`);
 		}
 
-		if (opt.validator) {
-			await opt.validator(value);
-		}
+		if (opt.validator) await opt.validator(value);
 		// Otherwise: All good!
 	}
 }
