@@ -55,7 +55,7 @@ export class Index extends Map<string, Readonly<Inode>> {
 			const entries: Record<string, number> = {};
 
 			for (const entry of this.keys()) {
-				if (dirname(entry) == path) entries[basename(entry)] = this.get(entry)!.ino;
+				if (dirname(entry) == path && entry != path) entries[basename(entry)] = this.get(entry)!.ino;
 			}
 
 			dirs.set(path, entries);

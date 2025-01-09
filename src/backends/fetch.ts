@@ -5,6 +5,7 @@ import { InMemoryStore } from './memory.js';
 import { StoreFS } from './store/fs.js';
 import { Index, type IndexData } from './store/file_index.js';
 import type { Store } from './store/store.js';
+import { normalizePath } from '../utils.js';
 
 /**
  * Asynchronously download a file as a buffer or a JSON object.
@@ -62,7 +63,7 @@ export interface FetchOptions {
 	 * A store to use for caching content.
 	 * Defaults to an in-memory store
 	 */
-	store?: Store;
+	cache?: Store;
 }
 
 /**
@@ -105,7 +106,7 @@ export class FetchFS extends StoreFS {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const url = this.baseUrl + (path.startsWith('/') ? path.slice(1) : path);
+			const url = this.baseUrl + path;
 			const content = await fetchFile(url, 'buffer', this.requestInit);
 
 			await tx.set(node.data, content);
@@ -114,16 +115,14 @@ export class FetchFS extends StoreFS {
 
 	public constructor(
 		index: IndexData | string = 'index.json',
-		store: Store = new InMemoryStore('fetch'),
+		cache: Store = new InMemoryStore('fetch'),
 		public readonly baseUrl: string = '',
 		public readonly requestInit?: RequestInit
 	) {
-		super(store);
+		super(cache);
 
 		// prefix url must end in a directory separator.
-		if (baseUrl.at(-1) != '/') {
-			baseUrl += '/';
-		}
+		if (baseUrl.at(-1) == '/') this.baseUrl = baseUrl.slice(0, -1);
 
 		this.indexData = typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json', requestInit);
 	}
@@ -136,7 +135,7 @@ const _Fetch = {
 		index: { type: ['string', 'object'], required: false },
 		baseUrl: { type: 'string', required: false },
 		requestInit: { type: 'object', required: false },
-		store: { type: 'object', required: false },
+		cache: { type: 'object', required: false },
 	},
 
 	isAvailable(): boolean {
@@ -144,7 +143,9 @@ const _Fetch = {
 	},
 
 	create(options: FetchOptions) {
-		return new FetchFS(options.index, options.store, options.baseUrl, options.requestInit);
+		const url = new URL(options.baseUrl || '');
+		url.pathname = normalizePath(url.pathname);
+		return new FetchFS(options.index, options.cache, url.toString(), options.requestInit);
 	},
 } as const satisfies Backend<FetchFS, FetchOptions>;
 type _Fetch = typeof _Fetch;

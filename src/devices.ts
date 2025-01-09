@@ -9,7 +9,7 @@ import { Errno, ErrnoError } from './error.js';
 import { File } from './file.js';
 import type { StatsLike } from './stats.js';
 import { Stats } from './stats.js';
-import { decodeUTF8 } from './utils.js';
+import { canary, decodeUTF8 } from './utils.js';
 import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
 import { basename, dirname } from './vfs/path.js';
 import type { CreationOptions } from './filesystem.js';
@@ -241,7 +241,9 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
 		}
 		let ino = 1;
+		const silence = canary(path, 'mknod');
 		while (this.store.has(ino)) ino++;
+		silence();
 		const dev = {
 			driver,
 			ino,

@@ -176,3 +176,15 @@ export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: an
 export function randomBigInt(): bigint {
 	return BigInt('0x' + randomHex(8));
 }
+
+/**
+ * Prevents infinite loops
+ * @internal
+ */
+export function canary(path?: string, syscall?: string) {
+	const timeout = setTimeout(() => {
+		throw ErrnoError.With('EDEADLK', path, syscall);
+	}, 5000);
+
+	return () => clearTimeout(timeout);
+}

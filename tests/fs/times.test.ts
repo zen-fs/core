@@ -69,7 +69,7 @@ suite('times', () => {
 	test('read changes atime', async () => {
 		const before = fs.statSync(path).atimeMs;
 		fs.readFileSync(path);
-		await wait(100);
+		await wait(25);
 		const after = fs.statSync(path).atimeMs;
 		assert(before < after);
 	});
@@ -77,7 +77,7 @@ suite('times', () => {
 	test('write changes mtime', async () => {
 		const before = fs.statSync(path).mtimeMs;
 		fs.writeFileSync(path, 'cool');
-		await wait(100);
+		await wait(25);
 		const after = fs.statSync(path).mtimeMs;
 		assert(before < after);
 	});

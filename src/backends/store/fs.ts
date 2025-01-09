@@ -5,9 +5,9 @@ import { PreloadFile } from '../../file.js';
 import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
 import { FileSystem } from '../../filesystem.js';
 import type { FileType, Stats } from '../../stats.js';
-import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
+import { canary, decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
-import { basename, dirname, parse, resolve } from '../../vfs/path.js';
+import { basename, dirname, join, parse, resolve } from '../../vfs/path.js';
 import { Inode, rootIno } from './inode.js';
 import type { Store, Transaction } from './store.js';
 import { Index } from './file_index.js';
@@ -103,6 +103,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const queue: [path: string, ino: number][] = [['/', 0]];
 
+		const silence = canary();
 		while (queue.length) {
 			const [path, ino] = queue.shift()!;
 
@@ -114,10 +115,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				const dir = decodeDirListing(await tx.get(inode.data));
 
 				for (const [name, id] of Object.entries(dir)) {
-					queue.push([path + '/' + name, id]);
+					queue.push([join(path, name), id]);
 				}
 			}
 		}
+		silence();
 
 		return index;
 	}
@@ -129,6 +131,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const queue: [path: string, ino: number][] = [['/', 0]];
 
+		const silence = canary();
 		while (queue.length) {
 			const [path, ino] = queue.shift()!;
 
@@ -140,10 +143,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				const dir = decodeDirListing(tx.getSync(inode.data));
 
 				for (const [name, id] of Object.entries(dir)) {
-					queue.push([path + '/' + name, id]);
+					queue.push([join(path, name), id]);
 				}
 			}
 		}
+		silence();
 
 		return index;
 	}

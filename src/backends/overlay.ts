@@ -7,7 +7,7 @@ import { Errno, ErrnoError } from '../error.js';
 import { PreloadFile, parseFlag } from '../file.js';
 import { FileSystem } from '../filesystem.js';
 import { Mutexed } from '../mixins/mutexed.js';
-import { decodeUTF8, encodeUTF8 } from '../utils.js';
+import { canary, decodeUTF8, encodeUTF8 } from '../utils.js';
 import { dirname } from '../vfs/path.js';
 
 /** @internal */
@@ -432,10 +432,13 @@ export class UnmutexedOverlayFS extends FileSystem {
 	private createParentDirectoriesSync(path: string): void {
 		let parent = dirname(path);
 		const toCreate: string[] = [];
+
+		const silence = canary(path);
 		while (!this.writable.existsSync(parent)) {
 			toCreate.push(parent);
 			parent = dirname(parent);
 		}
+		silence();
 
 		for (const path of toCreate.reverse()) {
 			const { uid, gid, mode } = this.statSync(path);
@@ -450,10 +453,13 @@ export class UnmutexedOverlayFS extends FileSystem {
 	private async createParentDirectories(path: string): Promise<void> {
 		let parent = dirname(path);
 		const toCreate: string[] = [];
+
+		const silence = canary(path);
 		while (!(await this.writable.exists(parent))) {
 			toCreate.push(parent);
 			parent = dirname(parent);
 		}
+		silence();
 
 		for (const path of toCreate.reverse()) {
 			const { uid, gid, mode } = await this.stat(path);

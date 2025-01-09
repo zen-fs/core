@@ -9,7 +9,7 @@ import { size_max } from '../../vfs/constants.js';
 export const rootIno = 0;
 
 export interface InodeLike extends StatsLike<number> {
-	data: number;
+	data?: number;
 	flags?: number;
 }
 
