@@ -42,8 +42,11 @@ jobs:
             - name: Unit tests (InMemory)
               run: npx zenfs-test tests/setup/memory.ts
 
-            - name: Unit tests (Overlay+Fetch)
-              run: npx zenfs-test tests/setup/cow+fetch.ts
-
             - name: Unit tests (contexts)
               run: npx zenfs-test tests/setup/context.ts
+
+            - name: Unit tests (Index)
+              run: npx zenfs-test tests/setup/context.ts
+
+            - name: Unit tests (Overlay+Fetch)
+              run: npx zenfs-test tests/setup/cow+fetch.ts

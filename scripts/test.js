@@ -110,8 +110,8 @@ function status(name) {
 	};
 }
 
-if (existsSync(options.coverage)) rmSync(options.coverage, { recursive: true });
-mkdirSync(options.coverage);
+rmSync(options.coverage, { force: true, recursive: true });
+mkdirSync(options.coverage, { recursive: true });
 process.env.NODE_V8_COVERAGE = options.coverage;
 
 if (options.common) {
