@@ -123,11 +123,11 @@ class PassthroughFile extends File<PassthroughFS> {
 		this.node.fchownSync(this.fd, uid, gid);
 	}
 
-	public async utimes(atime: Date, mtime: Date): Promise<void> {
+	public async utimes(atime: number, mtime: number): Promise<void> {
 		await this.node.promises.utimes(this.nodePath, atime, mtime);
 	}
 
-	public utimesSync(atime: Date, mtime: Date): void {
+	public utimesSync(atime: number, mtime: number): void {
 		this.node.futimesSync(this.fd, atime, mtime);
 	}
 }
@@ -370,6 +370,52 @@ export class PassthroughFS extends FileSystem {
 			this.nodeFS.linkSync(this.path(target), this.path(link));
 		} catch (err) {
 			this.error(err, target);
+		}
+	}
+
+	public async read(path: string, offset: number, length: number): Promise<Uint8Array> {
+		try {
+			await using handle = await this.nodeFS.promises.open(this.path(path), 'r');
+			const buffer = new Uint8Array(length);
+			await handle.read({ buffer, offset, length });
+			return buffer;
+		} catch (err) {
+			this.error(err, path);
+		}
+	}
+	public readSync(path: string, offset: number, length: number): Uint8Array {
+		let fd;
+		try {
+			fd = this.nodeFS.openSync(this.path(path), 'r');
+			const buffer = new Uint8Array(length);
+			this.nodeFS.readSync(fd, buffer, { offset, length });
+			return buffer;
+		} catch (err) {
+			this.error(err, path);
+		} finally {
+			if (fd) this.nodeFS.closeSync(fd);
+		}
+
+		// unreachable
+		throw ErrnoError.With('EIO', path, 'read');
+	}
+	public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
+		try {
+			await using handle = await this.nodeFS.promises.open(this.path(path), 'w');
+			await handle.write(buffer, offset);
+		} catch (err) {
+			this.error(err, path);
+		}
+	}
+	public writeSync(path: string, buffer: Uint8Array, offset: number): void {
+		let fd;
+		try {
+			fd = this.nodeFS.openSync(this.path(path), 'w');
+			this.nodeFS.writeSync(fd, buffer, offset);
+		} catch (err) {
+			this.error(err, path);
+		} finally {
+			if (fd) this.nodeFS.closeSync(fd);
 		}
 	}
 }

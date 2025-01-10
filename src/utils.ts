@@ -86,12 +86,11 @@ export type Callback<Args extends unknown[] = [], NoError = undefined | void> = 
 
 /**
  * Normalizes a mode
+ * @param def default
  * @internal
  */
 export function normalizeMode(mode: unknown, def?: number): number {
-	if (typeof mode == 'number') {
-		return mode;
-	}
+	if (typeof mode == 'number') return mode;
 
 	if (typeof mode == 'string') {
 		const parsed = parseInt(mode, 8);
@@ -100,9 +99,7 @@ export function normalizeMode(mode: unknown, def?: number): number {
 		}
 	}
 
-	if (typeof def == 'number') {
-		return def;
-	}
+	if (typeof def == 'number') return def;
 
 	throw new ErrnoError(Errno.EINVAL, 'Invalid mode: ' + mode?.toString());
 }
@@ -111,13 +108,11 @@ export function normalizeMode(mode: unknown, def?: number): number {
  * Normalizes a time
  * @internal
  */
-export function normalizeTime(time: string | number | Date): Date {
-	if (time instanceof Date) {
-		return time;
-	}
+export function normalizeTime(time: string | number | Date): number {
+	if (time instanceof Date) return time.getTime();
 
 	try {
-		return new Date(time);
+		return Number(time);
 	} catch {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid time.');
 	}
@@ -187,4 +182,15 @@ export function canary(path?: string, syscall?: string) {
 	}, 5000);
 
 	return () => clearTimeout(timeout);
+}
+
+/**
+ * A wrapper for throwing things.
+ * Used in expressions.
+ * @todo Remove once `throw` is allowed in expressions
+ * @see https://github.com/tc39/proposal-throw-expressions
+ * @internal @hidden
+ */
+export function _throw(e: unknown): never {
+	throw e;
 }

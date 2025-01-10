@@ -13,6 +13,8 @@ export interface InodeLike extends StatsLike<number> {
 	flags?: number;
 }
 
+const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', 'uid', 'gid', 'atimeMs', 'birthtimeMs', 'mtimeMs', 'ctimeMs'] as const;
+
 /**
  * Generic inode definition that can easily be serialized.
  * @internal
@@ -20,7 +22,7 @@ export interface InodeLike extends StatsLike<number> {
  */
 @struct()
 export class Inode implements InodeLike {
-	public constructor(data?: ArrayBufferLike | ArrayBufferView | InodeLike) {
+	public constructor(data?: ArrayBufferLike | ArrayBufferView | Readonly<InodeLike>) {
 		if (!data) return;
 
 		if (!('byteLength' in data)) {
@@ -63,7 +65,7 @@ export class Inode implements InodeLike {
 	@t.uint16 public __padding: number = 0;
 
 	public toJSON(): InodeLike {
-		return pick(this, 'ino', 'data', 'size', 'mode', 'flags', 'nlink', 'uid', 'gid', 'atimeMs', 'birthtimeMs', 'mtimeMs', 'ctimeMs');
+		return pick(this, _inode_fields);
 	}
 
 	/**
@@ -83,44 +85,15 @@ export class Inode implements InodeLike {
 	 *   file system.
 	 * @returns whether any changes have occurred.
 	 */
-	public update(stats: Readonly<Stats>): boolean {
+	public update(data?: Partial<Readonly<InodeLike>>): boolean {
+		if (!data) return false;
+
 		let hasChanged = false;
-		if (this.size !== stats.size) {
-			this.size = stats.size;
-			hasChanged = true;
-		}
 
-		if (this.mode !== stats.mode) {
-			this.mode = stats.mode;
-			hasChanged = true;
-		}
+		for (const key of _inode_fields) {
+			if (data[key] === undefined) continue;
 
-		if (this.nlink !== stats.nlink) {
-			this.nlink = stats.nlink;
-			hasChanged = true;
-		}
-
-		if (this.uid !== stats.uid) {
-			this.uid = stats.uid;
-			hasChanged = true;
-		}
-
-		if (this.gid !== stats.gid) {
-			this.gid = stats.gid;
-			hasChanged = true;
-		}
-
-		if (this.atimeMs !== stats.atimeMs) {
-			this.atimeMs = stats.atimeMs;
-			hasChanged = true;
-		}
-		if (this.mtimeMs !== stats.mtimeMs) {
-			this.mtimeMs = stats.mtimeMs;
-			hasChanged = true;
-		}
-
-		if (this.ctimeMs !== stats.ctimeMs) {
-			this.ctimeMs = stats.ctimeMs;
+			this[key] = data[key];
 			hasChanged = true;
 		}
 

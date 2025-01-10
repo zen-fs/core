@@ -2,7 +2,7 @@ import type { FileReadResult } from 'node:fs/promises';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
-import { _chown, Stats } from './stats.js';
+import { _chown, Stats, type StatsLike } from './stats.js';
 import { config } from './vfs/config.js';
 import * as c from './vfs/constants.js';
 
@@ -218,12 +218,12 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 	/**
 	 * Change the file timestamps of the file.
 	 */
-	public abstract utimes(atime: Date, mtime: Date): Promise<void>;
+	public abstract utimes(atime: number, mtime: number): Promise<void>;
 
 	/**
 	 * Change the file timestamps of the file.
 	 */
-	public abstract utimesSync(atime: Date, mtime: Date): void;
+	public abstract utimesSync(atime: number, mtime: number): void;
 }
 
 /**
@@ -306,9 +306,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	}
 
 	public async sync(): Promise<void> {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.sync');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
 		if (!this.dirty) {
 			return;
 		}
@@ -317,9 +315,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	}
 
 	public syncSync(): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.sync');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
 		if (!this.dirty) {
 			return;
 		}
@@ -328,17 +324,13 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	}
 
 	public async close(): Promise<void> {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.close');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'close');
 		await this.sync();
 		this.dispose();
 	}
 
 	public closeSync(): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.close');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'close');
 		this.syncSync();
 		this.dispose();
 	}
@@ -347,34 +339,26 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	 * Cleans up. This will *not* sync the file data to the FS
 	 */
 	protected dispose(force?: boolean): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.dispose');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'dispose');
 		if (this.dirty && !force) {
-			throw ErrnoError.With('EBUSY', this.path, 'File.dispose');
+			throw ErrnoError.With('EBUSY', this.path, 'dispose');
 		}
 
 		this.closed = true;
 	}
 
 	public stat(): Promise<Stats> {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.stat');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
 		return Promise.resolve(new Stats(this.stats));
 	}
 
 	public statSync(): Stats {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.stat');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
 		return new Stats(this.stats);
 	}
 
 	protected _truncate(length: number): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.truncate');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'truncate');
 		this.dirty = true;
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
@@ -402,9 +386,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	}
 
 	protected _write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.write');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
 
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
@@ -469,9 +451,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	}
 
 	protected _read(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position?: number): number {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.read');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
 
 		if (!isReadable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
@@ -528,58 +508,46 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	}
 
 	public async chmod(mode: number): Promise<void> {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
 		this.dirty = true;
 		this.stats.mode = (this.stats.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
 		if (config.syncImmediately || mode > c.S_IFMT) await this.sync();
 	}
 
 	public chmodSync(mode: number): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.chmod');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
 		this.dirty = true;
 		this.stats.mode = (this.stats.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
 		if (config.syncImmediately || mode > c.S_IFMT) this.syncSync();
 	}
 
 	public async chown(uid: number, gid: number): Promise<void> {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.chown');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
 		this.dirty = true;
 		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) await this.sync();
 	}
 
 	public chownSync(uid: number, gid: number): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.chown');
-		}
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
 		this.dirty = true;
 		_chown(this.stats, uid, gid);
 		if (config.syncImmediately) this.syncSync();
 	}
 
-	public async utimes(atime: Date, mtime: Date): Promise<void> {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.utimes');
-		}
+	public async utimes(atime: number, mtime: number): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
 		this.dirty = true;
-		this.stats.atime = atime;
-		this.stats.mtime = mtime;
+		this.stats.atimeMs = atime;
+		this.stats.mtimeMs = mtime;
 		if (config.syncImmediately) await this.sync();
 	}
 
-	public utimesSync(atime: Date, mtime: Date): void {
-		if (this.closed) {
-			throw ErrnoError.With('EBADF', this.path, 'File.utimes');
-		}
+	public utimesSync(atime: number, mtime: number): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
 		this.dirty = true;
-		this.stats.atime = atime;
-		this.stats.mtime = mtime;
+		this.stats.atimeMs = atime;
+		this.stats.mtimeMs = mtime;
 		if (config.syncImmediately) this.syncSync();
 	}
 }
@@ -600,4 +568,288 @@ export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 	}
 
 	public closeSync(): void {}
+}
+
+/**
+ * An implementation of `File` that uses the FS
+ */
+export class LazyFile<FS extends FileSystem> extends File<FS> {
+	protected _buffer?: Uint8Array;
+
+	/**
+	 * Current position
+	 */
+	protected _position: number = 0;
+
+	/**
+	 * Get the current file position.
+	 *
+	 * We emulate the following bug mentioned in the Node documentation:
+	 *
+	 * On Linux, positional writes don't work when the file is opened in append mode.
+	 * The kernel ignores the position argument and always appends the data to the end of the file.
+	 * @returns The current file position.
+	 */
+	public get position(): number {
+		return isAppendable(this.flag) ? this.stats.size : this._position;
+	}
+
+	public set position(value: number) {
+		this._position = value;
+	}
+
+	/**
+	 * Whether the file has changes which have not been written to the FS
+	 */
+	protected dirty: boolean = false;
+
+	/**
+	 * Whether the file is open or closed
+	 */
+	protected closed: boolean = false;
+
+	/**
+	 * Creates a file with `path` and, optionally, the given contents.
+	 * Note that, if contents is specified, it will be mutated by the file.
+	 */
+	public constructor(
+		fs: FS,
+		path: string,
+		public readonly flag: string,
+		public readonly stats: StatsLike<number>
+	) {
+		super(fs, path);
+
+		this.dirty = true;
+	}
+
+	public async sync(): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
+
+		if (!this.dirty) return;
+
+		await this.fs.sync(this.path, undefined, this.stats);
+		this.dirty = false;
+	}
+
+	public syncSync(): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
+
+		if (!this.dirty) return;
+
+		this.fs.syncSync(this.path, undefined, this.stats);
+		this.dirty = false;
+	}
+
+	public async close(): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'close');
+		await this.sync();
+		this.dispose();
+	}
+
+	public closeSync(): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'close');
+		this.syncSync();
+		this.dispose();
+	}
+
+	/**
+	 * Cleans up. This will *not* sync the file data to the FS
+	 */
+	protected dispose(force?: boolean): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'dispose');
+
+		if (this.dirty && !force) throw ErrnoError.With('EBUSY', this.path, 'dispose');
+
+		this.closed = true;
+	}
+
+	public stat(): Promise<Stats> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
+
+		return Promise.resolve(new Stats(this.stats));
+	}
+
+	public statSync(): Stats {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
+
+		return new Stats(this.stats);
+	}
+
+	public async truncate(length: number): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'truncate');
+
+		this.dirty = true;
+		if (!isWriteable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+		}
+		this.stats.mtimeMs = Date.now();
+		this.stats.size = length;
+		if (config.syncImmediately) await this.sync();
+	}
+
+	public truncateSync(length: number): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'truncate');
+
+		this.dirty = true;
+		if (!isWriteable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+		}
+		this.stats.mtimeMs = Date.now();
+		this.stats.size = length;
+		if (config.syncImmediately) this.syncSync();
+	}
+
+	protected prepareWrite(buffer: Uint8Array, offset: number, length: number, position: number): Uint8Array {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
+
+		if (!isWriteable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+		}
+
+		this.dirty = true;
+		const end = position + length;
+		const slice = buffer.slice(offset, offset + length);
+
+		if (end > this.stats.size) {
+			this.stats.size = end;
+		}
+
+		this.stats.mtimeMs = Date.now();
+		this._position = position + slice.byteLength;
+		return slice;
+	}
+
+	/**
+	 * Write buffer to the file.
+	 * @param buffer Uint8Array containing the data to write to the file.
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this data should be written.
+	 * If position is null, the data will be written at  the current position.
+	 */
+	public async write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): Promise<number> {
+		const slice = this.prepareWrite(buffer, offset, length, position);
+		await this.fs.write(this.path, slice, offset);
+		if (config.syncImmediately) await this.sync();
+		return slice.byteLength;
+	}
+
+	/**
+	 * Write buffer to the file.
+	 * @param buffer Uint8Array containing the data to write to the file.
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this data should be written.
+	 * If position is null, the data will be written at  the current position.
+	 * @returns bytes written
+	 */
+	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+		const slice = this.prepareWrite(buffer, offset, length, position);
+		this.fs.writeSync(this.path, slice, offset);
+		if (config.syncImmediately) this.syncSync();
+		return slice.byteLength;
+	}
+
+	/**
+	 * Computes position information for reading
+	 */
+	protected prepareRead(length: number, position: number): number {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
+
+		if (!isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
+
+		if (config.updateOnRead) this.dirty = true;
+
+		this.stats.atimeMs = Date.now();
+
+		let end = position + length;
+		if (end > this.stats.size) {
+			end = position + Math.max(this.stats.size - position, 0);
+		}
+		this._position = end;
+		return end - position;
+	}
+
+	/**
+	 * Read data from the file.
+	 * @param buffer The buffer that the data will be written to.
+	 * @param offset The offset within the buffer where writing will start.
+	 * @param length An integer specifying the number of bytes to read.
+	 * @param position An integer specifying where to begin reading from in the file.
+	 * If position is unset, data will be read from the current file position.
+	 */
+	public async read<TBuffer extends ArrayBufferView>(
+		buffer: TBuffer,
+		offset: number = 0,
+		length: number = this.stats.size,
+		position: number = this.position
+	): Promise<{ bytesRead: number; buffer: TBuffer }> {
+		const bytesRead = this.prepareRead(length, position);
+		new Uint8Array(buffer.buffer, offset, length).set(await this.fs.read(this.path, position, bytesRead));
+		if (config.syncImmediately) await this.sync();
+		return { bytesRead, buffer };
+	}
+
+	/**
+	 * Read data from the file.
+	 * @param buffer The buffer that the data will be written to.
+	 * @param offset The offset within the buffer where writing will start.
+	 * @param length An integer specifying the number of bytes to read.
+	 * @param position An integer specifying where to begin reading from in the file.
+	 * If position is null, data will be read from the current file position.
+	 * @returns number of bytes written
+	 */
+	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+		const bytesRead = this.prepareRead(length, position);
+		new Uint8Array(buffer.buffer, offset, length).set(this.fs.readSync(this.path, position, bytesRead));
+		if (config.syncImmediately) this.syncSync();
+		return bytesRead;
+	}
+
+	public async chmod(mode: number): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
+		this.dirty = true;
+		this.stats.mode = (this.stats.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
+		if (config.syncImmediately || mode > c.S_IFMT) await this.sync();
+	}
+
+	public chmodSync(mode: number): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
+		this.dirty = true;
+		this.stats.mode = (this.stats.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
+		if (config.syncImmediately || mode > c.S_IFMT) this.syncSync();
+	}
+
+	public async chown(uid: number, gid: number): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
+		this.dirty = true;
+		_chown(this.stats, uid, gid);
+		if (config.syncImmediately) await this.sync();
+	}
+
+	public chownSync(uid: number, gid: number): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
+		this.dirty = true;
+		_chown(this.stats, uid, gid);
+		if (config.syncImmediately) this.syncSync();
+	}
+
+	public async utimes(atime: number, mtime: number): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
+
+		this.dirty = true;
+		this.stats.atimeMs = atime;
+		this.stats.mtimeMs = mtime;
+		if (config.syncImmediately) await this.sync();
+	}
+
+	public utimesSync(atime: number, mtime: number): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
+
+		this.dirty = true;
+		this.stats.atimeMs = atime;
+		this.stats.mtimeMs = mtime;
+		if (config.syncImmediately) this.syncSync();
+	}
 }

@@ -228,7 +228,10 @@ export class FileHandle implements promises.FileHandle {
 		if (!('ReadableStream' in _gt)) {
 			throw new ErrnoError(Errno.ENOSYS, 'ReadableStream is missing on globalThis');
 		}
-		return new (_gt as { ReadableStream: new (...args: unknown[]) => TReadableStream<Uint8Array> }).ReadableStream({ start, type: options.type });
+		return new (_gt as { ReadableStream: new (...args: unknown[]) => TReadableStream<Uint8Array> }).ReadableStream({
+			start,
+			type: options.type,
+		});
 	}
 
 	/**
@@ -891,7 +894,12 @@ export async function chown(this: V_Context, path: fs.PathLike, uid: number, gid
 chown satisfies typeof promises.chown;
 
 export async function lchown(this: V_Context, path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true, allowDirectory: true });
+	await using handle: FileHandle = await _open.call(this, path, {
+		flag: 'r+',
+		mode: 0o644,
+		preserveSymlinks: true,
+		allowDirectory: true,
+	});
 	await handle.chown(uid, gid);
 }
 lchown satisfies typeof promises.lchown;
@@ -903,7 +911,12 @@ export async function chmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): 
 chmod satisfies typeof promises.chmod;
 
 export async function lchmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true, allowDirectory: true });
+	await using handle: FileHandle = await _open.call(this, path, {
+		flag: 'r+',
+		mode: 0o644,
+		preserveSymlinks: true,
+		allowDirectory: true,
+	});
 	await handle.chmod(mode);
 }
 lchmod satisfies typeof promises.lchmod;
@@ -921,7 +934,12 @@ utimes satisfies typeof promises.utimes;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export async function lutimes(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true, allowDirectory: true });
+	await using handle: FileHandle = await _open.call(this, path, {
+		flag: 'r+',
+		mode: 0o644,
+		preserveSymlinks: true,
+		allowDirectory: true,
+	});
 	await handle.utimes(new Date(atime), new Date(mtime));
 }
 lutimes satisfies typeof promises.lutimes;
@@ -1042,7 +1060,9 @@ export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOpti
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of await readdir.call<V_Context, [string, any], Promise<string[]>>(this, path, { _isIndirect: true })) {
+				for (const entry of await readdir.call<V_Context, [string, any], Promise<string[]>>(this, path, {
+					_isIndirect: true,
+				})) {
 					await rm.call(this, join(path, entry), { ...options, _isIndirect: true });
 				}
 			}

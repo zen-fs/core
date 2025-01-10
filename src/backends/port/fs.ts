@@ -13,6 +13,7 @@ import { Async } from '../../mixins/async.js';
 import { Stats } from '../../stats.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
+import type { InodeLike } from '../store/inode.js';
 
 type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
 type FileMethod = keyof FileMethods;
@@ -99,7 +100,7 @@ export class PortFile extends File {
 		this._throwNoSync('chmod');
 	}
 
-	public utimes(atime: Date, mtime: Date): Promise<void> {
+	public utimes(atime: number, mtime: number): Promise<void> {
 		return this.rpc('utimes', atime, mtime);
 	}
 
@@ -191,7 +192,7 @@ export class PortFS extends Async(FileSystem) {
 		return new Stats(await this.rpc('stat', path));
 	}
 
-	public sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+	public sync(path: string, data?: Uint8Array, stats?: Readonly<InodeLike>): Promise<void> {
 		return this.rpc('sync', path, data, stats);
 	}
 
@@ -225,6 +226,14 @@ export class PortFS extends Async(FileSystem) {
 
 	public link(srcpath: string, dstpath: string): Promise<void> {
 		return this.rpc('link', srcpath, dstpath);
+	}
+
+	public read(path: string, offset: number, length: number): Promise<Uint8Array> {
+		return this.rpc('read', path, offset, length);
+	}
+
+	public write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
+		return this.rpc('write', path, buffer, offset);
 	}
 }
 

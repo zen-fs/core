@@ -5,6 +5,7 @@ import type { Concrete } from '../utils.js';
 
 import { ErrnoError } from '../error.js';
 import '../polyfills.js';
+import type { InodeLike } from '../backends/index.js';
 
 export class MutexLock {
 	protected current = Promise.withResolvers<void>();
@@ -212,15 +213,36 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.linkSync(srcpath, dstpath);
 	}
 
-	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+	public async sync(path: string, data?: Uint8Array, stats?: Readonly<InodeLike>): Promise<void> {
 		using _ = await this.lock(path, 'sync');
 		await this._fs.sync(path, data, stats);
 	}
 
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+	public syncSync(path: string, data?: Uint8Array, stats?: Readonly<InodeLike>): void {
 		using _ = this.lockSync(path, 'sync');
 		return this._fs.syncSync(path, data, stats);
 	}
+
+	public async read(path: string, offset: number, length: number): Promise<Uint8Array> {
+		using _ = await this.lock(path, 'read');
+		return await this._fs.read(path, offset, length);
+	}
+
+	public readSync(path: string, offset: number, length: number): Uint8Array {
+		using _ = this.lockSync(path, 'read');
+		return this._fs.readSync(path, offset, length);
+	}
+
+	public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
+		using _ = await this.lock(path, 'write');
+		return await this._fs.write(path, buffer, offset);
+	}
+
+	public writeSync(path: string, buffer: Uint8Array, offset: number): void {
+		using _ = this.lockSync(path, 'write');
+		return this._fs.writeSync(path, buffer, offset);
+	}
+
 	/* eslint-enable @typescript-eslint/no-unused-vars */
 }
 

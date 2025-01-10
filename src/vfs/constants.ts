@@ -176,7 +176,7 @@ export const S_IXOTH = 1;
 export const UV_FS_O_FILEMAP = 0;
 
 /**
- * Max 32-bit integer
+ * Max 32-bit unsigned integer
  * @hidden
  */
-export const size_max = 2 ** 32 - 1;
+export const size_max = 0xffffffff; // 2^32 - 1

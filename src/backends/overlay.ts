@@ -87,6 +87,24 @@ export class UnmutexedOverlayFS extends FileSystem {
 		this.writable.syncSync(path, data, stats);
 	}
 
+	public async read(path: string, offset: number, length: number): Promise<Uint8Array> {
+		return (await this.writable.exists(path)) ? await this.writable.read(path, offset, length) : await this.readable.read(path, offset, length);
+	}
+
+	public readSync(path: string, offset: number, length: number): Uint8Array {
+		return this.writable.existsSync(path) ? this.writable.readSync(path, offset, length) : this.readable.readSync(path, offset, length);
+	}
+
+	public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
+		await this.copyForWrite(path);
+		return await this.writable.write(path, buffer, offset);
+	}
+
+	public writeSync(path: string, buffer: Uint8Array, offset: number): void {
+		this.copyForWriteSync(path);
+		return this.writable.writeSync(path, buffer, offset);
+	}
+
 	/**
 	 * Called once to load up metadata stored on the writable file system.
 	 * @internal

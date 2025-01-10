@@ -307,7 +307,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
  * @hidden @internal
  */
 export function _chown(stats: Partial<StatsLike<number>>, uid: number, gid: number) {
-	if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {
+	if (!isNaN(uid) && 0 <= uid && uid < c.size_max) {
 		stats.uid = uid;
 	}
 	if (!isNaN(gid) && 0 <= gid && gid < 2 ** 32) {

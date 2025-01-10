@@ -284,7 +284,11 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	using file = _openSync.call(this, typeof filename == 'number' ? fd2file(filename).path : filename.toString(), { flag, mode: options.mode, preserveSymlinks: true });
+	using file = _openSync.call(this, typeof filename == 'number' ? fd2file(filename).path : filename.toString(), {
+		flag,
+		mode: options.mode,
+		preserveSymlinks: true,
+	});
 	file.writeSync(encodedData, 0, encodedData.byteLength);
 }
 appendFileSync satisfies typeof fs.appendFileSync;
