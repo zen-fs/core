@@ -4,7 +4,7 @@ import { FileSystem } from '../filesystem.js';
 import type { Errno } from '../error.js';
 import { ErrnoError } from '../error.js';
 import { Stats } from '../stats.js';
-import { File } from '../file.js';
+import { File, type FileReadResult } from '../file.js';
 import { join, resolve } from '../vfs/path.js';
 
 // Type for Node.js fs module
@@ -90,20 +90,21 @@ class PassthroughFile extends File<PassthroughFS> {
 		return this.node.writeSync(this.fd, buffer, offset, length, position);
 	}
 
-	public async read<TBuffer extends NodeJS.ArrayBufferView>(
-		buffer: TBuffer,
+	public async read<TBuffer extends ArrayBufferView>(
+		buffer: TBuffer & NodeJS.ArrayBufferView,
 		offset: number = 0,
 		length?: number,
 		position: number | null = null
-	): Promise<{ bytesRead: number; buffer: TBuffer }> {
+	): Promise<FileReadResult<TBuffer>> {
 		const { resolve, reject, promise } = Promise.withResolvers<{ bytesRead: number; buffer: TBuffer }>();
+
 		this.node.read(this.fd, buffer, offset, length || (await this.stat()).size, position, (err, bytesRead, buffer) =>
 			err ? reject(this.error(err)) : resolve({ bytesRead, buffer })
 		);
 		return promise;
 	}
 
-	public readSync(buffer: NodeJS.ArrayBufferView, offset: number = 0, length: number = this.statSync().size, position: number | null = null): number {
+	public readSync(buffer: ArrayBufferView & NodeJS.ArrayBufferView, offset: number = 0, length: number = this.statSync().size, position: number | null = null): number {
 		return this.node.readSync(this.fd, buffer, offset, length, position);
 	}
 

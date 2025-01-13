@@ -2,7 +2,7 @@
 This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
 */
 
-import type { FileReadResult } from 'node:fs/promises';
+import type { FileReadResult } from './file.js';
 import type { InodeLike } from './backends/index.js';
 import { InMemoryStore } from './backends/memory.js';
 import { StoreFS } from './backends/store/fs.js';
@@ -146,7 +146,7 @@ export class DeviceFile<TData = any> extends File {
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
-	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number): Promise<FileReadResult<TBuffer>> {
+	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number): Promise<FileReadResult<TBuffer>> {
 		return { bytesRead: this.readSync(buffer, offset, length), buffer };
 	}
 

@@ -1,18 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { TransferListItem } from 'node:worker_threads';
 import type { WithOptional } from 'utilium';
 import type { ErrnoErrorJSON } from '../../error.js';
 import type { FileSystem } from '../../filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
-import type { FileOrFSRequest, PortFS } from './fs.js';
+import type { PortFS } from './fs.js';
 
 import { Errno, ErrnoError } from '../../error.js';
-import { handleRequest, PortFile } from './fs.js';
+import { PreloadFile } from '../../file.js';
+import { Stats, type StatsLike } from '../../stats.js';
+import { handleRequest } from './fs.js';
 
 type _MessageEvent<T = any> = T | { data: T };
 
 /** @internal */
 export interface Port {
-	postMessage(value: unknown): void;
+	postMessage(value: unknown, transfer?: TransferListItem[]): void;
 	on?(event: 'message', listener: (value: unknown) => void): this;
 	off?(event: 'message', listener: (value: unknown) => void): this;
 	addEventListener?(type: 'message', listener: (ev: _MessageEvent) => void): void;
@@ -35,7 +38,6 @@ export interface Options {
  */
 export interface Message {
 	_zenfs: true;
-	scope: 'fs' | 'file';
 	id: string;
 	method: string;
 	stack: string;
@@ -58,13 +60,14 @@ interface _ResponseWithValue<T> extends Message {
 export type Response<T = unknown> = _ResponseWithError | _ResponseWithValue<T>;
 
 export interface FileData {
-	fd: number;
 	path: string;
-	position: number;
+	flag: string;
+	stats: StatsLike<number>;
+	buffer: ArrayBuffer;
 }
 
 function isFileData(value: unknown): value is FileData {
-	return typeof value == 'object' && value != null && 'fd' in value && 'path' in value && 'position' in value;
+	return typeof value == 'object' && value != null && 'path' in value && 'flag' in value;
 }
 
 export { FileData as File };
@@ -98,7 +101,7 @@ export function request<const TRequest extends Request, TValue>(
 		executors.set(id, { resolve, reject, fs });
 		port.postMessage({ ...request, _zenfs: true, id, stack });
 		const _ = setTimeout(() => {
-			const error = new ErrnoError(Errno.EIO, 'RPC Failed');
+			const error = new ErrnoError(Errno.EIO, 'RPC Failed', typeof request.args[0] == 'string' ? request.args[0] : '', request.method);
 			error.stack += stack;
 			reject(error);
 			if (typeof _ == 'object') _.unref();
@@ -126,8 +129,8 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 	}
 
 	if (isFileData(value)) {
-		const { fd, path, position } = value;
-		const file = new PortFile(fs!, fd, path, position);
+		const { path, flag, stats, buffer } = value;
+		const file = new PreloadFile(fs!, path, flag, new Stats(stats), new Uint8Array(buffer));
 		resolve(file);
 		executors.delete(id);
 		return;
@@ -163,7 +166,7 @@ export function catchMessages<T extends Backend>(port: Port): (fs: FilesystemOf<
 	return function (fs: FileSystem) {
 		detach(port, handler);
 		for (const event of events) {
-			const request = ('data' in event ? event.data : event) as FileOrFSRequest;
+			const request = 'data' in event ? event.data : event;
 			void handleRequest(port, fs, request);
 		}
 	};

@@ -1,4 +1,3 @@
-import type { FileReadResult } from 'node:fs/promises';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
@@ -118,6 +117,11 @@ export function isExclusive(flag: string): boolean {
 	return flag.indexOf('x') !== -1;
 }
 
+export interface FileReadResult<T extends ArrayBufferView> {
+	bytesRead: number;
+	buffer: T;
+}
+
 export abstract class File<FS extends FileSystem = FileSystem> {
 	public constructor(
 		/**
@@ -183,7 +187,7 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 	 * If position is null, data will be read from the current file position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	public abstract read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>>;
+	public abstract read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>>;
 
 	/**
 	 * Read data from the file.

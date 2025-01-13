@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { FileReadResult } from 'node:fs/promises';
 import { pick, type ExtractProperties } from 'utilium';
 import type { MountConfiguration } from '../../config.js';
 import type { CreationOptions, FileSystemMetadata } from '../../filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 
+import type { TransferListItem } from 'node:worker_threads';
 import { resolveMountConfig } from '../../config.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { File } from '../../file.js';
@@ -15,123 +15,10 @@ import { InMemory } from '../memory.js';
 import type { Inode, InodeLike } from '../store/inode.js';
 import * as RPC from './rpc.js';
 
-type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
-type FileMethod = keyof FileMethods;
-/** @internal */
-export interface FileRequest<TMethod extends FileMethod = FileMethod> extends RPC.Request {
-	fd: number;
-	scope: 'file';
-	method: TMethod;
-	args: Parameters<FileMethods[TMethod]>;
-}
-
-export class PortFile extends File {
-	public constructor(
-		public fs: PortFS,
-		public readonly fd: number,
-		path: string,
-		public position: number
-	) {
-		super(fs, path);
-	}
-
-	public rpc<const T extends FileMethod>(method: T, ...args: Parameters<FileMethods[T]>): Promise<Awaited<ReturnType<FileMethods[T]>>> {
-		return RPC.request<FileRequest<T>, Awaited<ReturnType<FileMethods[T]>>>(
-			{
-				scope: 'file',
-				fd: this.fd,
-				method,
-				args,
-			},
-			this.fs.options
-		);
-	}
-
-	protected _throwNoSync(syscall: string): never {
-		throw new ErrnoError(Errno.ENOTSUP, 'Synchronous operations not supported on PortFile', this.path, syscall);
-	}
-
-	public async stat(): Promise<Stats> {
-		return new Stats(await this.rpc('stat'));
-	}
-
-	public statSync(): Stats {
-		this._throwNoSync('stat');
-	}
-
-	public truncate(len: number): Promise<void> {
-		return this.rpc('truncate', len);
-	}
-
-	public truncateSync(): void {
-		this._throwNoSync('truncate');
-	}
-
-	public write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
-		return this.rpc('write', buffer, offset, length, position);
-	}
-
-	public writeSync(): number {
-		this._throwNoSync('write');
-	}
-
-	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
-		const { bytesRead, buffer: raw } = await this.rpc('read', buffer, offset, length, position);
-
-		new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength).set(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength));
-		return { bytesRead, buffer };
-	}
-
-	public readSync(): number {
-		this._throwNoSync('read');
-	}
-
-	public chown(uid: number, gid: number): Promise<void> {
-		return this.rpc('chown', uid, gid);
-	}
-
-	public chownSync(): void {
-		this._throwNoSync('chown');
-	}
-
-	public chmod(mode: number): Promise<void> {
-		return this.rpc('chmod', mode);
-	}
-
-	public chmodSync(): void {
-		this._throwNoSync('chmod');
-	}
-
-	public utimes(atime: number, mtime: number): Promise<void> {
-		return this.rpc('utimes', atime, mtime);
-	}
-
-	public utimesSync(): void {
-		this._throwNoSync('utimes');
-	}
-
-	public close(): Promise<void> {
-		return this.rpc('close');
-	}
-
-	public closeSync(): void {
-		this._throwNoSync('close');
-	}
-
-	public sync(): Promise<void> {
-		return this.rpc('sync');
-	}
-
-	public syncSync(): void {
-		this._throwNoSync('sync');
-	}
-}
-
 type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | FileSystemMetadata>;
 type FSMethod = keyof FSMethods;
 /** @internal */
 export interface FSRequest<TMethod extends FSMethod = FSMethod> extends RPC.Request {
-	scope: 'fs';
 	method: TMethod;
 	args: Parameters<FSMethods[TMethod]>;
 }
@@ -145,7 +32,7 @@ export interface FSRequest<TMethod extends FSMethod = FSMethod> extends RPC.Requ
 export class PortFS extends Async(FileSystem) {
 	public readonly port: RPC.Port;
 
-	/**
+	/**`
 	 * @hidden
 	 */
 	_sync = InMemory.create({ name: 'port-tmpfs' });
@@ -167,14 +54,7 @@ export class PortFS extends Async(FileSystem) {
 	}
 
 	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSMethods[T]>): Promise<Awaited<ReturnType<FSMethods[T]>>> {
-		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>(
-			{
-				scope: 'fs',
-				method,
-				args,
-			},
-			{ ...this.options, fs: this }
-		);
+		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>({ method, args }, { ...this.options, fs: this });
 	}
 
 	public async ready(): Promise<void> {
@@ -236,64 +116,48 @@ export class PortFS extends Async(FileSystem) {
 	}
 }
 
-let nextFd = 0;
-
 /** @internal */
-export type FileOrFSRequest = FSRequest | FileRequest;
-
-/** @internal */
-export async function handleRequest(port: RPC.Port, fs: FileSystem & { _descriptors?: Map<number, File> }, request: FileOrFSRequest): Promise<void> {
+export async function handleRequest(port: RPC.Port, fs: FileSystem & { _descriptors?: Map<number, File> }, request: FSRequest): Promise<void> {
 	if (!RPC.isMessage(request)) return;
 
-	fs._descriptors ||= new Map();
-
-	const { method, args, id, scope, stack } = request;
+	const { method, args, id, stack } = request;
 
 	let value,
 		error: boolean = false;
 
-	try {
-		switch (scope) {
-			case 'fs':
-				// @ts-expect-error 2556
-				value = await fs[method](...args);
-				if (value instanceof File) {
-					fs._descriptors.set(++nextFd, value);
-					value = {
-						fd: nextFd,
-						path: value.path,
-						position: value.position,
-					};
-				}
-				break;
-			case 'file': {
-				const { fd } = request;
-				if (!fs._descriptors.has(fd)) throw new ErrnoError(Errno.EBADF);
+	const transfer: TransferListItem[] = [];
 
-				// @ts-expect-error 2556
-				value = await fs._descriptors.get(fd)![method](...args);
-				if (method == 'close') {
-					fs._descriptors.delete(fd);
-				}
-				break;
-			}
-			default:
-				return;
+	try {
+		// @ts-expect-error 2556
+		value = await fs[method](...args);
+		if (value instanceof File) {
+			await using file = await fs.openFile(args[0] as string, 'r+');
+			const stats = await file.stat();
+			const data = new Uint8Array(stats.size);
+
+			await file.read(data);
+			value = {
+				path: value.path,
+				flag: args[1] as string,
+				stats,
+				buffer: data.buffer,
+			} satisfies RPC.FileData;
+			transfer.push(data.buffer);
 		}
 	} catch (e: any) {
 		value = e instanceof ErrnoError ? e.toJSON() : pick(e, 'message', 'stack');
 		error = true;
 	}
 
-	port.postMessage({ _zenfs: true, scope, id, error, method, stack, value });
+	port.postMessage({ _zenfs: true, id, error, method, stack, value }, transfer);
 }
 
 export function attachFS(port: RPC.Port, fs: FileSystem): void {
-	RPC.attach<FileOrFSRequest>(port, request => handleRequest(port, fs, request));
+	RPC.attach<FSRequest>(port, request => handleRequest(port, fs, request));
 }
 
 export function detachFS(port: RPC.Port, fs: FileSystem): void {
-	RPC.detach<FileOrFSRequest>(port, request => handleRequest(port, fs, request));
+	RPC.detach<FSRequest>(port, request => handleRequest(port, fs, request));
 }
 
 const _Port = {
