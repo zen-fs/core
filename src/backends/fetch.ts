@@ -106,11 +106,12 @@ export class FetchFS extends StoreFS {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const url = this.baseUrl + path;
-			const content = await fetchFile(url, 'buffer', this.requestInit);
+			const content = await fetchFile(this.baseUrl + path, 'buffer', this.requestInit);
 
 			await tx.set(node.data, content);
 		}
+
+		await tx.commit();
 	}
 
 	public constructor(
