@@ -2,6 +2,8 @@ import type * as Node from 'node:fs';
 import type { V_Context } from './context.js';
 import { credentials } from './credentials.js';
 import * as c from './vfs/constants.js';
+import { _inode_fields, type InodeFields, type InodeLike } from './backends/index.js';
+import { pick } from 'utilium';
 
 const n1000 = BigInt(1000) as 1000n;
 
@@ -175,10 +177,13 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 */
 	public size: T;
 
+	public data?: number;
+	public flags?: number;
+
 	/**
 	 * Creates a new stats instance from a stats-like object. Can be used to copy stats (note)
 	 */
-	public constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino }: Partial<StatsLike> = {}) {
+	public constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino, ...rest }: Partial<InodeLike> = {}) {
 		const now = Date.now();
 		this.atimeMs = this._convert(atimeMs ?? now);
 		this.mtimeMs = this._convert(mtimeMs ?? now);
@@ -193,6 +198,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		if ((this.mode & c.S_IFMT) == 0) {
 			this.mode = (this.mode | this._convert(c.S_IFREG)) as T;
 		}
+		Object.assign(this, rest);
 	}
 
 	public isFile(): boolean {
@@ -221,6 +227,10 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	public isFIFO(): boolean {
 		return (this.mode & c.S_IFMT) === c.S_IFIFO;
+	}
+
+	public toJSON(): StatsLike<T> & InodeFields {
+		return pick(this, _inode_fields);
 	}
 
 	/**

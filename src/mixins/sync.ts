@@ -1,7 +1,7 @@
 import type { File } from '../file.js';
 import type { CreationOptions, FileSystem } from '../filesystem.js';
-import type { Stats } from '../stats.js';
-import type { Mixin, AsyncFSMethods } from './shared.js';
+import type { Stats, StatsLike } from '../stats.js';
+import type { AsyncFSMethods, Mixin } from './shared.js';
 
 /**
  * Implements the asynchronous API in terms of the synchronous API.
@@ -49,7 +49,7 @@ export function Sync<T extends typeof FileSystem>(FS: T): Mixin<T, AsyncFSMethod
 			return this.linkSync(srcpath, dstpath);
 		}
 
-		public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+		public async sync(path: string, data: Uint8Array, stats: Readonly<StatsLike>): Promise<void> {
 			return this.syncSync(path, data, stats);
 		}
 	}

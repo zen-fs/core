@@ -3,16 +3,16 @@ This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/dev
 */
 
 import type { FileReadResult } from 'node:fs/promises';
+import type { InodeLike } from './backends/index.js';
 import { InMemoryStore } from './backends/memory.js';
 import { StoreFS } from './backends/store/fs.js';
 import { Errno, ErrnoError } from './error.js';
 import { File } from './file.js';
-import type { StatsLike } from './stats.js';
+import type { CreationOptions } from './filesystem.js';
 import { Stats } from './stats.js';
 import { canary, decodeUTF8 } from './utils.js';
 import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
 import { basename, dirname } from './vfs/path.js';
-import type { CreationOptions } from './filesystem.js';
 
 /**
  * A device
@@ -129,7 +129,7 @@ export class DeviceFile<TData = any> extends File {
 		return this.device.driver;
 	}
 
-	protected get stats(): Partial<StatsLike> {
+	protected get stats(): Partial<InodeLike> {
 		return { mode: (this.driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666 };
 	}
 

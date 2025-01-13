@@ -111,9 +111,7 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 	}
 
 	public abortSync(): void {
-		if (!this.done) {
-			return;
-		}
+		if (this.done) return;
 		// Rollback old values.
 		for (const key of this.modifiedKeys) {
 			const value = this.originalData.get(key);

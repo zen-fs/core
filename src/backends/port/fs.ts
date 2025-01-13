@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FileReadResult } from 'node:fs/promises';
-import type { ExtractProperties } from 'utilium';
+import { pick, type ExtractProperties } from 'utilium';
 import type { MountConfiguration } from '../../config.js';
 import type { CreationOptions, FileSystemMetadata } from '../../filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
@@ -12,8 +12,8 @@ import { FileSystem } from '../../filesystem.js';
 import { Async } from '../../mixins/async.js';
 import { Stats } from '../../stats.js';
 import { InMemory } from '../memory.js';
+import type { Inode, InodeLike } from '../store/inode.js';
 import * as RPC from './rpc.js';
-import type { InodeLike } from '../store/inode.js';
 
 type FileMethods = Omit<ExtractProperties<File, (...args: any[]) => Promise<any>>, typeof Symbol.asyncDispose>;
 type FileMethod = keyof FileMethods;
@@ -110,10 +110,6 @@ export class PortFile extends File {
 		this._throwNoSync('utimes');
 	}
 
-	public _setTypeSync(): void {
-		this._throwNoSync('_setType');
-	}
-
 	public close(): Promise<void> {
 		return this.rpc('close');
 	}
@@ -194,7 +190,8 @@ export class PortFS extends Async(FileSystem) {
 		return new Stats(await this.rpc('stat', path));
 	}
 
-	public sync(path: string, data?: Uint8Array, stats?: Readonly<InodeLike>): Promise<void> {
+	public sync(path: string, data: Uint8Array | undefined, stats: Readonly<InodeLike | Inode>): Promise<void> {
+		stats = 'toJSON' in stats ? stats.toJSON() : stats;
 		return this.rpc('sync', path, data, stats);
 	}
 
@@ -241,16 +238,15 @@ export class PortFS extends Async(FileSystem) {
 
 let nextFd = 0;
 
-const descriptors: Map<number, File> = new Map();
-
 /** @internal */
 export type FileOrFSRequest = FSRequest | FileRequest;
 
 /** @internal */
-export async function handleRequest(port: RPC.Port, fs: FileSystem, request: FileOrFSRequest): Promise<void> {
-	if (!RPC.isMessage(request)) {
-		return;
-	}
+export async function handleRequest(port: RPC.Port, fs: FileSystem & { _descriptors?: Map<number, File> }, request: FileOrFSRequest): Promise<void> {
+	if (!RPC.isMessage(request)) return;
+
+	fs._descriptors ||= new Map();
+
 	const { method, args, id, scope, stack } = request;
 
 	let value,
@@ -262,7 +258,7 @@ export async function handleRequest(port: RPC.Port, fs: FileSystem, request: Fil
 				// @ts-expect-error 2556
 				value = await fs[method](...args);
 				if (value instanceof File) {
-					descriptors.set(++nextFd, value);
+					fs._descriptors.set(++nextFd, value);
 					value = {
 						fd: nextFd,
 						path: value.path,
@@ -272,21 +268,20 @@ export async function handleRequest(port: RPC.Port, fs: FileSystem, request: Fil
 				break;
 			case 'file': {
 				const { fd } = request;
-				if (!descriptors.has(fd)) {
-					throw new ErrnoError(Errno.EBADF);
-				}
+				if (!fs._descriptors.has(fd)) throw new ErrnoError(Errno.EBADF);
+
 				// @ts-expect-error 2556
-				value = await descriptors.get(fd)![method](...args);
+				value = await fs._descriptors.get(fd)![method](...args);
 				if (method == 'close') {
-					descriptors.delete(fd);
+					fs._descriptors.delete(fd);
 				}
 				break;
 			}
 			default:
 				return;
 		}
-	} catch (e) {
-		value = e instanceof ErrnoError ? e.toJSON() : (e as object).toString();
+	} catch (e: any) {
+		value = e instanceof ErrnoError ? e.toJSON() : pick(e, 'message', 'stack');
 		error = true;
 	}
 

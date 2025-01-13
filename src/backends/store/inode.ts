@@ -8,12 +8,17 @@ import { size_max } from '../../vfs/constants.js';
  */
 export const rootIno = 0;
 
-export interface InodeLike extends StatsLike<number> {
+export interface InodeFields {
 	data?: number;
 	flags?: number;
 }
 
-const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', 'uid', 'gid', 'atimeMs', 'birthtimeMs', 'mtimeMs', 'ctimeMs'] as const;
+export interface InodeLike extends StatsLike<number>, InodeFields {}
+
+/**
+ * @internal @hidden
+ */
+export const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', 'uid', 'gid', 'atimeMs', 'birthtimeMs', 'mtimeMs', 'ctimeMs'] as const;
 
 /**
  * Generic inode definition that can easily be serialized.
@@ -92,6 +97,11 @@ export class Inode implements InodeLike {
 
 		for (const key of _inode_fields) {
 			if (data[key] === undefined) continue;
+
+			// When multiple StoreFSes are used in a single stack, the differing IDs end up here.
+			if (key == 'ino' || key == 'data') continue;
+
+			if (this[key] === data[key]) continue;
 
 			this[key] = data[key];
 			hasChanged = true;

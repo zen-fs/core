@@ -1,6 +1,6 @@
 import type { ErrnoError } from './error.js';
 import type { File } from './file.js';
-import type { Stats } from './stats.js';
+import type { Stats, StatsLike } from './stats.js';
 import { ZenFsType } from './stats.js';
 
 export type FileContents = ArrayBufferView | string;
@@ -213,8 +213,8 @@ export abstract class FileSystem {
 	public abstract link(target: string, link: string): Promise<void>;
 	public abstract linkSync(target: string, link: string): void;
 
-	public abstract sync(path: string, data?: Uint8Array, stats?: Partial<Readonly<Stats>>): Promise<void>;
-	public abstract syncSync(path: string, data?: Uint8Array, stats?: Partial<Readonly<Stats>>): void;
+	public abstract sync(path: string, data?: Uint8Array, stats?: Partial<Readonly<StatsLike>>): Promise<void>;
+	public abstract syncSync(path: string, data?: Uint8Array, stats?: Partial<Readonly<StatsLike>>): void;
 
 	public abstract read(path: string, offset: number, length: number): Promise<Uint8Array>;
 	public abstract readSync(path: string, offset: number, length: number): Uint8Array;

@@ -8,9 +8,9 @@ import type { FileType, Stats } from '../../stats.js';
 import { _throw, canary, decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, resolve } from '../../vfs/path.js';
+import { Index } from './file_index.js';
 import { Inode, rootIno, type InodeLike } from './inode.js';
 import type { Store, Transaction } from './store.js';
-import { Index } from './file_index.js';
 
 const maxInodeAllocTries = 5;
 
@@ -334,11 +334,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async sync(path: string, data?: Uint8Array, metadata?: Readonly<InodeLike>): Promise<void> {
 		await using tx = this.store.transaction();
 
-		const inode = metadata?.ino ? new Inode(metadata) : await this.findInode(tx, path, 'sync');
+		const inode = await this.findInode(tx, path, 'sync');
+
+		if (data) await tx.set(inode.data, data);
 
 		if (inode.update(metadata)) await tx.set(inode.ino, serialize(inode));
 
-		if (data) await tx.set(inode.data, data);
 		await tx.commit();
 	}
 
@@ -349,11 +350,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public syncSync(path: string, data?: Uint8Array, metadata?: Readonly<InodeLike>): void {
 		using tx = this.store.transaction();
 
-		const inode = metadata?.ino ? new Inode(metadata) : this.findInodeSync(tx, path, 'sync');
+		const inode = this.findInodeSync(tx, path, 'sync');
+
+		if (data) tx.setSync(inode.data, data);
 
 		if (inode.update(metadata)) tx.setSync(inode.ino, serialize(inode));
 
-		if (data) tx.setSync(inode.data, data);
 		tx.commitSync();
 	}
 

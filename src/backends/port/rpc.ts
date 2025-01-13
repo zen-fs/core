@@ -6,6 +6,7 @@ import type { FileOrFSRequest, PortFS } from './fs.js';
 
 import { Errno, ErrnoError } from '../../error.js';
 import { handleRequest, PortFile } from './fs.js';
+import type { WithOptional } from 'utilium';
 
 type _MessageEvent<T = any> = T | { data: T };
 
@@ -46,7 +47,7 @@ export interface Request extends Message {
 
 interface _ResponseWithError extends Message {
 	error: true;
-	value: ErrnoErrorJSON | string;
+	value: WithOptional<ErrnoErrorJSON, 'code' | 'errno'>;
 }
 
 interface _ResponseWithValue<T> extends Message {
@@ -117,7 +118,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 	}
 	const { resolve, reject, fs } = executors.get(id)!;
 	if (error) {
-		const e = typeof value == 'string' ? new Error(value) : ErrnoError.fromJSON(value);
+		const e = ErrnoError.fromJSON({ code: 'EIO', errno: Errno.EIO, ...value });
 		e.stack += stack;
 		reject(e);
 		executors.delete(id);

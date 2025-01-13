@@ -271,10 +271,11 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			return;
 		}
 
-		if (isReadable(this.flag)) {
-			throw new Error(`Size mismatch: buffer length ${_buffer.byteLength}, stats size ${this.stats.size}`);
+		if (!isWriteable(this.flag)) {
+			throw new ErrnoError(Errno.EIO, `Size mismatch: buffer length ${_buffer.byteLength}, stats size ${this.stats.size}`, path);
 		}
 
+		this.stats.size = _buffer.byteLength;
 		this.dirty = true;
 	}
 
@@ -450,7 +451,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		return bytesWritten;
 	}
 
-	protected _read(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position?: number): number {
+	protected _read(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position?: number): number {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
 
 		if (!isReadable(this.flag)) {
@@ -783,7 +784,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	public async read<TBuffer extends ArrayBufferView>(
 		buffer: TBuffer,
 		offset: number = 0,
-		length: number = this.stats.size,
+		length: number = buffer.byteLength - offset,
 		position: number = this.position
 	): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		const bytesRead = this.prepareRead(length, position);
@@ -801,7 +802,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * If position is null, data will be read from the current file position.
 	 * @returns number of bytes written
 	 */
-	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		const bytesRead = this.prepareRead(length, position);
 		new Uint8Array(buffer.buffer, offset, length).set(this.fs.readSync(this.path, position, bytesRead));
 		if (config.syncImmediately) this.syncSync();
