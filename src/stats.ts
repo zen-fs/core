@@ -2,8 +2,9 @@ import type * as Node from 'node:fs';
 import type { V_Context } from './context.js';
 import { credentials } from './credentials.js';
 import * as c from './vfs/constants.js';
-import { _inode_fields, type InodeFields, type InodeLike } from './backends/index.js';
 import { pick } from 'utilium';
+import type { InodeFields, InodeLike } from './backends/store/inode.js';
+import { _inode_fields } from './backends/store/inode.js';
 
 const n1000 = BigInt(1000) as 1000n;
 

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { WithOptional } from 'utilium';
 import type { ErrnoErrorJSON } from '../../error.js';
 import type { FileSystem } from '../../filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
@@ -6,7 +7,6 @@ import type { FileOrFSRequest, PortFS } from './fs.js';
 
 import { Errno, ErrnoError } from '../../error.js';
 import { handleRequest, PortFile } from './fs.js';
-import type { WithOptional } from 'utilium';
 
 type _MessageEvent<T = any> = T | { data: T };
 
