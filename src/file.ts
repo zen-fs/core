@@ -385,7 +385,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (config.syncImmediately) this.syncSync();
 	}
 
-	protected _write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+	protected _write(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
 
 		if (!isWriteable(this.flag)) {
@@ -444,7 +444,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	 * If position is null, the data will be written at  the current position.
 	 * @returns bytes written
 	 */
-	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+	public writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number {
 		const bytesWritten = this._write(buffer, offset, length, position);
 		if (config.syncImmediately) this.syncSync();
 		return bytesWritten;
@@ -474,7 +474,8 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			// No copy/read. Return immediately for better performance
 			return bytesRead;
 		}
-		new Uint8Array(buffer.buffer, offset, length).set(this._buffer.slice(position, end));
+		const slice = this._buffer.slice(position, end);
+		new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength).set(slice, offset);
 		return bytesRead;
 	}
 
@@ -728,7 +729,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * @param position Offset from the beginning of the file where this data should be written.
 	 * If position is null, the data will be written at  the current position.
 	 */
-	public async write(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): Promise<number> {
+	public async write(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): Promise<number> {
 		const slice = this.prepareWrite(buffer, offset, length, position);
 		await this.fs.write(this.path, slice, offset);
 		if (config.syncImmediately) await this.sync();
@@ -744,7 +745,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * If position is null, the data will be written at  the current position.
 	 * @returns bytes written
 	 */
-	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = this.stats.size, position: number = this.position): number {
+	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		const slice = this.prepareWrite(buffer, offset, length, position);
 		this.fs.writeSync(this.path, slice, offset);
 		if (config.syncImmediately) this.syncSync();

@@ -34,7 +34,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._initialized = true;
 	}
 
-	public constructor(protected store: T) {
+	public constructor(protected readonly store: T) {
 		super();
 	}
 
@@ -455,9 +455,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 */
 	public async checkRoot(): Promise<void> {
 		await using tx = this.store.transaction();
-		if (await tx.get(rootIno)) {
-			return;
-		}
+		if (await tx.get(rootIno)) return;
 		// Create new inode. o777, owned by root:root
 		const inode = new Inode();
 		inode.ino = rootIno;
@@ -473,9 +471,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 */
 	public checkRootSync(): void {
 		using tx = this.store.transaction();
-		if (tx.getSync(rootIno)) {
-			return;
-		}
+		if (tx.getSync(rootIno)) return;
+
 		// Create new inode, mode o777, owned by root:root
 		const inode = new Inode();
 		inode.ino = rootIno;

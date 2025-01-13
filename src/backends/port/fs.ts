@@ -76,8 +76,10 @@ export class PortFile extends File {
 	}
 
 	public async read<TBuffer extends NodeJS.ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>> {
-		const result = await this.rpc('read', buffer, offset, length, position);
-		return result as FileReadResult<TBuffer>;
+		const { bytesRead, buffer: raw } = await this.rpc('read', buffer, offset, length, position);
+
+		new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength).set(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength));
+		return { bytesRead, buffer };
 	}
 
 	public readSync(): number {
