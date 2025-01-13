@@ -308,19 +308,17 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 
 	public async sync(): Promise<void> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
-		if (!this.dirty) {
-			return;
-		}
-		await this.fs.sync(this.path, this._buffer, this.stats);
+		if (!this.dirty) return;
+
+		if (!this.fs.metadata().readonly) await this.fs.sync(this.path, this._buffer, this.stats);
 		this.dirty = false;
 	}
 
 	public syncSync(): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
-		if (!this.dirty) {
-			return;
-		}
-		this.fs.syncSync(this.path, this._buffer, this.stats);
+		if (!this.dirty) return;
+
+		if (!this.fs.metadata().readonly) this.fs.syncSync(this.path, this._buffer, this.stats);
 		this.dirty = false;
 	}
 
@@ -630,7 +628,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 
 		if (!this.dirty) return;
 
-		await this.fs.sync(this.path, undefined, this.stats);
+		if (!this.fs.metadata().readonly) await this.fs.sync(this.path, undefined, this.stats);
 		this.dirty = false;
 	}
 
@@ -639,7 +637,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 
 		if (!this.dirty) return;
 
-		this.fs.syncSync(this.path, undefined, this.stats);
+		if (!this.fs.metadata().readonly) this.fs.syncSync(this.path, undefined, this.stats);
 		this.dirty = false;
 	}
 

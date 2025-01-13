@@ -79,6 +79,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			await tx.set(inode.ino, serialize(inode));
 			if (dirs.has(path)) await tx.set(inode.data, encodeDirListing(dirs.get(path)!));
 		}
+
+		await tx.commit();
 	}
 
 	/**
@@ -94,6 +96,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			tx.setSync(inode.ino, serialize(inode));
 			if (dirs.has(path)) tx.setSync(inode.data, encodeDirListing(dirs.get(path)!));
 		}
+
+		tx.commitSync();
 	}
 
 	public async createIndex(): Promise<Index> {

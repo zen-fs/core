@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path/posix';
-import type { Stats } from '../../dist/index.js';
-import { configureSingle, InMemory, InMemoryStore, mounts, Overlay, Readonly, StoreFS } from '../../dist/index.js';
-import { S_IFREG } from '../../dist/vfs/constants.js';
+import { configureSingle, InMemory, InMemoryStore, mounts, Overlay, Readonly, resolveMountConfig, StoreFS } from '../../dist/index.js';
+import { S_IFDIR } from '../../dist/vfs/constants.js';
 import { copy, data } from '../setup.js';
 
 copy(data);
@@ -19,27 +18,23 @@ class MockFS extends Readonly(StoreFS) {
 		using tx = this.store.transaction();
 
 		for (const [path, node] of index) {
-			if (!(node.mode & S_IFREG)) continue;
+			if (node.mode & S_IFDIR) continue;
 
 			const content = readFileSync(join(data, path));
 
 			tx.setSync(node.data, content);
 		}
-	}
 
-	// Even read-only, when reading files try to sync stats
-
-	sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
-		return Promise.resolve();
-	}
-
-	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
-		return;
+		tx.commitSync();
 	}
 }
 
+const readable = new MockFS();
+
+await readable.ready();
+
 await configureSingle({
 	backend: Overlay,
-	readable: new MockFS(),
-	writable: InMemory.create({ name: 'cow' }),
+	readable,
+	writable: await resolveMountConfig({ backend: InMemory, name: 'cow' }),
 });

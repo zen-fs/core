@@ -98,9 +98,7 @@ export abstract class Transaction<T extends Store = Store> {
 	public abstract commit(): Promise<void>;
 
 	public async [Symbol.asyncDispose]() {
-		if (this.done) {
-			return;
-		}
+		if (this.done) return;
 
 		await this.abort();
 	}
@@ -111,9 +109,7 @@ export abstract class Transaction<T extends Store = Store> {
 	public abstract commitSync(): void;
 
 	public [Symbol.dispose]() {
-		if (this.done) {
-			return;
-		}
+		if (this.done) return;
 
 		this.abortSync();
 	}
