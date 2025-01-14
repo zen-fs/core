@@ -49,7 +49,7 @@ jobs:
               run: npx zenfs-test -p tests/setup/index.ts
 
             - name: Unit tests (Port)
-              run: npx zenfs-test -p tests/setup/port.ts
+              run: npx zenfs-test -p tests/setup/port.ts --force
 
             - name: Unit tests (Overlay+Fetch)
               run: tests/fetch/run.sh
