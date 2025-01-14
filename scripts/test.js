@@ -16,8 +16,9 @@ const { values: options, positionals } = parseArgs({
 		build: { short: 'b', type: 'boolean', default: false },
 		common: { short: 'c', type: 'boolean', default: false },
 		coverage: { type: 'string', default: 'tests/.coverage' },
-		'non-final': { type: 'boolean' },
+		preserve: { short: 'p', type: 'boolean' },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
+		report: { type: 'boolean' },
 	},
 	allowPositionals: true,
 });
@@ -37,14 +38,23 @@ Options:
     -q, --quiet         Don't output normal messages
     -t, --test <glob>   Which FS test suite(s) to run
     -f, --force         Whether to use --test-force-exit
+
+Coverage:
     --coverage <dir>    Override the default coverage data directory
-    --preserve-coverage Do not delete or report coverage data`);
+    -p,--preserve       Do not delete or report coverage data
+	--report            ONLY report coverage`);
 	process.exit();
 }
 
 if (options.quiet && options.verbose) {
 	console.error('ERROR: Can not specify --verbose and --quiet');
 	process.exit(1);
+}
+
+if (options.report) {
+	execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
+	rmSync(options.coverage, { recursive: true });
+	process.exit();
 }
 
 options.verbose && options.force && console.debug('Forcing tests to exit (--test-force-exit)');
@@ -112,7 +122,7 @@ function status(name) {
 	};
 }
 
-if (!options['preserve-coverage']) rmSync(options.coverage, { force: true, recursive: true });
+if (!options.preserve) rmSync(options.coverage, { force: true, recursive: true });
 mkdirSync(options.coverage, { recursive: true });
 process.env.NODE_V8_COVERAGE = options.coverage;
 
@@ -152,5 +162,7 @@ for (const setupFile of positionals) {
 	}
 }
 
-if (!options['preserve-coverage']) execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
-if (!options['preserve-coverage']) rmSync(options.coverage, { recursive: true });
+if (!options.preserve) {
+	execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
+	rmSync(options.coverage, { recursive: true });
+}
