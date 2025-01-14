@@ -113,12 +113,14 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 */
 	public gid: T = this._convert(0);
 
+	/* node:coverage disable */
 	/**
 	 * Some file systems stash data on stats objects.
 	 * @todo [BREAKING] Remove this
 	 * @deprecated @hidden
 	 */
 	public fileData?: unknown;
+	/* node:coverage enable */
 
 	/**
 	 * Time of last access, since epoch
@@ -270,11 +272,12 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		return (perm & mode) === mode;
 	}
 
+	/* node:coverage disable */
 	/**
 	 * Change the mode of the file.
 	 * We use this helper function to prevent messing up the type of the file.
-	 * @internal
-	 * @deprecated This will be removed in the next minor release since it is internal
+	 * @internal @deprecated
+	 * @todo [BREAKING] Remove
 	 */
 	public chmod(mode: number): void {
 		this.mode = this._convert((this.mode & c.S_IFMT) | mode);
@@ -283,8 +286,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Change the owner user/group of the file.
 	 * This function makes sure it is a valid UID/GID (that is, a 32 unsigned int)
-	 * @internal
-	 * @deprecated This will be removed in the next minor release since it is internal
+	 * @internal @deprecated
+	 * @todo [BREAKING] Remove
 	 */
 	public chown(uid: number, gid: number): void {
 		uid = Number(uid);
@@ -296,6 +299,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 			this.gid = this._convert(gid);
 		}
 	}
+	/* node:coverage enable */
 
 	public get atimeNs(): bigint {
 		return BigInt(this.atimeMs) * n1000;

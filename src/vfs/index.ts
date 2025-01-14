@@ -7,6 +7,7 @@ export {
 	chroot,
 	mount,
 	mountObject,
+	/* node:coverage disable */
 	/**
 	 * The map of mount points.
 	 * Using `fs.mounts` instead of the `mounts` export is a security issue and not recommended.
@@ -15,6 +16,7 @@ export {
 	 * @deprecated Use the `mounts` export that isn't an `fs` property!
 	 */
 	mounts,
+	/* node:coverage enable */
 	umount,
 } from './shared.js';
 export * from './streams.js';

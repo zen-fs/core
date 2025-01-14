@@ -46,6 +46,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		};
 	}
 
+	/* node:coverage disable */
 	/**
 	 * Delete all contents stored in the file system.
 	 * @deprecated
@@ -65,6 +66,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Root always exists.
 		this.checkRootSync();
 	}
+	/* node:coverage enable */
 
 	/**
 	 * Load an index into the StoreFS.

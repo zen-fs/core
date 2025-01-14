@@ -48,7 +48,9 @@ export function encodeUTF8(input: string): Uint8Array {
 	return encoder.encode(input);
 }
 
+/* node:coverage disable */
 export { /** @deprecated @hidden */ encodeUTF8 as encode };
+/* node:coverage enable */
 
 const decoder = new TextDecoder();
 
@@ -64,7 +66,9 @@ export function decodeUTF8(input?: Uint8Array): string {
 	return decoder.decode(input);
 }
 
+/* node:coverage disable */
 export { /** @deprecated @hidden */ decodeUTF8 as decode };
+/* node:coverage enable */
 
 /**
  * Decodes a directory listing

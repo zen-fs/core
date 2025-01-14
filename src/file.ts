@@ -562,6 +562,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
  * For the file systems which do not sync to anything.
  * @deprecated
  */
+/* node:coverage disable */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 	public sync(): Promise<void> {
 		return Promise.resolve();
@@ -575,6 +576,7 @@ export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 
 	public closeSync(): void {}
 }
+/* node:coverage enable */
 
 /**
  * An implementation of `File` that uses the FS

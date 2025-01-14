@@ -19,6 +19,7 @@ const { values: options, positionals } = parseArgs({
 		preserve: { short: 'p', type: 'boolean' },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
 		report: { type: 'boolean' },
+		clean: { type: 'boolean' },
 	},
 	allowPositionals: true,
 });
@@ -42,7 +43,8 @@ Options:
 Coverage:
     --coverage <dir>    Override the default coverage data directory
     -p,--preserve       Do not delete or report coverage data
-	--report            ONLY report coverage`);
+	--report            ONLY report coverage
+    --clean             ONLY clean up coverage directory`);
 	process.exit();
 }
 
@@ -53,9 +55,14 @@ if (options.quiet && options.verbose) {
 
 process.env.NODE_V8_COVERAGE = options.coverage;
 
+if (options.clean) {
+	rmSync(options.coverage, { recursive: true, force: true });
+	process.exit();
+}
+
 if (options.report) {
 	execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
-	rmSync(options.coverage, { recursive: true });
+	rmSync(options.coverage, { recursive: true, force: true });
 	process.exit();
 }
 

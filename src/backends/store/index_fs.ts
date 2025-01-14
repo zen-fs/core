@@ -15,6 +15,7 @@ import type { Store } from './store.js';
  * Implementors: You *must* populate the underlying store for read operations to work!
  * @deprecated
  */
+/* node:coverage disable */
 export abstract class IndexFS<T extends Store> extends StoreFS<T> {
 	protected readonly index: Index = new Index();
 
@@ -79,3 +80,4 @@ export abstract class IndexFS<T extends Store> extends StoreFS<T> {
 		super.syncSync(path, data, stats);
 	}
 }
+/* node:coverage enable */

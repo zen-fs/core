@@ -236,6 +236,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	 * Creates a new device at `path` relative to the `DeviceFS` root.
 	 * @deprecated
 	 */
+	/* node:coverage disable */
 	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
@@ -255,6 +256,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		this.devices.set(path, dev);
 		return dev;
 	}
+	/* node:coverage enable */
 
 	protected devicesWithDriver(driver: DeviceDriver<unknown> | string, forceIdentity?: boolean): Device[] {
 		if (forceIdentity && typeof driver == 'string') {

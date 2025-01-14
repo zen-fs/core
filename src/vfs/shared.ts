@@ -144,6 +144,7 @@ export function fixError<E extends ErrnoError>(e: E, paths: Record<string, strin
 	return e;
 }
 
+/* node:coverage disable */
 /**
  * @internal @deprecated
  */
@@ -155,6 +156,7 @@ export function mountObject(mounts: MountObject): void {
 		mount(point, fs);
 	}
 }
+/* node:coverage enable */
 
 /**
  * @internal @hidden
