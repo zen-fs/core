@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path/posix';
 import { configureSingle, InMemory, InMemoryStore, mounts, Overlay, Readonly, resolveMountConfig, StoreFS } from '../../dist/index.js';
 import { S_IFDIR } from '../../dist/vfs/constants.js';
@@ -7,8 +7,6 @@ import { copy, data } from '../setup.js';
 copy(data);
 
 const index = (mounts.get('/') as StoreFS).createIndexSync();
-
-writeFileSync('tmp/_index.json', JSON.stringify(index.toJSON()));
 
 class MockFS extends Readonly(StoreFS) {
 	constructor() {
