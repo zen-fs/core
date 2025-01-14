@@ -1,8 +1,8 @@
 import { execSync } from 'node:child_process';
-import { appendFileSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
-import { data, tmp } from './setup.js';
+import { data, tmp } from '../setup.js';
 
 // If you change the port please update the setup file as well
 const port = 26514;

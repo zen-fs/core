@@ -16,6 +16,7 @@ const { values: options, positionals } = parseArgs({
 		build: { short: 'b', type: 'boolean', default: false },
 		common: { short: 'c', type: 'boolean', default: false },
 		coverage: { type: 'string', default: 'tests/.coverage' },
+		'non-final': { type: 'boolean' },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
 	},
 	allowPositionals: true,
@@ -36,7 +37,8 @@ Options:
     -q, --quiet         Don't output normal messages
     -t, --test <glob>   Which FS test suite(s) to run
     -f, --force         Whether to use --test-force-exit
-    --coverage <dir>    Override the default coverage data directory`);
+    --coverage <dir>    Override the default coverage data directory
+    --preserve-coverage Do not delete or report coverage data`);
 	process.exit();
 }
 
@@ -110,7 +112,7 @@ function status(name) {
 	};
 }
 
-rmSync(options.coverage, { force: true, recursive: true });
+if (!options['preserve-coverage']) rmSync(options.coverage, { force: true, recursive: true });
 mkdirSync(options.coverage, { recursive: true });
 process.env.NODE_V8_COVERAGE = options.coverage;
 
@@ -150,5 +152,5 @@ for (const setupFile of positionals) {
 	}
 }
 
-execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
-rmSync(options.coverage, { recursive: true });
+if (!options['preserve-coverage']) execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
+if (!options['preserve-coverage']) rmSync(options.coverage, { recursive: true });
