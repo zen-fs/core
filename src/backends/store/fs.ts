@@ -399,34 +399,22 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	/**
-	 * Used by lazy file
-	 * @internal
-	 */
-	public async read(path: string, offset: number, length: number): Promise<Uint8Array> {
+	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
 		await using tx = this.store.transaction();
 		const inode = await this.findInode(tx, path, 'read');
 
-		const buffer = (await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
-		return buffer.slice(offset, offset + length);
+		const data = (await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
+		buffer.set(data.subarray(offset, end));
 	}
 
-	/**
-	 * Used by lazy file
-	 * @internal
-	 */
-	public readSync(path: string, offset: number, length: number): Uint8Array {
+	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
 		using tx = this.store.transaction();
 		const inode = this.findInodeSync(tx, path, 'read');
 
-		const buffer = tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
-		return buffer.slice(offset, offset + length);
+		const data = tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
+		buffer.set(data.subarray(offset, end));
 	}
 
-	/**
-	 * Used by lazy file
-	 * @internal
-	 */
 	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
 		await using tx = this.store.transaction();
 
@@ -438,10 +426,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await this.sync(path, buffer, inode);
 	}
 
-	/**
-	 * Used by lazy file
-	 * @internal
-	 */
 	public writeSync(path: string, data: Uint8Array, offset: number): void {
 		using tx = this.store.transaction();
 

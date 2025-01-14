@@ -1,11 +1,12 @@
 import type * as fs from 'node:fs';
-import type { Backend } from './backend.js';
-import { FileSystem } from '../filesystem.js';
 import type { Errno } from '../error.js';
 import { ErrnoError } from '../error.js';
-import { Stats } from '../stats.js';
 import { File, type FileReadResult } from '../file.js';
+import { FileSystem } from '../filesystem.js';
+import { Stats } from '../stats.js';
 import { join, resolve } from '../vfs/path.js';
+import type { Backend } from './backend.js';
+import type { InodeLike } from './store/inode.js';
 
 // Type for Node.js fs module
 export type NodeFS = typeof fs;
@@ -333,9 +334,13 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Synchronize data to the file system.
 	 */
-	public async sync(path: string, data: Uint8Array, stats: Stats): Promise<void> {
+	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {
 		try {
-			await this.nodeFS.promises.writeFile(this.path(path), data);
+			await using handle = await this.nodeFS.promises.open(this.path(path), 'w');
+			await handle.writeFile(data);
+			await handle.chmod(stats.mode);
+			await handle.chown(stats.uid, stats.gid);
+			await handle.utimes(stats.atimeMs, stats.mtimeMs);
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -344,9 +349,13 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Synchronize data to the file system synchronously.
 	 */
-	public syncSync(path: string, data: Uint8Array, stats: Stats): void {
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
 		try {
-			this.nodeFS.writeFileSync(this.path(path), data);
+			const p = this.path(path);
+			this.nodeFS.writeFileSync(p, data);
+			this.nodeFS.chmodSync(p, stats.mode);
+			this.nodeFS.chownSync(p, stats.uid, stats.gid);
+			this.nodeFS.utimesSync(p, stats.atimeMs, stats.mtimeMs);
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -374,23 +383,20 @@ export class PassthroughFS extends FileSystem {
 		}
 	}
 
-	public async read(path: string, offset: number, length: number): Promise<Uint8Array> {
+	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
 		try {
 			await using handle = await this.nodeFS.promises.open(this.path(path), 'r');
-			const buffer = new Uint8Array(length);
-			await handle.read({ buffer, offset, length });
-			return buffer;
+			await handle.read({ buffer, offset, length: end - offset });
 		} catch (err) {
 			this.error(err, path);
 		}
 	}
-	public readSync(path: string, offset: number, length: number): Uint8Array {
+
+	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
 		let fd;
 		try {
 			fd = this.nodeFS.openSync(this.path(path), 'r');
-			const buffer = new Uint8Array(length);
-			this.nodeFS.readSync(fd, buffer, { offset, length });
-			return buffer;
+			this.nodeFS.readSync(fd, buffer, { offset, length: end - offset });
 		} catch (err) {
 			this.error(err, path);
 		} finally {
@@ -400,6 +406,7 @@ export class PassthroughFS extends FileSystem {
 		// unreachable
 		throw ErrnoError.With('EIO', path, 'read');
 	}
+
 	public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
 		try {
 			await using handle = await this.nodeFS.promises.open(this.path(path), 'w');
@@ -408,6 +415,7 @@ export class PassthroughFS extends FileSystem {
 			this.error(err, path);
 		}
 	}
+
 	public writeSync(path: string, buffer: Uint8Array, offset: number): void {
 		let fd;
 		try {

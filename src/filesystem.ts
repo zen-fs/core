@@ -216,9 +216,32 @@ export abstract class FileSystem {
 	public abstract sync(path: string, data?: Uint8Array, stats?: Partial<Readonly<StatsLike>>): Promise<void>;
 	public abstract syncSync(path: string, data?: Uint8Array, stats?: Partial<Readonly<StatsLike>>): void;
 
-	public abstract read(path: string, offset: number, length: number): Promise<Uint8Array>;
-	public abstract readSync(path: string, offset: number, length: number): Uint8Array;
+	/**
+	 * Reads into a buffer
+	 * @param buffer The buffer to read into. You must set the `byteOffset` and `byteLength` appropriately!
+	 * @param offset The offset into the file to start reading from
+	 * @param end The position in the file to stop reading
+	 */
+	public abstract read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void>;
+	/**
+	 * Reads into a buffer
+	 * @param buffer The buffer to read into. You must set the `byteOffset` and `byteLength` appropriately!
+	 * @param offset The offset into the file to start reading from
+	 * @param end The position in the file to stop reading
+	 */
+	public abstract readSync(path: string, buffer: Uint8Array, offset: number, end: number): void;
 
+	/**
+	 * Writes a buffer to a file
+	 * @param buffer The buffer to write. You must set the `byteOffset` and `byteLength` appropriately!
+	 * @param offset The offset in the file to start writing
+	 */
 	public abstract write(path: string, buffer: Uint8Array, offset: number): Promise<void>;
+
+	/**
+	 * Writes a buffer to a file
+	 * @param buffer The buffer to write. You must set the `byteOffset` and `byteLength` appropriately!
+	 * @param offset The offset in the file to start writing
+	 */
 	public abstract writeSync(path: string, buffer: Uint8Array, offset: number): void;
 }

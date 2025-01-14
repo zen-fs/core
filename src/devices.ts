@@ -2,11 +2,11 @@
 This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
 */
 
-import type { FileReadResult } from './file.js';
-import type { InodeLike } from './backends/index.js';
+import { Inode } from './backends/index.js';
 import { InMemoryStore } from './backends/memory.js';
 import { StoreFS } from './backends/store/fs.js';
 import { Errno, ErrnoError } from './error.js';
+import type { FileReadResult } from './file.js';
 import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
 import { Stats } from './stats.js';
@@ -24,7 +24,7 @@ export interface Device<TData = any> {
 	/**
 	 * The device's driver
 	 */
-	driver: DeviceDriver;
+	driver: DeviceDriver<TData>;
 
 	/**
 	 * Which inode the device is assigned
@@ -46,6 +46,13 @@ export interface Device<TData = any> {
 	 * Minor device number
 	 */
 	minor: number;
+}
+
+export interface DeviceInit<TData = any> {
+	data?: TData;
+	minor?: number;
+	major?: number;
+	name?: string;
 }
 
 /**
@@ -73,27 +80,40 @@ export interface DeviceDriver<TData = any> {
 	 * Initializes a new device.
 	 * @returns `Device.data`
 	 */
-	init?(
-		ino: number,
-		options: object
-	): {
-		data?: TData;
-		minor?: number;
-		major?: number;
-		name?: string;
-	};
+	init?(ino: number, options: object): DeviceInit<TData>;
 
 	/**
-	 * Synchronously read from the device
+	 * Synchronously read from a device file
 	 * @group File operations
+	 * @deprecated
+	 * @todo [BREAKING] Remove
 	 */
 	read(file: DeviceFile<TData>, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
 
 	/**
-	 * Synchronously write to the device
+	 * Synchronously read from a device.
+	 * @privateRemarks
+	 * For many devices there is no concept of an offset or end.
+	 * For example, /dev/random will be "the same" regardless of where you read from- random data.
 	 * @group File operations
+	 * @todo [BREAKING] Rename to `read`
+	 */
+	readD(device: Device<TData>, buffer: Uint8Array, offset: number, end: number): void;
+
+	/**
+	 * Synchronously write to a device file
+	 * @group File operations
+	 * @deprecated
+	 * @todo [BREAKING] Remove
 	 */
 	write(file: DeviceFile<TData>, buffer: Uint8Array, offset: number, length: number, position?: number): number;
+
+	/**
+	 * Synchronously write to a device
+	 * @group File operations
+	 * @todo [BREAKING] Rename to `write`
+	 */
+	writeD(device: Device<TData>, buffer: Uint8Array, offset: number): void;
 
 	/**
 	 * Sync the device
@@ -129,9 +149,9 @@ export class DeviceFile<TData = any> extends File {
 		return this.device.driver;
 	}
 
-	protected get stats(): Partial<InodeLike> {
-		return { mode: (this.driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666 };
-	}
+	protected stats = new Inode({
+		mode: (this.driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666,
+	});
 
 	public async stat(): Promise<Stats> {
 		return Promise.resolve(new Stats(this.stats));
@@ -141,8 +161,17 @@ export class DeviceFile<TData = any> extends File {
 		return new Stats(this.stats);
 	}
 
-	public readSync(buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
-		return this.driver.read(this, buffer, offset, length, position);
+	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
+		this.stats.atimeMs = Date.now();
+
+		const end = position + length;
+		this.position = end;
+
+		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+
+		this.driver.readD(this.device, uint8.subarray(offset, length), position, end);
+
+		return length;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
@@ -150,8 +179,19 @@ export class DeviceFile<TData = any> extends File {
 		return { bytesRead: this.readSync(buffer, offset, length), buffer };
 	}
 
-	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.length, position?: number): number {
-		return this.driver.write(this, buffer, offset, length, position);
+	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.byteLength - offset, position: number = this.position): number {
+		const end = position + length;
+
+		if (end > this.stats.size) this.stats.size = end;
+
+		this.stats.mtimeMs = Date.now();
+		this.position = end;
+
+		const data = buffer.subarray(offset, offset + length);
+
+		this.driver.writeD(this.device, data, position);
+
+		return length;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
@@ -215,14 +255,6 @@ export class DeviceFile<TData = any> extends File {
 
 	public utimesSync(): void {
 		throw ErrnoError.With('ENOTSUP', this.path, 'utimes');
-	}
-
-	public _setType(): Promise<void> {
-		throw ErrnoError.With('ENOTSUP', this.path, '_setType');
-	}
-
-	public _setTypeSync(): void {
-		throw ErrnoError.With('ENOTSUP', this.path, '_setType');
 	}
 }
 
@@ -464,12 +496,71 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		}
 		return super.syncSync(path, data, stats);
 	}
+
+	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
+		const device = this.devices.get(path);
+		if (!device) {
+			await super.read(path, buffer, offset, end);
+			return;
+		}
+
+		device.driver.readD(device, buffer, offset, end);
+	}
+
+	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
+		const device = this.devices.get(path);
+		if (!device) {
+			super.readSync(path, buffer, offset, end);
+			return;
+		}
+
+		device.driver.readD(device, buffer, offset, end);
+	}
+
+	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
+		const device = this.devices.get(path);
+		if (!device) {
+			return await super.write(path, data, offset);
+		}
+
+		device.driver.writeD(device, data, offset);
+	}
+
+	public writeSync(path: string, data: Uint8Array, offset: number): void {
+		const device = this.devices.get(path);
+		if (!device) {
+			return super.writeSync(path, data, offset);
+		}
+
+		device.driver.writeD(device, data, offset);
+	}
 }
 
-function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset: number, length: number): number {
-	file.position += length;
-	return length;
+function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset?: number, length?: number, position?: number): number {
+	return file.writeSync(buffer, offset, length, position);
 }
+
+function defaultWriteD(device: Device, data: Uint8Array, offset: number) {
+	return;
+}
+
+function defaultRead(file: DeviceFile, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
+	return file.readSync(buffer, offset, length, position);
+}
+
+// 512 bytes.
+const blockSize = 0x200;
+
+function alloc(bytesNeeded: number, existing?: Uint8Array): Uint8Array {
+	const blocksNeeded = bytesNeeded / blockSize;
+	const currentBocks = existing ? existing.byteLength / blockSize : 0;
+
+	if (blocksNeeded <= currentBocks && existing) return existing;
+
+	return new Uint8Array(Math.ceil(blocksNeeded));
+}
+
+const emptyBuffer = new Uint8Array();
 
 /**
  * Simulates the `/dev/null` device.
@@ -486,7 +577,11 @@ export const nullDevice: DeviceDriver = {
 	read(): number {
 		return 0;
 	},
+	readD(): Uint8Array {
+		return emptyBuffer;
+	},
 	write: defaultWrite,
+	writeD: defaultWriteD,
 };
 
 /**
@@ -505,15 +600,12 @@ export const zeroDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 5 };
 	},
-	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
-		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		for (let i = offset; i < offset + length; i++) {
-			data[i] = 0;
-		}
-		file.position += length;
-		return length;
+	read: defaultRead,
+	readD(device, buffer, offset, end) {
+		buffer.fill(0, offset, end);
 	},
 	write: defaultWrite,
+	writeD: defaultWriteD,
 };
 
 /**
@@ -528,17 +620,15 @@ export const fullDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 7 };
 	},
-	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
-		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		for (let i = offset; i < offset + length; i++) {
-			data[i] = 0;
-		}
-		file.position += length;
-		return length;
+	read: defaultRead,
+	readD(device, buffer, offset, end) {
+		buffer.fill(0, offset, end);
 	},
-
 	write(file: DeviceFile): number {
 		throw ErrnoError.With('ENOSPC', file.path, 'write');
+	},
+	writeD() {
+		throw ErrnoError.With('ENOSPC', undefined, 'write');
 	},
 };
 
@@ -554,37 +644,36 @@ export const randomDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 8 };
 	},
-	read(file: DeviceFile, buffer: ArrayBufferView, offset = 0, length = buffer.byteLength): number {
-		const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		for (let i = offset; i < offset + length; i++) {
-			data[i] = Math.floor(Math.random() * 256);
+	read: defaultRead,
+	readD(device, buffer) {
+		for (let i = 0; i < buffer.length; i++) {
+			buffer[i] = Math.floor(Math.random() * 256);
 		}
-		file.position += length;
-		return length;
 	},
 	write: defaultWrite,
+	writeD: defaultWriteD,
 };
 
 /**
  * Simulates the `/dev/console` device.
  * @experimental @internal
  */
-const consoleDevice: DeviceDriver<{ output: (text: string) => unknown }> = {
+const consoleDevice: DeviceDriver<{ output: (text: string, offset: number) => unknown }> = {
 	name: 'console',
 	singleton: true,
-	init(ino: number, { output = console.log }: { output?: (text: string) => unknown } = {}) {
+	init(ino: number, { output = text => console.log(text) }: { output?: (text: string) => unknown } = {}) {
 		return { major: 5, minor: 1, data: { output } };
 	},
 
-	read(): number {
-		return 0;
+	read: defaultRead,
+	readD() {
+		return emptyBuffer;
 	},
 
-	write(file, buffer: Uint8Array, offset: number, length: number): number {
-		const text = decodeUTF8(buffer.slice(offset, offset + length));
-		file.device.data.output(text);
-		file.position += length;
-		return length;
+	write: defaultWrite,
+	writeD(device, buffer, offset) {
+		const text = decodeUTF8(buffer);
+		device.data.output(text, offset);
 	},
 };
 

@@ -794,7 +794,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		position: number = this.position
 	): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		const bytesRead = this.prepareRead(length, position);
-		new Uint8Array(buffer.buffer, offset, length).set(await this.fs.read(this.path, position, bytesRead));
+		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+		await this.fs.read(this.path, uint8.subarray(offset, offset + length), position, bytesRead);
 		if (config.syncImmediately) await this.sync();
 		return { bytesRead, buffer };
 	}
@@ -810,7 +811,8 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 */
 	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		const bytesRead = this.prepareRead(length, position);
-		new Uint8Array(buffer.buffer, offset, length).set(this.fs.readSync(this.path, position, bytesRead));
+		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+		this.fs.readSync(this.path, uint8.subarray(offset, offset + length), position, bytesRead);
 		if (config.syncImmediately) this.syncSync();
 		return bytesRead;
 	}

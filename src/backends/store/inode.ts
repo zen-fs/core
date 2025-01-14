@@ -27,7 +27,7 @@ export const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', '
  */
 @struct()
 export class Inode implements InodeLike {
-	public constructor(data?: ArrayBufferLike | ArrayBufferView | Readonly<InodeLike>) {
+	public constructor(data?: ArrayBufferLike | ArrayBufferView | Readonly<Partial<InodeLike>>) {
 		if (!data) return;
 
 		if (!('byteLength' in data)) {

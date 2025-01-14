@@ -107,8 +107,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('link', srcpath, dstpath);
 	}
 
-	public read(path: string, offset: number, length: number): Promise<Uint8Array> {
-		return this.rpc('read', path, offset, length);
+	public read(path: string, buffer: Uint8Array, offset: number, length: number): Promise<void> {
+		return this.rpc('read', path, buffer, offset, length);
 	}
 
 	public write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
