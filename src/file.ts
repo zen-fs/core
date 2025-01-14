@@ -5,6 +5,8 @@ import { _chown, Stats, type StatsLike } from './stats.js';
 import { config } from './vfs/config.js';
 import * as c from './vfs/constants.js';
 
+const maxByteLength = 0x100000; // 1 MiB
+
 const validFlags = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
 
 export function parseFlag(flag: string | number): string {
@@ -262,7 +264,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		/**
 		 * A buffer containing the entire contents of the file.
 		 */
-		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().noResizableBuffers ? {} : { maxByteLength: c.size_max }))
+		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().noResizableBuffers ? {} : { maxByteLength }))
 	) {
 		super(fs, path);
 
@@ -411,7 +413,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 					this._buffer = slice;
 				} else {
 					// Extend the buffer!
-					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().noResizableBuffers ? {} : { maxByteLength: c.size_max }));
+					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().noResizableBuffers ? {} : { maxByteLength }));
 					newBuffer.set(this._buffer);
 					this._buffer = newBuffer;
 				}
