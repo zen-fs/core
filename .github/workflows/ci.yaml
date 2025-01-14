@@ -37,19 +37,19 @@ jobs:
               run: npm run lint
 
             - name: Unit tests (common)
-              run: npx zenfs-test -p --common
+              run: npx zenfs-test -pf --common
 
             - name: Unit tests (InMemory)
-              run: npx zenfs-test -p tests/setup/memory.ts
+              run: npx zenfs-test -pf tests/setup/memory.ts
 
             - name: Unit tests (contexts)
-              run: npx zenfs-test -p tests/setup/context.ts
+              run: npx zenfs-test -pf tests/setup/context.ts
 
             - name: Unit tests (Index)
-              run: npx zenfs-test -p tests/setup/index.ts
+              run: npx zenfs-test -pf tests/setup/index.ts
 
             - name: Unit tests (Port)
-              run: npx zenfs-test -p tests/setup/port.ts --force
+              run: npx zenfs-test -pf tests/setup/port.ts
 
             - name: Unit tests (Overlay+Fetch)
               run: tests/fetch/run.sh

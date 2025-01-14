@@ -6,6 +6,6 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 tsx $SCRIPT_DIR/server.ts &
 PID=$!
 
-npx zenfs-test $SCRIPT_DIR/setup.ts --preserve $@
+npx zenfs-test $SCRIPT_DIR/setup.ts --preserve --force $@
 
 kill $PID
