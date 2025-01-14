@@ -51,6 +51,8 @@ if (options.quiet && options.verbose) {
 	process.exit(1);
 }
 
+process.env.NODE_V8_COVERAGE = options.coverage;
+
 if (options.report) {
 	execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
 	rmSync(options.coverage, { recursive: true });
@@ -124,7 +126,6 @@ function status(name) {
 
 if (!options.preserve) rmSync(options.coverage, { force: true, recursive: true });
 mkdirSync(options.coverage, { recursive: true });
-process.env.NODE_V8_COVERAGE = options.coverage;
 
 if (options.common) {
 	!options.quiet && console.log('Running common tests...');
