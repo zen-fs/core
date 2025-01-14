@@ -1,7 +1,6 @@
 import { Errno, ErrnoError } from '../error.js';
-import type { File } from '../file.js';
 import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
-import type { Stats } from '../stats.js';
+import type { StatsLike } from '../stats.js';
 import type { Mixin } from './shared.js';
 
 /**
@@ -9,20 +8,22 @@ import type { Mixin } from './shared.js';
  */
 export interface ReadonlyMixin {
 	metadata(): FileSystemMetadata;
-	rename(oldPath: string, newPath: string): Promise<void>;
-	renameSync(oldPath: string, newPath: string): void;
-	createFile(path: string, flag: string, mode: number): Promise<File>;
-	createFileSync(path: string, flag: string, mode: number): File;
-	unlink(path: string): Promise<void>;
-	unlinkSync(path: string): void;
-	rmdir(path: string): Promise<void>;
-	rmdirSync(path: string): void;
-	mkdir(path: string, mode: number): Promise<void>;
-	mkdirSync(path: string, mode: number): void;
-	link(srcpath: string, dstpath: string): Promise<void>;
-	linkSync(srcpath: string, dstpath: string): void;
-	sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void>;
-	syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void;
+	rename(oldPath: string, newPath: string): Promise<never>;
+	renameSync(oldPath: string, newPath: string): never;
+	createFile(path: string, flag: string, mode: number): Promise<never>;
+	createFileSync(path: string, flag: string, mode: number): never;
+	unlink(path: string): Promise<never>;
+	unlinkSync(path: string): never;
+	rmdir(path: string): Promise<never>;
+	rmdirSync(path: string): never;
+	mkdir(path: string, mode: number): Promise<never>;
+	mkdirSync(path: string, mode: number): never;
+	link(srcpath: string, dstpath: string): Promise<never>;
+	linkSync(srcpath: string, dstpath: string): never;
+	sync(path: string, data: Uint8Array, stats: Readonly<StatsLike<number>>): Promise<never>;
+	syncSync(path: string, data: Uint8Array, stats: Readonly<StatsLike<number>>): never;
+	write(path: string, buffer: Uint8Array, offset: number): Promise<never>;
+	writeSync(path: string, buffer: Uint8Array, offset: number): Promise<never>;
 }
 
 /**
@@ -35,59 +36,67 @@ export function Readonly<T extends typeof FileSystem>(FS: T): Mixin<T, ReadonlyM
 			return { ...super.metadata(), readonly: true };
 		}
 
-		public async rename(): Promise<void> {
+		public async rename(): Promise<never> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public renameSync(): void {
+		public renameSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async createFile(): Promise<File> {
+		public async createFile(): Promise<never> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public createFileSync(): File {
+		public createFileSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async unlink(): Promise<void> {
+		public async unlink(): Promise<never> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public unlinkSync(): void {
+		public unlinkSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async rmdir(): Promise<void> {
+		public async rmdir(): Promise<never> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public rmdirSync(): void {
+		public rmdirSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async mkdir(): Promise<void> {
+		public async mkdir(): Promise<never> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public mkdirSync(): void {
+		public mkdirSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async link(): Promise<void> {
+		public async link(): Promise<never> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public linkSync(): void {
+		public linkSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public async sync(): Promise<void> {
+		public async sync(): Promise<never> {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
-		public syncSync(): void {
+		public syncSync(): never {
+			throw new ErrnoError(Errno.EROFS);
+		}
+
+		public async write(): Promise<never> {
+			throw new ErrnoError(Errno.EROFS);
+		}
+
+		public writeSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
 	}
