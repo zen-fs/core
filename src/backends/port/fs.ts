@@ -1,27 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { pick, type ExtractProperties } from 'utilium';
+import type { ExtractProperties } from 'utilium';
 import type { MountConfiguration } from '../../config.js';
 import type { CreationOptions, FileSystemMetadata } from '../../filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
+import type { Inode, InodeLike } from '../store/inode.js';
+import type { File } from '../../file.js';
 
-import type { TransferListItem } from 'node:worker_threads';
+import { pick } from 'utilium';
 import { resolveMountConfig } from '../../config.js';
 import { Errno, ErrnoError } from '../../error.js';
-import { File } from '../../file.js';
 import { FileSystem } from '../../filesystem.js';
 import { Async } from '../../mixins/async.js';
 import { Stats } from '../../stats.js';
+import { decodeUTF8 } from '../../utils.js';
 import { InMemory } from '../memory.js';
-import type { Inode, InodeLike } from '../store/inode.js';
 import * as RPC from './rpc.js';
 
 type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | FileSystemMetadata>;
 type FSMethod = keyof FSMethods;
-/** @internal */
-export interface FSRequest<TMethod extends FSMethod = FSMethod> extends RPC.Request {
-	method: TMethod;
-	args: Parameters<FSMethods[TMethod]>;
-}
+
+export type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Message &
+	{
+		[M in TMethod]: {
+			method: M;
+			args: Parameters<FSMethods[M]>;
+		};
+	}[TMethod];
 
 /**
  * PortFS lets you access an FS instance that is running in a port, or the other way around.
@@ -54,7 +58,7 @@ export class PortFS extends Async(FileSystem) {
 	}
 
 	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSMethods[T]>): Promise<Awaited<ReturnType<FSMethods[T]>>> {
-		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>({ method, args }, { ...this.options, fs: this });
+		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>({ method, args } as Omit<FSRequest<T>, 'id' | 'stack' | '_zenfs'>, { ...this.options, fs: this });
 	}
 
 	public async ready(): Promise<void> {
@@ -107,8 +111,9 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('link', srcpath, dstpath);
 	}
 
-	public read(path: string, buffer: Uint8Array, offset: number, length: number): Promise<void> {
-		return this.rpc('read', path, buffer, offset, length);
+	public async read(path: string, buffer: Uint8Array, offset: number, length: number): Promise<void> {
+		const _buf = (await this.rpc('read', path, buffer, offset, length)) as unknown as Uint8Array;
+		buffer.set(_buf);
 	}
 
 	public write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
@@ -125,31 +130,29 @@ export async function handleRequest(port: RPC.Port, fs: FileSystem & { _descript
 	let value,
 		error: boolean = false;
 
-	const transfer: TransferListItem[] = [];
-
 	try {
 		// @ts-expect-error 2556
 		value = await fs[method](...args);
-		if (value instanceof File) {
-			await using file = await fs.openFile(args[0] as string, 'r+');
-			const stats = await file.stat();
-			const data = new Uint8Array(stats.size);
-
-			await file.read(data);
-			value = {
-				path: value.path,
-				flag: args[1] as string,
-				stats,
-				buffer: data.buffer,
-			} satisfies RPC.FileData;
-			transfer.push(data.buffer);
+		switch (method) {
+			case 'openFile':
+			case 'createFile': {
+				value = {
+					path: args[0],
+					flag: args[1],
+					stats: await fs.stat(args[0]),
+				} satisfies RPC.FileData;
+				break;
+			}
+			case 'read':
+				value = args[1];
+				break;
 		}
 	} catch (e: any) {
 		value = e instanceof ErrnoError ? e.toJSON() : pick(e, 'message', 'stack');
 		error = true;
 	}
 
-	port.postMessage({ _zenfs: true, id, error, method, stack, value }, transfer);
+	port.postMessage({ _zenfs: true, id, error, method, stack, value });
 }
 
 export function attachFS(port: RPC.Port, fs: FileSystem): void {

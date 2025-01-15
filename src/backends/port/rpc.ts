@@ -7,7 +7,7 @@ import type { Backend, FilesystemOf } from '../backend.js';
 import type { PortFS } from './fs.js';
 
 import { Errno, ErrnoError } from '../../error.js';
-import { PreloadFile } from '../../file.js';
+import { LazyFile } from '../../file.js';
 import { Stats, type StatsLike } from '../../stats.js';
 import { handleRequest } from './fs.js';
 
@@ -57,13 +57,18 @@ interface _ResponseWithValue<T> extends Message {
 	value: Awaited<T> extends File ? FileData : Awaited<T>;
 }
 
-export type Response<T = unknown> = _ResponseWithError | _ResponseWithValue<T>;
+interface _ResponseRead extends Message {
+	error: false;
+	method: 'read';
+	value: Uint8Array;
+}
+
+export type Response<T = unknown> = _ResponseWithError | _ResponseWithValue<T> | _ResponseRead;
 
 export interface FileData {
 	path: string;
 	flag: string;
 	stats: StatsLike<number>;
-	buffer: ArrayBuffer;
 }
 
 function isFileData(value: unknown): value is FileData {
@@ -129,8 +134,8 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 	}
 
 	if (isFileData(value)) {
-		const { path, flag, stats, buffer } = value;
-		const file = new PreloadFile(fs!, path, flag, new Stats(stats), new Uint8Array(buffer));
+		const { path, flag, stats } = value;
+		const file = new LazyFile(fs!, path, flag, new Stats(stats));
 		resolve(file);
 		executors.delete(id);
 		return;

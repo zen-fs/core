@@ -5,7 +5,7 @@ import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
 import { StoreFS } from '../backends/store/fs.js';
 import { Errno, ErrnoError } from '../error.js';
-import { parseFlag, PreloadFile } from '../file.js';
+import { LazyFile, parseFlag } from '../file.js';
 import { join } from '../vfs/path.js';
 
 /** @internal */
@@ -36,7 +36,7 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
  *
  */
 export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncMixin> {
-	abstract class AsyncFS extends FS {
+	abstract class AsyncFS extends FS implements AsyncMixin {
 		/**
 		 * Queue of pending asynchronous operations.
 		 */
@@ -116,20 +116,17 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 			return this._sync.statSync(path);
 		}
 
-		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): PreloadFile<this> {
+		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): LazyFile<this> {
 			this.checkSync(path, 'createFile');
 			this._sync.createFileSync(path, flag, mode, options);
 			this.queue('createFile', path, flag, mode, options);
 			return this.openFileSync(path, flag);
 		}
 
-		public openFileSync(path: string, flag: string): PreloadFile<this> {
+		public openFileSync(path: string, flag: string): LazyFile<this> {
 			this.checkSync(path, 'openFile');
-			const file = this._sync.openFileSync(path, flag + '+');
-			const stats = file.statSync();
-			const buffer = new Uint8Array(stats.size);
-			file.readSync(buffer);
-			return new PreloadFile(this, path, flag, stats, buffer);
+			const stats = this._sync.statSync(path);
+			return new LazyFile(this, path, flag, stats);
 		}
 
 		public unlinkSync(path: string): void {
@@ -170,6 +167,17 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		public existsSync(path: string): boolean {
 			this.checkSync(path, 'exists');
 			return this._sync.existsSync(path);
+		}
+
+		public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
+			this.checkSync(path, 'read');
+			this._sync.readSync(path, buffer, offset, end);
+		}
+
+		public writeSync(path: string, buffer: Uint8Array, offset: number): void {
+			this.checkSync(path, 'write');
+			this._sync.writeSync(path, buffer, offset);
+			this.queue('write', path, buffer, offset);
 		}
 
 		/**

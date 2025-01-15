@@ -5,9 +5,8 @@ import type { Backend } from './backend.js';
 import type { InodeLike } from './store/inode.js';
 
 import { Errno, ErrnoError } from '../error.js';
-import { PreloadFile, parseFlag } from '../file.js';
+import { LazyFile, parseFlag } from '../file.js';
 import { FileSystem } from '../filesystem.js';
-import { Mutexed } from '../mixins/mutexed.js';
 import { canary, decodeUTF8, encodeUTF8 } from '../utils.js';
 import { dirname, join } from '../vfs/path.js';
 
@@ -36,7 +35,7 @@ export interface OverlayOptions {
  *
  * @internal
  */
-export class UnmutexedOverlayFS extends FileSystem {
+export class OverlayFS extends FileSystem {
 	async ready(): Promise<void> {
 		await this.readable.ready();
 		await this.writable.ready();
@@ -203,23 +202,16 @@ export class UnmutexedOverlayFS extends FileSystem {
 		if (await this.writable.exists(path)) {
 			return this.writable.openFile(path, flag);
 		}
-		// Create an OverlayFile.
-		const file = await this.readable.openFile(path, parseFlag('r'));
-		const stats = await file.stat();
-		const { buffer } = await file.read(new Uint8Array(stats.size));
-		return new PreloadFile(this, path, flag, stats, buffer);
+		const stats = await this.readable.stat(path);
+		return new LazyFile(this, path, flag, stats);
 	}
 
 	public openFileSync(path: string, flag: string): File {
 		if (this.writable.existsSync(path)) {
 			return this.writable.openFileSync(path, flag);
 		}
-		// Create an OverlayFile.
-		const file = this.readable.openFileSync(path, parseFlag('r'));
-		const stats = file.statSync();
-		const data = new Uint8Array(stats.size);
-		file.readSync(data);
-		return new PreloadFile(this, path, flag, stats, data);
+		const stats = this.readable.statSync(path);
+		return new LazyFile(this, path, flag, stats);
 	}
 
 	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
@@ -554,14 +546,6 @@ export class UnmutexedOverlayFS extends FileSystem {
 		await writable.write(data);
 	}
 }
-
-/**
- * OverlayFS makes a read-only filesystem writable by storing writes on a second,
- * writable file system. Deletes are persisted via metadata stored on the writable
- * file system.
- * @internal
- */
-export class OverlayFS extends Mutexed(UnmutexedOverlayFS) {}
 
 const _Overlay = {
 	name: 'Overlay',

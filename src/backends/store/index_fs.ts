@@ -1,6 +1,6 @@
 import { ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
-import { PreloadFile } from '../../file.js';
+import { LazyFile } from '../../file.js';
 import type { CreationOptions } from '../../filesystem.js';
 import { Stats } from '../../stats.js';
 import { S_IFREG } from '../../vfs/constants.js';
@@ -58,14 +58,14 @@ export abstract class IndexFS<T extends Store> extends StoreFS<T> {
 
 	public override async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
 		const node = await this.commitNew(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
-		const file = new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
+		const file = new LazyFile(this, path, flag, node.toStats());
 		this.index.set(path, node);
 		return file;
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
 		const node = this.commitNewSync(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
-		const file = new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
+		const file = new LazyFile(this, path, flag, node.toStats());
 		this.index.set(path, node);
 		return file;
 	}

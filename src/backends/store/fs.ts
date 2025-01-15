@@ -1,7 +1,7 @@
 import { randomInt, serialize } from 'utilium';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
-import { LazyFile, PreloadFile } from '../../file.js';
+import { LazyFile } from '../../file.js';
 import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
 import { FileSystem } from '../../filesystem.js';
 import type { FileType, Stats } from '../../stats.js';

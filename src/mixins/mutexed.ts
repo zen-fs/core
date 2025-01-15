@@ -251,7 +251,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
  * For example, on an OverlayFS instance with an async lower
  * directory operations like rename and rmdir may involve multiple
  * requests involving both the upper and lower file systems -- they
- * are not executed in a single atomic step. OverlayFS uses this
+ * are not executed in a single atomic step. OverlayFS used to use this
  * to avoid having to reason about the correctness of
  * multiple requests interleaving.
  *
