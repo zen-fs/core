@@ -229,11 +229,17 @@ export function growBuffer<T extends ArrayBufferLike | ArrayBufferView>(buffer: 
 		return buffer;
 	}
 
-	if (!isShared) {
-		return buffer.transfer(newByteLength) as T;
+	if (isShared) {
+		const newBuffer = new SharedArrayBuffer(newByteLength) as T & SharedArrayBuffer;
+		new Uint8Array(newBuffer).set(new Uint8Array(buffer));
+		return newBuffer;
 	}
 
-	const newBuffer = new SharedArrayBuffer(newByteLength) as T & SharedArrayBuffer;
-	new Uint8Array(newBuffer).set(new Uint8Array(buffer));
-	return newBuffer;
+	try {
+		return buffer.transfer(newByteLength) as T;
+	} catch {
+		const newBuffer = new ArrayBuffer(newByteLength) as T & ArrayBuffer;
+		new Uint8Array(newBuffer).set(new Uint8Array(buffer));
+		return newBuffer;
+	}
 }
