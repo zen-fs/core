@@ -88,7 +88,7 @@ export interface DeviceDriver<TData = any> {
 	 * @deprecated
 	 * @todo [BREAKING] Remove
 	 */
-	read(file: DeviceFile<TData>, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
+	read?(file: DeviceFile<TData>, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
 
 	/**
 	 * Synchronously read from a device.
@@ -106,7 +106,7 @@ export interface DeviceDriver<TData = any> {
 	 * @deprecated
 	 * @todo [BREAKING] Remove
 	 */
-	write(file: DeviceFile<TData>, buffer: Uint8Array, offset: number, length: number, position?: number): number;
+	write?(file: DeviceFile<TData>, buffer: Uint8Array, offset: number, length: number, position?: number): number;
 
 	/**
 	 * Synchronously write to a device
@@ -536,28 +536,8 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 }
 
-function defaultWrite(file: DeviceFile, buffer: Uint8Array, offset?: number, length?: number, position?: number): number {
-	return file.writeSync(buffer, offset, length, position);
-}
-
-function defaultWriteD(device: Device, data: Uint8Array, offset: number) {
+function defaultWrite(device: Device, data: Uint8Array, offset: number) {
 	return;
-}
-
-function defaultRead(file: DeviceFile, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number {
-	return file.readSync(buffer, offset, length, position);
-}
-
-// 512 bytes.
-const blockSize = 0x200;
-
-function alloc(bytesNeeded: number, existing?: Uint8Array): Uint8Array {
-	const blocksNeeded = bytesNeeded / blockSize;
-	const currentBocks = existing ? existing.byteLength / blockSize : 0;
-
-	if (blocksNeeded <= currentBocks && existing) return existing;
-
-	return new Uint8Array(Math.ceil(blocksNeeded));
 }
 
 const emptyBuffer = new Uint8Array();
@@ -580,8 +560,7 @@ export const nullDevice: DeviceDriver = {
 	readD(): Uint8Array {
 		return emptyBuffer;
 	},
-	write: defaultWrite,
-	writeD: defaultWriteD,
+	writeD: defaultWrite,
 };
 
 /**
@@ -600,12 +579,10 @@ export const zeroDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 5 };
 	},
-	read: defaultRead,
 	readD(device, buffer, offset, end) {
 		buffer.fill(0, offset, end);
 	},
-	write: defaultWrite,
-	writeD: defaultWriteD,
+	writeD: defaultWrite,
 };
 
 /**
@@ -620,7 +597,6 @@ export const fullDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 7 };
 	},
-	read: defaultRead,
 	readD(device, buffer, offset, end) {
 		buffer.fill(0, offset, end);
 	},
@@ -644,14 +620,12 @@ export const randomDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 8 };
 	},
-	read: defaultRead,
 	readD(device, buffer) {
 		for (let i = 0; i < buffer.length; i++) {
 			buffer[i] = Math.floor(Math.random() * 256);
 		}
 	},
-	write: defaultWrite,
-	writeD: defaultWriteD,
+	writeD: defaultWrite,
 };
 
 /**
@@ -664,13 +638,9 @@ const consoleDevice: DeviceDriver<{ output: (text: string, offset: number) => un
 	init(ino: number, { output = text => console.log(text) }: { output?: (text: string) => unknown } = {}) {
 		return { major: 5, minor: 1, data: { output } };
 	},
-
-	read: defaultRead,
 	readD() {
 		return emptyBuffer;
 	},
-
-	write: defaultWrite,
 	writeD(device, buffer, offset) {
 		const text = decodeUTF8(buffer);
 		device.data.output(text, offset);
