@@ -212,7 +212,7 @@ export class FileHandle implements promises.FileHandle {
 						controller.close();
 						return;
 					}
-					controller.enqueue(result.buffer.slice(0, result.bytesRead));
+					controller.enqueue(result.buffer.subarray(0, result.bytesRead));
 					position += result.bytesRead;
 					if (++i >= maxChunks) {
 						throw new ErrnoError(Errno.EFBIG, 'Too many iterations on readable stream', this.file.path, 'FileHandle.readableWebStream');
@@ -371,7 +371,7 @@ export class FileHandle implements promises.FileHandle {
 			read: async (size: number) => {
 				try {
 					const result = await this.read(new Uint8Array(size), 0, size, this.file.position);
-					stream.push(!result.bytesRead ? null : result.buffer.slice(0, result.bytesRead)); // Push data or null for EOF
+					stream.push(!result.bytesRead ? null : result.buffer.subarray(0, result.bytesRead)); // Push data or null for EOF
 					this.file.position += result.bytesRead;
 				} catch (error) {
 					stream.destroy(error as Error);

@@ -1,10 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
-
+const fn = 'write.txt';
 suite('write', () => {
 	test('write file with specified content', async () => {
-		const fn = 'write.txt';
 		const expected = 'ümlaut.';
 
 		const handle = await fs.promises.open(fn, 'w', 0o644);
@@ -20,10 +19,9 @@ suite('write', () => {
 	});
 
 	test('write a buffer to a file', async () => {
-		const filename = 'write.txt';
 		const expected = Buffer.from('hello');
 
-		const handle = await fs.promises.open(filename, 'w', 0o644);
+		const handle = await fs.promises.open(fn, 'w', 0o644);
 
 		const written = await handle.write(expected, 0, expected.length, null);
 
@@ -31,15 +29,12 @@ suite('write', () => {
 
 		await handle.close();
 
-		assert((await fs.promises.readFile(filename)).equals(expected));
+		assert((await fs.promises.readFile(fn)).equals(expected));
 
-		await fs.promises.unlink(filename);
+		await fs.promises.unlink(fn);
 	});
-});
 
-suite('writeSync', () => {
-	test('write file with specified content', () => {
-		const fn = 'write.txt';
+	test('writeSync file with specified content', () => {
 		const fd = fs.openSync(fn, 'w');
 
 		let written = fs.writeSync(fd, '');
@@ -53,6 +48,6 @@ suite('writeSync', () => {
 
 		fs.closeSync(fd);
 
-		assert(fs.readFileSync(fn, 'utf8') === 'foobár');
+		assert.strictEqual(fs.readFileSync(fn, 'utf8'), 'foobár');
 	});
 });

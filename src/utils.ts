@@ -198,3 +198,42 @@ export function canary(path?: string, syscall?: string) {
 export function _throw(e: unknown): never {
 	throw e;
 }
+
+interface ArrayBufferViewConstructor {
+	readonly prototype: ArrayBufferView<ArrayBufferLike>;
+	new (length: number): ArrayBufferView<ArrayBuffer>;
+	new (array: ArrayLike<number>): ArrayBufferView<ArrayBuffer>;
+	new <TArrayBuffer extends ArrayBufferLike = ArrayBuffer>(buffer: TArrayBuffer, byteOffset?: number, length?: number): ArrayBufferView<TArrayBuffer>;
+	new (array: ArrayLike<number> | ArrayBuffer): ArrayBufferView<ArrayBuffer>;
+}
+
+/**
+ * Grows a buffer if it isn't large enough
+ * @returns The original buffer if resized successfully, or a newly created buffer
+ * @internal Not for external use!
+ */
+export function growBuffer<T extends ArrayBufferLike | ArrayBufferView>(buffer: T, newByteLength: number): T {
+	if (buffer.byteLength >= newByteLength) return buffer;
+
+	if (ArrayBuffer.isView(buffer)) {
+		const newBuffer = growBuffer(buffer.buffer, newByteLength);
+		return new (buffer.constructor as ArrayBufferViewConstructor)(newBuffer, buffer.byteOffset, newByteLength) as T;
+	}
+
+	const isShared = buffer instanceof SharedArrayBuffer;
+
+	// Note: If true, the buffer must be resizable/growable because of the first check.
+	if (buffer.maxByteLength > newByteLength) {
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		isShared ? buffer.grow(newByteLength) : buffer.resize(newByteLength);
+		return buffer;
+	}
+
+	if (!isShared) {
+		return buffer.transfer(newByteLength) as T;
+	}
+
+	const newBuffer = new SharedArrayBuffer(newByteLength) as T & SharedArrayBuffer;
+	new Uint8Array(newBuffer).set(new Uint8Array(buffer));
+	return newBuffer;
+}

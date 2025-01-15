@@ -2,6 +2,7 @@ import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import './polyfills.js';
 import { _chown, Stats, type StatsLike } from './stats.js';
+import { growBuffer } from './utils.js';
 import { config } from './vfs/config.js';
 import * as c from './vfs/constants.js';
 
@@ -377,7 +378,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		}
 		this.stats.size = length;
 		// Truncate.
-		this._buffer = length ? this._buffer.slice(0, length) : new Uint8Array();
+		this._buffer = length ? this._buffer.subarray(0, length) : new Uint8Array();
 	}
 
 	public async truncate(length: number): Promise<void> {
@@ -399,26 +400,10 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 
 		this.dirty = true;
 		const end = position + length;
-		const slice = buffer.slice(offset, offset + length);
+		const slice = buffer.subarray(offset, offset + length);
 
-		if (end > this.stats.size) {
-			this.stats.size = end;
-			if (end > this._buffer.byteLength) {
-				const { buffer } = this._buffer;
-				if ('resizable' in buffer && buffer.resizable && buffer.maxByteLength <= end) {
-					buffer.resize(end);
-				} else if ('growable' in buffer && buffer.growable && buffer.maxByteLength <= end) {
-					buffer.grow(end);
-				} else if (config.unsafeBufferReplace) {
-					this._buffer = slice;
-				} else {
-					// Extend the buffer!
-					const newBuffer = new Uint8Array(new ArrayBuffer(end, this.fs.metadata().noResizableBuffers ? {} : { maxByteLength }));
-					newBuffer.set(this._buffer);
-					this._buffer = newBuffer;
-				}
-			}
-		}
+		this._buffer = growBuffer(this._buffer, end);
+		if (end > this.stats.size) this.stats.size = end;
 
 		this._buffer.set(slice, position);
 		this.stats.mtimeMs = Date.now();
@@ -479,7 +464,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			// No copy/read. Return immediately for better performance
 			return bytesRead;
 		}
-		const slice = this._buffer.slice(position, end);
+		const slice = this._buffer.subarray(position, end);
 		new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength).set(slice, offset);
 		return bytesRead;
 	}
@@ -717,11 +702,9 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 
 		this.dirty = true;
 		const end = position + length;
-		const slice = buffer.slice(offset, offset + length);
+		const slice = buffer.subarray(offset, offset + length);
 
-		if (end > this.stats.size) {
-			this.stats.size = end;
-		}
+		if (end > this.stats.size) this.stats.size = end;
 
 		this.stats.mtimeMs = Date.now();
 		this._position = position + slice.byteLength;
@@ -738,7 +721,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 */
 	public async write(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): Promise<number> {
 		const slice = this.prepareWrite(buffer, offset, length, position);
-		await this.fs.write(this.path, slice, offset);
+		await this.fs.write(this.path, slice, position);
 		if (config.syncImmediately) await this.sync();
 		return slice.byteLength;
 	}
@@ -754,7 +737,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 */
 	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		const slice = this.prepareWrite(buffer, offset, length, position);
-		this.fs.writeSync(this.path, slice, offset);
+		this.fs.writeSync(this.path, slice, position);
 		if (config.syncImmediately) this.syncSync();
 		return slice.byteLength;
 	}

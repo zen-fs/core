@@ -1,11 +1,11 @@
 import { randomInt, serialize } from 'utilium';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
-import { PreloadFile } from '../../file.js';
+import { LazyFile, PreloadFile } from '../../file.js';
 import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
 import { FileSystem } from '../../filesystem.js';
 import type { FileType, Stats } from '../../stats.js';
-import { _throw, canary, decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
+import { _throw, canary, decodeDirListing, encodeDirListing, encodeUTF8, growBuffer } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, resolve } from '../../vfs/path.js';
 import { Index } from './file_index.js';
@@ -267,28 +267,28 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
 		const node = await this.commitNew(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
-		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
+		return new LazyFile(this, path, flag, node.toStats());
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
 		const node = this.commitNewSync(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
-		return new PreloadFile(this, path, flag, node.toStats(), new Uint8Array());
+		return new LazyFile(this, path, flag, node.toStats());
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {
 		await using tx = this.store.transaction();
 		const node = await this.findInode(tx, path, 'openFile');
-		const data = (await tx.get(node.data)) ?? _throw(ErrnoError.With('ENODATA', path, 'openFile'));
+		//const data = (await tx.get(node.data)) ?? _throw(ErrnoError.With('ENODATA', path, 'openFile'));
 
-		return new PreloadFile(this, path, flag, node.toStats(), data);
+		return new LazyFile(this, path, flag, node.toStats());
 	}
 
 	public openFileSync(path: string, flag: string): File {
 		using tx = this.store.transaction();
 		const node = this.findInodeSync(tx, path, 'openFile');
-		const data = tx.getSync(node.data) ?? _throw(ErrnoError.With('ENOENT', path, 'openFile'));
+		//const data = tx.getSync(node.data) ?? _throw(ErrnoError.With('ENODATA', path, 'openFile'));
 
-		return new PreloadFile(this, path, flag, node.toStats(), data);
+		return new LazyFile(this, path, flag, node.toStats());
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -420,10 +420,15 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = await this.findInode(tx, path, 'write');
 
-		const buffer = await tx.get(inode.data);
+		const buffer = growBuffer(await tx.get(inode.data), offset + data.byteLength);
 		buffer.set(data, offset);
 
-		await this.sync(path, buffer, inode);
+		inode.update({ mtimeMs: Date.now(), size: buffer.byteLength });
+
+		await tx.set(inode.ino, serialize(inode));
+		await tx.set(inode.data, buffer);
+
+		await tx.commit();
 	}
 
 	public writeSync(path: string, data: Uint8Array, offset: number): void {
@@ -431,10 +436,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = this.findInodeSync(tx, path, 'write');
 
-		inode.update({ mtimeMs: Date.now() });
-
-		const buffer = tx.getSync(inode.data);
+		const buffer = growBuffer(tx.getSync(inode.data), offset + data.byteLength);
 		buffer.set(data, offset);
+
+		inode.update({ mtimeMs: Date.now(), size: buffer.byteLength });
 
 		tx.setSync(inode.ino, serialize(inode));
 		tx.setSync(inode.data, buffer);

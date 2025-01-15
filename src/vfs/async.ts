@@ -696,7 +696,7 @@ export function createReadStream(this: V_Context, path: fs.PathLike, options?: B
 			try {
 				handle ||= await promises.open.call(context, path, 'r', options?.mode);
 				const result = await handle.read(new Uint8Array(size), 0, size, handle.file.position);
-				stream.push(!result.bytesRead ? null : result.buffer.slice(0, result.bytesRead));
+				stream.push(!result.bytesRead ? null : result.buffer.subarray(0, result.bytesRead));
 				handle.file.position += result.bytesRead;
 				if (!result.bytesRead) {
 					await handle.close();
