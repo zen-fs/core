@@ -15,11 +15,13 @@ const { values: options, positionals } = parseArgs({
 		auto: { short: 'a', type: 'boolean', default: false },
 		build: { short: 'b', type: 'boolean', default: false },
 		common: { short: 'c', type: 'boolean', default: false },
+		inspect: { short: 'I', type: 'boolean', default: false },
+		'exit-on-fail': { short: 'e', type: 'boolean' },
+		// Coverage
 		coverage: { type: 'string', default: 'tests/.coverage' },
 		preserve: { short: 'p', type: 'boolean' },
-		'exit-on-fail': { short: 'e', type: 'boolean' },
-		report: { type: 'boolean' },
-		clean: { type: 'boolean' },
+		report: { type: 'boolean', default: false },
+		clean: { type: 'boolean', default: false },
 	},
 	allowPositionals: true,
 });
@@ -39,6 +41,7 @@ Options:
     -q, --quiet         Don't output normal messages
     -t, --test <glob>   Which FS test suite(s) to run
     -f, --force         Whether to use --test-force-exit
+    -I, --inspect       Use the inspector for debugging
 
 Coverage:
     --coverage <dir>    Override the default coverage data directory
@@ -138,7 +141,7 @@ if (options.common) {
 	!options.quiet && console.log('Running common tests...');
 	const { pass, fail } = status('Common tests');
 	try {
-		execSync("tsx --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'", {
+		execSync(`tsx ${options.inspect ? 'inspect' : ''} --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`, {
 			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 		});
 		pass();
@@ -161,7 +164,7 @@ for (const setupFile of positionals) {
 	const { pass, fail } = status(setupFile);
 
 	try {
-		execSync(['tsx --test --experimental-test-coverage', options.force ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), {
+		execSync(['tsx', options.inspect ? 'inspect' : '', '--test --experimental-test-coverage', options.force ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), {
 			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 		});
 		pass();
