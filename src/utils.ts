@@ -170,7 +170,7 @@ export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: an
 
 /**
  * Generate a random ino
- * @internal
+ * @internal @deprecated @hidden
  */
 export function randomBigInt(): bigint {
 	return BigInt('0x' + randomHex(8));

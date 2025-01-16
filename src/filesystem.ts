@@ -213,8 +213,8 @@ export abstract class FileSystem {
 	public abstract link(target: string, link: string): Promise<void>;
 	public abstract linkSync(target: string, link: string): void;
 
-	public abstract sync(path: string, data?: Uint8Array, stats?: Partial<Readonly<StatsLike>>): Promise<void>;
-	public abstract syncSync(path: string, data?: Uint8Array, stats?: Partial<Readonly<StatsLike>>): void;
+	public abstract sync(path: string, data?: Uint8Array, stats?: Readonly<Partial<StatsLike>>): Promise<void>;
+	public abstract syncSync(path: string, data?: Uint8Array, stats?: Readonly<Partial<StatsLike>>): void;
 
 	/**
 	 * Reads into a buffer
