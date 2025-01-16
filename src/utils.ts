@@ -220,12 +220,12 @@ export function growBuffer<T extends ArrayBufferLike | ArrayBufferView>(buffer: 
 		return new (buffer.constructor as ArrayBufferViewConstructor)(newBuffer, buffer.byteOffset, newByteLength) as T;
 	}
 
-	const isShared = buffer instanceof SharedArrayBuffer;
+	const isShared = typeof SharedArrayBuffer !== 'undefined' && buffer instanceof SharedArrayBuffer;
 
 	// Note: If true, the buffer must be resizable/growable because of the first check.
 	if (buffer.maxByteLength > newByteLength) {
 		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-		isShared ? buffer.grow(newByteLength) : buffer.resize(newByteLength);
+		isShared ? buffer.grow(newByteLength) : (buffer as ArrayBuffer).resize(newByteLength);
 		return buffer;
 	}
 
@@ -236,7 +236,7 @@ export function growBuffer<T extends ArrayBufferLike | ArrayBufferView>(buffer: 
 	}
 
 	try {
-		return buffer.transfer(newByteLength) as T;
+		return (buffer as ArrayBuffer).transfer(newByteLength) as T;
 	} catch {
 		const newBuffer = new ArrayBuffer(newByteLength) as T & ArrayBuffer;
 		new Uint8Array(newBuffer).set(new Uint8Array(buffer));
