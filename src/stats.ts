@@ -358,7 +358,13 @@ export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats
  * @internal
  */
 export function isStatsEqual<T extends number | bigint>(left: StatsCommon<T>, right: StatsCommon<T>): boolean {
-	return left.size == right.size && +left.atime == +right.atime && +left.mtime == +right.mtime && +left.ctime == +right.ctime && left.mode == right.mode;
+	return (
+		left.size == right.size &&
+		+left.atime == +right.atime &&
+		+left.mtime == +right.mtime &&
+		+left.ctime == +right.ctime &&
+		left.mode == right.mode
+	);
 }
 
 /** @internal */

@@ -161,7 +161,12 @@ export class DeviceFile<TData = any> extends File {
 		return new Stats(this.stats);
 	}
 
-	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
+	public readSync(
+		buffer: ArrayBufferView,
+		offset: number = 0,
+		length: number = buffer.byteLength - offset,
+		position: number = this.position
+	): number {
 		this.stats.atimeMs = Date.now();
 
 		const end = position + length;

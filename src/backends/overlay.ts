@@ -85,7 +85,9 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
-		return (await this.writable.exists(path)) ? await this.writable.read(path, buffer, offset, end) : await this.readable.read(path, buffer, offset, end);
+		return (await this.writable.exists(path))
+			? await this.writable.read(path, buffer, offset, end)
+			: await this.readable.read(path, buffer, offset, end);
 	}
 
 	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
@@ -415,7 +417,7 @@ export class OverlayFS extends FileSystem {
 
 	private checkInitialized(): void {
 		if (!this._isInitialized) {
-			throw new ErrnoError(Errno.EPERM, 'OverlayFS is not initialized. Please initialize OverlayFS using its initialize() method before using it.');
+			throw new ErrnoError(Errno.EPERM, 'Overlay is not initialized');
 		}
 
 		if (!this._deleteLogError) {

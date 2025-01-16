@@ -105,7 +105,12 @@ class PassthroughFile extends File<PassthroughFS> {
 		return promise;
 	}
 
-	public readSync(buffer: ArrayBufferView & NodeJS.ArrayBufferView, offset: number = 0, length: number = this.statSync().size, position: number | null = null): number {
+	public readSync(
+		buffer: ArrayBufferView & NodeJS.ArrayBufferView,
+		offset: number = 0,
+		length: number = this.statSync().size,
+		position: number | null = null
+	): number {
 		return this.node.readSync(this.fd, buffer, offset, length, position);
 	}
 

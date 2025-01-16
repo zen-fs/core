@@ -58,7 +58,10 @@ export class PortFS extends Async(FileSystem) {
 	}
 
 	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSMethods[T]>): Promise<Awaited<ReturnType<FSMethods[T]>>> {
-		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>({ method, args } as Omit<FSRequest<T>, 'id' | 'stack' | '_zenfs'>, { ...this.options, fs: this });
+		return RPC.request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>({ method, args } as Omit<FSRequest<T>, 'id' | 'stack' | '_zenfs'>, {
+			...this.options,
+			fs: this,
+		});
 	}
 
 	public async ready(): Promise<void> {

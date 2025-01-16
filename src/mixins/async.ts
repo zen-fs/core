@@ -233,7 +233,19 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		 * Patch all async methods to also call their synchronous counterparts unless called from the queue
 		 */
 		private _patchAsync(): void {
-			const asyncFSMethodKeys = ['rename', 'stat', 'createFile', 'openFile', 'unlink', 'rmdir', 'mkdir', 'readdir', 'link', 'sync', 'exists'] as const;
+			const asyncFSMethodKeys = [
+				'rename',
+				'stat',
+				'createFile',
+				'openFile',
+				'unlink',
+				'rmdir',
+				'mkdir',
+				'readdir',
+				'link',
+				'sync',
+				'exists',
+			] as const;
 			for (const key of asyncFSMethodKeys) {
 				if (typeof this[key] !== 'function') continue;
 

@@ -190,7 +190,12 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 	 * If position is null, data will be read from the current file position.
 	 * @returns Promise resolving to the new length of the buffer
 	 */
-	public abstract read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<FileReadResult<TBuffer>>;
+	public abstract read<TBuffer extends ArrayBufferView>(
+		buffer: TBuffer,
+		offset?: number,
+		length?: number,
+		position?: number
+	): Promise<FileReadResult<TBuffer>>;
 
 	/**
 	 * Read data from the file.
@@ -477,7 +482,12 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	 * @param position An integer specifying where to begin reading from in the file.
 	 * If position is null, data will be read from the current file position.
 	 */
-	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number, position?: number): Promise<{ bytesRead: number; buffer: TBuffer }> {
+	public async read<TBuffer extends ArrayBufferView>(
+		buffer: TBuffer,
+		offset?: number,
+		length?: number,
+		position?: number
+	): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		const bytesRead = this._read(buffer, offset, length, position);
 		if (config.syncImmediately) await this.sync();
 		return { bytesRead, buffer };
@@ -719,7 +729,12 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * @param position Offset from the beginning of the file where this data should be written.
 	 * If position is null, the data will be written at  the current position.
 	 */
-	public async write(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): Promise<number> {
+	public async write(
+		buffer: Uint8Array,
+		offset: number = 0,
+		length: number = buffer.byteLength - offset,
+		position: number = this.position
+	): Promise<number> {
 		const slice = this.prepareWrite(buffer, offset, length, position);
 		await this.fs.write(this.path, slice, position);
 		if (config.syncImmediately) await this.sync();
@@ -792,7 +807,12 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	 * If position is null, data will be read from the current file position.
 	 * @returns number of bytes written
 	 */
-	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
+	public readSync(
+		buffer: ArrayBufferView,
+		offset: number = 0,
+		length: number = buffer.byteLength - offset,
+		position: number = this.position
+	): number {
 		const end = this.prepareRead(length, position);
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		this.fs.readSync(this.path, uint8.subarray(offset, offset + length), position, end);

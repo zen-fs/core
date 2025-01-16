@@ -115,7 +115,10 @@ export class FileHandle implements promises.FileHandle {
 	 * - `mode` defaults to `0o666`.
 	 * - `flag` defaults to `'a'`.
 	 */
-	public async appendFile(data: string | Uint8Array, _options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {}): Promise<void> {
+	public async appendFile(
+		data: string | Uint8Array,
+		_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {}
+	): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isAppendable(flag)) {
@@ -137,8 +140,16 @@ export class FileHandle implements promises.FileHandle {
 	 * @param length The number of bytes to read.
 	 * @param position The offset from the beginning of the file from which data should be read. If `null`, data will be read from the current position.
 	 */
-	public async read<T extends NodeJS.ArrayBufferView>(buffer: T, offset?: number, length?: number, position?: number | null): Promise<promises.FileReadResult<T>>;
-	public async read<T extends NodeJS.ArrayBufferView = Buffer>(buffer: T, options?: promises.FileReadOptions<T>): Promise<promises.FileReadResult<T>>;
+	public async read<T extends NodeJS.ArrayBufferView>(
+		buffer: T,
+		offset?: number,
+		length?: number,
+		position?: number | null
+	): Promise<promises.FileReadResult<T>>;
+	public async read<T extends NodeJS.ArrayBufferView = Buffer>(
+		buffer: T,
+		options?: promises.FileReadOptions<T>
+	): Promise<promises.FileReadResult<T>>;
 	public async read<T extends NodeJS.ArrayBufferView = Buffer>(options?: promises.FileReadOptions<T>): Promise<promises.FileReadResult<T>>;
 	public async read<T extends NodeJS.ArrayBufferView = Buffer>(
 		buffer?: T | promises.FileReadOptions<T>,
@@ -593,7 +604,11 @@ open satisfies typeof promises.open;
  * @option flag Defaults to `'r'`.
  * @returns the file data
  */
-export async function readFile(this: V_Context, path: fs.PathLike | promises.FileHandle, options?: { encoding?: null; flag?: fs.OpenMode } | null): Promise<Buffer>;
+export async function readFile(
+	this: V_Context,
+	path: fs.PathLike | promises.FileHandle,
+	options?: { encoding?: null; flag?: fs.OpenMode } | null
+): Promise<Buffer>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
@@ -610,7 +625,8 @@ export async function readFile(
 	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
 ): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
-	await using handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open.call(this, path as string, options.flag, options.mode);
+	await using handle: FileHandle | promises.FileHandle =
+		typeof path == 'object' && 'fd' in path ? path : await open.call(this, path as string, options.flag, options.mode);
 	return await handle.readFile(options);
 }
 readFile satisfies typeof promises.readFile;
@@ -632,7 +648,12 @@ export async function writeFile(
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	await using handle = path instanceof FileHandle ? path : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
 
-	const _data = typeof data == 'string' ? data : data instanceof DataView ? new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)) : data;
+	const _data =
+		typeof data == 'string'
+			? data
+			: data instanceof DataView
+				? new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength))
+				: data;
 	if (typeof _data != 'string' && !(_data instanceof Uint8Array)) {
 		throw new ErrnoError(
 			Errno.EINVAL,
@@ -665,8 +686,10 @@ export async function appendFile(
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	await using handle: FileHandle | promises.FileHandle = typeof path == 'object' && 'fd' in path ? path : await open.call(this, path as string, options.flag, options.mode);
+	const encodedData =
+		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+	await using handle: FileHandle | promises.FileHandle =
+		typeof path == 'object' && 'fd' in path ? path : await open.call(this, path as string, options.flag, options.mode);
 
 	await handle.appendFile(encodedData, options);
 }
@@ -703,9 +726,17 @@ rmdir satisfies typeof promises.rmdir;
  * should be created. If a string is passed, it is parsed as an octal integer. If not specified, defaults to `0o777`.
  */
 export async function mkdir(this: V_Context, path: fs.PathLike, options: fs.MakeDirectoryOptions & { recursive: true }): Promise<string | undefined>;
-export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false | undefined }) | null): Promise<void>;
+export async function mkdir(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false | undefined }) | null
+): Promise<void>;
 export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined>;
-export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined | void> {
+export async function mkdir(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: fs.Mode | fs.MakeDirectoryOptions | null
+): Promise<string | undefined | void> {
 	const { euid: uid, egid: gid } = this?.credentials ?? credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
@@ -753,11 +784,27 @@ mkdir satisfies typeof promises.mkdir;
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'`.
  */
 export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): Promise<string[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }): Promise<Buffer[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): Promise<string[] | Buffer[]>;
+export async function readdir(
+	this: V_Context,
+	path: fs.PathLike,
+	options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }
+): Promise<Buffer[]>;
+export async function readdir(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc
+): Promise<string[] | Buffer[]>;
 export async function readdir(this: V_Context, path: fs.PathLike, options: ReaddirOptsI<{ withFileTypes: true }>): Promise<Dirent[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc): Promise<string[] | Dirent[] | Buffer[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc): Promise<string[] | Dirent[] | Buffer[]> {
+export async function readdir(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
+): Promise<string[] | Dirent[] | Buffer[]>;
+export async function readdir(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
+): Promise<string[] | Dirent[] | Buffer[]> {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = await realpath.call(this, path);
 
@@ -860,7 +907,12 @@ link satisfies typeof promises.link;
  * @param path link path
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
-export async function symlink(this: V_Context, target: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | string | null = 'file'): Promise<void> {
+export async function symlink(
+	this: V_Context,
+	target: fs.PathLike,
+	path: fs.PathLike,
+	type: fs.symlink.Type | string | null = 'file'
+): Promise<void> {
 	if (!['file', 'dir', 'junction'].includes(type!)) {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid symlink type: ' + type);
 	}
@@ -877,8 +929,16 @@ symlink satisfies typeof promises.symlink;
 
 export async function readlink(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
 export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | null): Promise<string>;
-export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer>;
-export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption | fs.EncodingOption | string | null): Promise<string | Buffer> {
+export async function readlink(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
+): Promise<string | Buffer>;
+export async function readlink(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
+): Promise<string | Buffer> {
 	await using handle = await _open.call(this, normalizePath(path), { flag: 'r', mode: 0o644, preserveSymlinks: true });
 	const value = await handle.readFile();
 	const encoding = typeof options == 'object' ? options?.encoding : options;
@@ -952,7 +1012,11 @@ lutimes satisfies typeof promises.lutimes;
  */
 export async function realpath(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
 export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
-export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Promise<string | Buffer> {
+export async function realpath(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
+): Promise<string | Buffer> {
 	path = normalizePath(path);
 	const ctx_path = (this?.root || '') + path;
 	if (cache.paths.hasAsync(ctx_path)) return cache.paths.getAsync(ctx_path)!;
@@ -983,18 +1047,34 @@ export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.
 }
 realpath satisfies typeof promises.realpath;
 
-export function watch(this: V_Context, filename: fs.PathLike, options?: fs.WatchOptions | BufferEncoding): AsyncIterable<promises.FileChangeInfo<string>>;
-export function watch(this: V_Context, filename: fs.PathLike, options: fs.WatchOptions | fs.BufferEncodingOption): AsyncIterable<promises.FileChangeInfo<Buffer>>;
+export function watch(
+	this: V_Context,
+	filename: fs.PathLike,
+	options?: fs.WatchOptions | BufferEncoding
+): AsyncIterable<promises.FileChangeInfo<string>>;
+export function watch(
+	this: V_Context,
+	filename: fs.PathLike,
+	options: fs.WatchOptions | fs.BufferEncodingOption
+): AsyncIterable<promises.FileChangeInfo<Buffer>>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | string
 ): AsyncIterable<promises.FileChangeInfo<string>> | AsyncIterable<promises.FileChangeInfo<Buffer>>;
-export function watch<T extends string | Buffer>(this: V_Context, filename: fs.PathLike, options: fs.WatchOptions | string = {}): AsyncIterable<promises.FileChangeInfo<T>> {
+export function watch<T extends string | Buffer>(
+	this: V_Context,
+	filename: fs.PathLike,
+	options: fs.WatchOptions | string = {}
+): AsyncIterable<promises.FileChangeInfo<T>> {
 	const context = this;
 	return {
 		[Symbol.asyncIterator](): AsyncIterator<promises.FileChangeInfo<T>> {
-			const watcher = new FSWatcher<T>(context, filename.toString(), typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' });
+			const watcher = new FSWatcher<T>(
+				context,
+				filename.toString(),
+				typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' }
+			);
 
 			// A queue to hold change events, since we need to resolve them in the async iterator
 			const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];
@@ -1168,7 +1248,10 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 				throw new ErrnoError(Errno.EISDIR, source + ' is a directory (not copied)', source, 'cp');
 			}
 			const [entries] = await Promise.all(
-				[readdir.call<V_Context, [string, any], Promise<Dirent[]>>(this, source, { withFileTypes: true }), mkdir.call(this, destination, { recursive: true })] // Ensure the destination directory exists
+				[
+					readdir.call<V_Context, [string, any], Promise<Dirent[]>>(this, source, { withFileTypes: true }),
+					mkdir.call(this, destination, { recursive: true }),
+				] // Ensure the destination directory exists
 			);
 
 			const _cp = async (dirent: Dirent) => {

@@ -190,7 +190,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Prevent us from re-grabbing the same directory listing, which still contains `old_path.base.`
 		const newDirNode: Inode = sameParent ? oldDirNode : await this.findInode(tx, _new.dir, 'rename');
-		const newDirList: typeof oldDirList = sameParent ? oldDirList : decodeDirListing((await tx.get(newDirNode.data)) ?? _throw(ErrnoError.With('ENOENT', _new.dir, 'rename')));
+		const newDirList: typeof oldDirList = sameParent
+			? oldDirList
+			: decodeDirListing((await tx.get(newDirNode.data)) ?? _throw(ErrnoError.With('ENOENT', _new.dir, 'rename')));
 
 		if (newDirList[_new.base]) {
 			// If it's a file, delete it, if it's a directory, throw a permissions error.
@@ -236,7 +238,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Prevent us from re-grabbing the same directory listing, which still contains `old_path.base.`
 		const newDirNode: Inode = sameParent ? oldDirNode : this.findInodeSync(tx, _new.dir, 'rename');
-		const newDirList: typeof oldDirList = sameParent ? oldDirList : decodeDirListing(tx.getSync(newDirNode.data) ?? _throw(ErrnoError.With('ENOENT', _new.dir, 'rename')));
+		const newDirList: typeof oldDirList = sameParent
+			? oldDirList
+			: decodeDirListing(tx.getSync(newDirNode.data) ?? _throw(ErrnoError.With('ENOENT', _new.dir, 'rename')));
 
 		if (newDirList[_new.base]) {
 			// If it's a file, delete it, if it's a directory, throw a permissions error.
@@ -498,7 +502,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		const { dir: parent, base: filename } = parse(path);
-		const inode = parent == '/' ? new Inode((await tx.get(rootIno)) ?? _throw(ErrnoError.With('ENOENT', parent, syscall))) : await this.findInode(tx, parent, syscall, visited);
+		const inode =
+			parent == '/'
+				? new Inode((await tx.get(rootIno)) ?? _throw(ErrnoError.With('ENOENT', parent, syscall)))
+				: await this.findInode(tx, parent, syscall, visited);
 		const dirList = decodeDirListing((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', parent, syscall)));
 
 		if (!(filename in dirList)) {
@@ -527,7 +534,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		const { dir: parent, base: filename } = parse(path);
-		const inode = parent == '/' ? new Inode(tx.getSync(rootIno) ?? _throw(ErrnoError.With('ENOENT', parent, syscall))) : this.findInodeSync(tx, parent, syscall, visited);
+		const inode =
+			parent == '/'
+				? new Inode(tx.getSync(rootIno) ?? _throw(ErrnoError.With('ENOENT', parent, syscall)))
+				: this.findInodeSync(tx, parent, syscall, visited);
 		const dir = decodeDirListing(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', parent, syscall)));
 
 		if (!(filename in dir)) {

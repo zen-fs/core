@@ -164,9 +164,19 @@ for (const setupFile of positionals) {
 	const { pass, fail } = status(setupFile);
 
 	try {
-		execSync(['tsx', options.inspect ? 'inspect' : '', '--test --experimental-test-coverage', options.force ? '--test-force-exit' : '', testsGlob, process.env.CMD].join(' '), {
-			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
-		});
+		execSync(
+			[
+				'tsx',
+				options.inspect ? 'inspect' : '',
+				'--test --experimental-test-coverage',
+				options.force ? '--test-force-exit' : '',
+				testsGlob,
+				process.env.CMD,
+			].join(' '),
+			{
+				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
+			}
+		);
 		pass();
 	} catch {
 		fail();

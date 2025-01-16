@@ -223,7 +223,11 @@ function _readFileSync(this: V_Context, fname: string, flag: string, preserveSym
  * @returns file contents
  */
 export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
-export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null): string;
+export function readFileSync(
+	this: V_Context,
+	path: fs.PathOrFileDescriptor,
+	options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null
+): string;
 export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = parseFlag(options.flag);
@@ -245,7 +249,12 @@ readFileSync satisfies typeof fs.readFileSync;
  */
 export function writeFileSync(this: V_Context, path: fs.PathOrFileDescriptor, data: FileContents, options?: fs.WriteFileOptions): void;
 export function writeFileSync(this: V_Context, path: fs.PathOrFileDescriptor, data: FileContents, encoding?: BufferEncoding): void;
-export function writeFileSync(this: V_Context, path: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions | BufferEncoding = {}): void {
+export function writeFileSync(
+	this: V_Context,
+	path: fs.PathOrFileDescriptor,
+	data: FileContents,
+	_options: fs.WriteFileOptions | BufferEncoding = {}
+): void {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isWriteable(flag)) {
@@ -254,7 +263,8 @@ export function writeFileSync(this: V_Context, path: fs.PathOrFileDescriptor, da
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+	const encodedData =
+		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	if (!encodedData) {
 		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
 	}
@@ -283,7 +293,8 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 	}
-	const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+	const encodedData =
+		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	using file = _openSync.call(this, typeof filename == 'number' ? fd2file(filename).path : filename.toString(), {
 		flag,
 		mode: options.mode,
@@ -339,9 +350,23 @@ fdatasyncSync satisfies typeof fs.fdatasyncSync;
  * @param position Offset from the beginning of the file where this data should be written.
  * If position is null, the data will be written at the current position.
  */
-export function writeSync(this: V_Context, fd: number, data: ArrayBufferView, offset?: number | null, length?: number | null, position?: number | null): number;
+export function writeSync(
+	this: V_Context,
+	fd: number,
+	data: ArrayBufferView,
+	offset?: number | null,
+	length?: number | null,
+	position?: number | null
+): number;
 export function writeSync(this: V_Context, fd: number, data: string, position?: number | null, encoding?: BufferEncoding | null): number;
-export function writeSync(this: V_Context, fd: number, data: FileContents, posOrOff?: number | null, lenOrEnc?: BufferEncoding | number | null, pos?: number | null): number {
+export function writeSync(
+	this: V_Context,
+	fd: number,
+	data: FileContents,
+	posOrOff?: number | null,
+	lenOrEnc?: BufferEncoding | number | null,
+	pos?: number | null
+): number {
 	let buffer: Uint8Array, offset: number | undefined, length: number, position: number | null;
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]])
@@ -367,7 +392,14 @@ export function writeSync(this: V_Context, fd: number, data: FileContents, posOr
 writeSync satisfies typeof fs.writeSync;
 
 export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions): number;
-export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, offset: number, length: number, position?: fs.ReadPosition | null): number;
+export function readSync(
+	this: V_Context,
+	fd: number,
+	buffer: ArrayBufferView,
+	offset: number,
+	length: number,
+	position?: fs.ReadPosition | null
+): number;
 /**
  * Read data from the file specified by `fd`.
  * @param buffer The buffer that the data will be written to.
@@ -376,7 +408,14 @@ export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, o
  * @param position An integer specifying where to begin reading from in the file.
  * If position is null, data will be read from the current file position.
  */
-export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions | number, length?: number, position?: fs.ReadPosition | null): number {
+export function readSync(
+	this: V_Context,
+	fd: number,
+	buffer: ArrayBufferView,
+	options?: fs.ReadSyncOptions | number,
+	length?: number,
+	position?: fs.ReadPosition | null
+): number {
 	const file = fd2file(fd);
 	const offset = typeof options == 'object' ? options.offset : options;
 	if (typeof options == 'object') {
@@ -480,11 +519,23 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 mkdirSync satisfies typeof fs.mkdirSync;
 
 export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): string[];
-export function readdirSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }): Buffer[];
+export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }
+): Buffer[];
 export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): string[] | Buffer[];
 export function readdirSync(this: V_Context, path: fs.PathLike, options: ReaddirOptsI<{ withFileTypes: true }>): Dirent[];
-export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc): string[] | Dirent[] | Buffer[];
-export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc): string[] | Dirent[] | Buffer[] {
+export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
+): string[] | Dirent[] | Buffer[];
+export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
+): string[] | Dirent[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
@@ -585,8 +636,16 @@ symlinkSync satisfies typeof fs.symlinkSync;
 
 export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption): Buffer;
 export function readlinkSync(this: V_Context, path: fs.PathLike, options: fs.EncodingOption | BufferEncoding): string;
-export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string;
-export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption): Buffer | string {
+export function readlinkSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
+): Buffer | string;
+export function readlinkSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
+): Buffer | string {
 	const value: Buffer = Buffer.from(_readFileSync.call(this, path.toString(), 'r', true));
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	if (encoding == 'buffer') {

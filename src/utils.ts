@@ -75,7 +75,9 @@ export { /** @deprecated @hidden */ decodeUTF8 as decode };
  * @hidden
  */
 export function decodeDirListing(data: Uint8Array): Record<string, number> {
-	return JSON.parse(decodeUTF8(data), (k, v) => (k == '' ? v : typeof v == 'string' ? BigInt(v).toString(16).slice(0, Math.min(v.length, 8)) : (v as number)));
+	return JSON.parse(decodeUTF8(data), (k, v) =>
+		k == '' ? v : typeof v == 'string' ? BigInt(v).toString(16).slice(0, Math.min(v.length, 8)) : (v as number)
+	);
 }
 
 /**
@@ -203,7 +205,11 @@ interface ArrayBufferViewConstructor {
 	readonly prototype: ArrayBufferView<ArrayBufferLike>;
 	new (length: number): ArrayBufferView<ArrayBuffer>;
 	new (array: ArrayLike<number>): ArrayBufferView<ArrayBuffer>;
-	new <TArrayBuffer extends ArrayBufferLike = ArrayBuffer>(buffer: TArrayBuffer, byteOffset?: number, length?: number): ArrayBufferView<TArrayBuffer>;
+	new <TArrayBuffer extends ArrayBufferLike = ArrayBuffer>(
+		buffer: TArrayBuffer,
+		byteOffset?: number,
+		length?: number
+	): ArrayBufferView<TArrayBuffer>;
 	new (array: ArrayLike<number> | ArrayBuffer): ArrayBufferView<ArrayBuffer>;
 }
 
