@@ -42,21 +42,33 @@ jobs:
 
             - name: Unit tests (common)
               run: npx zenfs-test -pfw --common --ci "Unit tests (common)"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Unit tests (InMemory)
               run: npx zenfs-test -pfw tests/setup/memory.ts --ci "Unit tests (InMemory)"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Unit tests (contexts)
               run: npx zenfs-test -pfw tests/setup/context.ts --ci "Unit tests (contexts)"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Unit tests (Index)
               run: npx zenfs-test -pfw tests/setup/index.ts --ci "Unit tests (Index)"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Unit tests (Port)
               run: npx zenfs-test -pfw tests/setup/port.ts --ci "Unit tests (Port)"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Unit tests (Overlay+Fetch)
               run: tests/fetch/run.sh -w --ci "Unit tests (Overlay+Fetch)"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Report coverage
               run: npx zenfs-test --report
