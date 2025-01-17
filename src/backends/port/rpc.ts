@@ -75,7 +75,7 @@ function isFileData(value: unknown): value is FileData {
 	return typeof value == 'object' && value != null && 'path' in value && 'flag' in value;
 }
 
-export { FileData as File };
+export type { FileData as File };
 
 // general types
 

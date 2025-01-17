@@ -6,7 +6,8 @@
 		"lib": ["ESNext"],
 		"moduleResolution": "NodeNext",
 		"declaration": true,
-		"strict": true
+		"strict": true,
+		"verbatimModuleSyntax": true
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules"],
