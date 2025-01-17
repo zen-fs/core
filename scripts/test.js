@@ -115,7 +115,7 @@ function color(text, code) {
 async function status(name) {
 	const start = performance.now();
 
-	if (options.ci) await ci.createCheck(options.ci);
+	if (options.ci) await ci.startCheck(options.ci);
 
 	const time = () => {
 		let delta = Math.round(performance.now() - start),
@@ -132,11 +132,11 @@ async function status(name) {
 	return {
 		async pass() {
 			if (!options.quiet) console.log(`${color('passed', 32)}: ${name} ${time()}`);
-			if (options.ci) await ci.completeCheck('success');
+			if (options.ci) await ci.completeCheck(options.ci, 'success');
 		},
 		async fail() {
 			console.error(`${color('failed', '1;31')}: ${name} ${time()}`);
-			if (options.ci) await ci.completeCheck('failure');
+			if (options.ci) await ci.completeCheck(options.ci, 'failure');
 			process.exitCode = 1;
 			if (options['exit-on-fail']) process.exit();
 		},

@@ -1,11 +1,16 @@
 import { Octokit } from '@octokit/action';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path/posix';
+import { JSONFileMap } from 'utilium/fs.js';
 
 const octokit = new Octokit();
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
 const head_sha = process.env.GITHUB_SHA;
 
-let check_run_id;
+mkdirSync(join(import.meta.dirname, '../tmp'), { recursive: true });
+
+const runIDs = new JSONFileMap(join(import.meta.dirname, '../tmp/checks.json'));
 
 /** Create a new GitHub check run */
 export async function createCheck(name) {
@@ -14,19 +19,32 @@ export async function createCheck(name) {
 		repo,
 		name,
 		head_sha,
-		status: 'in_progress',
+		status: 'queued',
 		started_at: new Date().toISOString(),
 	});
 
-	check_run_id = response.data.id;
+	runIDs.set(name, response.data.id);
 }
 
-/** Complete a check run */
-export async function completeCheck(conclusion, title = '', summary = '') {
+/**
+ * Move an existing check run from "queued" to "in_progress".
+ */
+export async function startCheck(name) {
 	await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
 		owner,
 		repo,
-		check_run_id,
+		check_run_id: runIDs.get(name),
+		status: 'in_progress',
+		started_at: new Date().toISOString(),
+	});
+}
+
+/** Complete a check run */
+export async function completeCheck(name, conclusion, title = '', summary = '') {
+	await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
+		owner,
+		repo,
+		check_run_id: runIDs.get(name),
 		status: 'completed',
 		completed_at: new Date().toISOString(),
 		conclusion,
