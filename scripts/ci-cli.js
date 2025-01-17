@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import * as ci from './ci.js';
 
