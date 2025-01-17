@@ -17,22 +17,21 @@ if (options.help || !subcommand) {
 	console.log(`Usage:
 zci [-h | --help]     Show this help message
 zci init              Create checks in a queued state
+zci cleanup           Mark all remaining checks are completed with a neutral status
 zci run <name> <cmd>  Run a command and use its exit code as the completion status
 zci list              List checks`);
 	process.exit();
 }
 
-const ciNames = Object.entries(ci.checkNames);
-
 switch (subcommand) {
 	case 'init':
-		for (const [id, name] of ciNames) {
+		for (const [id, name] of Object.entries(ci.checkNames)) {
 			await ci.createCheck(id, name);
 		}
 		break;
 	case 'list': {
-		const max = Math.max(...ciNames.map(([id]) => id.length)) + 1;
-		for (const [id, name] of ciNames) {
+		const max = Math.max(...Object.keys(ci.checkNames).map(id => id.length)) + 1;
+		for (const [id, name] of Object.entries(ci.checkNames)) {
 			console.log(id.padEnd(max), name);
 		}
 		break;
@@ -47,6 +46,12 @@ switch (subcommand) {
 		await ci.completeCheck(name, status ? 'failure' : 'success');
 
 		process.exit(status);
+	}
+	case 'cleanup': {
+		for (const id of Object.keys(ci.checkNames)) {
+			await ci.completeCheck(id, 'neutral');
+		}
+		break;
 	}
 	default:
 		console.error('Unknown subcommand:', subcommand);

@@ -33,7 +33,7 @@ jobs:
             - name: Install dependencies
               run: npm install
 
-            - name: Create checks
+            - name: Create sub-checks
               run: npx zci init
 
             - name: Formatting
@@ -65,3 +65,7 @@ jobs:
 
             - name: Report coverage
               run: npx zenfs-test --report
+
+            - name: Cleanup sub-checks
+              if: always()
+              run: npx zci cleanup

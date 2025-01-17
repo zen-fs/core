@@ -70,4 +70,5 @@ export async function completeCheck(id, conclusion, title = '', summary = '') {
 		conclusion,
 		output: { title, summary },
 	});
+	check.completed = true;
 }
