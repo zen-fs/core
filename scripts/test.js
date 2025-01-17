@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, globSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { existsSync, globSync, mkdirSync, rmSync } from 'node:fs';
+import { join, parse } from 'node:path';
 import { parseArgs } from 'node:util';
 
 const { values: options, positionals } = parseArgs({
@@ -178,7 +178,7 @@ for (const setupFile of positionals) {
 
 	process.env.SETUP = setupFile;
 
-	const name = options['file-names'] && !options.ci ? setupFile : basename(setupFile);
+	const name = options['file-names'] && !options.ci ? setupFile : parse(setupFile).name;
 
 	!options.quiet && console.log('Running tests:', name);
 
