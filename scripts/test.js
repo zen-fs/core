@@ -170,7 +170,7 @@ for (const setupFile of positionals) {
 	!options.quiet && console.log('Running tests:', setupFile);
 	process.env.SETUP = setupFile;
 
-	const { pass, fail } = status(setupFile);
+	const { pass, fail } = await status(setupFile);
 
 	try {
 		execSync(
@@ -186,9 +186,9 @@ for (const setupFile of positionals) {
 				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 			}
 		);
-		pass();
+		await pass();
 	} catch {
-		fail();
+		await fail();
 	}
 }
 
