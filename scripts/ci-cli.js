@@ -9,6 +9,7 @@ const { values: options, positionals } = parseArgs({
 		complete: { type: 'string' },
 		help: { short: 'h', type: 'boolean', default: false },
 		exit: { short: 'e', type: 'boolean', default: false },
+		run: { short: 'R', type: 'string' },
 	},
 	allowPositionals: true,
 });
