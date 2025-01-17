@@ -12,7 +12,7 @@ const { values: options, positionals } = parseArgs({
 		verbose: { short: 'w', type: 'boolean', default: false },
 		quiet: { short: 'q', type: 'boolean', default: false },
 		'file-names': { short: 'N', type: 'boolean', default: false },
-		ci: { short: 'C', type: 'string' },
+		ci: { short: 'C', type: 'boolean', default: false },
 
 		// Test behavior
 		test: { short: 't', type: 'string' },
