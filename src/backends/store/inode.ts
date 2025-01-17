@@ -53,7 +53,7 @@ export class Inode implements InodeLike {
 	@t.uint32 public data: number = randomInt(0, size_max);
 	/** For future use */
 	@t.uint32 public __data_old: number = 0;
-	@t.uint32 public size: number = 4096;
+	@t.uint32 public size: number = 0;
 	@t.uint16 public mode: number = 0;
 	@t.uint32 public nlink: number = 1;
 	@t.uint32 public uid: number = 0;
