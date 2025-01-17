@@ -45,22 +45,22 @@ jobs:
             - name: Linting
               run: npx zci run lint "npm run lint"
 
-            - name: Unit tests (common)
+            - name: 'Unit tests: common'
               run: npx zenfs-test -pfwC --common
 
-            - name: Unit tests (InMemory)
+            - name: 'Unit tests: InMemory'
               run: npx zenfs-test -pfwC tests/setup/memory.ts
 
-            - name: Unit tests (contexts)
+            - name: 'Unit tests: contexts'
               run: npx zenfs-test -pfwC tests/setup/context.ts
 
-            - name: Unit tests (Index)
+            - name: 'Unit tests: Index'
               run: npx zenfs-test -pfwC tests/setup/index.ts
 
-            - name: Unit tests (Port)
+            - name: 'Unit tests: Port'
               run: npx zenfs-test -pfwC tests/setup/port.ts
 
-            - name: Unit tests (Overlay+Fetch)
+            - name: 'Unit tests: Overlay+Fetch'
               run: tests/fetch/run.sh -wC
 
             - name: Report coverage
