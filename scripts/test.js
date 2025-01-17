@@ -17,6 +17,7 @@ const { values: options, positionals } = parseArgs({
 		common: { short: 'c', type: 'boolean', default: false },
 		inspect: { short: 'I', type: 'boolean', default: false },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
+		ci: { type: 'string' },
 		// Coverage
 		coverage: { type: 'string', default: 'tests/.coverage' },
 		preserve: { short: 'p', type: 'boolean' },
@@ -42,11 +43,12 @@ Options:
     -t, --test <glob>   Which FS test suite(s) to run
     -f, --force         Whether to use --test-force-exit
     -I, --inspect       Use the inspector for debugging
+        --ci <check>    Continuous integration (CI) mode. This interacts with the Github Checks API for better test status
 
 Coverage:
     --coverage <dir>    Override the default coverage data directory
     -p,--preserve       Do not delete or report coverage data
-	--report            ONLY report coverage
+    --report            ONLY report coverage
     --clean             ONLY clean up coverage directory`);
 	process.exit();
 }
@@ -68,6 +70,9 @@ if (options.report) {
 	rmSync(options.coverage, { recursive: true, force: true });
 	process.exit();
 }
+
+let ci;
+if (options.ci) ci = await import('./ci.js');
 
 options.verbose && options.force && console.debug('Forcing tests to exit (--test-force-exit)');
 
@@ -107,8 +112,10 @@ function color(text, code) {
 	return `\x1b[${code}m${text}\x1b[0m`;
 }
 
-function status(name) {
+async function status(name) {
 	const start = performance.now();
+
+	if (options.ci) await ci.createCheck(options.ci);
 
 	const time = () => {
 		let delta = Math.round(performance.now() - start),
@@ -123,11 +130,13 @@ function status(name) {
 	};
 
 	return {
-		pass() {
+		async pass() {
 			if (!options.quiet) console.log(`${color('passed', 32)}: ${name} ${time()}`);
+			if (options.ci) await ci.completeCheck('success');
 		},
-		fail() {
+		async fail() {
 			console.error(`${color('failed', '1;31')}: ${name} ${time()}`);
+			if (options.ci) await ci.completeCheck('failure');
 			process.exitCode = 1;
 			if (options['exit-on-fail']) process.exit();
 		},
@@ -139,14 +148,14 @@ mkdirSync(options.coverage, { recursive: true });
 
 if (options.common) {
 	!options.quiet && console.log('Running common tests...');
-	const { pass, fail } = status('Common tests');
+	const { pass, fail } = await status('Common tests');
 	try {
 		execSync(`tsx ${options.inspect ? 'inspect' : ''} --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`, {
 			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 		});
-		pass();
+		await pass();
 	} catch {
-		fail();
+		await fail();
 	}
 }
 

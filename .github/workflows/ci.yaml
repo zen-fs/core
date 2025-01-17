@@ -8,6 +8,10 @@ on:
     workflow_call:
     pull_request:
 
+permissions:
+    checks: write
+    contents: read
+
 jobs:
     ci:
         name: CI
@@ -37,22 +41,22 @@ jobs:
               run: npm run lint
 
             - name: Unit tests (common)
-              run: npx zenfs-test -pfw --common
+              run: npx zenfs-test -pfw --common --ci "Unit tests (common)"
 
             - name: Unit tests (InMemory)
-              run: npx zenfs-test -pfw tests/setup/memory.ts
+              run: npx zenfs-test -pfw tests/setup/memory.ts --ci "Unit tests (InMemory)"
 
             - name: Unit tests (contexts)
-              run: npx zenfs-test -pfw tests/setup/context.ts
+              run: npx zenfs-test -pfw tests/setup/context.ts --ci "Unit tests (contexts)"
 
             - name: Unit tests (Index)
-              run: npx zenfs-test -pfw tests/setup/index.ts
+              run: npx zenfs-test -pfw tests/setup/index.ts --ci "Unit tests (Index)"
 
             - name: Unit tests (Port)
-              run: npx zenfs-test -pfw tests/setup/port.ts
+              run: npx zenfs-test -pfw tests/setup/port.ts --ci "Unit tests (Port)"
 
             - name: Unit tests (Overlay+Fetch)
-              run: tests/fetch/run.sh -w
+              run: tests/fetch/run.sh -w --ci "Unit tests (Overlay+Fetch)"
 
             - name: Report coverage
               run: npx zenfs-test --report
