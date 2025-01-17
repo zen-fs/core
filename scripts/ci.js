@@ -19,7 +19,7 @@ export const checkNames = {
 	lint: 'Linting',
 	build: 'Build',
 	// Tests
-	'Common Tests': 'Unit tests (common)',
+	'Common tests': 'Unit tests (common)',
 	memory: 'Unit tests (InMemory)',
 	context: 'Unit tests (contexts)',
 	index: 'Unit tests (Index)',
@@ -71,4 +71,5 @@ export async function completeCheck(id, conclusion, title = '', summary = '') {
 		output: { title, summary },
 	});
 	check.completed = true;
+	checks.set(id, check);
 }
