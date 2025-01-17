@@ -19,12 +19,12 @@ export const checkNames = {
 	lint: 'Linting',
 	build: 'Build',
 	// Tests
-	'Common tests': 'Unit tests (common)',
-	memory: 'Unit tests (InMemory)',
-	context: 'Unit tests (contexts)',
-	index: 'Unit tests (Index)',
-	port: 'Unit tests (Port)',
-	'cow+fetch': 'Unit tests (Overlay, Fetch)',
+	'Common tests': 'Unit tests: common',
+	memory: 'Unit tests: InMemory',
+	context: 'Unit tests: contexts',
+	index: 'Unit tests: Index',
+	port: 'Unit tests: Port',
+	'cow+fetch': 'Unit tests: Overlay, Fetch',
 };
 
 /** Create a new GitHub check run */
