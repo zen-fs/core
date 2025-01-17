@@ -2,14 +2,19 @@
 
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, globSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { parseArgs } from 'node:util';
 
 const { values: options, positionals } = parseArgs({
 	options: {
+		// Output
 		help: { short: 'h', type: 'boolean', default: false },
 		verbose: { short: 'w', type: 'boolean', default: false },
 		quiet: { short: 'q', type: 'boolean', default: false },
+		'file-names': { short: 'N', type: 'boolean', default: false },
+		ci: { short: 'C', type: 'string' },
+
+		// Test behavior
 		test: { short: 't', type: 'string' },
 		force: { short: 'f', type: 'boolean', default: false },
 		auto: { short: 'a', type: 'boolean', default: false },
@@ -17,7 +22,7 @@ const { values: options, positionals } = parseArgs({
 		common: { short: 'c', type: 'boolean', default: false },
 		inspect: { short: 'I', type: 'boolean', default: false },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
-		ci: { type: 'string' },
+
 		// Coverage
 		coverage: { type: 'string', default: 'tests/.coverage' },
 		preserve: { short: 'p', type: 'boolean' },
@@ -32,22 +37,26 @@ if (options.help) {
 
 Paths: The setup files to run tests on
 
-Options:
+Behavior:
     -a, --auto          Automatically detect setup files
     -b, --build         Run the npm build script prior to running tests
     -c, --common        Also run tests not specific to any backend
     -e, --exit-on-fail  If any tests suites fail, exit immediately
-    -h, --help          Outputs this help message
-    -w, --verbose       Output verbose messages
-    -q, --quiet         Don't output normal messages
     -t, --test <glob>   Which FS test suite(s) to run
     -f, --force         Whether to use --test-force-exit
     -I, --inspect       Use the inspector for debugging
-        --ci <check>    Continuous integration (CI) mode. This interacts with the Github Checks API for better test status
+
+Output:
+    -h, --help          Outputs this help message
+    -w, --verbose       Output verbose messages
+    -q, --quiet         Don't output normal messages
+    -N, --file-names    Use full file paths for tests from setup files instead of the base name
+    -C, --ci            Continuous integration (CI) mode. This interacts with the Github
+                        Checks API for better test status. Requires @octokit/action
 
 Coverage:
     --coverage <dir>    Override the default coverage data directory
-    -p,--preserve       Do not delete or report coverage data
+    -p, --preserve      Do not delete or report coverage data
     --report            ONLY report coverage
     --clean             ONLY clean up coverage directory`);
 	process.exit();
@@ -115,7 +124,7 @@ function color(text, code) {
 async function status(name) {
 	const start = performance.now();
 
-	if (options.ci) await ci.startCheck(options.ci);
+	if (options.ci) await ci.startCheck(name);
 
 	const time = () => {
 		let delta = Math.round(performance.now() - start),
@@ -132,11 +141,11 @@ async function status(name) {
 	return {
 		async pass() {
 			if (!options.quiet) console.log(`${color('passed', 32)}: ${name} ${time()}`);
-			if (options.ci) await ci.completeCheck(options.ci, 'success');
+			if (options.ci) await ci.completeCheck(name, 'success');
 		},
 		async fail() {
 			console.error(`${color('failed', '1;31')}: ${name} ${time()}`);
-			if (options.ci) await ci.completeCheck(options.ci, 'failure');
+			if (options.ci) await ci.completeCheck(name, 'failure');
 			process.exitCode = 1;
 			if (options['exit-on-fail']) process.exit();
 		},
@@ -167,10 +176,13 @@ for (const setupFile of positionals) {
 		continue;
 	}
 
-	!options.quiet && console.log('Running tests:', setupFile);
 	process.env.SETUP = setupFile;
 
-	const { pass, fail } = await status(setupFile);
+	const name = options['file-names'] && !options.ci ? setupFile : basename(setupFile);
+
+	!options.quiet && console.log('Running tests:', name);
+
+	const { pass, fail } = await status(name);
 
 	try {
 		execSync(

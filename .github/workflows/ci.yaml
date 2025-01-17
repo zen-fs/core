@@ -34,34 +34,34 @@ jobs:
               run: npm install
 
             - name: Create checks
-              run: npx zenfs-ci --create Formatting Build Linting "Unit tests (common)" "Unit tests (InMemory)" "Unit tests (contexts)" "Unit tests (Index)" "Unit tests (Port)" "Unit tests (Overlay+Fetch)"
+              run: npx zci init
 
             - name: Formatting
-              run: npx zenfs-ci Formatting -R "npm run format:check"
+              run: npx zci run format "npm run format:check"
 
             - name: Build
-              run: npx zenfs-ci Build -R "npm run build"
+              run: npx zci run build "npm run build"
 
             - name: Linting
-              run: npx zenfs-ci Linting -R "npm run lint"
+              run: npx zci run lint "npm run lint"
 
             - name: Unit tests (common)
-              run: npx zenfs-test -pfw --common --ci "Unit tests (common)"
+              run: npx zenfs-test --ci -pfw --common
 
             - name: Unit tests (InMemory)
-              run: npx zenfs-test -pfw tests/setup/memory.ts --ci "Unit tests (InMemory)"
+              run: npx zenfs-test --ci -pfw tests/setup/memory.ts
 
             - name: Unit tests (contexts)
-              run: npx zenfs-test -pfw tests/setup/context.ts --ci "Unit tests (contexts)"
+              run: npx zenfs-test --ci -pfw tests/setup/context.ts
 
             - name: Unit tests (Index)
-              run: npx zenfs-test -pfw tests/setup/index.ts --ci "Unit tests (Index)"
+              run: npx zenfs-test --ci -pfw tests/setup/index.ts
 
             - name: Unit tests (Port)
-              run: npx zenfs-test -pfw tests/setup/port.ts --ci "Unit tests (Port)"
+              run: npx zenfs-test --ci -pfw tests/setup/port.ts
 
             - name: Unit tests (Overlay+Fetch)
-              run: tests/fetch/run.sh -w --ci "Unit tests (Overlay+Fetch)"
+              run: tests/fetch/run.sh --ci -w
 
             - name: Report coverage
               run: npx zenfs-test --report

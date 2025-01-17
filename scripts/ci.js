@@ -10,10 +10,25 @@ const head_sha = process.env.GITHUB_SHA;
 
 mkdirSync(join(import.meta.dirname, '../tmp'), { recursive: true });
 
-const runIDs = new JSONFileMap(join(import.meta.dirname, '../tmp/checks.json'));
+const checks = new JSONFileMap(join(import.meta.dirname, '../tmp/checks.json'));
+
+/** Maps test names and shortcuts to full check names */
+export const checkNames = {
+	// Basic ones
+	format: 'Formatting',
+	lint: 'Linting',
+	build: 'Build',
+	// Tests
+	'Common Tests': 'Unit tests (common)',
+	memory: 'Unit tests (InMemory)',
+	context: 'Unit tests (contexts)',
+	index: 'Unit tests (Index)',
+	port: 'Unit tests (Port)',
+	'cow+fetch': 'Unit tests (Overlay, Fetch)',
+};
 
 /** Create a new GitHub check run */
-export async function createCheck(name) {
+export async function createCheck(id, name) {
 	const response = await octokit.request('POST /repos/{owner}/{repo}/check-runs', {
 		owner,
 		repo,
@@ -23,28 +38,33 @@ export async function createCheck(name) {
 		started_at: new Date().toISOString(),
 	});
 
-	runIDs.set(name, response.data.id);
+	checks.set(id, { id: response.data.id, completed: false });
 }
 
 /**
  * Move an existing check run from "queued" to "in_progress".
  */
-export async function startCheck(name) {
+export async function startCheck(id) {
+	const check = checks.get(id);
+
 	await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
 		owner,
 		repo,
-		check_run_id: runIDs.get(name),
+		check_run_id: check.id,
 		status: 'in_progress',
 		started_at: new Date().toISOString(),
 	});
 }
 
 /** Complete a check run */
-export async function completeCheck(name, conclusion, title = '', summary = '') {
+export async function completeCheck(id, conclusion, title = '', summary = '') {
+	const check = checks.get(id);
+	if (check.completed) return;
+
 	await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
 		owner,
 		repo,
-		check_run_id: runIDs.get(name),
+		check_run_id: check.id,
 		status: 'completed',
 		completed_at: new Date().toISOString(),
 		conclusion,
