@@ -71,31 +71,21 @@ suite('Rename', () => {
 	});
 
 	test('File to Directory and Directory to File Rename', async () => {
-		const dir = '/rename_filedir_test';
-		const file = '/rename_filedir_test.txt';
+		const dir = '/rename_file_dir_test';
+		const file = '/rename_file_dir_test.txt';
 
 		await fs.promises.mkdir(dir);
 		await fs.promises.writeFile(file, 'file contents go here');
 
 		await fs.promises.rename(file, dir).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
-			assert(error.code === 'EISDIR' || error.code === 'EPERM');
+			assert.match(error.code, /EISDIR|EPERM/);
 		});
-
-		// JV: Removing test for now. I noticed that you can do that in Node v0.12 on Mac,
-		// but it might be FS independent.
-		/*fs.rename(dir, file, function (e) {
-		  if (e == null) {
-			throw new Error("Failed invariant: Cannot rename a directory over a file.");
-		  } else {
-			assert.strictEqual(e.code, 'ENOTDIR');
-		  }
-		});*/
 	});
 
 	test('rename directory inside itself', async () => {
-		const renDir1 = '/renamedir_1';
-		const renDir2 = '/renamedir_1/lol';
+		const renDir1 = '/rename_dir_1';
+		const renDir2 = '/rename_dir_1/lol';
 
 		await fs.promises.mkdir(renDir1);
 
