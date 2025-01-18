@@ -42,12 +42,29 @@ export class Index extends Map<string, Readonly<Inode>> {
 		return JSON.stringify(this.toJSON());
 	}
 
+	public directoryEntries(path: string): Record<string, number> {
+		const node = this.get(path);
+
+		if (!node) throw ErrnoError.With('ENOENT', path);
+
+		if ((node.mode & S_IFMT) != S_IFDIR) throw ErrnoError.With('ENOTDIR', path);
+
+		const entries: Record<string, number> = {};
+
+		for (const entry of this.keys()) {
+			if (dirname(entry) == path && entry != path) {
+				entries[basename(entry)] = this.get(entry)!.ino;
+			}
+		}
+
+		return entries;
+	}
+
 	/**
-	 * Gets a list of entries for each directory in the index. Memoized.
+	 * Gets a list of entries for each directory in the index.
+	 * Use
 	 */
 	public directories(): Map<string, Record<string, number>> {
-		if (this._directories) return this._directories;
-
 		const dirs = new Map<string, Record<string, number>>();
 		for (const [path, node] of this) {
 			if ((node.mode & S_IFMT) != S_IFDIR) continue;
@@ -60,8 +77,6 @@ export class Index extends Map<string, Readonly<Inode>> {
 
 			dirs.set(path, entries);
 		}
-
-		this._directories = dirs;
 
 		return dirs;
 	}
