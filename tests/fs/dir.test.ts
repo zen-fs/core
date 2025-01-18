@@ -1,4 +1,4 @@
-import assert, { rejects } from 'node:assert';
+import assert, { rejects } from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs, type Dirent } from '../common.js';
 
@@ -68,7 +68,7 @@ suite('Dir', () => {
 		assert(testFiles.includes(dirent2?.name));
 
 		const dirent3 = await dir.read();
-		assert.strictEqual(dirent3, null);
+		assert.equal(dirent3, null);
 
 		await dir.close();
 	});
@@ -85,7 +85,7 @@ suite('Dir', () => {
 		assert(testFiles.includes(dirent2?.name));
 
 		const dirent3 = dir.readSync();
-		assert.strictEqual(dirent3, null);
+		assert.equal(dirent3, null);
 
 		dir.closeSync();
 	});
@@ -110,7 +110,7 @@ suite('Dir', () => {
 			dirents.push(dirent);
 		}
 
-		assert.strictEqual(dirents.length, 2);
+		assert.equal(dirents.length, 2);
 		assert(dirents[0] instanceof fs.Dirent);
 		assert(testFiles.includes(dirents[0].name));
 		assert(testFiles.includes(dirents[1].name));

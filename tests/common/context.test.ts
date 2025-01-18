@@ -1,5 +1,5 @@
 import { suite, test } from 'node:test';
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { bindContext } from '../../dist/context.js';
 import * as fs from '../../dist/vfs/index.js';
 
@@ -15,8 +15,8 @@ suite('Context', () => {
 
 	test('linking', async () => {
 		await ctx.promises.symlink('/example.txt', '/link');
-		assert.strictEqual(await ctx.promises.readlink('link', 'utf8'), '/example.txt');
-		assert.strictEqual(await fs.promises.readlink('/ctx/link'), '/example.txt');
+		assert.equal(await ctx.promises.readlink('link', 'utf8'), '/example.txt');
+		assert.equal(await fs.promises.readlink('/ctx/link'), '/example.txt');
 		assert.deepEqual(await ctx.promises.readFile('/link', 'utf-8'), await fs.promises.readFile('/ctx/example.txt', 'utf-8'));
 
 		// The symlink should only work inside the chroot /ctx
@@ -25,12 +25,12 @@ suite('Context', () => {
 
 	test('path resolution', async () => {
 		// Correct/normal
-		assert.strictEqual(ctx.realpathSync('/'), '/');
-		assert.strictEqual(ctx.realpathSync('example.txt'), '/example.txt');
-		assert.strictEqual(ctx.realpathSync('../link'), '/example.txt');
-		assert.strictEqual(await ctx.promises.realpath('/../link'), '/example.txt');
+		assert.equal(ctx.realpathSync('/'), '/');
+		assert.equal(ctx.realpathSync('example.txt'), '/example.txt');
+		assert.equal(ctx.realpathSync('../link'), '/example.txt');
+		assert.equal(await ctx.promises.realpath('/../link'), '/example.txt');
 
-		assert.strictEqual(fs.realpathSync('/ctx/link'), '/example.txt');
+		assert.equal(fs.realpathSync('/ctx/link'), '/example.txt');
 	});
 
 	test('break-out fails', () => {
@@ -49,8 +49,8 @@ suite('Context', () => {
 			}
 		})();
 		await ctx.promises.writeFile('/xpto.txt', 'in real root');
-		assert.strictEqual(lastFile!, 'xpto.txt');
+		assert.equal(lastFile!, 'xpto.txt');
 		await ctx.promises.unlink('/xpto.txt');
-		assert.strictEqual(lastFile, 'xpto.txt');
+		assert.equal(lastFile, 'xpto.txt');
 	});
 });

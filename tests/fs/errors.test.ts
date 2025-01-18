@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import test, { suite } from 'node:test';
 import type { ErrnoError } from '../../dist/error.js';
 import { fs } from '../common.js';

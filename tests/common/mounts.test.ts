@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { configure } from '../../dist/config.js';
 import * as fs from '../../dist/vfs/index.js';
@@ -12,8 +12,8 @@ suite('Mounts', () => {
 			},
 		});
 
-		assert.deepStrictEqual(fs.readdirSync('/'), ['nested']);
-		assert.deepStrictEqual(fs.readdirSync('/nested'), ['dir']);
+		assert.deepEqual(fs.readdirSync('/'), ['nested']);
+		assert.deepEqual(fs.readdirSync('/nested'), ['dir']);
 
 		// cleanup
 		fs.umount('/nested/dir');

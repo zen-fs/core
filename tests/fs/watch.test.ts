@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs, type Stats } from '../common.js';
 
@@ -14,8 +14,8 @@ await fs.promises.writeFile(testFile, 'Initial content');
 suite('Watch Features', () => {
 	test('fs.watch should emit events on file change', async () => {
 		using watcher = fs.watch(testFile, (eventType, filename) => {
-			assert.strictEqual(eventType, 'change');
-			assert.strictEqual(filename, 'test.txt');
+			assert.equal(eventType, 'change');
+			assert.equal(filename, 'test.txt');
 		});
 
 		// Modify the file to trigger the event
@@ -24,8 +24,8 @@ suite('Watch Features', () => {
 
 	test('fs.watch should emit events on file rename (delete)', async () => {
 		using watcher = fs.watch(testFile, (eventType, filename) => {
-			assert.strictEqual(eventType, 'rename');
-			assert.strictEqual(filename, 'test.txt');
+			assert.equal(eventType, 'rename');
+			assert.equal(filename, 'test.txt');
 		});
 
 		// Delete the file to trigger the event
@@ -63,8 +63,8 @@ suite('Watch Features', () => {
 
 	test('fs.watch should work with directories', async () => {
 		using watcher = fs.watch(testDir, (eventType, filename) => {
-			assert.strictEqual(eventType, 'change');
-			assert.strictEqual(filename, 'newFile.txt');
+			assert.equal(eventType, 'change');
+			assert.equal(filename, 'newFile.txt');
 		});
 
 		await fs.promises.writeFile(`${testDir}/newFile.txt`, 'Content');
@@ -87,7 +87,7 @@ suite('Watch Features', () => {
 		using watcher = fs.watch(testDir, (eventType, filename) => {
 			const resolver = fileResolvers[filename];
 			assert.notEqual(resolver, undefined); // should have a resolver so file is expected
-			assert.strictEqual(eventType, resolver.eventType);
+			assert.equal(eventType, resolver.eventType);
 			resolver.resolver.resolve();
 		});
 
@@ -102,8 +102,8 @@ suite('Watch Features', () => {
 		await fs.promises.writeFile(tempFile, 'Temporary content');
 
 		using watcher = fs.watch(tempFile, (eventType, filename) => {
-			assert.strictEqual(eventType, 'rename');
-			assert.strictEqual(filename, 'tempFile.txt');
+			assert.equal(eventType, 'rename');
+			assert.equal(filename, 'tempFile.txt');
 		});
 
 		await fs.promises.unlink(tempFile);

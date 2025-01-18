@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { credentials } from '../../dist/credentials.js';
 import { R_OK, W_OK, X_OK } from '../../dist/vfs/constants.js';
@@ -50,7 +50,7 @@ suite('Permissions', () => {
 	async function test_item(path: string): Promise<void> {
 		const stats = await fs.promises.stat(path).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'EACCES');
+			assert.equal(error.code, 'EACCES');
 		});
 		if (!stats) {
 			return;

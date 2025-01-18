@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { ErrnoError } from '../../dist/error.js';
 import { fs } from '../common.js';
@@ -21,10 +21,10 @@ suite('Rename', () => {
 	 */
 	async function check_directory(dir: string) {
 		const contents = await fs.promises.readdir(dir);
-		assert.strictEqual(contents.length, 2);
+		assert.equal(contents.length, 2);
 
 		const subContents = await fs.promises.readdir(dir + '/_rename_me');
-		assert.strictEqual(subContents.length, 1);
+		assert.equal(subContents.length, 1);
 
 		assert(await fs.promises.exists(dir + '/file.dat'));
 		assert(await fs.promises.exists(dir + '/_rename_me/lol.txt'));
@@ -91,7 +91,7 @@ suite('Rename', () => {
 
 		await fs.promises.rename(renDir1, renDir2).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'EBUSY');
+			assert.equal(error.code, 'EBUSY');
 		});
 	});
 });

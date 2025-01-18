@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { ErrnoError } from '../../dist/error.js';
 import { fs } from '../common.js';
@@ -32,7 +32,7 @@ suite('Directories', () => {
 			await fs.promises.mkdir('/nested/dir');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'ENOENT');
+			assert.equal(error.code, 'ENOENT');
 		}
 		assert(!(await fs.promises.exists('/nested/dir')));
 	});
@@ -66,7 +66,7 @@ suite('Directories', () => {
 			fs.readdirSync('/two');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'EACCES');
+			assert.equal(error.code, 'EACCES');
 		}
 	});
 
@@ -78,7 +78,7 @@ suite('Directories', () => {
 			await fs.promises.rmdir('/rmdirTest');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'ENOTEMPTY');
+			assert.equal(error.code, 'ENOTEMPTY');
 		}
 	});
 
@@ -90,7 +90,7 @@ suite('Directories', () => {
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
 			wasThrown = true;
-			assert.strictEqual(error.code, 'ENOTDIR');
+			assert.equal(error.code, 'ENOTDIR');
 		}
 		assert(wasThrown);
 	});
@@ -100,7 +100,7 @@ suite('Directories', () => {
 			await fs.promises.readdir('a.js');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'ENOTDIR');
+			assert.equal(error.code, 'ENOTDIR');
 		}
 	});
 
@@ -112,7 +112,7 @@ suite('Directories', () => {
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
 			wasThrown = true;
-			assert.strictEqual(error.code, 'ENOENT');
+			assert.equal(error.code, 'ENOENT');
 		}
 		assert(wasThrown);
 	});
@@ -122,7 +122,7 @@ suite('Directories', () => {
 			await fs.promises.readdir('/does/not/exist');
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'ENOENT');
+			assert.equal(error.code, 'ENOENT');
 		}
 	});
 

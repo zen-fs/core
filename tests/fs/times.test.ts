@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
 import { ErrnoError } from '../../dist/error.js';
@@ -28,26 +28,26 @@ suite('times', () => {
 
 		await fs.promises.utimes(path, atime, mtime);
 
-		assert.deepStrictEqual(unixTimestamps(await fs.promises.stat(path)), times);
+		assert.deepEqual(unixTimestamps(await fs.promises.stat(path)), times);
 
 		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: ErrnoError) => {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'ENOENT');
+			assert.equal(error.code, 'ENOENT');
 		});
 
 		await using handle = await fs.promises.open(path, 'r');
 
 		await handle.utimes(atime, mtime);
-		assert.deepStrictEqual(unixTimestamps(await handle.stat()), times);
+		assert.deepEqual(unixTimestamps(await handle.stat()), times);
 
 		fs.utimesSync(path, atime, mtime);
-		assert.deepStrictEqual(unixTimestamps(fs.statSync(path)), times);
+		assert.deepEqual(unixTimestamps(fs.statSync(path)), times);
 
 		try {
 			fs.utimesSync('foobarbaz', atime, mtime);
 		} catch (error: any) {
 			assert(error instanceof ErrnoError);
-			assert.strictEqual(error.code, 'ENOENT');
+			assert.equal(error.code, 'ENOENT');
 		}
 
 		try {

@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { MessageChannel } from 'node:worker_threads';
 import { Port } from '../../dist/backends/port/fs.js';
@@ -26,7 +26,7 @@ await suite('Timeout', { timeout: 1000 }, () => {
 			error = e;
 		}
 		assert(error! instanceof ErrnoError);
-		assert.strictEqual(error.code, 'EIO');
+		assert.equal(error.code, 'EIO');
 		assert(error.message.includes('RPC Failed'));
 	});
 
@@ -40,7 +40,7 @@ await suite('Timeout', { timeout: 1000 }, () => {
 			error = e;
 		}
 		assert(error! instanceof ErrnoError);
-		assert.strictEqual(error.code, 'EIO');
+		assert.equal(error.code, 'EIO');
 		assert(error.message.includes('RPC Failed'));
 	});
 });

@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
@@ -10,7 +10,7 @@ suite('Reading', () => {
 	test('Reading past the end of a file should not be an error', async () => {
 		const handle = await fs.promises.open('a.js', 'r');
 		const { bytesRead } = await handle.read(new Uint8Array(10), 0, 10, 10000);
-		assert.strictEqual(bytesRead, 0);
+		assert.equal(bytesRead, 0);
 	});
 });
 
@@ -46,7 +46,7 @@ suite('Read File Test', () => {
 
 	test('read file with utf-8 encoding asynchronously', async () => {
 		const data: string = await fs.promises.readFile(fn, 'utf8');
-		assert.strictEqual(data, '');
+		assert.equal(data, '');
 	});
 
 	test('read file synchronously', () => {
@@ -56,7 +56,7 @@ suite('Read File Test', () => {
 
 	test('read file with utf-8 encoding synchronously', () => {
 		const data: string = fs.readFileSync(fn, 'utf8');
-		assert.strictEqual(data, '');
+		assert.equal(data, '');
 	});
 });
 
@@ -65,9 +65,9 @@ suite('fs file reading', () => {
 		const content = fs.readFileSync('elipses.txt', 'utf8');
 
 		for (let i = 0; i < content.length; i++) {
-			assert.strictEqual(content[i], '…');
+			assert.equal(content[i], '…');
 		}
 
-		assert.strictEqual(content.length, 10000);
+		assert.equal(content.length, 10000);
 	});
 });

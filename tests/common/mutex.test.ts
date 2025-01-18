@@ -3,7 +3,7 @@ import { Mutexed } from '../../dist/mixins/mutexed.js';
 import { StoreFS } from '../../dist/backends/store/fs.js';
 import { InMemoryStore } from '../../dist/backends/memory.js';
 import { suite, test } from 'node:test';
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 
 suite('LockFS mutex', () => {
 	const fs = new (Mutexed(StoreFS))(new InMemoryStore('test'));
@@ -57,6 +57,6 @@ suite('LockFS mutex', () => {
 		}
 
 		await Promise.all([foo(), foo(), foo()]);
-		assert.strictEqual(x, 4);
+		assert.equal(x, 4);
 	});
 });

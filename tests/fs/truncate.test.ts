@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 import type { FileHandle } from '../../dist/vfs/promises.js';

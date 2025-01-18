@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
@@ -41,17 +41,17 @@ suite('ReadStream', () => {
 
 	test('ReadStream declared properties', () => {
 		const readStream = new fs.ReadStream();
-		assert.strictEqual(readStream.bytesRead, undefined);
-		assert.strictEqual(readStream.path, undefined);
-		assert.strictEqual(readStream.pending, undefined);
+		assert.equal(readStream.bytesRead, undefined);
+		assert.equal(readStream.path, undefined);
+		assert.equal(readStream.pending, undefined);
 
 		// Assign values
 		readStream.bytesRead = 10;
 		readStream.path = testFilePath;
 		readStream.pending = false;
 
-		assert.strictEqual(readStream.bytesRead, 10);
-		assert.strictEqual(readStream.path, testFilePath);
+		assert.equal(readStream.bytesRead, 10);
+		assert.equal(readStream.path, testFilePath);
 		assert(!readStream.pending);
 	});
 
@@ -102,17 +102,17 @@ suite('WriteStream', () => {
 
 	test('WriteStream declared properties', () => {
 		const writeStream = new fs.WriteStream();
-		assert.strictEqual(writeStream.bytesWritten, undefined);
-		assert.strictEqual(writeStream.path, undefined);
-		assert.strictEqual(writeStream.pending, undefined);
+		assert.equal(writeStream.bytesWritten, undefined);
+		assert.equal(writeStream.path, undefined);
+		assert.equal(writeStream.pending, undefined);
 
 		// Assign values
 		writeStream.bytesWritten = 20;
 		writeStream.path = testFilePathWrite;
 		writeStream.pending = true;
 
-		assert.strictEqual(writeStream.bytesWritten, 20);
-		assert.strictEqual(writeStream.path, testFilePathWrite);
+		assert.equal(writeStream.bytesWritten, 20);
+		assert.equal(writeStream.path, testFilePathWrite);
 		assert(writeStream.pending);
 	});
 

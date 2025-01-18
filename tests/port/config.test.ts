@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { dirname } from 'node:path';
 import { suite, test } from 'node:test';
 import { fileURLToPath } from 'node:url';

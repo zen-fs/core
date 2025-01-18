@@ -1,4 +1,4 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { join } from '../../dist/vfs/path.js';
 import { fs } from '../common.js';
@@ -20,7 +20,7 @@ suite('Links', () => {
 
 	test('readlink', async () => {
 		const destination = await fs.promises.readlink(symlink);
-		assert.strictEqual(destination, target);
+		assert.equal(destination, target);
 	});
 
 	test('read target contents', async () => {
@@ -43,7 +43,7 @@ suite('Links', () => {
 		}
 		const targetContent = await fs.promises.readFile(target, 'utf8');
 		const linkContent = await fs.promises.readFile(hardlink, 'utf8');
-		assert.strictEqual(targetContent, linkContent);
+		assert.equal(targetContent, linkContent);
 	});
 
 	test('file inside symlinked directory', async () => {
@@ -52,6 +52,6 @@ suite('Links', () => {
 		const link = join('link', target);
 		assert((await fs.promises.realpath(link)) === target);
 		const linkContent = await fs.promises.readFile(link, 'utf8');
-		assert.strictEqual(targetContent, linkContent);
+		assert.equal(targetContent, linkContent);
 	});
 });
