@@ -710,6 +710,28 @@ export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.En
 	path = normalizePath(path);
 	const ctx_path = (this?.root || '') + path;
 	if (cache.paths.has(ctx_path)) return cache.paths.get(ctx_path)!;
+
+	/* Try to resolve it directly. If this works,
+	that means we don't need to perform any resolution for parent directories. */
+	try {
+		const { fs, path: resolvedPath } = resolveMount(path, this);
+		// Stat it to make sure it exists
+		const stats = fs.statSync(resolvedPath);
+
+		let real = path;
+
+		if (stats.isSymbolicLink()) {
+			const target = resolve(dirname(resolvedPath), readlinkSync.call(this, resolvedPath, options).toString());
+			real = cache.paths.get((this?.root || '') + target) || realpathSync.call(this, target);
+			cache.paths.set(ctx_path, real);
+		}
+
+		cache.paths.set(path, real);
+		return real;
+	} catch {
+		// Go the long way
+	}
+
 	const { base, dir } = parse(path);
 	const realDir = dir == '/' ? '/' : cache.paths.get((this?.root || '') + dir) || realpathSync.call(this, dir);
 	const lpath = join(realDir, base);

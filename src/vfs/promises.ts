@@ -1020,6 +1020,28 @@ export async function realpath(
 	path = normalizePath(path);
 	const ctx_path = (this?.root || '') + path;
 	if (cache.paths.hasAsync(ctx_path)) return cache.paths.getAsync(ctx_path)!;
+
+	/* Try to resolve it directly. If this works,
+	that means we don't need to perform any resolution for parent directories. */
+	try {
+		const { fs, path: resolvedPath } = resolveMount(path, this);
+		// Stat it to make sure it exists
+		const stats = await fs.stat(resolvedPath);
+
+		let real = path.toString();
+
+		if (stats.isSymbolicLink()) {
+			const target = resolve(dirname(resolvedPath), (await readlink.call(this, resolvedPath, options)).toString());
+			real = cache.paths.get((this?.root || '') + target) || (await realpath.call(this, target));
+			cache.paths.set(ctx_path, real);
+		}
+
+		cache.paths.set(path.toString(), real);
+		return real;
+	} catch {
+		// Go the long way
+	}
+
 	const { base, dir } = parse(path);
 	const realDir = dir == '/' ? '/' : await (cache.paths.getAsync((this?.root || '') + dir) || realpath.call(this, dir));
 	const lpath = join(realDir, base);
