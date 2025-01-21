@@ -37,19 +37,25 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
  */
 export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncMixin> {
 	abstract class AsyncFS extends FS implements AsyncMixin {
-		/**
-		 * Queue of pending asynchronous operations.
-		 */
-		private _queue: AsyncOperation[] = [];
-		private get _queueRunning(): boolean {
-			return !!this._queue.length;
+		async done(): Promise<void> {
+			await this._promise;
 		}
 
 		public queueDone(): Promise<void> {
-			return new Promise(resolve => {
-				const check = (): unknown => (this._queueRunning ? setTimeout(check) : resolve());
-				check();
-			});
+			return this.done();
+		}
+
+		private _promise?: Promise<unknown>;
+
+		private _async(promise: Promise<unknown>) {
+			promise.catch(e => console.error(e.stack));
+
+			if (!this._promise) {
+				this._promise = promise;
+				return;
+			}
+
+			this._promise = this._promise.then(() => promise);
 		}
 
 		private _isInitialized: boolean = false;
@@ -108,7 +114,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		public renameSync(oldPath: string, newPath: string): void {
 			this.checkSync(oldPath, 'rename');
 			this._sync.renameSync(oldPath, newPath);
-			this.queue('rename', oldPath, newPath);
+			this._async(this.rename(oldPath, newPath));
 		}
 
 		public statSync(path: string): Stats {
@@ -119,7 +125,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): LazyFile<this> {
 			this.checkSync(path, 'createFile');
 			this._sync.createFileSync(path, flag, mode, options);
-			this.queue('createFile', path, flag, mode, options);
+			this._async(this.createFile(path, flag, mode, options));
 			return this.openFileSync(path, flag);
 		}
 
@@ -132,19 +138,19 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		public unlinkSync(path: string): void {
 			this.checkSync(path, 'unlinkSync');
 			this._sync.unlinkSync(path);
-			this.queue('unlink', path);
+			this._async(this.unlink(path));
 		}
 
 		public rmdirSync(path: string): void {
 			this.checkSync(path, 'rmdir');
 			this._sync.rmdirSync(path);
-			this.queue('rmdir', path);
+			this._async(this.rmdir(path));
 		}
 
 		public mkdirSync(path: string, mode: number, options: CreationOptions): void {
 			this.checkSync(path, 'mkdir');
 			this._sync.mkdirSync(path, mode, options);
-			this.queue('mkdir', path, mode, options);
+			this._async(this.mkdir(path, mode, options));
 		}
 
 		public readdirSync(path: string): string[] {
@@ -155,13 +161,13 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		public linkSync(srcpath: string, dstpath: string): void {
 			this.checkSync(srcpath, 'link');
 			this._sync.linkSync(srcpath, dstpath);
-			this.queue('link', srcpath, dstpath);
+			this._async(this.link(srcpath, dstpath));
 		}
 
 		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 			this.checkSync(path, 'sync');
 			this._sync.syncSync(path, data, stats);
-			this.queue('sync', path, data, stats);
+			this._async(this.sync(path, data, stats));
 		}
 
 		public existsSync(path: string): boolean {
@@ -177,7 +183,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		public writeSync(path: string, buffer: Uint8Array, offset: number): void {
 			this.checkSync(path, 'write');
 			this._sync.writeSync(path, buffer, offset);
-			this.queue('write', path, buffer, offset);
+			this._async(this.write(path, buffer, offset));
 		}
 
 		/**
@@ -207,29 +213,6 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 
 		/**
 		 * @internal
-		 */
-		private async _next(): Promise<void> {
-			if (!this._queueRunning) {
-				return;
-			}
-
-			const [method, ...args] = this._queue.shift()!;
-
-			// @ts-expect-error 2556 (since ...args is not correctly picked up as being a tuple)
-			await this[method](...args);
-			await this._next();
-		}
-
-		/**
-		 * @internal
-		 */
-		private queue(...op: AsyncOperation) {
-			this._queue.push(op);
-			void this._next();
-		}
-
-		/**
-		 * @internal
 		 * Patch all async methods to also call their synchronous counterparts unless called from the queue
 		 */
 		private _patchAsync(): void {
@@ -254,7 +237,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 				(this as any)[key] = async (...args: unknown[]) => {
 					const result = await originalMethod.apply(this, args);
 
-					if (new Error().stack!.includes(`at async ${this.constructor.name}._next`) || !this._isInitialized) return result;
+					if (new Error().stack!.includes(`at <computed> [as ${key}]`) || !this._isInitialized) return result;
 
 					try {
 						// @ts-expect-error 2556
