@@ -45,14 +45,9 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 			return this.done();
 		}
 
-		private _promise?: Promise<unknown>;
+		private _promise: Promise<unknown> = Promise.resolve();
 
 		private _async(promise: Promise<unknown>) {
-			if (!this._promise) {
-				this._promise = promise;
-				return;
-			}
-
 			this._promise = this._promise.then(() => promise);
 		}
 

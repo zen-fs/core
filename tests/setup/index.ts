@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path/posix';
 import { configureSingle, InMemory, InMemoryStore, mounts, Overlay, Readonly, resolveMountConfig, StoreFS } from '../../dist/index.js';
 import { S_IFDIR } from '../../dist/vfs/constants.js';
-import { copy, data } from '../setup.js';
+import { copySync, data } from '../setup.js';
 
-copy(data);
+copySync(data);
 
 const index = (mounts.get('/') as StoreFS).createIndexSync();
 

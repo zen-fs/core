@@ -1,3 +1,3 @@
-import { copy, data } from '../setup.js';
+import { copySync, data } from '../setup.js';
 
-copy(data);
+copySync(data);

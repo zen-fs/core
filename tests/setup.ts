@@ -6,11 +6,26 @@ export const data = join(import.meta.dirname, 'data');
 
 export const tmp = join(import.meta.dirname, 'tmp');
 
-if (!existsSync(tmp)) {
-	mkdirSync(tmp);
+if (!existsSync(tmp)) mkdirSync(tmp);
+
+export async function copyAsync(_path: string, fs: typeof _fs = _fs): Promise<void> {
+	const path = relative(data, _path) || '/';
+	const stats = statSync(_path);
+
+	if (!stats.isDirectory()) {
+		await fs.promises.writeFile(path, readFileSync(_path));
+		return;
+	}
+
+	if (path != '/') {
+		await fs.promises.mkdir(path);
+	}
+	for (const file of readdirSync(_path)) {
+		await copyAsync(join(_path, file), fs);
+	}
 }
 
-export function copy(_path: string, fs: typeof _fs = _fs) {
+export function copySync(_path: string, fs: typeof _fs = _fs): void {
 	const path = relative(data, _path) || '/';
 	const stats = statSync(_path);
 
@@ -23,6 +38,11 @@ export function copy(_path: string, fs: typeof _fs = _fs) {
 		fs.mkdirSync(path);
 	}
 	for (const file of readdirSync(_path)) {
-		copy(join(_path, file), fs);
+		copySync(join(_path, file), fs);
 	}
 }
+
+/**
+ * @deprecated @hidden
+ */
+export const copy = copySync;
