@@ -48,8 +48,6 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 		private _promise?: Promise<unknown>;
 
 		private _async(promise: Promise<unknown>) {
-			promise.catch(e => console.error(e.stack));
-
 			if (!this._promise) {
 				this._promise = promise;
 				return;
