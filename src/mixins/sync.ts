@@ -52,6 +52,14 @@ export function Sync<T extends typeof FileSystem>(FS: T): Mixin<T, AsyncFSMethod
 		public async sync(path: string, data: Uint8Array, stats: Readonly<StatsLike>): Promise<void> {
 			return this.syncSync(path, data, stats);
 		}
+
+		public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
+			return this.readSync(path, buffer, offset, end);
+		}
+
+		public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
+			return this.writeSync(path, buffer, offset);
+		}
 	}
 	return SyncFS;
 }
