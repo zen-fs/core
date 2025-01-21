@@ -29,7 +29,7 @@ suite('write', () => {
 
 		await handle.close();
 
-		assert.equal(await fs.promises.readFile(fn), expected);
+		assert.deepEqual(await fs.promises.readFile(fn), expected);
 
 		await fs.promises.unlink(fn);
 	});
