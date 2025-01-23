@@ -77,7 +77,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 
 				const promises = [];
 				for (const key of await async.keys()) {
-					promises.push(async.get(key).then(data => sync.setSync(key, data)));
+					promises.push(async.get(key).then(data => sync.setSync(key, data!)));
 				}
 
 				await Promise.all(promises);

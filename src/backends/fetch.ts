@@ -68,22 +68,6 @@ export interface FetchOptions {
 
 /**
  * A simple filesystem backed by HTTP using the `fetch` API.
- *
- *
- * Index objects look like the following:
- *
- * ```json
- * {
- * 	"version": 1,
- * 	"entries": {
- * 		"/home": { ... },
- * 		"/home/john": { ... },
- * 		"/home/james": { ... }
- * 	}
- * }
- * ```
- *
- * Each entry contains the stats associated with the file.
  */
 export class FetchFS extends StoreFS {
 	private indexData: IndexData | Promise<IndexData>;

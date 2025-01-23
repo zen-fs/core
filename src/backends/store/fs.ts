@@ -118,7 +118,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			index.set(path, inode);
 
 			if (inode.mode & S_IFDIR) {
-				const dir = decodeDirListing(await tx.get(inode.data));
+				const dir = decodeDirListing((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)));
 
 				for (const [name, id] of Object.entries(dir)) {
 					queue.push([join(path, name), id]);
@@ -146,7 +146,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			index.set(path, inode);
 
 			if (inode.mode & S_IFDIR) {
-				const dir = decodeDirListing(tx.getSync(inode.data));
+				const dir = decodeDirListing(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)));
 
 				for (const [name, id] of Object.entries(dir)) {
 					queue.push([join(path, name), id]);
@@ -167,7 +167,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			_new = parse(newPath),
 			// Remove oldPath from parent's directory listing.
 			oldDirNode = await this.findInode(tx, _old.dir, 'rename'),
-			oldDirList = decodeDirListing((await tx.get(oldDirNode.data)) ?? _throw(ErrnoError.With('ENOENT', _old.dir, 'rename')));
+			oldDirList = decodeDirListing((await tx.get(oldDirNode.data)) ?? _throw(ErrnoError.With('ENODATA', _old.dir, 'rename')));
 
 		if (!oldDirList[_old.base]) {
 			throw ErrnoError.With('ENOENT', oldPath, 'rename');
@@ -192,7 +192,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const newDirNode: Inode = sameParent ? oldDirNode : await this.findInode(tx, _new.dir, 'rename');
 		const newDirList: typeof oldDirList = sameParent
 			? oldDirList
-			: decodeDirListing((await tx.get(newDirNode.data)) ?? _throw(ErrnoError.With('ENOENT', _new.dir, 'rename')));
+			: decodeDirListing((await tx.get(newDirNode.data)) ?? _throw(ErrnoError.With('ENODATA', _new.dir, 'rename')));
 
 		if (newDirList[_new.base]) {
 			// If it's a file, delete it, if it's a directory, throw a permissions error.
@@ -216,7 +216,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			_new = parse(newPath),
 			// Remove oldPath from parent's directory listing.
 			oldDirNode = this.findInodeSync(tx, _old.dir, 'rename'),
-			oldDirList = decodeDirListing(tx.getSync(oldDirNode.data) ?? _throw(ErrnoError.With('ENOENT', _old.dir, 'rename')));
+			oldDirList = decodeDirListing(tx.getSync(oldDirNode.data) ?? _throw(ErrnoError.With('ENODATA', _old.dir, 'rename')));
 
 		if (!oldDirList[_old.base]) {
 			throw ErrnoError.With('ENOENT', oldPath, 'rename');
@@ -240,7 +240,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const newDirNode: Inode = sameParent ? oldDirNode : this.findInodeSync(tx, _new.dir, 'rename');
 		const newDirList: typeof oldDirList = sameParent
 			? oldDirList
-			: decodeDirListing(tx.getSync(newDirNode.data) ?? _throw(ErrnoError.With('ENOENT', _new.dir, 'rename')));
+			: decodeDirListing(tx.getSync(newDirNode.data) ?? _throw(ErrnoError.With('ENODATA', _new.dir, 'rename')));
 
 		if (newDirList[_new.base]) {
 			// If it's a file, delete it, if it's a directory, throw a permissions error.
@@ -422,7 +422,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = await this.findInode(tx, path, 'write');
 
-		const buffer = growBuffer(await tx.get(inode.data), offset + data.byteLength);
+		const buffer = growBuffer((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
 		buffer.set(data, offset);
 
 		inode.update({ mtimeMs: Date.now(), size: buffer.byteLength });
@@ -438,7 +438,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = this.findInodeSync(tx, path, 'write');
 
-		const buffer = growBuffer(tx.getSync(inode.data), offset + data.byteLength);
+		const buffer = growBuffer(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
 		buffer.set(data, offset);
 
 		inode.update({ mtimeMs: Date.now(), size: buffer.byteLength });
@@ -495,9 +495,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		visited.add(path);
 
-		if (path == '/') {
-			return rootIno;
-		}
+		if (path == '/') return rootIno;
 
 		const { dir: parent, base: filename } = parse(path);
 		const inode =
@@ -527,9 +525,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		visited.add(path);
 
-		if (path == '/') {
-			return rootIno;
-		}
+		if (path == '/') return rootIno;
 
 		const { dir: parent, base: filename } = parse(path);
 		const inode =
@@ -611,9 +607,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			If we don't check this prior to taking steps below,
 			we will create a file with name '' in root if path is '/'.
 		*/
-		if (path == '/') {
-			throw ErrnoError.With('EEXIST', path, syscall);
-		}
+		if (path == '/') throw ErrnoError.With('EEXIST', path, syscall);
 
 		await using tx = this.store.transaction();
 
@@ -622,9 +616,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const listing = decodeDirListing((await tx.get(parent.data)) ?? _throw(ErrnoError.With('ENOENT', parentPath, syscall)));
 
 		// Check if file already exists.
-		if (listing[fname]) {
-			throw ErrnoError.With('EEXIST', path, syscall);
-		}
+		if (listing[fname]) throw ErrnoError.With('EEXIST', path, syscall);
 
 		// Commit data.
 		const inode = new Inode();
@@ -659,9 +651,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			If we don't check this prior to taking steps below,
 			we will create a file with name '' in root if path is '/'.
 		*/
-		if (path == '/') {
-			throw ErrnoError.With('EEXIST', path, syscall);
-		}
+		if (path == '/') throw ErrnoError.With('EEXIST', path, syscall);
 
 		using tx = this.store.transaction();
 
@@ -671,9 +661,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const listing = decodeDirListing(tx.getSync(parent.data) ?? _throw(ErrnoError.With('ENOENT', parentPath, syscall)));
 
 		// Check if file already exists.
-		if (listing[fname]) {
-			throw ErrnoError.With('EEXIST', path, syscall);
-		}
+		if (listing[fname]) throw ErrnoError.With('EEXIST', path, syscall);
 
 		// Commit data.
 		const inode = new Inode();

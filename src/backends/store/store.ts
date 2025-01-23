@@ -1,5 +1,6 @@
 import { ErrnoError } from '../../error.js';
 import '../../polyfills.js';
+import { _throw } from '../../utils.js';
 
 /**
  * Represents a key-value store.
@@ -56,7 +57,7 @@ export abstract class Transaction<T extends Store = Store> {
 	 * Retrieves data.
 	 * @param id The key to look under for data.
 	 */
-	public abstract get(id: number): Promise<Uint8Array>;
+	public abstract get(id: number): Promise<Uint8Array | undefined>;
 
 	/**
 	 * Retrieves data.
@@ -64,21 +65,21 @@ export abstract class Transaction<T extends Store = Store> {
 	 * @param id The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	public abstract getSync(id: number): Uint8Array;
+	public abstract getSync(id: number): Uint8Array | undefined;
 
 	/**
 	 * Adds the data to the store under an id. Overwrites any existing data.
 	 * @param id The key to add the data under.
 	 * @param data The data to add to the store.
 	 */
-	public abstract set(id: number, data: Uint8Array, isMetadata?: boolean): Promise<void>;
+	public abstract set(id: number, data: Uint8Array): Promise<void>;
 
 	/**
 	 * Adds the data to the store under and id.
 	 * @param id The key to add the data under.
 	 * @param data The data to add to the store.
 	 */
-	public abstract setSync(id: number, data: Uint8Array, isMetadata?: boolean): void;
+	public abstract setSync(id: number, data: Uint8Array): void;
 
 	/**
 	 * Deletes the data at `ino`.
@@ -133,12 +134,12 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 	public async keys(): Promise<Iterable<number>> {
 		return this.keysSync();
 	}
-	public async get(id: number): Promise<Uint8Array> {
+	public async get(id: number): Promise<Uint8Array | undefined> {
 		return this.getSync(id);
 	}
 
-	public async set(id: number, data: Uint8Array, isMetadata?: boolean): Promise<void> {
-		return this.setSync(id, data, isMetadata);
+	public async set(id: number, data: Uint8Array): Promise<void> {
+		return this.setSync(id, data);
 	}
 
 	public async remove(id: number): Promise<void> {
@@ -156,30 +157,73 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 }
 
 /**
- * Transaction that only supports asynchronous operations
+ * Store that implements synchronous operations with a cache
  */
-export abstract class AsyncTransaction<T extends Store = Store> extends Transaction<T> {
-	public keysSync(): never {
-		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.keysSync');
+export abstract class AsyncStore implements Store {
+	protected asyncDone: Promise<unknown> = Promise.resolve();
+
+	/** @internal @hidden */
+	async(promise: Promise<unknown>): void {
+		this.asyncDone = this.asyncDone.then(() => promise);
 	}
 
-	public getSync(): never {
-		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.getSync');
+	/** @internal @hidden */
+	cache = new Map<number, Uint8Array<ArrayBufferLike>>();
+
+	/**
+	 * Used by synchronous operations to check whether to return undefined or EAGAIN.
+	 * @internal @hidden
+	 */
+	_keys?: number[];
+
+	clearSync(): void {
+		this.async(this.clear());
 	}
 
-	public setSync(): never {
-		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.setSync');
+	abstract name: string;
+	abstract sync(): Promise<void>;
+	abstract clear(): Promise<void>;
+	abstract transaction(): AsyncTransaction<this>;
+}
+
+/**
+ * Transaction that implements synchronous operations with a cache
+ * @implementors You *must* update the cache in your asynchronous methods and wait for `store.asyncDone`.
+ * @todo Make sure we handle abortions correctly,
+ * especially since the cache is shared between transactions.
+ */
+export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extends Transaction<T> {
+	public constructor(store: T) {
+		super(store);
 	}
 
-	public removeSync(): never {
-		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.removeSync');
+	public keysSync(): Iterable<number> {
+		return this.store._keys ?? _throw(ErrnoError.With('ENOTSUP', undefined, 'AsyncTransaction.keysSync'));
 	}
 
-	public commitSync(): never {
-		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.commitSync');
+	public getSync(id: number): Uint8Array | undefined {
+		if (!this.store._keys?.includes(id)) {
+			throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
+		}
+
+		return this.store.cache.get(id);
 	}
 
-	public abortSync(): never {
-		throw ErrnoError.With('ENOSYS', undefined, 'AsyncTransaction.abortSync');
+	public setSync(id: number, data: Uint8Array): void {
+		this.store.cache.set(id, data);
+		this.store.async(this.set(id, data));
+	}
+
+	public removeSync(id: number): void {
+		this.store.cache.delete(id);
+		this.store.async(this.remove(id));
+	}
+
+	public commitSync(): void {
+		this.store.async(this.commit());
+	}
+
+	public abortSync(): void {
+		this.store.async(this.abort());
 	}
 }

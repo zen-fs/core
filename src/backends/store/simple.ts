@@ -90,10 +90,10 @@ export class SimpleTransaction extends SyncTransaction<SimpleSyncStore> {
 		return this.store.keys();
 	}
 
-	public getSync(id: number): Uint8Array {
+	public getSync(id: number): Uint8Array | undefined {
 		const val = this.store.get(id);
 		this.stashOldValue(id, val);
-		return val!;
+		return val;
 	}
 
 	public setSync(id: number, data: Uint8Array, isMetadata?: boolean): void {
