@@ -282,7 +282,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async openFile(path: string, flag: string): Promise<File> {
 		await using tx = this.store.transaction();
 		const node = await this.findInode(tx, path, 'openFile');
-		//const data = (await tx.get(node.data)) ?? _throw(ErrnoError.With('ENODATA', path, 'openFile'));
 
 		return new LazyFile(this, path, flag, node.toStats());
 	}
@@ -290,7 +289,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public openFileSync(path: string, flag: string): File {
 		using tx = this.store.transaction();
 		const node = this.findInodeSync(tx, path, 'openFile');
-		//const data = tx.getSync(node.data) ?? _throw(ErrnoError.With('ENODATA', path, 'openFile'));
 
 		return new LazyFile(this, path, flag, node.toStats());
 	}
