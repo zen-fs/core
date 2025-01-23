@@ -168,7 +168,7 @@ export abstract class AsyncStore implements Store {
 	}
 
 	/** @internal @hidden */
-	cache = new Map<number, Uint8Array<ArrayBufferLike>>();
+	cache = new Map<number, Uint8Array | undefined>();
 
 	/**
 	 * Used by synchronous operations to check whether to return undefined or EAGAIN.
@@ -203,6 +203,7 @@ export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extend
 
 	public getSync(id: number): Uint8Array | undefined {
 		if (!this.store._keys?.includes(id)) {
+			this.store.async(this.get(id).then(v => this.store.cache.set(id, v)));
 			throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
 		}
 
