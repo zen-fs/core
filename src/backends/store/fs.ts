@@ -449,7 +449,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	private transaction(): WrappedTransaction {
+	/**
+	 * Wraps a transaction
+	 * @internal @hidden
+	 */
+	public transaction(): WrappedTransaction {
 		return new WrappedTransaction(this.store.transaction());
 	}
 
@@ -550,7 +554,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The path to look up.
 	 * @todo memoize/cache
 	 */
-	private async findInode(tx: WrappedTransaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<Inode> {
+	protected async findInode(tx: WrappedTransaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<Inode> {
 		const ino = await this._findInode(tx, path, syscall, visited);
 		return new Inode((await tx.get(ino)) ?? _throw(ErrnoError.With('ENOENT', path, syscall)));
 	}

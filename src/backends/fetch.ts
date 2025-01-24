@@ -1,7 +1,7 @@
 import { Errno, ErrnoError } from '../error.js';
 import { normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
-import type { Backend } from './backend.js';
+import type { Backend, SharedConfig } from './backend.js';
 import type { IndexData } from './store/file_index.js';
 import { Index } from './store/file_index.js';
 import { StoreFS } from './store/fs.js';
@@ -123,7 +123,7 @@ export class FetchStore implements Store {
 /**
  * Configuration options for FetchFS.
  */
-export interface FetchOptions {
+export interface FetchOptions extends SharedConfig {
 	/**
 	 * Options to pass through to fetch calls
 	 */
@@ -150,7 +150,7 @@ export interface FetchOptions {
 
 /**
  * A simple filesystem backed by HTTP using the `fetch` API.
- * @todo [BREAKING] Remove asynchronous index initialization (i.e. passing a path)
+ * @internal @deprecated Use the `Fetch` backend, not the internal FS class!
  */
 export class FetchFS extends StoreFS<FetchStore> {
 	private indexData: IndexData | Promise<IndexData>;
@@ -215,12 +215,45 @@ const _Fetch = {
 		return typeof globalThis.fetch == 'function';
 	},
 
-	create(options: FetchOptions) {
+	async create(options: FetchOptions) {
 		const url = new URL(options.baseUrl || '');
 		url.pathname = normalizePath(url.pathname);
-		return new FetchFS(options.index, url.toString(), options.requestInit);
+		let baseUrl = url.toString();
+		if (baseUrl.at(-1) == '/') baseUrl = baseUrl.slice(0, -1);
+
+		options.index ??= 'index.json';
+
+		const indexData = typeof options.index != 'string' ? options.index : await fetchFile<IndexData>(options.index, 'json', options.requestInit);
+
+		const store = new FetchStore(async (id: number) => {
+			const path = Object.entries(indexData.entries).find(([, node]) => node.data == id)?.[0];
+			return fetchFile(baseUrl + path, 'buffer', options.requestInit).catch(() => undefined);
+		});
+
+		const fs = new StoreFS(store);
+
+		const index = new Index();
+		index.fromJSON(indexData);
+		await fs.loadIndex(index);
+
+		if (options.disableAsyncCache) return fs;
+
+		await using tx = fs.transaction();
+
+		// Iterate over all of the files and cache their contents
+		for (const [path, node] of index) {
+			if (!(node.mode & S_IFREG)) continue;
+
+			const content = await fetchFile(baseUrl + path, 'buffer', options.requestInit);
+
+			await tx.set(node.data, content);
+		}
+
+		await tx.commit();
+
+		return fs;
 	},
-} as const satisfies Backend<FetchFS, FetchOptions>;
+} as const satisfies Backend<StoreFS<FetchStore>, FetchOptions>;
 type _Fetch = typeof _Fetch;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Fetch extends _Fetch {}

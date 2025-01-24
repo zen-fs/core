@@ -87,7 +87,7 @@ export class MapTransaction extends SyncTransaction<MapStore> {
 	}
 
 	public async get(id: number): Promise<Uint8Array | undefined> {
-		return await (this.store.getAsync ?? this.store.get)(id);
+		return await (this.store.getAsync?.(id) ?? this.store.get(id));
 	}
 
 	public getSync(id: number): Uint8Array | undefined {
