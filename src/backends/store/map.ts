@@ -80,17 +80,6 @@ export abstract class AsyncMapStore implements MapStore {
  * @see AsyncMapStore
  */
 export class MapTransaction extends SyncTransaction<MapStore> {
-	/**
-	 * Stores data in the keys we modify prior to modifying them.
-	 * Allows us to roll back commits.
-	 */
-	protected originalData: Map<number, Uint8Array | void> = new Map();
-
-	/**
-	 * List of keys modified in this transaction, if any.
-	 */
-	protected modifiedKeys: Set<number> = new Set();
-
 	protected declare store: MapStore;
 
 	public keysSync(): Iterable<number> {
@@ -98,68 +87,22 @@ export class MapTransaction extends SyncTransaction<MapStore> {
 	}
 
 	public async get(id: number): Promise<Uint8Array | undefined> {
-		const value = await (this.store.getAsync ?? this.store.get)(id);
-		this.stashOldValue(id, value);
-		return value;
+		return await (this.store.getAsync ?? this.store.get)(id);
 	}
 
 	public getSync(id: number): Uint8Array | undefined {
-		const val = this.store.get(id);
-		this.stashOldValue(id, val);
-		return val;
+		return this.store.get(id);
 	}
 
-	public setSync(id: number, data: Uint8Array, isMetadata?: boolean): void {
-		this.markModified(id);
-		return this.store.set(id, data, isMetadata);
+	public setSync(id: number, data: Uint8Array): void {
+		return this.store.set(id, data);
 	}
 
 	public removeSync(id: number): void {
-		this.markModified(id);
 		this.store.delete(id);
 	}
 
-	public commitSync(): void {
-		this.done = true;
-	}
+	public commitSync(): void {}
 
-	public abortSync(): void {
-		if (this.done) return;
-		// Rollback old values.
-		for (const key of this.modifiedKeys) {
-			const value = this.originalData.get(key);
-			if (!value) {
-				// Key didn't exist.
-				this.store.delete(key);
-			} else {
-				// Key existed. Store old value.
-				this.store.set(key, value);
-			}
-		}
-		this.done = true;
-	}
-
-	/**
-	 * Stashes given key value pair into `originalData` if it doesn't already
-	 * exist. Allows us to stash values the program is requesting anyway to
-	 * prevent needless `get` requests if the program modifies the data later
-	 * on during the transaction.
-	 */
-	protected stashOldValue(id: number, value?: Uint8Array): void {
-		// Keep only the earliest value in the transaction.
-		if (!this.originalData.has(id)) {
-			this.originalData.set(id, value);
-		}
-	}
-
-	/**
-	 * Marks `ino` as modified, and stashes its value if it has not been
-	 * stashed already.
-	 */
-	protected markModified(id: number): void {
-		this.modifiedKeys.add(id);
-		if (!this.originalData.has(id)) {
-			this.originalData.set(id, this.store.get(id));
-		}
-	}
+	public abortSync(): void {}
 }
