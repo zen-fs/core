@@ -1,9 +1,16 @@
+import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { join } from 'node:path';
 
 // Copied from setup.ts
+
 export const data = join(import.meta.dirname, '../data');
+
+export const defaultEntries = readdirSync(data);
+
 export const tmp = join(import.meta.dirname, '../tmp');
+
+if (!existsSync(tmp)) mkdirSync(tmp);
 
 export const port = 26514;
 
