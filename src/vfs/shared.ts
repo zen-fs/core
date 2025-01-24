@@ -7,7 +7,7 @@ import type { FileSystem } from '../filesystem.js';
 import { InMemory } from '../backends/memory.js';
 import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../error.js';
-import { alert } from '../log.js';
+import { alert, log_deprecated } from '../log.js';
 import { normalizePath } from '../utils.js';
 import { paths as pathCache } from './cache.js';
 import { size_max } from './constants.js';
@@ -150,6 +150,7 @@ export function fixError<E extends ErrnoError>(e: E, paths: Record<string, strin
  * @internal @deprecated
  */
 export function mountObject(mounts: MountObject): void {
+	log_deprecated('mountObject');
 	if ('/' in mounts) {
 		umount('/');
 	}

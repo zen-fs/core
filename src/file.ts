@@ -1,5 +1,6 @@
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
+import { log_deprecated } from './log.js';
 import './polyfills.js';
 import { _chown, Stats, type StatsLike } from './stats.js';
 import { growBuffer } from './utils.js';
@@ -559,6 +560,11 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
  */
 /* node:coverage disable */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
+	public constructor(...args: ConstructorParameters<typeof PreloadFile<T>>) {
+		log_deprecated('NoSyncFile');
+		super(...args);
+	}
+
 	public sync(): Promise<void> {
 		return Promise.resolve();
 	}

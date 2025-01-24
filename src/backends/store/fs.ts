@@ -4,7 +4,7 @@ import type { File } from '../../file.js';
 import { LazyFile } from '../../file.js';
 import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
 import { FileSystem } from '../../filesystem.js';
-import { crit, err } from '../../log.js';
+import { crit, err, log_deprecated } from '../../log.js';
 import type { FileType, Stats } from '../../stats.js';
 import { _throw, canary, decodeDirListing, encodeDirListing, encodeUTF8, growBuffer } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
@@ -28,9 +28,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	protected _initialized: boolean = false;
 
 	public async ready(): Promise<void> {
-		if (this._initialized) {
-			return;
-		}
+		if (this._initialized) return;
+
 		await this.checkRoot();
 		this._initialized = true;
 	}
@@ -53,6 +52,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @deprecated
 	 */
 	public async empty(): Promise<void> {
+		log_deprecated('StoreFS.empty');
 		await this.store.clear();
 		// Root always exists.
 		await this.checkRoot();
@@ -63,6 +63,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @deprecated
 	 */
 	public emptySync(): void {
+		log_deprecated('StoreFS.emptySync');
 		this.store.clearSync();
 		// Root always exists.
 		this.checkRootSync();

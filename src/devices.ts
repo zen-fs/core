@@ -9,7 +9,7 @@ import { Errno, ErrnoError } from './error.js';
 import type { FileReadResult } from './file.js';
 import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
-import { alert, err } from './log.js';
+import { alert, err, log_deprecated } from './log.js';
 import { Stats } from './stats.js';
 import { canary, decodeUTF8 } from './utils.js';
 import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
@@ -276,6 +276,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	 */
 	/* node:coverage disable */
 	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
+		log_deprecated('DeviceFS.createDevice');
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
 		}

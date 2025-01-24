@@ -5,6 +5,7 @@ import * as c from './vfs/constants.js';
 import { pick } from 'utilium';
 import type { InodeFields, InodeLike } from './backends/store/inode.js';
 import { _inode_fields } from './backends/store/inode.js';
+import { log_deprecated } from './log.js';
 
 const n1000 = BigInt(1000) as 1000n;
 
@@ -280,6 +281,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @todo [BREAKING] Remove
 	 */
 	public chmod(mode: number): void {
+		log_deprecated('StatsCommon.chmod');
 		this.mode = this._convert((this.mode & c.S_IFMT) | mode);
 	}
 
@@ -290,6 +292,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @todo [BREAKING] Remove
 	 */
 	public chown(uid: number, gid: number): void {
+		log_deprecated('StatsCommon.chown');
 		uid = Number(uid);
 		gid = Number(gid);
 		if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {

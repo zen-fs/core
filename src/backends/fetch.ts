@@ -1,5 +1,5 @@
 import { Errno, ErrnoError } from '../error.js';
-import { err } from '../log.js';
+import { err, log_deprecated } from '../log.js';
 import { normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
 import type { Backend, SharedConfig } from './backend.js';
@@ -223,6 +223,7 @@ export class FetchFS extends StoreFS<FetchStore> {
 		public readonly baseUrl: string = '',
 		public readonly requestInit?: RequestInit
 	) {
+		log_deprecated('FetchFS');
 		super(
 			new FetchStore({
 				get: async (id: number) => {

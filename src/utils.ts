@@ -4,6 +4,7 @@ import { randomHex } from 'utilium';
 import { Errno, ErrnoError } from './error.js';
 import type { AbsolutePath } from './vfs/path.js';
 import { resolve } from './vfs/path.js';
+import { log_deprecated } from './log.js';
 
 declare global {
 	function atob(data: string): string;
@@ -175,6 +176,7 @@ export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: an
  * @internal @deprecated @hidden
  */
 export function randomBigInt(): bigint {
+	log_deprecated('randomBigInt');
 	return BigInt('0x' + randomHex(8));
 }
 

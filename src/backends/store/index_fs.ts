@@ -2,6 +2,7 @@ import { ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { LazyFile } from '../../file.js';
 import type { CreationOptions } from '../../filesystem.js';
+import { log_deprecated } from '../../log.js';
 import { Stats } from '../../stats.js';
 import { S_IFREG } from '../../vfs/constants.js';
 import type { IndexData } from './file_index.js';
@@ -33,18 +34,17 @@ export abstract class IndexFS<T extends Store> extends StoreFS<T> {
 		store: T,
 		private indexData: IndexData | Promise<IndexData>
 	) {
+		log_deprecated('IndexFS');
 		super(store);
 	}
 
-	/**
-	 * @deprecated
-	 */
-	public async reloadFiles(): Promise<void> {}
+	public reloadFiles(): never {
+		throw ErrnoError.With('ENOTSUP');
+	}
 
-	/**
-	 * @deprecated
-	 */
-	public reloadFilesSync(): void {}
+	public reloadFilesSync(): never {
+		throw ErrnoError.With('ENOTSUP');
+	}
 
 	public stat(path: string): Promise<Stats> {
 		return Promise.resolve(this.statSync(path));

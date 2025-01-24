@@ -21,6 +21,7 @@ export const enum Level {
 	DEBUG,
 }
 
+/** An object mapping log levels to a textual representation of them */
 export const levels = {
 	[Level.EMERG]: 'emergency',
 	[Level.ALERT]: 'alert',
@@ -36,6 +37,7 @@ function levelOf(value: (typeof levels)[Level]): Level {
 	return +Object.keys(levels)[Object.values(levels).indexOf(value)];
 }
 
+/** A log entry */
 export interface Entry {
 	level: Level;
 	timestamp: Date;
@@ -43,6 +45,7 @@ export interface Entry {
 	message: string;
 }
 
+/** The list of log entries */
 export const entries = new List<Entry>();
 
 export function log(level: Level, message: string) {
@@ -65,14 +68,32 @@ function _shortcut(level: Level) {
 }
 
 // Shortcuts
+
+/** Shortcut for logging emergencies */
 export const emerg = _shortcut(Level.EMERG);
+/** Shortcut for logging alerts */
 export const alert = _shortcut(Level.ALERT);
+/** Shortcut for logging critical errors */
 export const crit = _shortcut(Level.CRIT);
+/** Shortcut for logging non-critical errors */
 export const err = _shortcut(Level.ERR);
+/** Shortcut for logging warnings */
 export const warn = _shortcut(Level.WARN);
+/** Shortcut for logging notices */
 export const notice = _shortcut(Level.NOTICE);
+/** Shortcut for logging informational messages */
 export const info = _shortcut(Level.INFO);
+/** Shortcut for logging debug messages */
 export const debug = _shortcut(Level.DEBUG);
+
+/**
+ * Shortcut for logging usage of deprecated functions at runtime
+ * @param symbol The thing that is deprecated
+ * @internal @hidden
+ */
+export function log_deprecated(symbol: string): void {
+	log(Level.WARN, symbol + ' is deprecated and should not be used.');
+}
 
 // Formatting and output
 
@@ -95,6 +116,7 @@ let minLevel: Level = Level.ALERT;
 
 // Configuration
 
+/** Whether log entries are being recorded */
 export let isEnabled: boolean = false;
 
 export interface LogConfiguration {
@@ -129,7 +151,8 @@ export interface LogConfiguration {
 	dumpBacklog?: boolean;
 }
 
-export function configure(options: LogConfiguration) {
+/** Configure logging behavior */
+export function configure(options: LogConfiguration): void {
 	_format = options.format ?? _format;
 	_output = options.output ?? _output;
 	minLevel = typeof options.level == 'string' ? levelOf(options.level) : options.level ?? minLevel;
