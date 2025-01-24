@@ -1,6 +1,5 @@
 import { ErrnoError } from '../../error.js';
 import '../../polyfills.js';
-import { _throw } from '../../utils.js';
 
 /**
  * Represents a key-value store.
@@ -156,10 +155,16 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 	/* eslint-enable @typescript-eslint/require-await */
 }
 
+export interface AsyncStore extends Store {
+	cache?: Map<number, Uint8Array | undefined>;
+}
+
 /**
- * Store that implements synchronous operations with a cache
+ * Transaction that implements synchronous operations with a cache
+ * @implementors You *must* update the cache and wait for `store.asyncDone` in your asynchronous methods.
+ * @todo Make sure we handle abortions correctly, especially since the cache is shared between transactions.
  */
-export abstract class AsyncStore implements Store {
+export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extends Transaction<T> {
 	protected asyncDone: Promise<unknown> = Promise.resolve();
 
 	/** @internal @hidden */
@@ -168,63 +173,33 @@ export abstract class AsyncStore implements Store {
 	}
 
 	/** @internal @hidden */
-	cache = new Map<number, Uint8Array | undefined>();
-
-	/**
-	 * Used by synchronous operations to check whether to return undefined or EAGAIN.
-	 * @internal @hidden
-	 */
-	_keys?: number[];
-
-	clearSync(): void {
-		this.async(this.clear());
-	}
-
-	abstract name: string;
-	abstract sync(): Promise<void>;
-	abstract clear(): Promise<void>;
-	abstract transaction(): AsyncTransaction<this>;
-}
-
-/**
- * Transaction that implements synchronous operations with a cache
- * @implementors You *must* update the cache in your asynchronous methods and wait for `store.asyncDone`.
- * @todo Make sure we handle abortions correctly,
- * especially since the cache is shared between transactions.
- */
-export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extends Transaction<T> {
-	public constructor(store: T) {
-		super(store);
-	}
+	cache: Map<number, Uint8Array | undefined> = this.store?.cache ?? new Map();
 
 	public keysSync(): Iterable<number> {
-		return this.store._keys ?? _throw(ErrnoError.With('ENOTSUP', undefined, 'AsyncTransaction.keysSync'));
+		return this.cache.keys();
 	}
 
 	public getSync(id: number): Uint8Array | undefined {
-		if (!this.store._keys?.includes(id)) {
-			this.store.async(this.get(id).then(v => this.store.cache.set(id, v)));
-			throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
-		}
-
-		return this.store.cache.get(id);
+		if (!this.cache.has(id)) return this.cache.get(id);
+		this.async(this.get(id).then(v => this.cache.set(id, v)));
+		throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
 	}
 
 	public setSync(id: number, data: Uint8Array): void {
-		this.store.cache.set(id, data);
-		this.store.async(this.set(id, data));
+		this.cache.set(id, data);
+		this.async(this.set(id, data));
 	}
 
 	public removeSync(id: number): void {
-		this.store.cache.delete(id);
-		this.store.async(this.remove(id));
+		this.cache.delete(id);
+		this.async(this.remove(id));
 	}
 
 	public commitSync(): void {
-		this.store.async(this.commit());
+		this.async(this.commit());
 	}
 
 	public abortSync(): void {
-		this.store.async(this.abort());
+		this.async(this.abort());
 	}
 }

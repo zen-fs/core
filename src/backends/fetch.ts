@@ -1,11 +1,12 @@
 import { Errno, ErrnoError } from '../error.js';
+import { normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
 import type { Backend } from './backend.js';
-import { InMemoryStore } from './memory.js';
+import type { IndexData } from './store/file_index.js';
+import { Index } from './store/file_index.js';
 import { StoreFS } from './store/fs.js';
-import { Index, type IndexData } from './store/file_index.js';
 import type { Store } from './store/store.js';
-import { normalizePath } from '../utils.js';
+import { SyncTransaction } from './store/store.js';
 
 /**
  * Asynchronously download a file as a buffer or a JSON object.
@@ -39,6 +40,86 @@ async function fetchFile<T extends object>(path: string, type: string, init?: Re
 	}
 }
 
+export class FetchTransaction extends SyncTransaction<FetchStore> {
+	protected asyncDone: Promise<unknown> = Promise.resolve();
+
+	/** @internal @hidden */
+	async(promise: Promise<unknown>): void {
+		this.asyncDone = this.asyncDone.then(() => promise);
+	}
+
+	/** @internal @hidden */
+	cache: Map<number, Uint8Array | undefined> = this.store.cache;
+
+	public keysSync(): Iterable<number> {
+		return this.cache.keys();
+	}
+
+	public async get(id: number): Promise<Uint8Array | undefined> {
+		if (this.cache.has(id)) return this.cache.get(id);
+
+		const data = await this.store.get(id);
+		this.cache.set(id, data);
+		return data;
+	}
+
+	public getSync(id: number): Uint8Array | undefined {
+		if (this.cache.has(id)) return this.cache.get(id);
+		this.async(this.get(id).then(v => this.cache.set(id, v)));
+		throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
+	}
+
+	public setSync(id: number, data: Uint8Array): void {
+		this.cache.set(id, data);
+	}
+
+	public removeSync(id: number): void {
+		this.cache.delete(id);
+	}
+
+	public commitSync(): void {
+		this.store.cache = this.cache;
+	}
+
+	public abortSync(): void {
+		this.cache.clear();
+	}
+}
+
+export class FetchStore implements Store {
+	public constructor(protected fetch: (id: number) => Promise<Uint8Array | undefined>) {}
+
+	/** @internal @hidden */
+	cache = new Map<number, Uint8Array | undefined>();
+
+	public readonly name: string = 'fetch';
+
+	public async get(id: number): Promise<Uint8Array | undefined> {
+		if (this.cache.has(id)) return this.cache.get(id);
+
+		const data = await this.fetch(id);
+		this.cache.set(id, data);
+		return data;
+	}
+
+	public sync(): Promise<void> {
+		return Promise.resolve();
+	}
+
+	public clear(): Promise<void> {
+		this.cache.clear();
+		return Promise.resolve();
+	}
+
+	public clearSync(): void {
+		this.cache.clear();
+	}
+
+	public transaction(): FetchTransaction {
+		return new FetchTransaction(this);
+	}
+}
+
 /**
  * Configuration options for FetchFS.
  */
@@ -62,14 +143,16 @@ export interface FetchOptions {
 	/**
 	 * A store to use for caching content.
 	 * Defaults to an in-memory store
+	 * @deprecated
 	 */
 	cache?: Store;
 }
 
 /**
  * A simple filesystem backed by HTTP using the `fetch` API.
+ * @todo [BREAKING] Remove asynchronous index initialization (i.e. passing a path)
  */
-export class FetchFS extends StoreFS {
+export class FetchFS extends StoreFS<FetchStore> {
 	private indexData: IndexData | Promise<IndexData>;
 
 	public async ready(): Promise<void> {
@@ -77,9 +160,7 @@ export class FetchFS extends StoreFS {
 		await super.ready();
 
 		const index = new Index();
-
 		index.fromJSON(await this.indexData);
-
 		await this.loadIndex(index);
 
 		if (this._disableSync) return;
@@ -100,11 +181,18 @@ export class FetchFS extends StoreFS {
 
 	public constructor(
 		index: IndexData | string = 'index.json',
-		cache: Store = new InMemoryStore('fetch'),
 		public readonly baseUrl: string = '',
 		public readonly requestInit?: RequestInit
 	) {
-		super(cache);
+		super(
+			new FetchStore(async (id: number) => {
+				const { entries } = await this.indexData;
+
+				const path = Object.entries(entries).find(([, node]) => node.data == id)?.[0];
+
+				return fetchFile(this.baseUrl + path, 'buffer', this.requestInit).catch(() => undefined);
+			})
+		);
 
 		// prefix url must end in a directory separator.
 		if (baseUrl.at(-1) == '/') this.baseUrl = baseUrl.slice(0, -1);
@@ -130,7 +218,7 @@ const _Fetch = {
 	create(options: FetchOptions) {
 		const url = new URL(options.baseUrl || '');
 		url.pathname = normalizePath(url.pathname);
-		return new FetchFS(options.index, options.cache, url.toString(), options.requestInit);
+		return new FetchFS(options.index, url.toString(), options.requestInit);
 	},
 } as const satisfies Backend<FetchFS, FetchOptions>;
 type _Fetch = typeof _Fetch;

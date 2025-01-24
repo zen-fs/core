@@ -23,8 +23,6 @@ export const version = 1;
  * @internal
  */
 export class Index extends Map<string, Readonly<Inode>> {
-	protected _directories?: Map<string, Record<string, number>>;
-
 	/**
 	 * Converts the index to JSON
 	 */
@@ -84,7 +82,7 @@ export class Index extends Map<string, Readonly<Inode>> {
 	/**
 	 * Loads the index from JSON data
 	 */
-	public fromJSON(json: IndexData): void {
+	public fromJSON(json: IndexData): this {
 		if (json.version != version) {
 			throw new ErrnoError(Errno.EINVAL, 'Index version mismatch');
 		}
@@ -98,6 +96,8 @@ export class Index extends Map<string, Readonly<Inode>> {
 
 			this.set(path, new Inode(node));
 		}
+
+		return this;
 	}
 
 	/**

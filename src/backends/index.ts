@@ -8,5 +8,5 @@ export * from './store/fs.js';
 export * from './store/file_index.js';
 export * from './store/index_fs.js';
 export * from './store/inode.js';
-export * from './store/simple.js';
+export * from './store/map.js';
 export * from './store/store.js';

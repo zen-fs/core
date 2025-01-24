@@ -1,11 +1,11 @@
 import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
-import { SimpleTransaction, type SimpleSyncStore } from './store/simple.js';
+import { MapTransaction, type MapStore } from './store/map.js';
 
 /**
  * A simple in-memory store
  */
-export class InMemoryStore extends Map<number, Uint8Array> implements SimpleSyncStore {
+export class InMemoryStore extends Map<number, Uint8Array> implements MapStore {
 	public constructor(public name: string = 'tmp') {
 		super();
 	}
@@ -16,8 +16,8 @@ export class InMemoryStore extends Map<number, Uint8Array> implements SimpleSync
 		this.clear();
 	}
 
-	public transaction(): SimpleTransaction {
-		return new SimpleTransaction(this);
+	public transaction(): MapTransaction {
+		return new MapTransaction(this);
 	}
 }
 
