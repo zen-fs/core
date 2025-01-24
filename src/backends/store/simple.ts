@@ -1,5 +1,4 @@
-/* @todo [BREAKING] Remove */
-
+/* node:coverage disable */
 import type { AsyncMapStore, MapStore } from './map.js';
 import { MapTransaction } from './map.js';
 
@@ -17,3 +16,4 @@ export type SimpleAsyncStore = AsyncMapStore;
  * @deprecated Use `MapTransaction` instead.
  */
 export class SimpleTransaction extends MapTransaction {}
+/* node:coverage enable */

@@ -149,6 +149,7 @@ export interface FetchOptions extends SharedConfig {
 	cache?: Store;
 }
 
+/* node:coverage disable */
 /**
  * A simple filesystem backed by HTTP using the `fetch` API.
  * @internal @deprecated Use the `Fetch` backend, not the internal FS class!
@@ -201,6 +202,7 @@ export class FetchFS extends StoreFS<FetchStore> {
 		this.indexData = typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json', requestInit);
 	}
 }
+/* node:coverage enable */
 
 const _Fetch = {
 	name: 'Fetch',
