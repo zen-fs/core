@@ -6,6 +6,7 @@ export * from './devices.js';
 export * from './error.js';
 export * from './file.js';
 export * from './filesystem.js';
+export * as log from './log.js';
 export * from './mixins/index.js';
 export * from './stats.js';
 export * from './utils.js';
