@@ -7,7 +7,7 @@ import type { IndexData } from './store/file_index.js';
 import { Index } from './store/file_index.js';
 import { StoreFS } from './store/fs.js';
 import type { Store } from './store/store.js';
-import { SyncTransaction } from './store/store.js';
+import { Transaction } from './store/store.js';
 
 /**
  * Asynchronously download a file as a buffer or a JSON object.
@@ -41,7 +41,7 @@ async function fetchFile<T extends object>(path: string, type: string, init?: Re
 	}
 }
 
-export class FetchTransaction extends SyncTransaction<FetchStore> {
+export class FetchTransaction extends Transaction<FetchStore> {
 	protected asyncDone: Promise<unknown> = Promise.resolve();
 
 	/** @internal @hidden */
@@ -51,6 +51,10 @@ export class FetchTransaction extends SyncTransaction<FetchStore> {
 
 	/** @internal @hidden */
 	cache: Map<number, Uint8Array | undefined> = this.store.cache;
+
+	public keys(): Promise<Iterable<number>> {
+		return Promise.resolve(this.cache.keys());
+	}
 
 	public keysSync(): Iterable<number> {
 		return this.cache.keys();
@@ -70,16 +74,36 @@ export class FetchTransaction extends SyncTransaction<FetchStore> {
 		throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
 	}
 
-	public setSync(id: number, data: Uint8Array): void {
+	public async set(id: number, data: Uint8Array): Promise<void> {
 		this.cache.set(id, data);
+		await this.store.set(id, data);
+	}
+
+	public setSync(id: number, data: Uint8Array): void {
+		this.async(this.set(id, data));
+	}
+
+	public async remove(id: number): Promise<void> {
+		this.cache.delete(id);
+		await this.store.delete(id);
 	}
 
 	public removeSync(id: number): void {
 		this.cache.delete(id);
 	}
 
+	public commit(): Promise<void> {
+		this.store.cache = this.cache;
+		return Promise.resolve();
+	}
+
 	public commitSync(): void {
 		this.store.cache = this.cache;
+	}
+
+	public abort(): Promise<void> {
+		this.cache.clear();
+		return Promise.resolve();
 	}
 
 	public abortSync(): void {
@@ -87,8 +111,14 @@ export class FetchTransaction extends SyncTransaction<FetchStore> {
 	}
 }
 
+interface FetchRemote {
+	get(id: number): Promise<Uint8Array | undefined>;
+	set(id: number, data: Uint8Array): Promise<void>;
+	delete(id: number): Promise<void>;
+}
+
 export class FetchStore implements Store {
-	public constructor(protected fetch: (id: number) => Promise<Uint8Array | undefined>) {}
+	public constructor(protected remote: FetchRemote) {}
 
 	/** @internal @hidden */
 	cache = new Map<number, Uint8Array | undefined>();
@@ -98,9 +128,17 @@ export class FetchStore implements Store {
 	public async get(id: number): Promise<Uint8Array | undefined> {
 		if (this.cache.has(id)) return this.cache.get(id);
 
-		const data = await this.fetch(id);
+		const data = await this.remote.get(id);
 		this.cache.set(id, data);
 		return data;
+	}
+
+	public async set(id: number, data: Uint8Array): Promise<void> {
+		await this.remote.set(id, data);
+	}
+
+	public async delete(id: number): Promise<void> {
+		await this.remote.delete(id);
 	}
 
 	public sync(): Promise<void> {
@@ -142,11 +180,10 @@ export interface FetchOptions extends SharedConfig {
 	baseUrl?: string;
 
 	/**
-	 * A store to use for caching content.
-	 * Defaults to an in-memory store
-	 * @deprecated
+	 * If true, enables writing to the remote (using post and delete)
+	 * @default false
 	 */
-	cache?: Store;
+	remoteWrite?: boolean;
 }
 
 /* node:coverage disable */
@@ -187,12 +224,18 @@ export class FetchFS extends StoreFS<FetchStore> {
 		public readonly requestInit?: RequestInit
 	) {
 		super(
-			new FetchStore(async (id: number) => {
-				const { entries } = await this.indexData;
-
-				const path = Object.entries(entries).find(([, node]) => node.data == id)?.[0];
-
-				return fetchFile(this.baseUrl + path, 'buffer', this.requestInit).catch(() => undefined);
+			new FetchStore({
+				get: async (id: number) => {
+					const { entries } = await this.indexData;
+					const path = Object.entries(entries).find(([, node]) => node.data == id)?.[0];
+					return fetchFile(this.baseUrl + path, 'buffer', this.requestInit).catch(() => undefined);
+				},
+				set() {
+					throw ErrnoError.With('ENOTSUP');
+				},
+				delete() {
+					throw ErrnoError.With('ENOTSUP');
+				},
 			})
 		);
 
@@ -211,7 +254,7 @@ const _Fetch = {
 		index: { type: ['string', 'object'], required: false },
 		baseUrl: { type: 'string', required: false },
 		requestInit: { type: 'object', required: false },
-		cache: { type: 'object', required: false },
+		remoteWrite: { type: 'boolean', required: false },
 	},
 
 	isAvailable(): boolean {
@@ -227,16 +270,30 @@ const _Fetch = {
 		options.index ??= 'index.json';
 
 		const indexData = typeof options.index != 'string' ? options.index : await fetchFile<IndexData>(options.index, 'json', options.requestInit);
+		const index = new Index().fromJSON(indexData);
 
-		const store = new FetchStore(async (id: number) => {
-			const path = Object.entries(indexData.entries).find(([, node]) => node.data == id)?.[0];
-			return fetchFile(baseUrl + path, 'buffer', options.requestInit).catch(() => undefined);
+		const _update = async (method: 'POST' | 'DELETE', id: number, body?: Uint8Array) => {
+			if (!options.remoteWrite) return;
+			const [path, inode] = [...index].find(([, node]) => node.data == id) || [];
+			if (!path || !inode) return;
+			await fetch(baseUrl + path, {
+				...options.requestInit,
+				headers: { ...options.requestInit?.headers, metadata: JSON.stringify(inode.toJSON()) },
+				method,
+				body,
+			});
+		};
+
+		const store = new FetchStore({
+			async get(id: number) {
+				const path = [...index].find(([, node]) => node.data == id)?.[0];
+				return !path ? undefined : fetchFile(baseUrl + path, 'buffer', options.requestInit).catch(() => undefined);
+			},
+			set: (id, body) => _update('POST', id, body),
+			delete: id => _update('DELETE', id),
 		});
 
 		const fs = new StoreFS(store);
-
-		const index = new Index();
-		index.fromJSON(indexData);
 		await fs.loadIndex(index);
 
 		if (options.disableAsyncCache) return fs;

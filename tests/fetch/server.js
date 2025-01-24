@@ -21,17 +21,24 @@ try {
 }
 
 const server = createServer((request, response) => {
-	const { url = '' } = request;
+	response.statusCode = 200;
+	const { url = '', method } = request;
+
+	/**
+	 * @todo Test POST/DELETE
+	 */
+	if (method != 'GET') {
+		response.end();
+		return;
+	}
 
 	if (url == '/.ping') {
-		response.statusCode = 200;
 		response.end('pong');
 		return;
 	}
 
 	const path = url == indexPath ? join(tmp, 'index.json') : join(data, url.slice(1) || '');
 	try {
-		response.statusCode = 200;
 		response.end(readFileSync(path));
 	} catch (e) {
 		response.statusCode = statusCodes[e.code] || 400;

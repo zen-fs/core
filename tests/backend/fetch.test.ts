@@ -14,6 +14,7 @@ await suite('Fetch with `disableAsyncCache`', () => {
 		await configureSingle({
 			backend: Fetch,
 			disableAsyncCache: true,
+			remoteWrite: true,
 			baseUrl,
 			index: baseUrl + indexPath,
 		});
