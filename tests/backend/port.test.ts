@@ -1,14 +1,9 @@
-/// configure
 import assert from 'node:assert/strict';
-import { dirname } from 'node:path';
 import { suite, test } from 'node:test';
-import { fileURLToPath } from 'node:url';
 import { MessageChannel, Worker } from 'node:worker_threads';
 import { Port, attachFS } from '../../dist/backends/port/fs.js';
-import type { StoreFS, InMemoryStore } from '../../dist/index.js';
+import type { InMemoryStore, StoreFS } from '../../dist/index.js';
 import { ErrnoError, InMemory, configure, configureSingle, fs, resolveMountConfig } from '../../dist/index.js';
-
-const dir = dirname(fileURLToPath(import.meta.url));
 
 // Tests a mis-configured `Port` using a MessageChannel
 
@@ -53,7 +48,7 @@ timeoutChannel.port1.unref();
 
 // Test configuration
 
-const configPort = new Worker(dir + '/config.worker.js');
+const configPort = new Worker(import.meta.dirname + '/config.worker.js');
 
 await suite('Remote FS with resolveRemoteMount', () => {
 	const content = 'FS is in a port';
@@ -111,7 +106,7 @@ channel.port2.unref();
 
 // Test using a worker
 
-const remotePort = new Worker(dir + '/remote.worker.js');
+const remotePort = new Worker(import.meta.dirname + '/remote.worker.js');
 
 await suite('Remote FS', () => {
 	const content = 'FS is in a port';

@@ -1,6 +1,5 @@
 import { configureSingle, Fetch, InMemory, Overlay, resolveMountConfig } from '../../dist/index.js';
-
-const baseUrl = 'http://localhost:26514';
+import { baseUrl } from './config.js';
 
 await configureSingle({
 	backend: Overlay,
