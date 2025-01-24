@@ -46,6 +46,7 @@ export interface Entry {
 export const entries = new List<Entry>();
 
 export function log(level: Level, message: string) {
+	if (!isEnabled) return;
 	const entry: Entry = {
 		level,
 		message,
@@ -73,45 +74,70 @@ export const notice = _shortcut(Level.NOTICE);
 export const info = _shortcut(Level.INFO);
 export const debug = _shortcut(Level.DEBUG);
 
-// Formatting
+// Formatting and output
 
-export let format: (entry: Entry) => string = (entry: Entry) => {
+let _format: (entry: Entry) => string = (entry: Entry) => {
 	return `[${(entry.elapsedMs / 1000).toFixed(3).padStart(10)}] ${entry.message}`;
 };
 
-let _output: null | ((message: string) => unknown) = null;
+export function format(entry: Entry) {
+	return _format(entry);
+}
+
+let _output: (message: string) => unknown = console.error;
 
 function output(entry: Entry) {
 	if (typeof minLevel == 'number' && entry.level > minLevel) return;
-	_output?.(format(entry));
+	_output(format(entry));
 }
 
-let minLevel: Level | null = null;
+let minLevel: Level = Level.ALERT;
 
 // Configuration
 
-export interface Options {
-	format?(this: void, entry: Entry): string;
+export let isEnabled: boolean = false;
 
-	output(this: void, message: string): unknown;
-
-	/** If set, output() all current entries after `configure` is done */
-	dumpBacklog?: boolean;
+export interface LogConfiguration {
+	/**
+	 * If false, log messages will not be recorded or outputted
+	 * @default false
+	 */
+	enabled?: boolean;
 
 	/**
 	 * The minimum level needed to output a message
+	 * @default Level.ALERT
 	 */
-	level: Level | (typeof levels)[Level];
+	level?: Level | (typeof levels)[Level];
+
+	/**
+	 * Formats a log entry into a string
+	 * @default `[${ms / 1000}] ${message}`
+	 */
+	format?(this: void, entry: Entry): string;
+
+	/**
+	 * Outputs a log message
+	 * @default console.error()
+	 */
+	output?(this: void, message: string): unknown;
+
+	/**
+	 * If set, output() all current entries after `configure` is done
+	 * @default false
+	 */
+	dumpBacklog?: boolean;
 }
 
-export function configure(options: Options) {
-	format = options.format ?? format;
-	_output = options.output;
-	minLevel = typeof options.level == 'string' ? levelOf(options.level) : options.level;
+export function configure(options: LogConfiguration) {
+	_format = options.format ?? _format;
+	_output = options.output ?? _output;
+	minLevel = typeof options.level == 'string' ? levelOf(options.level) : options.level ?? minLevel;
+	isEnabled = options.enabled ?? isEnabled;
 
-	if (options.dumpBacklog) {
-		for (const entry of entries) {
-			output(entry);
-		}
+	if (!options.dumpBacklog) return;
+
+	for (const entry of entries) {
+		output(entry);
 	}
 }

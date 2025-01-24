@@ -5,7 +5,8 @@ import type { Device, DeviceDriver } from './devices.js';
 import { DeviceFS } from './devices.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
-import { err } from './log.js';
+import type { LogConfiguration } from './log.js';
+import { err, configure as configureLog } from './log.js';
 import * as cache from './vfs/cache.js';
 import { config } from './vfs/config.js';
 import * as fs from './vfs/index.js';
@@ -100,7 +101,6 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 
 	/**
 	 * Whether to automatically add normal Linux devices
-	 * @experimental
 	 * @default false
 	 */
 	addDevices: boolean;
@@ -126,7 +126,6 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * If true, disables *all* permissions checking.
 	 *
 	 * This can increase performance.
-	 * @experimental
 	 * @default false
 	 */
 	disableAccessChecks: boolean;
@@ -149,6 +148,12 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * @default false
 	 */
 	onlySyncOnClose: boolean;
+
+	/**
+	 * Configurations options for the log.
+	 * @experimental
+	 */
+	log: LogConfiguration;
 }
 
 /**
@@ -206,6 +211,8 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	config.checkAccess = !configuration.disableAccessChecks;
 	config.updateOnRead = !configuration.disableUpdateOnRead;
 	config.syncImmediately = !configuration.onlySyncOnClose;
+
+	if (configuration.log) configureLog(configuration.log);
 
 	if (configuration.mounts) {
 		// sort to make sure any root replacement is done first
