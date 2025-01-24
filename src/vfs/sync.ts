@@ -1003,7 +1003,7 @@ export function globSync(pattern: string | string[], options: GlobOptionsU = {})
 			if (exclude((withFileTypes ? entry : fullPath) as any)) continue;
 
 			/**
-			 * @todo it the pattern.source check correct?
+			 * @todo is the pattern.source check correct?
 			 */
 			if (statSync(fullPath).isDirectory() && regexPatterns.some(pattern => pattern.source.includes('.*'))) {
 				recursiveList(fullPath);
