@@ -2,6 +2,7 @@
 import type { Entries, RequiredKeys } from 'utilium';
 import { Errno, ErrnoError } from '../error.js';
 import type { FileSystem } from '../filesystem.js';
+import { err } from '../log.js';
 
 type OptionType =
 	| 'string'
@@ -108,7 +109,7 @@ export function isBackend(arg: unknown): arg is Backend {
  */
 export async function checkOptions<T extends Backend>(backend: T, options: Record<string, unknown>): Promise<void> {
 	if (typeof options != 'object' || options === null) {
-		throw new ErrnoError(Errno.EINVAL, 'Invalid options');
+		throw err(new ErrnoError(Errno.EINVAL, 'Invalid options'));
 	}
 
 	// Check for required options.
@@ -120,7 +121,7 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 				continue;
 			}
 
-			throw new ErrnoError(Errno.EINVAL, 'Missing required option: ' + optName);
+			throw err(new ErrnoError(Errno.EINVAL, 'Missing required option: ' + optName));
 		}
 
 		// Option provided, check type.
@@ -137,7 +138,7 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 			const name = (type: OptionType) => (typeof type == 'function' ? type.name : type);
 			const expected = Array.isArray(opt.type) ? `one of ${opt.type.map(name).join(', ')}` : name(opt.type as OptionType);
 
-			throw new ErrnoError(Errno.EINVAL, `Incorrect type for "${optName}": ${type} (expected ${expected})`);
+			throw err(new ErrnoError(Errno.EINVAL, `Incorrect type for "${optName}": ${type} (expected ${expected})`));
 		}
 
 		if (opt.validator) await opt.validator(value);

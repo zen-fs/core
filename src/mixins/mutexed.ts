@@ -3,9 +3,10 @@ import type { CreationOptions, FileSystem, FileSystemMetadata } from '../filesys
 import type { Stats } from '../stats.js';
 import type { Concrete } from '../utils.js';
 
-import { ErrnoError } from '../error.js';
-import '../polyfills.js';
 import type { InodeLike } from '../backends/index.js';
+import { ErrnoError } from '../error.js';
+import { err } from '../log.js';
+import '../polyfills.js';
 
 export class MutexLock {
 	protected current = Promise.withResolvers<void>();
@@ -76,7 +77,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 			if (lock.isLocked) {
 				const error = ErrnoError.With('EDEADLK', path, syscall);
 				error.stack += stack?.slice('Error'.length);
-				throw error;
+				throw err(error);
 			}
 		}, 5000);
 		await previous?.done();
@@ -90,7 +91,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	 */
 	public lockSync(path: string, syscall: string): MutexLock {
 		if (this.currentLock?.isLocked) {
-			throw ErrnoError.With('EBUSY', path, syscall);
+			throw err(ErrnoError.With('EBUSY', path, syscall));
 		}
 
 		return this.addLock();

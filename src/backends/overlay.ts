@@ -7,6 +7,7 @@ import type { InodeLike } from './store/inode.js';
 import { Errno, ErrnoError } from '../error.js';
 import { LazyFile, parseFlag } from '../file.js';
 import { FileSystem } from '../filesystem.js';
+import { crit, err } from '../log.js';
 import { canary, decodeUTF8, encodeUTF8 } from '../utils.js';
 import { dirname, join } from '../vfs/path.js';
 
@@ -62,7 +63,7 @@ export class OverlayFS extends FileSystem {
 		this.writable = writable;
 		this.readable = readable;
 		if (this.writable.metadata().readonly) {
-			throw new ErrnoError(Errno.EINVAL, 'Writable file system must be writable.');
+			throw err(new ErrnoError(Errno.EINVAL, 'Writable file system must be writable.'));
 		}
 		this._ready = this._initialize();
 	}
@@ -417,7 +418,7 @@ export class OverlayFS extends FileSystem {
 
 	private checkInitialized(): void {
 		if (!this._isInitialized) {
-			throw new ErrnoError(Errno.EPERM, 'Overlay is not initialized');
+			throw crit(new ErrnoError(Errno.EPERM, 'Overlay is not initialized'));
 		}
 
 		if (!this._deleteLogError) {

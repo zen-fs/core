@@ -8,6 +8,7 @@ import type { PortFS } from './fs.js';
 
 import { Errno, ErrnoError } from '../../error.js';
 import { LazyFile } from '../../file.js';
+import { err } from '../../log.js';
 import { Stats, type StatsLike } from '../../stats.js';
 import { handleRequest } from './fs.js';
 
@@ -98,15 +99,14 @@ export function request<const TRequest extends Request, TValue>(
 	{ port, timeout = 1000, fs }: Partial<Options> & { fs?: PortFS } = {}
 ): Promise<TValue> {
 	const stack = '\n' + new Error().stack!.slice('Error:'.length);
-	if (!port) {
-		throw ErrnoError.With('EINVAL');
-	}
+	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Can not make an RPC request without a port'));
+
 	return new Promise<TValue>((resolve, reject) => {
 		const id = Math.random().toString(16).slice(10);
 		executors.set(id, { resolve, reject, fs });
 		port.postMessage({ ...request, _zenfs: true, id, stack });
 		const _ = setTimeout(() => {
-			const error = new ErrnoError(Errno.EIO, 'RPC Failed', typeof request.args[0] == 'string' ? request.args[0] : '', request.method);
+			const error = err(new ErrnoError(Errno.EIO, 'RPC Failed', typeof request.args[0] == 'string' ? request.args[0] : '', request.method));
 			error.stack += stack;
 			reject(error);
 			if (typeof _ == 'object') _.unref();
@@ -120,7 +120,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 	}
 	const { id, value, error, stack } = response;
 	if (!executors.has(id)) {
-		const error = new ErrnoError(Errno.EIO, 'Invalid RPC id:' + id);
+		const error = err(new ErrnoError(Errno.EIO, 'Invalid RPC id:' + id));
 		error.stack += stack;
 		throw error;
 	}
@@ -147,18 +147,16 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 }
 
 export function attach<T extends Message>(port: Port, handler: (message: T) => unknown) {
-	if (!port) {
-		throw ErrnoError.With('EINVAL');
-	}
+	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Cannot attach to non-existent port'));
+
 	port['on' in port ? 'on' : 'addEventListener']!('message', (message: T | _MessageEvent<T>) => {
 		handler('data' in message ? message.data : message);
 	});
 }
 
 export function detach<T extends Message>(port: Port, handler: (message: T) => unknown) {
-	if (!port) {
-		throw ErrnoError.With('EINVAL');
-	}
+	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Cannot detach from non-existent port'));
+
 	port['off' in port ? 'off' : 'removeEventListener']!('message', (message: T | _MessageEvent<T>) => {
 		handler('data' in message ? message.data : message);
 	});

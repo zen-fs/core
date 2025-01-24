@@ -1,4 +1,5 @@
 import { Errno, ErrnoError } from '../error.js';
+import { err } from '../log.js';
 import { normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
 import type { Backend, SharedConfig } from './backend.js';
@@ -19,10 +20,10 @@ async function fetchFile<T extends object>(path: string, type: 'json', init?: Re
 async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json', init?: RequestInit): Promise<T | Uint8Array>;
 async function fetchFile<T extends object>(path: string, type: string, init?: RequestInit): Promise<T | Uint8Array> {
 	const response = await fetch(path, init).catch((e: Error) => {
-		throw new ErrnoError(Errno.EIO, e.message, path);
+		throw err(new ErrnoError(Errno.EIO, e.message, path));
 	});
 	if (!response.ok) {
-		throw new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status, path);
+		throw err(new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status, path));
 	}
 	switch (type) {
 		case 'buffer': {
@@ -36,7 +37,7 @@ async function fetchFile<T extends object>(path: string, type: string, init?: Re
 				throw new ErrnoError(Errno.EIO, e.message, path);
 			}) as Promise<T>;
 		default:
-			throw new ErrnoError(Errno.EINVAL, 'Invalid download type: ' + type);
+			throw err(new ErrnoError(Errno.EINVAL, 'Invalid download type: ' + type));
 	}
 }
 

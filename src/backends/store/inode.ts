@@ -1,4 +1,5 @@
 import { deserialize, pick, randomInt, sizeof, struct, types as t } from 'utilium';
+import { crit } from '../../log.js';
 import { Stats, type StatsLike } from '../../stats.js';
 import { size_max } from '../../vfs/constants.js';
 
@@ -36,7 +37,7 @@ export class Inode implements InodeLike {
 		}
 
 		if (data.byteLength < 58) {
-			throw new RangeError('Can not create an inode from a buffer less than 58 bytes');
+			throw crit(new RangeError('Can not create an inode from a buffer less than 58 bytes'));
 		}
 
 		// Expand the buffer so it is the right size

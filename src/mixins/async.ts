@@ -6,6 +6,7 @@ import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 import { StoreFS } from '../backends/store/fs.js';
 import { Errno, ErrnoError } from '../error.js';
 import { LazyFile, parseFlag } from '../file.js';
+import { crit, err } from '../log.js';
 import { join } from '../vfs/path.js';
 
 /** @internal */
@@ -89,18 +90,18 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 			try {
 				await this.crossCopy('/');
 				this._isInitialized = true;
-			} catch (e) {
+			} catch (e: any) {
 				this._isInitialized = false;
-				throw e;
+				throw crit(e);
 			}
 		}
 
 		protected checkSync(path?: string, syscall?: string): asserts this is { _sync: FileSystem } {
 			if (this._disableSync) {
-				throw new ErrnoError(Errno.ENOTSUP, 'Sync caching has been disabled for this async file system', path, syscall);
+				throw crit(new ErrnoError(Errno.ENOTSUP, 'Sync caching has been disabled for this async file system', path, syscall));
 			}
 			if (!this._sync) {
-				throw new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall);
+				throw crit(new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall));
 			}
 		}
 
@@ -236,7 +237,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 						// @ts-expect-error 2556
 						this._sync?.[`${key}Sync` as const]?.(...args);
 					} catch (e: any) {
-						throw new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key);
+						throw err(new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key));
 					}
 					return result;
 				};

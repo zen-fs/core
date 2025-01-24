@@ -7,6 +7,7 @@ import type { FileSystem } from '../filesystem.js';
 import { InMemory } from '../backends/memory.js';
 import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../error.js';
+import { alert } from '../log.js';
 import { normalizePath } from '../utils.js';
 import { paths as pathCache } from './cache.js';
 import { size_max } from './constants.js';
@@ -113,7 +114,7 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 		}
 	}
 
-	throw new ErrnoError(Errno.EIO, 'No file system');
+	throw alert(new ErrnoError(Errno.EIO, 'No file system'));
 }
 
 /**

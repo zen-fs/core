@@ -5,6 +5,7 @@ import type { Device, DeviceDriver } from './devices.js';
 import { DeviceFS } from './devices.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
+import { err } from './log.js';
 import * as cache from './vfs/cache.js';
 import { config } from './vfs/config.js';
 import * as fs from './vfs/index.js';
@@ -25,11 +26,11 @@ function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfigurati
  */
 export async function resolveMountConfig<T extends Backend>(configuration: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
 	if (typeof configuration !== 'object' || configuration == null) {
-		throw new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration');
+		throw err(new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration'));
 	}
 
 	if (!isMountConfig(configuration)) {
-		throw new ErrnoError(Errno.EINVAL, 'Invalid mount configuration');
+		throw err(new ErrnoError(Errno.EINVAL, 'Invalid mount configuration'));
 	}
 
 	if (configuration instanceof FileSystem) {
@@ -51,7 +52,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 		}
 
 		if (_depth > 10) {
-			throw new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite');
+			throw err(new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite'));
 		}
 
 		(configuration as Record<string, FileSystem>)[key] = await resolveMountConfig(value, ++_depth);

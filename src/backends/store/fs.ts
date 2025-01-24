@@ -4,6 +4,7 @@ import type { File } from '../../file.js';
 import { LazyFile } from '../../file.js';
 import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
 import { FileSystem } from '../../filesystem.js';
+import { crit, err } from '../../log.js';
 import type { FileType, Stats } from '../../stats.js';
 import { _throw, canary, decodeDirListing, encodeDirListing, encodeUTF8, growBuffer } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
@@ -498,7 +499,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 */
 	private async _findInode(tx: WrappedTransaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<number> {
 		if (visited.has(path)) {
-			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path);
+			throw crit(new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path));
 		}
 
 		visited.add(path);
@@ -528,7 +529,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 */
 	private _findInodeSync(tx: WrappedTransaction, path: string, syscall: string, visited: Set<string> = new Set()): number {
 		if (visited.has(path)) {
-			throw new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path);
+			throw crit(new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path));
 		}
 
 		visited.add(path);
@@ -582,7 +583,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			}
 			return ino;
 		}
-		throw new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall);
+		throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
 	}
 
 	/**
@@ -598,7 +599,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			}
 			return ino;
 		}
-		throw new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall);
+		throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
 	}
 
 	/**

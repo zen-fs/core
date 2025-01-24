@@ -9,6 +9,7 @@ import { Errno, ErrnoError } from './error.js';
 import type { FileReadResult } from './file.js';
 import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
+import { alert, err } from './log.js';
 import { Stats } from './stats.js';
 import { canary, decodeUTF8 } from './utils.js';
 import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
@@ -297,7 +298,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 
 	protected devicesWithDriver(driver: DeviceDriver<unknown> | string, forceIdentity?: boolean): Device[] {
 		if (forceIdentity && typeof driver == 'string') {
-			throw new ErrnoError(Errno.EINVAL, 'Can not fetch devices using only a driver name');
+			throw err(new ErrnoError(Errno.EINVAL, 'Can not fetch devices using only a driver name'));
 		}
 		const devs: Device[] = [];
 		for (const device of this.devices.values()) {
@@ -490,14 +491,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		if (this.devices.has(path)) {
-			throw new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync');
+			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'));
 		}
 		return super.sync(path, data, stats);
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		if (this.devices.has(path)) {
-			throw new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync');
+			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'));
 		}
 		return super.syncSync(path, data, stats);
 	}

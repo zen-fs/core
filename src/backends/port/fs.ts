@@ -1,18 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ExtractProperties } from 'utilium';
 import type { MountConfiguration } from '../../config.js';
+import type { File } from '../../file.js';
 import type { CreationOptions, FileSystemMetadata } from '../../filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 import type { Inode, InodeLike } from '../store/inode.js';
-import type { File } from '../../file.js';
 
 import { pick } from 'utilium';
 import { resolveMountConfig } from '../../config.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { FileSystem } from '../../filesystem.js';
+import { err } from '../../log.js';
 import { Async } from '../../mixins/async.js';
 import { Stats } from '../../stats.js';
-import { decodeUTF8 } from '../../utils.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
 
@@ -176,7 +176,7 @@ const _Port = {
 			validator(port: RPC.Port) {
 				// Check for a `postMessage` function.
 				if (typeof port?.postMessage != 'function') {
-					throw new ErrnoError(Errno.EINVAL, 'option must be a port.');
+					throw err(new ErrnoError(Errno.EINVAL, 'option must be a port.'));
 				}
 			},
 		},

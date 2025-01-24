@@ -3,6 +3,7 @@ import type { Errno } from '../error.js';
 import { ErrnoError } from '../error.js';
 import { File, type FileReadResult } from '../file.js';
 import { FileSystem } from '../filesystem.js';
+import { alert } from '../log.js';
 import { Stats } from '../stats.js';
 import { join, resolve } from '../vfs/path.js';
 import type { Backend } from './backend.js';
@@ -402,6 +403,7 @@ export class PassthroughFS extends FileSystem {
 		try {
 			fd = this.nodeFS.openSync(this.path(path), 'r');
 			this.nodeFS.readSync(fd, buffer, { offset, length: end - offset });
+			return;
 		} catch (err) {
 			this.error(err, path);
 		} finally {
@@ -409,7 +411,7 @@ export class PassthroughFS extends FileSystem {
 		}
 
 		// unreachable
-		throw ErrnoError.With('EIO', path, 'read');
+		throw alert(ErrnoError.With('EIO', path, 'read'));
 	}
 
 	public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {

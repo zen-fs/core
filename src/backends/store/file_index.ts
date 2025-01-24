@@ -2,6 +2,7 @@
 
 import { isJSON, randomInt } from 'utilium';
 import { Errno, ErrnoError } from '../../error.js';
+import { err } from '../../log.js';
 import { S_IFDIR, S_IFMT, size_max } from '../../vfs/constants.js';
 import { basename, dirname } from '../../vfs/path.js';
 import type { InodeLike } from './inode.js';
@@ -84,7 +85,7 @@ export class Index extends Map<string, Readonly<Inode>> {
 	 */
 	public fromJSON(json: IndexData): this {
 		if (json.version != version) {
-			throw new ErrnoError(Errno.EINVAL, 'Index version mismatch');
+			throw err(new ErrnoError(Errno.EINVAL, 'Index version mismatch'));
 		}
 
 		this.clear();
@@ -105,7 +106,7 @@ export class Index extends Map<string, Readonly<Inode>> {
 	 */
 	public static parse(data: string): Index {
 		if (!isJSON(data)) {
-			throw new ErrnoError(Errno.EINVAL, 'Invalid JSON');
+			throw err(new ErrnoError(Errno.EINVAL, 'Invalid JSON'));
 		}
 
 		const json = JSON.parse(data) as IndexData;
