@@ -572,35 +572,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new Inode(tx.getSync(ino) ?? _throw(ErrnoError.With('ENOENT', path, syscall)));
 	}
 
-	/**
-	 * Adds a new node under a random ID. Retries before giving up in
-	 * the exceedingly unlikely chance that we try to reuse a random id.
-	 */
+	/** Gets a new ID */
 	protected async allocNew(tx: WrappedTransaction, path: string, syscall: string): Promise<number> {
-		for (let i = 0; i < maxInodeAllocTries; i++) {
-			const ino = randomInt(0, size_max);
-			if (await tx.get(ino)) {
-				continue;
-			}
-			return ino;
-		}
-		throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		const key = Math.max(...(await tx.keys())) + 1;
+		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		return key;
 	}
 
-	/**
-	 * Creates a new node under a random ID. Retries before giving up in
-	 * the exceedingly unlikely chance that we try to reuse a random id.
-	 * @return The ino that the data was stored under.
-	 */
+	/** Gets a new ID */
 	protected allocNewSync(tx: WrappedTransaction, path: string, syscall: string): number {
-		for (let i = 0; i < maxInodeAllocTries; i++) {
-			const ino = randomInt(0, size_max);
-			if (tx.getSync(ino)) {
-				continue;
-			}
-			return ino;
-		}
-		throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		const key = Math.max(...tx.keysSync()) + 1;
+		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		return key;
 	}
 
 	/**
@@ -631,7 +614,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Commit data.
 		const inode = new Inode();
 		inode.ino = await this.allocNew(tx, path, syscall);
-		inode.data = await this.allocNew(tx, path, syscall);
+		inode.data = inode.ino + 1;
 		inode.mode = options.mode | type;
 		inode.uid = parent.mode & S_ISUID ? parent.uid : options.uid;
 		inode.gid = parent.mode & S_ISGID ? parent.gid : options.gid;
@@ -676,7 +659,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Commit data.
 		const inode = new Inode();
 		inode.ino = this.allocNewSync(tx, path, syscall);
-		inode.data = this.allocNewSync(tx, path, syscall);
+		inode.data = inode.ino + 1;
 		inode.size = data.length;
 		inode.mode = options.mode | type;
 		inode.uid = parent.mode & S_ISUID ? parent.uid : options.uid;
