@@ -576,18 +576,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new Inode(tx.getSync(ino) ?? _throw(ErrnoError.With('ENOENT', path, syscall)));
 	}
 
-	/**
-	 * Gets a new ID
-	 */
+	/** Gets a new ID */
 	protected async allocNew(tx: WrappedTransaction, path: string, syscall: string): Promise<number> {
 		const key = Math.max(...(await tx.keys())) + 1;
 		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
 		return key;
 	}
 
-	/**
-	 * Gets a new ID
-	 */
+	/** Gets a new ID */
 	protected allocNewSync(tx: WrappedTransaction, path: string, syscall: string): number {
 		const key = Math.max(...tx.keysSync()) + 1;
 		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
