@@ -1,6 +1,7 @@
+import { serialize } from 'utilium';
 import { Errno, ErrnoError } from '../error.js';
 import { err, log_deprecated } from '../log.js';
-import { normalizePath } from '../utils.js';
+import { growBuffer, normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
 import type { Backend, SharedConfig } from './backend.js';
 import type { IndexData } from './store/file_index.js';
@@ -74,13 +75,26 @@ export class FetchTransaction extends Transaction<FetchStore> {
 		throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
 	}
 
-	public async set(id: number, data: Uint8Array): Promise<void> {
+	public async set(id: number, data: Uint8Array, offset?: number): Promise<number> {
+		if (offset) {
+			const buffer = growBuffer((await this.get(id)) ?? new Uint8Array(), data.byteLength + offset);
+			buffer.set(data, offset);
+			data = buffer;
+		}
 		this.cache.set(id, data);
 		await this.store.set(id, data);
+		return data.byteLength;
 	}
 
-	public setSync(id: number, data: Uint8Array): void {
-		this.async(this.set(id, data));
+	public setSync(id: number, data: Uint8Array, offset?: number): number {
+		if (offset) {
+			const buffer = growBuffer(this.getSync(id) ?? new Uint8Array(), data.byteLength + offset);
+			buffer.set(data, offset);
+			data = buffer;
+		}
+		this.cache.set(id, data);
+		this.async(this.store.set(id, data));
+		return data.byteLength;
 	}
 
 	public async remove(id: number): Promise<void> {
@@ -112,29 +126,46 @@ export class FetchTransaction extends Transaction<FetchStore> {
 }
 
 interface FetchRemote {
-	get(id: number): Promise<Uint8Array | undefined>;
-	set(id: number, data: Uint8Array): Promise<void>;
+	get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined>;
+	set(id: number, data: Uint8Array, offset?: number): Promise<void>;
 	delete(id: number): Promise<void>;
 }
 
 export class FetchStore implements Store {
-	public constructor(protected remote: FetchRemote) {}
+	public readonly flags = ['partial'] as const;
+
+	public constructor(
+		protected index: Index,
+		protected remote: FetchRemote
+	) {}
 
 	/** @internal @hidden */
 	cache = new Map<number, Uint8Array | undefined>();
 
 	public readonly name: string = 'fetch';
 
-	public async get(id: number): Promise<Uint8Array | undefined> {
-		if (this.cache.has(id)) return this.cache.get(id);
+	public async get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined> {
+		if (this.cache.has(id)) return this.cache.get(id)?.subarray(offset, end);
 
-		const data = await this.remote.get(id);
-		this.cache.set(id, data);
+		const data = await this.remote.get(id, offset, end);
+
+		if (!data) return;
+
+		const inode = this.index.getByID(id);
+
+		if (!inode) {
+			this.cache.set(id, data);
+			return data;
+		}
+
+		const full = new Uint8Array(inode.size);
+		full.set(data, offset);
+		this.cache.set(id, full);
 		return data;
 	}
 
-	public async set(id: number, data: Uint8Array): Promise<void> {
-		await this.remote.set(id, data);
+	public async set(id: number, data: Uint8Array, offset?: number): Promise<void> {
+		await this.remote.set(id, data, offset);
 	}
 
 	public async delete(id: number): Promise<void> {
@@ -225,7 +256,7 @@ export class FetchFS extends StoreFS<FetchStore> {
 	) {
 		log_deprecated('FetchFS');
 		super(
-			new FetchStore({
+			new FetchStore(typeof index == 'string' ? new Index() : new Index().fromJSON(index), {
 				get: async (id: number) => {
 					const { entries } = await this.indexData;
 					const path = Object.entries(entries).find(([, node]) => node.data == id)?.[0];
@@ -285,7 +316,7 @@ const _Fetch = {
 			});
 		};
 
-		const store = new FetchStore({
+		const store = new FetchStore(index, {
 			async get(id: number) {
 				const path = [...index].find(([, node]) => node.data == id)?.[0];
 				return !path ? undefined : fetchFile(baseUrl + path, 'buffer', options.requestInit).catch(() => undefined);

@@ -1,4 +1,4 @@
-import { randomInt, serialize } from 'utilium';
+import { serialize } from 'utilium';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { LazyFile } from '../../file.js';
@@ -12,8 +12,6 @@ import { basename, dirname, join, parse, resolve } from '../../vfs/path.js';
 import { Index } from './file_index.js';
 import { Inode, rootIno, type InodeLike } from './inode.js';
 import { WrappedTransaction, type Store } from './store.js';
-
-const maxInodeAllocTries = 5;
 
 /**
  * A file system which uses a key-value store.
@@ -407,16 +405,16 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.transaction();
 		const inode = await this.findInode(tx, path, 'read');
 
-		const data = (await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
-		buffer.set(data.subarray(offset, end));
+		const data = (await tx.get(inode.data, offset, end)) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
+		buffer.set(tx.flag('partial') ? data : data.subarray(offset, end));
 	}
 
 	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
 		using tx = this.transaction();
 		const inode = this.findInodeSync(tx, path, 'read');
 
-		const data = tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
-		buffer.set(data.subarray(offset, end));
+		const data = tx.getSync(inode.data, offset, end) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
+		buffer.set(tx.flag('partial') ? data : data.subarray(offset, end));
 	}
 
 	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
@@ -424,13 +422,16 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = await this.findInode(tx, path, 'write');
 
-		const buffer = growBuffer((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
-		buffer.set(data, offset);
+		let buffer = data;
+		if (!tx.flag('partial')) {
+			buffer = growBuffer((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
+			buffer.set(data, offset);
+		}
+		const size = await tx.set(inode.data, buffer, offset);
 
-		inode.update({ mtimeMs: Date.now(), size: buffer.byteLength });
+		inode.update({ mtimeMs: Date.now(), size });
 
 		await tx.set(inode.ino, serialize(inode));
-		await tx.set(inode.data, buffer);
 
 		await tx.commit();
 	}
@@ -440,13 +441,16 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = this.findInodeSync(tx, path, 'write');
 
-		const buffer = growBuffer(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
-		buffer.set(data, offset);
+		let buffer = data;
+		if (!tx.flag('partial')) {
+			buffer = growBuffer(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
+			buffer.set(data, offset);
+		}
 
-		inode.update({ mtimeMs: Date.now(), size: buffer.byteLength });
+		const size = tx.setSync(inode.data, buffer, offset);
+		inode.update({ mtimeMs: Date.now(), size });
 
 		tx.setSync(inode.ino, serialize(inode));
-		tx.setSync(inode.data, buffer);
 
 		tx.commitSync();
 	}
@@ -573,34 +577,21 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
-	 * Adds a new node under a random ID. Retries before giving up in
-	 * the exceedingly unlikely chance that we try to reuse a random id.
+	 * Gets a new ID
 	 */
 	protected async allocNew(tx: WrappedTransaction, path: string, syscall: string): Promise<number> {
-		for (let i = 0; i < maxInodeAllocTries; i++) {
-			const ino = randomInt(0, size_max);
-			if (await tx.get(ino)) {
-				continue;
-			}
-			return ino;
-		}
-		throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		const key = Math.max(...(await tx.keys())) + 1;
+		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		return key;
 	}
 
 	/**
-	 * Creates a new node under a random ID. Retries before giving up in
-	 * the exceedingly unlikely chance that we try to reuse a random id.
-	 * @return The ino that the data was stored under.
+	 * Gets a new ID
 	 */
 	protected allocNewSync(tx: WrappedTransaction, path: string, syscall: string): number {
-		for (let i = 0; i < maxInodeAllocTries; i++) {
-			const ino = randomInt(0, size_max);
-			if (tx.getSync(ino)) {
-				continue;
-			}
-			return ino;
-		}
-		throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		const key = Math.max(...tx.keysSync()) + 1;
+		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		return key;
 	}
 
 	/**
@@ -631,7 +622,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Commit data.
 		const inode = new Inode();
 		inode.ino = await this.allocNew(tx, path, syscall);
-		inode.data = await this.allocNew(tx, path, syscall);
+		inode.data = inode.ino + 1;
 		inode.mode = options.mode | type;
 		inode.uid = parent.mode & S_ISUID ? parent.uid : options.uid;
 		inode.gid = parent.mode & S_ISGID ? parent.gid : options.gid;
@@ -676,7 +667,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Commit data.
 		const inode = new Inode();
 		inode.ino = this.allocNewSync(tx, path, syscall);
-		inode.data = this.allocNewSync(tx, path, syscall);
+		inode.data = inode.ino + 1;
 		inode.size = data.length;
 		inode.mode = options.mode | type;
 		inode.uid = parent.mode & S_ISUID ? parent.uid : options.uid;

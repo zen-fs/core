@@ -6,6 +6,8 @@ import { MapTransaction, type MapStore } from './store/map.js';
  * A simple in-memory store
  */
 export class InMemoryStore extends Map<number, Uint8Array> implements MapStore {
+	public readonly flags = [] as const;
+
 	public constructor(public name: string = 'tmp') {
 		super();
 	}

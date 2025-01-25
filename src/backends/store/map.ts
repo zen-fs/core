@@ -1,4 +1,4 @@
-import { SyncTransaction, type Store } from './store.js';
+import { SyncTransaction, type Store, type StoreFlag } from './store.js';
 
 /**
  * An interface for simple synchronous stores that don't have special support for transactions and such, based on `Map`
@@ -17,6 +17,8 @@ export interface MapStore extends Store {
  */
 export abstract class AsyncMapStore implements MapStore {
 	public abstract name: string;
+
+	public abstract readonly flags: StoreFlag[];
 
 	protected cache: Map<number, Uint8Array> = new Map();
 
@@ -80,7 +82,7 @@ export abstract class AsyncMapStore implements MapStore {
  * @see AsyncMapStore
  */
 export class MapTransaction extends SyncTransaction<MapStore> {
-	protected declare store: MapStore;
+	public declare readonly store: MapStore;
 
 	public keysSync(): Iterable<number> {
 		return this.store.keys();
@@ -94,8 +96,9 @@ export class MapTransaction extends SyncTransaction<MapStore> {
 		return this.store.get(id);
 	}
 
-	public setSync(id: number, data: Uint8Array): void {
-		return this.store.set(id, data);
+	public setSync(id: number, data: Uint8Array): number {
+		this.store.set(id, data);
+		return data.byteLength;
 	}
 
 	public removeSync(id: number): void {

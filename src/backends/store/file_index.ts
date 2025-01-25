@@ -41,6 +41,18 @@ export class Index extends Map<string, Readonly<Inode>> {
 		return JSON.stringify(this.toJSON());
 	}
 
+	public pathOf(id: number): string | undefined {
+		for (const [path, inode] of this) {
+			if (inode.ino == id || inode.data == id) return path;
+		}
+	}
+
+	public getByID(id: number): Readonly<Inode> | undefined {
+		for (const inode of this.values()) {
+			if (inode.ino == id || inode.data == id) return inode;
+		}
+	}
+
 	public directoryEntries(path: string): Record<string, number> {
 		const node = this.get(path);
 
