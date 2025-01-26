@@ -4,11 +4,12 @@ import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
 import type { InodeLike } from './store/inode.js';
 
+import { canary } from 'utilium';
 import { Errno, ErrnoError } from '../error.js';
 import { LazyFile, parseFlag } from '../file.js';
 import { FileSystem } from '../filesystem.js';
 import { crit, err } from '../log.js';
-import { canary, decodeUTF8, encodeUTF8 } from '../utils.js';
+import { decodeUTF8, encodeUTF8 } from '../utils.js';
 import { dirname, join } from '../vfs/path.js';
 
 /** @internal */
@@ -444,7 +445,7 @@ export class OverlayFS extends FileSystem {
 		let parent = dirname(path);
 		const toCreate: string[] = [];
 
-		const silence = canary(path);
+		const silence = canary(ErrnoError.With('EDEADLK', path));
 		while (!this.writable.existsSync(parent)) {
 			toCreate.push(parent);
 			parent = dirname(parent);
@@ -465,7 +466,7 @@ export class OverlayFS extends FileSystem {
 		let parent = dirname(path);
 		const toCreate: string[] = [];
 
-		const silence = canary(path);
+		const silence = canary(ErrnoError.With('EDEADLK', path));
 		while (!(await this.writable.exists(parent))) {
 			toCreate.push(parent);
 			parent = dirname(parent);

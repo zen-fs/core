@@ -3,7 +3,7 @@ import type { FileSystem } from './filesystem.js';
 import { log_deprecated } from './log.js';
 import './polyfills.js';
 import { _chown, Stats, type StatsLike } from './stats.js';
-import { growBuffer } from './utils.js';
+import { extendBuffer } from 'utilium/buffer.js';
 import { config } from './vfs/config.js';
 import * as c from './vfs/constants.js';
 
@@ -408,7 +408,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		const end = position + length;
 		const slice = buffer.subarray(offset, offset + length);
 
-		this._buffer = growBuffer(this._buffer, end);
+		this._buffer = extendBuffer(this._buffer, end);
 		if (end > this.stats.size) this.stats.size = end;
 
 		this._buffer.set(slice, position);

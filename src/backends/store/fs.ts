@@ -1,4 +1,5 @@
-import { serialize } from 'utilium';
+import { _throw, canary, serialize } from 'utilium';
+import { extendBuffer } from 'utilium/buffer.js';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { LazyFile } from '../../file.js';
@@ -6,7 +7,7 @@ import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '.
 import { FileSystem } from '../../filesystem.js';
 import { crit, err, log_deprecated } from '../../log.js';
 import type { FileType, Stats } from '../../stats.js';
-import { _throw, canary, decodeDirListing, encodeDirListing, encodeUTF8, growBuffer } from '../../utils.js';
+import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, resolve } from '../../vfs/path.js';
 import { Index } from './file_index.js';
@@ -109,7 +110,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const queue: [path: string, ino: number][] = [['/', 0]];
 
-		const silence = canary();
+		const silence = canary(ErrnoError.With('EDEADLK'));
 		while (queue.length) {
 			const [path, ino] = queue.shift()!;
 
@@ -137,7 +138,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const queue: [path: string, ino: number][] = [['/', 0]];
 
-		const silence = canary();
+		const silence = canary(ErrnoError.With('EDEADLK'));
 		while (queue.length) {
 			const [path, ino] = queue.shift()!;
 
@@ -424,7 +425,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		let buffer = data;
 		if (!tx.flag('partial')) {
-			buffer = growBuffer((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
+			buffer = extendBuffer((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
 			buffer.set(data, offset);
 		}
 		const size = await tx.set(inode.data, buffer, offset);
@@ -443,7 +444,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		let buffer = data;
 		if (!tx.flag('partial')) {
-			buffer = growBuffer(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
+			buffer = extendBuffer(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
 			buffer.set(data, offset);
 		}
 

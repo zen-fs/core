@@ -1,10 +1,9 @@
 import type * as fs from 'node:fs';
 import type { ClassLike, OptionalTuple } from 'utilium';
-import { randomHex } from 'utilium';
 import { Errno, ErrnoError } from './error.js';
+import { log_deprecated } from './log.js';
 import type { AbsolutePath } from './vfs/path.js';
 import { resolve } from './vfs/path.js';
-import { log_deprecated } from './log.js';
 
 declare global {
 	function atob(data: string): string;
@@ -171,6 +170,7 @@ export function normalizeOptions(
 
 export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: any[]) => InstanceType<T>);
 
+import { randomHex } from 'utilium';
 /**
  * Generate a random ino
  * @internal @deprecated @hidden
@@ -183,71 +183,13 @@ export function randomBigInt(): bigint {
 /**
  * Prevents infinite loops
  * @internal
+ * @deprecated Use `canary` from Utilium
  */
 export function canary(path?: string, syscall?: string) {
+	log_deprecated('canary');
 	const timeout = setTimeout(() => {
 		throw ErrnoError.With('EDEADLK', path, syscall);
 	}, 5000);
 
 	return () => clearTimeout(timeout);
-}
-
-/**
- * A wrapper for throwing things.
- * Used in expressions.
- * @todo Remove once `throw` is allowed in expressions
- * @see https://github.com/tc39/proposal-throw-expressions
- * @internal @hidden
- */
-export function _throw(e: unknown): never {
-	throw e;
-}
-
-interface ArrayBufferViewConstructor {
-	readonly prototype: ArrayBufferView<ArrayBufferLike>;
-	new (length: number): ArrayBufferView<ArrayBuffer>;
-	new (array: ArrayLike<number>): ArrayBufferView<ArrayBuffer>;
-	new <TArrayBuffer extends ArrayBufferLike = ArrayBuffer>(
-		buffer: TArrayBuffer,
-		byteOffset?: number,
-		length?: number
-	): ArrayBufferView<TArrayBuffer>;
-	new (array: ArrayLike<number> | ArrayBuffer): ArrayBufferView<ArrayBuffer>;
-}
-
-/**
- * Grows a buffer if it isn't large enough
- * @returns The original buffer if resized successfully, or a newly created buffer
- * @internal Not for external use!
- */
-export function growBuffer<T extends ArrayBufferLike | ArrayBufferView>(buffer: T, newByteLength: number): T {
-	if (buffer.byteLength >= newByteLength) return buffer;
-
-	if (ArrayBuffer.isView(buffer)) {
-		const newBuffer = growBuffer(buffer.buffer, newByteLength);
-		return new (buffer.constructor as ArrayBufferViewConstructor)(newBuffer, buffer.byteOffset, newByteLength) as T;
-	}
-
-	const isShared = typeof SharedArrayBuffer !== 'undefined' && buffer instanceof SharedArrayBuffer;
-
-	// Note: If true, the buffer must be resizable/growable because of the first check.
-	if (buffer.maxByteLength > newByteLength) {
-		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-		isShared ? buffer.grow(newByteLength) : (buffer as ArrayBuffer).resize(newByteLength);
-		return buffer;
-	}
-
-	if (isShared) {
-		const newBuffer = new SharedArrayBuffer(newByteLength) as T & SharedArrayBuffer;
-		new Uint8Array(newBuffer).set(new Uint8Array(buffer));
-		return newBuffer;
-	}
-
-	try {
-		return (buffer as ArrayBuffer).transfer(newByteLength) as T;
-	} catch {
-		const newBuffer = new ArrayBuffer(newByteLength) as T & ArrayBuffer;
-		new Uint8Array(newBuffer).set(new Uint8Array(buffer));
-		return newBuffer;
-	}
 }

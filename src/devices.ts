@@ -2,6 +2,7 @@
 This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
 */
 
+import { canary } from 'utilium';
 import { Inode } from './backends/index.js';
 import { InMemoryStore } from './backends/memory.js';
 import { StoreFS } from './backends/store/fs.js';
@@ -11,7 +12,7 @@ import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
 import { alert, err, log_deprecated } from './log.js';
 import { Stats } from './stats.js';
-import { canary, decodeUTF8 } from './utils.js';
+import { decodeUTF8 } from './utils.js';
 import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
 import { basename, dirname } from './vfs/path.js';
 
@@ -281,7 +282,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
 		}
 		let ino = 1;
-		const silence = canary(path, 'mknod');
+		const silence = canary(ErrnoError.With('EDEADLK', path, 'mknod'));
 		while (this.store.has(ino)) ino++;
 		silence();
 		const dev = {
