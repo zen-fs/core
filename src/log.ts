@@ -155,7 +155,7 @@ export interface LogConfiguration {
 export function configure(options: LogConfiguration): void {
 	_format = options.format ?? _format;
 	_output = options.output ?? _output;
-	minLevel = typeof options.level == 'string' ? levelOf(options.level) : options.level ?? minLevel;
+	minLevel = typeof options.level == 'string' ? levelOf(options.level) : (options.level ?? minLevel);
 	isEnabled = options.enabled ?? isEnabled;
 
 	if (!options.dumpBacklog) return;

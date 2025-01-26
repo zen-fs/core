@@ -82,7 +82,7 @@ export abstract class AsyncMapStore implements MapStore {
  * @see AsyncMapStore
  */
 export class MapTransaction extends SyncTransaction<MapStore> {
-	public declare readonly store: MapStore;
+	declare public readonly store: MapStore;
 
 	public keysSync(): Iterable<number> {
 		return this.store.keys();

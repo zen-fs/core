@@ -155,14 +155,14 @@ export function normalizeOptions(
 ): { encoding?: BufferEncoding | null; flag: string; mode: number } {
 	if (typeof options != 'object' || options === null) {
 		return {
-			encoding: typeof options == 'string' ? options : encoding ?? null,
+			encoding: typeof options == 'string' ? options : (encoding ?? null),
 			flag,
 			mode,
 		};
 	}
 
 	return {
-		encoding: typeof options?.encoding == 'string' ? options.encoding : encoding ?? null,
+		encoding: typeof options?.encoding == 'string' ? options.encoding : (encoding ?? null),
 		flag: typeof options?.flag == 'string' ? options.flag : flag,
 		mode: normalizeMode('mode' in options ? options?.mode : null, mode),
 	};

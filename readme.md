@@ -6,11 +6,11 @@ ZenFS is a cross-platform library that emulates the [NodeJS filesystem API](http
 
 ZenFS is modular and extensible. The core includes some built-in backends:
 
--   `InMemory`: Stores files in-memory. This is cleared when the runtime ends (e.g. a user navigating away from a web page or a Node process exiting)
--   `Overlay`: Use a read-only file system as read-write by overlaying a writable file system on top of it. ([copy-on-write](https://en.wikipedia.org/wiki/Copy-on-write))
--   `Fetch`: Downloads files over HTTP with the `fetch` API
--   `Port`: Interacts with a remote over a `MessagePort`-like interface (e.g. a worker)
--   `Passthrough`: Use an existing `node:fs` interface with ZenFS
+- `InMemory`: Stores files in-memory. This is cleared when the runtime ends (e.g. a user navigating away from a web page or a Node process exiting)
+- `Overlay`: Use a read-only file system as read-write by overlaying a writable file system on top of it. ([copy-on-write](https://en.wikipedia.org/wiki/Copy-on-write))
+- `Fetch`: Downloads files over HTTP with the `fetch` API
+- `Port`: Interacts with a remote over a `MessagePort`-like interface (e.g. a worker)
+- `Passthrough`: Use an existing `node:fs` interface with ZenFS
 
 ZenFS supports a number of other backends. Many are provided as separate packages under `@zenfs`. More backends can be defined by separate libraries by extending the `FileSystem` class and providing a `Backend` object.
 
@@ -207,18 +207,18 @@ A huge thank you to [![Deco.cx logo](https://avatars.githubusercontent.com/deco-
 
 ## Building
 
--   Make sure you have Node and NPM installed. You must have Node v18 or newer.
--   Install dependencies with `npm install`
--   Build using `npm run build`
--   You can find the built code in `dist`.
+- Make sure you have Node and NPM installed. You must have Node v18 or newer.
+- Install dependencies with `npm install`
+- Build using `npm run build`
+- You can find the built code in `dist`.
 
 ### Testing
 
 Run unit tests with:
 
--   `npm test` to run all tests using the default configuration
--   `npx zenfs-test -abc` to run the common tests and run the full FS suite against all included backends
-    -   You can also run this command to test your own backends, the `--auto` (`-a`) flag will automatically detect any setup scripts matching `tests/setup/*` or `tests/setup-*.ts`. If you do, you'll need to include the `c8` dependency for coverage.
+- `npm test` to run all tests using the default configuration
+- `npx zenfs-test -abc` to run the common tests and run the full FS suite against all included backends
+    - You can also run this command to test your own backends, the `--auto` (`-a`) flag will automatically detect any setup scripts matching `tests/setup/*` or `tests/setup-*.ts`. If you do, you'll need to include the `c8` dependency for coverage.
 
 ### BrowserFS Fork
 

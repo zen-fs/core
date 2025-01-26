@@ -260,7 +260,7 @@ export class ErrnoError extends Error implements NodeJS.ErrnoException {
 
 	public code: keyof typeof Errno;
 
-	public declare stack: string;
+	declare public stack: string;
 
 	public constructor(
 		/**
