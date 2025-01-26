@@ -300,7 +300,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 
 	protected devicesWithDriver(driver: DeviceDriver<unknown> | string, forceIdentity?: boolean): Device[] {
 		if (forceIdentity && typeof driver == 'string') {
-			throw err(new ErrnoError(Errno.EINVAL, 'Can not fetch devices using only a driver name'));
+			throw err(new ErrnoError(Errno.EINVAL, 'Can not fetch devices using only a driver name'), { fs: this });
 		}
 		const devs: Device[] = [];
 		for (const device of this.devices.values()) {
@@ -493,14 +493,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
 		if (this.devices.has(path)) {
-			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'));
+			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'), { fs: this });
 		}
 		return super.sync(path, data, stats);
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
 		if (this.devices.has(path)) {
-			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'));
+			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'), { fs: this });
 		}
 		return super.syncSync(path, data, stats);
 	}

@@ -1,6 +1,8 @@
 /* Logging utilities. The things in this file are named to work nicely when you import as a namespace. */
 
 import { List } from 'utilium';
+import type { FileSystem } from './filesystem.js';
+import { ErrnoError } from './error.js';
 
 export const enum Level {
 	/** Emergency */
@@ -60,9 +62,22 @@ export function log(level: Level, message: string) {
 	output(entry);
 }
 
+interface LogShortcutOptions {
+	fs?: FileSystem;
+}
+
+function _messageString(message: { toString(): string } | ErrnoError, options: LogShortcutOptions): string {
+	if (!(message instanceof ErrnoError)) {
+		return message.toString();
+	}
+	const path = !message.path ? '' : ': ' + (typeof options.fs == 'string' ? options.fs : (options.fs?._mountPoint ?? '<unknown>')) + message.path;
+
+	return message.code + ': ' + message.message + path;
+}
+
 function _shortcut(level: Level) {
-	return function <const T extends { toString(): string }>(message: T): T {
-		log(level, message.toString());
+	return function <const T extends { toString(): string } | ErrnoError>(message: T, options: LogShortcutOptions = {}): T {
+		log(level, _messageString(message, options));
 		return message;
 	};
 }

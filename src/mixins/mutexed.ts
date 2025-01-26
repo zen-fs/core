@@ -77,7 +77,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 			if (lock.isLocked) {
 				const error = ErrnoError.With('EDEADLK', path, syscall);
 				error.stack += stack?.slice('Error'.length);
-				throw err(error);
+				throw err(error, { fs: this });
 			}
 		}, 5000);
 		await previous?.done();
@@ -91,7 +91,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	 */
 	public lockSync(path: string, syscall: string): MutexLock {
 		if (this.currentLock?.isLocked) {
-			throw err(ErrnoError.With('EBUSY', path, syscall));
+			throw err(ErrnoError.With('EBUSY', path, syscall), { fs: this });
 		}
 
 		return this.addLock();

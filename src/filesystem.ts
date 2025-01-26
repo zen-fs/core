@@ -137,6 +137,12 @@ export abstract class FileSystem {
 	 */
 	_disableSync?: boolean;
 
+	/**
+	 * The last place this file system was mounted
+	 * @internal @hidden
+	 */
+	_mountPoint?: string;
+
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
 	public constructor(...args: any[]) {}
 

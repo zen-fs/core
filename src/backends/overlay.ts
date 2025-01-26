@@ -419,7 +419,7 @@ export class OverlayFS extends FileSystem {
 
 	private checkInitialized(): void {
 		if (!this._isInitialized) {
-			throw crit(new ErrnoError(Errno.EPERM, 'Overlay is not initialized'));
+			throw crit(new ErrnoError(Errno.EPERM, 'Overlay is not initialized'), { fs: this });
 		}
 
 		if (!this._deleteLogError) {

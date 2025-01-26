@@ -106,7 +106,9 @@ export function request<const TRequest extends Request, TValue>(
 		executors.set(id, { resolve, reject, fs });
 		port.postMessage({ ...request, _zenfs: true, id, stack });
 		const _ = setTimeout(() => {
-			const error = err(new ErrnoError(Errno.EIO, 'RPC Failed', typeof request.args[0] == 'string' ? request.args[0] : '', request.method));
+			const error = err(new ErrnoError(Errno.EIO, 'RPC Failed', typeof request.args[0] == 'string' ? request.args[0] : '', request.method), {
+				fs,
+			});
 			error.stack += stack;
 			reject(error);
 			if (typeof _ == 'object') _.unref();

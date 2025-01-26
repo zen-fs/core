@@ -505,7 +505,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 */
 	private async _findInode(tx: WrappedTransaction, path: string, syscall: string, visited: Set<string> = new Set()): Promise<number> {
 		if (visited.has(path)) {
-			throw crit(new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path));
+			throw crit(new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path), { fs: this });
 		}
 
 		visited.add(path);
@@ -535,7 +535,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 */
 	private _findInodeSync(tx: WrappedTransaction, path: string, syscall: string, visited: Set<string> = new Set()): number {
 		if (visited.has(path)) {
-			throw crit(new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path));
+			throw crit(new ErrnoError(Errno.EIO, 'Infinite loop detected while finding inode', path), { fs: this });
 		}
 
 		visited.add(path);
@@ -580,14 +580,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/** Gets a new ID */
 	protected async allocNew(tx: WrappedTransaction, path: string, syscall: string): Promise<number> {
 		const key = Math.max(...(await tx.keys())) + 1;
-		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall), { fs: this });
 		return key;
 	}
 
 	/** Gets a new ID */
 	protected allocNewSync(tx: WrappedTransaction, path: string, syscall: string): number {
 		const key = Math.max(...tx.keysSync()) + 1;
-		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
+		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall), { fs: this });
 		return key;
 	}
 

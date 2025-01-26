@@ -92,16 +92,16 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 				this._isInitialized = true;
 			} catch (e: any) {
 				this._isInitialized = false;
-				throw crit(e);
+				throw crit(e, { fs: this });
 			}
 		}
 
 		protected checkSync(path?: string, syscall?: string): asserts this is { _sync: FileSystem } {
 			if (this._disableSync) {
-				throw crit(new ErrnoError(Errno.ENOTSUP, 'Sync caching has been disabled for this async file system', path, syscall));
+				throw crit(new ErrnoError(Errno.ENOTSUP, 'Sync caching has been disabled for this async file system', path, syscall), { fs: this });
 			}
 			if (!this._sync) {
-				throw crit(new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall));
+				throw crit(new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall), { fs: this });
 			}
 		}
 
@@ -237,7 +237,7 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 						// @ts-expect-error 2556
 						this._sync?.[`${key}Sync` as const]?.(...args);
 					} catch (e: any) {
-						throw err(new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key));
+						throw err(new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key), { fs: this });
 					}
 					return result;
 				};

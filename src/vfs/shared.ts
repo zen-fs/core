@@ -66,6 +66,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 	if (mounts.has(mountPoint)) {
 		throw new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already in use.');
 	}
+	fs._mountPoint = mountPoint;
 	mounts.set(mountPoint, fs);
 	pathCache.clear();
 }

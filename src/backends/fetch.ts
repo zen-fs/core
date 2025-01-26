@@ -12,21 +12,24 @@ import { Transaction } from './store/store.js';
 import { extendBuffer } from 'utilium/buffer.js';
 
 /** Parse and throw */
-function parseError(error: RequestError): never {
-	if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.message));
+function parseError(fs?: StoreFS) {
+	return (error: RequestError) => {
+		if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.message), { fs });
 
-	switch (error.tag) {
-		case 'fetch':
-			throw err(new ErrnoError(Errno.EREMOTEIO, error.message));
-		case 'status': {
-			const { status } = error.response;
-			throw err(new ErrnoError(status > 500 ? Errno.EREMOTEIO : Errno.EIO, 'Fetch failed, response status code is ' + status));
+		switch (error.tag) {
+			case 'fetch':
+				throw err(new ErrnoError(Errno.EREMOTEIO, error.message), { fs });
+			case 'status':
+				throw err(
+					new ErrnoError(error.response.status > 500 ? Errno.EREMOTEIO : Errno.EIO, 'Response status code is ' + error.response.status),
+					{ fs }
+				);
+			case 'size':
+				throw err(new ErrnoError(Errno.EBADE, error.message), { fs });
+			case 'buffer':
+				throw err(new ErrnoError(Errno.EIO, 'Failed to decode buffer'), { fs });
 		}
-		case 'size':
-			throw err(new ErrnoError(Errno.EBADE, error.message));
-		case 'buffer':
-			throw err(new ErrnoError(Errno.EIO, 'Failed to decode buffer'));
-	}
+	};
 }
 
 export class FetchTransaction extends Transaction<FetchStore> {
@@ -228,7 +231,7 @@ export class FetchFS extends StoreFS<FetchStore> {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const content = await fetchWithRanges(this.baseUrl + path, { warn }, this.requestInit).catch(parseError);
+			const content = await fetchWithRanges(this.baseUrl + path, { warn }, this.requestInit).catch(parseError(this));
 
 			await tx.set(node.data, content);
 		}
@@ -250,7 +253,7 @@ export class FetchFS extends StoreFS<FetchStore> {
 					const [path, { size } = {}] = Object.entries(entries).find(([, node]) => node.data == id) || [];
 					if (!path || typeof size != 'number') return;
 					return fetchWithRanges(this.baseUrl + path, { start, end, size, warn }, this.requestInit)
-						.catch(parseError)
+						.catch(parseError(this))
 						.catch(() => undefined);
 				},
 				set() {
@@ -269,7 +272,7 @@ export class FetchFS extends StoreFS<FetchStore> {
 			typeof index != 'string'
 				? index
 				: fetchWithRanges(index, { warn }, requestInit)
-						.catch(parseError)
+						.catch(parseError(this))
 						.then(data => JSON.parse(decodeUTF8(data)));
 	}
 }
@@ -302,7 +305,7 @@ const _Fetch = {
 		if (typeof options.index != 'string') {
 			index.fromJSON(options.index);
 		} else {
-			const data = await fetchWithRanges(options.index, { warn }, options.requestInit).catch(parseError);
+			const data = await fetchWithRanges(options.index, { warn }, options.requestInit).catch(parseError());
 			index.fromJSON(JSON.parse(decodeUTF8(data)));
 		}
 
@@ -323,12 +326,12 @@ const _Fetch = {
 				const [path, { size } = {}] = [...index].find(([, node]) => node.data == id) || [];
 				if (!path || typeof size != 'number') return;
 				return await fetchWithRanges(baseUrl + path, { start, end, size, warn }, options.requestInit)
-					.catch(parseError)
+					.catch(parseError(fs))
 					.catch(() => undefined);
 			},
 			set: (id, body) => _update('POST', id, body),
 			delete: id => _update('DELETE', id),
-		});
+		} as FetchRemote);
 
 		const fs = new StoreFS(store);
 		await fs.loadIndex(index);
@@ -341,7 +344,7 @@ const _Fetch = {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const content = await fetchWithRanges(baseUrl + path, { warn }, options.requestInit).catch(parseError);
+			const content = await fetchWithRanges(baseUrl + path, { warn }, options.requestInit).catch(parseError(fs));
 
 			await tx.set(node.data, content);
 		}
