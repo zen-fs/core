@@ -1,4 +1,5 @@
-import { randomInt, serialize } from 'utilium';
+import { _throw, canary, serialize } from 'utilium';
+import { extendBuffer } from 'utilium/buffer.js';
 import { Errno, ErrnoError } from '../../error.js';
 import type { File } from '../../file.js';
 import { LazyFile } from '../../file.js';
@@ -6,14 +7,12 @@ import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '.
 import { FileSystem } from '../../filesystem.js';
 import { crit, err, log_deprecated } from '../../log.js';
 import type { FileType, Stats } from '../../stats.js';
-import { _throw, canary, decodeDirListing, encodeDirListing, encodeUTF8, growBuffer } from '../../utils.js';
+import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, resolve } from '../../vfs/path.js';
 import { Index } from './file_index.js';
 import { Inode, rootIno, type InodeLike } from './inode.js';
 import { WrappedTransaction, type Store } from './store.js';
-
-const maxInodeAllocTries = 5;
 
 /**
  * A file system which uses a key-value store.
@@ -111,7 +110,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const queue: [path: string, ino: number][] = [['/', 0]];
 
-		const silence = canary();
+		const silence = canary(ErrnoError.With('EDEADLK'));
 		while (queue.length) {
 			const [path, ino] = queue.shift()!;
 
@@ -139,7 +138,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const queue: [path: string, ino: number][] = [['/', 0]];
 
-		const silence = canary();
+		const silence = canary(ErrnoError.With('EDEADLK'));
 		while (queue.length) {
 			const [path, ino] = queue.shift()!;
 
@@ -407,16 +406,16 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.transaction();
 		const inode = await this.findInode(tx, path, 'read');
 
-		const data = (await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
-		buffer.set(data.subarray(offset, end));
+		const data = (await tx.get(inode.data, offset, end)) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
+		buffer.set(tx.flag('partial') ? data : data.subarray(offset, end));
 	}
 
 	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
 		using tx = this.transaction();
 		const inode = this.findInodeSync(tx, path, 'read');
 
-		const data = tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
-		buffer.set(data.subarray(offset, end));
+		const data = tx.getSync(inode.data, offset, end) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
+		buffer.set(tx.flag('partial') ? data : data.subarray(offset, end));
 	}
 
 	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
@@ -424,13 +423,16 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = await this.findInode(tx, path, 'write');
 
-		const buffer = growBuffer((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
-		buffer.set(data, offset);
+		let buffer = data;
+		if (!tx.flag('partial')) {
+			buffer = extendBuffer((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
+			buffer.set(data, offset);
+		}
+		const size = await tx.set(inode.data, buffer, offset);
 
-		inode.update({ mtimeMs: Date.now(), size: buffer.byteLength });
+		inode.update({ mtimeMs: Date.now(), size });
 
 		await tx.set(inode.ino, serialize(inode));
-		await tx.set(inode.data, buffer);
 
 		await tx.commit();
 	}
@@ -440,13 +442,16 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = this.findInodeSync(tx, path, 'write');
 
-		const buffer = growBuffer(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
-		buffer.set(data, offset);
+		let buffer = data;
+		if (!tx.flag('partial')) {
+			buffer = extendBuffer(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
+			buffer.set(data, offset);
+		}
 
-		inode.update({ mtimeMs: Date.now(), size: buffer.byteLength });
+		const size = tx.setSync(inode.data, buffer, offset);
+		inode.update({ mtimeMs: Date.now(), size });
 
 		tx.setSync(inode.ino, serialize(inode));
-		tx.setSync(inode.data, buffer);
 
 		tx.commitSync();
 	}

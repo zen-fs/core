@@ -1,6 +1,7 @@
+import { GET as fetchWithRanges, type RequestError } from 'utilium/requests.js';
 import { Errno, ErrnoError } from '../error.js';
-import { err, log_deprecated } from '../log.js';
-import { normalizePath } from '../utils.js';
+import { err, log_deprecated, warn } from '../log.js';
+import { decodeUTF8, normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
 import type { Backend, SharedConfig } from './backend.js';
 import type { IndexData } from './store/file_index.js';
@@ -8,36 +9,23 @@ import { Index } from './store/file_index.js';
 import { StoreFS } from './store/fs.js';
 import type { Store } from './store/store.js';
 import { Transaction } from './store/store.js';
+import { extendBuffer } from 'utilium/buffer.js';
 
-/**
- * Asynchronously download a file as a buffer or a JSON object.
- * Note that the third function signature with a non-specialized type is invalid,
- * but TypeScript requires it when you specialize string arguments to constants.
- * @hidden
- */
-async function fetchFile(path: string, type: 'buffer', init?: RequestInit): Promise<Uint8Array>;
-async function fetchFile<T extends object>(path: string, type: 'json', init?: RequestInit): Promise<T>;
-async function fetchFile<T extends object>(path: string, type: 'buffer' | 'json', init?: RequestInit): Promise<T | Uint8Array>;
-async function fetchFile<T extends object>(path: string, type: string, init?: RequestInit): Promise<T | Uint8Array> {
-	const response = await fetch(path, init).catch((e: Error) => {
-		throw err(new ErrnoError(Errno.EIO, e.message, path));
-	});
-	if (!response.ok) {
-		throw err(new ErrnoError(Errno.EIO, 'fetch failed: response returned code ' + response.status, path));
-	}
-	switch (type) {
-		case 'buffer': {
-			const arrayBuffer = await response.arrayBuffer().catch((e: Error) => {
-				throw new ErrnoError(Errno.EIO, e.message, path);
-			});
-			return new Uint8Array(arrayBuffer);
+/** Parse and throw */
+function parseError(error: RequestError): never {
+	if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.message));
+
+	switch (error.tag) {
+		case 'fetch':
+			throw err(new ErrnoError(Errno.EREMOTEIO, error.message));
+		case 'status': {
+			const { status } = error.response;
+			throw err(new ErrnoError(status > 500 ? Errno.EREMOTEIO : Errno.EIO, 'Fetch failed, response status code is ' + status));
 		}
-		case 'json':
-			return response.json().catch((e: Error) => {
-				throw new ErrnoError(Errno.EIO, e.message, path);
-			}) as Promise<T>;
-		default:
-			throw err(new ErrnoError(Errno.EINVAL, 'Invalid download type: ' + type));
+		case 'size':
+			throw err(new ErrnoError(Errno.EBADE, error.message));
+		case 'buffer':
+			throw err(new ErrnoError(Errno.EIO, 'Failed to decode buffer'));
 	}
 }
 
@@ -74,13 +62,26 @@ export class FetchTransaction extends Transaction<FetchStore> {
 		throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
 	}
 
-	public async set(id: number, data: Uint8Array): Promise<void> {
+	public async set(id: number, data: Uint8Array, offset?: number): Promise<number> {
+		if (offset) {
+			const buffer = extendBuffer((await this.get(id)) ?? new Uint8Array(), data.byteLength + offset);
+			buffer.set(data, offset);
+			data = buffer;
+		}
 		this.cache.set(id, data);
 		await this.store.set(id, data);
+		return data.byteLength;
 	}
 
-	public setSync(id: number, data: Uint8Array): void {
-		this.async(this.set(id, data));
+	public setSync(id: number, data: Uint8Array, offset?: number): number {
+		if (offset) {
+			const buffer = extendBuffer(this.getSync(id) ?? new Uint8Array(), data.byteLength + offset);
+			buffer.set(data, offset);
+			data = buffer;
+		}
+		this.cache.set(id, data);
+		this.async(this.store.set(id, data));
+		return data.byteLength;
 	}
 
 	public async remove(id: number): Promise<void> {
@@ -112,29 +113,46 @@ export class FetchTransaction extends Transaction<FetchStore> {
 }
 
 interface FetchRemote {
-	get(id: number): Promise<Uint8Array | undefined>;
-	set(id: number, data: Uint8Array): Promise<void>;
+	get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined>;
+	set(id: number, data: Uint8Array, offset?: number): Promise<void>;
 	delete(id: number): Promise<void>;
 }
 
 export class FetchStore implements Store {
-	public constructor(protected remote: FetchRemote) {}
+	public readonly flags = ['partial'] as const;
+
+	public constructor(
+		protected index: Index,
+		protected remote: FetchRemote
+	) {}
 
 	/** @internal @hidden */
 	cache = new Map<number, Uint8Array | undefined>();
 
 	public readonly name: string = 'fetch';
 
-	public async get(id: number): Promise<Uint8Array | undefined> {
-		if (this.cache.has(id)) return this.cache.get(id);
+	public async get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined> {
+		if (this.cache.has(id)) return this.cache.get(id)?.subarray(offset, end);
 
-		const data = await this.remote.get(id);
-		this.cache.set(id, data);
+		const data = await this.remote.get(id, offset, end);
+
+		if (!data) return;
+
+		const inode = this.index.getByID(id);
+
+		if (!inode) {
+			this.cache.set(id, data);
+			return data;
+		}
+
+		const full = new Uint8Array(inode.size);
+		full.set(data, offset);
+		this.cache.set(id, full);
 		return data;
 	}
 
-	public async set(id: number, data: Uint8Array): Promise<void> {
-		await this.remote.set(id, data);
+	public async set(id: number, data: Uint8Array, offset?: number): Promise<void> {
+		await this.remote.set(id, data, offset);
 	}
 
 	public async delete(id: number): Promise<void> {
@@ -210,7 +228,7 @@ export class FetchFS extends StoreFS<FetchStore> {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const content = await fetchFile(this.baseUrl + path, 'buffer', this.requestInit);
+			const content = await fetchWithRanges(this.baseUrl + path, { warn }, this.requestInit).catch(parseError);
 
 			await tx.set(node.data, content);
 		}
@@ -225,11 +243,15 @@ export class FetchFS extends StoreFS<FetchStore> {
 	) {
 		log_deprecated('FetchFS');
 		super(
-			new FetchStore({
-				get: async (id: number) => {
+			new FetchStore(typeof index == 'string' ? new Index() : new Index().fromJSON(index), {
+				get: async (id: number, start?: number, end?: number) => {
 					const { entries } = await this.indexData;
-					const path = Object.entries(entries).find(([, node]) => node.data == id)?.[0];
-					return fetchFile(this.baseUrl + path, 'buffer', this.requestInit).catch(() => undefined);
+
+					const [path, { size } = {}] = Object.entries(entries).find(([, node]) => node.data == id) || [];
+					if (!path || typeof size != 'number') return;
+					return fetchWithRanges(this.baseUrl + path, { start, end, size, warn }, this.requestInit)
+						.catch(parseError)
+						.catch(() => undefined);
 				},
 				set() {
 					throw ErrnoError.With('ENOTSUP');
@@ -243,7 +265,12 @@ export class FetchFS extends StoreFS<FetchStore> {
 		// prefix url must end in a directory separator.
 		if (baseUrl.at(-1) == '/') this.baseUrl = baseUrl.slice(0, -1);
 
-		this.indexData = typeof index != 'string' ? index : fetchFile<IndexData>(index, 'json', requestInit);
+		this.indexData =
+			typeof index != 'string'
+				? index
+				: fetchWithRanges(index, { warn }, requestInit)
+						.catch(parseError)
+						.then(data => JSON.parse(decodeUTF8(data)));
 	}
 }
 /* node:coverage enable */
@@ -270,8 +297,14 @@ const _Fetch = {
 
 		options.index ??= 'index.json';
 
-		const indexData = typeof options.index != 'string' ? options.index : await fetchFile<IndexData>(options.index, 'json', options.requestInit);
-		const index = new Index().fromJSON(indexData);
+		const index = new Index();
+
+		if (typeof options.index != 'string') {
+			index.fromJSON(options.index);
+		} else {
+			const data = await fetchWithRanges(options.index, { warn }, options.requestInit).catch(parseError);
+			index.fromJSON(JSON.parse(decodeUTF8(data)));
+		}
 
 		const _update = async (method: 'POST' | 'DELETE', id: number, body?: Uint8Array) => {
 			if (!options.remoteWrite) return;
@@ -285,10 +318,13 @@ const _Fetch = {
 			});
 		};
 
-		const store = new FetchStore({
-			async get(id: number) {
-				const path = [...index].find(([, node]) => node.data == id)?.[0];
-				return !path ? undefined : fetchFile(baseUrl + path, 'buffer', options.requestInit).catch(() => undefined);
+		const store = new FetchStore(index, {
+			async get(id: number, start?: number, end?: number) {
+				const [path, { size } = {}] = [...index].find(([, node]) => node.data == id) || [];
+				if (!path || typeof size != 'number') return;
+				return await fetchWithRanges(baseUrl + path, { start, end, size, warn }, options.requestInit)
+					.catch(parseError)
+					.catch(() => undefined);
 			},
 			set: (id, body) => _update('POST', id, body),
 			delete: id => _update('DELETE', id),
@@ -305,7 +341,7 @@ const _Fetch = {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const content = await fetchFile(baseUrl + path, 'buffer', options.requestInit);
+			const content = await fetchWithRanges(baseUrl + path, { warn }, options.requestInit).catch(parseError);
 
 			await tx.set(node.data, content);
 		}

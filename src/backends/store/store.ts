@@ -1,6 +1,10 @@
 import { ErrnoError } from '../../error.js';
 import '../../polyfills.js';
 
+export type StoreFlag =
+	/** The store supports partial reads and writes */
+	'partial';
+
 /**
  * Represents a key-value store.
  */
@@ -29,13 +33,18 @@ export interface Store {
 	 * Begins a new transaction.
 	 */
 	transaction(): Transaction;
+
+	/**
+	 * Use for optimizations
+	 */
+	readonly flags: readonly StoreFlag[];
 }
 
 /**
  * A transaction for a store.
  */
 export abstract class Transaction<T extends Store = Store> {
-	public constructor(protected store: T) {}
+	public constructor(public readonly store: T) {}
 
 	/**
 	 * Gets all of the keys
@@ -51,7 +60,7 @@ export abstract class Transaction<T extends Store = Store> {
 	 * Retrieves data.
 	 * @param id The key to look under for data.
 	 */
-	public abstract get(id: number): Promise<Uint8Array | undefined>;
+	public abstract get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined>;
 
 	/**
 	 * Retrieves data.
@@ -59,21 +68,21 @@ export abstract class Transaction<T extends Store = Store> {
 	 * @param id The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	public abstract getSync(id: number): Uint8Array | undefined;
+	public abstract getSync(id: number, offset?: number, end?: number): Uint8Array | undefined;
 
 	/**
 	 * Adds the data to the store under an id. Overwrites any existing data.
 	 * @param id The key to add the data under.
 	 * @param data The data to add to the store.
 	 */
-	public abstract set(id: number, data: Uint8Array): Promise<void>;
+	public abstract set(id: number, data: Uint8Array, offset?: number): Promise<number>;
 
 	/**
 	 * Adds the data to the store under and id.
 	 * @param id The key to add the data under.
 	 * @param data The data to add to the store.
 	 */
-	public abstract setSync(id: number, data: Uint8Array): void;
+	public abstract setSync(id: number, data: Uint8Array, offset?: number): number;
 
 	/**
 	 * Deletes the data at `ino`.
@@ -124,12 +133,12 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 	public async keys(): Promise<Iterable<number>> {
 		return this.keysSync();
 	}
-	public async get(id: number): Promise<Uint8Array | undefined> {
-		return this.getSync(id);
+	public async get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined> {
+		return this.getSync(id, offset, end);
 	}
 
-	public async set(id: number, data: Uint8Array): Promise<void> {
-		return this.setSync(id, data);
+	public async set(id: number, data: Uint8Array, offset?: number): Promise<number> {
+		return this.setSync(id, data, offset);
 	}
 
 	public async remove(id: number): Promise<void> {
@@ -170,15 +179,16 @@ export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extend
 		return this.cache.keys();
 	}
 
-	public getSync(id: number): Uint8Array | undefined {
+	public getSync(id: number, offset: number, end: number): Uint8Array | undefined {
 		if (!this.cache.has(id)) return this.cache.get(id);
-		this.async(this.get(id).then(v => this.cache.set(id, v)));
+		this.async(this.get(id, offset, end).then(v => this.cache.set(id, v)));
 		throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
 	}
 
-	public setSync(id: number, data: Uint8Array): void {
+	public setSync(id: number, data: Uint8Array, offset: number): number {
 		this.cache.set(id, data);
-		this.async(this.set(id, data));
+		this.async(this.set(id, data, offset));
+		return Math.max(this.cache.get(id)?.byteLength || 0, data.byteLength + offset);
 	}
 
 	public removeSync(id: number): void {
@@ -205,18 +215,22 @@ export class WrappedTransaction<T extends Store = Store> {
 	 */
 	protected done: boolean = false;
 
+	public flag(flag: StoreFlag): boolean {
+		return this.raw.store.flags.includes(flag);
+	}
+
 	public constructor(public readonly raw: Transaction<T>) {}
 
 	/**
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	protected originalData: Map<number, Uint8Array | void> = new Map();
+	protected originalData: Map<string, Uint8Array | void> = new Map();
 
 	/**
 	 * List of keys modified in this transaction, if any.
 	 */
-	protected modifiedKeys: Set<number> = new Set();
+	protected modifiedKeys: Set<string> = new Set();
 
 	public keys(): Promise<Iterable<number>> {
 		return this.raw.keys();
@@ -226,35 +240,35 @@ export class WrappedTransaction<T extends Store = Store> {
 		return this.raw.keysSync();
 	}
 
-	public async get(id: number): Promise<Uint8Array | undefined> {
-		const value = await this.raw.get(id);
-		this.stash(id, value);
+	public async get(id: number, offset: number = 0, end?: number): Promise<Uint8Array | undefined> {
+		const value = await this.raw.get(id, offset, end);
+		this.stash(id, offset, value);
 		return value;
 	}
 
-	public getSync(id: number): Uint8Array | undefined {
-		const value = this.raw.getSync(id);
-		this.stash(id, value);
+	public getSync(id: number, offset: number = 0, end?: number): Uint8Array | undefined {
+		const value = this.raw.getSync(id, offset, end);
+		this.stash(id, offset, value);
 		return value;
 	}
 
-	public async set(id: number, data: Uint8Array): Promise<void> {
-		await this.markModified(id);
-		await this.raw.set(id, data);
+	public async set(id: number, data: Uint8Array, offset: number = 0): Promise<number> {
+		await this.markModified(id, offset, data.byteLength);
+		return await this.raw.set(id, data, offset);
 	}
 
-	public setSync(id: number, data: Uint8Array): void {
-		this.markModifiedSync(id);
-		return this.raw.setSync(id, data);
+	public setSync(id: number, data: Uint8Array, offset: number = 0): number {
+		this.markModifiedSync(id, offset, data.byteLength);
+		return this.raw.setSync(id, data, offset);
 	}
 
 	public async remove(id: number): Promise<void> {
-		await this.markModified(id);
+		await this.markModified(id, 0);
 		await this.raw.remove(id);
 	}
 
 	public removeSync(id: number): void {
-		this.markModifiedSync(id);
+		this.markModifiedSync(id, 0);
 		this.raw.removeSync(id);
 	}
 
@@ -272,13 +286,14 @@ export class WrappedTransaction<T extends Store = Store> {
 		if (this.done) return;
 		// Rollback old values.
 		for (const key of this.modifiedKeys) {
+			const [id, offset] = key.split('@').map(Number);
 			const value = this.originalData.get(key);
 			if (!value) {
 				// Key didn't exist.
-				await this.raw.remove(key);
+				await this.raw.remove(id);
 			} else {
 				// Key existed. Store old value.
-				await this.raw.set(key, value);
+				await this.raw.set(id, value, offset);
 			}
 		}
 		this.done = true;
@@ -288,13 +303,14 @@ export class WrappedTransaction<T extends Store = Store> {
 		if (this.done) return;
 		// Rollback old values.
 		for (const key of this.modifiedKeys) {
+			const [id, offset] = key.split('@').map(Number);
 			const value = this.originalData.get(key);
 			if (!value) {
 				// Key didn't exist.
-				this.raw.removeSync(key);
+				this.raw.removeSync(id);
 			} else {
 				// Key existed. Store old value.
-				this.raw.setSync(key, value);
+				this.raw.setSync(id, value, offset);
 			}
 		}
 		this.done = true;
@@ -318,30 +334,33 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * prevent needless `get` requests if the program modifies the data later
 	 * on during the transaction.
 	 */
-	protected stash(id: number, value?: Uint8Array): void {
+	protected stash(id: number, offset: number, value?: Uint8Array): void {
+		const key = id + '@' + offset;
 		// Keep only the earliest value in the transaction.
-		if (!this.originalData.has(id)) {
-			this.originalData.set(id, value);
+		if (!this.originalData.has(key)) {
+			this.originalData.set(key, value);
 		}
 	}
 
 	/**
 	 * Marks an id as modified, and stashes its value if it has not been stashed already.
 	 */
-	protected async markModified(id: number): Promise<void> {
-		this.modifiedKeys.add(id);
-		if (!this.originalData.has(id)) {
-			this.originalData.set(id, await this.raw.get(id));
+	protected async markModified(id: number, offset: number, length?: number): Promise<void> {
+		const key = id + '@' + offset;
+		this.modifiedKeys.add(key);
+		if (!this.originalData.has(key)) {
+			this.originalData.set(key, await this.raw.get(id, offset, length ? offset + length : undefined));
 		}
 	}
 
 	/**
 	 * Marks an id as modified, and stashes its value if it has not been stashed already.
 	 */
-	protected markModifiedSync(id: number): void {
-		this.modifiedKeys.add(id);
-		if (!this.originalData.has(id)) {
-			this.originalData.set(id, this.raw.getSync(id));
+	protected markModifiedSync(id: number, offset: number, length?: number): void {
+		const key = id + '@' + offset;
+		this.modifiedKeys.add(key);
+		if (!this.originalData.has(key)) {
+			this.originalData.set(key, this.raw.getSync(id, offset, length ? offset + length : undefined));
 		}
 	}
 }
