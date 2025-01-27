@@ -24,7 +24,7 @@ export const checkNames = {
 	context: 'Unit tests: contexts',
 	index: 'Unit tests: Index',
 	port: 'Unit tests: Port',
-	'cow+fetch': 'Unit tests: Overlay, Fetch',
+	fetch: 'Unit tests: Fetch',
 };
 
 /** Create a new GitHub check run */
