@@ -76,7 +76,7 @@ function _messageString(message: { toString(): string } | ErrnoError, options: L
 }
 
 function _shortcut(level: Level) {
-	return function <const T extends { toString(): string } | ErrnoError>(message: T, options: LogShortcutOptions = {}): T {
+	return function <T extends { toString(): string } | ErrnoError>(message: T, options: LogShortcutOptions = {}): T {
 		log(level, _messageString(message, options));
 		return message;
 	};
@@ -123,7 +123,7 @@ export function format(entry: Entry) {
 let _output: (message: string) => unknown = console.error;
 
 function output(entry: Entry) {
-	if (typeof minLevel == 'number' && entry.level > minLevel) return;
+	if (entry.level > minLevel) return;
 	_output(format(entry));
 }
 
