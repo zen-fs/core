@@ -1,19 +1,23 @@
-import { GET as fetchWithRanges, type RequestError } from 'utilium/requests.js';
+import { writeFileSync } from 'node:fs';
+import { serialize } from 'utilium';
+import * as requests from 'utilium/requests.js';
 import { Errno, ErrnoError } from '../error.js';
 import { err, log_deprecated, warn } from '../log.js';
-import { decodeUTF8, normalizePath } from '../utils.js';
-import { S_IFREG } from '../vfs/constants.js';
+import { decodeUTF8, encodeDirListing, normalizePath } from '../utils.js';
+import { S_IFDIR, S_IFMT, S_IFREG } from '../vfs/constants.js';
 import type { Backend, SharedConfig } from './backend.js';
 import type { IndexData } from './store/file_index.js';
 import { Index } from './store/file_index.js';
-import { StoreFS } from './store/fs.js';
+import type { StoreFS } from './store/fs.js';
+import { IndexFS } from './store/index_fs.js';
+import { __inode_sz, Inode } from './store/inode.js';
+import type { AsyncMap } from './store/map.js';
+import { AsyncMapTransaction } from './store/map.js';
 import type { Store } from './store/store.js';
-import { Transaction } from './store/store.js';
-import { extendBuffer } from 'utilium/buffer.js';
 
 /** Parse and throw */
 function parseError(fs?: StoreFS) {
-	return (error: RequestError) => {
+	return (error: requests.Issue) => {
 		if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.message), { fs });
 
 		switch (error.tag) {
@@ -32,151 +36,110 @@ function parseError(fs?: StoreFS) {
 	};
 }
 
-export class FetchTransaction extends Transaction<FetchStore> {
-	protected asyncDone: Promise<unknown> = Promise.resolve();
-
-	/** @internal @hidden */
-	async(promise: Promise<unknown>): void {
-		this.asyncDone = this.asyncDone.then(() => promise);
-	}
-
-	/** @internal @hidden */
-	cache: Map<number, Uint8Array | undefined> = this.store.cache;
-
-	public keys(): Promise<Iterable<number>> {
-		return Promise.resolve(this.cache.keys());
-	}
-
-	public keysSync(): Iterable<number> {
-		return this.cache.keys();
-	}
-
-	public async get(id: number): Promise<Uint8Array | undefined> {
-		if (this.cache.has(id)) return this.cache.get(id);
-
-		const data = await this.store.get(id);
-		this.cache.set(id, data);
-		return data;
-	}
-
-	public getSync(id: number): Uint8Array | undefined {
-		if (this.cache.has(id)) return this.cache.get(id);
-		this.async(this.get(id).then(v => this.cache.set(id, v)));
-		throw ErrnoError.With('EAGAIN', undefined, 'AsyncTransaction.getSync');
-	}
-
-	public async set(id: number, data: Uint8Array, offset?: number): Promise<number> {
-		if (offset) {
-			const buffer = extendBuffer((await this.get(id)) ?? new Uint8Array(), data.byteLength + offset);
-			buffer.set(data, offset);
-			data = buffer;
-		}
-		this.cache.set(id, data);
-		await this.store.set(id, data);
-		return data.byteLength;
-	}
-
-	public setSync(id: number, data: Uint8Array, offset?: number): number {
-		if (offset) {
-			const buffer = extendBuffer(this.getSync(id) ?? new Uint8Array(), data.byteLength + offset);
-			buffer.set(data, offset);
-			data = buffer;
-		}
-		this.cache.set(id, data);
-		this.async(this.store.set(id, data));
-		return data.byteLength;
-	}
-
-	public async remove(id: number): Promise<void> {
-		this.cache.delete(id);
-		await this.store.delete(id);
-	}
-
-	public removeSync(id: number): void {
-		this.cache.delete(id);
-	}
-
-	public commit(): Promise<void> {
-		this.store.cache = this.cache;
-		return Promise.resolve();
-	}
-
-	public commitSync(): void {
-		this.store.cache = this.cache;
-	}
-
-	public abort(): Promise<void> {
-		this.cache.clear();
-		return Promise.resolve();
-	}
-
-	public abortSync(): void {
-		this.cache.clear();
-	}
-}
-
-interface FetchRemote {
-	get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined>;
-	set(id: number, data: Uint8Array, offset?: number): Promise<void>;
-	delete(id: number): Promise<void>;
-}
-
-export class FetchStore implements Store {
+export class FetchStore implements AsyncMap, Store {
 	public readonly flags = ['partial'] as const;
+
+	declare _fs: IndexFS<FetchStore>;
 
 	public constructor(
 		protected index: Index,
-		protected remote: FetchRemote
+		protected baseUrl: string,
+		protected requestInit: RequestInit = {},
+		protected remoteWrite?: boolean
 	) {}
-
-	/** @internal @hidden */
-	cache = new Map<number, Uint8Array | undefined>();
 
 	public readonly name: string = 'fetch';
 
-	public async get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined> {
-		if (this.cache.has(id)) return this.cache.get(id)?.subarray(offset, end);
+	public *keys(): Iterable<number> {
+		for (const inode of this.index.values()) {
+			yield inode.ino;
+		}
+	}
 
-		const data = await this.remote.get(id, offset, end);
+	async get(id: number, offset: number = 0, end?: number): Promise<Uint8Array | undefined> {
+		const entry = this.index.entryByID(id);
+		if (!entry) return;
 
-		if (!data) return;
+		const { path, inode } = entry;
 
-		const inode = this.index.getByID(id);
+		if (this._fs?._paths.has(id)) return serialize(entry.inode);
 
-		if (!inode) {
-			this.cache.set(id, data);
-			return data;
+		if ((inode.mode & S_IFMT) == S_IFDIR) return encodeDirListing(this.index.directoryEntries(path));
+
+		writeFileSync('tmp/index.debug.json', JSON.stringify(this.index.toJSON()));
+
+		end ??= inode.size;
+		if (inode.size == 0 || end - offset == 0) return new Uint8Array(0);
+
+		if (!path) return;
+
+		return await requests
+			.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }, this.requestInit)
+			.catch(parseError(this._fs))
+			.catch(() => undefined);
+	}
+
+	public cached(id: number, offset: number = 0, end: number): Uint8Array | undefined {
+		const entry = this.index.entryByID(id);
+		if (!entry) return;
+
+		const { path, inode } = entry;
+
+		if (this._fs?._paths.has(id)) return serialize(entry.inode);
+
+		if ((inode.mode & S_IFMT) == S_IFDIR) return encodeDirListing(this.index.directoryEntries(path));
+
+		end ??= inode.size;
+		if (inode.size == 0 || end - offset == 0) return new Uint8Array(0);
+
+		if (!path) return;
+
+		const { data, missing } = requests.getCached(this.baseUrl + path, { start: offset, end, size: inode.size, warn });
+
+		if (!missing.length) return data;
+
+		for (const { start: offset, end } of missing) {
+			void this.get(id, offset, end);
 		}
 
-		const full = new Uint8Array(inode.size);
-		full.set(data, offset);
-		this.cache.set(id, full);
-		return data;
+		throw ErrnoError.With('EAGAIN', path);
 	}
 
-	public async set(id: number, data: Uint8Array, offset?: number): Promise<void> {
-		await this.remote.set(id, data, offset);
+	async set(id: number, body: Uint8Array, offset: number): Promise<void> {
+		const [path] = this._fs?._paths.get(id) || [];
+		if (path && body.byteLength == __inode_sz) {
+			this._fs.index.get(path)?.update(new Inode(body));
+			return;
+		}
+
+		const entry = this.index.entryByID(id);
+		if (!entry) return;
+
+		const init = { ...this.requestInit };
+		init.headers = new Headers(init.headers);
+		init.headers.set('metadata', JSON.stringify(entry.inode.toJSON()));
+		await requests.set(this.baseUrl + entry.path, body, { offset, warn, cacheOnly: !this.remoteWrite }, init);
 	}
 
-	public async delete(id: number): Promise<void> {
-		await this.remote.delete(id);
+	async delete(id: number): Promise<void> {
+		const [path] = this._fs?._paths.get(id) || [];
+		if (path) {
+			this._fs.index.delete(path);
+			return;
+		}
+
+		const entry = this.index.entryByID(id);
+		if (!entry) return;
+
+		await requests.remove(this.baseUrl + entry.path, { warn, cacheOnly: !this.remoteWrite }, this.requestInit);
 	}
 
 	public sync(): Promise<void> {
 		return Promise.resolve();
 	}
 
-	public clear(): Promise<void> {
-		this.cache.clear();
-		return Promise.resolve();
-	}
-
-	public clearSync(): void {
-		this.cache.clear();
-	}
-
-	public transaction(): FetchTransaction {
-		return new FetchTransaction(this);
+	public transaction(): AsyncMapTransaction {
+		return new AsyncMapTransaction(this);
 	}
 }
 
@@ -212,68 +175,53 @@ export interface FetchOptions extends SharedConfig {
  * A simple filesystem backed by HTTP using the `fetch` API.
  * @internal @deprecated Use the `Fetch` backend, not the internal FS class!
  */
-export class FetchFS extends StoreFS<FetchStore> {
+export class FetchFS extends IndexFS<FetchStore> {
 	private indexData: IndexData | Promise<IndexData>;
+
+	public readonly baseUrl: string;
+
+	public constructor(
+		index: IndexData | string = 'index.json',
+		baseUrl: string = '',
+		public readonly requestInit?: RequestInit
+	) {
+		log_deprecated('FetchFS');
+		// prefix url must not end in a directory separator.
+		if (baseUrl.at(-1) == '/') baseUrl = baseUrl.slice(0, -1);
+		const _index = typeof index == 'string' ? new Index() : new Index().fromJSON(index);
+		super(new FetchStore(_index, baseUrl), _index);
+
+		this.baseUrl = baseUrl;
+
+		this.indexData =
+			typeof index != 'string'
+				? index
+				: requests
+						.get(index, { warn }, requestInit)
+						.catch(parseError(this))
+						.then(data => JSON.parse(decodeUTF8(data)));
+	}
 
 	public async ready(): Promise<void> {
 		if (this._initialized) return;
 		await super.ready();
 
-		const index = new Index();
-		index.fromJSON(await this.indexData);
-		await this.loadIndex(index);
+		this.index.fromJSON(await this.indexData);
 
 		if (this._disableSync) return;
 
-		await using tx = this.store.transaction();
+		await using tx = this.transaction();
 
 		// Iterate over all of the files and cache their contents
-		for (const [path, node] of index) {
+		for (const [path, node] of this.index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const content = await fetchWithRanges(this.baseUrl + path, { warn }, this.requestInit).catch(parseError(this));
+			const content = await requests.get(this.baseUrl + path, { warn }, this.requestInit).catch(parseError(this));
 
 			await tx.set(node.data, content);
 		}
 
 		await tx.commit();
-	}
-
-	public constructor(
-		index: IndexData | string = 'index.json',
-		public readonly baseUrl: string = '',
-		public readonly requestInit?: RequestInit
-	) {
-		log_deprecated('FetchFS');
-		super(
-			new FetchStore(typeof index == 'string' ? new Index() : new Index().fromJSON(index), {
-				get: async (id: number, start?: number, end?: number) => {
-					const { entries } = await this.indexData;
-
-					const [path, { size } = {}] = Object.entries(entries).find(([, node]) => node.data == id) || [];
-					if (!path || typeof size != 'number') return;
-					return fetchWithRanges(this.baseUrl + path, { start, end, size, warn }, this.requestInit)
-						.catch(parseError(this))
-						.catch(() => undefined);
-				},
-				set() {
-					throw ErrnoError.With('ENOTSUP');
-				},
-				delete() {
-					throw ErrnoError.With('ENOTSUP');
-				},
-			})
-		);
-
-		// prefix url must end in a directory separator.
-		if (baseUrl.at(-1) == '/') this.baseUrl = baseUrl.slice(0, -1);
-
-		this.indexData =
-			typeof index != 'string'
-				? index
-				: fetchWithRanges(index, { warn }, requestInit)
-						.catch(parseError(this))
-						.then(data => JSON.parse(decodeUTF8(data)));
 	}
 }
 /* node:coverage enable */
@@ -305,36 +253,13 @@ const _Fetch = {
 		if (typeof options.index != 'string') {
 			index.fromJSON(options.index);
 		} else {
-			const data = await fetchWithRanges(options.index, { warn }, options.requestInit).catch(parseError());
+			const data = await requests.get(options.index, { warn }, options.requestInit).catch(parseError());
 			index.fromJSON(JSON.parse(decodeUTF8(data)));
 		}
 
-		const _update = async (method: 'POST' | 'DELETE', id: number, body?: Uint8Array) => {
-			if (!options.remoteWrite) return;
-			const [path, inode] = [...index].find(([, node]) => node.data == id) || [];
-			if (!path || !inode) return;
-			await fetch(baseUrl + path, {
-				...options.requestInit,
-				headers: { ...options.requestInit?.headers, metadata: JSON.stringify(inode.toJSON()) },
-				method,
-				body,
-			});
-		};
-
-		const store = new FetchStore(index, {
-			async get(id: number, start?: number, end?: number) {
-				const [path, { size } = {}] = [...index].find(([, node]) => node.data == id) || [];
-				if (!path || typeof size != 'number') return;
-				return await fetchWithRanges(baseUrl + path, { start, end, size, warn }, options.requestInit)
-					.catch(parseError(fs))
-					.catch(() => undefined);
-			},
-			set: (id, body) => _update('POST', id, body),
-			delete: id => _update('DELETE', id),
-		} as FetchRemote);
-
-		const fs = new StoreFS(store);
-		await fs.loadIndex(index);
+		const store = new FetchStore(index, baseUrl, options.requestInit, options.remoteWrite);
+		const fs = new IndexFS(store, index);
+		store._fs = fs;
 
 		if (options.disableAsyncCache) return fs;
 
@@ -344,7 +269,7 @@ const _Fetch = {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const content = await fetchWithRanges(baseUrl + path, { warn }, options.requestInit).catch(parseError(fs));
+			const content = await requests.get(baseUrl + path, { warn }, options.requestInit).catch(parseError(fs));
 
 			await tx.set(node.data, content);
 		}

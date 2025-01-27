@@ -73,6 +73,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		return this._convert(Math.ceil(Number(this.size) / 512));
 	}
 
+	public set blocks(value: T) {}
+
 	/**
 	 * Unix-style file mode (e.g. 0o644) that includes the type of the item.
 	 * Type of the item can be FILE, DIRECTORY, SYMLINK, or SOCKET

@@ -13,7 +13,7 @@ class MockFS extends Readonly(StoreFS) {
 		super(new InMemoryStore());
 		this.loadIndexSync(index);
 
-		using tx = this.store.transaction();
+		using tx = this.transaction();
 
 		for (const [path, node] of index) {
 			if (node.mode & S_IFDIR) continue;

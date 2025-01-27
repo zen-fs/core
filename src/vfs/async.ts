@@ -819,13 +819,13 @@ export function createWriteStream(this: V_Context, path: fs.PathLike, options?: 
 		},
 		destroy(error, callback) {
 			callback(error);
-			handle
+			void handle
 				?.close()
 				.then(() => callback(error))
 				.catch(callback);
 		},
 		final(callback) {
-			handle
+			void handle
 				?.close()
 				.then(() => callback())
 				.catch(callback);

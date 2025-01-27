@@ -1,53 +1,41 @@
+/* eslint-disable @typescript-eslint/require-await */
 import { ErrnoError } from '../../error.js';
-import type { File } from '../../file.js';
-import { LazyFile } from '../../file.js';
-import type { CreationOptions } from '../../filesystem.js';
-import { log_deprecated } from '../../log.js';
+import type { PureCreationOptions } from '../../filesystem.js';
 import { Stats } from '../../stats.js';
-import { S_IFREG } from '../../vfs/constants.js';
-import type { IndexData } from './file_index.js';
 import { Index } from './file_index.js';
 import { StoreFS } from './fs.js';
+import type { Inode } from './inode.js';
 import type { Store } from './store.js';
 
 /**
  * Uses an `Index` for metadata.
  *
  * Implementors: You *must* populate the underlying store for read operations to work!
- * @deprecated
  */
-/* node:coverage disable */
-export abstract class IndexFS<T extends Store> extends StoreFS<T> {
-	protected readonly index: Index = new Index();
-
-	protected _isInitialized: boolean = false;
-
-	public async ready(): Promise<void> {
-		await super.ready();
-		if (this._isInitialized) return;
-
-		this.index.fromJSON(await this.indexData);
-		this._isInitialized = true;
-	}
-
+export class IndexFS<T extends Store> extends StoreFS<T> {
 	public constructor(
 		store: T,
-		private indexData: IndexData | Promise<IndexData>
+		public readonly index: Index = new Index()
 	) {
-		log_deprecated('IndexFS');
 		super(store);
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public reloadFiles(): never {
 		throw ErrnoError.With('ENOTSUP');
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public reloadFilesSync(): never {
 		throw ErrnoError.With('ENOTSUP');
 	}
 
-	public stat(path: string): Promise<Stats> {
-		return Promise.resolve(this.statSync(path));
+	public async stat(path: string): Promise<Stats> {
+		return this.statSync(path);
 	}
 
 	public statSync(path: string): Stats {
@@ -56,18 +44,24 @@ export abstract class IndexFS<T extends Store> extends StoreFS<T> {
 		return new Stats(this.index.get(path));
 	}
 
-	public override async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		const node = await this.commitNew(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
-		const file = new LazyFile(this, path, flag, node.toStats());
+	protected async commitNew(path: string, options: PureCreationOptions, data: Uint8Array, syscall: string): Promise<Inode> {
+		const node = await super.commitNew(path, options, data, syscall);
 		this.index.set(path, node);
-		return file;
+		return node;
 	}
 
-	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
-		const node = this.commitNewSync(path, S_IFREG, { mode, ...options }, new Uint8Array(), 'createFile');
-		const file = new LazyFile(this, path, flag, node.toStats());
+	protected commitNewSync(path: string, options: PureCreationOptions, data: Uint8Array, syscall: string): Inode {
+		const node = super.commitNewSync(path, options, data, syscall);
 		this.index.set(path, node);
-		return file;
+		return node;
+	}
+
+	public async readdir(path: string): Promise<string[]> {
+		return Object.keys(this.index.directoryEntries(path));
+	}
+
+	public readdirSync(path: string): string[] {
+		return Object.keys(this.index.directoryEntries(path));
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
@@ -80,4 +74,3 @@ export abstract class IndexFS<T extends Store> extends StoreFS<T> {
 		super.syncSync(path, data, stats);
 	}
 }
-/* node:coverage enable */

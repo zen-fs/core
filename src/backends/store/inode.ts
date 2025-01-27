@@ -41,9 +41,9 @@ export class Inode implements InodeLike {
 		}
 
 		// Expand the buffer so it is the right size
-		if (data.byteLength < sz_inode) {
+		if (data.byteLength < __inode_sz) {
 			const buf = ArrayBuffer.isView(data) ? data.buffer : data;
-			const newBuffer = new Uint8Array(sz_inode);
+			const newBuffer = new Uint8Array(__inode_sz);
 			newBuffer.set(new Uint8Array(buf));
 			data = newBuffer;
 		}
@@ -69,6 +69,10 @@ export class Inode implements InodeLike {
 	@t.uint32 public flags: number = 0;
 	/** For future use */
 	@t.uint16 public __padding: number = 0;
+
+	public toString(): string {
+		return `<Inode ${this.ino}>`;
+	}
 
 	public toJSON(): InodeLike {
 		return pick(this, _inode_fields);
@@ -112,4 +116,7 @@ export class Inode implements InodeLike {
 	}
 }
 
-const sz_inode = sizeof(Inode);
+/**
+ * @internal @hidden
+ */
+export const __inode_sz = sizeof(Inode);

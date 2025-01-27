@@ -1,4 +1,3 @@
-import type { Store } from '../backends/store/store.js';
 import type { CreationOptions, FileSystem } from '../filesystem.js';
 import type { Stats } from '../stats.js';
 import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
@@ -73,8 +72,8 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 
 			// optimization: for 2 storeFS', we copy at a lower abstraction level.
 			if (this._sync instanceof StoreFS && this instanceof StoreFS) {
-				const sync = (this._sync as StoreFS<Store>)['store'].transaction();
-				const async = (this as StoreFS<Store>)['store'].transaction();
+				const sync = this._sync.transaction();
+				const async = this.transaction();
 
 				const promises = [];
 				for (const key of await async.keys()) {

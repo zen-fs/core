@@ -1,11 +1,11 @@
 import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
-import { MapTransaction, type MapStore } from './store/map.js';
+import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 
 /**
  * A simple in-memory store
  */
-export class InMemoryStore extends Map<number, Uint8Array> implements MapStore {
+export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapStore {
 	public readonly flags = [] as const;
 
 	public constructor(public name: string = 'tmp') {
@@ -18,8 +18,8 @@ export class InMemoryStore extends Map<number, Uint8Array> implements MapStore {
 		this.clear();
 	}
 
-	public transaction(): MapTransaction {
-		return new MapTransaction(this);
+	public transaction(): SyncMapTransaction {
+		return new SyncMapTransaction(this);
 	}
 }
 

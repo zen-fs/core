@@ -22,7 +22,7 @@ export const version = 1;
  * An index of files
  * @internal
  */
-export class Index extends Map<string, Readonly<Inode>> {
+export class Index extends Map<string, Inode> {
 	/**
 	 * Converts the index to JSON
 	 */
@@ -46,9 +46,13 @@ export class Index extends Map<string, Readonly<Inode>> {
 		}
 	}
 
-	public getByID(id: number): Readonly<Inode> | undefined {
-		for (const inode of this.values()) {
-			if (inode.ino == id || inode.data == id) return inode;
+	public getByID(id: number): Inode | undefined {
+		return this.entryByID(id)?.inode;
+	}
+
+	public entryByID(id: number): { path: string; inode: Inode } | undefined {
+		for (const [path, inode] of this) {
+			if (inode.ino == id || inode.data == id) return { path, inode };
 		}
 	}
 

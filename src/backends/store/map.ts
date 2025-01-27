@@ -1,88 +1,23 @@
-import { SyncTransaction, type Store, type StoreFlag } from './store.js';
+import type { Store } from './store.js';
+import { AsyncTransaction, SyncTransaction } from './store.js';
 
 /**
  * An interface for simple synchronous stores that don't have special support for transactions and such, based on `Map`
  */
-export interface MapStore extends Store {
+export interface SyncMapStore extends Store {
 	keys(): Iterable<number>;
 	get(id: number): Uint8Array | undefined;
 	getAsync?(id: number): Promise<Uint8Array | undefined>;
-	set(id: number, data: Uint8Array, isMetadata?: boolean): void;
+	set(id: number, data: Uint8Array): void;
 	delete(id: number): void;
 }
 
 /**
- * An interface for simple asynchronous stores that don't have special support for transactions and such, based on `Map`.
- * This class adds caching at the store level.
- */
-export abstract class AsyncMapStore implements MapStore {
-	public abstract name: string;
-
-	public abstract readonly flags: StoreFlag[];
-
-	protected cache: Map<number, Uint8Array> = new Map();
-
-	protected asyncDone: Promise<unknown> = Promise.resolve();
-
-	/** @internal @hidden */
-	protected queue(promise: Promise<unknown>): void {
-		this.asyncDone = this.asyncDone.then(() => promise);
-	}
-
-	protected abstract entries(): Promise<Iterable<[number, Uint8Array]>>;
-
-	public keys(): Iterable<number> {
-		return this.cache.keys();
-	}
-
-	abstract getAsync(id: number): Promise<Uint8Array | undefined>;
-
-	public get(id: number): Uint8Array | undefined {
-		return this.cache.get(id);
-	}
-
-	public set(id: number, data: Uint8Array): void {
-		this.cache.set(id, data);
-		this.queue(this.setAsync(id, data));
-	}
-
-	protected abstract setAsync(ino: number, data: Uint8Array): Promise<void>;
-
-	public delete(id: number): void {
-		this.cache.delete(id);
-		this.queue(this.deleteAsync(id));
-	}
-
-	protected abstract deleteAsync(ino: number): Promise<void>;
-
-	public clearSync(): void {
-		this.cache.clear();
-		this.queue(this.clear());
-	}
-
-	public abstract clear(): Promise<void>;
-
-	public async sync(): Promise<void> {
-		for (const [ino, data] of await this.entries()) {
-			if (!this.cache.has(ino)) {
-				this.cache.set(ino, data);
-			}
-		}
-		await this.asyncDone;
-	}
-
-	public transaction(): MapTransaction {
-		return new MapTransaction(this);
-	}
-}
-
-/**
  * Transaction for map stores.
- * @see MapStore
- * @see AsyncMapStore
+ * @see SyncMapStore
  */
-export class MapTransaction extends SyncTransaction<MapStore> {
-	declare public readonly store: MapStore;
+export class SyncMapTransaction extends SyncTransaction<SyncMapStore> {
+	declare public readonly store: SyncMapStore;
 
 	public keysSync(): Iterable<number> {
 		return this.store.keys();
@@ -96,16 +31,52 @@ export class MapTransaction extends SyncTransaction<MapStore> {
 		return this.store.get(id);
 	}
 
-	public setSync(id: number, data: Uint8Array): number {
+	public setSync(id: number, data: Uint8Array): void {
 		this.store.set(id, data);
-		return data.byteLength;
 	}
 
 	public removeSync(id: number): void {
 		this.store.delete(id);
 	}
+}
 
-	public commitSync(): void {}
+/**
+ * An interface for simple asynchronous stores that don't have special support for transactions and such, based on `Map`.
+ */
+export interface AsyncMap {
+	keys(): Iterable<number>;
+	get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined>;
+	cached(id: number, offset?: number, end?: number): Uint8Array | undefined;
+	set(id: number, data: Uint8Array, offset?: number): Promise<void>;
+	delete(id: number): Promise<void>;
+}
 
-	public abortSync(): void {}
+export class AsyncMapTransaction<T extends Store & AsyncMap = Store & AsyncMap> extends AsyncTransaction<T> {
+	public keysSync(): Iterable<number> {
+		return this.store.keys();
+	}
+
+	public async keys(): Promise<Iterable<number>> {
+		await this.asyncDone;
+		return this.store.keys();
+	}
+
+	public async get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined> {
+		await this.asyncDone;
+		return await this.store.get(id, offset, end);
+	}
+
+	public getSync(id: number, offset?: number, end?: number): Uint8Array | undefined {
+		return this.store.cached(id, offset, end);
+	}
+
+	public async set(id: number, data: Uint8Array, offset = 0): Promise<void> {
+		await this.asyncDone;
+		await this.store.set(id, data, offset);
+	}
+
+	public async remove(id: number): Promise<void> {
+		await this.asyncDone;
+		await this.store.delete(id);
+	}
 }
