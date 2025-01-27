@@ -1,4 +1,3 @@
-import { writeFileSync } from 'node:fs';
 import { serialize } from 'utilium';
 import * as requests from 'utilium/requests.js';
 import { Errno, ErrnoError } from '../error.js';
@@ -65,8 +64,6 @@ export class FetchStore implements AsyncMap, Store {
 		if (this._fs?._paths.has(id)) return serialize(entry.inode);
 
 		if ((inode.mode & S_IFMT) == S_IFDIR) return encodeDirListing(this.index.directoryEntries(path));
-
-		writeFileSync('tmp/index.debug.json', JSON.stringify(this.index.toJSON()));
 
 		end ??= inode.size;
 		if (inode.size == 0 || end - offset == 0) return new Uint8Array(0);
