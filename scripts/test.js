@@ -2,7 +2,7 @@
 
 import { execSync } from 'node:child_process';
 import { existsSync, globSync, mkdirSync, rmSync } from 'node:fs';
-import { join, parse } from 'node:path';
+import { join, parse, basename } from 'node:path';
 import { parseArgs } from 'node:util';
 
 const { values: options, positionals } = parseArgs({
@@ -143,6 +143,10 @@ async function status(name) {
 			if (!options.quiet) console.log(`${color('passed', 32)}: ${name} ${time()}`);
 			if (options.ci) await ci.completeCheck(name, 'success');
 		},
+		async skip() {
+			if (!options.quiet) console.log(`${color('skipped', 33)}: ${name} ${time()}`);
+			if (options.ci) await ci.completeCheck(name, 'skipped');
+		},
 		async fail() {
 			console.error(`${color('failed', '1;31')}: ${name} ${time()}`);
 			if (options.ci) await ci.completeCheck(name, 'failure');
@@ -182,7 +186,12 @@ for (const setupFile of positionals) {
 
 	!options.quiet && console.log('Running tests:', name);
 
-	const { pass, fail } = await status(name);
+	const { pass, fail, skip } = await status(name);
+
+	if (basename(setupFile).startsWith('_')) {
+		await skip();
+		continue;
+	}
 
 	try {
 		execSync(

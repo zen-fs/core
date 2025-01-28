@@ -2,6 +2,7 @@ import { suite, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { bindContext } from '../../dist/context.js';
 import * as fs from '../../dist/vfs/index.js';
+import { canary } from 'utilium';
 
 fs.mkdirSync('/ctx');
 const { fs: ctx } = bindContext('/ctx');
@@ -42,12 +43,14 @@ suite('Context', () => {
 			events = 0;
 		const watcher = ctx.promises.watch('/', { recursive: true });
 
+		const silence = canary();
 		(async () => {
 			for await (const event of watcher) {
 				lastFile = event.filename!;
 				if (++events == 2) return;
 			}
 		})();
+		silence();
 		await ctx.promises.writeFile('/xpto.txt', 'in real root');
 		assert.equal(lastFile!, 'xpto.txt');
 		await ctx.promises.unlink('/xpto.txt');
