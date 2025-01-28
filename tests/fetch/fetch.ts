@@ -13,7 +13,7 @@ await configure({
 	log: {
 		enabled: true,
 		output: console.error,
-		format: log._withColors('ansi:message'),
+		format: log.formats.ansi_message,
 		level: log.Level.INFO,
 		dumpBacklog: true,
 	},

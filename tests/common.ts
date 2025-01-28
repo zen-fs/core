@@ -1,4 +1,3 @@
-import { createWriteStream } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fs as defaultFS, log } from '../dist/index.js';
 export type * from '../dist/vfs/index.js';
@@ -15,7 +14,7 @@ if (ZENFS_LOG_LEVEL) {
 
 log.configure({
 	enabled: true,
-	format: log._withColors('ansi:message'),
+	format: log.formats.ansi_message,
 	dumpBacklog: true,
 	level,
 	output: console.error,

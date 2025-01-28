@@ -116,15 +116,32 @@ export function log_deprecated(symbol: string): void {
 
 // Formatting and output
 
-function _prettyMs(entry: Entry, ansi: boolean = false) {
-	const text = '[' + (entry.elapsedMs / 1000).toFixed(3).padStart(10) + '] ';
-
-	return ansi ? __ansiFormat(text, '2;37') : text;
+/**
+ * @internal @hidden
+ */
+function ansi(text: string, format: string): string {
+	return `\x1b[${format}m${text}\x1b[0m`;
 }
 
+function _prettyMs(entry: Entry, useANSI: boolean = false) {
+	const text = '[' + (entry.elapsedMs / 1000).toFixed(3).padStart(10) + '] ';
+
+	return useANSI ? ansi(text, '2;37') : text;
+}
 const _ansiLevelColor: Record<Level, string> = {
 	[Level.EMERG]: '1;4;37;41',
 	[Level.ALERT]: '1;37;41',
+	[Level.CRIT]: '1;35',
+	[Level.ERR]: '1;31',
+	[Level.WARN]: '1;33',
+	[Level.NOTICE]: '1;36',
+	[Level.INFO]: '1;37',
+	[Level.DEBUG]: '0;2;37',
+};
+
+const _ansiMessageColor: Record<Level, string> = {
+	[Level.EMERG]: '1;31',
+	[Level.ALERT]: '1;31',
 	[Level.CRIT]: '1;31',
 	[Level.ERR]: '31',
 	[Level.WARN]: '33',
@@ -133,43 +150,38 @@ const _ansiLevelColor: Record<Level, string> = {
 	[Level.DEBUG]: '2;37',
 };
 
-function __ansiFormat(text: string, format: string): string {
-	return `\x1b[${format}m${text}\x1b[0m`;
-}
-
-const _colorModes = ['ansi:message', 'ansi:level'] as const;
-type ColorMode = (typeof _colorModes)[number];
-
 /**
- * @internal @hidden
+ * Various format functions included to make using the logger easier.
+ * These are not the only formats you can use.
  */
-export function _withColors(mode: ColorMode) {
-	if (!_colorModes.includes(mode)) throw new Error('_withColors: Invalid mode');
+export const formats = {
+	/** Format with a timestamp and the level, colorized with ANSI escape codes */
+	ansi_level(this: void, entry: Entry) {
+		const levelText = ansi(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]);
+		return [_prettyMs(entry, true), levelText, entry.message].join(' ');
+	},
+	/**
+	 * Format with a timestamp and colorize the message with ANSI escape codes.
+	 * For EMERG and ALERT, the levels are included
+	 */
+	ansi_message(this: void, entry: Entry) {
+		let msg = _prettyMs(entry, true);
 
-	switch (mode) {
-		case 'ansi:level':
-			return function (entry: Entry) {
-				const levelText = __ansiFormat(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]);
-				return [_prettyMs(entry, true), levelText, entry.message].join(' ');
-			};
-		case 'ansi:message':
-			return function (entry: Entry) {
-				let msg = _prettyMs(entry, true);
+		const isImportant = entry.level < Level.CRIT;
 
-				const isImportant = entry.level < Level.CRIT;
+		if (isImportant) msg += ansi(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]) + ': ';
 
-				if (isImportant) msg += __ansiFormat(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]) + ': ';
+		msg += ansi(entry.message, _ansiMessageColor[entry.level]);
 
-				msg += __ansiFormat(entry.message, _ansiLevelColor[Math.max(entry.level, Level.CRIT) as Level]);
+		return msg;
+	},
+	/** Uncolored format with a timestamp */
+	default(this: void, entry: Entry) {
+		return `[${_prettyMs(entry)}] ${entry.message}`;
+	},
+} as const;
 
-				return msg;
-			};
-	}
-}
-
-let _format: (entry: Entry) => string = (entry: Entry) => {
-	return `[${_prettyMs(entry)}] ${entry.message}`;
-};
+let _format: (entry: Entry) => string = formats.default;
 
 export function format(entry: Entry) {
 	return _format(entry);
