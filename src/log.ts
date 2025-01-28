@@ -120,15 +120,15 @@ function _prettyMs(entry: Entry) {
 	return (entry.elapsedMs / 1000).toFixed(3).padStart(10);
 }
 
-const _ansiLevelColor: Record<Level, number> = {
-	[Level.EMERG]: 31,
-	[Level.ALERT]: 31,
-	[Level.CRIT]: 31,
-	[Level.ERR]: 31,
-	[Level.WARN]: 33,
-	[Level.NOTICE]: 36,
-	[Level.INFO]: 37,
-	[Level.DEBUG]: 30,
+const _ansiLevelColor: Record<Level, string> = {
+	[Level.EMERG]: '1;4;37;41',
+	[Level.ALERT]: '1;37;41',
+	[Level.CRIT]: '1;35',
+	[Level.ERR]: '1;31',
+	[Level.WARN]: '1;33',
+	[Level.NOTICE]: '1;36',
+	[Level.INFO]: '1;37',
+	[Level.DEBUG]: '0;2;37',
 };
 
 /**
@@ -138,7 +138,7 @@ export function _withColors(mode: 'ansi') {
 	if (mode != 'ansi') throw new Error('_withColors: Bad format');
 
 	return function __format_ansi(entry: Entry) {
-		const levelText = `\x1b[1;${_ansiLevelColor[entry.level]}m${levels[entry.level].toUpperCase()}\x1b[0m`;
+		const levelText = `\x1b[${_ansiLevelColor[entry.level]}m${levels[entry.level].toUpperCase()}\x1b[0m`;
 		return `\x1b[2;37m[${_prettyMs(entry)}]\x1b[0m ${levelText} ${entry.message}`;
 	};
 }
