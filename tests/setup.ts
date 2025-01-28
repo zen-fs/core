@@ -47,11 +47,3 @@ export function copySync(_path: string, fs: typeof _fs = _fs): void {
  * @deprecated @hidden
  */
 export const copy = copySync;
-
-export const logConfig: log.LogConfiguration = {
-	enabled: true,
-	output: console.error,
-	format: log._withColors('ansi'),
-	level: log.Level.INFO,
-	dumpBacklog: true,
-};

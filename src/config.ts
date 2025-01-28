@@ -6,7 +6,7 @@ import { DeviceFS } from './devices.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 import type { LogConfiguration } from './log.js';
-import { err, configure as configureLog, info, crit } from './log.js';
+import { configure as configureLog, crit, err, info } from './log.js';
 import * as cache from './vfs/cache.js';
 import { config } from './vfs/config.js';
 import * as fs from './vfs/index.js';

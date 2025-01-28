@@ -10,7 +10,7 @@ import { Errno, ErrnoError } from './error.js';
 import type { FileReadResult } from './file.js';
 import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
-import { alert, err, log_deprecated } from './log.js';
+import { alert, debug, err, info, log_deprecated } from './log.js';
 import { Stats } from './stats.js';
 import { decodeUTF8 } from './utils.js';
 import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
@@ -329,10 +329,13 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			...driver.init?.(ino, options),
 		};
 		const path = '/' + (dev.name || driver.name) + (driver.singleton ? '' : this.devicesWithDriver(driver).length);
-		if (this.existsSync(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mknod');
-		}
+
+		if (this.existsSync(path)) throw ErrnoError.With('EEXIST', path, 'mknod');
+
 		this.devices.set(path, dev);
+
+		info('Initialized device: ' + this._mountPoint + path);
+
 		return dev;
 	}
 
@@ -345,6 +348,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		this._createDevice(fullDevice);
 		this._createDevice(randomDevice);
 		this._createDevice(consoleDevice);
+		debug('Added default devices.');
 	}
 
 	public constructor() {

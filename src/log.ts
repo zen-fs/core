@@ -36,8 +36,8 @@ export const levels = {
 	[Level.DEBUG]: 'debug',
 } as const satisfies Record<Level, string>;
 
-function levelOf(value: (typeof levels)[Level]): Level {
-	return +Object.keys(levels)[Object.values(levels).indexOf(value)];
+export function levelOf(value: (typeof levels)[Level]): Level {
+	return Object.values(levels).indexOf(value);
 }
 
 /** A log entry */
@@ -116,31 +116,55 @@ export function log_deprecated(symbol: string): void {
 
 // Formatting and output
 
-function _prettyMs(entry: Entry) {
-	return (entry.elapsedMs / 1000).toFixed(3).padStart(10);
+function _prettyMs(entry: Entry, ansi: boolean = false) {
+	const text = '[' + (entry.elapsedMs / 1000).toFixed(3).padStart(10) + '] ';
+
+	return ansi ? __ansiFormat(text, '2;37') : text;
 }
 
 const _ansiLevelColor: Record<Level, string> = {
 	[Level.EMERG]: '1;4;37;41',
 	[Level.ALERT]: '1;37;41',
-	[Level.CRIT]: '1;35',
-	[Level.ERR]: '1;31',
-	[Level.WARN]: '1;33',
-	[Level.NOTICE]: '1;36',
-	[Level.INFO]: '1;37',
-	[Level.DEBUG]: '0;2;37',
+	[Level.CRIT]: '1;31',
+	[Level.ERR]: '31',
+	[Level.WARN]: '33',
+	[Level.NOTICE]: '1;37',
+	[Level.INFO]: '37',
+	[Level.DEBUG]: '2;37',
 };
+
+function __ansiFormat(text: string, format: string): string {
+	return `\x1b[${format}m${text}\x1b[0m`;
+}
+
+const _colorModes = ['ansi:message', 'ansi:level'] as const;
+type ColorMode = (typeof _colorModes)[number];
 
 /**
  * @internal @hidden
  */
-export function _withColors(mode: 'ansi') {
-	if (mode != 'ansi') throw new Error('_withColors: Bad format');
+export function _withColors(mode: ColorMode) {
+	if (!_colorModes.includes(mode)) throw new Error('_withColors: Invalid mode');
 
-	return function __format_ansi(entry: Entry) {
-		const levelText = `\x1b[${_ansiLevelColor[entry.level]}m${levels[entry.level].toUpperCase()}\x1b[0m`;
-		return `\x1b[2;37m[${_prettyMs(entry)}]\x1b[0m ${levelText} ${entry.message}`;
-	};
+	switch (mode) {
+		case 'ansi:level':
+			return function (entry: Entry) {
+				const levelText = __ansiFormat(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]);
+				return [_prettyMs(entry, true), levelText, entry.message].join(' ');
+			};
+		case 'ansi:message':
+			return function (entry: Entry) {
+				let msg = _prettyMs(entry, true);
+
+				const isImportant = entry.level < Level.CRIT;
+
+				if (isImportant) msg += __ansiFormat(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]) + ': ';
+
+				msg += __ansiFormat(entry.message, _ansiLevelColor[Math.max(entry.level, Level.CRIT) as Level]);
+
+				return msg;
+			};
+	}
 }
 
 let _format: (entry: Entry) => string = (entry: Entry) => {
@@ -163,7 +187,7 @@ let minLevel: Level = Level.ALERT;
 // Configuration
 
 /** Whether log entries are being recorded */
-export let isEnabled: boolean = false;
+export let isEnabled: boolean = true;
 
 export interface LogConfiguration {
 	/**
