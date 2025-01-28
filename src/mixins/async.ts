@@ -5,7 +5,7 @@ import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 import { StoreFS } from '../backends/store/fs.js';
 import { Errno, ErrnoError } from '../error.js';
 import { LazyFile, parseFlag } from '../file.js';
-import { crit, err } from '../log.js';
+import { crit, err, notice } from '../log.js';
 import { join } from '../vfs/path.js';
 
 /** @internal */
@@ -230,7 +230,12 @@ export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncM
 				(this as any)[key] = async (...args: unknown[]) => {
 					const result = await originalMethod.apply(this, args);
 
-					if (new Error().stack!.includes(`at <computed> [as ${key}]`) || !this._isInitialized) return result;
+					if (new Error().stack!.includes(`at <computed> [as ${key}]`)) return result;
+
+					if (!this._isInitialized) {
+						notice('Skipping sync cache update for Async#' + key);
+						return result;
+					}
 
 					try {
 						// @ts-expect-error 2556

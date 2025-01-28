@@ -1,5 +1,5 @@
 import { deserialize, pick, randomInt, sizeof, struct, types as t } from 'utilium';
-import { crit } from '../../log.js';
+import { crit, debug } from '../../log.js';
 import { Stats, type StatsLike } from '../../stats.js';
 import { size_max } from '../../vfs/constants.js';
 
@@ -45,6 +45,7 @@ export class Inode implements InodeLike {
 			const buf = ArrayBuffer.isView(data) ? data.buffer : data;
 			const newBuffer = new Uint8Array(__inode_sz);
 			newBuffer.set(new Uint8Array(buf));
+			debug('Extending undersized buffer for inode');
 			data = newBuffer;
 		}
 

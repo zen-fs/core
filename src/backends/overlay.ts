@@ -8,7 +8,7 @@ import { canary } from 'utilium';
 import { Errno, ErrnoError } from '../error.js';
 import { LazyFile, parseFlag } from '../file.js';
 import { FileSystem } from '../filesystem.js';
-import { crit, err } from '../log.js';
+import { crit, err, info } from '../log.js';
 import { decodeUTF8, encodeUTF8 } from '../utils.js';
 import { dirname, join } from '../vfs/path.js';
 
@@ -121,10 +121,9 @@ export class OverlayFS extends FileSystem {
 			const { size } = await file.stat();
 			const { buffer } = await file.read(new Uint8Array(size));
 			this._deleteLog = decodeUTF8(buffer);
-		} catch (err) {
-			if ((err as ErrnoError).errno !== Errno.ENOENT) {
-				throw err;
-			}
+		} catch (error: any) {
+			if (error.errno !== Errno.ENOENT) throw err(error);
+			info('Overlay does not have a deletion log');
 		}
 		this._isInitialized = true;
 		this._reparseDeletionLog();

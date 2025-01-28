@@ -8,7 +8,7 @@ import type { PortFS } from './fs.js';
 
 import { Errno, ErrnoError } from '../../error.js';
 import { LazyFile } from '../../file.js';
-import { err } from '../../log.js';
+import { err, info } from '../../log.js';
 import { Stats, type StatsLike } from '../../stats.js';
 import { handleRequest } from './fs.js';
 
@@ -150,6 +150,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 
 export function attach<T extends Message>(port: Port, handler: (message: T) => unknown) {
 	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Cannot attach to non-existent port'));
+	info('Attached handler to port: ' + handler.name);
 
 	port['on' in port ? 'on' : 'addEventListener']!('message', (message: T | _MessageEvent<T>) => {
 		handler('data' in message ? message.data : message);
@@ -158,6 +159,7 @@ export function attach<T extends Message>(port: Port, handler: (message: T) => u
 
 export function detach<T extends Message>(port: Port, handler: (message: T) => unknown) {
 	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Cannot detach from non-existent port'));
+	info('Detached handler from port: ' + handler.name);
 
 	port['off' in port ? 'off' : 'removeEventListener']!('message', (message: T | _MessageEvent<T>) => {
 		handler('data' in message ? message.data : message);

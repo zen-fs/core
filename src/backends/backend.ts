@@ -2,7 +2,7 @@
 import type { Entries, RequiredKeys } from 'utilium';
 import { Errno, ErrnoError } from '../error.js';
 import type { FileSystem } from '../filesystem.js';
-import { err } from '../log.js';
+import { debug, err } from '../log.js';
 
 type OptionType =
 	| 'string'
@@ -118,6 +118,7 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 
 		if (value === undefined || value === null) {
 			if (!opt.required) {
+				debug('Missing non-required option: ' + optName);
 				continue;
 			}
 
@@ -140,6 +141,8 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 
 			throw err(new ErrnoError(Errno.EINVAL, `Incorrect type for "${optName}": ${type} (expected ${expected})`));
 		}
+
+		debug('Using custom validator for option: ' + optName);
 
 		if (opt.validator) await opt.validator(value);
 		// Otherwise: All good!

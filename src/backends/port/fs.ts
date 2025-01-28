@@ -10,7 +10,7 @@ import { pick } from 'utilium';
 import { resolveMountConfig } from '../../config.js';
 import { Errno, ErrnoError } from '../../error.js';
 import { FileSystem } from '../../filesystem.js';
-import { err } from '../../log.js';
+import { err, info } from '../../log.js';
 import { Async } from '../../mixins/async.js';
 import { Stats } from '../../stats.js';
 import { InMemory } from '../memory.js';
@@ -168,7 +168,6 @@ export function detachFS(port: RPC.Port, fs: FileSystem): void {
 
 const _Port = {
 	name: 'Port',
-
 	options: {
 		port: {
 			type: 'object',
@@ -196,5 +195,6 @@ export async function resolveRemoteMount<T extends Backend>(port: RPC.Port, conf
 	const fs = await resolveMountConfig(config, _depth);
 	attachFS(port, fs);
 	stopAndReplay(fs);
+	info('Resolved remote mount: ' + fs.toString());
 	return fs;
 }

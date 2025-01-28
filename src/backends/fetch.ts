@@ -112,7 +112,7 @@ export class FetchStore implements AsyncMap, Store {
 			if (body.byteLength == __inode_sz) {
 				this.index.get(path)?.update(new Inode(body));
 			} else {
-				warn(`Refusing to update inode ${id} with invalid metadata`);
+				err(`Refusing to update inode ${id} with invalid metadata`);
 			}
 			return;
 		}

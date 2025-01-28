@@ -6,7 +6,7 @@ import { DeviceFS } from './devices.js';
 import { Errno, ErrnoError } from './error.js';
 import { FileSystem } from './filesystem.js';
 import type { LogConfiguration } from './log.js';
-import { err, configure as configureLog } from './log.js';
+import { err, configure as configureLog, info, crit } from './log.js';
 import * as cache from './vfs/cache.js';
 import { config } from './vfs/config.js';
 import * as fs from './vfs/index.js';
@@ -44,13 +44,10 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	}
 
 	for (const [key, value] of Object.entries(configuration)) {
-		if (key == 'backend') {
-			continue;
-		}
+		if (key == 'backend') continue;
+		if (!isMountConfig(value)) continue;
 
-		if (!isMountConfig(value)) {
-			continue;
-		}
+		info('Resolving nested mount configuration: ' + key);
 
 		if (_depth > 10) {
 			throw err(new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite'));
@@ -62,7 +59,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	const { backend } = configuration;
 
 	if (typeof backend.isAvailable == 'function' && !(await backend.isAvailable())) {
-		throw new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name);
+		throw err(new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name));
 	}
 	await checkOptions(backend, configuration);
 	const mount = (await backend.create(configuration)) as FilesystemOf<T>;
@@ -192,7 +189,7 @@ async function mount(path: string, mount: FileSystem): Promise<void> {
 
 export function addDevice(driver: DeviceDriver, options?: object): Device {
 	const devfs = mounts.get('/dev');
-	if (!(devfs instanceof DeviceFS)) throw new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system');
+	if (!(devfs instanceof DeviceFS)) throw crit(new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
 

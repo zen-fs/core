@@ -143,6 +143,10 @@ export abstract class FileSystem {
 	 */
 	_mountPoint?: string;
 
+	public toString(): string {
+		return `${this.metadata().name} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
+	}
+
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
 	public constructor(...args: any[]) {}
 

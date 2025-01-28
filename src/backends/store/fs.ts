@@ -5,7 +5,7 @@ import type { File } from '../../file.js';
 import { LazyFile } from '../../file.js';
 import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
 import { FileSystem } from '../../filesystem.js';
-import { crit, debug, err, info, log_deprecated, notice, warn } from '../../log.js';
+import { crit, debug, err, log_deprecated, notice, warn } from '../../log.js';
 import type { Stats } from '../../stats.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
@@ -578,7 +578,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			warn('Attempted to populate tables after initialization');
 			return;
 		}
-		info('Populating tables with existing store metadata.');
+		debug('Populating tables with existing store metadata.');
 		await using tx = this.transaction();
 
 		const rootData = await tx.get(rootIno);
@@ -600,13 +600,15 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Keep track of directories we have already traversed to avoid loops
 		const visitedDirectories = new Set<number>();
 
+		let i = 0;
+
 		// Start BFS from root
 		const queue: Array<[path: string, ino: number]> = [['/', rootIno]];
 
 		while (queue.length > 0) {
+			i++;
 			const [path, ino] = queue.shift()!;
 
-			debug(`Adding from store: ${ino} at ${path}`);
 			this._add(ino, path);
 
 			// Get the inode data from the store
@@ -643,6 +645,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				queue.push([join(path, entryName), childIno]);
 			}
 		}
+
+		debug(`Added ${i} existing inode(s) from store`);
 	}
 
 	/**

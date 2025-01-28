@@ -8,7 +8,7 @@ import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapStore {
 	public readonly flags = [] as const;
 
-	public constructor(public name: string = 'tmp') {
+	public constructor(public name: string = 'tmpfs') {
 		super();
 	}
 
