@@ -170,7 +170,7 @@ export class WrappedTransaction<T extends Store = Store> {
 
 	public constructor(
 		public readonly raw: Transaction<T>,
-		protected _fs?: StoreFS<T>
+		protected fs: StoreFS<T>
 	) {}
 
 	/**
@@ -217,13 +217,11 @@ export class WrappedTransaction<T extends Store = Store> {
 	public async remove(id: number): Promise<void> {
 		await this.markModified(id, 0, undefined);
 		await this.raw.remove(id);
-		this._fs?._remove(id);
 	}
 
 	public removeSync(id: number): void {
 		this.markModifiedSync(id, 0, undefined);
 		this.raw.removeSync(id);
-		this._fs?._remove(id);
 	}
 
 	public commit(): Promise<void> {
@@ -244,7 +242,7 @@ export class WrappedTransaction<T extends Store = Store> {
 			// Key didn't exist.
 			if (entries.some(ent => !ent.data)) {
 				await this.raw.remove(id);
-				this._fs?._remove(id);
+				this.fs._remove(id);
 				continue;
 			}
 
@@ -264,7 +262,7 @@ export class WrappedTransaction<T extends Store = Store> {
 			// Key didn't exist.
 			if (entries.some(ent => !ent.data)) {
 				this.raw.removeSync(id);
-				this._fs?._remove(id);
+				this.fs._remove(id);
 				continue;
 			}
 

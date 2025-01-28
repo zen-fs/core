@@ -107,7 +107,7 @@ export class FetchStore implements AsyncMap, Store {
 	}
 
 	async set(id: number, body: Uint8Array, offset: number): Promise<void> {
-		const [path] = this._fs?._paths.get(id) || [];
+		const [path] = this._fs._paths.get(id) || [];
 		if (path) {
 			if (body.byteLength == __inode_sz) {
 				this.index.get(path)?.update(new Inode(body));

@@ -2,6 +2,7 @@
 import { ErrnoError } from '../../error.js';
 import type { PureCreationOptions } from '../../filesystem.js';
 import { Stats } from '../../stats.js';
+import { join, relative } from '../../vfs/path.js';
 import { Index } from './file_index.js';
 import { StoreFS } from './fs.js';
 import type { Inode } from './inode.js';
@@ -32,6 +33,33 @@ export class IndexFS<T extends Store> extends StoreFS<T> {
 	 */
 	public reloadFilesSync(): never {
 		throw ErrnoError.With('ENOTSUP');
+	}
+
+	protected _rename(oldPath: string, newPath: string) {
+		if (newPath === oldPath) return;
+		const toRename = [];
+		for (const [key, inode] of this.index.entries()) {
+			const rel = relative(oldPath, key);
+			if (rel.startsWith('..')) continue;
+			let newKey = join(newPath, rel);
+			if (newKey.endsWith('/')) newKey = newKey.slice(0, -1);
+			toRename.push({ oldKey: key, newKey, inode });
+		}
+
+		for (const { oldKey, newKey, inode } of toRename) {
+			this.index.delete(oldKey);
+			this.index.set(newKey, inode);
+		}
+	}
+
+	public async rename(oldPath: string, newPath: string): Promise<void> {
+		await super.rename(oldPath, newPath);
+		this._rename(oldPath, newPath);
+	}
+
+	public renameSync(oldPath: string, newPath: string): void {
+		super.renameSync(oldPath, newPath);
+		this._rename(oldPath, newPath);
 	}
 
 	public async stat(path: string): Promise<Stats> {
