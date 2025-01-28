@@ -3,6 +3,7 @@
 import { List } from 'utilium';
 import { ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
+import { join } from './vfs/path.js';
 
 export const enum Level {
 	/** Emergency */
@@ -66,13 +67,16 @@ interface LogShortcutOptions {
 	fs?: FileSystem;
 }
 
-function _messageString(message: { toString(): string } | ErrnoError, options: LogShortcutOptions): string {
-	if (!(message instanceof ErrnoError)) {
-		return message.toString();
-	}
-	const path = !message.path ? '' : ': ' + (typeof options.fs == 'string' ? options.fs : (options.fs?._mountPoint ?? '<unknown>')) + message.path;
+function _messageString(msg: { toString(): string } | ErrnoError, options: LogShortcutOptions): string {
+	if (!(msg instanceof ErrnoError)) return msg.toString();
 
-	return message.code + ': ' + message.message + path;
+	const beforePath = msg.code + ': ' + msg.message;
+
+	if (!msg.path) return beforePath;
+
+	const mountPoint = typeof options.fs == 'string' ? options.fs : (options.fs?._mountPoint ?? '<unknown>');
+
+	return beforePath + ': ' + join(mountPoint, msg.path);
 }
 
 function _shortcut(level: Level) {
@@ -112,8 +116,35 @@ export function log_deprecated(symbol: string): void {
 
 // Formatting and output
 
+function _prettyMs(entry: Entry) {
+	return (entry.elapsedMs / 1000).toFixed(3).padStart(10);
+}
+
+const _ansiLevelColor: Record<Level, number> = {
+	[Level.EMERG]: 31,
+	[Level.ALERT]: 31,
+	[Level.CRIT]: 31,
+	[Level.ERR]: 31,
+	[Level.WARN]: 33,
+	[Level.NOTICE]: 36,
+	[Level.INFO]: 37,
+	[Level.DEBUG]: 30,
+};
+
+/**
+ * @internal @hidden
+ */
+export function _withColors(mode: 'ansi') {
+	if (mode != 'ansi') throw new Error('_withColors: Bad format');
+
+	return function __format_ansi(entry: Entry) {
+		const levelText = `\x1b[1;${_ansiLevelColor[entry.level]}m${levels[entry.level].toUpperCase()}\x1b[0m`;
+		return `\x1b[2;37m[${_prettyMs(entry)}]\x1b[0m ${levelText} ${entry.message}`;
+	};
+}
+
 let _format: (entry: Entry) => string = (entry: Entry) => {
-	return `[${(entry.elapsedMs / 1000).toFixed(3).padStart(10)}] ${entry.message}`;
+	return `[${_prettyMs(entry)}] ${entry.message}`;
 };
 
 export function format(entry: Entry) {

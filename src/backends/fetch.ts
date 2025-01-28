@@ -15,22 +15,26 @@ import { AsyncMapTransaction } from './store/map.js';
 import type { Store } from './store/store.js';
 
 /** Parse and throw */
-function parseError(fs?: StoreFS) {
+function parseError(path?: string, fs?: StoreFS): (error: requests.Issue) => never {
 	return (error: requests.Issue) => {
-		if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.message), { fs });
+		if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.message, path), { fs });
 
 		switch (error.tag) {
 			case 'fetch':
-				throw err(new ErrnoError(Errno.EREMOTEIO, error.message), { fs });
+				throw err(new ErrnoError(Errno.EREMOTEIO, error.message, path), { fs });
 			case 'status':
 				throw err(
-					new ErrnoError(error.response.status > 500 ? Errno.EREMOTEIO : Errno.EIO, 'Response status code is ' + error.response.status),
+					new ErrnoError(
+						error.response.status > 500 ? Errno.EREMOTEIO : Errno.EIO,
+						'Response status code is ' + error.response.status,
+						path
+					),
 					{ fs }
 				);
 			case 'size':
-				throw err(new ErrnoError(Errno.EBADE, error.message), { fs });
+				throw err(new ErrnoError(Errno.EBADE, error.message, path), { fs });
 			case 'buffer':
-				throw err(new ErrnoError(Errno.EIO, 'Failed to decode buffer'), { fs });
+				throw err(new ErrnoError(Errno.EIO, 'Failed to decode buffer', path), { fs });
 		}
 	};
 }
@@ -61,7 +65,7 @@ export class FetchStore implements AsyncMap, Store {
 
 		const { path, inode } = entry;
 
-		if (this._fs?._paths.has(id)) return serialize(entry.inode);
+		if (this._fs._paths.has(id)) return serialize(entry.inode);
 
 		if ((inode.mode & S_IFMT) == S_IFDIR) return encodeDirListing(this.index.directoryEntries(path));
 
@@ -72,7 +76,7 @@ export class FetchStore implements AsyncMap, Store {
 
 		return await requests
 			.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }, this.requestInit)
-			.catch(parseError(this._fs))
+			.catch(parseError(path, this._fs))
 			.catch(() => undefined);
 	}
 
@@ -82,7 +86,7 @@ export class FetchStore implements AsyncMap, Store {
 
 		const { path, inode } = entry;
 
-		if (this._fs?._paths.has(id)) return serialize(entry.inode);
+		if (this._fs._paths.has(id)) return serialize(entry.inode);
 
 		if ((inode.mode & S_IFMT) == S_IFDIR) return encodeDirListing(this.index.directoryEntries(path));
 
@@ -104,8 +108,12 @@ export class FetchStore implements AsyncMap, Store {
 
 	async set(id: number, body: Uint8Array, offset: number): Promise<void> {
 		const [path] = this._fs?._paths.get(id) || [];
-		if (path && body.byteLength == __inode_sz) {
-			this._fs.index.get(path)?.update(new Inode(body));
+		if (path) {
+			if (body.byteLength == __inode_sz) {
+				this.index.get(path)?.update(new Inode(body));
+			} else {
+				warn(`Refusing to update inode ${id} with invalid metadata`);
+			}
 			return;
 		}
 
@@ -121,7 +129,7 @@ export class FetchStore implements AsyncMap, Store {
 	async delete(id: number): Promise<void> {
 		const [path] = this._fs?._paths.get(id) || [];
 		if (path) {
-			this._fs.index.delete(path);
+			this.index.delete(path);
 			return;
 		}
 
@@ -195,7 +203,7 @@ export class FetchFS extends IndexFS<FetchStore> {
 				? index
 				: requests
 						.get(index, { warn }, requestInit)
-						.catch(parseError(this))
+						.catch(parseError())
 						.then(data => JSON.parse(decodeUTF8(data)));
 	}
 
@@ -213,7 +221,7 @@ export class FetchFS extends IndexFS<FetchStore> {
 		for (const [path, node] of this.index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const content = await requests.get(this.baseUrl + path, { warn }, this.requestInit).catch(parseError(this));
+			const content = await requests.get(this.baseUrl + path, { warn }, this.requestInit).catch(parseError(path, this));
 
 			await tx.set(node.data, content);
 		}
@@ -266,8 +274,9 @@ const _Fetch = {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			const content = await requests.get(baseUrl + path, { warn }, options.requestInit).catch(parseError(fs));
+			const content = await requests.get(baseUrl + path, { warn }, options.requestInit).catch(parseError(path, fs));
 
+			fs._add(node.ino, path);
 			await tx.set(node.data, content);
 		}
 

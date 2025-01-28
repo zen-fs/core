@@ -5,13 +5,13 @@ import type { File } from '../../file.js';
 import { LazyFile } from '../../file.js';
 import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
 import { FileSystem } from '../../filesystem.js';
-import { crit, err, log_deprecated } from '../../log.js';
+import { crit, debug, err, info, log_deprecated, notice, warn } from '../../log.js';
 import type { Stats } from '../../stats.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, resolve } from '../../vfs/path.js';
 import { Index } from './file_index.js';
-import { Inode, rootIno, type InodeLike } from './inode.js';
+import { __inode_sz, Inode, rootIno, type InodeLike } from './inode.js';
 import { WrappedTransaction, type Store } from './store.js';
 
 /**
@@ -62,6 +62,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		this.checkRootSync();
 		await this.checkRoot();
+		await this._populate();
 		this._initialized = true;
 	}
 
@@ -519,12 +520,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async checkRoot(): Promise<void> {
 		await using tx = this.transaction();
 		if (await tx.get(rootIno)) return;
-		// Create new inode. o777, owned by root:root
-		const inode = new Inode();
-		inode.ino = rootIno;
-		inode.mode = 0o777 | S_IFDIR;
-		// If the root doesn't exist, the first random ID shouldn't exist either.
+
+		const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
 		await tx.set(inode.data, encodeUTF8('{}'));
+
 		this._add(rootIno, '/');
 		await tx.set(rootIno, serialize(inode));
 		await tx.commit();
@@ -537,15 +536,87 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		using tx = this.transaction();
 		if (tx.getSync(rootIno)) return;
 
-		// Create new inode, mode o777, owned by root:root
-		const inode = new Inode();
-		inode.ino = rootIno;
-		inode.mode = 0o777 | S_IFDIR;
-		// If the root doesn't exist, the first random ID shouldn't exist either.
+		const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
 		tx.setSync(inode.data, encodeUTF8('{}'));
+
 		this._add(rootIno, '/');
 		tx.setSync(rootIno, serialize(inode));
 		tx.commitSync();
+	}
+
+	/**
+	 * Populates the `_ids` and `_paths` maps with all existing files stored in the underlying `Store`.
+	 */
+	private async _populate(): Promise<void> {
+		if (this._initialized) {
+			warn('Attempted to populate tables after initialization');
+			return;
+		}
+		info('Populating tables with existing store metadata.');
+		await using tx = this.transaction();
+
+		const rootData = await tx.get(rootIno);
+		if (!rootData) {
+			notice('Store does not have a root inode.');
+			const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
+			await tx.set(inode.data, encodeUTF8('{}'));
+			this._add(rootIno, '/');
+			await tx.set(rootIno, serialize(inode));
+			await tx.commit();
+			return;
+		}
+
+		if (rootData.length != __inode_sz) {
+			crit('Store contains an invalid root inode. Refusing to populate tables.');
+			return;
+		}
+
+		// Keep track of directories we have already traversed to avoid loops
+		const visitedDirectories = new Set<number>();
+
+		// Start BFS from root
+		const queue: Array<[path: string, ino: number]> = [['/', rootIno]];
+
+		while (queue.length > 0) {
+			const [path, ino] = queue.shift()!;
+
+			debug(`Adding from store: ${ino} at ${path}`);
+			this._add(ino, path);
+
+			// Get the inode data from the store
+			const inodeData = await tx.get(ino);
+			if (!inodeData) {
+				warn('Store is missing data for inode: ' + ino);
+				continue;
+			}
+
+			if (inodeData.length != __inode_sz) {
+				warn(`Invalid inode size for ino ${ino}: ${inodeData.length}`);
+				continue;
+			}
+
+			// Parse the raw data into our Inode object
+			const inode = new Inode(inodeData);
+
+			// If it is a directory and not yet visited, read its directory listing
+			if ((inode.mode & S_IFDIR) != S_IFDIR || visitedDirectories.has(ino)) {
+				continue;
+			}
+
+			visitedDirectories.add(ino);
+
+			// Grab the directory listing from the store
+			const dirData = await tx.get(inode.data);
+			if (!dirData) {
+				warn('Store is missing directory data: ' + inode.data);
+				continue;
+			}
+			const dirListing = decodeDirListing(dirData);
+
+			for (const [entryName, childIno] of Object.entries(dirListing)) {
+				queue.push([join(path, entryName), childIno]);
+			}
+		}
 	}
 
 	/**
@@ -628,18 +699,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new Inode(tx.getSync(ino) ?? _throw(ErrnoError.With('ENOENT', path, syscall)));
 	}
 
-	/** Gets a new ID */
-	protected async allocNew(tx: WrappedTransaction, path: string, syscall: string): Promise<number> {
-		const key = Math.max(...(await tx.keys())) + 1;
-		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall), { fs: this });
-		return key;
-	}
+	private _lastID?: number;
 
-	/** Gets a new ID */
-	protected allocNewSync(tx: WrappedTransaction, path: string, syscall: string): number {
-		const key = Math.max(...tx.keysSync()) + 1;
-		if (key > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall), { fs: this });
-		return key;
+	/**
+	 * Allocates a new ID and adds the ID/path
+	 */
+	protected allocNew(path: string, syscall: string): number {
+		this._lastID ??= Math.max(...this._paths.keys());
+		this._lastID += 2;
+		const id = this._lastID;
+		if (id > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall), { fs: this });
+		this._add(id, path);
+		return id;
 	}
 
 	/**
@@ -666,7 +737,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Check if file already exists.
 		if (listing[fname]) throw ErrnoError.With('EEXIST', path, syscall);
 
-		const id = await this.allocNew(tx, path, syscall);
+		const id = this.allocNew(path, syscall);
 
 		// Commit data.
 		const inode = new Inode({
@@ -678,7 +749,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			gid: parent.mode & S_ISGID ? parent.gid : options.gid,
 		});
 
-		this._add(inode.ino, path);
 		await tx.set(inode.ino, serialize(inode));
 		await tx.set(inode.data, data);
 
@@ -715,7 +785,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		// Check if file already exists.
 		if (listing[fname]) throw ErrnoError.With('EEXIST', path, syscall);
 
-		const id = this.allocNewSync(tx, path, syscall);
+		const id = this.allocNew(path, syscall);
 
 		// Commit data.
 		const inode = new Inode({
@@ -728,7 +798,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		});
 
 		// Update and commit parent directory listing.
-		this._add(inode.ino, path);
 		tx.setSync(inode.ino, serialize(inode));
 		tx.setSync(inode.data, data);
 		listing[fname] = inode.ino;

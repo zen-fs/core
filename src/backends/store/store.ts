@@ -136,8 +136,11 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 export abstract class AsyncTransaction<T extends Store = Store> extends Transaction<T> {
 	protected asyncDone: Promise<unknown> = Promise.resolve();
 
-	/** @internal @hidden */
-	async(promise: Promise<unknown>): void {
+	/**
+	 * Run a asynchronous operation from a sync context. Not magic and subject to (race) conditions.
+	 * @internal
+	 */
+	protected async(promise: Promise<unknown>): void {
 		this.asyncDone = this.asyncDone.then(() => promise);
 	}
 
@@ -151,7 +154,8 @@ export abstract class AsyncTransaction<T extends Store = Store> extends Transact
 }
 
 /**
- * Wraps a transaction with the ability to roll-back changes
+ * Wraps a transaction with the ability to roll-back changes, among other things.
+ * This is used by `StoreFS`
  * @internal @hidden
  */
 export class WrappedTransaction<T extends Store = Store> {
