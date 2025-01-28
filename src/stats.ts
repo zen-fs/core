@@ -280,10 +280,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * Change the mode of the file.
 	 * We use this helper function to prevent messing up the type of the file.
 	 * @internal @deprecated
-	 * @todo [BREAKING] Remove
 	 */
 	public chmod(mode: number): void {
-		log_deprecated('StatsCommon.chmod');
+		log_deprecated('StatsCommon#chmod');
 		this.mode = this._convert((this.mode & c.S_IFMT) | mode);
 	}
 
@@ -291,10 +290,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * Change the owner user/group of the file.
 	 * This function makes sure it is a valid UID/GID (that is, a 32 unsigned int)
 	 * @internal @deprecated
-	 * @todo [BREAKING] Remove
 	 */
 	public chown(uid: number, gid: number): void {
-		log_deprecated('StatsCommon.chown');
+		log_deprecated('StatsCommon#chown');
 		uid = Number(uid);
 		gid = Number(gid);
 		if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {

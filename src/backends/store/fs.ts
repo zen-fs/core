@@ -84,7 +84,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @deprecated
 	 */
 	public async empty(): Promise<void> {
-		log_deprecated('StoreFS.empty');
+		log_deprecated('StoreFS#empty');
 		// Root always exists.
 		await this.checkRoot();
 	}
@@ -94,7 +94,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @deprecated
 	 */
 	public emptySync(): void {
-		log_deprecated('StoreFS.emptySync');
+		log_deprecated('StoreFS#emptySync');
 		// Root always exists.
 		this.checkRootSync();
 	}

@@ -277,7 +277,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	 */
 	/* node:coverage disable */
 	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
-		log_deprecated('DeviceFS.createDevice');
+		log_deprecated('DeviceFS#createDevice');
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mknod');
 		}
