@@ -1,5 +1,5 @@
 import type { File } from '../file.js';
-import type { CreationOptions, FileSystemMetadata } from '../filesystem.js';
+import type { CreationOptions } from '../filesystem.js';
 import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
 import type { InodeLike } from './store/inode.js';
@@ -60,20 +60,13 @@ export class OverlayFS extends FileSystem {
 	private _ready: Promise<void>;
 
 	public constructor({ writable, readable }: OverlayOptions) {
-		super();
+		super(0x62756c6c, readable.name);
 		this.writable = writable;
 		this.readable = readable;
 		if (this.writable.metadata().readonly) {
 			throw err(new ErrnoError(Errno.EINVAL, 'Writable file system must be writable.'));
 		}
 		this._ready = this._initialize();
-	}
-
-	public metadata(): FileSystemMetadata {
-		return {
-			...super.metadata(),
-			name: OverlayFS.name,
-		};
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {

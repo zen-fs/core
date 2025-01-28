@@ -35,7 +35,7 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
  * During loading, the contents of the async file system are preloaded into the synchronous store.
  *
  */
-export function Async<const T extends typeof FileSystem>(FS: T): Mixin<T, AsyncMixin> {
+export function Async<const T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, AsyncMixin> {
 	abstract class AsyncFS extends FS implements AsyncMixin {
 		async done(): Promise<void> {
 			await this._promise;

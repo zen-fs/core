@@ -42,6 +42,24 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	 */
 	public _fs!: T;
 
+	public get id(): number {
+		return this._fs.id;
+	}
+
+	public get name(): string {
+		return this._fs.name;
+	}
+
+	public get label(): string | undefined {
+		return this._fs.label;
+	}
+
+	public set label(value: string | undefined) {
+		this._fs.label = value;
+	}
+
+	_disableSync: boolean = false;
+
 	public async ready(): Promise<void> {
 		return await this._fs.ready();
 	}

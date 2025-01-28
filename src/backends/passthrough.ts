@@ -144,7 +144,7 @@ export class PassthroughFS extends FileSystem {
 		public readonly nodeFS: NodeFS,
 		public readonly prefix: string
 	) {
-		super();
+		super(0x6e6f6465, 'nodefs');
 	}
 
 	public path(path: string): string {

@@ -7,7 +7,7 @@ import type { FileSystem } from '../filesystem.js';
 import { InMemory } from '../backends/memory.js';
 import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../error.js';
-import { alert, info, log_deprecated } from '../log.js';
+import { alert, debug, err, info, log_deprecated, notice, warn } from '../log.js';
 import { normalizePath } from '../utils.js';
 import { paths as pathCache } from './cache.js';
 import { size_max } from './constants.js';
@@ -59,16 +59,16 @@ mount('/', InMemory.create({ name: 'root' }));
  * @internal
  */
 export function mount(mountPoint: string, fs: FileSystem): void {
-	if (mountPoint[0] !== '/') {
-		mountPoint = '/' + mountPoint;
-	}
+	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
+
 	mountPoint = resolve(mountPoint);
 	if (mounts.has(mountPoint)) {
-		throw new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already in use.');
+		throw err(new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already in use.'));
 	}
 	fs._mountPoint = mountPoint;
 	mounts.set(mountPoint, fs);
-	info(`Mounted ${fs.metadata().name} on ${mountPoint}`);
+	info(`Mounted ${fs.name} on ${mountPoint}`);
+	debug(`${fs.name} supports features: ${fs.metadata().features?.join(', ')}`);
 	pathCache.clear();
 }
 
@@ -76,15 +76,17 @@ export function mount(mountPoint: string, fs: FileSystem): void {
  * Unmounts the file system at `mountPoint`.
  */
 export function umount(mountPoint: string): void {
-	if (mountPoint[0] !== '/') {
-		mountPoint = '/' + mountPoint;
-	}
+	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
+
 	mountPoint = resolve(mountPoint);
 	if (!mounts.has(mountPoint)) {
-		throw new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already unmounted.');
+		warn(mountPoint + ' is already unmounted.');
+		return;
 	}
+
 	mounts.delete(mountPoint);
 	pathCache.clear();
+	notice('Unmounted ' + mountPoint);
 }
 
 /**
@@ -116,7 +118,7 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 		}
 	}
 
-	throw alert(new ErrnoError(Errno.EIO, 'No file system'));
+	throw alert(new ErrnoError(Errno.EIO, 'No file system', path));
 }
 
 /**

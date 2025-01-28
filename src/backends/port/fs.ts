@@ -39,22 +39,15 @@ export class PortFS extends Async(FileSystem) {
 	/**`
 	 * @hidden
 	 */
-	_sync = InMemory.create({ name: 'port-tmpfs' });
+	_sync = InMemory.create({ name: 'tmpfs:port' });
 
 	/**
 	 * Constructs a new PortFS instance that connects with the FS running on `options.port`.
 	 */
 	public constructor(public readonly options: RPC.Options) {
-		super();
+		super(0x706f7274, 'portfs');
 		this.port = options.port;
 		RPC.attach<RPC.Response>(this.port, RPC.handleResponse);
-	}
-
-	public metadata(): FileSystemMetadata {
-		return {
-			...super.metadata(),
-			name: 'PortFS',
-		};
 	}
 
 	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSMethods[T]>): Promise<Awaited<ReturnType<FSMethods[T]>>> {

@@ -93,14 +93,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public constructor(protected readonly store: T) {
-		super();
+		super(store.id ?? 0x6b766673, store.name);
 		store._fs = this;
+		debug(this.name + ': supports features: ' + this.store.flags?.join(', '));
 	}
 
 	public metadata(): FileSystemMetadata {
 		return {
 			...super.metadata(),
-			name: this.store.name,
 			features: ['setid'],
 		};
 	}

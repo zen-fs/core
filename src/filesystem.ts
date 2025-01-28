@@ -11,6 +11,7 @@ export type FileContents = ArrayBufferView | string;
 export interface FileSystemMetadata {
 	/**
 	 * The name of the FS
+	 * @deprecated Use `FileSystem#name`
 	 */
 	name: string;
 
@@ -69,7 +70,7 @@ export interface FileSystemMetadata {
 	 * These are used by the VFS for optimizations.
 	 * - setid:	The FS supports setuid and setgid when creating files and directories.
 	 */
-	features?: ('setid' | '')[];
+	features?: 'setid'[];
 }
 
 /**
@@ -119,36 +120,49 @@ export abstract class FileSystem {
 	 */
 	public metadata(): FileSystemMetadata {
 		return {
-			name: this.constructor.name.toLowerCase(),
+			name: this.name,
 			readonly: false,
 			totalSpace: 0,
 			freeSpace: 0,
 			noResizableBuffers: false,
-			noAsyncCache: this._disableSync ?? false,
+			noAsyncCache: this._disableSync,
 			features: [],
 			type: ZenFsType,
 		};
 	}
+
+	public label?: string;
 
 	/**
 	 * Whether the sync cache should be disabled.
 	 * Only affects async things.
 	 * @internal @protected
 	 */
-	_disableSync?: boolean;
+	_disableSync: boolean = false;
 
 	/**
 	 * The last place this file system was mounted
-	 * @internal @hidden
+	 * @internal @protected
 	 */
 	_mountPoint?: string;
 
 	public toString(): string {
-		return `${this.metadata().name} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
+		return `${this.name} ${this.label ?? ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-	public constructor(...args: any[]) {}
+	public constructor(
+		/**
+		 * A unique ID for this kind of file system.
+		 * Currently unused internally, but could be used for partition tables or something
+		 */
+		public readonly id: number,
+
+		/**
+		 * The name for this file system.
+		 * For example, tmpfs for an in memory one
+		 */
+		public readonly name: string
+	) {}
 
 	public async ready(): Promise<void> {}
 

@@ -42,6 +42,8 @@ function parseError(path?: string, fs?: StoreFS): (error: requests.Issue) => nev
 export class FetchStore implements AsyncMap, Store {
 	public readonly flags = ['partial'] as const;
 
+	public readonly name: string = 'nfs';
+
 	declare _fs: IndexFS<FetchStore>;
 
 	public constructor(
@@ -50,8 +52,6 @@ export class FetchStore implements AsyncMap, Store {
 		protected requestInit: RequestInit = {},
 		protected remoteWrite?: boolean
 	) {}
-
-	public readonly name: string = 'fetch';
 
 	public *keys(): Iterable<number> {
 		for (const inode of this.index.values()) {

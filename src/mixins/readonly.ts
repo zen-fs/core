@@ -30,7 +30,7 @@ export interface ReadonlyMixin {
  * Implements the non-readonly methods to throw `EROFS`
  */
 /* eslint-disable @typescript-eslint/require-await */
-export function Readonly<T extends typeof FileSystem>(FS: T): Mixin<T, ReadonlyMixin> {
+export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, ReadonlyMixin> {
 	abstract class ReadonlyFS extends FS {
 		public metadata(): FileSystemMetadata {
 			return { ...super.metadata(), readonly: true };

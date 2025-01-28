@@ -11,9 +11,21 @@ export type StoreFlag =
  */
 export interface Store {
 	/**
-	 * The name of the store.
+	 * @see FileSystem#id
+	 */
+	readonly id?: number;
+
+	/**
+	 * What the file system using this store should be called.
+	 * For example, tmpfs for an in memory store
 	 */
 	readonly name: string;
+
+	/**
+	 * A name for this instance of the store.
+	 * For example, you might use a share name for a network-based store
+	 */
+	readonly label?: string;
 
 	/**
 	 * Syncs the store
