@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/require-await */
 import { _throw } from 'utilium';
-import { ErrnoError } from '../../error.js';
-import { LazyFile, type File } from '../../file.js';
-import { FileSystem, type CreationOptions, type PureCreationOptions } from '../../filesystem.js';
-import { Stats } from '../../stats.js';
-import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../../vfs/constants.js';
-import { dirname, join, relative } from '../../vfs/path.js';
+import { Stats } from '../stats.js';
+import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../vfs/constants.js';
+import { dirname, join, relative } from '../vfs/path.js';
+import { ErrnoError } from './error.js';
+import { LazyFile, type File } from './file.js';
 import { Index } from './file_index.js';
+import { FileSystem, type CreationOptions, type PureCreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
 
 interface MoveInfo {
@@ -173,11 +173,11 @@ export abstract class IndexFS extends FileSystem {
 	}
 
 	public link(target: string, link: string): Promise<void> {
-		throw ErrnoError.With('ENOSYS', target, 'link');
+		throw ErrnoError.With('ENOSYS', link, 'link');
 	}
 
 	public linkSync(target: string, link: string): void {
-		throw ErrnoError.With('ENOSYS', target, 'link');
+		throw ErrnoError.With('ENOSYS', link, 'link');
 	}
 
 	public async readdir(path: string): Promise<string[]> {

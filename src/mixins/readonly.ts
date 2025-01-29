@@ -1,5 +1,5 @@
-import { Errno, ErrnoError } from '../error.js';
-import type { FileSystem, FileSystemMetadata } from '../filesystem.js';
+import { Errno, ErrnoError } from '../internal/error.js';
+import type { FileSystem, FileSystemMetadata } from '../internal/filesystem.js';
 import type { StatsLike } from '../stats.js';
 import type { Mixin } from './shared.js';
 

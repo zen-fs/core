@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TransferListItem } from 'node:worker_threads';
 import type { WithOptional } from 'utilium';
-import type { ErrnoErrorJSON } from '../../error.js';
-import type { FileSystem } from '../../filesystem.js';
+import type { ErrnoErrorJSON } from '../../internal/error.js';
+import type { FileSystem } from '../../internal/filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 import type { PortFS } from './fs.js';
 
-import { Errno, ErrnoError } from '../../error.js';
-import { LazyFile } from '../../file.js';
-import { err, info } from '../../log.js';
+import { Errno, ErrnoError } from '../../internal/error.js';
+import { LazyFile } from '../../internal/file.js';
+import { err, info } from '../../internal/log.js';
 import { Stats, type StatsLike } from '../../stats.js';
 import { handleRequest } from './fs.js';
 

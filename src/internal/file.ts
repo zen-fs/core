@@ -1,11 +1,11 @@
+import { extendBuffer } from 'utilium/buffer.js';
+import { _chown, Stats, type StatsLike } from '../stats.js';
+import { config } from '../vfs/config.js';
+import * as c from '../vfs/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
 import { log_deprecated } from './log.js';
-import './polyfills.js';
-import { _chown, Stats, type StatsLike } from './stats.js';
-import { extendBuffer } from 'utilium/buffer.js';
-import { config } from './vfs/config.js';
-import * as c from './vfs/constants.js';
+import '../polyfills.js';
 
 const maxByteLength = 0x100000; // 1 MiB
 

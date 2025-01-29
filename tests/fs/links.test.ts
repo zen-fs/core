@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { join } from '../../dist/vfs/path.js';
 import { fs } from '../common.js';
-import type { ErrnoError } from '../../dist/error.js';
+import type { ErrnoError } from '../../dist/index.js';
 
 suite('Links', () => {
 	const target = '/a1.js',

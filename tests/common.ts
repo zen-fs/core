@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path';
 import { fs as defaultFS, log } from '../dist/index.js';
-export type * from '../dist/vfs/index.js';
+export type * from '../dist/index.js';
 
 const { ZENFS_LOG_LEVEL, SETUP } = process.env;
 

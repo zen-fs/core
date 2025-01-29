@@ -1,11 +1,11 @@
 import type * as Node from 'node:fs';
-import type { V_Context } from './context.js';
-import { credentials } from './credentials.js';
-import * as c from './vfs/constants.js';
 import { pick } from 'utilium';
-import type { InodeFields, InodeLike } from './backends/store/inode.js';
-import { _inode_fields } from './backends/store/inode.js';
-import { log_deprecated } from './log.js';
+import type { V_Context } from './context.js';
+import { credentials } from './internal/credentials.js';
+import type { InodeFields, InodeLike } from './internal/inode.js';
+import { _inode_fields } from './internal/inode.js';
+import { log_deprecated } from './internal/log.js';
+import * as c from './vfs/constants.js';
 
 const n1000 = BigInt(1000) as 1000n;
 

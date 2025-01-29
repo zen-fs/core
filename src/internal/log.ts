@@ -1,9 +1,9 @@
 /* Logging utilities. The things in this file are named to work nicely when you import as a namespace. */
 
 import { List } from 'utilium';
+import { join } from '../vfs/path.js';
 import { ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
-import { join } from './vfs/path.js';
 
 export const enum Level {
 	/** Emergency */

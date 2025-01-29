@@ -1,7 +1,7 @@
 import type * as fs from 'node:fs';
 import type { ClassLike, OptionalTuple } from 'utilium';
-import { Errno, ErrnoError } from './error.js';
-import { log_deprecated } from './log.js';
+import { Errno, ErrnoError } from './internal/error.js';
+import { log_deprecated } from './internal/log.js';
 import type { AbsolutePath } from './vfs/path.js';
 import { resolve } from './vfs/path.js';
 

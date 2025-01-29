@@ -4,7 +4,7 @@
 */
 
 import type { ExtractProperties } from 'utilium';
-import type { FileSystem } from '../filesystem.js';
+import type { FileSystem } from '../internal/filesystem.js';
 
 /**
  * `TBase` with `TMixin` mixed-in.

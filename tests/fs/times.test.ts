@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { ErrnoError } from '../../dist/error.js';
+import { ErrnoError } from '../../dist/index.js';
 import type { StatsLike } from '../../dist/stats.js';
 import { fs } from '../common.js';
 

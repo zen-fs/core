@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { ErrnoError } from '../../dist/error.js';
+import { ErrnoError } from '../../dist/index.js';
 import { fs } from '../common.js';
 
 suite('Rename', () => {

@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { join } from 'node:path';
-import * as log from '../../dist/log.js';
 
 // Copied from setup.ts
 

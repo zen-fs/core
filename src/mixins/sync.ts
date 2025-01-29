@@ -1,5 +1,5 @@
-import type { File } from '../file.js';
-import type { CreationOptions, FileSystem } from '../filesystem.js';
+import type { File } from '../internal/file.js';
+import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
 import type { Stats, StatsLike } from '../stats.js';
 import type { AsyncFSMethods, Mixin } from './shared.js';
 

@@ -1,11 +1,11 @@
-import type { File } from '../file.js';
-import type { CreationOptions, FileSystem, FileSystemMetadata } from '../filesystem.js';
+import type { File } from '../internal/file.js';
+import type { CreationOptions, FileSystem, FileSystemMetadata } from '../internal/filesystem.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { Stats } from '../stats.js';
 import type { Concrete } from '../utils.js';
 
-import type { InodeLike } from '../backends/index.js';
-import { ErrnoError } from '../error.js';
-import { err } from '../log.js';
+import { ErrnoError } from '../internal/error.js';
+import { err } from '../internal/log.js';
 import '../polyfills.js';
 
 export class MutexLock {

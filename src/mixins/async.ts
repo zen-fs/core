@@ -1,11 +1,11 @@
-import type { CreationOptions, FileSystem } from '../filesystem.js';
+import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
 import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
 import { StoreFS } from '../backends/store/fs.js';
-import { Errno, ErrnoError } from '../error.js';
-import { LazyFile, parseFlag } from '../file.js';
-import { crit, err, notice } from '../log.js';
+import { Errno, ErrnoError } from '../internal/error.js';
+import { LazyFile, parseFlag } from '../internal/file.js';
+import { crit, err, notice } from '../internal/log.js';
 import { join } from '../vfs/path.js';
 
 /** @internal */

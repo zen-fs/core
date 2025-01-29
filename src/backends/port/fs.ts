@@ -1,16 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ExtractProperties } from 'utilium';
+import type { Inode, InodeLike } from '../..//internal/inode.js';
 import type { MountConfiguration } from '../../config.js';
-import type { File } from '../../file.js';
-import type { CreationOptions, FileSystemMetadata } from '../../filesystem.js';
+import type { File } from '../../internal/file.js';
+import type { CreationOptions, FileSystemMetadata } from '../../internal/filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
-import type { Inode, InodeLike } from '../store/inode.js';
 
 import { pick } from 'utilium';
 import { resolveMountConfig } from '../../config.js';
-import { Errno, ErrnoError } from '../../error.js';
-import { FileSystem } from '../../filesystem.js';
-import { err, info } from '../../log.js';
+import { Errno, ErrnoError } from '../../internal/error.js';
+import { FileSystem } from '../../internal/filesystem.js';
+import { err, info } from '../../internal/log.js';
 import { Async } from '../../mixins/async.js';
 import { Stats } from '../../stats.js';
 import { InMemory } from '../memory.js';

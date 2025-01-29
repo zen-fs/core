@@ -1,4 +1,4 @@
-import type { FileSystem } from '../../filesystem.js';
+import type { FileSystem } from '../../internal/filesystem.js';
 import '../../polyfills.js';
 import type { StoreFS } from './fs.js';
 

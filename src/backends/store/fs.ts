@@ -1,17 +1,17 @@
 import { _throw, canary, serialize } from 'utilium';
 import { extendBuffer } from 'utilium/buffer.js';
-import { Errno, ErrnoError } from '../../error.js';
-import type { File } from '../../file.js';
-import { LazyFile } from '../../file.js';
-import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../filesystem.js';
-import { FileSystem } from '../../filesystem.js';
-import { crit, debug, err, log_deprecated, notice, warn } from '../../log.js';
+import { Errno, ErrnoError } from '../../internal/error.js';
+import type { File } from '../../internal/file.js';
+import { LazyFile } from '../../internal/file.js';
+import { Index } from '../../internal/file_index.js';
+import type { CreationOptions, FileSystemMetadata, PureCreationOptions } from '../../internal/filesystem.js';
+import { FileSystem } from '../../internal/filesystem.js';
+import { __inode_sz, Inode, rootIno, type InodeLike } from '../../internal/inode.js';
+import { crit, debug, err, log_deprecated, notice, warn } from '../../internal/log.js';
 import type { Stats } from '../../stats.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, relative } from '../../vfs/path.js';
-import { Index } from './file_index.js';
-import { __inode_sz, Inode, rootIno, type InodeLike } from './inode.js';
 import { WrappedTransaction, type Store } from './store.js';
 
 /**

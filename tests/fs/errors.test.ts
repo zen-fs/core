@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { suite } from 'node:test';
-import type { ErrnoError } from '../../dist/error.js';
 import { fs } from '../common.js';
+import type { ErrnoError } from '../../dist/index.js';
 
 const existingFile = '/exit.js';
 

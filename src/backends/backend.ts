@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Entries, RequiredKeys } from 'utilium';
-import { Errno, ErrnoError } from '../error.js';
-import type { FileSystem } from '../filesystem.js';
-import { debug, err } from '../log.js';
+import { Errno, ErrnoError } from '../internal/error.js';
+import type { FileSystem } from '../internal/filesystem.js';
+import { debug, err } from '../internal/log.js';
 
 type OptionType =
 	| 'string'

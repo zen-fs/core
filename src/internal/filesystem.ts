@@ -1,7 +1,7 @@
+import type { Stats, StatsLike } from '../stats.js';
+import { ZenFsType } from '../stats.js';
 import type { ErrnoError } from './error.js';
 import type { File } from './file.js';
-import type { Stats, StatsLike } from './stats.js';
-import { ZenFsType } from './stats.js';
 
 export type FileContents = ArrayBufferView | string;
 

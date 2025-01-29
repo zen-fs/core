@@ -3,18 +3,18 @@ This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/dev
 */
 
 import { canary } from 'utilium';
-import { Inode } from './backends/index.js';
-import { InMemoryStore } from './backends/memory.js';
-import { StoreFS } from './backends/store/fs.js';
+import { InMemoryStore } from '../backends/memory.js';
+import { StoreFS } from '../backends/store/fs.js';
+import { Stats } from '../stats.js';
+import { decodeUTF8 } from '../utils.js';
+import { S_IFBLK, S_IFCHR } from '../vfs/constants.js';
+import { basename, dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileReadResult } from './file.js';
 import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
+import { Inode } from './inode.js';
 import { alert, debug, err, info, log_deprecated } from './log.js';
-import { Stats } from './stats.js';
-import { decodeUTF8 } from './utils.js';
-import { S_IFBLK, S_IFCHR } from './vfs/constants.js';
-import { basename, dirname } from './vfs/path.js';
 
 /**
  * A device

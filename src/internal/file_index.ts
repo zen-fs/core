@@ -1,9 +1,9 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
 import { isJSON, randomInt } from 'utilium';
-import { Errno, ErrnoError } from '../../error.js';
-import { S_IFDIR, S_IFMT, size_max } from '../../vfs/constants.js';
-import { basename, dirname } from '../../vfs/path.js';
+import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
+import { basename, dirname } from '../vfs/path.js';
+import { Errno, ErrnoError } from './error.js';
 import type { InodeLike } from './inode.js';
 import { Inode } from './inode.js';
 

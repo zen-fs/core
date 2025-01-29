@@ -1,7 +1,7 @@
 import { deserialize, pick, randomInt, sizeof, struct, types as t } from 'utilium';
-import { crit, debug } from '../../log.js';
-import { Stats, type StatsLike } from '../../stats.js';
-import { size_max } from '../../vfs/constants.js';
+import { Stats, type StatsLike } from '../stats.js';
+import { size_max } from '../vfs/constants.js';
+import { crit, debug } from './log.js';
 
 /**
  * Root inode

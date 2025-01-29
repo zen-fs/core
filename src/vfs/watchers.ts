@@ -3,7 +3,7 @@ import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 
 import { EventEmitter } from 'eventemitter3';
-import { ErrnoError } from '../error.js';
+import { ErrnoError } from '../internal/error.js';
 import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';
 import { basename, dirname } from './path.js';

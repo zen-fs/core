@@ -1,14 +1,14 @@
-import type { File } from '../file.js';
-import type { CreationOptions } from '../filesystem.js';
+import type { File } from '../internal/file.js';
+import type { CreationOptions } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
-import type { InodeLike } from './store/inode.js';
+import type { InodeLike } from '../internal/inode.js';
 
 import { canary } from 'utilium';
-import { Errno, ErrnoError } from '../error.js';
-import { LazyFile, parseFlag } from '../file.js';
-import { FileSystem } from '../filesystem.js';
-import { crit, err, info } from '../log.js';
+import { Errno, ErrnoError } from '../internal/error.js';
+import { LazyFile, parseFlag } from '../internal/file.js';
+import { FileSystem } from '../internal/filesystem.js';
+import { crit, err, info } from '../internal/log.js';
 import { decodeUTF8, encodeUTF8 } from '../utils.js';
 import { dirname, join } from '../vfs/path.js';
 

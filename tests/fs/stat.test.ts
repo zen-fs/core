@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { credentials } from '../../dist/credentials.js';
+import { credentials } from '../../dist/index.js';
 import { Stats } from '../../dist/stats.js';
 import { fs } from '../common.js';
 

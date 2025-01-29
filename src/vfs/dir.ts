@@ -3,7 +3,7 @@ import type { V_Context } from '../context.js';
 import type { Stats } from '../stats.js';
 import type { Callback } from '../utils.js';
 
-import { Errno, ErrnoError } from '../error.js';
+import { Errno, ErrnoError } from '../internal/error.js';
 import { basename } from './path.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';

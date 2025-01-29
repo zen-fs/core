@@ -1,13 +1,13 @@
 // Utilities and shared data
 
 import type * as fs from 'node:fs';
-import type { File } from '../file.js';
-import type { FileSystem } from '../filesystem.js';
+import type { File } from '../internal/file.js';
+import type { FileSystem } from '../internal/filesystem.js';
 
 import { InMemory } from '../backends/memory.js';
 import { bindContext, type BoundContext, type V_Context } from '../context.js';
-import { Errno, ErrnoError } from '../error.js';
-import { alert, debug, err, info, log_deprecated, notice, warn } from '../log.js';
+import { Errno, ErrnoError } from '../internal/error.js';
+import { alert, debug, err, info, log_deprecated, notice, warn } from '../internal/log.js';
 import { normalizePath } from '../utils.js';
 import { paths as pathCache } from './cache.js';
 import { size_max } from './constants.js';

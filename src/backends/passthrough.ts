@@ -1,12 +1,12 @@
 import type * as fs from 'node:fs';
-import type { Errno } from '../error.js';
-import { ErrnoError } from '../error.js';
-import { File, type FileReadResult } from '../file.js';
-import { FileSystem } from '../filesystem.js';
+import type { Errno } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
+import { File, type FileReadResult } from '../internal/file.js';
+import { FileSystem } from '../internal/filesystem.js';
+import type { InodeLike } from '../internal/inode.js';
 import { Stats } from '../stats.js';
 import { join, resolve } from '../vfs/path.js';
 import type { Backend } from './backend.js';
-import type { InodeLike } from './store/inode.js';
 
 // Type for Node.js fs module
 export type NodeFS = typeof fs;
