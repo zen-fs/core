@@ -271,11 +271,11 @@ export class DeviceFile<TData = any> extends File {
 export class DeviceFS extends StoreFS<InMemoryStore> {
 	protected readonly devices = new Map<string, Device>();
 
+	/* node:coverage disable */
 	/**
 	 * Creates a new device at `path` relative to the `DeviceFS` root.
 	 * @deprecated
 	 */
-	/* node:coverage disable */
 	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
 		log_deprecated('DeviceFS#createDevice');
 		if (this.existsSync(path)) {

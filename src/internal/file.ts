@@ -554,11 +554,11 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	}
 }
 
+/* node:coverage disable */
 /**
  * For the file systems which do not sync to anything.
  * @deprecated
  */
-/* node:coverage disable */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 	public constructor(...args: ConstructorParameters<typeof PreloadFile<T>>) {
 		log_deprecated('NoSyncFile');

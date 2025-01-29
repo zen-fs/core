@@ -25,11 +25,13 @@ export type OptionsConfig<T> = {
 		 */
 		type: OptionType | readonly OptionType[];
 
+		/* node:coverage disable */
 		/**
 		 * Description of the option. Used in error messages and documentation.
 		 * @deprecated
 		 */
 		description?: string;
+		/* node:coverage enable */
 
 		/**
 		 * Whether or not the option is required (optional can be set to null or undefined). Defaults to false.

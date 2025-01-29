@@ -27,6 +27,7 @@ export abstract class IndexFS extends FileSystem {
 		super(id, name);
 	}
 
+	/* node:coverage disable */
 	/**
 	 * @deprecated
 	 */
@@ -40,6 +41,7 @@ export abstract class IndexFS extends FileSystem {
 	public reloadFilesSync(): never {
 		throw ErrnoError.With('ENOTSUP');
 	}
+	/* node:coverage enable */
 
 	/**
 	 * Finds all the paths in the index that need to be moved for a rename

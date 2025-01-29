@@ -1,9 +1,9 @@
-/* node:coverage disable */
 import { log_deprecated } from '../../internal/log.js';
 import type { AsyncMap, SyncMapStore } from './map.js';
 import { SyncMapTransaction } from './map.js';
 import type { Store } from './store.js';
 
+/* node:coverage disable */
 /**
  * @deprecated Use `MapStore` instead.
  */

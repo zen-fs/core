@@ -170,6 +170,7 @@ export function normalizeOptions(
 
 export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: any[]) => InstanceType<T>);
 
+/* node:coverage disable */
 import { randomHex } from 'utilium';
 /**
  * Generate a random ino
@@ -193,3 +194,4 @@ export function canary(path?: string, syscall?: string) {
 
 	return () => clearTimeout(timeout);
 }
+/* node:coverage enable */

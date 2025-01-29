@@ -9,11 +9,13 @@ export type FileContents = ArrayBufferView | string;
  * Metadata about a FileSystem
  */
 export interface FileSystemMetadata {
+	/* node:coverage disable */
 	/**
 	 * The name of the FS
 	 * @deprecated Use `FileSystem#name`
 	 */
 	name: string;
+	/* node:coverage enable */
 
 	/**
 	 * Whether the FS is readonly or not
