@@ -1,7 +1,6 @@
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { statSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { fs as _fs } from '../dist/index.js';
-import * as log from '../dist/log.js';
 
 export const data = join(import.meta.dirname, 'data');
 

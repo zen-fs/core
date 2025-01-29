@@ -75,6 +75,14 @@ export class Index extends Map<string, Inode> {
 	}
 
 	/**
+	 * Get the next available ID in the index
+	 * @internal
+	 */
+	_alloc(): number {
+		return Math.max(...[...this.values()].flatMap(i => [i.ino, i.data])) + 1;
+	}
+
+	/**
 	 * Gets a list of entries for each directory in the index.
 	 * Use
 	 */

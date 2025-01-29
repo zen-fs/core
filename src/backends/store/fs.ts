@@ -243,7 +243,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			This ensures that the check passes only if `oldPath` is a subpath of `_new.dir`.
 			We append '/' to avoid matching folders that are a substring of the bottom-most folder in the path.
 		*/
-		if ((_new.dir + '/').indexOf(oldPath + '/') === 0) throw new ErrnoError(Errno.EBUSY, _old.dir);
+		if ((_new.dir + '/').startsWith(oldPath + '/')) throw new ErrnoError(Errno.EBUSY, _old.dir);
 
 		// Add newPath to parent's directory listing.
 
@@ -292,7 +292,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			This ensures that the check passes only if `oldPath` is a subpath of `_new.dir`.
 			We append '/' to avoid matching folders that are a substring of the bottom-most folder in the path.
 		*/
-		if ((_new.dir + '/').indexOf(oldPath + '/') == 0) throw new ErrnoError(Errno.EBUSY, _old.dir);
+		if ((_new.dir + '/').startsWith(oldPath + '/')) throw new ErrnoError(Errno.EBUSY, _old.dir);
 
 		// Add newPath to parent's directory listing.
 		const sameParent = _new.dir === _old.dir;
