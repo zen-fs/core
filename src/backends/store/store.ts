@@ -74,11 +74,6 @@ export abstract class Transaction<T extends Store = Store> {
 	public abstract keys(): Promise<Iterable<number>>;
 
 	/**
-	 * Gets all of the keys
-	 */
-	public abstract keysSync(): Iterable<number>;
-
-	/**
 	 * Retrieves data.
 	 * @param id The key to look under for data.
 	 */
@@ -124,9 +119,7 @@ export abstract class Transaction<T extends Store = Store> {
  */
 export abstract class SyncTransaction<T extends Store = Store> extends Transaction<T> {
 	/* eslint-disable @typescript-eslint/require-await */
-	public async keys(): Promise<Iterable<number>> {
-		return this.keysSync();
-	}
+
 	public async get(id: number, offset: number, end?: number): Promise<Uint8Array | undefined> {
 		return this.getSync(id, offset, end);
 	}
@@ -200,10 +193,6 @@ export class WrappedTransaction<T extends Store = Store> {
 
 	public keys(): Promise<Iterable<number>> {
 		return this.raw.keys();
-	}
-
-	public keysSync(): Iterable<number> {
-		return this.raw.keysSync();
 	}
 
 	public async get(id: number, offset: number = 0, end?: number): Promise<Uint8Array | undefined> {

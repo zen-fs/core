@@ -19,7 +19,8 @@ export interface SyncMapStore extends Store {
 export class SyncMapTransaction extends SyncTransaction<SyncMapStore> {
 	declare public readonly store: SyncMapStore;
 
-	public keysSync(): Iterable<number> {
+	// eslint-disable-next-line @typescript-eslint/require-await
+	public async keys(): Promise<Iterable<number>> {
 		return this.store.keys();
 	}
 
@@ -52,10 +53,6 @@ export interface AsyncMap {
 }
 
 export class AsyncMapTransaction<T extends Store & AsyncMap = Store & AsyncMap> extends AsyncTransaction<T> {
-	public keysSync(): Iterable<number> {
-		return this.store.keys();
-	}
-
 	public async keys(): Promise<Iterable<number>> {
 		await this.asyncDone;
 		return this.store.keys();
