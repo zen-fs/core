@@ -29,14 +29,14 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	try {
 		if (oldMount === newMount) {
 			oldMount.fs.renameSync(oldMount.path, newMount.path);
-			emitChange('rename', oldPath.toString());
-			emitChange('change', newPath.toString());
+			emitChange(this, 'rename', oldPath.toString());
+			emitChange(this, 'change', newPath.toString());
 			return;
 		}
 
 		writeFileSync.call(this, newPath, readFileSync(oldPath));
 		unlinkSync.call(this, oldPath);
-		emitChange('rename', oldPath.toString());
+		emitChange(this, 'rename', oldPath.toString());
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [oldMount.path]: oldPath, [newMount.path]: newPath });
 	}
@@ -115,7 +115,7 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		fs.unlinkSync(resolved);
-		emitChange('rename', path.toString());
+		emitChange(this, 'rename', path.toString());
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
@@ -273,7 +273,7 @@ export function writeFileSync(
 		preserveSymlinks: true,
 	});
 	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
-	emitChange('change', path.toString());
+	emitChange(this, 'change', path.toString());
 }
 writeFileSync satisfies typeof fs.writeFileSync;
 
@@ -385,7 +385,7 @@ export function writeSync(
 	const file = fd2file(fd);
 	position ??= file.position;
 	const bytesWritten = file.writeSync(buffer, offset, length, position);
-	emitChange('change', file.path);
+	emitChange(this, 'change', file.path);
 	return bytesWritten;
 }
 writeSync satisfies typeof fs.writeSync;
@@ -465,7 +465,7 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		fs.rmdirSync(resolved);
-		emitChange('rename', path.toString());
+		emitChange(this, 'rename', path.toString());
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
@@ -508,7 +508,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			}
 			fs.mkdirSync(dir, mode, { uid, gid });
 			applySetId(fs.openFileSync(dir, 'r+'), uid, gid);
-			emitChange('rename', dir);
+			emitChange(this, 'rename', dir);
 		}
 		return root.length == 1 ? dirs[0] : dirs[0]?.slice(root.length);
 	} catch (e) {
@@ -847,7 +847,7 @@ export function copyFileSync(this: V_Context, source: fs.PathLike, destination: 
 	}
 
 	writeFileSync.call(this, destination, readFileSync(source));
-	emitChange('rename', destination.toString());
+	emitChange(this, 'rename', destination.toString());
 }
 copyFileSync satisfies typeof fs.copyFileSync;
 

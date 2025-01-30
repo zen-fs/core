@@ -47,12 +47,16 @@ export class FileHandle implements promises.FileHandle {
 		this.file = isFile ? fdOrFile : fd2file(fdOrFile);
 	}
 
+	private _emitChange() {
+		emitChange(this.context, 'change', this.file.path);
+	}
+
 	/**
 	 * Asynchronous fchown(2) - Change ownership of a file.
 	 */
 	public async chown(uid: number, gid: number): Promise<void> {
 		await this.file.chown(uid, gid);
-		emitChange('change', this.file.path);
+		this._emitChange();
 	}
 
 	/**
@@ -65,7 +69,7 @@ export class FileHandle implements promises.FileHandle {
 			throw new ErrnoError(Errno.EINVAL, 'Invalid mode.');
 		}
 		await this.file.chmod(numMode);
-		emitChange('change', this.file.path);
+		this._emitChange();
 	}
 
 	/**
@@ -92,7 +96,7 @@ export class FileHandle implements promises.FileHandle {
 			throw new ErrnoError(Errno.EINVAL);
 		}
 		await this.file.truncate(length);
-		emitChange('change', this.file.path);
+		this._emitChange();
 	}
 
 	/**
@@ -102,7 +106,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async utimes(atime: string | number | Date, mtime: string | number | Date): Promise<void> {
 		await this.file.utimes(normalizeTime(atime), normalizeTime(mtime));
-		emitChange('change', this.file.path);
+		this._emitChange();
 	}
 
 	/**
@@ -128,7 +132,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 		await this.file.write(encodedData, 0, encodedData.length);
-		emitChange('change', this.file.path);
+		this._emitChange();
 	}
 
 	/**
@@ -300,7 +304,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 		position ??= this.file.position;
 		const bytesWritten = await this.file.write(buffer, offset, length, position);
-		emitChange('change', this.file.path);
+		this._emitChange();
 		return { buffer: data, bytesWritten };
 	}
 
@@ -325,7 +329,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
 		await this.file.write(encodedData, 0, encodedData.length, 0);
-		emitChange('change', this.file.path);
+		this._emitChange();
 	}
 
 	/**
@@ -429,13 +433,13 @@ export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.
 	try {
 		if (src.mountPoint == dst.mountPoint) {
 			await src.fs.rename(src.path, dst.path);
-			emitChange('rename', oldPath.toString());
-			emitChange('change', newPath.toString());
+			emitChange(this, 'rename', oldPath.toString());
+			emitChange(this, 'change', newPath.toString());
 			return;
 		}
 		await writeFile.call(this, newPath, await readFile(oldPath));
 		await unlink.call(this, oldPath);
-		emitChange('rename', oldPath.toString());
+		emitChange(this, 'rename', oldPath.toString());
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [src.path]: oldPath, [dst.path]: newPath });
 	}
@@ -511,7 +515,7 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
-		emitChange('rename', path.toString());
+		emitChange(this, 'rename', path.toString());
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
@@ -711,7 +715,7 @@ export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
 		await fs.rmdir(resolved);
-		emitChange('rename', path.toString());
+		emitChange(this, 'rename', path.toString());
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
@@ -751,7 +755,7 @@ export async function mkdir(
 			}
 			await fs.mkdir(resolved, mode, { uid, gid });
 			await applySetId(await fs.openFile(resolved, 'r+'), uid, gid);
-			emitChange('rename', path.toString());
+			emitChange(this, 'rename', path.toString());
 			return;
 		}
 
@@ -766,7 +770,7 @@ export async function mkdir(
 			}
 			await fs.mkdir(dir, mode, { uid, gid });
 			await applySetId(await fs.openFile(dir, 'r+'), uid, gid);
-			emitChange('rename', dir);
+			emitChange(this, 'rename', dir);
 		}
 		return root.length == 1 ? dirs[0] : dirs[0]?.slice(root.length);
 	} catch (e) {
@@ -1224,7 +1228,7 @@ export async function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathL
 	}
 
 	await writeFile.call(this, dest, await readFile.call(this, src));
-	emitChange('rename', dest.toString());
+	emitChange(this, 'rename', dest.toString());
 }
 copyFile satisfies typeof promises.copyFile;
 
