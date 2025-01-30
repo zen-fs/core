@@ -78,18 +78,23 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 	}>
 	implements fs.FSWatcher
 {
+	protected readonly realpath: string;
+
 	public constructor(
 		context: V_Context,
 		path: string,
 		public readonly options: fs.WatchOptions
 	) {
 		super(context, path);
-		addWatcher(path.toString(), this);
+
+		this.realpath = context?.root ? join(context.root, path) : path;
+
+		addWatcher(this.realpath, this);
 	}
 
 	public close(): void {
 		super.emit('close');
-		removeWatcher(this.path.toString(), this);
+		removeWatcher(this.realpath, this);
 	}
 
 	public [Symbol.dispose](): void {

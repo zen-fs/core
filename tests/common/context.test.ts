@@ -39,20 +39,20 @@ suite('Context', () => {
 	});
 
 	test('watch should consider context', async () => {
-		let lastFile: string,
+		let lastFile: string | null = null,
 			events = 0;
 		const watcher = ctx.promises.watch('/', { recursive: true });
 
 		const silence = canary();
 		(async () => {
 			for await (const event of watcher) {
-				lastFile = event.filename!;
+				lastFile = event.filename;
 				if (++events == 2) return;
 			}
 		})();
 		silence();
 		await ctx.promises.writeFile('/xpto.txt', 'in real root');
-		assert.equal(lastFile!, 'xpto.txt');
+		assert.equal(lastFile, 'xpto.txt');
 		await ctx.promises.unlink('/xpto.txt');
 		assert.equal(lastFile, 'xpto.txt');
 	});
