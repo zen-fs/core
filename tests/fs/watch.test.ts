@@ -3,7 +3,7 @@ import { suite, test } from 'node:test';
 import { fs, type Stats } from '../common.js';
 
 const testDir = '/test-watch-dir';
-const testFile = `${testDir}/test.txt`;
+const testFile = testDir + '/test.txt';
 
 await fs.promises.mkdir(testDir);
 await fs.promises.writeFile(testFile, 'Initial content');
@@ -11,7 +11,7 @@ await fs.promises.writeFile(testFile, 'Initial content');
 /**
  * @todo convert using watcher to void discards pending ES proposal
  */
-suite('Watch Features', () => {
+await suite('Watch Features', () => {
 	test('fs.watch should emit events on file change', async () => {
 		using watcher = fs.watch(testFile, (eventType, filename) => {
 			assert.equal(eventType, 'change');
@@ -67,14 +67,14 @@ suite('Watch Features', () => {
 			assert.equal(filename, 'newFile.txt');
 		});
 
-		await fs.promises.writeFile(`${testDir}/newFile.txt`, 'Content');
+		await fs.promises.writeFile(testDir + '/newFile.txt', 'Content');
 	});
 
 	test('fs.watch should detect file renames', async () => {
-		const oldFileName = `oldFile.txt`;
-		const newFileName = `newFile.txt`;
-		const oldFile = `${testDir}/${oldFileName}`;
-		const newFile = `${testDir}/${newFileName}`;
+		const oldFileName = 'oldFile.txt';
+		const newFileName = 'newFile.txt';
+		const oldFile = testDir + '/' + oldFileName;
+		const newFile = testDir + '/' + newFileName;
 
 		await fs.promises.writeFile(oldFile, 'Some content');
 		const oldFileResolver = Promise.withResolvers<void>();
@@ -84,6 +84,7 @@ suite('Watch Features', () => {
 			[oldFileName]: { resolver: oldFileResolver, eventType: 'rename' },
 			[newFileName]: { resolver: newFileResolver, eventType: 'change' },
 		};
+
 		using watcher = fs.watch(testDir, (eventType, filename) => {
 			const resolver = fileResolvers[filename];
 			assert.notEqual(resolver, undefined); // should have a resolver so file is expected
@@ -116,41 +117,39 @@ suite('Watch Features', () => {
 
 		const watcher = fs.promises.watch(tempFile);
 
-		const { promise, resolve } = Promise.withResolvers<void>();
-		(async () => {
+		const promise = (async () => {
 			for await (const event of watcher) {
 				assert.equal(event.eventType, 'rename');
 				assert.equal(event.filename, 'tempFile.txt');
-				break;
+				return;
 			}
-			resolve();
 		})();
 
 		await fs.promises.unlink(tempFile);
+		await watcher.return!();
 		await promise;
 	});
+
 	test('fs.promises.watch should detect file creations recursively', async () => {
-		const rootDir = '/';
-		const subDir = `${testDir}sub-dir`;
+		const subDir = `${testDir}/sub-dir`;
 		const tempFile = `${subDir}/tempFile.txt`;
 		await fs.promises.mkdir(subDir);
-		const watcher = fs.promises.watch(rootDir);
+		const watcher = fs.promises.watch('/');
 
 		await fs.promises.writeFile(tempFile, 'Temporary content');
-		const { promise, resolve } = Promise.withResolvers<void>();
-		(async () => {
+		const promise = (async () => {
 			for await (const event of watcher) {
 				assert.equal(event.eventType, 'rename');
-				assert.equal(event.filename, tempFile.substring(rootDir.length));
-				break;
+				assert.equal(event.filename, tempFile.slice(1));
+				return;
 			}
-			resolve();
 		})();
 
 		await fs.promises.unlink(tempFile);
+		await watcher.return!();
 		await promise;
 	});
-}).then(async () => {
-	await fs.promises.rm(testFile);
-	await fs.promises.rm(testDir, { recursive: true, force: true });
 });
+
+await fs.promises.rm(testFile);
+await fs.promises.rm(testDir, { recursive: true, force: true });

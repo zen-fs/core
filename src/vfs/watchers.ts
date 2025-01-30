@@ -6,7 +6,7 @@ import { EventEmitter } from 'eventemitter3';
 import { ErrnoError } from '../internal/error.js';
 import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';
-import { basename, dirname, join } from './path.js';
+import { dirname, join, relative } from './path.js';
 import { statSync } from './sync.js';
 
 /**
@@ -191,17 +191,11 @@ export function removeWatcher(path: string, watcher: FSWatcher) {
 export function emitChange(context: V_Context, eventType: fs.WatchEventType, filename: string) {
 	if (context) filename = join(context.root ?? '/', filename);
 	filename = normalizePath(filename);
-	// Notify watchers on the specific file
-	if (watchers.has(filename)) {
-		for (const watcher of watchers.get(filename)!) {
-			watcher.emit('change', eventType, basename(filename));
-		}
-	}
 
 	// Notify watchers on parent directories if they are watching recursively
 	let parent = filename,
 		normalizedFilename;
-	while (parent !== normalizedFilename) {
+	while (normalizedFilename != '/') {
 		normalizedFilename = parent;
 		parent = dirname(parent);
 
@@ -210,13 +204,7 @@ export function emitChange(context: V_Context, eventType: fs.WatchEventType, fil
 		if (!parentWatchers) continue;
 
 		for (const watcher of parentWatchers) {
-			// Strip the context root from the path if the watcher has a context
-
-			const root = watcher._context?.root;
-			const contextPath = root && filename.startsWith(root) ? filename.slice(root.length) : filename;
-			const relativePath = contextPath.slice(parent.length + (parent == '/' ? 0 : 1));
-
-			watcher.emit('change', eventType, relativePath);
+			watcher.emit('change', eventType, relative(parent, filename));
 		}
 	}
 }

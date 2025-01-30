@@ -48,7 +48,7 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	private _emitChange() {
-		emitChange(this.context, 'change', this.file.path);
+		emitChange(this.context, 'change', this.file.path.slice(this.context?.root?.length ?? 0));
 	}
 
 	/**
@@ -1076,59 +1076,61 @@ export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | BufferEncoding
-): AsyncIterable<promises.FileChangeInfo<string>>;
+): AsyncIterableIterator<promises.FileChangeInfo<string>>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | fs.BufferEncodingOption
-): AsyncIterable<promises.FileChangeInfo<Buffer>>;
+): AsyncIterableIterator<promises.FileChangeInfo<Buffer>>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | string
-): AsyncIterable<promises.FileChangeInfo<string>> | AsyncIterable<promises.FileChangeInfo<Buffer>>;
+): AsyncIterableIterator<promises.FileChangeInfo<string>> | AsyncIterableIterator<promises.FileChangeInfo<Buffer>>;
 export function watch<T extends string | Buffer>(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | string = {}
-): AsyncIterable<promises.FileChangeInfo<T>> {
-	const context = this;
+): AsyncIterableIterator<promises.FileChangeInfo<T>> {
+	const watcher = new FSWatcher<T>(
+		this,
+		filename.toString(),
+		typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' }
+	);
+
+	// A queue to hold change events, since we need to resolve them in the async iterator
+	const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];
+
+	let done = false;
+
+	watcher.on('change', (eventType: promises.FileChangeInfo<T>['eventType'], filename: T) => {
+		eventQueue.shift()?.({ value: { eventType, filename }, done: false });
+	});
+
+	function cleanup() {
+		done = true;
+		watcher.close();
+		for (const resolve of eventQueue) {
+			resolve({ value: null, done });
+		}
+		eventQueue.length = 0; // Clear the queue
+		return Promise.resolve({ value: null, done: true as const });
+	}
+
 	return {
-		[Symbol.asyncIterator](): AsyncIterator<promises.FileChangeInfo<T>> {
-			const watcher = new FSWatcher<T>(
-				context,
-				filename.toString(),
-				typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' }
-			);
-
-			// A queue to hold change events, since we need to resolve them in the async iterator
-			const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];
-
-			watcher.on('change', (eventType: promises.FileChangeInfo<T>['eventType'], filename: T) => {
-				eventQueue.shift()?.({ value: { eventType, filename }, done: false });
-			});
-
-			function cleanup() {
-				watcher.close();
-				for (const resolve of eventQueue) {
-					resolve({ value: null, done: true });
-				}
-				eventQueue.length = 0; // Clear the queue
-				return Promise.resolve({ value: null, done: true as const });
-			}
-
-			return {
-				async next() {
-					const { promise, resolve } = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
-					eventQueue.push(resolve);
-					return promise;
-				},
-				return: cleanup,
-				throw: cleanup,
-				[Symbol.asyncDispose]() {
-					return Promise.resolve();
-				},
-			};
+		async next() {
+			if (done) return Promise.resolve({ value: null, done });
+			const { promise, resolve } = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
+			eventQueue.push(resolve);
+			return promise;
+		},
+		return: cleanup,
+		throw: cleanup,
+		async [Symbol.asyncDispose]() {
+			await cleanup();
+		},
+		[Symbol.asyncIterator](): AsyncIterableIterator<promises.FileChangeInfo<T>> {
+			return this;
 		},
 	};
 }
