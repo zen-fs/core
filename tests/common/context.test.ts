@@ -44,7 +44,7 @@ suite('Context', () => {
 		const watcher = ctx.promises.watch('/', { recursive: true });
 
 		const silence = canary();
-		(async () => {
+		const promise = (async () => {
 			for await (const event of watcher) {
 				lastFile = event.filename;
 				if (++events == 2) return;
@@ -55,5 +55,7 @@ suite('Context', () => {
 		assert.equal(lastFile, 'xpto.txt');
 		await ctx.promises.unlink('/xpto.txt');
 		assert.equal(lastFile, 'xpto.txt');
+		await watcher.return!();
+		await promise;
 	});
 });
