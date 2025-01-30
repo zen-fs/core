@@ -1,27 +1,12 @@
+import type { ConstMap } from 'utilium';
 import type { Stats, StatsLike } from '../stats.js';
-import { ZenFsType } from '../stats.js';
 import type { ErrnoError } from './error.js';
 import type { File } from './file.js';
 
-export type FileContents = ArrayBufferView | string;
-
 /**
- * Metadata about a FileSystem
+ * Usage information about a file system
  */
-export interface FileSystemMetadata {
-	/* node:coverage disable */
-	/**
-	 * The name of the FS
-	 * @deprecated Use `FileSystem#name`
-	 */
-	name: string;
-	/* node:coverage enable */
-
-	/**
-	 * Whether the FS is readonly or not
-	 */
-	readonly: boolean;
-
+export interface UsageInfo {
 	/**
 	 * The total space
 	 */
@@ -33,8 +18,43 @@ export interface FileSystemMetadata {
 	freeSpace: number;
 
 	/**
+	 * The optimal block size to use with the file system
+	 * @default 4096
+	 */
+	blockSize?: number;
+
+	/**
+	 * Total number of nodes available
+	 */
+	totalNodes?: number;
+
+	/**
+	 * Number of free nodes available
+	 */
+	freeNodes?: number;
+}
+
+/* node:coverage disable */
+/**
+ * Metadata about a FileSystem
+ */
+export interface FileSystemMetadata extends UsageInfo {
+	/**
+	 * The name of the FS
+	 * @deprecated Use `FileSystem#name`
+	 */
+	name: string;
+
+	/**
+	 * Whether the FS is readonly or not
+	 * @deprecated Use `FileSystem#attributes
+	 */
+	readonly: boolean;
+
+	/**
 	 * If set, disables File from using a resizable array buffer.
 	 * @default false
+	 * @deprecated Use `FileSystem#attributes`
 	 */
 	noResizableBuffers: boolean;
 
@@ -43,24 +63,9 @@ export interface FileSystemMetadata {
 	 * This means *sync operations will not work*.
 	 * It has no affect on sync file systems.
 	 * @default false
+	 * @deprecated Use `FileSystem#attributes
 	 */
 	noAsyncCache: boolean;
-
-	/**
-	 * The optimal block size to use with the file system
-	 * @default 4096
-	 */
-	blockSize?: number;
-
-	/**
-	 * Total number of (file) nodes available
-	 */
-	totalNodes?: number;
-
-	/**
-	 * Number of free (file) nodes available
-	 */
-	freeNodes?: number;
 
 	/**
 	 * The type of the FS
@@ -69,11 +74,38 @@ export interface FileSystemMetadata {
 
 	/**
 	 * Various features the file system supports.
-	 * These are used by the VFS for optimizations.
-	 * - setid:	The FS supports setuid and setgid when creating files and directories.
+	 * @deprecated Use `FileSystem#attributes`
 	 */
-	features?: 'setid'[];
+	features?: unknown[];
 }
+/* node:coverage enable */
+
+/**
+ * Attributes that control how the file system interacts with the VFS.
+ * No options are set by default.
+ */
+export type FileSystemAttributes = {
+	/** The FS supports setuid and setgid when creating files and directories. */
+	setid: void;
+	/** If set, disables `PreloadFile` from using a resizable array buffer. */
+	no_buffer_resize: void;
+	/**
+	 * If set disables async file systems from preloading their contents.
+	 * This means *sync operations will not work* (unless the contents are cached)
+	 * It has no affect on sync file systems.
+	 */
+	no_async: void;
+	/**
+	 * Currently unused. In the future, this will disable caching.
+	 * Not recommended due to performance impact.
+	 */
+	no_cache: void;
+	/**
+	 * If set, the file system should not be written to.
+	 * This should be set for read-only file systems.
+	 */
+	no_write: void;
+};
 
 /**
  * Options used when creating files and directories.
@@ -117,30 +149,7 @@ export interface PureCreationOptions extends CreationOptions {
  * @internal
  */
 export abstract class FileSystem {
-	/**
-	 * Get metadata about the current file system
-	 */
-	public metadata(): FileSystemMetadata {
-		return {
-			name: this.name,
-			readonly: false,
-			totalSpace: 0,
-			freeSpace: 0,
-			noResizableBuffers: false,
-			noAsyncCache: this._disableSync,
-			features: [],
-			type: ZenFsType,
-		};
-	}
-
 	public label?: string;
-
-	/**
-	 * Whether the sync cache should be disabled.
-	 * Only affects async things.
-	 * @internal @protected
-	 */
-	_disableSync: boolean = false;
 
 	/**
 	 * The last place this file system was mounted
@@ -148,9 +157,10 @@ export abstract class FileSystem {
 	 */
 	_mountPoint?: string;
 
-	public toString(): string {
-		return `${this.name} ${this.label ?? ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
-	}
+	/**
+	 * @see FileSystemAttributes
+	 */
+	public readonly attributes = new Map() as ConstMap<FileSystemAttributes>;
 
 	public constructor(
 		/**
@@ -165,6 +175,40 @@ export abstract class FileSystem {
 		 */
 		public readonly name: string
 	) {}
+
+	public toString(): string {
+		return `${this.name} ${this.label ?? ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
+	}
+
+	/**
+	 * Default implementation.
+	 * @todo Implement
+	 * @experimental
+	 */
+	public usage(): UsageInfo {
+		return {
+			totalSpace: 0,
+			freeSpace: 0,
+		};
+	}
+
+	/* node:coverage disable */
+	/**
+	 * Get metadata about the current file system
+	 * @deprecated
+	 */
+	public metadata(): FileSystemMetadata {
+		return {
+			...this.usage(),
+			name: this.name,
+			readonly: this.attributes.has('no_write'),
+			noResizableBuffers: this.attributes.has('no_buffer_resize'),
+			noAsyncCache: this.attributes.has('no_async'),
+			features: Array.from(this.attributes.keys()),
+			type: this.id,
+		};
+	}
+	/* node:coverage enable */
 
 	public async ready(): Promise<void> {}
 

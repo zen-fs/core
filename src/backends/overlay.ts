@@ -63,8 +63,8 @@ export class OverlayFS extends FileSystem {
 		super(0x62756c6c, readable.name);
 		this.writable = writable;
 		this.readable = readable;
-		if (this.writable.metadata().readonly) {
-			throw err(new ErrnoError(Errno.EINVAL, 'Writable file system must be writable.'));
+		if (this.writable.attributes.has('no_write')) {
+			throw err(new ErrnoError(Errno.EINVAL, 'Writable file can not be written to'));
 		}
 		this._ready = this._initialize();
 	}

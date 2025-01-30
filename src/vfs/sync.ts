@@ -1,9 +1,8 @@
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { File } from '../internal/file.js';
-import type { FileContents } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
-import type { GlobOptionsU, InternalOptions, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { FileContents, GlobOptionsU, InternalOptions, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { credentials } from '../internal/credentials.js';
@@ -127,7 +126,7 @@ unlinkSync satisfies typeof fs.unlinkSync;
  * Manually apply setuid/setgid.
  */
 function applySetId(file: File, uid: number, gid: number) {
-	if (file.fs.metadata().features?.includes('setid')) return;
+	if (file.fs.attributes.has('setid')) return;
 
 	const parent = file.fs.statSync(dirname(file.path));
 	file.chownSync(

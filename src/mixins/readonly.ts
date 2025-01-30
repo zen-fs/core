@@ -32,8 +32,9 @@ export interface ReadonlyMixin {
 /* eslint-disable @typescript-eslint/require-await */
 export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, ReadonlyMixin> {
 	abstract class ReadonlyFS extends FS {
-		public metadata(): FileSystemMetadata {
-			return { ...super.metadata(), readonly: true };
+		public constructor(...args: any[]) {
+			super(...args);
+			this.attributes.set('no_write');
 		}
 
 		public async rename(): Promise<never> {

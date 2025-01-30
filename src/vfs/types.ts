@@ -1,5 +1,7 @@
 import type * as fs from 'node:fs';
 
+export type FileContents = ArrayBufferView | string;
+
 /**
  * Options used for caching, among other things.
  * @internal @hidden *UNSTABLE*

@@ -1,10 +1,9 @@
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
-import type { FileContents } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
 import type { Callback } from '../utils.js';
 import type { Dir, Dirent } from './dir.js';
-import type { GlobOptionsU } from './types.js';
+import type { FileContents, GlobOptionsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Errno, ErrnoError } from '../internal/error.js';

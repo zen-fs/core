@@ -63,7 +63,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	}
 	await checkOptions(backend, configuration);
 	const mount = (await backend.create(configuration)) as FilesystemOf<T>;
-	mount._disableSync = configuration.disableAsyncCache || false;
+	if (configuration.disableAsyncCache) mount.attributes.set('no_async');
 	await mount.ready();
 	return mount;
 }

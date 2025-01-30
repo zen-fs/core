@@ -1,5 +1,5 @@
 import type { File } from '../internal/file.js';
-import type { CreationOptions, FileSystem, FileSystemMetadata } from '../internal/filesystem.js';
+import type { CreationOptions, FileSystem, FileSystemMetadata, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Stats } from '../stats.js';
 import type { Concrete } from '../utils.js';
@@ -58,10 +58,16 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		this._fs.label = value;
 	}
 
-	_disableSync: boolean = false;
+	public get attributes() {
+		return this._fs.attributes;
+	}
 
 	public async ready(): Promise<void> {
 		return await this._fs.ready();
+	}
+
+	public usage(): UsageInfo {
+		return this._fs.usage();
 	}
 
 	public metadata(): FileSystemMetadata {

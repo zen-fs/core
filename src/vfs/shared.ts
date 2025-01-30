@@ -12,6 +12,7 @@ import { normalizePath } from '../utils.js';
 import { paths as pathCache } from './cache.js';
 import { size_max } from './constants.js';
 import { join, resolve, type AbsolutePath } from './path.js';
+import { ZenFsType } from '../stats.js';
 
 // descriptors
 
@@ -68,7 +69,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 	fs._mountPoint = mountPoint;
 	mounts.set(mountPoint, fs);
 	info(`Mounted ${fs.name} on ${mountPoint}`);
-	debug(`${fs.name} supports features: ${fs.metadata().features?.join(', ')}`);
+	debug(`${fs.name} attributes: ${[...fs.attributes].map(([k, v]) => (v !== undefined && v !== null ? k + '=' + v : v)).join(', ')}`);
 	pathCache.clear();
 }
 
@@ -168,11 +169,11 @@ export function mountObject(mounts: MountObject): void {
  * @internal @hidden
  */
 export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T extends true ? fs.BigIntStatsFs : fs.StatsFs {
-	const md = fs.metadata();
+	const md = fs.usage();
 	const bs = md.blockSize || 4096;
 
 	return {
-		type: (bigint ? BigInt : Number)(md.type),
+		type: (bigint ? BigInt : Number)(fs.id),
 		bsize: (bigint ? BigInt : Number)(bs),
 		ffree: (bigint ? BigInt : Number)(md.freeNodes || size_max),
 		files: (bigint ? BigInt : Number)(md.totalNodes || size_max),

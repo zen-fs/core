@@ -271,7 +271,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		/**
 		 * A buffer containing the entire contents of the file.
 		 */
-		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.metadata().noResizableBuffers ? {} : { maxByteLength }))
+		protected _buffer: Uint8Array = new Uint8Array(new ArrayBuffer(0, fs.attributes.has('no_buffer_resize') ? {} : { maxByteLength }))
 	) {
 		super(fs, path);
 
@@ -323,7 +323,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
 		if (!this.dirty) return;
 
-		if (!this.fs.metadata().readonly) await this.fs.sync(this.path, this._buffer, this.stats);
+		if (!this.fs.attributes.has('no_write')) await this.fs.sync(this.path, this._buffer, this.stats);
 		this.dirty = false;
 	}
 
@@ -331,7 +331,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
 		if (!this.dirty) return;
 
-		if (!this.fs.metadata().readonly) this.fs.syncSync(this.path, this._buffer, this.stats);
+		if (!this.fs.attributes.has('no_write')) this.fs.syncSync(this.path, this._buffer, this.stats);
 		this.dirty = false;
 	}
 
@@ -637,7 +637,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 
 		if (!this.dirty) return;
 
-		if (!this.fs.metadata().readonly) await this.fs.sync(this.path, undefined, this.stats);
+		if (!this.fs.attributes.has('no_write')) await this.fs.sync(this.path, undefined, this.stats);
 		this.dirty = false;
 	}
 
@@ -646,7 +646,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 
 		if (!this.dirty) return;
 
-		if (!this.fs.metadata().readonly) this.fs.syncSync(this.path, undefined, this.stats);
+		if (!this.fs.attributes.has('no_write')) this.fs.syncSync(this.path, undefined, this.stats);
 		this.dirty = false;
 	}
 

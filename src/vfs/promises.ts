@@ -6,9 +6,8 @@ import type { ReadableStreamController, ReadableStream as TReadableStream } from
 import type { Interface as ReadlineInterface } from 'readline';
 import type { V_Context } from '../context.js';
 import type { File } from '../internal/file.js';
-import type { FileContents } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
-import type { GlobOptionsU, InternalOptions, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { FileContents, GlobOptionsU, InternalOptions, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { credentials } from '../internal/credentials.js';
@@ -523,7 +522,7 @@ unlink satisfies typeof promises.unlink;
  * Manually apply setuid/setgid.
  */
 async function applySetId(file: File, uid: number, gid: number) {
-	if (file.fs.metadata().features?.includes('setid')) return;
+	if (file.fs.attributes.has('setid')) return;
 
 	const parent = await file.fs.stat(dirname(file.path));
 	await file.chown(
