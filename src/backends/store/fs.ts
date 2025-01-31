@@ -37,6 +37,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	readonly _paths = new Map<number, Set<string>>([[0, new Set('/')]]);
 
 	/**
+	 * Gets the first path associated with an inode
+	 */
+	_path(id: number): string | undefined {
+		const [path] = this._paths.get(id) ?? [];
+		return path;
+	}
+
+	/**
 	 * Add a inode/path pair
 	 */
 	_add(ino: number, path: string) {
@@ -468,6 +476,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.transaction();
 		const inode = await this.findInode(tx, path, 'read');
 
+		if (inode.size == 0) return;
+
 		const data = (await tx.get(inode.data, offset, end)) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
 		const _ = tx.flag('partial') ? data : data.subarray(offset, end);
 		if (_.byteLength > buffer.byteLength) err(`Trying to place ${_.byteLength} bytes into a ${buffer.byteLength} byte buffer on read`);
@@ -477,6 +487,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
 		using tx = this.transaction();
 		const inode = this.findInodeSync(tx, path, 'read');
+
+		if (inode.size == 0) return;
 
 		const data = tx.getSync(inode.data, offset, end) ?? _throw(ErrnoError.With('ENODATA', path, 'read'));
 		const _ = tx.flag('partial') ? data : data.subarray(offset, end);
@@ -491,7 +503,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		let buffer = data;
 		if (!tx.flag('partial')) {
-			buffer = extendBuffer((await tx.get(inode.data)) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
+			buffer = extendBuffer((await tx.get(inode.data)) ?? new Uint8Array(), offset + data.byteLength);
 			buffer.set(data, offset);
 			offset = 0;
 		}
@@ -512,7 +524,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		let buffer = data;
 		if (!tx.flag('partial')) {
-			buffer = extendBuffer(tx.getSync(inode.data) ?? _throw(ErrnoError.With('ENODATA', path)), offset + data.byteLength);
+			buffer = extendBuffer(tx.getSync(inode.data) ?? new Uint8Array(), offset + data.byteLength);
 			buffer.set(data, offset);
 			offset = 0;
 		}
