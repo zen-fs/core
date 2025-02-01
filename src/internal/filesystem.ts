@@ -37,6 +37,7 @@ export interface UsageInfo {
 /* node:coverage disable */
 /**
  * Metadata about a FileSystem
+ * @deprecated
  */
 export interface FileSystemMetadata extends UsageInfo {
 	/**
@@ -87,19 +88,23 @@ export interface FileSystemMetadata extends UsageInfo {
 export type FileSystemAttributes = {
 	/** The FS supports setuid and setgid when creating files and directories. */
 	setid: void;
+
 	/** If set, disables `PreloadFile` from using a resizable array buffer. */
 	no_buffer_resize: void;
+
 	/**
 	 * If set disables async file systems from preloading their contents.
 	 * This means *sync operations will not work* (unless the contents are cached)
 	 * It has no affect on sync file systems.
 	 */
 	no_async: void;
+
 	/**
 	 * Currently unused. In the future, this will disable caching.
 	 * Not recommended due to performance impact.
 	 */
 	no_cache: void;
+
 	/**
 	 * If set, the file system should not be written to.
 	 * This should be set for read-only file systems.
