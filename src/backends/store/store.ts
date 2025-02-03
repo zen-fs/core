@@ -152,7 +152,7 @@ export interface AsyncStore extends Store {
 
 /**
  * Transaction that implements synchronous operations with a cache
- * @implementors You *must* update the cache and wait for `store.asyncDone` in your asynchronous methods.
+ * Implementors: You *must* update the cache and wait for `store.asyncDone` in your asynchronous methods.
  * @todo Make sure we handle abortions correctly, especially since the cache is shared between transactions.
  * @category Stores and Transactions
  */
