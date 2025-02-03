@@ -3,6 +3,7 @@ import type { V_Context } from '../context.js';
 import type { File } from '../internal/file.js';
 import type { Stats } from '../stats.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { ResolvedPath } from './shared.js';
 
 import { Buffer } from 'buffer';
 import { credentials } from '../internal/credentials.js';
@@ -697,51 +698,69 @@ export function lutimesSync(this: V_Context, path: fs.PathLike, atime: string | 
 }
 lutimesSync satisfies typeof fs.lutimesSync;
 
-export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
-export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
-export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
-	path = normalizePath(path);
-	const ctx_path = (this?.root || '') + path;
+/**
+ * Resolves the mount and real path for a path.
+ * Additionally, any stats fetched will be returned for de-duplication
+ * @internal @hidden
+ */
+function _resolveSync($: V_Context, path: string, preserveSymlinks?: boolean): ResolvedPath {
+	if (preserveSymlinks) {
+		const resolved = resolveMount(path, $);
+		const stats = resolved.fs.statSync(resolved.path);
+		return { ...resolved, fullPath: path, stats };
+	}
 
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
 	try {
-		const { fs, path: resolvedPath } = resolveMount(path, this);
+		const resolved = resolveMount(path, $);
+
 		// Stat it to make sure it exists
-		const stats = fs.statSync(resolvedPath);
+		const stats = resolved.fs.statSync(resolved.path);
 
-		let real = path;
-
-		if (stats.isSymbolicLink()) {
-			const target = resolve(dirname(resolvedPath), readlinkSync.call(this, resolvedPath, options).toString());
-			real = realpathSync.call(this, target);
+		if (!stats.isSymbolicLink()) {
+			return { ...resolved, fullPath: path, stats };
 		}
 
-		return real;
+		const target = resolve(dirname(path), readlinkSync.call($, path).toString());
+		return _resolveSync($, target);
 	} catch {
 		// Go the long way
 	}
 
 	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : realpathSync.call(this, dir);
-	const lpath = join(realDir, base);
-	const { fs, path: resolvedPath } = resolveMount(lpath, this);
+	const realDir = dir == '/' ? '/' : realpathSync.call($, dir);
+	const maybePath = join(realDir, base);
+	const resolved = resolveMount(maybePath, $);
 
 	try {
-		const stats = fs.statSync(resolvedPath);
+		const stats = resolved.fs.statSync(resolved.path);
 		if (!stats.isSymbolicLink()) {
-			return lpath;
+			return { ...resolved, fullPath: maybePath, stats };
 		}
 
-		const target = resolve(realDir, readlinkSync.call(this, lpath, options).toString());
-		const real = realpathSync.call(this, target);
-		return real;
+		const target = resolve(realDir, readlinkSync.call($, maybePath).toString());
+		const real = realpathSync.call($, target);
+		return { ...resolved, fullPath: real, stats };
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
-			return path;
+			return { ...resolved, fullPath: path };
 		}
-		throw fixError(e as ErrnoError, { [resolvedPath]: lpath });
+		throw fixError(e as ErrnoError, { [resolved.path]: maybePath });
 	}
+}
+
+export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
+export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
+export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
+	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
+	path = normalizePath(path);
+
+	const { fullPath } = _resolveSync(this, path);
+	if (encoding == 'utf8' || encoding == 'utf-8') return fullPath;
+	const buf = Buffer.from(fullPath, 'utf-8');
+	if (encoding == 'buffer') return buf;
+	return buf.toString(encoding);
 }
 realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
 

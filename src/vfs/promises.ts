@@ -7,6 +7,7 @@ import type { Interface as ReadlineInterface } from 'readline';
 import type { V_Context } from '../context.js';
 import type { File } from '../internal/file.js';
 import type { Stats } from '../stats.js';
+import type { ResolvedPath } from './shared.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
@@ -538,43 +539,40 @@ async function applySetId(file: File, uid: number, gid: number) {
  * Opens a file. This helper handles the complexity of file flags.
  * @internal
  */
-async function _open(this: V_Context, path: fs.PathLike, opt: OpenOptions): Promise<FileHandle> {
+async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise<FileHandle> {
 	path = normalizePath(path);
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = parseFlag(opt.flag);
 
-	path = opt.preserveSymlinks ? path : await realpath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
-
-	const stats = await fs.stat(resolved).catch(() => null);
+	const { fullPath: realpath, fs, path: resolved, stats } = await _resolve($, path.toString(), opt.preserveSymlinks);
 
 	if (!stats) {
 		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
-			throw ErrnoError.With('ENOENT', path, '_open');
+			throw ErrnoError.With('ENOENT', realpath, '_open');
 		}
 		// Create the file
 		const parentStats: Stats = await fs.stat(dirname(resolved));
-		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, this)) {
-			throw ErrnoError.With('EACCES', dirname(path), '_open');
+		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, $)) {
+			throw ErrnoError.With('EACCES', dirname(realpath), '_open');
 		}
 		if (!parentStats.isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
+			throw ErrnoError.With('ENOTDIR', dirname(realpath), '_open');
 		}
-		const { euid: uid, egid: gid } = this?.credentials ?? credentials;
+		const { euid: uid, egid: gid } = $?.credentials ?? credentials;
 		const file = await fs.createFile(resolved, flag, mode, { uid, gid });
 		await applySetId(file, uid, gid);
-		return new FileHandle(file, this);
+		return new FileHandle(file, $);
 	}
 
-	if (config.checkAccess && !stats.hasAccess(flagToMode(flag), this)) {
-		throw ErrnoError.With('EACCES', path, '_open');
+	if (config.checkAccess && !stats.hasAccess(flagToMode(flag), $)) {
+		throw ErrnoError.With('EACCES', realpath, '_open');
 	}
 
 	if (isExclusive(flag)) {
-		throw ErrnoError.With('EEXIST', path, '_open');
+		throw ErrnoError.With('EEXIST', realpath, '_open');
 	}
 
-	const handle = new FileHandle(await fs.openFile(resolved, flag), this);
+	const handle = new FileHandle(await fs.openFile(resolved, flag), $);
 
 	/*
 		In a previous implementation, we deleted the file and
@@ -596,7 +594,7 @@ async function _open(this: V_Context, path: fs.PathLike, opt: OpenOptions): Prom
  * @param mode Mode to use to open the file. Can be ignored if the filesystem doesn't support permissions.
  */
 export async function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode = 'r', mode: fs.Mode = 0o644): Promise<FileHandle> {
-	return await _open.call(this, path, { flag, mode });
+	return await _open(this, path, { flag, mode });
 }
 open satisfies typeof promises.open;
 
@@ -916,7 +914,7 @@ export async function symlink(
 		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
 	}
 
-	await using handle = await _open.call(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
+	await using handle = await _open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
 	await handle.writeFile(target.toString());
 	await handle.file.chmod(constants.S_IFLNK);
 }
@@ -934,7 +932,7 @@ export async function readlink(
 	path: fs.PathLike,
 	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
 ): Promise<string | Buffer> {
-	await using handle = await _open.call(this, normalizePath(path), { flag: 'r', mode: 0o644, preserveSymlinks: true });
+	await using handle = await _open(this, normalizePath(path), { flag: 'r', mode: 0o644, preserveSymlinks: true });
 	const value = await handle.readFile();
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	// always defaults to utf-8 to avoid wrangler (cloudflare) worker "unknown encoding" exception
@@ -949,7 +947,7 @@ export async function chown(this: V_Context, path: fs.PathLike, uid: number, gid
 chown satisfies typeof promises.chown;
 
 export async function lchown(this: V_Context, path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, {
+	await using handle: FileHandle = await _open(this, path, {
 		flag: 'r+',
 		mode: 0o644,
 		preserveSymlinks: true,
@@ -966,7 +964,7 @@ export async function chmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): 
 chmod satisfies typeof promises.chmod;
 
 export async function lchmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, {
+	await using handle: FileHandle = await _open(this, path, {
 		flag: 'r+',
 		mode: 0o644,
 		preserveSymlinks: true,
@@ -989,7 +987,7 @@ utimes satisfies typeof promises.utimes;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export async function lutimes(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
-	await using handle: FileHandle = await _open.call(this, path, {
+	await using handle: FileHandle = await _open(this, path, {
 		flag: 'r+',
 		mode: 0o644,
 		preserveSymlinks: true,
@@ -998,6 +996,58 @@ export async function lutimes(this: V_Context, path: fs.PathLike, atime: fs.Time
 	await handle.utimes(new Date(atime), new Date(mtime));
 }
 lutimes satisfies typeof promises.lutimes;
+
+/**
+ * Resolves the mount and real path for a path.
+ * Additionally, any stats fetched will be returned for de-duplication
+ * @internal @hidden
+ */
+async function _resolve($: V_Context, path: string, preserveSymlinks?: boolean): Promise<ResolvedPath> {
+	if (preserveSymlinks) {
+		const resolved = resolveMount(path, $);
+		const stats = await resolved.fs.stat(resolved.path).catch(() => undefined);
+		return { ...resolved, fullPath: path, stats };
+	}
+
+	/* Try to resolve it directly. If this works,
+	that means we don't need to perform any resolution for parent directories. */
+	try {
+		const resolved = resolveMount(path, $);
+
+		// Stat it to make sure it exists
+		const stats = await resolved.fs.stat(resolved.path);
+
+		if (!stats.isSymbolicLink()) {
+			return { ...resolved, fullPath: path, stats };
+		}
+
+		const target = resolve(dirname(path), (await readlink.call($, path)).toString());
+		return await _resolve($, target);
+	} catch {
+		// Go the long way
+	}
+
+	const { base, dir } = parse(path);
+	const realDir = dir == '/' ? '/' : await realpath.call($, dir);
+	const maybePath = join(realDir, base);
+	const resolved = resolveMount(maybePath, $);
+
+	try {
+		const stats = await resolved.fs.stat(resolved.path);
+		if (!stats.isSymbolicLink()) {
+			return { ...resolved, fullPath: maybePath, stats };
+		}
+
+		const target = resolve(realDir, (await readlink.call($, maybePath)).toString());
+		const real = await realpath.call($, target);
+		return { ...resolved, fullPath: real, stats };
+	} catch (e) {
+		if ((e as ErrnoError).code == 'ENOENT') {
+			return { ...resolved, fullPath: path };
+		}
+		throw fixError(e as ErrnoError, { [resolved.path]: maybePath });
+	}
+}
 
 /**
  * Asynchronous realpath(3) - return the canonicalized absolute pathname.
@@ -1012,46 +1062,14 @@ export async function realpath(
 	path: fs.PathLike,
 	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
 ): Promise<string | Buffer> {
+	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
 	path = normalizePath(path);
 
-	/* Try to resolve it directly. If this works,
-	that means we don't need to perform any resolution for parent directories. */
-	try {
-		const { fs, path: resolvedPath } = resolveMount(path, this);
-		// Stat it to make sure it exists
-		const stats = await fs.stat(resolvedPath);
-
-		let real = path.toString();
-
-		if (stats.isSymbolicLink()) {
-			const target = resolve(dirname(path), (await readlink.call(this, path, options)).toString());
-			real = await realpath.call(this, target);
-		}
-
-		return real;
-	} catch {
-		// Go the long way
-	}
-
-	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : await realpath.call(this, dir);
-	const lpath = join(realDir, base);
-	const { fs, path: resolvedPath } = resolveMount(lpath, this);
-
-	try {
-		if (!(await fs.stat(resolvedPath)).isSymbolicLink()) {
-			return lpath;
-		}
-
-		const target = resolve(realDir, (await readlink.call(this, lpath)).toString());
-
-		return await realpath.call(this, target);
-	} catch (e) {
-		if ((e as ErrnoError).code == 'ENOENT') {
-			return path;
-		}
-		throw fixError(e as ErrnoError, { [resolvedPath]: lpath });
-	}
+	const { fullPath } = await _resolve(this, path);
+	if (encoding == 'utf8' || encoding == 'utf-8') return fullPath;
+	const buf = Buffer.from(fullPath, 'utf-8');
+	if (encoding == 'buffer') return buf;
+	return buf.toString(encoding);
 }
 realpath satisfies typeof promises.realpath;
 
