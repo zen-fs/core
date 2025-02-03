@@ -13,9 +13,7 @@ ZenFS is built upon three main components:
 
 _Main article: [Virtual File System (VFS)](./vfs.md)_
 
-The Virtual File System (VFS) is responsible for emulating the `node:fs` API, path resolution, and mounting different storage backends. It provides a unified interface that applications interact with, abstracting away differences between storage implementations.
-
-Responsibilities:
+The Virtual File System (VFS) is responsible for emulating the `node:fs` API, path resolution, and mounting different storage backends. It provides a unified interface that applications interact with, abstracting away differences between storage implementations. The VFS is responsible for:
 
 - Path translation and resolution
 - `node:fs` emulation
