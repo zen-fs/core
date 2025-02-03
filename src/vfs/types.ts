@@ -3,19 +3,6 @@ import type * as fs from 'node:fs';
 export type FileContents = ArrayBufferView | string;
 
 /**
- * Options used for caching, among other things.
- * @internal @hidden *UNSTABLE*
- */
-export interface InternalOptions {
-	/**
-	 * If true, then this readdir was called from another function.
-	 * In this case, don't clear the cache when done.
-	 * @internal *UNSTABLE*
-	 */
-	_isIndirect?: boolean;
-}
-
-/**
  * @internal @hidden Used for the internal `_open` functions
  */
 export interface OpenOptions {
@@ -31,7 +18,7 @@ export interface OpenOptions {
 	allowDirectory?: boolean;
 }
 
-export interface ReaddirOptions extends InternalOptions {
+export interface ReaddirOptions {
 	withFileTypes?: boolean;
 	recursive?: boolean;
 }

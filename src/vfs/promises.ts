@@ -7,7 +7,7 @@ import type { Interface as ReadlineInterface } from 'readline';
 import type { V_Context } from '../context.js';
 import type { File } from '../internal/file.js';
 import type { Stats } from '../stats.js';
-import type { FileContents, GlobOptionsU, InternalOptions, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { credentials } from '../internal/credentials.js';
@@ -848,7 +848,7 @@ export async function readdir(
 
 		if (!options?.recursive || !entryStats?.isDirectory()) return;
 
-		for (const subEntry of await readdir.call(this, join(path, entry), { ...options, _isIndirect: true })) {
+		for (const subEntry of await readdir.call(this, join(path, entry), options)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -1132,7 +1132,7 @@ access satisfies typeof promises.access;
  * Asynchronous `rm`. Removes files or directories (recursively).
  * @param path The path to the file or directory to remove.
  */
-export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOptions & InternalOptions) {
+export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOptions) {
 	path = normalizePath(path);
 
 	const stats = await lstat.call<V_Context, [string], Promise<Stats>>(this, path).catch((error: ErrnoError) => {
@@ -1145,10 +1145,8 @@ export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOpti
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of await readdir.call<V_Context, [string, any], Promise<string[]>>(this, path, {
-					_isIndirect: true,
-				})) {
-					await rm.call(this, join(path, entry), { ...options, _isIndirect: true });
+				for (const entry of (await readdir.call(this, path)) as string[]) {
+					await rm.call(this, join(path, entry), options);
 				}
 			}
 

@@ -2,7 +2,7 @@ import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { File } from '../internal/file.js';
 import type { Stats } from '../stats.js';
-import type { FileContents, GlobOptionsU, InternalOptions, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { credentials } from '../internal/credentials.js';
@@ -565,7 +565,7 @@ export function readdirSync(
 		}
 		if (!entryStat.isDirectory() || !options?.recursive) continue;
 
-		for (const subEntry of readdirSync.call(this, join(path, entry), { ...options, _isIndirect: true })) {
+		for (const subEntry of readdirSync.call(this, join(path, entry), options)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -757,7 +757,7 @@ accessSync satisfies typeof fs.accessSync;
  * Synchronous `rm`. Removes files or directories (recursively).
  * @param path The path to the file or directory to remove.
  */
-export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOptions & InternalOptions): void {
+export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOptions): void {
 	path = normalizePath(path);
 
 	let stats: Stats | undefined;
@@ -772,8 +772,8 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of readdirSync.call<V_Context, [string, any], string[]>(this, path, { _isIndirect: true })) {
-					rmSync.call(this, join(path, entry), { ...options, _isIndirect: true });
+				for (const entry of readdirSync.call(this, path) as string[]) {
+					rmSync.call(this, join(path, entry), options);
 				}
 			}
 
