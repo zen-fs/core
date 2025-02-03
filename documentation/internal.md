@@ -1,5 +1,6 @@
 ---
 title: Internal API
+category: Internals
 ---
 
 ## Overview

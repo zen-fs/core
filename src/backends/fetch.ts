@@ -192,4 +192,7 @@ const _Fetch = {
 type _Fetch = typeof _Fetch;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Fetch extends _Fetch {}
+/**
+ * @category Backends and Configuration
+ */
 export const Fetch: Fetch = _Fetch;

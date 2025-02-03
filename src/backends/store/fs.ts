@@ -15,11 +15,8 @@ import { basename, dirname, join, parse, relative } from '../../vfs/path.js';
 import { WrappedTransaction, type Store } from './store.js';
 
 /**
- * A file system which uses a key-value store.
+ * A file system which uses a `Store`
  *
- * We use a unique ID for each node in the file system. The root node has a fixed ID.
- *
- * @todo Introduce Node ID caching?
  * @todo Check modes?
  * @category Stores and Transactions
  * @internal

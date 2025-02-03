@@ -3,7 +3,7 @@ import type { ExtractProperties } from 'utilium';
 import type { Inode, InodeLike } from '../..//internal/inode.js';
 import type { MountConfiguration } from '../../config.js';
 import type { File } from '../../internal/file.js';
-import type { CreationOptions, FileSystemMetadata } from '../../internal/filesystem.js';
+import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 
 import { pick } from 'utilium';
@@ -16,7 +16,7 @@ import { Stats } from '../../stats.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
 
-type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | FileSystemMetadata>;
+type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | UsageInfo>;
 type FSMethod = keyof FSMethods;
 
 export type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Message &
@@ -181,8 +181,15 @@ const _Port = {
 type _Port = typeof _Port;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Port extends _Port {}
+
+/**
+ * @category Backends and Configuration
+ */
 export const Port: Port = _Port;
 
+/**
+ * @category Backends and Configuration
+ */
 export async function resolveRemoteMount<T extends Backend>(port: RPC.Port, config: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
 	const stopAndReplay = RPC.catchMessages(port);
 	const fs = await resolveMountConfig(config, _depth);

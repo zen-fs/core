@@ -16,7 +16,7 @@ interface MoveInfo {
 }
 
 /**
- * Uses an `Index` for metadata.
+ * A file system that uses an `Index` for metadata.
  * @category Internals
  * @internal
  */

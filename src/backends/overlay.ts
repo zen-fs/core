@@ -561,6 +561,7 @@ export interface Overlay extends _Overlay {}
 /**
  * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.
  * Deletes are persisted via metadata stored on the writable file system.
+ * @category Backends and Configuration
  * @internal
  */
 export const Overlay: Overlay = _Overlay;

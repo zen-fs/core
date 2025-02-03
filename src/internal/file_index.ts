@@ -19,7 +19,7 @@ export interface IndexData {
 export const version = 1;
 
 /**
- * An index of files
+ * An index of file metadata
  * @category Internals
  * @internal
  */

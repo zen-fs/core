@@ -44,5 +44,6 @@ export interface InMemory extends _InMemory {}
 /**
  * A simple in-memory file system backed by an InMemoryStore.
  * Files are not persisted across page loads.
+ * @category Backends and Configuration
  */
 export const InMemory: InMemory = _InMemory;
