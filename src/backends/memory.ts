@@ -4,6 +4,7 @@ import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 
 /**
  * A simple in-memory store
+ * @category Stores and Transactions
  */
 export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapStore {
 	public readonly flags = [] as const;

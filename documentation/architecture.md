@@ -1,9 +1,5 @@
 ---
 title: Architecture
-children:
-    - ./backends.md
-    - ./internal.md
-    - ./vfs.md
 ---
 
 > [!NOTE]

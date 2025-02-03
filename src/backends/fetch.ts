@@ -36,6 +36,7 @@ function parseError(path?: string, fs?: FileSystem): (error: requests.Issue) => 
 
 /**
  * Configuration options for FetchFS.
+ * @category Backends and Configuration
  */
 export interface FetchOptions extends SharedConfig {
 	/**

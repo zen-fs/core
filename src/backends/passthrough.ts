@@ -11,7 +11,10 @@ import type { Backend } from './backend.js';
 // Type for Node.js fs module
 export type NodeFS = typeof fs;
 
-// Interface for Passthrough backend options
+/**
+ * Passthrough backend options
+ * @category Backends and Configuration
+ */
 export interface PassthroughOptions {
 	fs: NodeFS;
 	prefix?: string;

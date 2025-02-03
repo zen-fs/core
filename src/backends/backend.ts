@@ -17,6 +17,7 @@ type OptionType =
 
 /**
  * Resolves the type of Backend.options from the options interface
+ * @category Backends and Configuration
  */
 export type OptionsConfig<T> = {
 	[K in keyof T]: {
@@ -49,6 +50,7 @@ export type OptionsConfig<T> = {
 
 /**
  * Configuration options shared by backends and `Configuration`
+ * @category Backends and Configuration
  */
 export interface SharedConfig {
 	/**
@@ -59,6 +61,7 @@ export interface SharedConfig {
 
 /**
  * A backend
+ * @category Backends and Configuration
  */
 export interface Backend<FS extends FileSystem = FileSystem, TOptions extends object = object> {
 	/**
@@ -90,23 +93,29 @@ export interface Backend<FS extends FileSystem = FileSystem, TOptions extends ob
 
 /**
  * Gets the options type of a backend
+ * @category Backends and Configuration
  * @internal
  */
 export type OptionsOf<T extends Backend> = T extends Backend<FileSystem, infer TOptions> ? TOptions : never;
 
 /**
  * Gets the FileSystem type for a backend
+ * @category Backends and Configuration
  * @internal
  */
 export type FilesystemOf<T extends Backend> = T extends Backend<infer FS> ? FS : never;
 
-/** @internal */
+/**
+ * @category Backends and Configuration
+ * @internal
+ */
 export function isBackend(arg: unknown): arg is Backend {
 	return arg != null && typeof arg == 'object' && 'create' in arg && typeof arg.create == 'function';
 }
 
 /**
  * Checks that `options` object is valid for the file system options.
+ * @category Backends and Configuration
  * @internal
  */
 export async function checkOptions<T extends Backend>(backend: T, options: Record<string, unknown>): Promise<void> {
@@ -157,10 +166,15 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
  * Individual options can recursively contain BackendConfiguration objects for values that require file systems.
  *
  * The configuration for each file system corresponds to that file system's option object passed to its `create()` method.
+ *
+ * @category Backends and Configuration
  */
 export type BackendConfiguration<T extends Backend> = OptionsOf<T> & Partial<SharedConfig> & { backend: T };
 
-/** @internal */
+/**
+ * @internal
+ * @category Backends and Configuration
+ */
 export function isBackendConfig<T extends Backend>(arg: unknown): arg is BackendConfiguration<T> {
 	return arg != null && typeof arg == 'object' && 'backend' in arg && isBackend(arg.backend);
 }

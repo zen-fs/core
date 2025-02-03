@@ -17,6 +17,7 @@ const deletionLogPath = '/.deleted';
 
 /**
  * Configuration options for OverlayFS instances.
+ * @category Backends and Configuration
  */
 export interface OverlayOptions {
 	/**

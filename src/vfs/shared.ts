@@ -12,7 +12,6 @@ import { normalizePath } from '../utils.js';
 import { paths as pathCache } from './cache.js';
 import { size_max } from './constants.js';
 import { join, resolve, type AbsolutePath } from './path.js';
-import { ZenFsType } from '../stats.js';
 
 // descriptors
 
@@ -48,6 +47,7 @@ export type MountObject = Record<AbsolutePath, FileSystem>;
 
 /**
  * The map of mount points
+ * @category Backends and Configuration
  * @internal
  */
 export const mounts: Map<string, FileSystem> = new Map();
@@ -57,6 +57,7 @@ mount('/', InMemory.create({ name: 'root' }));
 
 /**
  * Mounts the file system at `mountPoint`.
+ * @category Backends and Configuration
  * @internal
  */
 export function mount(mountPoint: string, fs: FileSystem): void {
@@ -75,6 +76,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 
 /**
  * Unmounts the file system at `mountPoint`.
+ * @category Backends and Configuration
  */
 export function umount(mountPoint: string): void {
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
@@ -186,7 +188,7 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 /**
  * Change the root path
  * @param inPlace if true, this changes the root for the current context instead of creating a new one (if associated with a context).
- * @experimental
+ * @category Backends and Configuration
  */
 export function chroot(this: V_Context, path: string, inPlace?: false): BoundContext;
 export function chroot<T extends V_Context>(this: T, path: string, inPlace: true): T;

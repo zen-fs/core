@@ -16,6 +16,6 @@
 		"out": "docs",
 		"name": "ZenFS",
 		"plugin": ["./scripts/typedoc-plugin.js"],
-		"projectDocuments": ["documentation/*.md"]
+		"projectDocuments": ["documentation/*.md", "readme.md"]
 	}
 }

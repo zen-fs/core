@@ -14,6 +14,7 @@ import { mounts } from './vfs/shared.js';
 
 /**
  * Configuration for a specific mount point
+ * @category Backends and Configuration
  */
 export type MountConfiguration<T extends Backend> = FilesystemOf<T> | BackendConfiguration<T> | T;
 
@@ -23,6 +24,7 @@ function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfigurati
 
 /**
  * Retrieve a file system with `configuration`.
+ * @category Backends and Configuration
  * @see MountConfiguration
  */
 export async function resolveMountConfig<T extends Backend>(configuration: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
@@ -70,6 +72,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 
 /**
  * An object mapping mount points to backends
+ * @category Backends and Configuration
  */
 export interface ConfigMounts {
 	[K: string]: Backend;
@@ -77,6 +80,7 @@ export interface ConfigMounts {
 
 /**
  * Configuration
+ * @category Backends and Configuration
  */
 export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	/**
@@ -155,6 +159,7 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 
 /**
  * Configures ZenFS with single mount point /
+ * @category Backends and Configuration
  */
 export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>): Promise<void> {
 	if (!isBackendConfig(configuration)) {
@@ -187,6 +192,9 @@ async function mount(path: string, mount: FileSystem): Promise<void> {
 	fs.mount(path, mount);
 }
 
+/**
+ * @category Backends and Configuration
+ */
 export function addDevice(driver: DeviceDriver, options?: object): Device {
 	const devfs = mounts.get('/dev');
 	if (!(devfs instanceof DeviceFS)) throw crit(new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system'));
@@ -195,6 +203,7 @@ export function addDevice(driver: DeviceDriver, options?: object): Device {
 
 /**
  * Configures ZenFS with `configuration`
+ * @category Backends and Configuration
  * @see Configuration
  */
 export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): Promise<void> {
