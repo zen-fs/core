@@ -2,9 +2,6 @@
 title: Virtual File System (VFS)
 ---
 
-> [!NOTE]
-> This article is a work in progress!
-
 ## Overview
 
 The Virtual File System (VFS) in ZenFS provides an abstraction layer that emulates the `node:fs` API, allowing applications to interact with files and directories in a unified manner. The VFS is responsible for handling path resolution, managing file system contexts, and mounting various storage backends.

@@ -2,9 +2,6 @@
 title: Architecture
 ---
 
-> [!NOTE]
-> This article is a work in progress!
-
 ZenFS is modular, designed to provide a flexible abstraction over multiple storage backends. It allows applications to interact with files and directories without needing to be aware of the underlying storage mechanism. Separating the file system logic into distinct layers ensures maintainability and extensibility, without a major impact on performance.
 
 ZenFS is built upon three main components:
