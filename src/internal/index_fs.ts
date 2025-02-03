@@ -69,6 +69,7 @@ export abstract class IndexFS extends FileSystem {
 			this.index.set(to, inode);
 			await this.write(to, data, 0);
 		}
+		await this.remove(oldPath);
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
@@ -79,6 +80,7 @@ export abstract class IndexFS extends FileSystem {
 			this.index.set(to, inode);
 			this.writeSync(to, data, 0);
 		}
+		this.removeSync(oldPath);
 	}
 
 	public async stat(path: string): Promise<Stats> {
