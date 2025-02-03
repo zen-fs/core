@@ -47,7 +47,6 @@ export abstract class IndexFS extends FileSystem {
 	 * Finds all the paths in the index that need to be moved for a rename
 	 */
 	private pathsForRename(oldPath: string, newPath: string): MoveInfo[] {
-		if (newPath === oldPath) return [];
 		if (!this.index.has(oldPath)) throw ErrnoError.With('ENOENT', oldPath, 'rename');
 		if ((dirname(newPath) + '/').startsWith(oldPath + '/')) throw ErrnoError.With('EBUSY', dirname(oldPath), 'rename');
 		const toRename: MoveInfo[] = [];
@@ -62,6 +61,7 @@ export abstract class IndexFS extends FileSystem {
 	}
 
 	public async rename(oldPath: string, newPath: string): Promise<void> {
+		if (oldPath == newPath) return;
 		for (const { from, to, inode } of this.pathsForRename(oldPath, newPath)) {
 			const data = new Uint8Array(inode.size);
 			await this.read(from, data, 0, inode.size);
@@ -73,6 +73,7 @@ export abstract class IndexFS extends FileSystem {
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
+		if (oldPath == newPath) return;
 		for (const { from, to, inode } of this.pathsForRename(oldPath, newPath)) {
 			const data = new Uint8Array(inode.size);
 			this.readSync(from, data, 0, inode.size);
