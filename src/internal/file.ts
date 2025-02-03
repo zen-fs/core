@@ -7,10 +7,13 @@ import type { FileSystem } from './filesystem.js';
 import { log_deprecated } from './log.js';
 import '../polyfills.js';
 
-const maxByteLength = 0x100000; // 1 MiB
+const maxByteLength = 0xffff; // 64 KiB
 
 const validFlags = ['r', 'r+', 'rs', 'rs+', 'w', 'wx', 'w+', 'wx+', 'a', 'ax', 'a+', 'ax+'];
 
+/**
+ * @internal @hidden
+ */
 export function parseFlag(flag: string | number): string {
 	if (typeof flag === 'number') {
 		return flagToString(flag);
@@ -21,6 +24,9 @@ export function parseFlag(flag: string | number): string {
 	return flag;
 }
 
+/**
+ * @internal @hidden
+ */
 export function flagToString(flag: number): string {
 	switch (flag) {
 		case c.O_RDONLY:
@@ -52,6 +58,9 @@ export function flagToString(flag: number): string {
 	}
 }
 
+/**
+ * @internal @hidden
+ */
 export function flagToNumber(flag: string): number {
 	switch (flag) {
 		case 'r':
@@ -86,6 +95,7 @@ export function flagToNumber(flag: string): number {
 /**
  * Parses a flag as a mode (W_OK, R_OK, and/or X_OK)
  * @param flag the flag to parse
+ * @internal @hidden
  */
 export function flagToMode(flag: string): number {
 	let mode = 0;
@@ -97,35 +107,45 @@ export function flagToMode(flag: string): number {
 	return mode;
 }
 
+/** @hidden */
 export function isReadable(flag: string): boolean {
 	return flag.indexOf('r') !== -1 || flag.indexOf('+') !== -1;
 }
 
+/** @hidden */
 export function isWriteable(flag: string): boolean {
 	return flag.indexOf('w') !== -1 || flag.indexOf('a') !== -1 || flag.indexOf('+') !== -1;
 }
 
+/** @hidden */
 export function isTruncating(flag: string): boolean {
 	return flag.indexOf('w') !== -1;
 }
 
+/** @hidden */
 export function isAppendable(flag: string): boolean {
 	return flag.indexOf('a') !== -1;
 }
 
+/** @hidden */
 export function isSynchronous(flag: string): boolean {
 	return flag.indexOf('s') !== -1;
 }
 
+/** @hidden */
 export function isExclusive(flag: string): boolean {
 	return flag.indexOf('x') !== -1;
 }
 
+/** @hidden */
 export interface FileReadResult<T extends ArrayBufferView> {
 	bytesRead: number;
 	buffer: T;
 }
 
+/**
+ * @category Internals
+ */
 export abstract class File<FS extends FileSystem = FileSystem> {
 	public constructor(
 		/**
@@ -242,6 +262,7 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 /**
  * An implementation of `File` that operates completely in-memory.
  * `PreloadFile`s are backed by a `Uint8Array`.
+ * @category Internals
  */
 export class PreloadFile<FS extends FileSystem> extends File<FS> {
 	/**
@@ -557,6 +578,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 /* node:coverage disable */
 /**
  * For the file systems which do not sync to anything.
+ * @category Internals
  * @deprecated
  */
 export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
@@ -581,6 +603,7 @@ export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
 
 /**
  * An implementation of `File` that uses the FS
+ * @category Internals
  */
 export class LazyFile<FS extends FileSystem> extends File<FS> {
 	protected _buffer?: Uint8Array;

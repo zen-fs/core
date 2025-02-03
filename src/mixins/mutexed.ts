@@ -8,6 +8,10 @@ import { ErrnoError } from '../internal/error.js';
 import { err } from '../internal/log.js';
 import '../polyfills.js';
 
+/**
+ * @category Internals
+ * @internal
+ */
 export class MutexLock {
 	protected current = Promise.withResolvers<void>();
 
@@ -35,6 +39,7 @@ export class MutexLock {
 
 /**
  * @hidden
+ * @category Internals
  */
 export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	/**
@@ -288,6 +293,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
  * `MutexedFS` implements it in order to make sure all of the methods are passed through
  *
  * @todo Change `using _` to `using void` pending https://github.com/tc39/proposal-discard-binding
+ * @category Internals
  * @internal
  */
 export function Mutexed<const T extends Concrete<typeof FileSystem>>(

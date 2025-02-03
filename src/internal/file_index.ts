@@ -20,6 +20,7 @@ export const version = 1;
 
 /**
  * An index of files
+ * @category Internals
  * @internal
  */
 export class Index extends Map<string, Inode> {

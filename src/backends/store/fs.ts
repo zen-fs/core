@@ -21,6 +21,7 @@ import { WrappedTransaction, type Store } from './store.js';
  *
  * @todo Introduce Node ID caching?
  * @todo Check modes?
+ * @category Stores and Transactions
  * @internal
  */
 export class StoreFS<T extends Store = Store> extends FileSystem {

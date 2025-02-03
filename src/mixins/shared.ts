@@ -8,6 +8,7 @@ import type { FileSystem } from '../internal/filesystem.js';
 
 /**
  * `TBase` with `TMixin` mixed-in.
+ * @category Internals
  * @internal
  */
 export type Mixin<TBase extends typeof FileSystem, TMixin> = (abstract new (...args: any[]) => TMixin) & TBase;
@@ -28,12 +29,14 @@ export type _AsyncFSKeys = {
 
 /**
  * Asynchronous `FileSystem` methods. This is a convenience type for all of the async operations.
+ * @category Internals
  * @internal
  */
 export type AsyncFSMethods = Pick<FileSystem, _AsyncFSKeys>;
 
 /**
  * Concrete `FileSystem`. This is a convenience type.
+ * @category Internals
  * @internal
  */
 export type ConcreteFS = ExtractProperties<FileSystem, any>;

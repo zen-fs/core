@@ -4,12 +4,16 @@ import { err, warn } from '../../internal/log.js';
 import '../../polyfills.js';
 import type { StoreFS } from './fs.js';
 
+/**
+ * @category Stores and Transactions
+ */
 export type StoreFlag =
 	/** The store supports partial reads and writes */
 	'partial';
 
 /**
  * Represents a key-value store.
+ * @category Stores and Transactions
  */
 export interface Store {
 	/**
@@ -66,6 +70,7 @@ export interface Store {
 
 /**
  * A transaction for a store.
+ * @category Stores and Transactions
  */
 export abstract class Transaction<T extends Store = Store> {
 	public constructor(public readonly store: T) {}
@@ -118,6 +123,7 @@ export abstract class Transaction<T extends Store = Store> {
 
 /**
  * Transaction that implements asynchronous operations with synchronous ones
+ * @category Stores and Transactions
  */
 export abstract class SyncTransaction<T extends Store = Store> extends Transaction<T> {
 	/* eslint-disable @typescript-eslint/require-await */
@@ -137,6 +143,9 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 	/* eslint-enable @typescript-eslint/require-await */
 }
 
+/**
+ * @category Stores and Transactions
+ */
 export interface AsyncStore extends Store {
 	cache?: Map<number, Resource<number>>;
 }
@@ -145,6 +154,7 @@ export interface AsyncStore extends Store {
  * Transaction that implements synchronous operations with a cache
  * @implementors You *must* update the cache and wait for `store.asyncDone` in your asynchronous methods.
  * @todo Make sure we handle abortions correctly, especially since the cache is shared between transactions.
+ * @category Stores and Transactions
  */
 export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extends Transaction<T> {
 	protected asyncDone: Promise<unknown> = Promise.resolve();
@@ -206,6 +216,7 @@ export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extend
 /**
  * Wraps a transaction with the ability to roll-back changes, among other things.
  * This is used by `StoreFS`
+ * @category Stores and Transactions
  * @internal @hidden
  */
 export class WrappedTransaction<T extends Store = Store> {

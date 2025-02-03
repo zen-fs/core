@@ -28,6 +28,7 @@ export interface ReadonlyMixin {
 
 /**
  * Implements the non-readonly methods to throw `EROFS`
+ * @category Internals
  */
 /* eslint-disable @typescript-eslint/require-await */
 export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, ReadonlyMixin> {

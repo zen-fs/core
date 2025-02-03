@@ -1,6 +1,7 @@
 /**
  * Credentials used for various operations.
  * Similar to Linux's cred struct.
+ * @category Internals
  * @see https://github.com/torvalds/linux/blob/master/include/linux/cred.h
  */
 export interface Credentials {
@@ -16,6 +17,9 @@ export interface Credentials {
 	groups: number[];
 }
 
+/**
+ * @category Internals
+ */
 export const credentials: Credentials = {
 	uid: 0,
 	gid: 0,
@@ -28,12 +32,16 @@ export const credentials: Credentials = {
 
 /**
  * Initialization for a set of credentials
+ * @category Internals
  */
 export interface CredentialInit extends Partial<Credentials> {
 	uid: number;
 	gid: number;
 }
 
+/**
+ * @category Internals
+ */
 export function createCredentials(source: CredentialInit): Credentials {
 	return {
 		suid: source.uid,
@@ -47,6 +55,7 @@ export function createCredentials(source: CredentialInit): Credentials {
 
 /**
  * Uses credentials from the provided uid and gid.
+ * @category Internals
  */
 export function useCredentials(source: CredentialInit): void {
 	Object.assign(credentials, createCredentials(source));

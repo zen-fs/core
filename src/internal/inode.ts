@@ -9,11 +9,18 @@ import { crit, debug } from './log.js';
  */
 export const rootIno = 0;
 
+/**
+ * @internal @hidden
+ */
 export interface InodeFields {
 	data?: number;
 	flags?: number;
 }
 
+/**
+ * @category Internals
+ * @internal
+ */
 export interface InodeLike extends StatsLike<number>, InodeFields {}
 
 /**
@@ -23,6 +30,7 @@ export const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', '
 
 /**
  * Generic inode definition that can easily be serialized.
+ * @category Internals
  * @internal
  * @todo [BREAKING] Remove 58 byte Inode upgrade path
  */

@@ -1,6 +1,7 @@
 /**
  * Standard libc error codes. More will be added to this enum and error strings as they are
  * needed.
+ * @category Internals
  * @see https://en.wikipedia.org/wiki/Errno.h
  */
 export enum Errno {
@@ -153,8 +154,10 @@ export enum Errno {
 	/** Disk quota exceeded */
 	EDQUOT = 122,
 }
+
 /**
  * Strings associated with each error code.
+ * @category Internals
  * @internal
  */
 export const errorMessages: { [K in Errno]: string } = {
@@ -234,6 +237,9 @@ export const errorMessages: { [K in Errno]: string } = {
 	[Errno.EDQUOT]: 'Disk quota exceeded',
 };
 
+/**
+ * @category Internals
+ */
 export interface ErrnoErrorJSON {
 	errno: Errno;
 	message: string;
@@ -245,6 +251,7 @@ export interface ErrnoErrorJSON {
 
 /**
  * An error with additional information about what happened
+ * @category Internals
  */
 export class ErrnoError extends Error implements NodeJS.ErrnoException {
 	public static fromJSON(json: ErrnoErrorJSON): ErrnoError {

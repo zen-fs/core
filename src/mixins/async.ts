@@ -8,13 +8,17 @@ import { LazyFile, parseFlag } from '../internal/file.js';
 import { crit, err, notice } from '../internal/log.js';
 import { join } from '../vfs/path.js';
 
-/** @internal */
+/**
+ * @internal
+ * @category Internals
+ */
 export type AsyncOperation = {
 	[K in keyof AsyncFSMethods]: [K, ...Parameters<FileSystem[K]>];
 }[keyof AsyncFSMethods];
 
 /**
  * @internal
+ * @category Internals
  */
 export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'existsSync'>> {
 	/**
@@ -33,7 +37,7 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
  * Synchronous methods on an asynchronous FS are implemented by performing operations over the in-memory copy,
  * while asynchronously pipelining them to the backing store.
  * During loading, the contents of the async file system are preloaded into the synchronous store.
- *
+ * @category Internals
  */
 export function Async<const T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, AsyncMixin> {
 	abstract class AsyncFS extends FS implements AsyncMixin {

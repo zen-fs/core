@@ -3,6 +3,7 @@ import { AsyncTransaction, SyncTransaction } from './store.js';
 
 /**
  * An interface for simple synchronous stores that don't have special support for transactions and such, based on `Map`
+ * @category Stores and Transactions
  */
 export interface SyncMapStore extends Store {
 	keys(): Iterable<number>;
@@ -14,6 +15,7 @@ export interface SyncMapStore extends Store {
 
 /**
  * Transaction for map stores.
+ * @category Stores and Transactions
  * @see SyncMapStore
  */
 export class SyncMapTransaction extends SyncTransaction<SyncMapStore> {
@@ -43,6 +45,7 @@ export class SyncMapTransaction extends SyncTransaction<SyncMapStore> {
 
 /**
  * An interface for simple asynchronous stores that don't have special support for transactions and such, based on `Map`.
+ * @category Stores and Transactions
  */
 export interface AsyncMap {
 	keys(): Iterable<number>;
@@ -52,6 +55,9 @@ export interface AsyncMap {
 	delete(id: number): Promise<void>;
 }
 
+/**
+ * @category Stores and Transactions
+ */
 export class AsyncMapTransaction<T extends Store & AsyncMap = Store & AsyncMap> extends AsyncTransaction<T> {
 	public async keys(): Promise<Iterable<number>> {
 		await this.asyncDone;

@@ -19,6 +19,7 @@ import { alert, debug, err, info, log_deprecated } from './log.js';
 /**
  * A device
  * @todo Maybe add some other device information, like a UUID?
+ * @category Internals
  * @privateRemarks
  * UUIDs were considered, however they don't make sense without an easy mechanism for persistence
  */
@@ -50,6 +51,9 @@ export interface Device<TData = any> {
 	minor: number;
 }
 
+/**
+ * @category Internals
+ */
 export interface DeviceInit<TData = any> {
 	data?: TData;
 	minor?: number;
@@ -59,6 +63,7 @@ export interface DeviceInit<TData = any> {
 
 /**
  * A device driver
+ * @category Internals
  */
 export interface DeviceDriver<TData = any> {
 	/**
@@ -135,6 +140,8 @@ export interface DeviceDriver<TData = any> {
  * This class only does some simple things:
  * It implements `truncate` using `write` and it has non-device methods throw.
  * It is up to device drivers to implement the rest of the functionality.
+ * @category Internals
+ * @internal
  */
 export class DeviceFile<TData = any> extends File {
 	public position = 0;
@@ -267,6 +274,7 @@ export class DeviceFile<TData = any> extends File {
 
 /**
  * A temporary file system that manages and interfaces with devices
+ * @category Internals
  */
 export class DeviceFS extends StoreFS<InMemoryStore> {
 	protected readonly devices = new Map<string, Device>();
@@ -558,6 +566,7 @@ const emptyBuffer = new Uint8Array();
  * Simulates the `/dev/null` device.
  * - Reads return 0 bytes (EOF).
  * - Writes discard data, advancing the file position.
+ * @category Internals
  * @internal
  */
 export const nullDevice: DeviceDriver = {
@@ -583,6 +592,7 @@ export const nullDevice: DeviceDriver = {
  * - Reads fill the buffer with zeroes.
  * - Writes discard data but update the file position.
  * - Provides basic file metadata, treating it as a character device.
+ * @category Internals
  * @internal
  */
 export const zeroDevice: DeviceDriver = {
@@ -601,6 +611,7 @@ export const zeroDevice: DeviceDriver = {
  * Simulates the `/dev/full` device.
  * - Reads behave like `/dev/zero` (returns zeroes).
  * - Writes always fail with ENOSPC (no space left on device).
+ * @category Internals
  * @internal
  */
 export const fullDevice: DeviceDriver = {
@@ -624,6 +635,7 @@ export const fullDevice: DeviceDriver = {
  * Simulates the `/dev/random` device.
  * - Reads return random bytes.
  * - Writes discard data, advancing the file position.
+ * @category Internals
  * @internal
  */
 export const randomDevice: DeviceDriver = {
@@ -642,6 +654,7 @@ export const randomDevice: DeviceDriver = {
 
 /**
  * Simulates the `/dev/console` device.
+ * @category Internals
  * @experimental @internal
  */
 const consoleDevice: DeviceDriver<{ output: (text: string, offset: number) => unknown }> = {
@@ -661,6 +674,8 @@ const consoleDevice: DeviceDriver<{ output: (text: string, offset: number) => un
 
 /**
  * Shortcuts for importing.
+ * @category Internals
+ * @internal
  */
 export const devices = {
 	null: nullDevice,

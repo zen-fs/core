@@ -17,6 +17,8 @@ interface MoveInfo {
 
 /**
  * Uses an `Index` for metadata.
+ * @category Internals
+ * @internal
  */
 export abstract class IndexFS extends FileSystem {
 	public constructor(

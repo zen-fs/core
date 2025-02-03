@@ -5,6 +5,8 @@ import type { File } from './file.js';
 
 /**
  * Usage information about a file system
+ * @category Internals
+ * @internal
  */
 export interface UsageInfo {
 	/**
@@ -37,6 +39,7 @@ export interface UsageInfo {
 /* node:coverage disable */
 /**
  * Metadata about a FileSystem
+ * @category Internals
  * @deprecated
  */
 export interface FileSystemMetadata extends UsageInfo {
@@ -84,6 +87,8 @@ export interface FileSystemMetadata extends UsageInfo {
 /**
  * Attributes that control how the file system interacts with the VFS.
  * No options are set by default.
+ * @category Internals
+ * @internal
  */
 export type FileSystemAttributes = {
 	/** The FS supports setuid and setgid when creating files and directories. */
@@ -116,6 +121,7 @@ export type FileSystemAttributes = {
  * Options used when creating files and directories.
  * This weird naming and such is to preserve backward compatibility.
  * @todo [BREAKING] Move the `mode` parameter of `createFile` and `mkdir` into this
+ * @category Internals
  * @internal
  */
 export interface CreationOptions {
@@ -139,6 +145,8 @@ export interface CreationOptions {
 
 /**
  * This is the correct type that will be used when the API is updated in a breaking release
+ * @category Internals
+ * @internal
  */
 export interface PureCreationOptions extends CreationOptions {
 	/**
@@ -151,6 +159,7 @@ export interface PureCreationOptions extends CreationOptions {
  * Provides a consistent and easy to use internal API.
  * Default implementations for `exists` and `existsSync` are included.
  * If you are extending this class, note that every path is an absolute path and all arguments are present.
+ * @category Internals
  * @internal
  */
 export abstract class FileSystem {
