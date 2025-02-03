@@ -10,7 +10,6 @@ import { Errno, ErrnoError } from '../internal/error.js';
 import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../internal/file.js';
 import { BigIntStats } from '../stats.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
-import * as cache from './cache.js';
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -111,7 +110,7 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		if (config.checkAccess && !(cache.stats.get(path) || fs.statSync(resolved)).hasAccess(constants.W_OK, this)) {
+		if (config.checkAccess && !fs.statSync(resolved).hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		fs.unlinkSync(resolved);
@@ -457,7 +456,7 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	try {
-		const stats = cache.stats.get(path) || fs.statSync(resolved);
+		const stats = fs.statSync(resolved);
 		if (!stats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
 		}
@@ -540,8 +539,7 @@ export function readdirSync(
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	let entries: string[];
 	try {
-		const stats = cache.stats.get(path) || fs.statSync(resolved);
-		cache.stats.set(path, stats);
+		const stats = fs.statSync(resolved);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'readdir');
 		}
@@ -556,8 +554,7 @@ export function readdirSync(
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		const entryStat = cache.stats.get(join(path, entry)) || fs.statSync(join(resolved, entry));
-		cache.stats.set(join(path, entry), entryStat);
+		const entryStat = fs.statSync(join(resolved, entry));
 
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
@@ -580,9 +577,6 @@ export function readdirSync(
 		}
 	}
 
-	if (!options?._isIndirect) {
-		cache.stats.clear();
-	}
 	return values as string[] | Dirent[] | Buffer[];
 }
 readdirSync satisfies typeof fs.readdirSync;
@@ -708,7 +702,6 @@ export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.En
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	path = normalizePath(path);
 	const ctx_path = (this?.root || '') + path;
-	if (cache.paths.has(ctx_path)) return cache.paths.get(ctx_path)!;
 
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
@@ -721,32 +714,27 @@ export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.En
 
 		if (stats.isSymbolicLink()) {
 			const target = resolve(dirname(resolvedPath), readlinkSync.call(this, resolvedPath, options).toString());
-			real = cache.paths.get((this?.root || '') + target) || realpathSync.call(this, target);
-			cache.paths.set(ctx_path, real);
+			real = realpathSync.call(this, target);
 		}
 
-		cache.paths.set(path, real);
 		return real;
 	} catch {
 		// Go the long way
 	}
 
 	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : cache.paths.get((this?.root || '') + dir) || realpathSync.call(this, dir);
+	const realDir = dir == '/' ? '/' : realpathSync.call(this, dir);
 	const lpath = join(realDir, base);
 	const { fs, path: resolvedPath } = resolveMount(lpath, this);
 
 	try {
-		const stats = cache.stats.get(lpath) || fs.statSync(resolvedPath);
-		cache.stats.set(lpath, stats);
+		const stats = fs.statSync(resolvedPath);
 		if (!stats.isSymbolicLink()) {
-			cache.paths.set(path, lpath);
 			return lpath;
 		}
 
 		const target = resolve(realDir, readlinkSync.call(this, lpath, options).toString());
-		const real = cache.paths.get((this?.root || '') + target) || realpathSync.call(this, target);
-		cache.paths.set(ctx_path, real);
+		const real = realpathSync.call(this, target);
 		return real;
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
@@ -774,16 +762,12 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 
 	let stats: Stats | undefined;
 	try {
-		stats = cache.stats.get(path) || (lstatSync.bind(this) as typeof statSync)(path);
+		stats = (lstatSync.bind(this) as typeof statSync)(path);
 	} catch (error) {
 		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
 	}
 
-	if (!stats) {
-		return;
-	}
-
-	cache.stats.set(path, stats);
+	if (!stats) return;
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
@@ -804,12 +788,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			cache.stats.clear();
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
-	}
-
-	if (!options?._isIndirect) {
-		cache.stats.clear();
 	}
 }
 rmSync satisfies typeof fs.rmSync;

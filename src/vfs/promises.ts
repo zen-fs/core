@@ -16,7 +16,6 @@ import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWrit
 import '../polyfills.js';
 import { BigIntStats } from '../stats.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
-import * as cache from './cache.js';
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -511,7 +510,7 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		if (config.checkAccess && !(await (cache.stats.getAsync(path) || fs.stat(resolved))).hasAccess(constants.W_OK, this)) {
+		if (config.checkAccess && !(await fs.stat(resolved)).hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -704,7 +703,7 @@ export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 	path = await realpath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		const stats = await (cache.stats.getAsync(path) || fs.stat(resolved));
+		const stats = await fs.stat(resolved);
 		if (!stats) {
 			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
@@ -817,9 +816,7 @@ export async function readdir(
 
 	const { fs, path: resolved } = resolveMount(path, this);
 
-	const _stats = cache.stats.getAsync(path) || fs.stat(resolved).catch(handleError);
-	cache.stats.setAsync(path, _stats);
-	const stats = await _stats;
+	const stats = await fs.stat(resolved).catch(handleError);
 
 	if (!stats) {
 		throw ErrnoError.With('ENOENT', path, 'readdir');
@@ -839,9 +836,7 @@ export async function readdir(
 	const addEntry = async (entry: string) => {
 		let entryStats: Stats | undefined;
 		if (options?.recursive || options?.withFileTypes) {
-			const _entryStats = cache.stats.getAsync(join(path, entry)) || fs.stat(join(resolved, entry)).catch(handleError);
-			cache.stats.setAsync(join(path, entry), _entryStats);
-			entryStats = await _entryStats;
+			entryStats = await fs.stat(join(resolved, entry)).catch(handleError);
 		}
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStats!));
@@ -866,9 +861,6 @@ export async function readdir(
 		}
 	};
 	await Promise.all(entries.map(addEntry));
-	if (!options?._isIndirect) {
-		cache.stats.clear();
-	}
 
 	return values as string[] | Dirent[];
 }
@@ -1021,8 +1013,6 @@ export async function realpath(
 	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
 ): Promise<string | Buffer> {
 	path = normalizePath(path);
-	const ctx_path = (this?.root || '') + path;
-	if (cache.paths.hasAsync(ctx_path)) return cache.paths.getAsync(ctx_path)!;
 
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
@@ -1034,35 +1024,28 @@ export async function realpath(
 		let real = path.toString();
 
 		if (stats.isSymbolicLink()) {
-			const target = resolve(dirname(resolvedPath), (await readlink.call(this, resolvedPath, options)).toString());
-			real = cache.paths.get((this?.root || '') + target) || (await realpath.call(this, target));
-			cache.paths.set(ctx_path, real);
+			const target = resolve(dirname(path), (await readlink.call(this, path, options)).toString());
+			real = await realpath.call(this, target);
 		}
 
-		cache.paths.set(path.toString(), real);
 		return real;
 	} catch {
 		// Go the long way
 	}
 
 	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : await (cache.paths.getAsync((this?.root || '') + dir) || realpath.call(this, dir));
+	const realDir = dir == '/' ? '/' : await realpath.call(this, dir);
 	const lpath = join(realDir, base);
 	const { fs, path: resolvedPath } = resolveMount(lpath, this);
 
 	try {
-		const _stats = cache.stats.getAsync(lpath) || fs.stat(resolvedPath);
-		cache.stats.setAsync(lpath, _stats);
-		if (!(await _stats).isSymbolicLink()) {
-			cache.paths.set(path, lpath);
+		if (!(await fs.stat(resolvedPath)).isSymbolicLink()) {
 			return lpath;
 		}
 
 		const target = resolve(realDir, (await readlink.call(this, lpath)).toString());
 
-		const real = cache.paths.getAsync((this?.root || '') + target) || realpath.call(this, target);
-		cache.paths.setAsync(ctx_path, real);
-		return await real;
+		return await realpath.call(this, target);
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return path;
@@ -1152,17 +1135,12 @@ access satisfies typeof promises.access;
 export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOptions & InternalOptions) {
 	path = normalizePath(path);
 
-	const stats = await (cache.stats.getAsync(path) ||
-		lstat.call<V_Context, [string], Promise<Stats>>(this, path).catch((error: ErrnoError) => {
-			if (error.code == 'ENOENT' && options?.force) return undefined;
-			throw error;
-		}));
+	const stats = await lstat.call<V_Context, [string], Promise<Stats>>(this, path).catch((error: ErrnoError) => {
+		if (error.code == 'ENOENT' && options?.force) return undefined;
+		throw error;
+	});
 
-	if (!stats) {
-		return;
-	}
-
-	cache.stats.set(path, stats);
+	if (!stats) return;
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
@@ -1185,12 +1163,7 @@ export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOpti
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			cache.stats.clear();
 			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
-	}
-
-	if (!options?._isIndirect) {
-		cache.stats.clear();
 	}
 }
 rm satisfies typeof promises.rm;

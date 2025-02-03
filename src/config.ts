@@ -7,7 +7,6 @@ import { Errno, ErrnoError } from './internal/error.js';
 import { FileSystem } from './internal/filesystem.js';
 import type { LogConfiguration } from './internal/log.js';
 import { configure as configureLog, crit, err, info } from './internal/log.js';
-import * as cache from './vfs/cache.js';
 import { config } from './vfs/config.js';
 import * as fs from './vfs/index.js';
 import { mounts } from './vfs/shared.js';
@@ -107,23 +106,6 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	addDevices: boolean;
 
 	/**
-	 * If true, enables caching stats for certain operations.
-	 * This should reduce the number of stat calls performed.
-	 * @experimental
-	 * @default false
-	 */
-	cacheStats: boolean;
-
-	/**
-	 * If true, enables caching realpath output
-	 *
-	 * This can increase performance.
-	 * @experimental
-	 * @default false
-	 */
-	cachePaths: boolean;
-
-	/**
 	 * If true, disables *all* permissions checking.
 	 *
 	 * This can increase performance.
@@ -212,8 +194,6 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	useCredentials({ uid, gid });
 
-	cache.stats.isEnabled = configuration.cacheStats ?? false;
-	cache.paths.isEnabled = configuration.cachePaths ?? false;
 	config.checkAccess = !configuration.disableAccessChecks;
 	config.updateOnRead = !configuration.disableUpdateOnRead;
 	config.syncImmediately = !configuration.onlySyncOnClose;

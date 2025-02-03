@@ -9,7 +9,6 @@ import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { alert, debug, err, info, log_deprecated, notice, warn } from '../internal/log.js';
 import { normalizePath } from '../utils.js';
-import { paths as pathCache } from './cache.js';
 import { size_max } from './constants.js';
 import { join, resolve, type AbsolutePath } from './path.js';
 
@@ -71,7 +70,6 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 	mounts.set(mountPoint, fs);
 	info(`Mounted ${fs.name} on ${mountPoint}`);
 	debug(`${fs.name} attributes: ${[...fs.attributes].map(([k, v]) => (v !== undefined && v !== null ? k + '=' + v : v)).join(', ')}`);
-	pathCache.clear();
 }
 
 /**
@@ -88,7 +86,6 @@ export function umount(mountPoint: string): void {
 	}
 
 	mounts.delete(mountPoint);
-	pathCache.clear();
 	notice('Unmounted ' + mountPoint);
 }
 
@@ -114,9 +111,7 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 		// We know path is normalized, so it would be a substring of the mount point.
 		if (_isParentOf(mountPoint, path)) {
 			path = path.slice(mountPoint.length > 1 ? mountPoint.length : 0); // Resolve the path relative to the mount point
-			if (path === '') {
-				path = root;
-			}
+			if (path === '') path = root;
 			return { fs, path, mountPoint, root };
 		}
 	}
