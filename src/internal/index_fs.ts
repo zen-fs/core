@@ -82,13 +82,15 @@ export abstract class IndexFS extends FileSystem {
 	}
 
 	public async stat(path: string): Promise<Stats> {
-		return this.statSync(path);
+		const inode = this.index.get(path);
+		if (!inode) throw ErrnoError.With('ENOENT', path, 'stat');
+		return new Stats(inode);
 	}
 
 	public statSync(path: string): Stats {
-		if (!this.index.has(path)) throw ErrnoError.With('ENOENT', path, 'stat');
-
-		return new Stats(this.index.get(path));
+		const inode = this.index.get(path);
+		if (!inode) throw ErrnoError.With('ENOENT', path, 'stat');
+		return new Stats(inode);
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {
