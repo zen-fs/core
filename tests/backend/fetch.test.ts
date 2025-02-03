@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { suite, test } from 'node:test';
 import { Worker } from 'node:worker_threads';
-import { Fetch, configureSingle, fs } from '../../dist/index.js';
+import { Fetch, configureSingle, fs, mounts, type FetchFS } from '../../dist/index.js';
 import { baseUrl, defaultEntries, indexPath, whenServerReady } from '../fetch/config.js';
 
 const server = new Worker(join(import.meta.dirname, '../fetch/server.js'));
@@ -40,8 +40,9 @@ await suite('Fetch with `disableAsyncCache`', () => {
 		assert.deepEqual(entries, [...defaultEntries, 'example', 'duck']);
 	});
 
-	test('Uncached synchronous operations throw', () => {
+	test('Uncached synchronous operations throw', async () => {
 		assert.throws(() => fs.readFileSync('/x.txt', 'utf8'), { code: 'EAGAIN' });
+		await (mounts.get('/') as FetchFS)._asyncDone;
 	});
 });
 

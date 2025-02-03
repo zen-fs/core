@@ -66,6 +66,15 @@ export interface FetchOptions extends SharedConfig {
  * @internal
  */
 export class FetchFS extends IndexFS {
+	/**
+	 * @internal @hidden
+	 */
+	_asyncDone: Promise<unknown> = Promise.resolve();
+
+	protected _async(p: Promise<unknown>) {
+		this._asyncDone = this._asyncDone.then(() => p);
+	}
+
 	public constructor(
 		index: Index,
 		protected baseUrl: string,
@@ -80,7 +89,7 @@ export class FetchFS extends IndexFS {
 	}
 
 	protected removeSync(path: string): void {
-		void requests.remove(this.baseUrl + path, { warn, cacheOnly: !this.remoteWrite }, this.requestInit);
+		this._async(requests.remove(this.baseUrl + path, { warn, cacheOnly: !this.remoteWrite }, this.requestInit));
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number = 0, end: number): Promise<void> {
@@ -116,7 +125,7 @@ export class FetchFS extends IndexFS {
 		if (!data) throw ErrnoError.With('ENODATA', path, 'read');
 
 		if (missing.length) {
-			void requests.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn });
+			this._async(requests.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }));
 			throw ErrnoError.With('EAGAIN', path, 'read');
 		}
 
@@ -128,7 +137,9 @@ export class FetchFS extends IndexFS {
 	}
 
 	public writeSync(path: string, data: Uint8Array, offset: number): void {
-		void requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError(path, this));
+		this._async(
+			requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError(path, this))
+		);
 	}
 }
 
