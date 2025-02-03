@@ -66,7 +66,7 @@ suite('Rename', () => {
 		await fs.promises.writeFile(one, 'hey');
 		await fs.promises.rename(one, two);
 
-		assert((await fs.promises.readFile(two, 'utf8')) === 'hey');
+		assert.equal(await fs.promises.readFile(two, 'utf8'), 'hey');
 		assert(!(await fs.promises.exists(one)));
 	});
 
