@@ -15,6 +15,7 @@
 		"entryPoints": ["./src/index.ts"],
 		"out": "docs",
 		"name": "ZenFS",
-		"plugin": ["./scripts/typedoc-plugin.js"]
+		"plugin": ["./scripts/typedoc-plugin.js"],
+		"projectDocuments": ["documentation/*.md"]
 	}
 }
