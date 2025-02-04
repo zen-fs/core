@@ -17,10 +17,6 @@ export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapSto
 
 	public async sync(): Promise<void> {}
 
-	public clearSync(): void {
-		this.clear();
-	}
-
 	public transaction(): SyncMapTransaction {
 		return new SyncMapTransaction(this);
 	}
