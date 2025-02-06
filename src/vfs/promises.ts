@@ -65,9 +65,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async chmod(mode: fs.Mode): Promise<void> {
 		const numMode = normalizeMode(mode, -1);
-		if (numMode < 0) {
-			throw new ErrnoError(Errno.EINVAL, 'Invalid mode.');
-		}
+		if (numMode < 0) throw new ErrnoError(Errno.EINVAL, 'Invalid mode.');
 		await this.file.chmod(numMode);
 		this._emitChange();
 	}
@@ -544,19 +542,19 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = parseFlag(opt.flag);
 
-	const { fullPath: realpath, fs, path: resolved, stats } = await _resolve($, path.toString(), opt.preserveSymlinks);
+	const { fullPath, fs, path: resolved, stats } = await _resolve($, path.toString(), opt.preserveSymlinks);
 
 	if (!stats) {
 		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
-			throw ErrnoError.With('ENOENT', realpath, '_open');
+			throw ErrnoError.With('ENOENT', fullPath, '_open');
 		}
 		// Create the file
 		const parentStats: Stats = await fs.stat(dirname(resolved));
 		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, $)) {
-			throw ErrnoError.With('EACCES', dirname(realpath), '_open');
+			throw ErrnoError.With('EACCES', dirname(fullPath), '_open');
 		}
 		if (!parentStats.isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', dirname(realpath), '_open');
+			throw ErrnoError.With('ENOTDIR', dirname(fullPath), '_open');
 		}
 		const { euid: uid, egid: gid } = $?.credentials ?? credentials;
 		const file = await fs.createFile(resolved, flag, mode, { uid, gid });
@@ -565,11 +563,11 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 	}
 
 	if (config.checkAccess && !stats.hasAccess(flagToMode(flag), $)) {
-		throw ErrnoError.With('EACCES', realpath, '_open');
+		throw ErrnoError.With('EACCES', fullPath, '_open');
 	}
 
 	if (isExclusive(flag)) {
-		throw ErrnoError.With('EEXIST', realpath, '_open');
+		throw ErrnoError.With('EEXIST', fullPath, '_open');
 	}
 
 	const handle = new FileHandle(await fs.openFile(resolved, flag), $);
@@ -625,8 +623,8 @@ export async function readFile(
 	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
 ): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
-	await using handle: FileHandle | promises.FileHandle =
-		typeof path == 'object' && 'fd' in path ? path : await open.call(this, path, options.flag, options.mode);
+	await using handle: FileHandle =
+		typeof path == 'object' && 'fd' in path ? (path as FileHandle) : await open.call(this, path, options.flag, options.mode);
 	return await handle.readFile(options);
 }
 readFile satisfies typeof promises.readFile;
@@ -912,9 +910,7 @@ export async function symlink(
 
 	path = normalizePath(path);
 
-	if (await exists.call(this, path)) {
-		throw ErrnoError.With('EEXIST', path, 'symlink');
-	}
+	if (await exists.call(this, path)) throw ErrnoError.With('EEXIST', path, 'symlink');
 
 	await using handle = await _open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
 	await handle.writeFile(normalizePath(target, true));
@@ -1041,8 +1037,7 @@ async function _resolve($: V_Context, path: string, preserveSymlinks?: boolean):
 		}
 
 		const target = resolve(realDir, (await readlink.call($, maybePath)).toString());
-		const real = await realpath.call($, target);
-		return { ...resolved, fullPath: real, stats };
+		return await _resolve($, target);
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return { ...resolved, fullPath: path };

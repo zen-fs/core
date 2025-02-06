@@ -741,8 +741,7 @@ function _resolveSync($: V_Context, path: string, preserveSymlinks?: boolean): R
 		}
 
 		const target = resolve(realDir, readlinkSync.call($, maybePath).toString());
-		const real = realpathSync.call($, target);
-		return { ...resolved, fullPath: real, stats };
+		return _resolveSync($, target);
 	} catch (e) {
 		if ((e as ErrnoError).code == 'ENOENT') {
 			return { ...resolved, fullPath: path };
