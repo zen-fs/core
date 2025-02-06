@@ -1,11 +1,9 @@
 name: CI
 
 on:
-    push:
-        branches:
-            - main
     workflow_dispatch:
     workflow_call:
+    pull_request:
 
 permissions:
     checks: write
@@ -18,8 +16,6 @@ jobs:
         defaults:
             run:
                 shell: bash
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -32,39 +28,32 @@ jobs:
             - name: Install dependencies
               run: npm install
 
-            - name: Create sub-checks
-              run: npx zci init
-
             - name: Formatting
-              run: npx zci run format "npm run format:check"
+              run: npm run format:check
 
             - name: Build
-              run: npx zci run build "npm run build"
+              run: npm run build
 
             - name: Linting
-              run: npx zci run lint "npm run lint"
+              run: npm run lint
 
             - name: 'Unit tests: common'
-              run: npx zenfs-test -pfwC --common
+              run: npx zenfs-test -pfw --common
 
             - name: 'Unit tests: InMemory'
-              run: npx zenfs-test -pfwC tests/setup/memory.ts
+              run: npx zenfs-test -pfw tests/setup/memory.ts
 
             - name: 'Unit tests: contexts'
-              run: npx zenfs-test -pfwC tests/setup/context.ts
+              run: npx zenfs-test -pfw tests/setup/context.ts
 
             - name: 'Unit tests: Index'
-              run: npx zenfs-test -pfwC tests/setup/index.ts
+              run: npx zenfs-test -pfw tests/setup/index.ts
 
             - name: 'Unit tests: Port'
-              run: npx zenfs-test -pfwC tests/setup/port.ts
+              run: npx zenfs-test -pfw tests/setup/port.ts
 
             - name: 'Unit tests: Overlay+Fetch'
-              run: tests/fetch/run.sh -wC
+              run: tests/fetch/run.sh -w
 
             - name: Report coverage
               run: npx zenfs-test --report
-
-            - name: Cleanup sub-checks
-              if: always()
-              run: npx zci cleanup
