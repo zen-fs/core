@@ -51,7 +51,7 @@ Output:
     -h, --help          Outputs this help message
     -w, --verbose       Output verbose messages
     -q, --quiet         Don't output normal messages
-	-l, --logs <level>  Change the default log level for test output. Level can be a number or string
+    -l, --logs <level>  Change the default log level for test output. Level can be a number or string
     -N, --file-names    Use full file paths for tests from setup files instead of the base name
     -C, --ci            Continuous integration (CI) mode. This interacts with the Github
                         Checks API for better test status. Requires @octokit/action
