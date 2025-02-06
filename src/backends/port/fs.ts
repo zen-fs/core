@@ -194,7 +194,7 @@ export async function resolveRemoteMount<T extends Backend>(port: RPC.Port, conf
 	const stopAndReplay = RPC.catchMessages(port);
 	const fs = await resolveMountConfig(config, _depth);
 	attachFS(port, fs);
-	stopAndReplay(fs);
+	await stopAndReplay(fs);
 	info('Resolved remote mount: ' + fs.toString());
 	return fs;
 }

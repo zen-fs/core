@@ -626,7 +626,7 @@ export async function readFile(
 ): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	await using handle: FileHandle | promises.FileHandle =
-		typeof path == 'object' && 'fd' in path ? path : await open.call(this, path as string, options.flag, options.mode);
+		typeof path == 'object' && 'fd' in path ? path : await open.call(this, path, options.flag, options.mode);
 	return await handle.readFile(options);
 }
 readFile satisfies typeof promises.readFile;
@@ -910,12 +910,14 @@ export async function symlink(
 		throw new ErrnoError(Errno.EINVAL, 'Invalid symlink type: ' + type);
 	}
 
+	path = normalizePath(path);
+
 	if (await exists.call(this, path)) {
-		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
+		throw ErrnoError.With('EEXIST', path, 'symlink');
 	}
 
 	await using handle = await _open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
-	await handle.writeFile(target.toString());
+	await handle.writeFile(normalizePath(target, true));
 	await handle.file.chmod(constants.S_IFLNK);
 }
 symlink satisfies typeof promises.symlink;

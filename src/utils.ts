@@ -128,15 +128,21 @@ export function normalizeTime(time: string | number | Date): number {
  * Normalizes a path
  * @internal
  */
-export function normalizePath(p: fs.PathLike): AbsolutePath {
+export function normalizePath(p: fs.PathLike, noResolve: boolean = false): string {
+	if (p instanceof URL) {
+		if (p.protocol != 'file:') throw new ErrnoError(Errno.EINVAL, 'URLs must use the file: protocol');
+		p = p.pathname;
+	}
 	p = p.toString();
+	if (p.startsWith('file://')) p = p.slice('file://'.length);
 	if (p.includes('\x00')) {
 		throw new ErrnoError(Errno.EINVAL, 'Path can not contain null character');
 	}
 	if (p.length == 0) {
 		throw new ErrnoError(Errno.EINVAL, 'Path can not be empty');
 	}
-	return resolve(p.replaceAll(/[/\\]+/g, '/'));
+	p = p.replaceAll(/[/\\]+/g, '/');
+	return noResolve ? p : resolve(p);
 }
 
 /**

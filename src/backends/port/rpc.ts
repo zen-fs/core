@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { TransferListItem } from 'node:worker_threads';
+import type { TransferListItem, Worker as NodeWorker } from 'node:worker_threads';
 import type { WithOptional } from 'utilium';
 import type { ErrnoErrorJSON } from '../../internal/error.js';
 import type { FileSystem } from '../../internal/filesystem.js';
@@ -17,7 +17,7 @@ type _MessageEvent<T = any> = T | { data: T };
 /** @internal */
 export interface Port {
 	postMessage(value: unknown, transfer?: TransferListItem[]): void;
-	on?(event: 'message', listener: (value: unknown) => void): this;
+	on?(event: 'message' | 'online', listener: (value: unknown) => void): this;
 	off?(event: 'message', listener: (value: unknown) => void): this;
 	addEventListener?(type: 'message', listener: (ev: _MessageEvent) => void): void;
 	removeEventListener?(type: 'message', listener: (ev: _MessageEvent) => void): void;
@@ -153,7 +153,7 @@ export function attach<T extends Message>(port: Port, handler: (message: T) => u
 	info('Attached handler to port: ' + handler.name);
 
 	port['on' in port ? 'on' : 'addEventListener']!('message', (message: T | _MessageEvent<T>) => {
-		handler('data' in message ? message.data : message);
+		handler(typeof message == 'object' && message !== null && 'data' in message ? message.data : message);
 	});
 }
 
@@ -162,19 +162,30 @@ export function detach<T extends Message>(port: Port, handler: (message: T) => u
 	info('Detached handler from port: ' + handler.name);
 
 	port['off' in port ? 'off' : 'removeEventListener']!('message', (message: T | _MessageEvent<T>) => {
-		handler('data' in message ? message.data : message);
+		handler(typeof message == 'object' && message !== null && 'data' in message ? message.data : message);
 	});
 }
 
-export function catchMessages<T extends Backend>(port: Port): (fs: FilesystemOf<T>) => void {
+export function catchMessages<T extends Backend>(port: Port): (fs: FilesystemOf<T>) => Promise<void> {
 	const events: _MessageEvent[] = [];
 	const handler = events.push.bind(events);
 	attach(port, handler);
-	return function (fs: FileSystem) {
+	return async function (fs: FileSystem) {
 		detach(port, handler);
 		for (const event of events) {
 			const request = 'data' in event ? event.data : event;
-			void handleRequest(port, fs, request);
+			await handleRequest(port, fs, request);
 		}
 	};
+}
+
+/**
+ * @internal
+ */
+export async function waitOnline(port: Port): Promise<void> {
+	if (!('on' in port)) return; // Only need to wait in Node.js
+	const online = Promise.withResolvers<void>();
+	setTimeout(online.reject, 500);
+	(port as NodeWorker).on('online', online.resolve);
+	await online.promise;
 }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { basename, dirname, extname, join, normalize, resolve } from '../../dist/vfs/path.js';
+import * as fs from '../../dist/vfs/index.js';
 
 suite('Path emulation', () => {
 	test('resolve', () => {
@@ -30,5 +31,16 @@ suite('Path emulation', () => {
 	test('extname', () => {
 		assert.equal(extname('/path/to/file.txt'), '.txt');
 		assert.equal(extname('/path/to/file'), '');
+	});
+
+	test('file:// URL (string)', () => {
+		fs.writeFileSync('/example.txt', 'Yay');
+		assert.equal(fs.readFileSync('file:///example.txt', 'utf-8'), 'Yay');
+	});
+
+	test('file:// URL (URL)', () => {
+		fs.writeFileSync('/example.txt', 'Yay');
+		const url = new URL('file:///example.txt');
+		assert.equal(fs.readFileSync(url, 'utf-8'), 'Yay');
 	});
 });

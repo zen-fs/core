@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { MessageChannel, Worker } from 'node:worker_threads';
 import { Port, attachFS } from '../../dist/backends/port/fs.js';
+import { waitOnline } from '../../dist/backends/port/rpc.js';
 import type { InMemoryStore, StoreFS } from '../../dist/index.js';
 import { ErrnoError, InMemory, configure, configureSingle, fs, resolveMountConfig } from '../../dist/index.js';
 
@@ -49,12 +50,13 @@ timeoutChannel.port1.unref();
 // Test configuration
 
 const configPort = new Worker(import.meta.dirname + '/config.worker.js');
+await waitOnline(configPort);
 
 await suite('Remote FS with resolveRemoteMount', () => {
 	const content = 'FS is in a port';
 
 	test('Configuration', async () => {
-		await configureSingle({ backend: Port, port: configPort, timeout: 500 });
+		await configureSingle({ backend: Port, port: configPort, timeout: 100 });
 	});
 
 	test('Write', async () => {
@@ -62,11 +64,11 @@ await suite('Remote FS with resolveRemoteMount', () => {
 	});
 
 	test('Read', async () => {
-		assert((await fs.promises.readFile('/test', 'utf8')) === content);
+		assert.equal(await fs.promises.readFile('/test', 'utf8'), content);
 	});
 });
 
-await configPort?.terminate();
+await configPort.terminate();
 configPort.unref();
 
 // Test using a message channel
@@ -79,7 +81,7 @@ await suite('FS with MessageChannel', () => {
 	test('configuration', async () => {
 		tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
 		attachFS(channel.port2, tmpfs);
-		await configureSingle({ backend: Port, port: channel.port1, disableAsyncCache: true, timeout: 250 });
+		await configureSingle({ backend: Port, port: channel.port1, disableAsyncCache: true, timeout: 100 });
 	});
 
 	test('write', async () => {
@@ -88,12 +90,12 @@ await suite('FS with MessageChannel', () => {
 
 	test('remote content', () => {
 		fs.mount('/tmp', tmpfs);
-		assert(fs.readFileSync('/tmp/test', 'utf8') == content);
+		assert.equal(fs.readFileSync('/tmp/test', 'utf8'), content);
 		fs.umount('/tmp');
 	});
 
 	test('read', async () => {
-		assert((await fs.promises.readFile('/test', 'utf8')) === content);
+		assert.equal(await fs.promises.readFile('/test', 'utf8'), content);
 	});
 
 	test('readFileSync should throw', () => {
@@ -101,6 +103,8 @@ await suite('FS with MessageChannel', () => {
 	});
 });
 
+channel.port1.close();
+channel.port2.close();
 channel.port1.unref();
 channel.port2.unref();
 
@@ -112,7 +116,7 @@ await suite('Remote FS', () => {
 	const content = 'FS is in a port';
 
 	test('Configuration', async () => {
-		await configureSingle({ backend: Port, port: remotePort, timeout: 500 });
+		await configureSingle({ backend: Port, port: remotePort, timeout: 100 });
 	});
 
 	test('Write', async () => {
@@ -122,8 +126,6 @@ await suite('Remote FS', () => {
 	test('Read', async () => {
 		assert.equal(await fs.promises.readFile('/test', 'utf8'), content);
 	});
-
-	test('Cleanup', async () => {});
 });
 
 await remotePort.terminate();

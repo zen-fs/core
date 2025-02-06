@@ -205,9 +205,10 @@ export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode
 	return file2fd(_openSync.call(this, path, { flag, mode, preserveSymlinks: true }));
 }
 
-function _readFileSync(this: V_Context, fname: string, flag: string, preserveSymlinks: boolean): Uint8Array {
+function _readFileSync(this: V_Context, path: fs.PathLike, flag: string, preserveSymlinks: boolean): Uint8Array {
+	path = normalizePath(path);
 	// Get file.
-	using file = _openSync.call(this, fname, { flag, mode: 0o644, preserveSymlinks });
+	using file = _openSync.call(this, path, { flag, mode: 0o644, preserveSymlinks });
 	const stat = file.statSync();
 	// Allocate buffer.
 	const data = new Uint8Array(stat.size);
@@ -233,7 +234,7 @@ export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _op
 	if (!isReadable(flag)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading.');
 	}
-	const data: Buffer = Buffer.from(_readFileSync.call(this, typeof path == 'number' ? fd2file(path).path : path.toString(), options.flag, false));
+	const data: Buffer = Buffer.from(_readFileSync.call(this, typeof path == 'number' ? fd2file(path).path : path, options.flag, false));
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFileSync satisfies typeof fs.readFileSync;
@@ -622,7 +623,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
 	}
 
-	writeFileSync.call(this, path, target.toString());
+	writeFileSync.call(this, path, normalizePath(target, true));
 	const file = _openSync.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true });
 	file.chmodSync(constants.S_IFLNK);
 }
@@ -640,7 +641,7 @@ export function readlinkSync(
 	path: fs.PathLike,
 	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
 ): Buffer | string {
-	const value: Buffer = Buffer.from(_readFileSync.call(this, path.toString(), 'r', true));
+	const value: Buffer = Buffer.from(_readFileSync.call(this, path, 'r', true));
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	if (encoding == 'buffer') {
 		return value;
