@@ -27,6 +27,31 @@ suite('Links', () => {
 		assert.equal(await fs.promises.readFile(target, 'utf-8'), await fs.promises.readFile(symlink, 'utf-8'));
 	});
 
+	test('nested symlinks', async () => {
+		// Create the real directory structure
+		const realDir = '/real-dir';
+		const realFile = '/real-dir/realfile.txt';
+		const fileContent = 'hello world';
+		await fs.promises.mkdir(realDir);
+		await fs.promises.writeFile(realFile, fileContent);
+		// Create first symlink (symlink-dir -> real-dir)
+		const symlinkDir = '/symlink-dir';
+		await fs.promises.symlink(realDir, symlinkDir);
+		const symfile = 'symfile.txt';
+		const symlinkFile = join(realDir, symfile);
+		// Create second symlink (symlink-dir -> real-dir)
+		await fs.promises.symlink(realFile, symlinkFile);
+		// Now access file through nested symlinks
+		const nestedPath = join(symlinkDir, symfile);
+		// Verify realpath resolution
+		const resolvedPath = await fs.promises.realpath(nestedPath);
+		assert.equal(resolvedPath, realFile);
+		// Verify content can be read through nested symlinks
+		const content = await fs.promises.readFile(nestedPath, 'utf8');
+		assert.notEqual(content, '/real-dir/realfile.txt');
+		assert.equal(content, fileContent);
+	});
+
 	test('unlink', async () => {
 		await fs.promises.unlink(symlink);
 		assert(!(await fs.promises.exists(symlink)));
