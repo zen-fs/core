@@ -4,5 +4,6 @@
 	"trailingComma": "es5",
 	"tabWidth": 4,
 	"printWidth": 150,
-	"arrowParens": "avoid"
+	"arrowParens": "avoid",
+	"experimentalOperatorPosition": "start"
 }

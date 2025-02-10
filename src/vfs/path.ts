@@ -350,12 +350,12 @@ export function extname(path: string): string {
 	}
 
 	if (
-		startDot === -1 ||
-		end === -1 ||
+		startDot === -1
+		|| end === -1
 		// We saw a non-dot character immediately before the dot
-		preDotState === 0 ||
+		|| preDotState === 0
 		// The (right-most) trimmed path component is exactly '..'
-		(preDotState === 1 && startDot === end - 1 && startDot === startPart + 1)
+		|| (preDotState === 1 && startDot === end - 1 && startDot === startPart + 1)
 	) {
 		return '';
 	}
@@ -419,11 +419,11 @@ export function parse(path: string): ParsedPath {
 	if (end !== -1) {
 		const start = startPart === 0 && isAbsolute ? 1 : startPart;
 		if (
-			startDot === -1 ||
+			startDot === -1
 			// We saw a non-dot character immediately before the dot
-			preDotState === 0 ||
+			|| preDotState === 0
 			// The (right-most) trimmed path component is exactly '..'
-			(preDotState === 1 && startDot === end - 1 && startDot === startPart + 1)
+			|| (preDotState === 1 && startDot === end - 1 && startDot === startPart + 1)
 		) {
 			ret.base = ret.name = path.slice(start, end);
 		} else {

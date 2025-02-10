@@ -19,8 +19,8 @@ import * as RPC from './rpc.js';
 type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | UsageInfo>;
 type FSMethod = keyof FSMethods;
 
-export type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Message &
-	{
+export type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Message
+	& {
 		[M in TMethod]: {
 			method: M;
 			args: Parameters<FSMethods[M]>;
