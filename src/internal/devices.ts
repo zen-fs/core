@@ -360,7 +360,9 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public constructor() {
-		super(new InMemoryStore('devfs'));
+		// Please don't store your temporary files in /dev.
+		// If you do, you'll have up to 16 MiB
+		super(new InMemoryStore(0x1000000, 'devfs'));
 	}
 
 	public async rename(oldPath: string, newPath: string): Promise<void> {

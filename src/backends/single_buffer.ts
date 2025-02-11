@@ -166,21 +166,28 @@ class SuperBlock {
 		return metadata;
 	}
 
-	public isSpaceAvailable(offset: number, length: number): boolean {
-		if (offset + length > this.total_bytes || offset < sizeof(SuperBlock)) return false;
-
-		/**
-		 * @todo Make sure we handle 0-length data with an offset of used_bytes
-		 */
+	/**
+	 * Checks to see if `length` bytes are unused, starting at `offset`.
+	 * @internal Not for external use!
+	 */
+	public isUnused(offset: number, length: number): boolean {
 		if (!length) return true;
+
+		if (offset + length > this.total_bytes || offset < sizeof(SuperBlock)) return false;
 
 		for (let block: MetadataBlock | undefined = this.metadata; block; block = block.previous) {
 			if (offset < block.offset + sizeof(MetadataBlock) && offset + length > block.offset) return false;
 
 			for (const entry of block.entries) {
 				if (!entry.offset) continue;
-				if (offset >= entry.offset && offset < entry.offset + entry.size) return false;
-				if (offset + length >= entry.offset && offset + length < entry.offset + entry.size) return false;
+
+				if (
+					(offset >= entry.offset && offset < entry.offset + entry.size)
+					|| (offset + length > entry.offset && offset + length <= entry.offset + entry.size)
+					|| (offset <= entry.offset && offset + length >= entry.offset + entry.size)
+				) {
+					return false;
+				}
 			}
 		}
 
@@ -267,17 +274,25 @@ export class SingleBufferStore implements SyncMapStore {
 					return;
 				}
 
-				if (this.superblock.isSpaceAvailable(entry.offset, data.length)) {
+				if (this.superblock.isUnused(entry.offset, data.length)) {
 					entry.size = data.length;
 					this._buffer.set(data, entry.offset);
 					this._write(block);
 					return;
 				}
 
-				const newOffset = Number(this.superblock.used_bytes);
-				if (!this.superblock.isSpaceAvailable(newOffset, data.length)) throw crit(ErrnoError.With('ENOSPC'));
+				const used_bytes = Number(this.superblock.used_bytes);
 
-				entry.offset = newOffset;
+				for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
+					for (const entry of block.entries) {
+						if (entry.offset != used_bytes) continue;
+						entry.offset += data.length;
+						this._write(block);
+						break;
+					}
+				}
+
+				entry.offset = used_bytes;
 				entry.size = data.length;
 				this._buffer.set(data, entry.offset);
 				this._write(block);
@@ -295,7 +310,6 @@ export class SingleBufferStore implements SyncMapStore {
 		}
 
 		const offset = Number(this.superblock.used_bytes);
-		if (!this.superblock.isSpaceAvailable(offset, data.length)) throw crit(ErrnoError.With('ENOSPC'));
 
 		entry.id = id;
 		entry.offset = offset;

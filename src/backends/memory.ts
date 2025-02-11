@@ -1,3 +1,5 @@
+import type { UsageInfo } from '../internal/filesystem.js';
+import { size_max } from '../vfs/constants.js';
 import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
 import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
@@ -11,7 +13,10 @@ export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapSto
 
 	public readonly name = 'tmpfs';
 
-	public constructor(public readonly label?: string) {
+	public constructor(
+		public readonly maxSize: number = size_max,
+		public readonly label?: string
+	) {
 		super();
 	}
 
@@ -20,19 +25,49 @@ export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapSto
 	public transaction(): SyncMapTransaction {
 		return new SyncMapTransaction(this);
 	}
+
+	public get bytes(): number {
+		let size = 0;
+		for (const data of this.values()) size += 4 + data.byteLength;
+		return size;
+	}
+
+	public usage(): UsageInfo {
+		return {
+			totalSpace: this.maxSize,
+			freeSpace: this.maxSize - this.bytes,
+		};
+	}
+}
+
+/**
+ * Options for an in-memory backend
+ * @category Backends and Configuration
+ */
+export interface InMemoryOptions {
+	/** The maximum size of the store. Defaults to 4 GiB */
+	maxSize?: number;
+
+	/** The label to use for the store and file system */
+	label?: string;
+
+	/** @deprecated use `label` */
+	name?: string;
 }
 
 const _InMemory = {
 	name: 'InMemory',
 	options: {
+		maxSize: { type: 'number', required: false },
+		label: { type: 'string', required: false },
 		name: { type: 'string', required: false },
 	},
-	create({ name }: { name?: string }) {
-		const fs = new StoreFS(new InMemoryStore(name));
+	create({ maxSize, label, name }: InMemoryOptions) {
+		const fs = new StoreFS(new InMemoryStore(maxSize, label ?? name));
 		fs.checkRootSync();
 		return fs;
 	},
-} as const satisfies Backend<StoreFS<InMemoryStore>, { name?: string }>;
+} as const satisfies Backend<StoreFS<InMemoryStore>, InMemoryOptions>;
 type _InMemory = typeof _InMemory;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface InMemory extends _InMemory {}
