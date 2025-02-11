@@ -52,7 +52,7 @@ jobs:
             - name: 'Unit tests: Port'
               run: npx zenfs-test -pfw tests/setup/port.ts
 
-            - name: 'Unit tests: Overlay+Fetch'
+            - name: 'Unit tests: Fetch'
               run: tests/fetch/run.sh -w
 
             - name: Report coverage
