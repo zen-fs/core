@@ -40,7 +40,7 @@ class MetadataBlock {
 		protected readonly superblock: SuperBlock,
 		public offset: number = 0
 	) {
-		if (offset) return; // fresh block
+		if (!offset) return; // fresh block
 
 		deserialize(this, superblock.store._buffer.subarray(offset, offset + sizeof(MetadataBlock)));
 
@@ -71,7 +71,7 @@ class MetadataBlock {
 	}
 
 	/** Metadata entries. */
-	@member(MetadataEntry, entries_per_block) entries = new Array(entries_per_block).map(() => new MetadataEntry());
+	@member(MetadataEntry, entries_per_block) entries = Array.from({ length: entries_per_block }, () => new MetadataEntry());
 }
 
 const sb_magic = 0x7a2e7362; // 'z.sb'
@@ -85,6 +85,9 @@ class SuperBlock {
 		if (store._view.getUint32(offsetof(SuperBlock, 'magic'), true) != sb_magic) {
 			warn('SingleBuffer: Invalid magic value. Assuming this is a fresh super block.');
 			this.metadata = new MetadataBlock(this);
+			store._write(this);
+			store._write(this.metadata);
+			this.used_bytes = BigInt(sizeof(SuperBlock) + sizeof(MetadataBlock));
 			return;
 		}
 
@@ -221,7 +224,9 @@ export class SingleBufferStore implements SyncMapStore {
 	public get(id: number): Uint8Array | undefined {
 		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
 			for (const entry of block.entries) {
-				if (entry.offset && entry.id == id) return this._buffer.subarray(entry.offset, entry.offset + entry.size);
+				if (entry.offset && entry.id == id) {
+					return this._buffer.subarray(entry.offset, entry.offset + entry.size);
+				}
 			}
 		}
 	}
@@ -267,7 +272,7 @@ export class SingleBufferStore implements SyncMapStore {
 				if (entry.id != id) continue;
 				entry.offset = 0;
 				entry.size = 0;
-				this.superblock.store._write(block);
+				this._write(block);
 				return;
 			}
 		}
