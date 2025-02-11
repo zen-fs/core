@@ -15,6 +15,7 @@ ZenFS is modular and extensible. The core includes some built-in backends:
 - `Fetch`: Downloads files over HTTP with the `fetch` API
 - `Port`: Interacts with a remote over a `MessagePort`-like interface (e.g. a worker)
 - `Passthrough`: Use an existing `node:fs` interface with ZenFS
+- `SingleBuffer`: A backend contained within a single buffer. Can be used for synchronous multi-threaded operations using `SharedArrayBuffer`
 
 ZenFS supports a number of other backends. Many are provided as separate packages under `@zenfs`. More backends can be defined by separate libraries by extending the `FileSystem` class and providing a `Backend` object.
 
