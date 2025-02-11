@@ -1,11 +1,12 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
-import { isJSON, randomInt } from 'utilium';
+import { isJSON, randomInt, sizeof } from 'utilium';
 import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
 import { basename, dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from './error.js';
 import type { InodeLike } from './inode.js';
-import { Inode } from './inode.js';
+import { __inode_sz, Inode } from './inode.js';
+import type { UsageInfo } from './filesystem.js';
 
 /**
  * An Index in JSON form
@@ -13,6 +14,7 @@ import { Inode } from './inode.js';
  */
 export interface IndexData {
 	version: number;
+	maxSize?: number;
 	entries: Record<string, InodeLike>;
 }
 
@@ -24,12 +26,15 @@ export const version = 1;
  * @internal
  */
 export class Index extends Map<string, Inode> {
+	public maxSize: number = size_max;
+
 	/**
 	 * Converts the index to JSON
 	 */
 	public toJSON(): IndexData {
 		return {
 			version,
+			maxSize: this.maxSize,
 			entries: Object.fromEntries([...this].map(([k, v]) => [k, v.toJSON()])),
 		};
 	}
@@ -39,6 +44,22 @@ export class Index extends Map<string, Inode> {
 	 */
 	public toString(): string {
 		return JSON.stringify(this.toJSON());
+	}
+
+	/**
+	 * Get the size in bytes of the index (including the size reported for each entry)
+	 */
+	public get byteSize(): number {
+		let size = this.size * __inode_sz;
+		for (const entry of this.values()) size += entry.size;
+		return size;
+	}
+
+	public usage(): UsageInfo {
+		return {
+			totalSpace: this.maxSize,
+			freeSpace: this.maxSize - this.byteSize,
+		};
 	}
 
 	public pathOf(id: number): string | undefined {

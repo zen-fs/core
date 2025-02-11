@@ -6,7 +6,7 @@ import { dirname, join, relative } from '../vfs/path.js';
 import { ErrnoError } from './error.js';
 import { LazyFile, type File } from './file.js';
 import { Index } from './file_index.js';
-import { FileSystem, type CreationOptions, type PureCreationOptions } from './filesystem.js';
+import { FileSystem, type CreationOptions, type PureCreationOptions, type UsageInfo } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
 
 interface MoveInfo {
@@ -27,6 +27,10 @@ export abstract class IndexFS extends FileSystem {
 		public readonly index: Index = new Index()
 	) {
 		super(id, name);
+	}
+
+	public usage(): UsageInfo {
+		return this.index.usage();
 	}
 
 	/* node:coverage disable */

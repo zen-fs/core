@@ -27,8 +27,8 @@ export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapSto
 	}
 
 	public get bytes(): number {
-		let size = 0;
-		for (const data of this.values()) size += 4 + data.byteLength;
+		let size = this.size * 4;
+		for (const data of this.values()) size += data.byteLength;
 		return size;
 	}
 

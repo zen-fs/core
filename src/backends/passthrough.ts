@@ -2,7 +2,7 @@ import type * as fs from 'node:fs';
 import type { Errno } from '../internal/error.js';
 import { ErrnoError } from '../internal/error.js';
 import { File, type FileReadResult } from '../internal/file.js';
-import { FileSystem } from '../internal/filesystem.js';
+import { FileSystem, type UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import { Stats } from '../stats.js';
 import { join, resolve } from '../vfs/path.js';
@@ -148,6 +148,14 @@ export class PassthroughFS extends FileSystem {
 		public readonly prefix: string
 	) {
 		super(0x6e6f6465, 'nodefs');
+	}
+
+	public usage(): UsageInfo {
+		const info = this.nodeFS.statfsSync(this.prefix);
+		return {
+			totalSpace: info.bsize * info.blocks,
+			freeSpace: info.bsize * info.bfree,
+		};
 	}
 
 	public path(path: string): string {

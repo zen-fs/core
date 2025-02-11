@@ -1,5 +1,5 @@
 import type { File } from '../internal/file.js';
-import type { CreationOptions } from '../internal/filesystem.js';
+import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
 import type { InodeLike } from '../internal/inode.js';
@@ -65,9 +65,16 @@ export class OverlayFS extends FileSystem {
 		this.writable = writable;
 		this.readable = readable;
 		if (this.writable.attributes.has('no_write')) {
-			throw err(new ErrnoError(Errno.EINVAL, 'Writable file can not be written to'));
+			throw err(new ErrnoError(Errno.EINVAL, 'Writable file system can not be written to'));
 		}
 		this._ready = this._initialize();
+	}
+
+	/**
+	 * @todo Consider trying to track information on the writable as well
+	 */
+	public usage(): UsageInfo {
+		return this.readable.usage();
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {
