@@ -50,10 +50,10 @@ export interface FetchOptions extends SharedConfig {
 	 */
 	index?: string | IndexData;
 
-	/** Used as the URL prefix for fetched files.
-	 * Default: Fetch files relative to the index.
+	/**
+	 * Used as the URL prefix for fetched files.
 	 */
-	baseUrl?: string;
+	baseUrl: string;
 
 	/**
 	 * If true, enables writing to the remote (using post and delete)
@@ -149,7 +149,7 @@ const _Fetch = {
 
 	options: {
 		index: { type: ['string', 'object'], required: false },
-		baseUrl: { type: 'string', required: false },
+		baseUrl: { type: 'string', required: true },
 		requestInit: { type: 'object', required: false },
 		remoteWrite: { type: 'boolean', required: false },
 	},
@@ -159,7 +159,7 @@ const _Fetch = {
 	},
 
 	async create(options: FetchOptions) {
-		const url = new URL(options.baseUrl || '');
+		const url = new URL(options.baseUrl);
 		url.pathname = normalizePath(url.pathname);
 		let baseUrl = url.toString();
 		if (baseUrl.at(-1) == '/') baseUrl = baseUrl.slice(0, -1);
