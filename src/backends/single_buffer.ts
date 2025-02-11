@@ -85,9 +85,10 @@ class SuperBlock {
 		if (store._view.getUint32(offsetof(SuperBlock, 'magic'), true) != sb_magic) {
 			warn('SingleBuffer: Invalid magic value. Assuming this is a fresh super block.');
 			this.metadata = new MetadataBlock(this);
+			this.used_bytes = BigInt(sizeof(SuperBlock) + sizeof(MetadataBlock));
+			this.total_bytes = BigInt(store._buffer.byteLength);
 			store._write(this);
 			store._write(this.metadata);
-			this.used_bytes = BigInt(sizeof(SuperBlock) + sizeof(MetadataBlock));
 			return;
 		}
 
@@ -164,6 +165,27 @@ class SuperBlock {
 
 		return metadata;
 	}
+
+	public isSpaceAvailable(offset: number, length: number): boolean {
+		if (offset + length > this.total_bytes || offset < sizeof(SuperBlock)) return false;
+
+		/**
+		 * @todo Make sure we handle 0-length data with an offset of used_bytes
+		 */
+		if (!length) return true;
+
+		for (let block: MetadataBlock | undefined = this.metadata; block; block = block.previous) {
+			if (offset < block.offset + sizeof(MetadataBlock) && offset + length > block.offset) return false;
+
+			for (const entry of block.entries) {
+				if (!entry.offset) continue;
+				if (offset >= entry.offset && offset < entry.offset + entry.size) return false;
+				if (offset + length >= entry.offset && offset + length < entry.offset + entry.size) return false;
+			}
+		}
+
+		return true;
+	}
 }
 
 function checksumMatches(value: SuperBlock | MetadataBlock): boolean {
@@ -234,33 +256,53 @@ export class SingleBufferStore implements SyncMapStore {
 	public set(id: number, data: Uint8Array): void {
 		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
 			for (const entry of block.entries) {
-				if (entry.id != id) continue;
-				entry.offset = 0;
-				entry.size = 0;
+				if (!entry.offset || entry.id != id) continue;
+
+				if (data.length <= entry.size) {
+					this._buffer.set(data, entry.offset);
+					if (data.length < entry.size) {
+						entry.size = data.length;
+						this._write(block);
+					}
+					return;
+				}
+
+				if (this.superblock.isSpaceAvailable(entry.offset, data.length)) {
+					entry.size = data.length;
+					this._buffer.set(data, entry.offset);
+					this._write(block);
+					return;
+				}
+
+				const newOffset = Number(this.superblock.used_bytes);
+				if (!this.superblock.isSpaceAvailable(newOffset, data.length)) throw crit(ErrnoError.With('ENOSPC'));
+
+				entry.offset = newOffset;
+				entry.size = data.length;
+				this._buffer.set(data, entry.offset);
 				this._write(block);
-				break;
+				this.superblock.used_bytes += BigInt(data.length);
+				this._write(this.superblock);
+				return;
 			}
 		}
 
-		// Find a free entry in the current metadata block
 		let entry = this.superblock.metadata.entries.find(e => !e.offset);
 
-		// If no free entry found, rotate to a new metadata block
 		if (!entry) {
 			this.superblock.rotateMetadata();
 			entry = this.superblock.metadata.entries[0];
 		}
 
-		// Calculate new data offset and update the entry
-		const dataOffset = Number(this.superblock.used_bytes);
+		const offset = Number(this.superblock.used_bytes);
+		if (!this.superblock.isSpaceAvailable(offset, data.length)) throw crit(ErrnoError.With('ENOSPC'));
+
 		entry.id = id;
-		entry.offset = dataOffset;
+		entry.offset = offset;
 		entry.size = data.length;
 
-		// Write the data
-		this._buffer.set(data, dataOffset);
+		this._buffer.set(data, offset);
 
-		// Update used bytes and write metadata
 		this.superblock.used_bytes += BigInt(data.length);
 		this._write(this.superblock.metadata);
 		this._write(this.superblock);
