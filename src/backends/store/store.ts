@@ -3,6 +3,7 @@ import { ErrnoError } from '../../internal/error.js';
 import { err, warn } from '../../internal/log.js';
 import '../../polyfills.js';
 import type { StoreFS } from './fs.js';
+import type { UsageInfo } from '../../internal/filesystem.js';
 
 /**
  * @category Stores and Transactions
@@ -61,6 +62,11 @@ export interface Store {
 	 * Use for optimizations
 	 */
 	readonly flags?: readonly StoreFlag[];
+
+	/**
+	 * Usage information for the store
+	 */
+	usage?(): UsageInfo;
 
 	/**
 	 * @internal @hidden

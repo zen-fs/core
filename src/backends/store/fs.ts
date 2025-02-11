@@ -4,7 +4,7 @@ import { Errno, ErrnoError } from '../../internal/error.js';
 import type { File } from '../../internal/file.js';
 import { LazyFile } from '../../internal/file.js';
 import { Index } from '../../internal/file_index.js';
-import type { CreationOptions, PureCreationOptions } from '../../internal/filesystem.js';
+import type { CreationOptions, PureCreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { __inode_sz, Inode, rootIno, type InodeLike } from '../../internal/inode.js';
 import { crit, debug, err, log_deprecated, notice, warn } from '../../internal/log.js';
@@ -103,6 +103,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this.attributes.set('setid');
 		store._fs = this;
 		debug(this.name + ': supports features: ' + this.store.flags?.join(', '));
+	}
+
+	/**
+	 * @experimental
+	 */
+	public usage(): UsageInfo {
+		return (
+			this.store.usage?.() || {
+				totalSpace: 0,
+				freeSpace: 0,
+			}
+		);
 	}
 
 	/* node:coverage disable */

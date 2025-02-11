@@ -29,6 +29,15 @@ export interface InodeLike extends StatsLike<number>, InodeFields {}
 export const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', 'uid', 'gid', 'atimeMs', 'birthtimeMs', 'mtimeMs', 'ctimeMs'] as const;
 
 /**
+ * Represents which version of the `Inode` format we are on.
+ * 1. 58 bytes. The first member was called `ino` but used as the ID for data.
+ * 2. 66 bytes. Renamed the first member from `ino` to `data` and added a separate `ino` field
+ * 3. (current) 72 bytes. Changed the ID fields from 64 to 32 bits and added `flags`.
+ * @internal @hidden
+ */
+export const _inode_version = 3;
+
+/**
  * Generic inode definition that can easily be serialized.
  * @category Internals
  * @internal
