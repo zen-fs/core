@@ -1,13 +1,13 @@
 import { deserialize, member, offsetof, serialize, sizeof, struct, types as t } from 'utilium';
+import { crc32c } from 'utilium/checksum.js';
+import { Errno, ErrnoError } from '../internal/error.js';
+import type { UsageInfo } from '../internal/filesystem.js';
+import { _inode_version } from '../internal/inode.js';
+import { crit, warn } from '../internal/log.js';
 import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
 import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 import type { Store } from './store/store.js';
-import { _inode_version } from '../internal/inode.js';
-import { crit, warn } from '../internal/log.js';
-import { Errno, ErrnoError } from '../internal/error.js';
-import { crc32c } from 'utilium/checksum.js';
-import type { UsageInfo } from '../internal/filesystem.js';
 
 @struct()
 class MetadataEntry {
@@ -17,12 +17,17 @@ class MetadataEntry {
 	/** Reserved for 64-bit offset expansion */
 	@t.uint32 protected offset_: number = 0;
 
-	/** Offset into the buffer the data is stored at */
+	/** Offset into the buffer the data is stored at. */
 	@t.uint32 offset: number = 0;
 
 	/** The size of the data */
 	@t.uint32 size: number = 0;
 }
+
+/**
+ * Number of entries per block of metadata
+ */
+const entries_per_block = 255;
 
 /**
  * A block of metadata for a single-buffer file system.
@@ -32,10 +37,12 @@ class MetadataEntry {
 @struct()
 class MetadataBlock {
 	public constructor(
-		protected readonly store: SingleBufferStore,
-		protected readonly offset: number
+		protected readonly superblock: SuperBlock,
+		public offset: number = 0
 	) {
-		deserialize(this, store._buffer.subarray(offset, offset + sizeof(MetadataBlock)));
+		if (offset) return; // fresh block
+
+		deserialize(this, superblock.store._buffer.subarray(offset, offset + sizeof(MetadataBlock)));
 
 		if (!checksumMatches(this))
 			throw crit(new ErrnoError(Errno.EIO, 'SingleBuffer: Checksum mismatch for metadata block at 0x' + offset.toString(16)));
@@ -46,9 +53,6 @@ class MetadataBlock {
 	 * @privateRemarks Keep this first!
 	 */
 	@t.uint32 checksum: number = 0;
-
-	/** Which generation this metadata block is for */
-	@t.uint32 generation: number = 0;
 
 	/** The (last) time this metadata block was updated */
 	@t.uint32 timestamp: number = Date.now();
@@ -62,18 +66,12 @@ class MetadataBlock {
 
 	public get previous(): MetadataBlock | undefined {
 		if (!this.previous_offset) return;
-		this._previous ??= new MetadataBlock(this.store, this.previous_offset);
+		this._previous ??= new MetadataBlock(this.superblock, this.previous_offset);
 		return this._previous;
 	}
 
-	/** Align to 16 bytes */
-	@t.uint32(3) protected _padding: number[] = new Array(3).fill(0);
-
-	/**
-	 * Metadata entries.
-	 * @privateRemarks The number of entries is based on having a 4 KiB block.
-	 */
-	@member(MetadataEntry, 254) entries = new Array(254).map(() => new MetadataEntry());
+	/** Metadata entries. */
+	@member(MetadataEntry, entries_per_block) entries = new Array(entries_per_block).map(() => new MetadataEntry());
 }
 
 const sb_magic = 0x7a2e7362; // 'z.sb'
@@ -83,15 +81,18 @@ const sb_magic = 0x7a2e7362; // 'z.sb'
  */
 @struct()
 class SuperBlock {
-	public constructor(protected readonly store: SingleBufferStore) {
+	public constructor(public readonly store: SingleBufferStore) {
 		if (store._view.getUint32(offsetof(SuperBlock, 'magic'), true) != sb_magic) {
 			warn('SingleBuffer: Invalid magic value. Assuming this is a fresh super block.');
+			this.metadata = new MetadataBlock(this);
 			return;
 		}
 
 		deserialize(this, store._buffer.subarray(0, sizeof(SuperBlock)));
 
 		if (!checksumMatches(this)) throw crit(new ErrnoError(Errno.EIO, 'SingleBuffer: Checksum mismatch for super block!'));
+
+		this.metadata = new MetadataBlock(this, this.metadata_offset);
 	}
 
 	/**
@@ -108,9 +109,6 @@ class SuperBlock {
 
 	/** Which format of `Inode` is used */
 	@t.uint16 inode_format: number = _inode_version;
-
-	/** What generation we are on. This is used for versioning data */
-	@t.uint32 generation: number = 0;
 
 	/** Flags for the file system. Currently unused */
 	@t.uint32 flags: number = 0;
@@ -135,32 +133,34 @@ class SuperBlock {
 	/** Offset of the current metadata block */
 	@t.uint32 metadata_offset: number = 0;
 
-	protected _metadata?: MetadataBlock;
-
-	public get metadata(): MetadataBlock | undefined {
-		if (!this.metadata_offset) return;
-		this._metadata ??= new MetadataBlock(this.store, this.metadata_offset);
-		return this._metadata;
-	}
-
-	/** Reserved for 64-bit offset expansion */
-	@t.uint32 protected metadata_backup_offset_: number = 0;
-	/** Offset of the backup metadata block */
-	@t.uint32 metadata_backup_offset: number = 0;
-
-	protected _metadata_backup?: MetadataBlock;
-
-	public get metadata_backup(): MetadataBlock | undefined {
-		if (!this.metadata_backup_offset) return;
-		this._metadata_backup ??= new MetadataBlock(this.store, this.metadata_backup_offset);
-		return this._metadata_backup;
-	}
+	public metadata: MetadataBlock;
 
 	/** An optional label for the file system */
 	@t.char(64) label: string = '';
 
-	/** Pad to 512 bytes */
-	@t.char(376) _padding: number[] = new Array(380).fill(0);
+	/** Padded to 256 bytes */
+	@t.char(132) _padding: number[] = new Array(132).fill(0);
+
+	/**
+	 * Rotate out the current metadata block.
+	 * Allocates a new metadata block, moves the current one to backup,
+	 * and updates used_bytes accordingly.
+	 * @returns the new metadata block
+	 */
+	public rotateMetadata(): MetadataBlock {
+		const metadata = new MetadataBlock(this);
+		metadata.offset = Number(this.used_bytes);
+		metadata.previous_offset = this.metadata_offset;
+
+		this.metadata = metadata;
+		this.metadata_offset = metadata.offset;
+		this.store._write(metadata);
+
+		this.used_bytes += BigInt(sizeof(MetadataBlock));
+		this.store._write(this);
+
+		return metadata;
+	}
 }
 
 function checksumMatches(value: SuperBlock | MetadataBlock): boolean {
@@ -175,9 +175,7 @@ function checksumMatches(value: SuperBlock | MetadataBlock): boolean {
  */
 export class SingleBufferStore implements SyncMapStore {
 	public readonly flags = [] as const;
-
-	public readonly name = 'tmpfs';
-
+	public readonly name = 'sbfs';
 	public readonly id = 0x73626673; // 'sbfs'
 
 	protected superblock: SuperBlock;
@@ -202,19 +200,91 @@ export class SingleBufferStore implements SyncMapStore {
 		this.superblock = new SuperBlock(this);
 	}
 
-	public keys(): Iterable<number> {}
+	/**
+	 * Update a block's checksum and write it to the store's buffer.
+	 * @internal @hidden
+	 */
+	_write(value: SuperBlock | MetadataBlock): void {
+		value.checksum = crc32c(serialize(value).subarray(4));
+		const offset = 'offset' in value ? value.offset : 0;
+		this._buffer.set(serialize(value), offset);
+	}
 
-	public get(id: number): Uint8Array | undefined {}
+	public keys(): Iterable<number> {
+		const keys = new Set<number>();
+		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
+			for (const entry of block.entries) if (entry.offset) keys.add(entry.id);
+		}
+		return keys;
+	}
 
-	public set(id: number, data: Uint8Array): void {}
+	public get(id: number): Uint8Array | undefined {
+		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
+			for (const entry of block.entries) {
+				if (entry.offset && entry.id == id) return this._buffer.subarray(entry.offset, entry.offset + entry.size);
+			}
+		}
+	}
 
-	public delete(id: number): void {}
+	public set(id: number, data: Uint8Array): void {
+		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
+			for (const entry of block.entries) {
+				if (entry.id != id) continue;
+				entry.offset = 0;
+				entry.size = 0;
+				this._write(block);
+				break;
+			}
+		}
+
+		// Find a free entry in the current metadata block
+		let entry = this.superblock.metadata.entries.find(e => !e.offset);
+
+		// If no free entry found, rotate to a new metadata block
+		if (!entry) {
+			this.superblock.rotateMetadata();
+			entry = this.superblock.metadata.entries[0];
+		}
+
+		// Calculate new data offset and update the entry
+		const dataOffset = Number(this.superblock.used_bytes);
+		entry.id = id;
+		entry.offset = dataOffset;
+		entry.size = data.length;
+
+		// Write the data
+		this._buffer.set(data, dataOffset);
+
+		// Update used bytes and write metadata
+		this.superblock.used_bytes += BigInt(data.length);
+		this._write(this.superblock.metadata);
+		this._write(this.superblock);
+	}
+
+	public delete(id: number): void {
+		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
+			for (const entry of block.entries) {
+				if (entry.id != id) continue;
+				entry.offset = 0;
+				entry.size = 0;
+				this.superblock.store._write(block);
+				return;
+			}
+		}
+	}
 
 	_fs?: StoreFS<Store> | undefined;
 
-	public async sync(): Promise<void> {}
+	public async sync(): Promise<void> {
+		return;
+	}
 
-	public usage(): UsageInfo {}
+	public usage(): UsageInfo {
+		return {
+			totalSpace: Number(this.superblock.total_bytes),
+			freeSpace: Number(this.superblock.total_bytes - this.superblock.used_bytes),
+		};
+	}
 
 	public transaction(): SyncMapTransaction {
 		return new SyncMapTransaction(this);

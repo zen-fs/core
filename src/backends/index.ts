@@ -4,6 +4,7 @@ export * from './memory.js';
 export * from './overlay.js';
 export * from './passthrough.js';
 export * from './port/fs.js';
+export * from './single_buffer.js';
 export * from './store/fs.js';
 export * from './store/map.js';
 export * from './store/store.js';
