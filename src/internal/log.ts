@@ -268,7 +268,7 @@ export interface LogConfiguration {
 	 * Formats a log entry into a string
 	 * @default `[${ms / 1000}] ${message}`
 	 */
-	format?(this: void, entry: Entry): string;
+	format?(this: void, entry: Entry): string | string[];
 
 	/**
 	 * Outputs a log message
