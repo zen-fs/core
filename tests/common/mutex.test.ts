@@ -6,7 +6,7 @@ import { suite, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 suite('LockFS mutex', () => {
-	const fs = new (Mutexed(StoreFS))(new InMemoryStore('test'));
+	const fs = new (Mutexed(StoreFS))(new InMemoryStore(0x10000, 'test'));
 	fs._fs.checkRootSync();
 
 	test('lock/unlock', () => {

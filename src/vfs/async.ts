@@ -825,15 +825,23 @@ export function createWriteStream(this: V_Context, path: fs.PathLike, options?: 
 
 	let handle: promises.FileHandle;
 
+	const { stack } = new Error();
 	const stream = new WriteStream({
 		highWaterMark: options?.highWaterMark,
-		async write(chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error) => void) {
+		async write(chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
 			try {
 				handle ||= await _handle;
-				await handle.write(chunk, 0, encoding);
-				callback();
+				const { bytesWritten } = await handle.write(chunk, null, encoding);
+				if (bytesWritten == chunk.length) return callback();
+
+				throw new ErrnoError(
+					Errno.EIO,
+					`Failed to write full chunk of write stream (wrote ${bytesWritten}/${chunk.length} bytes)`,
+					handle.file.path
+				);
 			} catch (error: any) {
 				await handle?.close();
+				error.stack += stack?.slice(5);
 				callback(error);
 			}
 		},

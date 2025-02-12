@@ -14,6 +14,7 @@ await fs.promises.writeFile(testFilePathWrite, ''); // Ensure the file exists
 suite('Streams', () => {
 	test('ReadStream reads data correctly', (_, done) => {
 		const readStream = fs.createReadStream(testFilePath);
+
 		let data = '';
 		readStream.on('data', chunk => {
 			data += chunk;
@@ -29,12 +30,14 @@ suite('Streams', () => {
 
 	test('ReadStream close method works', (_, done) => {
 		const readStream = fs.createReadStream(testFilePath);
+
 		let closed = false;
 		readStream.on('close', () => {
 			closed = true;
 		});
+
 		readStream.close(err => {
-			assert.equal(err, null);
+			assert.ifError(err);
 			assert(closed);
 			done();
 		});
@@ -56,29 +59,24 @@ suite('Streams', () => {
 		assert(!readStream.pending);
 	});
 
-	test('ReadStream close method can be called multiple times', (_, done) => {
+	test('ReadStream close method can be called multiple times', async () => {
 		const readStream = new fs.ReadStream();
-		readStream.close(err => {
-			assert.equal(err, null);
-			// Call close again
-			readStream.close(err2 => {
-				assert.equal(err2, null);
-				done();
-			});
-		});
+
+		const close = promisify(readStream.close);
+		await close();
+		await close();
 	});
 
-	test.todo('WriteStream writes data correctly', (_, done) => {
+	test('WriteStream writes data correctly', async () => {
 		const writeStream = fs.createWriteStream(testFilePathWrite);
-		writeStream.write(testData, 'utf8', err => {
-			if (err) throw err;
-			writeStream.end();
-		});
-		writeStream.on('close', () => {
-			assert.equal(fs.readFileSync(testFilePathWrite, 'utf8'), testData);
-			done();
-		});
-		writeStream.on('error', assert.fail);
+
+		const { promise, resolve, reject } = Promise.withResolvers();
+		writeStream.on('finish', resolve);
+		writeStream.on('error', reject);
+		writeStream.end(testData, 'utf8');
+		await promise;
+
+		assert.equal(fs.readFileSync(testFilePathWrite, 'utf8'), testData);
 	});
 
 	test('WriteStream close method works', (_, done) => {
@@ -88,7 +86,7 @@ suite('Streams', () => {
 			closed = true;
 		});
 		writeStream.close(err => {
-			assert.equal(err, null);
+			assert.ifError(err);
 			assert(closed);
 			done();
 		});
@@ -110,16 +108,12 @@ suite('Streams', () => {
 		assert(writeStream.pending);
 	});
 
-	test('WriteStream close method can be called multiple times', (_, done) => {
+	test('WriteStream close method can be called multiple times', async () => {
 		const writeStream = new fs.WriteStream();
-		writeStream.close(err => {
-			assert.equal(err, null);
-			// Call close again
-			writeStream.close(err2 => {
-				assert.equal(err2, null);
-				done();
-			});
-		});
+
+		const close = promisify(writeStream.close);
+		await close();
+		await close();
 	});
 
 	test('createReadStream with start', async () => {
@@ -144,32 +138,22 @@ suite('Streams', () => {
 
 	test('FileHandle.createReadStream reads data correctly', async () => {
 		const fileHandle = await fs.promises.open(testFilePath, 'r');
-		const readStream = fileHandle.createReadStream();
-		let data = '';
-		await new Promise<void>((resolve, reject) => {
-			readStream.on('data', chunk => {
-				data += chunk;
-			});
-			readStream.on('end', () => {
-				assert.equal(data, testData);
-				resolve();
-			});
-			readStream.on('error', reject);
-		});
+		const readStream = fileHandle.createReadStream({ encoding: 'utf-8' });
+		const [data] = await readStream.toArray();
+		assert.equal(data, testData);
 		await fileHandle.close();
 	});
 
 	test('FileHandle.createWriteStream writes data correctly', async () => {
 		const fileHandle = await fs.promises.open(testFilePathWrite, 'w');
 		const writeStream = fileHandle.createWriteStream();
-		await new Promise<void>((resolve, reject) => {
-			writeStream.write(testData, 'utf8', err => {
-				if (err) return reject(err);
-				writeStream.end();
-			});
-			writeStream.on('finish', resolve);
-			writeStream.on('error', reject);
-		});
+
+		const { promise, resolve, reject } = Promise.withResolvers();
+		writeStream.on('finish', resolve);
+		writeStream.on('error', reject);
+		writeStream.end(testData, 'utf8');
+		await promise;
+
 		const data = await fs.promises.readFile(testFilePathWrite, 'utf8');
 		assert.equal(data, testData);
 		await fileHandle.close();

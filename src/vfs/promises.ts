@@ -2,7 +2,6 @@
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
-import type { ReadableStreamController, ReadableStream as TReadableStream } from 'node:stream/web';
 import type { Interface as ReadlineInterface } from 'readline';
 import type { V_Context } from '../context.js';
 import type { File } from '../internal/file.js';
@@ -200,49 +199,27 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	/**
-	 * Returns a `ReadableStream` that may be used to read the files data.
-	 *
-	 * An error will be thrown if this method is called more than once or is called after the `FileHandle` is closed or closing.
-	 *
-	 * While the `ReadableStream` will read the file to completion,
-	 * it will not close the `FileHandle` automatically.
-	 * User code must still call the `fileHandle.close()` method.
+	 * Read file data using a `ReadableStream`.
+	 * The handle will not be closed automatically.
 	 */
-	public readableWebStream(options: promises.ReadableWebStreamOptions = {}): TReadableStream<Uint8Array> {
-		// Note: using an arrow function to preserve `this`
-		const start = async (controller: ReadableStreamController<Uint8Array>) => {
-			try {
-				const chunkSize = 64 * 1024,
-					maxChunks = 1e7;
-				let i = 0,
-					position = 0,
-					bytesRead = NaN;
+	public readableWebStream(options: promises.ReadableWebStreamOptions = {}): ReadableStream<Uint8Array> {
+		return new ReadableStream({
+			start: async (controller: ReadableStreamDefaultController<Uint8Array> | ReadableByteStreamController) => {
+				const chunkSize = 0x1000;
 
-				while (bytesRead > 0) {
-					const result = await this.read(new Uint8Array(chunkSize), 0, chunkSize, position);
+				for (let i = 0; i < 1e7; i++) {
+					const result = await this.read(new Uint8Array(chunkSize), 0, chunkSize).catch(controller.error);
+					if (!result) return;
 					if (!result.bytesRead) {
 						controller.close();
 						return;
 					}
 					controller.enqueue(result.buffer.subarray(0, result.bytesRead));
-					position += result.bytesRead;
-					if (++i >= maxChunks) {
-						throw new ErrnoError(Errno.EFBIG, 'Too many iterations on readable stream', this.file.path, 'FileHandle.readableWebStream');
-					}
-					bytesRead = result.bytesRead;
 				}
-			} catch (e) {
-				controller.error(e);
-			}
-		};
 
-		const _gt = globalThis;
-		if (!('ReadableStream' in _gt)) {
-			throw new ErrnoError(Errno.ENOSYS, 'ReadableStream is missing on globalThis');
-		}
-		return new (_gt as { ReadableStream: new (...args: unknown[]) => TReadableStream<Uint8Array> }).ReadableStream({
-			start,
-			type: options.type,
+				controller.error(new ErrnoError(Errno.EFBIG, 'Too many iterations on readable stream', this.file.path, 'readableWebStream'));
+			},
+			type: options.type as any,
 		});
 	}
 
@@ -274,7 +251,7 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronously writes `string` to the file.
 	 * The `FileHandle` must have been opened for writing.
 	 * It is unsafe to call `write()` multiple times on the same file without waiting for the `Promise`
-	 * to be resolved (or rejected). For this scenario, `fs.createWriteStream` is strongly recommended.
+	 * to be resolved (or rejected). For this scenario, `createWriteStream` is strongly recommended.
 	 */
 	public async write<T extends FileContents>(
 		data: T,
@@ -283,21 +260,20 @@ export class FileHandle implements promises.FileHandle {
 		position?: number | null
 	): Promise<{ bytesWritten: number; buffer: T }> {
 		let buffer: Uint8Array, offset: number | null | undefined, length: number;
-		if (typeof options == 'object') {
-			lenOrEnc = options?.length;
-			position = options?.position;
-			options = options?.offset;
+		if (typeof options == 'object' && options != null) {
+			lenOrEnc = options.length;
+			position = options.position;
+			options = options.offset;
 		}
 		if (typeof data === 'string') {
 			position = typeof options === 'number' ? options : null;
-			const encoding = typeof lenOrEnc === 'string' ? lenOrEnc : ('utf8' as BufferEncoding);
 			offset = 0;
-			buffer = Buffer.from(data, encoding);
+			buffer = Buffer.from(data, typeof lenOrEnc === 'string' ? lenOrEnc : 'utf8');
 			length = buffer.length;
 		} else {
 			buffer = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-			offset = options;
-			length = lenOrEnc as number;
+			offset = options ?? 0;
+			length = typeof lenOrEnc == 'number' ? lenOrEnc : buffer.byteLength;
 			position = typeof position === 'number' ? position : null;
 		}
 		position ??= this.file.position;
@@ -345,10 +321,12 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The number of bytes written.
 	 */
 	public async writev(buffers: Uint8Array[], position?: number): Promise<fs.WriteVResult> {
+		if (typeof position == 'number') this.file.position = position;
+
 		let bytesWritten = 0;
 
 		for (const buffer of buffers) {
-			bytesWritten += (await this.write(buffer, 0, buffer.length, position! + bytesWritten)).bytesWritten;
+			bytesWritten += (await this.write(buffer)).bytesWritten;
 		}
 
 		return { bytesWritten, buffers };
@@ -361,10 +339,12 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The number of bytes read.
 	 */
 	public async readv(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<fs.ReadVResult> {
+		if (typeof position == 'number') this.file.position = position;
+
 		let bytesRead = 0;
 
 		for (const buffer of buffers) {
-			bytesRead += (await this.read(buffer, 0, buffer.byteLength, position! + bytesRead)).bytesRead;
+			bytesRead += (await this.read(buffer)).bytesRead;
 		}
 
 		return { bytesRead, buffers };
@@ -412,21 +392,22 @@ export class FileHandle implements promises.FileHandle {
 	public createWriteStream(options?: promises.CreateWriteStreamOptions): WriteStream {
 		if (typeof options?.start == 'number') this.file.position = options.start;
 
-		const streamOptions = {
+		const { stack } = new Error();
+		const stream = new WriteStream({
 			highWaterMark: options?.highWaterMark,
-			encoding: options?.encoding,
-
+			// eslint-disable-next-line @typescript-eslint/no-misused-promises
 			write: async (chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) => {
 				try {
 					const { bytesWritten } = await this.write(chunk, null, encoding);
-					callback(bytesWritten == chunk.length ? null : new Error('Failed to write full chunk'));
-				} catch (error) {
-					callback(error as Error);
+					if (bytesWritten == chunk.length) return callback();
+					throw new ErrnoError(Errno.EIO, `Failed to write full chunk of write stream (wrote ${bytesWritten}/${chunk.length} bytes)`);
+				} catch (error: any) {
+					error.stack += stack?.slice(5);
+					callback(error);
 				}
 			},
-		};
+		});
 
-		const stream = new WriteStream(streamOptions);
 		stream.path = this.file.path;
 		return stream;
 	}
