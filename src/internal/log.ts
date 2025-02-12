@@ -123,11 +123,21 @@ function ansi(text: string, format: string): string {
 	return `\x1b[${format}m${text}\x1b[0m`;
 }
 
-function _prettyMs(entry: Entry, useANSI: boolean = false) {
+function _prettyMs(entry: Entry, style: 'css'): string[];
+function _prettyMs(entry: Entry, style?: 'ansi'): string;
+function _prettyMs(entry: Entry, style?: 'ansi' | 'css') {
 	const text = '[' + (entry.elapsedMs / 1000).toFixed(3).padStart(10) + '] ';
 
-	return useANSI ? ansi(text, '2;37') : text;
+	switch (style) {
+		case 'ansi':
+			return ansi(text, '2;37');
+		case 'css':
+			return ['%c' + text, 'opacity: 0.8; color: white;'];
+		default:
+			return text;
+	}
 }
+
 const _ansiLevelColor: Record<Level, string> = {
 	[Level.EMERG]: '1;4;37;41',
 	[Level.ALERT]: '1;37;41',
@@ -150,6 +160,28 @@ const _ansiMessageColor: Record<Level, string> = {
 	[Level.DEBUG]: '2;37',
 };
 
+const _cssLevelColor = {
+	[Level.EMERG]: 'font-weight: bold; text-decoration: underline; color: white; background-color: red;',
+	[Level.ALERT]: 'font-weight: bold; color: white; background-color: red;',
+	[Level.CRIT]: 'font-weight: bold; color: magenta;',
+	[Level.ERR]: 'font-weight: bold; color: red;',
+	[Level.WARN]: 'font-weight: bold; color: yellow;',
+	[Level.NOTICE]: 'font-weight: bold; color: cyan;',
+	[Level.INFO]: 'font-weight: bold; color: white;',
+	[Level.DEBUG]: 'opacity: 0.8; color: white;',
+};
+
+const _cssMessageColor = {
+	[Level.EMERG]: 'font-weight: bold; color: red;',
+	[Level.ALERT]: 'font-weight: bold; color: red;',
+	[Level.CRIT]: 'font-weight: bold; color: red;',
+	[Level.ERR]: 'color: red;',
+	[Level.WARN]: 'color: yellow;',
+	[Level.NOTICE]: 'font-weight: bold; color: white;',
+	[Level.INFO]: 'color: white;',
+	[Level.DEBUG]: 'opacity: 0.8; color: white;',
+};
+
 /**
  * Various format functions included to make using the logger easier.
  * These are not the only formats you can use.
@@ -158,14 +190,14 @@ export const formats = {
 	/** Format with a timestamp and the level, colorized with ANSI escape codes */
 	ansi_level(this: void, entry: Entry) {
 		const levelText = ansi(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]);
-		return [_prettyMs(entry, true), levelText, entry.message].join(' ');
+		return [_prettyMs(entry, 'ansi'), levelText, entry.message];
 	},
 	/**
 	 * Format with a timestamp and colorize the message with ANSI escape codes.
 	 * For EMERG and ALERT, the levels are included
 	 */
 	ansi_message(this: void, entry: Entry) {
-		let msg = _prettyMs(entry, true);
+		let msg = _prettyMs(entry, 'ansi');
 
 		const isImportant = entry.level < Level.CRIT;
 
@@ -175,23 +207,41 @@ export const formats = {
 
 		return msg;
 	},
-	/** Uncolored format with a timestamp */
+	css_level(this: void, entry: Entry) {
+		const levelLabel = levels[entry.level].toUpperCase();
+
+		return [..._prettyMs(entry, 'css'), `%c${levelLabel}%c ${entry.message}`, _cssLevelColor[entry.level], ''];
+	},
+	css_message(this: void, entry: Entry) {
+		const text = _prettyMs(entry, 'css');
+
+		const isImportant = entry.level < Level.CRIT;
+		if (isImportant) {
+			const levelLabel = levels[entry.level].toUpperCase();
+
+			text.push(`%c${levelLabel}%c:`, _cssLevelColor[entry.level], '');
+		}
+
+		text.push('%c' + entry.message, _cssMessageColor[entry.level]);
+
+		return text;
+	},
 	default(this: void, entry: Entry) {
 		return `[${_prettyMs(entry)}] ${entry.message}`;
 	},
 } as const;
 
-let _format: (entry: Entry) => string = formats.default;
+let _format: (entry: Entry) => string | string[] = formats.default;
 
 export function format(entry: Entry) {
 	return _format(entry);
 }
 
-let _output: (message: string) => unknown = console.error;
+let _output: (...message: string[]) => unknown = console.error;
 
 function output(entry: Entry) {
 	if (entry.level > minLevel) return;
-	_output(format(entry));
+	_output(...format(entry));
 }
 
 let minLevel: Level = Level.ALERT;
