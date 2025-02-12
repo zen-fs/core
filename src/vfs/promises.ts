@@ -171,7 +171,7 @@ export class FileHandle implements promises.FileHandle {
 			buffer = buffer.buffer;
 		}
 
-		if (isNaN(+position!)) {
+		if (!Number.isSafeInteger(position)) {
 			position = this.file.position;
 		}
 		buffer ||= new Uint8Array((await this.file.stat()).size) as T;
@@ -375,16 +375,26 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the readable stream
 	 */
 	public createReadStream(options?: promises.CreateReadStreamOptions): ReadStream {
+		const start = options?.start ?? this.file.position;
+
 		const stream = new ReadStream({
 			highWaterMark: options?.highWaterMark || 64 * 1024,
-			encoding: options!.encoding!,
+			encoding: options?.encoding ?? undefined,
 
 			// eslint-disable-next-line @typescript-eslint/no-misused-promises
 			read: async (size: number) => {
 				try {
-					const result = await this.read(new Uint8Array(size), 0, size, this.file.position);
-					stream.push(!result.bytesRead ? null : result.buffer.subarray(0, result.bytesRead)); // Push data or null for EOF
-					this.file.position += result.bytesRead;
+					if (typeof options?.end === 'number' && start >= options.end) {
+						stream.push(null);
+						return;
+					}
+
+					if (typeof options?.end === 'number') {
+						size = Math.min(size, options.end - start);
+					}
+
+					const result = await this.read(new Uint8Array(size), 0, size, options?.start);
+					stream.push(!result.bytesRead ? null : result.buffer.subarray(0, result.bytesRead));
 				} catch (error) {
 					stream.destroy(error as Error);
 				}
@@ -400,6 +410,8 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the writeable stream.
 	 */
 	public createWriteStream(options?: promises.CreateWriteStreamOptions): WriteStream {
+		if (typeof options?.start == 'number') this.file.position = options.start;
+
 		const streamOptions = {
 			highWaterMark: options?.highWaterMark,
 			encoding: options?.encoding,

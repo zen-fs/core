@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
+import { promisify } from 'node:util';
 
 // Top-level initialization
 const testFilePath = 'test-file.txt';
@@ -10,7 +11,7 @@ await fs.promises.writeFile(testFilePath, testData);
 const testFilePathWrite = 'test-file-write.txt';
 await fs.promises.writeFile(testFilePathWrite, ''); // Ensure the file exists
 
-suite('ReadStream', () => {
+suite('Streams', () => {
 	test('ReadStream reads data correctly', (_, done) => {
 		const readStream = fs.createReadStream(testFilePath);
 		let data = '';
@@ -66,25 +67,18 @@ suite('ReadStream', () => {
 			});
 		});
 	});
-});
 
-suite('WriteStream', () => {
-	test.skip('WriteStream writes data correctly', (_, done) => {
+	test.todo('WriteStream writes data correctly', (_, done) => {
 		const writeStream = fs.createWriteStream(testFilePathWrite);
 		writeStream.write(testData, 'utf8', err => {
-			if (err) {
-				done(err);
-				return;
-			}
+			if (err) throw err;
 			writeStream.end();
 		});
-		writeStream.on('finish', () => {
-			assert(fs.readFileSync(testFilePathWrite, 'utf8') == testData);
+		writeStream.on('close', () => {
+			assert.equal(fs.readFileSync(testFilePathWrite, 'utf8'), testData);
 			done();
 		});
-		writeStream.on('error', err => {
-			done(err);
-		});
+		writeStream.on('error', assert.fail);
 	});
 
 	test('WriteStream close method works', (_, done) => {
@@ -127,10 +121,28 @@ suite('WriteStream', () => {
 			});
 		});
 	});
-});
 
-suite('FileHandle', () => {
-	test.skip('FileHandle.createReadStream reads data correctly', async () => {
+	test('createReadStream with start', async () => {
+		await fs.promises.writeFile('hello.txt', 'Hello world');
+
+		const stream = fs.createReadStream('hello.txt', { start: 6, encoding: 'utf-8' });
+
+		const data = (await stream.toArray()).join('');
+
+		assert.equal(data, 'world');
+	});
+
+	test('createReadStream with end', async () => {
+		await fs.promises.writeFile('hello.txt', 'Hello world');
+
+		const stream = fs.createReadStream('hello.txt', { end: 5, encoding: 'utf-8' });
+
+		const data = (await stream.toArray()).join('');
+
+		assert.equal(data, 'Hello');
+	});
+
+	test('FileHandle.createReadStream reads data correctly', async () => {
 		const fileHandle = await fs.promises.open(testFilePath, 'r');
 		const readStream = fileHandle.createReadStream();
 		let data = '';
@@ -147,7 +159,7 @@ suite('FileHandle', () => {
 		await fileHandle.close();
 	});
 
-	test.skip('FileHandle.createWriteStream writes data correctly', async () => {
+	test('FileHandle.createWriteStream writes data correctly', async () => {
 		const fileHandle = await fs.promises.open(testFilePathWrite, 'w');
 		const writeStream = fileHandle.createWriteStream();
 		await new Promise<void>((resolve, reject) => {
@@ -163,15 +175,24 @@ suite('FileHandle', () => {
 		await fileHandle.close();
 	});
 
-	test('FileHandle.createReadStream after close should throw', async () => {
+	test('FileHandle.createReadStream after close should give an error', async () => {
 		const fileHandle = await fs.promises.open(testFilePath, 'r');
 		await fileHandle.close();
-		assert.throws(() => fileHandle.createReadStream());
+		const stream = fileHandle.createReadStream();
+		const { promise, resolve, reject } = Promise.withResolvers();
+		setTimeout(resolve, 100);
+		stream.on('error', reject);
+		assert.rejects(promise);
 	});
 
-	test.skip('FileHandle.createWriteStream after close should throw', async () => {
+	test('FileHandle.createWriteStream after close should give an error', async () => {
 		const fileHandle = await fs.promises.open(testFilePathWrite, 'w');
 		await fileHandle.close();
-		assert.throws(() => fileHandle.createWriteStream());
+		const stream = fileHandle.createWriteStream();
+		const { promise, resolve, reject } = Promise.withResolvers();
+		setTimeout(resolve, 100);
+		stream.on('error', reject);
+		assert.rejects(promise);
+		stream.write('Nuh-uh');
 	});
 });
