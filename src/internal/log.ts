@@ -274,7 +274,7 @@ export interface LogConfiguration {
 	 * Outputs a log message
 	 * @default console.error()
 	 */
-	output?(this: void, message: string): unknown;
+	output?(this: void, ...message: string[]): unknown;
 
 	/**
 	 * If set, output() all current entries after `configure` is done
