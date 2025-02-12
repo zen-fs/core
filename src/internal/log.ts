@@ -233,8 +233,9 @@ export const formats = {
 
 let _format: (entry: Entry) => string | string[] = formats.default;
 
-export function format(entry: Entry) {
-	return _format(entry);
+export function format(entry: Entry): string[] {
+	const formatted = _format(entry);
+	return Array.isArray(formatted) ? formatted : [formatted];
 }
 
 let _output: (...message: string[]) => unknown = console.error;
