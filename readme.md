@@ -1,7 +1,3 @@
----
-title: Overview
----
-
 # ZenFS
 
 ZenFS is a cross-platform library that emulates the [NodeJS filesystem API](http://nodejs.org/api/fs.html). It works using a system of backends, which are used by ZenFS to store and retrieve data. ZenFS can also integrate with other tools.
