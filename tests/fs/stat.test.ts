@@ -38,13 +38,9 @@ suite('Stats', () => {
 	test('hasAccess for non-root access', () => {
 		const newFile = 'new.txt';
 
-		fs.writeFileSync(newFile, 'hello', {
-			mode: 0o640, // allow group access
-		});
+		fs.writeFileSync(newFile, 'hello', { mode: 0o640 });
 
-		const prevCredentials = {
-			...credentials,
-		};
+		const prevCredentials = { ...credentials };
 		const uid = 33;
 		const nonRootCredentials = {
 			uid,

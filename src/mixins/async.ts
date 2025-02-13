@@ -1,6 +1,6 @@
 import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
-import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
+import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
 import { getAllPrototypes } from 'utilium';
 import { StoreFS } from '../backends/store/fs.js';
@@ -215,22 +215,25 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		/**
 		 * @internal
-		 * Patch all async methods to also call their synchronous counterparts unless called from the queue
+		 * Patch all async methods to also call their synchronous counterparts unless called from themselves (either sync or async)
 		 */
 		private _patchAsync(): void {
-			const methods = (Array.from(getAllPrototypes(this)).flatMap(Object.getOwnPropertyNames) as (keyof this & string)[]).filter(
-				key => typeof key == 'string' && key + 'Sync' in this && typeof this[key] == 'function'
-			);
+			const methods = Array.from(getAllPrototypes(this))
+				.flatMap(Object.getOwnPropertyNames)
+				.filter(key => typeof this[key as keyof this] == 'function' && `${key}Sync` in this) as _AsyncFSKeys[];
 
 			debug('Async: patching methods: ' + methods.join(', '));
 
 			for (const key of methods) {
+				// TS does not narrow the union based on the key
 				const originalMethod = this[key] as (...args: unknown[]) => Promise<unknown>;
 
 				(this as any)[key] = async (...args: unknown[]) => {
 					const result = await originalMethod.apply(this, args);
 
-					if (new Error().stack?.split('\n').slice(2).join('\n').includes(`at <computed> [as ${key}]`)) return result;
+					const stack = new Error().stack?.split('\n').slice(2).join('\n');
+					// !stack == From the async queue
+					if (stack?.includes(`at <computed> [as ${key}]`) || stack?.includes(`${key}Sync `) || !stack) return result;
 
 					if (!this._isInitialized) {
 						this._skippedCacheUpdates++;
@@ -238,8 +241,8 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 					}
 
 					try {
-						// @ts-expect-error 2556
-						this._sync?.[`${key}Sync` as const]?.(...args);
+						// @ts-expect-error 2556 - The type of `args` is not narrowed
+						this._sync?.[`${key}Sync`]?.(...args);
 					} catch (e: any) {
 						throw err(new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key), { fs: this });
 					}
