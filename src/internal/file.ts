@@ -4,7 +4,7 @@ import { config } from '../vfs/config.js';
 import * as c from '../vfs/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem } from './filesystem.js';
-import { log_deprecated } from './log.js';
+import { err, log_deprecated } from './log.js';
 import '../polyfills.js';
 
 const maxByteLength = 0xffff; // 64 KiB
@@ -301,12 +301,10 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 			This invariant is *not* maintained once the file starts getting modified.
 			It only actually matters if file is readable, as writeable modes may truncate/append to file.
 		*/
-		if (this.stats.size == _buffer.byteLength) {
-			return;
-		}
+		if (this.stats.size == _buffer.byteLength) return;
 
 		if (!isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EIO, `Size mismatch: buffer length ${_buffer.byteLength}, stats size ${this.stats.size}`, path);
+			throw err(new ErrnoError(Errno.EIO, `Size mismatch: buffer length ${_buffer.byteLength}, stats size ${this.stats.size}`, path));
 		}
 
 		this.stats.size = _buffer.byteLength;
@@ -651,8 +649,6 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		public readonly stats: StatsLike<number>
 	) {
 		super(fs, path);
-
-		this.dirty = true;
 	}
 
 	public async sync(): Promise<void> {
