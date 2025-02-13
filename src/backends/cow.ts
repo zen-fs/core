@@ -6,30 +6,125 @@ import type { Backend } from './backend.js';
 
 import { canary } from 'utilium';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { LazyFile, parseFlag } from '../internal/file.js';
+import { LazyFile } from '../internal/file.js';
 import { FileSystem } from '../internal/filesystem.js';
-import { crit, err, info } from '../internal/log.js';
-import { decodeUTF8, encodeUTF8 } from '../utils.js';
+import { err, warn } from '../internal/log.js';
 import { dirname, join } from '../vfs/path.js';
-
-/** @internal */
-const deletionLogPath = '/.deleted';
 
 /**
  * Configuration options for CoW.
  * @category Backends and Configuration
  */
 export interface CopyOnWriteOptions {
-	/** The file system to write modified files to. */
-	writable: FileSystem;
 	/** The file system that initially populates this file system. */
 	readable: FileSystem;
+
+	/** The file system to write modified files to. */
+	writable: FileSystem;
+
+	/** Options for the journal */
+	journal?: JournalOptions;
 }
 
 /**
  *  @hidden @deprecated use `CopyOnWriteOptions`
  */
 export type OverlayOptions = CopyOnWriteOptions;
+
+/**
+ * Configuration options for the journal used by CoW.
+ * @category Backends and Configuration
+ * @internal
+ */
+export interface JournalOptions {
+	/** The contents of the journal */
+	contents?: string | JournalEntry[];
+
+	/**  */
+}
+
+const journalOperations = ['delete'] as const;
+
+/**
+ * @internal
+ */
+export type JournalOperation = (typeof journalOperations)[number];
+
+/** Because TS doesn't work right w/o it */
+function isJournalOp(op: string): op is JournalOperation {
+	return journalOperations.includes(op as any);
+}
+
+const maxOpLength = Math.max(...journalOperations.map(op => op.length));
+
+/**
+ * @internal
+ */
+export interface JournalEntry {
+	path: string;
+	op: JournalOperation;
+}
+
+const journalMagicString = '#journal@v0\n';
+
+/**
+ * Tracks various operations for the CoW backend
+ * @internal
+ */
+export class Journal {
+	public entries: JournalEntry[] = [];
+
+	public constructor(public readonly fs: CopyOnWriteFS) {}
+
+	public toString(): string {
+		return journalMagicString + this.entries.map(entry => `${entry.op.padEnd(maxOpLength)} ${entry.path}`).join('\n');
+	}
+
+	/**
+	 * Parse a journal from a string
+	 */
+	public fromString(value: string) {
+		if (!value.startsWith(journalMagicString)) throw err(new ErrnoError(Errno.EINVAL, 'Invalid journal contents, refusing to parse'));
+
+		for (const line of value.split('\n')) {
+			if (line.startsWith('#')) continue; // ignore comments
+
+			const [op, path] = line.split(/\s+/);
+
+			if (!isJournalOp(op)) {
+				warn('Unknown operation in journal (skipping): ' + op);
+				continue;
+			}
+
+			this.entries.push({ op, path });
+		}
+	}
+
+	public add(op: JournalOperation, path: string) {
+		this.entries.push({ op, path });
+	}
+
+	public has(op: JournalOperation, path: string): boolean {
+		const test = JSON.stringify({ op, path });
+		for (const entry of this.entries) if (JSON.stringify(entry) === test) return true;
+		return false;
+	}
+
+	public isDeleted(path: string): boolean {
+		let deleted = false;
+
+		for (const entry of this.entries) {
+			if (entry.path != path) continue;
+
+			switch (entry.op) {
+				case 'delete':
+					deleted = true;
+			}
+		}
+
+		return deleted;
+	}
+}
 
 /**
  * Using a readable file system as a base, writes are done to a writable file system.
@@ -41,14 +136,7 @@ export class CopyOnWriteFS extends FileSystem {
 		await this.writable.ready();
 	}
 
-	private _deletedFiles: Set<string> = new Set();
-	/** @internal @hidden */
-	_deleteLog: string = '';
-	// If 'true', we have scheduled a delete log update.
-	private _deleteLogUpdatePending: boolean = false;
-	// If 'true', a delete log update is needed after the scheduled delete log
-	// update finishes.
-	private _deleteLogUpdateNeeded: boolean = false;
+	public readonly journal = new Journal(this);
 
 	public constructor(
 		/**
@@ -67,6 +155,10 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 
 		readable.attributes.set('no_write');
+	}
+
+	public isDeleted(path: string): boolean {
+		return this.journal.isDeleted(path);
 	}
 
 	/**
@@ -106,41 +198,25 @@ export class CopyOnWriteFS extends FileSystem {
 		return this.writable.writeSync(path, buffer, offset);
 	}
 
-	public getDeletionLog(): string {
-		return this._deleteLog;
-	}
-
-	public async restoreDeletionLog(log: string): Promise<void> {
-		this._deleteLog = log;
-		this._reparseDeletionLog();
-		await this.updateLog('');
-	}
-
 	public async rename(oldPath: string, newPath: string): Promise<void> {
-		this.checkPath(oldPath);
-		this.checkPath(newPath);
-
 		await this.copyForWrite(oldPath);
 
 		try {
 			await this.writable.rename(oldPath, newPath);
 		} catch {
-			if (this._deletedFiles.has(oldPath)) {
+			if (this.isDeleted(oldPath)) {
 				throw ErrnoError.With('ENOENT', oldPath, 'rename');
 			}
 		}
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
-		this.checkPath(oldPath);
-		this.checkPath(newPath);
-
 		this.copyForWriteSync(oldPath);
 
 		try {
 			this.writable.renameSync(oldPath, newPath);
 		} catch {
-			if (this._deletedFiles.has(oldPath)) {
+			if (this.isDeleted(oldPath)) {
 				throw ErrnoError.With('ENOENT', oldPath, 'rename');
 			}
 		}
@@ -150,7 +226,7 @@ export class CopyOnWriteFS extends FileSystem {
 		try {
 			return await this.writable.stat(path);
 		} catch {
-			if (this._deletedFiles.has(path)) {
+			if (this.isDeleted(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
 			const oldStat = await this.readable.stat(path);
@@ -164,7 +240,7 @@ export class CopyOnWriteFS extends FileSystem {
 		try {
 			return this.writable.statSync(path);
 		} catch {
-			if (this._deletedFiles.has(path)) {
+			if (this.isDeleted(path)) {
 				throw ErrnoError.With('ENOENT', path, 'stat');
 			}
 			const oldStat = this.readable.statSync(path);
@@ -211,7 +287,6 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public async unlink(path: string): Promise<void> {
-		this.checkPath(path);
 		if (!(await this.exists(path))) {
 			throw ErrnoError.With('ENOENT', path, 'unlink');
 		}
@@ -222,15 +297,12 @@ export class CopyOnWriteFS extends FileSystem {
 
 		// if it still exists add to the delete log
 		if (await this.exists(path)) {
-			await this.deletePath(path);
+			this.journal.add('delete', path);
 		}
 	}
 
 	public unlinkSync(path: string): void {
-		this.checkPath(path);
-		if (!this.existsSync(path)) {
-			throw ErrnoError.With('ENOENT', path, 'unlink');
-		}
+		if (!this.existsSync(path)) throw ErrnoError.With('ENOENT', path, 'unlink');
 
 		if (this.writable.existsSync(path)) {
 			this.writable.unlinkSync(path);
@@ -238,7 +310,7 @@ export class CopyOnWriteFS extends FileSystem {
 
 		// if it still exists add to the delete log
 		if (this.existsSync(path)) {
-			void this.deletePath(path);
+			this.journal.add('delete', path);
 		}
 	}
 
@@ -256,7 +328,7 @@ export class CopyOnWriteFS extends FileSystem {
 		if ((await this.readdir(path)).length) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		}
-		await this.deletePath(path);
+		this.journal.add('delete', path);
 	}
 
 	public rmdirSync(path: string): void {
@@ -273,7 +345,7 @@ export class CopyOnWriteFS extends FileSystem {
 		if (this.readdirSync(path).length) {
 			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
 		}
-		void this.deletePath(path);
+		this.journal.add('delete', path);
 	}
 
 	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
@@ -303,7 +375,7 @@ export class CopyOnWriteFS extends FileSystem {
 			// NOP.
 		}
 		try {
-			contents.push(...(await this.readable.readdir(path)).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
+			contents.push(...(await this.readable.readdir(path)).filter((fPath: string) => !this.isDeleted(`${path}/${fPath}`)));
 		} catch {
 			// NOP.
 		}
@@ -324,7 +396,7 @@ export class CopyOnWriteFS extends FileSystem {
 			// NOP.
 		}
 		try {
-			contents = contents.concat(this.readable.readdirSync(path).filter((fPath: string) => !this._deletedFiles.has(`${path}/${fPath}`)));
+			contents = contents.concat(this.readable.readdirSync(path).filter((fPath: string) => !this.isDeleted(`${path}/${fPath}`)));
 		} catch {
 			// NOP.
 		}
@@ -334,52 +406,6 @@ export class CopyOnWriteFS extends FileSystem {
 			seenMap[path] = true;
 			return result;
 		});
-	}
-
-	private async deletePath(path: string): Promise<void> {
-		this._deletedFiles.add(path);
-		await this.updateLog(`d${path}\n`);
-	}
-
-	private async updateLog(addition: string) {
-		this._deleteLog += addition;
-		if (this._deleteLogUpdatePending) {
-			this._deleteLogUpdateNeeded = true;
-			return;
-		}
-		this._deleteLogUpdatePending = true;
-		const log = await this.writable.openFile(deletionLogPath, parseFlag('w'));
-		try {
-			await log.write(encodeUTF8(this._deleteLog));
-			if (this._deleteLogUpdateNeeded) {
-				this._deleteLogUpdateNeeded = false;
-				await this.updateLog('');
-			}
-		} catch (e: any) {
-			throw crit(e);
-		} finally {
-			this._deleteLogUpdatePending = false;
-		}
-	}
-
-	/** @internal @hidden */
-	_reparseDeletionLog(): void {
-		this._deletedFiles.clear();
-		for (const entry of this._deleteLog.split('\n')) {
-			if (!entry.startsWith('d')) {
-				continue;
-			}
-
-			// If the log entry begins w/ 'd', it's a deletion.
-
-			this._deletedFiles.add(entry.slice(1));
-		}
-	}
-
-	private checkPath(path: string): void {
-		if (path == deletionLogPath) {
-			throw ErrnoError.With('EPERM', path, 'checkPath');
-		}
 	}
 
 	/**
@@ -506,20 +532,19 @@ const _CopyOnWrite = {
 	options: {
 		writable: { type: 'object', required: true },
 		readable: { type: 'object', required: true },
+		journal: { type: 'object', required: false },
 	},
-	async create(options: CopyOnWriteOptions) {
+	create(options: CopyOnWriteOptions) {
 		const fs = new CopyOnWriteFS(options.readable, options.writable);
-		// Read deletion log, process into metadata.
-		try {
-			const file = await fs.writable.openFile(deletionLogPath, parseFlag('r'));
-			const { size } = await file.stat();
-			const { buffer } = await file.read(new Uint8Array(size));
-			fs._deleteLog = decodeUTF8(buffer);
-		} catch (error: any) {
-			if (error.errno !== Errno.ENOENT) throw err(error);
-			info('Overlay does not have a deletion log');
+
+		if (typeof options.journal == 'string') {
+			fs.journal.fromString(options.journal);
 		}
-		fs._reparseDeletionLog();
+
+		if (Array.isArray(options.journal)) {
+			fs.journal.entries.push(...options.journal);
+		}
+
 		return fs;
 	},
 } as const satisfies Backend<CopyOnWriteFS, CopyOnWriteOptions>;
