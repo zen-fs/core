@@ -2,10 +2,11 @@ import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
 import type { _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
+import { getAllPrototypes } from 'utilium';
 import { StoreFS } from '../backends/store/fs.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { LazyFile, parseFlag } from '../internal/file.js';
-import { crit, err, notice } from '../internal/log.js';
+import { crit, debug, err } from '../internal/log.js';
 import { join } from '../vfs/path.js';
 
 /**
@@ -56,6 +57,8 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		}
 
 		private _isInitialized: boolean = false;
+		/** Tracks how many updates to the sync. cache we skipped during initialization */
+		private _skippedCacheUpdates: number = 0;
 
 		abstract _sync?: FileSystem;
 
@@ -91,6 +94,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 			try {
 				await this.crossCopy('/');
+				debug(`Skipped ${this._skippedCacheUpdates} updates to the sync cache during initialization`);
 				this._isInitialized = true;
 			} catch (e: any) {
 				this._isInitialized = false;
@@ -122,9 +126,9 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): LazyFile<this> {
 			this.checkSync(path, 'createFile');
-			this._sync.createFileSync(path, flag, mode, options);
+			const file = this._sync.createFileSync(path, flag, mode, options);
 			this._async(this.createFile(path, flag, mode, options));
-			return this.openFileSync(path, flag);
+			return new LazyFile(this, path, flag, file.statSync());
 		}
 
 		public openFileSync(path: string, flag: string): LazyFile<this> {
@@ -214,31 +218,22 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		 * Patch all async methods to also call their synchronous counterparts unless called from the queue
 		 */
 		private _patchAsync(): void {
-			const asyncFSMethodKeys = [
-				'rename',
-				'stat',
-				'createFile',
-				'openFile',
-				'unlink',
-				'rmdir',
-				'mkdir',
-				'readdir',
-				'link',
-				'sync',
-				'exists',
-			] as const;
-			for (const key of asyncFSMethodKeys) {
-				if (typeof this[key] !== 'function') continue;
+			const methods = (Array.from(getAllPrototypes(this)).flatMap(Object.getOwnPropertyNames) as (keyof this & string)[]).filter(
+				key => typeof key == 'string' && key + 'Sync' in this && typeof this[key] == 'function'
+			);
 
+			debug('Async: patching methods: ' + methods.join(', '));
+
+			for (const key of methods) {
 				const originalMethod = this[key] as (...args: unknown[]) => Promise<unknown>;
 
 				(this as any)[key] = async (...args: unknown[]) => {
 					const result = await originalMethod.apply(this, args);
 
-					if (new Error().stack!.includes(`at <computed> [as ${key}]`)) return result;
+					if (new Error().stack?.split('\n').slice(2).join('\n').includes(`at <computed> [as ${key}]`)) return result;
 
 					if (!this._isInitialized) {
-						notice('Skipping sync cache update for Async#' + key);
+						this._skippedCacheUpdates++;
 						return result;
 					}
 
