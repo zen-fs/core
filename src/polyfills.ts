@@ -22,7 +22,7 @@ Symbol['dispose'] ??= (warn('Using a polyfill of Symbol.dispose'), Symbol('Symbo
 Symbol['asyncDispose'] ??= (warn('Using a polyfill of Symbol.asyncDispose'), Symbol('Symbol.asyncDispose'));
 
 declare global {
-	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+	// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-unused-vars
 	interface AsyncIterator<T, TReturn, TNext> extends AsyncDisposable {}
 }
 /* node:coverage enable */

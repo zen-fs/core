@@ -336,8 +336,8 @@ export class SingleBufferStore implements SyncMapStore {
 
 	_fs?: StoreFS<Store> | undefined;
 
-	public async sync(): Promise<void> {
-		return;
+	public sync(): Promise<void> {
+		return Promise.resolve();
 	}
 
 	public usage(): UsageInfo {
