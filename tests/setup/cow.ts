@@ -1,7 +1,7 @@
-import { configureSingle, InMemory, Overlay } from '../../dist/index.js';
+import { configureSingle, InMemory, CopyOnWrite } from '../../dist/index.js';
 
 await configureSingle({
-	backend: Overlay,
+	backend: CopyOnWrite,
 	readable: InMemory.create({ name: 'ro' }),
 	writable: InMemory.create({ name: 'cow' }),
 });

@@ -1,8 +1,8 @@
 import type { File } from '../internal/file.js';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
-import type { InodeLike } from '../internal/inode.js';
 
 import { canary } from 'utilium';
 import { Errno, ErrnoError } from '../internal/error.js';
@@ -16,58 +16,57 @@ import { dirname, join } from '../vfs/path.js';
 const deletionLogPath = '/.deleted';
 
 /**
- * Configuration options for OverlayFS instances.
+ * Configuration options for CoW.
  * @category Backends and Configuration
  */
-export interface OverlayOptions {
-	/**
-	 * The file system to write modified files to.
-	 */
+export interface CopyOnWriteOptions {
+	/** The file system to write modified files to. */
 	writable: FileSystem;
-	/**
-	 * The file system that initially populates this file system.
-	 */
+	/** The file system that initially populates this file system. */
 	readable: FileSystem;
 }
 
 /**
- * OverlayFS makes a read-only filesystem writable by storing writes on a second, writable file system.
- * Deletes are persisted via metadata stored on the writable file system.
- *
- * This class contains no locking whatsoever. It is mutexed to prevent races.
- *
+ *  @hidden @deprecated use `CopyOnWriteOptions`
+ */
+export type OverlayOptions = CopyOnWriteOptions;
+
+/**
+ * Using a readable file system as a base, writes are done to a writable file system.
  * @internal
  */
-export class OverlayFS extends FileSystem {
+export class CopyOnWriteFS extends FileSystem {
 	async ready(): Promise<void> {
 		await this.readable.ready();
 		await this.writable.ready();
-		await this._ready;
 	}
 
-	public readonly writable: FileSystem;
-	public readonly readable: FileSystem;
-	private _isInitialized: boolean = false;
 	private _deletedFiles: Set<string> = new Set();
-	private _deleteLog: string = '';
+	/** @internal @hidden */
+	_deleteLog: string = '';
 	// If 'true', we have scheduled a delete log update.
 	private _deleteLogUpdatePending: boolean = false;
 	// If 'true', a delete log update is needed after the scheduled delete log
 	// update finishes.
 	private _deleteLogUpdateNeeded: boolean = false;
-	// If there was an error updating the delete log...
-	private _deleteLogError?: ErrnoError;
 
-	private _ready: Promise<void>;
-
-	public constructor({ writable, readable }: OverlayOptions) {
+	public constructor(
+		/**
+		 * The file system that initially populates this file system.
+		 */
+		public readonly readable: FileSystem,
+		/**
+		 * The file system to write modified files to.
+		 */
+		public readonly writable: FileSystem
+	) {
 		super(0x62756c6c, readable.name);
-		this.writable = writable;
-		this.readable = readable;
-		if (this.writable.attributes.has('no_write')) {
+
+		if (writable.attributes.has('no_write')) {
 			throw err(new ErrnoError(Errno.EINVAL, 'Writable file system can not be written to'));
 		}
-		this._ready = this._initialize();
+
+		readable.attributes.set('no_write');
 	}
 
 	/**
@@ -107,29 +106,6 @@ export class OverlayFS extends FileSystem {
 		return this.writable.writeSync(path, buffer, offset);
 	}
 
-	/**
-	 * Called once to load up metadata stored on the writable file system.
-	 * @internal
-	 */
-	public async _initialize(): Promise<void> {
-		if (this._isInitialized) {
-			return;
-		}
-
-		// Read deletion log, process into metadata.
-		try {
-			const file = await this.writable.openFile(deletionLogPath, parseFlag('r'));
-			const { size } = await file.stat();
-			const { buffer } = await file.read(new Uint8Array(size));
-			this._deleteLog = decodeUTF8(buffer);
-		} catch (error: any) {
-			if (error.errno !== Errno.ENOENT) throw err(error);
-			info('Overlay does not have a deletion log');
-		}
-		this._isInitialized = true;
-		this._reparseDeletionLog();
-	}
-
 	public getDeletionLog(): string {
 		return this._deleteLog;
 	}
@@ -141,7 +117,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public async rename(oldPath: string, newPath: string): Promise<void> {
-		this.checkInitialized();
 		this.checkPath(oldPath);
 		this.checkPath(newPath);
 
@@ -157,7 +132,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
-		this.checkInitialized();
 		this.checkPath(oldPath);
 		this.checkPath(newPath);
 
@@ -173,7 +147,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public async stat(path: string): Promise<Stats> {
-		this.checkInitialized();
 		try {
 			return await this.writable.stat(path);
 		} catch {
@@ -188,7 +161,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public statSync(path: string): Stats {
-		this.checkInitialized();
 		try {
 			return this.writable.statSync(path);
 		} catch {
@@ -219,31 +191,26 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		this.checkInitialized();
 		await this.writable.createFile(path, flag, mode, options);
 		return this.openFile(path, flag);
 	}
 
 	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
-		this.checkInitialized();
 		this.writable.createFileSync(path, flag, mode, options);
 		return this.openFileSync(path, flag);
 	}
 
 	public async link(srcpath: string, dstpath: string): Promise<void> {
-		this.checkInitialized();
 		await this.copyForWrite(srcpath);
 		await this.writable.link(srcpath, dstpath);
 	}
 
 	public linkSync(srcpath: string, dstpath: string): void {
-		this.checkInitialized();
 		this.copyForWriteSync(srcpath);
 		this.writable.linkSync(srcpath, dstpath);
 	}
 
 	public async unlink(path: string): Promise<void> {
-		this.checkInitialized();
 		this.checkPath(path);
 		if (!(await this.exists(path))) {
 			throw ErrnoError.With('ENOENT', path, 'unlink');
@@ -260,7 +227,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public unlinkSync(path: string): void {
-		this.checkInitialized();
 		this.checkPath(path);
 		if (!this.existsSync(path)) {
 			throw ErrnoError.With('ENOENT', path, 'unlink');
@@ -277,7 +243,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public async rmdir(path: string): Promise<void> {
-		this.checkInitialized();
 		if (!(await this.exists(path))) {
 			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
@@ -295,7 +260,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public rmdirSync(path: string): void {
-		this.checkInitialized();
 		if (!this.existsSync(path)) {
 			throw ErrnoError.With('ENOENT', path, 'rmdir');
 		}
@@ -313,7 +277,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		this.checkInitialized();
 		if (await this.exists(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mkdir');
 		}
@@ -323,7 +286,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
-		this.checkInitialized();
 		if (this.existsSync(path)) {
 			throw ErrnoError.With('EEXIST', path, 'mkdir');
 		}
@@ -333,8 +295,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public async readdir(path: string): Promise<string[]> {
-		this.checkInitialized();
-
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
 		const contents: string[] = [];
 		try {
@@ -356,8 +316,6 @@ export class OverlayFS extends FileSystem {
 	}
 
 	public readdirSync(path: string): string[] {
-		this.checkInitialized();
-
 		// Readdir in both, check delete log on RO file system's listing, merge, return.
 		let contents: string[] = [];
 		try {
@@ -397,14 +355,15 @@ export class OverlayFS extends FileSystem {
 				this._deleteLogUpdateNeeded = false;
 				await this.updateLog('');
 			}
-		} catch (e) {
-			this._deleteLogError = e as ErrnoError;
+		} catch (e: any) {
+			throw crit(e);
 		} finally {
 			this._deleteLogUpdatePending = false;
 		}
 	}
 
-	private _reparseDeletionLog(): void {
+	/** @internal @hidden */
+	_reparseDeletionLog(): void {
 		this._deletedFiles.clear();
 		for (const entry of this._deleteLog.split('\n')) {
 			if (!entry.startsWith('d')) {
@@ -415,20 +374,6 @@ export class OverlayFS extends FileSystem {
 
 			this._deletedFiles.add(entry.slice(1));
 		}
-	}
-
-	private checkInitialized(): void {
-		if (!this._isInitialized) {
-			throw crit(new ErrnoError(Errno.EPERM, 'Overlay is not initialized'), { fs: this });
-		}
-
-		if (!this._deleteLogError) {
-			return;
-		}
-
-		const error = this._deleteLogError;
-		delete this._deleteLogError;
-		throw error;
 	}
 
 	private checkPath(path: string): void {
@@ -551,24 +496,49 @@ export class OverlayFS extends FileSystem {
 	}
 }
 
-const _Overlay = {
+/**
+ * @hidden @deprecated use `CopyOnWriteFS`
+ */
+export class OverlayFS extends CopyOnWriteFS {}
+
+const _CopyOnWrite = {
 	name: 'Overlay',
 	options: {
 		writable: { type: 'object', required: true },
 		readable: { type: 'object', required: true },
 	},
-	create(options: OverlayOptions) {
-		return new OverlayFS(options);
+	async create(options: CopyOnWriteOptions) {
+		const fs = new CopyOnWriteFS(options.readable, options.writable);
+		// Read deletion log, process into metadata.
+		try {
+			const file = await fs.writable.openFile(deletionLogPath, parseFlag('r'));
+			const { size } = await file.stat();
+			const { buffer } = await file.read(new Uint8Array(size));
+			fs._deleteLog = decodeUTF8(buffer);
+		} catch (error: any) {
+			if (error.errno !== Errno.ENOENT) throw err(error);
+			info('Overlay does not have a deletion log');
+		}
+		fs._reparseDeletionLog();
+		return fs;
 	},
-} as const satisfies Backend<OverlayFS, OverlayOptions>;
-type _Overlay = typeof _Overlay;
+} as const satisfies Backend<CopyOnWriteFS, CopyOnWriteOptions>;
+type _CopyOnWrite = typeof _CopyOnWrite;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface Overlay extends _Overlay {}
+export interface CopyOnWrite extends _CopyOnWrite {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface Overlay extends _CopyOnWrite {}
 
+/**
+ * @deprecated Use `CopyOnWrite`
+ * @category Backends and Configuration
+ * @internal @hidden
+ */
+export const Overlay: Overlay = _CopyOnWrite;
 /**
  * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.
  * Deletes are persisted via metadata stored on the writable file system.
  * @category Backends and Configuration
  * @internal
  */
-export const Overlay: Overlay = _Overlay;
+export const CopyOnWrite: CopyOnWrite = _CopyOnWrite;
