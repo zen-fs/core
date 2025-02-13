@@ -21,6 +21,7 @@
 	"files": [
 		"dist",
 		"tests",
+		"types",
 		"license.md",
 		"eslint.shared.js"
 	],
@@ -59,7 +60,7 @@
 		"format:check": "prettier --check .",
 		"lint": "eslint src tests",
 		"test": "npx zenfs-test --clean; npx zenfs-test -abcfp; tests/fetch/run.sh; npx zenfs-test --report",
-		"build": "tsc -p tsconfig.json && cp src/**/*.d.ts dist",
+		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build"

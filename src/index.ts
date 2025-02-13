@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference path="../types/readable-stream.d.ts" preserve="true" />
 export * from './backends/index.js';
 export * from './config.js';
 export * from './context.js';
@@ -10,12 +12,12 @@ export { fs };
 import * as fs from './vfs/index.js';
 export default fs;
 
-declare global {
+declare const globalThis: {
 	/**
 	 * Global VFS. Do not use unless absolutely needed.
 	 * @hidden
 	 */
-	// eslint-disable-next-line no-var
-	var __zenfs__: typeof fs;
-}
+	__zenfs__: typeof fs;
+};
+
 globalThis.__zenfs__ = fs;
