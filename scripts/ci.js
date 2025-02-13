@@ -25,6 +25,8 @@ export const checkNames = {
 	index: 'Unit tests: Index',
 	port: 'Unit tests: Port',
 	fetch: 'Unit tests: Fetch',
+	cow: 'Unit tests: Copy-On-Write',
+	'single-buffer': 'Unit tests: SingleBuffer',
 };
 
 /** Create a new GitHub check run */

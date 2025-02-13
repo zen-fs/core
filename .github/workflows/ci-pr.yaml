@@ -46,11 +46,17 @@ jobs:
             - name: 'Unit tests: contexts'
               run: npx zenfs-test -pfw tests/setup/context.ts
 
+            - name: 'Unit tests: Copy-on-Write'
+              run: npx zenfs-test -pfw tests/setup/cow.ts
+
             - name: 'Unit tests: Index'
               run: npx zenfs-test -pfw tests/setup/index.ts
 
             - name: 'Unit tests: Port'
               run: npx zenfs-test -pfw tests/setup/port.ts
+
+            - name: 'Unit tests: SingleBuffer'
+              run: npx zenfs-test -pfw tests/setup/single-buffer.ts
 
             - name: 'Unit tests: Fetch'
               run: tests/fetch/run.sh -w

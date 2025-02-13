@@ -50,6 +50,9 @@ jobs:
             - name: 'Unit tests: InMemory'
               run: npx zenfs-test -pfwC tests/setup/memory.ts
 
+            - name: 'Unit tests: Copy-On-Write'
+              run: npx zenfs-test -pfwC tests/setup/cow.ts
+
             - name: 'Unit tests: contexts'
               run: npx zenfs-test -pfwC tests/setup/context.ts
 
@@ -58,6 +61,9 @@ jobs:
 
             - name: 'Unit tests: Port'
               run: npx zenfs-test -pfwC tests/setup/port.ts
+
+            - name: 'Unit tests: SingleBuffer'
+              run: npx zenfs-test -pfwC tests/setup/single-buffer.ts
 
             - name: 'Unit tests: Fetch'
               run: tests/fetch/run.sh -wC
