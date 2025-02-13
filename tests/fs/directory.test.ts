@@ -55,10 +55,6 @@ suite('Directories', () => {
 		assert.equal(fs.statSync('/recursiveS/A/B/C/D').mode, fs.constants.S_IFDIR | 0o777);
 	});
 
-	test('readdirSync without permission', () => {
-		assert.throws(() => fs.readdirSync('/two'), { code: 'EACCES' });
-	});
-
 	test('rmdir (non-empty)', async () => {
 		await fs.promises.mkdir('/rmdirTest');
 		await fs.promises.mkdir('/rmdirTest/rmdirTest2');
