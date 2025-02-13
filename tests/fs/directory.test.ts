@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { ErrnoError } from '../../dist/index.js';
 import { fs } from '../common.js';
 
 const testDir = 'test-dir';
@@ -25,15 +24,10 @@ suite('Directories', () => {
 		await assert.rejects(fs.promises.mkdir('/one', 0o755), /EEXIST/);
 	});
 
-	test('mkdirSync', () => fs.mkdirSync('/two', 0o000));
+	test('mkdirSync', async () => await fs.promises.mkdir('/two', 0o000));
 
 	test('mkdir, nested', async () => {
-		try {
-			await fs.promises.mkdir('/nested/dir');
-		} catch (error: any) {
-			assert(error instanceof ErrnoError);
-			assert.equal(error.code, 'ENOENT');
-		}
+		assert.rejects(fs.promises.mkdir('/nested/dir'), { code: 'ENOENT', path: '/nested' });
 		assert(!(await fs.promises.exists('/nested/dir')));
 	});
 
@@ -62,68 +56,30 @@ suite('Directories', () => {
 	});
 
 	test('readdirSync without permission', () => {
-		try {
-			fs.readdirSync('/two');
-		} catch (error: any) {
-			assert(error instanceof ErrnoError);
-			assert.equal(error.code, 'EACCES');
-		}
+		assert.throws(() => fs.readdirSync('/two'), { code: 'EACCES' });
 	});
 
 	test('rmdir (non-empty)', async () => {
 		await fs.promises.mkdir('/rmdirTest');
 		await fs.promises.mkdir('/rmdirTest/rmdirTest2');
 
-		try {
-			await fs.promises.rmdir('/rmdirTest');
-		} catch (error: any) {
-			assert(error instanceof ErrnoError);
-			assert.equal(error.code, 'ENOTEMPTY');
-		}
+		assert.rejects(fs.promises.rmdir('/rmdirTest'), { code: 'ENOTEMPTY' });
 	});
 
 	test('readdirSync on file', () => {
-		let wasThrown = false;
-
-		try {
-			fs.readdirSync('a.js');
-		} catch (error: any) {
-			assert(error instanceof ErrnoError);
-			wasThrown = true;
-			assert.equal(error.code, 'ENOTDIR');
-		}
-		assert(wasThrown);
+		assert.throws(() => fs.readdirSync('a.js'), { code: 'ENOTDIR' });
 	});
 
-	test('readdir on file', async () => {
-		try {
-			await fs.promises.readdir('a.js');
-		} catch (error: any) {
-			assert(error instanceof ErrnoError);
-			assert.equal(error.code, 'ENOTDIR');
-		}
+	test('readdir on file', () => {
+		assert.rejects(fs.promises.readdir('a.js'), { code: 'ENOTDIR' });
 	});
 
 	test('readdirSync on non-existant directory', () => {
-		let wasThrown = false;
-
-		try {
-			fs.readdirSync('/does/not/exist');
-		} catch (error: any) {
-			assert(error instanceof ErrnoError);
-			wasThrown = true;
-			assert.equal(error.code, 'ENOENT');
-		}
-		assert(wasThrown);
+		assert.throws(() => fs.readdirSync('/does/not/exist'), { code: 'ENOENT' });
 	});
 
-	test('readdir on non-existant directory', async () => {
-		try {
-			await fs.promises.readdir('/does/not/exist');
-		} catch (error: any) {
-			assert(error instanceof ErrnoError);
-			assert.equal(error.code, 'ENOENT');
-		}
+	test('readdir on non-existant directory', () => {
+		assert.rejects(fs.promises.readdir('/does/not/exist'), { code: 'ENOENT' });
 	});
 
 	test('rm recursively asynchronously', async () => {
