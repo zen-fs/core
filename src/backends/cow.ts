@@ -10,6 +10,7 @@ import { LazyFile } from '../internal/file.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { debug, err, warn } from '../internal/log.js';
 import { dirname, join } from '../vfs/path.js';
+import { EventEmitter } from 'eventemitter3';
 
 /**
  * Configuration options for CoW.
@@ -22,26 +23,14 @@ export interface CopyOnWriteOptions {
 	/** The file system to write modified files to. */
 	writable: FileSystem;
 
-	/** Options for the journal */
-	journal?: JournalOptions;
+	/** @see {@link Journal} */
+	journal?: Journal;
 }
 
 /**
  *  @hidden @deprecated use `CopyOnWriteOptions`
  */
 export type OverlayOptions = CopyOnWriteOptions;
-
-/**
- * Configuration options for the journal used by CoW.
- * @category Backends and Configuration
- * @internal
- */
-export interface JournalOptions {
-	/** The contents of the journal */
-	contents?: string | JournalEntry[];
-
-	/**  */
-}
 
 const journalOperations = ['delete'] as const;
 
@@ -71,10 +60,15 @@ const journalMagicString = '#journal@v0\n';
  * Tracks various operations for the CoW backend
  * @internal
  */
-export class Journal {
+export class Journal extends EventEmitter<{
+	update: [op: JournalOperation, path: string];
+	delete: [path: string];
+}> {
 	public entries: JournalEntry[] = [];
 
-	public constructor(public readonly fs: CopyOnWriteFS) {}
+	public constructor(public readonly fs: CopyOnWriteFS) {
+		super();
+	}
 
 	public toString(): string {
 		return journalMagicString + this.entries.map(entry => `${entry.op.padEnd(maxOpLength)} ${entry.path}`).join('\n');
@@ -83,7 +77,7 @@ export class Journal {
 	/**
 	 * Parse a journal from a string
 	 */
-	public fromString(value: string) {
+	public fromString(value: string): this {
 		if (!value.startsWith(journalMagicString)) throw err(new ErrnoError(Errno.EINVAL, 'Invalid journal contents, refusing to parse'));
 
 		for (const line of value.split('\n')) {
@@ -98,10 +92,14 @@ export class Journal {
 
 			this.entries.push({ op, path });
 		}
+
+		return this;
 	}
 
 	public add(op: JournalOperation, path: string) {
 		this.entries.push({ op, path });
+		this.emit('update', op, path);
+		this.emit(op, path);
 	}
 
 	public has(op: JournalOperation, path: string): boolean {
@@ -136,17 +134,16 @@ export class CopyOnWriteFS extends FileSystem {
 		await this.writable.ready();
 	}
 
-	public readonly journal = new Journal(this);
+	public readonly journal: Journal;
 
 	public constructor(
-		/**
-		 * The file system that initially populates this file system.
-		 */
+		/** The file system that initially populates this file system. */
 		public readonly readable: FileSystem,
-		/**
-		 * The file system to write modified files to.
-		 */
-		public readonly writable: FileSystem
+
+		/** The file system to write modified files to. */
+		public readonly writable: FileSystem,
+
+		journal?: Journal
 	) {
 		super(0x62756c6c, readable.name);
 
@@ -155,6 +152,8 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 
 		readable.attributes.set('no_write');
+
+		this.journal = journal ?? new Journal(this);
 	}
 
 	public isDeleted(path: string): boolean {
@@ -511,17 +510,7 @@ const _CopyOnWrite = {
 		journal: { type: 'object', required: false },
 	},
 	create(options: CopyOnWriteOptions) {
-		const fs = new CopyOnWriteFS(options.readable, options.writable);
-
-		if (typeof options.journal == 'string') {
-			fs.journal.fromString(options.journal);
-		}
-
-		if (Array.isArray(options.journal)) {
-			fs.journal.entries.push(...options.journal);
-		}
-
-		return fs;
+		return new CopyOnWriteFS(options.readable, options.writable, options.journal);
 	},
 } as const satisfies Backend<CopyOnWriteFS, CopyOnWriteOptions>;
 type _CopyOnWrite = typeof _CopyOnWrite;
