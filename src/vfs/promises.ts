@@ -1067,22 +1067,22 @@ export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | BufferEncoding
-): AsyncIterableIterator<promises.FileChangeInfo<string>>;
+): AsyncIteratorObject<promises.FileChangeInfo<string>>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | fs.BufferEncodingOption
-): AsyncIterableIterator<promises.FileChangeInfo<Buffer>>;
+): AsyncIteratorObject<promises.FileChangeInfo<Buffer>>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | string
-): AsyncIterableIterator<promises.FileChangeInfo<string>> | AsyncIterableIterator<promises.FileChangeInfo<Buffer>>;
+): AsyncIteratorObject<promises.FileChangeInfo<string>> | AsyncIteratorObject<promises.FileChangeInfo<Buffer>>;
 export function watch<T extends string | Buffer>(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | string = {}
-): AsyncIterableIterator<promises.FileChangeInfo<T>> {
+): AsyncIteratorObject<promises.FileChangeInfo<T>> {
 	const watcher = new FSWatcher<T>(
 		this,
 		filename.toString(),
@@ -1120,7 +1120,7 @@ export function watch<T extends string | Buffer>(
 		async [Symbol.asyncDispose]() {
 			await cleanup();
 		},
-		[Symbol.asyncIterator](): AsyncIterableIterator<promises.FileChangeInfo<T>> {
+		[Symbol.asyncIterator](): AsyncIteratorObject<promises.FileChangeInfo<T>> {
 			return this;
 		},
 	};
