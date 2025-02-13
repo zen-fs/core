@@ -12,7 +12,7 @@ suite('Error messages', () => {
 		assert.equal(error.bufferSize(), 4 + JSON.stringify(error.toJSON()).length);
 	});
 
-	const missing = { path };
+	const missing = { path, code: 'ENOENT' };
 	const existing = { path: existingFile };
 
 	test('stat', () => assert.rejects(() => fs.promises.stat(path), missing));
