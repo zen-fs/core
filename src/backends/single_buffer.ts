@@ -83,7 +83,7 @@ const sb_magic = 0x7a2e7362; // 'z.sb'
 class SuperBlock {
 	public constructor(public readonly store: SingleBufferStore) {
 		if (store._view.getUint32(offsetof(SuperBlock, 'magic'), true) != sb_magic) {
-			warn('SingleBuffer: Invalid magic value. Assuming this is a fresh super block.');
+			warn('SingleBuffer: Invalid magic value, assuming this is a fresh super block');
 			this.metadata = new MetadataBlock(this);
 			this.used_bytes = BigInt(sizeof(SuperBlock) + sizeof(MetadataBlock));
 			this.total_bytes = BigInt(store._buffer.byteLength);
@@ -224,7 +224,7 @@ export class SingleBufferStore implements SyncMapStore {
 
 	public constructor(buffer: ArrayBufferLike | ArrayBufferView) {
 		if (buffer.byteLength < sizeof(SuperBlock) + sizeof(MetadataBlock))
-			throw crit(new ErrnoError(Errno.EINVAL, 'SingleBuffer: Buffer is too small for a file system.'));
+			throw crit(new ErrnoError(Errno.EINVAL, 'SingleBuffer: Buffer is too small for a file system'));
 
 		this._view = !ArrayBuffer.isView(buffer) ? new DataView(buffer) : new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		this._buffer = !ArrayBuffer.isView(buffer) ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);

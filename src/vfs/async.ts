@@ -365,7 +365,7 @@ export function write(
 				cb = (typeof cbLenEnc === 'function' ? cbLenEnc : typeof cbPosEnc === 'function' ? cbPosEnc : cb) as Callback<
 					[number, Uint8Array | string]
 				>;
-				(cb as Callback<[number, Uint8Array | string]>)(new ErrnoError(Errno.EINVAL, 'Invalid arguments.'));
+				(cb as Callback<[number, Uint8Array | string]>)(new ErrnoError(Errno.EINVAL, 'Invalid arguments'));
 				return;
 		}
 		buffer = Buffer.from(data);

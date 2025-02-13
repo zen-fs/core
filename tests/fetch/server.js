@@ -12,7 +12,7 @@ try {
 	execSync(`npm exec make-index -- ${data} --output ${tmp}/index.json --quiet`, { stdio: 'inherit' });
 } catch (e) {
 	if (e.signal == 'SIGINT') {
-		console.log('Aborted whilst creating index.');
+		console.log('Aborted whilst creating index');
 		process.exit(0);
 	} else {
 		console.error('Index creation failed: ' + e.message);

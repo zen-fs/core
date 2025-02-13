@@ -65,7 +65,7 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 
 	mountPoint = resolve(mountPoint);
 	if (mounts.has(mountPoint)) {
-		throw err(new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already in use.'));
+		throw err(new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already in use'));
 	}
 	fs._mountPoint = mountPoint;
 	mounts.set(mountPoint, fs);
@@ -82,7 +82,7 @@ export function umount(mountPoint: string): void {
 
 	mountPoint = resolve(mountPoint);
 	if (!mounts.has(mountPoint)) {
-		warn(mountPoint + ' is already unmounted.');
+		warn(mountPoint + ' is already unmounted');
 		return;
 	}
 

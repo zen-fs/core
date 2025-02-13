@@ -168,7 +168,7 @@ const _Port = {
 			validator(port: RPC.Port) {
 				// Check for a `postMessage` function.
 				if (typeof port?.postMessage != 'function') {
-					throw err(new ErrnoError(Errno.EINVAL, 'option must be a port.'));
+					throw err(new ErrnoError(Errno.EINVAL, 'option must be a port'));
 				}
 			},
 		},

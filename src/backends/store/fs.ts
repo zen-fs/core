@@ -594,12 +594,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			warn('Attempted to populate tables after initialization');
 			return;
 		}
-		debug('Populating tables with existing store metadata.');
+		debug('Populating tables with existing store metadata');
 		await using tx = this.transaction();
 
 		const rootData = await tx.get(rootIno);
 		if (!rootData) {
-			notice('Store does not have a root inode.');
+			notice('Store does not have a root inode');
 			const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
 			await tx.set(inode.data, encodeUTF8('{}'));
 			this._add(rootIno, '/');
@@ -609,7 +609,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		if (rootData.length != __inode_sz) {
-			crit('Store contains an invalid root inode. Refusing to populate tables.');
+			crit('Store contains an invalid root inode. Refusing to populate tables');
 			return;
 		}
 

@@ -232,7 +232,7 @@ export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _op
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isReadable(flag)) {
-		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading.');
+		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading');
 	}
 	const data: Buffer = Buffer.from(_readFileSync.call(this, typeof path == 'number' ? fd2file(path).path : path, options.flag, false));
 	return options.encoding ? data.toString(options.encoding) : data;
@@ -258,7 +258,7 @@ export function writeFileSync(
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isWriteable(flag)) {
-		throw new ErrnoError(Errno.EINVAL, 'Flag passed to writeFile must allow for writing.');
+		throw new ErrnoError(Errno.EINVAL, 'Flag passed to writeFile must allow for writing');
 	}
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
@@ -288,7 +288,7 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 	const options = normalizeOptions(_options, 'utf8', 'a+', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isAppendable(flag)) {
-		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending.');
+		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 	}
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
@@ -841,7 +841,7 @@ export function copyFileSync(this: V_Context, source: fs.PathLike, destination: 
 	destination = normalizePath(destination);
 
 	if (flags && flags & constants.COPYFILE_EXCL && existsSync(destination)) {
-		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists.', destination, 'copyFile');
+		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists', destination, 'copyFile');
 	}
 
 	writeFileSync.call(this, destination, readFileSync(source));
@@ -919,7 +919,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 	const srcStats = lstatSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
 
 	if (opts?.errorOnExist && existsSync.call(this, destination)) {
-		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
+		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists', destination, 'cp');
 	}
 
 	switch (srcStats.mode & constants.S_IFMT) {

@@ -64,7 +64,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async chmod(mode: fs.Mode): Promise<void> {
 		const numMode = normalizeMode(mode, -1);
-		if (numMode < 0) throw new ErrnoError(Errno.EINVAL, 'Invalid mode.');
+		if (numMode < 0) throw new ErrnoError(Errno.EINVAL, 'Invalid mode');
 		await this.file.chmod(numMode);
 		this._emitChange();
 	}
@@ -122,7 +122,7 @@ export class FileHandle implements promises.FileHandle {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isAppendable(flag)) {
-			throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending.');
+			throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 		}
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
@@ -189,7 +189,7 @@ export class FileHandle implements promises.FileHandle {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = parseFlag(options.flag);
 		if (!isReadable(flag)) {
-			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for reading.');
+			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for reading');
 		}
 
 		const { size } = await this.stat();
@@ -296,7 +296,7 @@ export class FileHandle implements promises.FileHandle {
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
 		const flag = parseFlag(options.flag);
 		if (!isWriteable(flag)) {
-			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for writing.');
+			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for writing');
 		}
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
@@ -672,7 +672,7 @@ export async function appendFile(
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 	const flag = parseFlag(options.flag);
 	if (!isAppendable(flag)) {
-		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending.');
+		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 	}
 	if (typeof data != 'string' && !options.encoding) {
 		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
@@ -1205,7 +1205,7 @@ export async function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathL
 	dest = normalizePath(dest);
 
 	if (mode && mode & constants.COPYFILE_EXCL && (await exists.call(this, dest))) {
-		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists.', dest, 'copyFile');
+		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists', dest, 'copyFile');
 	}
 
 	await writeFile.call(this, dest, await readFile.call(this, src));
@@ -1245,7 +1245,7 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 	const srcStats = await lstat.call<V_Context, [string], Promise<Stats>>(this, source); // Use lstat to follow symlinks if not dereferencing
 
 	if (opts?.errorOnExist && (await exists.call(this, destination))) {
-		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists.', destination, 'cp');
+		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists', destination, 'cp');
 	}
 
 	switch (srcStats.mode & constants.S_IFMT) {

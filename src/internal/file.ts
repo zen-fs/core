@@ -394,7 +394,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'truncate');
 		this.dirty = true;
 		if (!isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 		}
 		this.stats.mtimeMs = Date.now();
 		if (length > this._buffer.length) {
@@ -422,7 +422,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
 
 		if (!isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 		}
 
 		this.dirty = true;
@@ -471,7 +471,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
 
 		if (!isReadable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
 		}
 
 		if (config.updateOnRead) {
@@ -713,7 +713,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 
 		this.dirty = true;
 		if (!isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 		}
 		this.stats.mtimeMs = Date.now();
 		this.stats.size = length;
@@ -725,7 +725,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 
 		this.dirty = true;
 		if (!isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 		}
 		this.stats.mtimeMs = Date.now();
 		this.stats.size = length;
@@ -736,7 +736,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
 
 		if (!isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode.');
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 		}
 
 		this.dirty = true;
@@ -792,7 +792,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 	protected prepareRead(length: number, position: number): number {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
 
-		if (!isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode.');
+		if (!isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
 
 		if (config.updateOnRead) this.dirty = true;
 
