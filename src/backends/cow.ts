@@ -64,11 +64,7 @@ export class Journal extends EventEmitter<{
 	update: [op: JournalOperation, path: string];
 	delete: [path: string];
 }> {
-	public entries: JournalEntry[] = [];
-
-	public constructor(public readonly fs: CopyOnWriteFS) {
-		super();
-	}
+	protected entries: JournalEntry[] = [];
 
 	public toString(): string {
 		return journalMagicString + this.entries.map(entry => `${entry.op.padEnd(maxOpLength)} ${entry.path}`).join('\n');
@@ -134,8 +130,6 @@ export class CopyOnWriteFS extends FileSystem {
 		await this.writable.ready();
 	}
 
-	public readonly journal: Journal;
-
 	public constructor(
 		/** The file system that initially populates this file system. */
 		public readonly readable: FileSystem,
@@ -143,7 +137,8 @@ export class CopyOnWriteFS extends FileSystem {
 		/** The file system to write modified files to. */
 		public readonly writable: FileSystem,
 
-		journal?: Journal
+		/** The journal to use for persisting deletions */
+		public readonly journal = new Journal()
 	) {
 		super(0x62756c6c, readable.name);
 
@@ -152,8 +147,6 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 
 		readable.attributes.set('no_write');
-
-		this.journal = journal ?? new Journal(this);
 	}
 
 	public isDeleted(path: string): boolean {
