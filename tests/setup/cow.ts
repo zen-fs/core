@@ -1,7 +1,13 @@
-import { configureSingle, InMemory, CopyOnWrite } from '../../dist/index.js';
+import { configureSingle, InMemory, CopyOnWrite, resolveMountConfig, fs } from '../../dist/index.js';
+import { copySync, data } from '../setup.js';
+
+fs.umount('/');
+const readable = await resolveMountConfig({ backend: InMemory, label: 'ro' });
+fs.mount('/', readable);
+copySync(data);
 
 await configureSingle({
 	backend: CopyOnWrite,
-	readable: InMemory.create({ name: 'ro' }),
-	writable: InMemory.create({ name: 'cow' }),
+	readable,
+	writable: InMemory.create({ label: 'cow' }),
 });

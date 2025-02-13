@@ -8,7 +8,7 @@ import { canary } from 'utilium';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { LazyFile } from '../internal/file.js';
 import { FileSystem } from '../internal/filesystem.js';
-import { err, warn } from '../internal/log.js';
+import { debug, err, warn } from '../internal/log.js';
 import { dirname, join } from '../vfs/path.js';
 
 /**
@@ -226,9 +226,8 @@ export class CopyOnWriteFS extends FileSystem {
 		try {
 			return await this.writable.stat(path);
 		} catch {
-			if (this.isDeleted(path)) {
-				throw ErrnoError.With('ENOENT', path, 'stat');
-			}
+			if (this.isDeleted(path)) throw ErrnoError.With('ENOENT', path, 'stat');
+
 			const oldStat = await this.readable.stat(path);
 			// Make the oldStat's mode writable.
 			oldStat.mode |= 0o222;
@@ -240,9 +239,8 @@ export class CopyOnWriteFS extends FileSystem {
 		try {
 			return this.writable.statSync(path);
 		} catch {
-			if (this.isDeleted(path)) {
-				throw ErrnoError.With('ENOENT', path, 'stat');
-			}
+			if (this.isDeleted(path)) throw ErrnoError.With('ENOENT', path, 'stat');
+
 			const oldStat = this.readable.statSync(path);
 			// Make the oldStat's mode writable.
 			oldStat.mode |= 0o222;
@@ -349,63 +347,41 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		if (await this.exists(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mkdir');
-		}
-		// The below will throw should any of the parent directories fail to exist on _writable.
+		if (await this.exists(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
 		await this.createParentDirectories(path);
 		await this.writable.mkdir(path, mode, options);
 	}
 
 	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
-		if (this.existsSync(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mkdir');
-		}
-		// The below will throw should any of the parent directories fail to exist on _writable.
+		if (this.existsSync(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
 		this.createParentDirectoriesSync(path);
 		this.writable.mkdirSync(path, mode, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
-		// Readdir in both, check delete log on RO file system's listing, merge, return.
-		const contents: string[] = [];
-		try {
-			contents.push(...(await this.writable.readdir(path)));
-		} catch {
-			// NOP.
-		}
-		try {
-			contents.push(...(await this.readable.readdir(path)).filter((fPath: string) => !this.isDeleted(`${path}/${fPath}`)));
-		} catch {
-			// NOP.
-		}
-		const seenMap: { [name: string]: boolean } = {};
-		return contents.filter((path: string) => {
-			const result = !seenMap[path];
-			seenMap[path] = true;
-			return result;
-		});
+		if (this.isDeleted(path)) throw ErrnoError.With('ENOENT', path, 'readdir');
+
+		const entries: string[] = await this.writable.readdir(path);
+
+		if (await this.writable.exists(path))
+			for (const entry of await this.writable.readdir(path)) {
+				if (!entries.includes(entry)) entries.push(entry);
+			}
+
+		return entries.filter(entry => !this.isDeleted(join(path, entry)));
 	}
 
 	public readdirSync(path: string): string[] {
-		// Readdir in both, check delete log on RO file system's listing, merge, return.
-		let contents: string[] = [];
-		try {
-			contents = contents.concat(this.writable.readdirSync(path));
-		} catch {
-			// NOP.
-		}
-		try {
-			contents = contents.concat(this.readable.readdirSync(path).filter((fPath: string) => !this.isDeleted(`${path}/${fPath}`)));
-		} catch {
-			// NOP.
-		}
-		const seenMap: { [name: string]: boolean } = {};
-		return contents.filter((path: string) => {
-			const result = !seenMap[path];
-			seenMap[path] = true;
-			return result;
-		});
+		if (this.isDeleted(path)) throw ErrnoError.With('ENOENT', path, 'readdir');
+
+		const entries: string[] = this.writable.readdirSync(path);
+
+		if (this.writable.existsSync(path))
+			for (const entry of this.writable.readdirSync(path)) {
+				if (!entries.includes(entry)) entries.push(entry);
+			}
+
+		return entries.filter(entry => !this.isDeleted(join(path, entry)));
 	}
 
 	/**
@@ -413,15 +389,15 @@ export class CopyOnWriteFS extends FileSystem {
 	 * Use modes from the read-only storage.
 	 */
 	private createParentDirectoriesSync(path: string): void {
-		let parent = dirname(path);
 		const toCreate: string[] = [];
 
 		const silence = canary(ErrnoError.With('EDEADLK', path));
-		while (!this.writable.existsSync(parent)) {
+		for (let parent = dirname(path); !this.writable.existsSync(parent); parent = dirname(parent)) {
 			toCreate.push(parent);
-			parent = dirname(parent);
 		}
 		silence();
+
+		if (toCreate.length) debug('COW: Creating parent directories: ' + toCreate.join(', '));
 
 		for (const path of toCreate.reverse()) {
 			const { uid, gid, mode } = this.statSync(path);
@@ -434,15 +410,15 @@ export class CopyOnWriteFS extends FileSystem {
 	 * Use modes from the read-only storage.
 	 */
 	private async createParentDirectories(path: string): Promise<void> {
-		let parent = dirname(path);
 		const toCreate: string[] = [];
 
 		const silence = canary(ErrnoError.With('EDEADLK', path));
-		while (!(await this.writable.exists(parent))) {
+		for (let parent = dirname(path); !(await this.writable.exists(parent)); parent = dirname(parent)) {
 			toCreate.push(parent);
-			parent = dirname(parent);
 		}
 		silence();
+
+		if (toCreate.length) debug('COW: Creating parent directories: ' + toCreate.join(', '));
 
 		for (const path of toCreate.reverse()) {
 			const { uid, gid, mode } = await this.stat(path);
@@ -528,7 +504,7 @@ export class CopyOnWriteFS extends FileSystem {
 export class OverlayFS extends CopyOnWriteFS {}
 
 const _CopyOnWrite = {
-	name: 'Overlay',
+	name: 'CopyOnWrite',
 	options: {
 		writable: { type: 'object', required: true },
 		readable: { type: 'object', required: true },
@@ -549,8 +525,17 @@ const _CopyOnWrite = {
 	},
 } as const satisfies Backend<CopyOnWriteFS, CopyOnWriteOptions>;
 type _CopyOnWrite = typeof _CopyOnWrite;
+
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CopyOnWrite extends _CopyOnWrite {}
+/**
+ * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.
+ * Deletes are persisted via metadata stored on the writable file system.
+ * @category Backends and Configuration
+ * @internal
+ */
+export const CopyOnWrite: CopyOnWrite = _CopyOnWrite;
+
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Overlay extends _CopyOnWrite {}
 
@@ -560,10 +545,3 @@ export interface Overlay extends _CopyOnWrite {}
  * @internal @hidden
  */
 export const Overlay: Overlay = _CopyOnWrite;
-/**
- * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.
- * Deletes are persisted via metadata stored on the writable file system.
- * @category Backends and Configuration
- * @internal
- */
-export const CopyOnWrite: CopyOnWrite = _CopyOnWrite;
