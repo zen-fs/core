@@ -556,8 +556,12 @@ export function readdirSync(
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
 	for (const entry of entries) {
-		const entryStat = fs.statSync(join(resolved, entry));
-
+		let entryStat: Stats;
+		try {
+			entryStat = fs.statSync(join(resolved, entry));
+		} catch {
+			continue;
+		}
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStat));
 		} else if (options?.encoding == 'buffer') {

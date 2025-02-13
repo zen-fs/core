@@ -23,6 +23,7 @@ import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
+import { _throw } from 'utilium';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -799,13 +800,9 @@ export async function readdir(
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = await realpath.call(this, path);
 
-	const handleError = (e: ErrnoError) => {
-		throw fixError(e, { [resolved]: path });
-	};
-
 	const { fs, path: resolved } = resolveMount(path, this);
 
-	const stats = await fs.stat(resolved).catch(handleError);
+	const stats = await fs.stat(resolved).catch((e: ErrnoError) => _throw(fixError(e, { [resolved]: path })));
 
 	if (!stats) {
 		throw ErrnoError.With('ENOENT', path, 'readdir');
@@ -819,13 +816,17 @@ export async function readdir(
 		throw ErrnoError.With('ENOTDIR', path, 'readdir');
 	}
 
-	const entries = await fs.readdir(resolved).catch(handleError);
+	const entries = await fs.readdir(resolved).catch((e: ErrnoError) => _throw(fixError(e, { [resolved]: path })));
 
 	const values: (string | Dirent | Buffer)[] = [];
 	const addEntry = async (entry: string) => {
 		let entryStats: Stats | undefined;
 		if (options?.recursive || options?.withFileTypes) {
-			entryStats = await fs.stat(join(resolved, entry)).catch(handleError);
+			entryStats = await fs.stat(join(resolved, entry)).catch((e: ErrnoError): undefined => {
+				if (e.code == 'ENOENT') return;
+				throw fixError(e, { [resolved]: path });
+			});
+			if (!entryStats) return;
 		}
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStats!));
