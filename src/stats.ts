@@ -11,6 +11,7 @@ const n1000 = BigInt(1000) as 1000n;
 
 /**
  * Indicates the type of a file. Applied to 'mode'.
+ * @deprecated
  */
 export type FileType = typeof c.S_IFREG | typeof c.S_IFDIR | typeof c.S_IFLNK;
 
@@ -77,7 +78,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	/**
 	 * Unix-style file mode (e.g. 0o644) that includes the type of the item.
-	 * Type of the item can be FILE, DIRECTORY, SYMLINK, or SOCKET
 	 */
 	public mode: T;
 
