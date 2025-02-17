@@ -191,7 +191,7 @@ function _default_streamRead(this: FileSystem, path: string, options: StreamOpti
 			for (let offset = start; offset < end; offset += _chunkSize) {
 				const bytesRead = offset + _chunkSize > end ? end - offset : _chunkSize;
 				const buffer = new Uint8Array(bytesRead);
-				await this.read(path, buffer, offset, bytesRead).catch(controller.error.bind(controller));
+				await this.read(path, buffer, offset, offset + bytesRead).catch(controller.error.bind(controller));
 				controller.enqueue(buffer);
 			}
 

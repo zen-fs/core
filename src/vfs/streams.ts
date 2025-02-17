@@ -46,144 +46,137 @@ export interface WriteStreamOptions extends StreamOptions {
 	};
 }
 
+/**
+ * A ReadStream implementation that wraps an underlying global ReadableStream.
+ */
 export class ReadStream extends Readable implements fs.ReadStream {
-	protected start?: number;
-	protected handle?: FileHandle;
-	protected position?: number;
-	public pending: boolean = true;
+	public pending = true;
+	private _path = '<unknown>';
+	private _bytesRead = 0;
+	private reader?: ReadableStreamDefaultReader<Uint8Array>;
 
-	public constructor(
-		private opts: CreateReadStreamOptions = {},
-		_handle: FileHandle | Promise<FileHandle>
-	) {
-		super({
-			...opts,
-			read: async (size: number) => {
-				try {
-					this.handle ||= await _handle;
-					this.start ??= this.handle.file.position;
-					this.position ??= this.start;
+	public constructor(opts: CreateReadStreamOptions = {}, handleOrPromise: FileHandle | Promise<FileHandle>) {
+		super({ ...opts, encoding: opts.encoding ?? undefined });
 
-					if (typeof opts.end === 'number' && this.position >= opts.end) {
-						this.push(null);
-						if (opts.autoClose) await this.handle.close();
-						return;
-					}
+		Promise.resolve(handleOrPromise)
+			.then(({ file }) => {
+				this._path = file.path;
 
-					if (typeof opts.end === 'number') {
-						size = Math.min(size, opts.end - this.position);
-					}
-
-					console.log(`ReadStream: ${size} bytes at ${this.position}`);
-
-					const result = await this.handle.file.read(new Uint8Array(size), 0, size, this.position);
-					this.push(!result.bytesRead ? null : result.buffer.subarray(0, result.bytesRead));
-					if (!result.bytesRead && opts.autoClose) await this.handle.close();
-					this.position += result.bytesRead;
-				} catch (error: any) {
-					if (opts.autoClose) await this.handle?.close().catch(e => warn('Error whilst closing handle for stream: ' + e));
-					this.destroy(error);
-				}
-			},
-			highWaterMark: opts.highWaterMark || 0x1000,
-			encoding: opts.encoding ?? undefined,
-		});
-
-		if (_handle instanceof Promise) void _handle.then(() => (this.pending = false));
-		else this.pending = false;
-
-		this.start = opts.start;
-		this.position = opts.start;
+				const internal = file.fs.streamRead(file.path, { start: opts.start, end: opts.end });
+				this.reader = internal.getReader();
+				this.pending = false;
+				return this._read();
+			})
+			.catch(err => this.destroy(err));
 	}
 
-	close = (callback: Callback<[void], null> = () => null) => {
-		try {
-			super.destroy();
-			super.emit('close');
-			callback(null);
-		} catch (err) {
-			callback(new ErrnoError(Errno.EIO, (err as Error).toString()));
+	async _read(): Promise<void> {
+		if (!this.reader) return;
+
+		const { done, value } = await this.reader.read();
+
+		if (done) {
+			this.push(null);
+			return;
 		}
-	};
+
+		this._bytesRead += value.byteLength;
+		if (!this.push(value)) return;
+
+		await this._read();
+	}
+
+	close(callback: Callback<[void], null> = () => null): void {
+		try {
+			this.destroy();
+			this.emit('close');
+			callback(null);
+		} catch (err: any) {
+			callback(new ErrnoError(Errno.EIO, err.toString()));
+		}
+	}
+
+	public get path(): string {
+		return this._path;
+	}
+
+	public get bytesRead(): number {
+		return this._bytesRead;
+	}
 
 	wrap(oldStream: NodeJS.ReadableStream): this {
 		super.wrap(oldStream as any);
 		return this;
 	}
-
-	public get path(): string {
-		return this.handle?.file.path ?? '<unknown>';
-	}
-
-	public get bytesRead(): number {
-		return (this.position ?? 0) - (this.start ?? 0);
-	}
 }
 
+/**
+ * A WriteStream implementation that wraps an underlying global WritableStream.
+ */
 export class WriteStream extends Writable implements fs.WriteStream {
-	protected start?: number;
-	protected handle?: FileHandle;
-	protected position?: number;
-	public pending: boolean = true;
+	public pending = true;
+	private _path = '<unknown>';
+	private _bytesWritten = 0;
+	private writer?: WritableStreamDefaultWriter<Uint8Array>;
+	private ready: Promise<unknown>;
 
-	public constructor(
-		private opts: CreateWriteStreamOptions = {},
-		_handle: FileHandle | Promise<FileHandle>
-	) {
-		const { stack } = new Error();
+	public constructor(opts: CreateWriteStreamOptions = {}, handleOrPromise: FileHandle | Promise<FileHandle>) {
+		super(opts);
 
-		super({
-			...opts,
-			highWaterMark: opts.highWaterMark || 0x1000,
-			write: async (chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) => {
-				try {
-					this.handle ||= await _handle;
-					this.start ??= this.handle.file.position;
-					this.position ??= this.start;
-
-					const { bytesWritten } = await this.handle.write(chunk, null, encoding, this.position);
-					if (bytesWritten != chunk.length)
-						throw new ErrnoError(Errno.EIO, `Failed to write full chunk of write stream (wrote ${bytesWritten}/${chunk.length} bytes)`);
-					this.position += bytesWritten;
-					callback();
-				} catch (error: any) {
-					if (opts.autoClose) await this.handle?.close();
-					error.stack += stack?.slice(5);
-					callback(error);
-				}
-			},
-			destroy: async (error, callback) => {
-				if (opts.autoClose) await this.handle?.close().catch(callback);
-				callback(error);
-			},
-			final: async callback => {
-				if (opts.autoClose) await this.handle?.close().catch(() => {});
-				callback();
-			},
-		});
-
-		if (_handle instanceof Promise) void _handle.then(() => (this.pending = false));
-		else this.pending = false;
-
-		this.start = opts.start;
-		this.position = opts.start;
+		this.ready = Promise.resolve(handleOrPromise)
+			.then(({ file }) => {
+				this._path = file.path;
+				const internal = file.fs.streamWrite(file.path, { start: opts.start });
+				this.writer = internal.getWriter();
+				this.pending = false;
+			})
+			.catch(err => this.destroy(err));
 	}
 
-	close = (callback: Callback<[void], null> = () => null) => {
+	async _write(chunk: any, encoding: BufferEncoding | 'buffer', callback: (error?: Error | null) => void): Promise<void> {
+		await this.ready;
+
+		if (!this.writer) return callback(new ErrnoError(Errno.EAGAIN, 'Underlying writable stream not ready', this._path));
+
+		if (encoding != 'buffer') return callback(warn(new ErrnoError(Errno.ENOTSUP, 'Unsupported encoding for stream', this._path)));
+
+		this.writer
+			.write(chunk)
+			.then(() => {
+				this._bytesWritten += chunk.byteLength;
+				callback();
+			})
+			.catch(callback);
+	}
+
+	async _final(callback: (error?: Error | null) => void): Promise<void> {
+		await this.ready;
+
+		if (!this.writer) return callback();
+
+		// Close the underlying global WritableStream.
+		this.writer
+			.close()
+			.then(() => callback())
+			.catch(callback);
+	}
+
+	// Implements a close() method similar to Node's WriteStream.
+	close(callback: Callback<[void], null> = () => null): void {
 		try {
-			super.destroy();
-			super.emit('close');
+			this.destroy();
+			this.emit('close');
 			callback(null);
-		} catch (err) {
-			callback(new ErrnoError(Errno.EIO, (err as Error).toString()));
+		} catch (err: any) {
+			callback(new ErrnoError(Errno.EIO, err.toString()));
 		}
-	};
+	}
 
 	public get path(): string {
-		return this.handle?.file.path ?? '<unknown>';
+		return this._path;
 	}
 
 	public get bytesWritten(): number {
-		return (this.position ?? 0) - (this.start ?? 0);
+		return this._bytesWritten;
 	}
 }
