@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
+import type { Interface as ReadlineInterface } from 'node:readline';
 import type { Stream } from 'node:stream';
-import type { Interface as ReadlineInterface } from 'readline';
 import type { V_Context } from '../context.js';
 import type { File } from '../internal/file.js';
 import type { Stats } from '../stats.js';
@@ -10,6 +10,7 @@ import type { ResolvedPath } from './shared.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
+import { _throw } from 'utilium';
 import { credentials } from '../internal/credentials.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../internal/file.js';
@@ -23,7 +24,6 @@ import { dirname, join, parse, resolve } from './path.js';
 import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { FSWatcher, emitChange } from './watchers.js';
-import { _throw } from 'utilium';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
