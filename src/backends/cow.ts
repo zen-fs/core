@@ -11,6 +11,7 @@ import { FileSystem } from '../internal/filesystem.js';
 import { debug, err, warn } from '../internal/log.js';
 import { dirname, join } from '../vfs/path.js';
 import { EventEmitter } from 'eventemitter3';
+import { resolveMountConfig, type MountConfiguration } from '../config.js';
 
 /**
  * Configuration options for CoW.
@@ -18,10 +19,10 @@ import { EventEmitter } from 'eventemitter3';
  */
 export interface CopyOnWriteOptions {
 	/** The file system that initially populates this file system. */
-	readable: FileSystem;
+	readable: MountConfiguration<any>;
 
 	/** The file system to write modified files to. */
-	writable: FileSystem;
+	writable: MountConfiguration<any>;
 
 	/** @see {@link Journal} */
 	journal?: Journal;
@@ -502,8 +503,10 @@ const _CopyOnWrite = {
 		readable: { type: 'object', required: true },
 		journal: { type: 'object', required: false },
 	},
-	create(options: CopyOnWriteOptions) {
-		return new CopyOnWriteFS(options.readable, options.writable, options.journal);
+	async create(options: CopyOnWriteOptions) {
+		const readable = await resolveMountConfig(options.readable);
+		const writable = await resolveMountConfig(options.writable);
+		return new CopyOnWriteFS(readable, writable, options.journal);
 	},
 } as const satisfies Backend<CopyOnWriteFS, CopyOnWriteOptions>;
 type _CopyOnWrite = typeof _CopyOnWrite;
