@@ -64,13 +64,12 @@ export function mount(mountPoint: string, fs: FileSystem): void {
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
 
 	mountPoint = resolve(mountPoint);
-	if (mounts.has(mountPoint)) {
-		throw err(new ErrnoError(Errno.EINVAL, 'Mount point ' + mountPoint + ' is already in use'));
-	}
+	if (mounts.has(mountPoint)) throw err(new ErrnoError(Errno.EINVAL, 'Mount point is already in use: ' + mountPoint));
+
 	fs._mountPoint = mountPoint;
 	mounts.set(mountPoint, fs);
 	info(`Mounted ${fs.name} on ${mountPoint}`);
-	debug(`${fs.name} attributes: ${[...fs.attributes].map(([k, v]) => (v !== undefined && v !== null ? k + '=' + v : v)).join(', ')}`);
+	debug(`${fs.name} attributes: ${[...fs.attributes].map(([k, v]) => (v !== undefined && v !== null ? k + '=' + v : k)).join(', ')}`);
 }
 
 /**

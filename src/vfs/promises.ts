@@ -204,24 +204,7 @@ export class FileHandle implements promises.FileHandle {
 	 * The handle will not be closed automatically.
 	 */
 	public readableWebStream(options: promises.ReadableWebStreamOptions = {}): ReadableStream<Uint8Array> {
-		return new ReadableStream({
-			start: async (controller: ReadableStreamDefaultController<Uint8Array> | ReadableByteStreamController) => {
-				const chunkSize = 0x1000;
-
-				for (let i = 0; i < 1e7; i++) {
-					const result = await this.read(new Uint8Array(chunkSize), 0, chunkSize).catch(controller.error);
-					if (!result) return;
-					if (!result.bytesRead) {
-						controller.close();
-						return;
-					}
-					controller.enqueue(result.buffer.subarray(0, result.bytesRead));
-				}
-
-				controller.error(new ErrnoError(Errno.EFBIG, 'Too many iterations on readable stream', this.file.path, 'readableWebStream'));
-			},
-			type: options.type as any,
-		});
+		return this.file.fs.streamRead(this.file.path, {});
 	}
 
 	/**

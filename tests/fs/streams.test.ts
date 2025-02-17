@@ -159,6 +159,22 @@ suite('Streams', () => {
 		await fileHandle.close();
 	});
 
+	test('readable web stream', async () => {
+		const fileHandle = await fs.promises.open(testFilePath, 'r');
+		const webStream = fileHandle.readableWebStream();
+
+		let data = '';
+
+		const decoder = new TextDecoder();
+
+		for await (const chunk of webStream) {
+			data += decoder.decode(chunk);
+		}
+
+		assert.equal(data, testData);
+		await fileHandle.close();
+	});
+
 	test('FileHandle.createReadStream after close should give an error', async () => {
 		const fileHandle = await fs.promises.open(testFilePath, 'r');
 		await fileHandle.close();

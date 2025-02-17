@@ -1,5 +1,5 @@
 import type { File } from '../internal/file.js';
-import type { CreationOptions, FileSystem, FileSystemMetadata, UsageInfo } from '../internal/filesystem.js';
+import type { CreationOptions, FileSystem, FileSystemMetadata, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Stats } from '../stats.js';
 import type { Concrete } from '../utils.js';
@@ -271,6 +271,16 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	public writeSync(path: string, buffer: Uint8Array, offset: number): void {
 		using _ = this.lockSync(path, 'write');
 		return this._fs.writeSync(path, buffer, offset);
+	}
+
+	public streamRead(path: string, options: StreamOptions): ReadableStream {
+		using _ = this.lockSync(path, 'streamRead');
+		return this._fs.streamRead(path, options);
+	}
+
+	public streamWrite(path: string, options: StreamOptions): WritableStream {
+		using _ = this.lockSync(path, 'streamWrite');
+		return this._fs.streamWrite(path, options);
 	}
 
 	/* eslint-enable @typescript-eslint/no-unused-vars */

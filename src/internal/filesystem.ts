@@ -115,6 +115,18 @@ export type FileSystemAttributes = {
 	 * This should be set for read-only file systems.
 	 */
 	no_write: void;
+
+	/**
+	 * The FS is using the default implementation for `streamRead`
+	 * @internal
+	 */
+	default_stream_read: void;
+
+	/**
+	 * The FS is using the default implementation for `streamWrite`
+	 * @internal
+	 */
+	default_stream_write: void;
 };
 
 /**
@@ -153,6 +165,54 @@ export interface PureCreationOptions extends CreationOptions {
 	 * The mode to create the file with.
 	 */
 	mode: number;
+}
+
+/**
+ * @internal
+ */
+export interface StreamOptions {
+	start?: number;
+
+	end?: number;
+}
+
+const _chunkSize = 0x1000;
+
+/**
+ * Default implementation of `streamRead` using "chunked" `read`s
+ * Implemented as a separate function to avoid subclass issues
+ */
+function _default_streamRead(this: FileSystem, path: string, options: StreamOptions): ReadableStream {
+	return new ReadableStream({
+		start: async controller => {
+			const { size } = await this.stat(path);
+			const { start = 0, end = size } = options;
+
+			for (let offset = start; offset < end; offset += _chunkSize) {
+				const bytesRead = offset + _chunkSize > end ? end - offset : _chunkSize;
+				const buffer = new Uint8Array(bytesRead);
+				await this.read(path, buffer, offset, bytesRead).catch(controller.error.bind(controller));
+				controller.enqueue(buffer);
+			}
+
+			controller.close();
+		},
+		type: 'bytes',
+	});
+}
+
+/**
+ * Default implementation of `streamWrite` using "chunked" `write`s
+ * Implemented as a separate function to avoid subclass issues
+ */
+function _default_streamWrite(this: FileSystem, path: string, options: Exclude<StreamOptions, 'end'>): WritableStream {
+	let position = options.start ?? 0;
+	return new WritableStream<Uint8Array>({
+		write: async (chunk, controller) => {
+			await this.write(path, chunk, position).catch(controller.error.bind(controller));
+			position += chunk.byteLength;
+		},
+	});
 }
 
 /**
@@ -328,4 +388,16 @@ export abstract class FileSystem {
 	 * @param offset The offset in the file to start writing
 	 */
 	public abstract writeSync(path: string, buffer: Uint8Array, offset: number): void;
+
+	/**
+	 * Read a file using a stream
+	 */
+	public readonly streamRead: (path: string, options: StreamOptions) => ReadableStream =
+		(this.attributes.set('default_stream_read'), _default_streamRead.bind(this));
+
+	/**
+	 * Write a file using stream
+	 */
+	public readonly streamWrite: (path: string, options: StreamOptions) => WritableStream =
+		(this.attributes.set('default_stream_write'), _default_streamWrite.bind(this));
 }
