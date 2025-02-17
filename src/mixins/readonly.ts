@@ -101,6 +101,10 @@ export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(
 		public writeSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
+
+		public streamWrite(): never {
+			throw new ErrnoError(Errno.EROFS);
+		}
 	}
 	return ReadonlyFS;
 }

@@ -1,5 +1,5 @@
 import type { File } from '../internal/file.js';
-import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
+import type { CreationOptions, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Stats } from '../stats.js';
 import type { Backend } from './backend.js';
@@ -375,6 +375,15 @@ export class CopyOnWriteFS extends FileSystem {
 			}
 
 		return entries.filter(entry => !this.isDeleted(join(path, entry)));
+	}
+
+	public streamRead(path: string, options: StreamOptions): ReadableStream {
+		return this.writable.existsSync(path) ? this.writable.streamRead(path, options) : this.readable.streamRead(path, options);
+	}
+
+	public streamWrite(path: string, options: StreamOptions): WritableStream {
+		this.copyForWriteSync(path);
+		return this.writable.streamWrite(path, options);
 	}
 
 	/**

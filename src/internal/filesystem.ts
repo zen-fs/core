@@ -179,43 +179,6 @@ export interface StreamOptions {
 const _chunkSize = 0x1000;
 
 /**
- * Default implementation of `streamRead` using "chunked" `read`s
- * Implemented as a separate function to avoid subclass issues
- */
-function _default_streamRead(this: FileSystem, path: string, options: StreamOptions): ReadableStream {
-	return new ReadableStream({
-		start: async controller => {
-			const { size } = await this.stat(path);
-			const { start = 0, end = size } = options;
-
-			for (let offset = start; offset < end; offset += _chunkSize) {
-				const bytesRead = offset + _chunkSize > end ? end - offset : _chunkSize;
-				const buffer = new Uint8Array(bytesRead);
-				await this.read(path, buffer, offset, offset + bytesRead).catch(controller.error.bind(controller));
-				controller.enqueue(buffer);
-			}
-
-			controller.close();
-		},
-		type: 'bytes',
-	});
-}
-
-/**
- * Default implementation of `streamWrite` using "chunked" `write`s
- * Implemented as a separate function to avoid subclass issues
- */
-function _default_streamWrite(this: FileSystem, path: string, options: Exclude<StreamOptions, 'end'>): WritableStream {
-	let position = options.start ?? 0;
-	return new WritableStream<Uint8Array>({
-		write: async (chunk, controller) => {
-			await this.write(path, chunk, position).catch(controller.error.bind(controller));
-			position += chunk.byteLength;
-		},
-	});
-}
-
-/**
  * Provides a consistent and easy to use internal API.
  * Default implementations for `exists` and `existsSync` are included.
  * If you are extending this class, note that every path is an absolute path and all arguments are present.
@@ -234,7 +197,7 @@ export abstract class FileSystem {
 	/**
 	 * @see FileSystemAttributes
 	 */
-	public readonly attributes = new Map() as ConstMap<FileSystemAttributes>;
+	public readonly attributes = new Map() as ConstMap<FileSystemAttributes> & Map<string, any>;
 
 	public constructor(
 		/**
@@ -248,7 +211,10 @@ export abstract class FileSystem {
 		 * For example, tmpfs for an in memory one
 		 */
 		public readonly name: string
-	) {}
+	) {
+		if (this.streamRead === FileSystem.prototype.streamRead) this.attributes.set('default_stream_read');
+		if (this.streamWrite === FileSystem.prototype.streamWrite) this.attributes.set('default_stream_write');
+	}
 
 	public toString(): string {
 		return `${this.name} ${this.label ?? ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
@@ -390,14 +356,39 @@ export abstract class FileSystem {
 	public abstract writeSync(path: string, buffer: Uint8Array, offset: number): void;
 
 	/**
-	 * Read a file using a stream
+	 * Read a file using a stream.
+	 * @privateRemarks The default implementation of `streamRead` uses "chunked" `read`s
 	 */
-	public readonly streamRead: (path: string, options: StreamOptions) => ReadableStream =
-		(this.attributes.set('default_stream_read'), _default_streamRead.bind(this));
+	public streamRead(path: string, options: StreamOptions): ReadableStream {
+		return new ReadableStream({
+			start: async controller => {
+				const { size } = await this.stat(path);
+				const { start = 0, end = size } = options;
+
+				for (let offset = start; offset < end; offset += _chunkSize) {
+					const bytesRead = offset + _chunkSize > end ? end - offset : _chunkSize;
+					const buffer = new Uint8Array(bytesRead);
+					await this.read(path, buffer, offset, offset + bytesRead).catch(controller.error.bind(controller));
+					controller.enqueue(buffer);
+				}
+
+				controller.close();
+			},
+			type: 'bytes',
+		});
+	}
 
 	/**
-	 * Write a file using stream
+	 * Write a file using stream.
+	 * @privateRemarks The default implementation of `streamWrite` uses "chunked" `write`s
 	 */
-	public readonly streamWrite: (path: string, options: StreamOptions) => WritableStream =
-		(this.attributes.set('default_stream_write'), _default_streamWrite.bind(this));
+	public streamWrite(path: string, options: StreamOptions): WritableStream {
+		let position = options.start ?? 0;
+		return new WritableStream<Uint8Array>({
+			write: async (chunk, controller) => {
+				await this.write(path, chunk, position).catch(controller.error.bind(controller));
+				position += chunk.byteLength;
+			},
+		});
+	}
 }
