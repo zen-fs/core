@@ -352,9 +352,9 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public async readdir(path: string): Promise<string[]> {
-		if (this.isDeleted(path)) throw ErrnoError.With('ENOENT', path, 'readdir');
+		if (this.isDeleted(path) || !(await this.exists(path))) throw ErrnoError.With('ENOENT', path, 'readdir');
 
-		const entries: string[] = await this.readable.readdir(path);
+		const entries: string[] = (await this.readable.exists(path)) ? await this.readable.readdir(path) : [];
 
 		if (await this.writable.exists(path))
 			for (const entry of await this.writable.readdir(path)) {
@@ -365,9 +365,9 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public readdirSync(path: string): string[] {
-		if (this.isDeleted(path)) throw ErrnoError.With('ENOENT', path, 'readdir');
+		if (this.isDeleted(path) || !this.existsSync(path)) throw ErrnoError.With('ENOENT', path, 'readdir');
 
-		const entries: string[] = this.readable.readdirSync(path);
+		const entries: string[] = this.readable.existsSync(path) ? this.readable.readdirSync(path) : [];
 
 		if (this.writable.existsSync(path))
 			for (const entry of this.writable.readdirSync(path)) {
