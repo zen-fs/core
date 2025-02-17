@@ -210,7 +210,7 @@ export const formats = {
 	css_level(this: void, entry: Entry) {
 		const levelLabel = levels[entry.level].toUpperCase();
 
-		return [..._prettyMs(entry, 'css'), `%c${levelLabel}%c ${entry.message}`, _cssLevelColor[entry.level], ''];
+		return [..._prettyMs(entry, 'css'), '%c' + levelLabel, _cssLevelColor[entry.level], entry.message];
 	},
 	css_message(this: void, entry: Entry) {
 		const text = _prettyMs(entry, 'css');
@@ -219,7 +219,7 @@ export const formats = {
 		if (isImportant) {
 			const levelLabel = levels[entry.level].toUpperCase();
 
-			text.push(`%c${levelLabel}%c:`, _cssLevelColor[entry.level], '');
+			text.push('%c' + levelLabel, _cssLevelColor[entry.level]);
 		}
 
 		text.push('%c' + entry.message, _cssMessageColor[entry.level]);
@@ -227,7 +227,7 @@ export const formats = {
 		return text;
 	},
 	default(this: void, entry: Entry) {
-		return `[${_prettyMs(entry)}] ${entry.message}`;
+		return [_prettyMs(entry), entry.message];
 	},
 } as const;
 
