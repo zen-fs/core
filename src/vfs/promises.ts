@@ -338,62 +338,16 @@ export class FileHandle implements promises.FileHandle {
 	 * Creates a stream for reading from the file.
 	 * @param options Options for the readable stream
 	 */
-	public createReadStream(options?: promises.CreateReadStreamOptions): ReadStream {
-		const start = options?.start ?? this.file.position;
-
-		const stream = new ReadStream({
-			highWaterMark: options?.highWaterMark || 64 * 1024,
-			encoding: options?.encoding ?? undefined,
-
-			// eslint-disable-next-line @typescript-eslint/no-misused-promises
-			read: async (size: number) => {
-				try {
-					if (typeof options?.end === 'number' && start >= options.end) {
-						stream.push(null);
-						return;
-					}
-
-					if (typeof options?.end === 'number') {
-						size = Math.min(size, options.end - start);
-					}
-
-					const result = await this.read(new Uint8Array(size), 0, size, options?.start);
-					stream.push(!result.bytesRead ? null : result.buffer.subarray(0, result.bytesRead));
-				} catch (error) {
-					stream.destroy(error as Error);
-				}
-			},
-		});
-
-		stream.path = this.file.path;
-		return stream;
+	public createReadStream(options: promises.CreateReadStreamOptions = {}): ReadStream {
+		return new ReadStream(options, this);
 	}
 
 	/**
 	 * Creates a stream for writing to the file.
 	 * @param options Options for the writeable stream.
 	 */
-	public createWriteStream(options?: promises.CreateWriteStreamOptions): WriteStream {
-		if (typeof options?.start == 'number') this.file.position = options.start;
-
-		const { stack } = new Error();
-		const stream = new WriteStream({
-			highWaterMark: options?.highWaterMark,
-			// eslint-disable-next-line @typescript-eslint/no-misused-promises
-			write: async (chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) => {
-				try {
-					const { bytesWritten } = await this.write(chunk, null, encoding);
-					if (bytesWritten == chunk.length) return callback();
-					throw new ErrnoError(Errno.EIO, `Failed to write full chunk of write stream (wrote ${bytesWritten}/${chunk.length} bytes)`);
-				} catch (error: any) {
-					error.stack += stack?.slice(5);
-					callback(error);
-				}
-			},
-		});
-
-		stream.path = this.file.path;
-		return stream;
+	public createWriteStream(options: promises.CreateWriteStreamOptions = {}): WriteStream {
+		return new WriteStream(options, this);
 	}
 }
 

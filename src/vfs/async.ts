@@ -12,7 +12,7 @@ import { normalizeMode, normalizePath } from '../utils.js';
 import { R_OK } from './constants.js';
 import * as promises from './promises.js';
 import { fd2file, fdMap } from './shared.js';
-import { ReadStream, WriteStream } from './streams.js';
+import { ReadStream, WriteStream, type ReadStreamOptions, type WriteStreamOptions } from './streams.js';
 import { FSWatcher, StatWatcher } from './watchers.js';
 
 const nop = () => {};
@@ -722,36 +722,6 @@ export function watch(
 }
 watch satisfies Omit<typeof fs.watch, '__promisify__'>;
 
-// From @types/node/fs (these types are not exported)
-interface StreamOptions {
-	flags?: string;
-	encoding?: BufferEncoding;
-	fd?: number | promises.FileHandle;
-	mode?: number;
-	autoClose?: boolean;
-	emitClose?: boolean;
-	start?: number;
-	signal?: AbortSignal;
-	highWaterMark?: number;
-}
-interface FSImplementation {
-	open?: (...args: unknown[]) => unknown;
-	close?: (...args: unknown[]) => unknown;
-}
-interface ReadStreamOptions extends StreamOptions {
-	fs?: FSImplementation & {
-		read: (...args: unknown[]) => unknown;
-	};
-	end?: number;
-}
-interface WriteStreamOptions extends StreamOptions {
-	fs?: FSImplementation & {
-		write: (...args: unknown[]) => unknown;
-		writev?: (...args: unknown[]) => unknown;
-	};
-	flush?: boolean;
-}
-
 /**
  * Opens a file in read mode and creates a Node.js-like ReadStream.
  *
@@ -762,48 +732,7 @@ interface WriteStreamOptions extends StreamOptions {
 export function createReadStream(this: V_Context, path: fs.PathLike, options?: BufferEncoding | ReadStreamOptions): ReadStream {
 	options = typeof options == 'object' ? options : { encoding: options };
 	const _handle = promises.open.call(this, path, 'r', options?.mode);
-
-	void _handle.then(handle => {
-		if (typeof options.start == 'number') handle.file.position = options.start;
-	});
-
-	let handle: promises.FileHandle;
-
-	const stream = new ReadStream({
-		highWaterMark: options.highWaterMark || 0x1000,
-		encoding: options.encoding ?? undefined,
-		async read(this: ReadStream, size: number) {
-			try {
-				handle ||= await _handle;
-				const start = options.start ?? handle.file.position;
-
-				if (typeof options.end === 'number' && start >= options.end) {
-					stream.push(null);
-					await handle.close();
-					return;
-				}
-
-				if (typeof options.end === 'number') {
-					size = Math.min(size, options.end - start);
-				}
-
-				const result = await handle.read(new Uint8Array(size), 0, size);
-
-				stream.push(!result.bytesRead ? null : result.buffer.subarray(0, result.bytesRead));
-				if (!result.bytesRead) await handle.close();
-			} catch (error: any) {
-				await handle?.close();
-				stream.destroy(error);
-			}
-		},
-		async destroy(error, callback) {
-			await handle?.close().catch(nop);
-			callback(error);
-		},
-	});
-
-	stream.path = path.toString();
-	return stream;
+	return new ReadStream({ ...options, autoClose: true }, _handle);
 }
 createReadStream satisfies Omit<typeof fs.createReadStream, '__promisify__'>;
 
@@ -818,45 +747,7 @@ export function createWriteStream(this: V_Context, path: fs.PathLike, options?: 
 	options = typeof options == 'object' ? options : { encoding: options };
 
 	const _handle = promises.open.call(this, path, 'w', options?.mode);
-
-	void _handle.then(handle => {
-		if (typeof options.start == 'number') handle.file.position = options.start;
-	});
-
-	let handle: promises.FileHandle;
-
-	const { stack } = new Error();
-	const stream = new WriteStream({
-		highWaterMark: options?.highWaterMark,
-		async write(chunk: Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
-			try {
-				handle ||= await _handle;
-				const { bytesWritten } = await handle.write(chunk, null, encoding);
-				if (bytesWritten == chunk.length) return callback();
-
-				throw new ErrnoError(
-					Errno.EIO,
-					`Failed to write full chunk of write stream (wrote ${bytesWritten}/${chunk.length} bytes)`,
-					handle.file.path
-				);
-			} catch (error: any) {
-				await handle?.close();
-				error.stack += stack?.slice(5);
-				callback(error);
-			}
-		},
-		async destroy(error, callback) {
-			await handle?.close().catch(callback);
-			callback(error);
-		},
-		async final(callback) {
-			await handle?.close().catch(nop);
-			callback();
-		},
-	});
-
-	stream.path = path.toString();
-	return stream;
+	return new WriteStream(options, _handle);
 }
 createWriteStream satisfies Omit<typeof fs.createWriteStream, '__promisify__'>;
 

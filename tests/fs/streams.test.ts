@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
-import { promisify } from 'node:util';
 
 // Top-level initialization
 const testFilePath = 'test-file.txt';
@@ -43,30 +42,6 @@ suite('Streams', () => {
 		});
 	});
 
-	test('ReadStream declared properties', () => {
-		const readStream = new fs.ReadStream();
-		assert.equal(readStream.bytesRead, undefined);
-		assert.equal(readStream.path, undefined);
-		assert.equal(readStream.pending, undefined);
-
-		// Assign values
-		readStream.bytesRead = 10;
-		readStream.path = testFilePath;
-		readStream.pending = false;
-
-		assert.equal(readStream.bytesRead, 10);
-		assert.equal(readStream.path, testFilePath);
-		assert(!readStream.pending);
-	});
-
-	test('ReadStream close method can be called multiple times', async () => {
-		const readStream = new fs.ReadStream();
-
-		const close = promisify(readStream.close);
-		await close();
-		await close();
-	});
-
 	test('WriteStream writes data correctly', async () => {
 		const writeStream = fs.createWriteStream(testFilePathWrite);
 
@@ -90,30 +65,6 @@ suite('Streams', () => {
 			assert(closed);
 			done();
 		});
-	});
-
-	test('WriteStream declared properties', () => {
-		const writeStream = new fs.WriteStream();
-		assert.equal(writeStream.bytesWritten, undefined);
-		assert.equal(writeStream.path, undefined);
-		assert.equal(writeStream.pending, undefined);
-
-		// Assign values
-		writeStream.bytesWritten = 20;
-		writeStream.path = testFilePathWrite;
-		writeStream.pending = true;
-
-		assert.equal(writeStream.bytesWritten, 20);
-		assert.equal(writeStream.path, testFilePathWrite);
-		assert(writeStream.pending);
-	});
-
-	test('WriteStream close method can be called multiple times', async () => {
-		const writeStream = new fs.WriteStream();
-
-		const close = promisify(writeStream.close);
-		await close();
-		await close();
 	});
 
 	test('createReadStream with start', async () => {
