@@ -1,11 +1,11 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
+/* eslint-disable @typescript-eslint/triple-slash-reference, @typescript-eslint/no-misused-promises */
+/// <reference path="../../types/readable-stream.d.ts" preserve="true" />
 import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions } from 'node:fs/promises';
 import type { Callback } from '../utils.js';
 import type { FileHandle } from './promises.js';
 
-import '../../types/readable-stream.js'; // Types
 import { Readable, Writable } from 'readable-stream';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { warn } from '../internal/log.js';

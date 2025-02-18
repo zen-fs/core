@@ -10,7 +10,6 @@
 		"verbatimModuleSyntax": true
 	},
 	"include": ["src/**/*.ts"],
-	"exclude": ["node_modules"],
 	"typedocOptions": {
 		"entryPoints": ["./src/index.ts"],
 		"out": "docs",
