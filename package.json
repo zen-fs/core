@@ -49,7 +49,8 @@
 		"./promises": "./dist/vfs/promises.js",
 		"./path": "./dist/vfs/path.js",
 		"./eslint": "./eslint.shared.js",
-		"./tests/*": "./tests/*"
+		"./tests/*": "./tests/*",
+		"./types/*": "./types/*"
 	},
 	"publishConfig": {
 		"access": "public",
