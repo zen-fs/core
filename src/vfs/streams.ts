@@ -136,17 +136,18 @@ export class WriteStream extends Writable implements fs.WriteStream {
 	async _write(chunk: any, encoding: BufferEncoding | 'buffer', callback: (error?: Error | null) => void): Promise<void> {
 		await this.ready;
 
-		if (!this.writer) return callback(new ErrnoError(Errno.EAGAIN, 'Underlying writable stream not ready', this._path));
-
+		if (!this.writer) return callback(warn(new ErrnoError(Errno.EAGAIN, 'Underlying writable stream not ready', this._path)));
 		if (encoding != 'buffer') return callback(warn(new ErrnoError(Errno.ENOTSUP, 'Unsupported encoding for stream', this._path)));
 
-		this.writer
-			.write(chunk)
-			.then(() => {
-				this._bytesWritten += chunk.byteLength;
-				callback();
-			})
-			.catch(callback);
+		const data = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+
+		try {
+			await this.writer.write(data);
+			this._bytesWritten += chunk.byteLength;
+			callback();
+		} catch (error: any) {
+			callback(new ErrnoError(Errno.EIO, error.toString()));
+		}
 	}
 
 	async _final(callback: (error?: Error | null) => void): Promise<void> {
@@ -154,21 +155,21 @@ export class WriteStream extends Writable implements fs.WriteStream {
 
 		if (!this.writer) return callback();
 
-		// Close the underlying global WritableStream.
-		this.writer
-			.close()
-			.then(() => callback())
-			.catch(callback);
+		try {
+			await this.writer.close();
+			callback();
+		} catch (error: any) {
+			callback(new ErrnoError(Errno.EIO, error.toString()));
+		}
 	}
 
-	// Implements a close() method similar to Node's WriteStream.
 	close(callback: Callback<[void], null> = () => null): void {
 		try {
 			this.destroy();
 			this.emit('close');
 			callback(null);
-		} catch (err: any) {
-			callback(new ErrnoError(Errno.EIO, err.toString()));
+		} catch (error: any) {
+			callback(new ErrnoError(Errno.EIO, error.toString()));
 		}
 	}
 

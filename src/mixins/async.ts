@@ -1,4 +1,4 @@
-import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
+import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { Stats } from '../stats.js';
 import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
@@ -186,6 +186,24 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this.checkSync(path, 'write');
 			this._sync.writeSync(path, buffer, offset);
 			this._async(this.write(path, buffer, offset));
+		}
+
+		public streamWrite(path: string, options: StreamOptions): WritableStream {
+			this.checkSync(path, 'streamWrite');
+			const sync = this._sync.streamWrite(path, options).getWriter();
+			const async = super.streamWrite(path, options).getWriter();
+
+			return new WritableStream({
+				async write(chunk, controller) {
+					await Promise.all([sync.write(chunk), async.write(chunk)]).catch(controller.error.bind(controller));
+				},
+				async close() {
+					await Promise.all([sync.close(), async.close()]);
+				},
+				async abort(reason) {
+					await Promise.all([sync.abort(reason), async.abort(reason)]);
+				},
+			});
 		}
 
 		/**

@@ -95,10 +95,7 @@ export class FetchFS extends IndexFS {
 
 	public async read(path: string, buffer: Uint8Array, offset: number = 0, end: number): Promise<void> {
 		const inode = this.index.get(path);
-
 		if (!inode) throw ErrnoError.With('ENOENT', path, 'read');
-
-		end ??= inode.size;
 
 		if (end - offset == 0) return;
 
@@ -114,10 +111,7 @@ export class FetchFS extends IndexFS {
 
 	public readSync(path: string, buffer: Uint8Array, offset: number = 0, end: number): void {
 		const inode = this.index.get(path);
-
 		if (!inode) throw ErrnoError.With('ENOENT', path, 'read');
-
-		end ??= inode.size;
 
 		if (end - offset == 0) return;
 
@@ -134,10 +128,20 @@ export class FetchFS extends IndexFS {
 	}
 
 	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
+		const inode = this.index.get(path);
+		if (!inode) throw ErrnoError.With('ENOENT', path, 'write');
+
+		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
+
 		await requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError(path, this));
 	}
 
 	public writeSync(path: string, data: Uint8Array, offset: number): void {
+		const inode = this.index.get(path);
+		if (!inode) throw ErrnoError.With('ENOENT', path, 'write');
+
+		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
+
 		this._async(
 			requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError(path, this))
 		);
