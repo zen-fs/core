@@ -5,6 +5,7 @@ import type { CreateReadStreamOptions, CreateWriteStreamOptions } from 'node:fs/
 import type { Callback } from '../utils.js';
 import type { FileHandle } from './promises.js';
 
+import '../../types/readable-stream.js'; // Types
 import { Readable, Writable } from 'readable-stream';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { warn } from '../internal/log.js';

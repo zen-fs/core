@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="../types/readable-stream.d.ts" preserve="true" />
 export * from './backends/index.js';
 export * from './config.js';
 export * from './context.js';
