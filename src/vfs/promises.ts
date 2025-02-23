@@ -91,9 +91,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async truncate(length?: number | null): Promise<void> {
 		length ||= 0;
-		if (length < 0) {
-			throw new ErrnoError(Errno.EINVAL);
-		}
+		if (length < 0) throw new ErrnoError(Errno.EINVAL);
 		await this.file.truncate(length);
 		this._emitChange();
 	}
@@ -172,11 +170,10 @@ export class FileHandle implements promises.FileHandle {
 			buffer = buffer.buffer;
 		}
 
-		if (!Number.isSafeInteger(position)) {
-			position = this.file.position;
-		}
+		const pos = Number.isSafeInteger(position) ? position! : this.file.position;
 		buffer ||= new Uint8Array((await this.file.stat()).size) as T;
-		return this.file.read(buffer, offset ?? undefined, length ?? undefined, position ?? undefined);
+		offset ??= 0;
+		return this.file.read(buffer, offset, length ?? buffer.byteLength - offset, pos);
 	}
 
 	/**
@@ -578,12 +575,7 @@ export async function writeFile(
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	await using handle = path instanceof FileHandle ? path : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
 
-	const _data =
-		typeof data == 'string'
-			? data
-			: data instanceof DataView
-				? new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength))
-				: data;
+	const _data = typeof data == 'string' ? data : data instanceof DataView ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : data;
 	if (typeof _data != 'string' && !(_data instanceof Uint8Array)) {
 		throw new ErrnoError(
 			Errno.EINVAL,

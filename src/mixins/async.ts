@@ -213,10 +213,9 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this.checkSync(path, 'crossCopy');
 			const stats = await this.stat(path);
 			if (!stats.isDirectory()) {
-				await using asyncFile = await this.openFile(path, parseFlag('r'));
 				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats);
 				const buffer = new Uint8Array(stats.size);
-				await asyncFile.read(buffer);
+				await this.read(path, buffer, 0, stats.size);
 				syncFile.writeSync(buffer, 0, stats.size);
 				return;
 			}

@@ -493,8 +493,7 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		await using readable = await this.readable.openFile(path, 'r');
-		await readable.read(data);
+		await this.readable.read(path, data, 0, stats.size);
 		await using writable = await this.writable.createFile(path, 'w', stats.mode, stats);
 		await writable.write(data);
 	}
