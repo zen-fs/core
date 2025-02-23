@@ -6,7 +6,7 @@ import { EventEmitter } from 'eventemitter3';
 import { ErrnoError } from '../internal/error.js';
 import { isStatsEqual, type Stats } from '../stats.js';
 import { normalizePath } from '../utils.js';
-import { dirname, join, relative } from './path.js';
+import { basename, dirname, join, relative } from './path.js';
 import { statSync } from './sync.js';
 
 /**
@@ -192,19 +192,14 @@ export function emitChange(context: V_Context, eventType: fs.WatchEventType, fil
 	if (context) filename = join(context.root ?? '/', filename);
 	filename = normalizePath(filename);
 
-	// Notify watchers on parent directories if they are watching recursively
-	let parent = filename,
-		normalizedFilename;
-	while (normalizedFilename != '/') {
-		normalizedFilename = parent;
-		parent = dirname(parent);
+	// Notify watchers, including ones on parent directories if they are watching recursively
+	for (let path = filename; path != '/'; path = dirname(path)) {
+		const watchersForPath = watchers.get(path);
 
-		const parentWatchers = watchers.get(parent);
+		if (!watchersForPath) continue;
 
-		if (!parentWatchers) continue;
-
-		for (const watcher of parentWatchers) {
-			watcher.emit('change', eventType, relative(parent, filename));
+		for (const watcher of watchersForPath) {
+			watcher.emit('change', eventType, relative(path, filename) || basename(filename));
 		}
 	}
 }

@@ -13,13 +13,18 @@ await fs.promises.writeFile(testFile, 'Initial content');
  */
 await suite('Watch Features', () => {
 	test('fs.watch should emit events on file change', async () => {
+		const { promise, resolve } = Promise.withResolvers<[string, string]>();
+
 		using watcher = fs.watch(testFile, (eventType, filename) => {
-			assert.equal(eventType, 'change');
-			assert.equal(filename, 'test.txt');
+			resolve([eventType, filename]);
 		});
 
 		// Modify the file to trigger the event
 		await fs.promises.writeFile(testFile, 'Updated content');
+
+		const [eventType, filename] = await promise;
+		assert.equal(eventType, 'change');
+		assert.equal(filename, 'test.txt');
 	});
 
 	test('fs.watch should emit events on file rename (delete)', async () => {
