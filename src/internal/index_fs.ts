@@ -101,20 +101,14 @@ export abstract class IndexFS extends FileSystem {
 		return inode;
 	}
 
-	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
-		let inode = this.index.get(path);
-		if (create) inode ??= new Inode();
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'touch');
+	public async touch(path: string, metadata: InodeLike): Promise<void> {
+		const inode = this.index.get(path) ?? _throw(ErrnoError.With('ENOENT', path, 'touch'));
 		inode.update(metadata);
-		return inode;
 	}
 
-	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
-		let inode = this.index.get(path);
-		if (create) inode ??= new Inode();
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'touch');
+	public touchSync(path: string, metadata: InodeLike): void {
+		const inode = this.index.get(path) ?? _throw(ErrnoError.With('ENOENT', path, 'touch'));
 		inode.update(metadata);
-		return inode;
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {

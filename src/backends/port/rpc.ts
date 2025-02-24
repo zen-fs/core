@@ -3,7 +3,7 @@ import type { Worker as NodeWorker, TransferListItem } from 'node:worker_threads
 import type { WithOptional } from 'utilium';
 import type { ErrnoErrorJSON } from '../../internal/error.js';
 import type { FileSystem } from '../../internal/filesystem.js';
-import type { StatsLike } from '../../vfs/stats.js';
+import type { InodeLike } from '../../internal/inode.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 import type { PortFS } from './fs.js';
 
@@ -69,7 +69,7 @@ export type Response<T = unknown> = _ResponseWithError | _ResponseWithValue<T> |
 export interface FileData {
 	path: string;
 	flag: string;
-	stats: StatsLike<number>;
+	stats: InodeLike;
 }
 
 function isFileData(value: unknown): value is FileData {

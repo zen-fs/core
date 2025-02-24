@@ -1,14 +1,13 @@
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
-import type { Stats } from '../vfs/stats.js';
 import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
 import { getAllPrototypes } from 'utilium';
 import { StoreFS } from '../backends/store/fs.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { LazyFile, parseFlag } from '../internal/file.js';
+import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { crit, debug, err } from '../internal/log.js';
 import { join } from '../vfs/path.js';
-import { isDirectory, type Inode, type InodeLike } from '../internal/inode.js';
 
 /**
  * @internal
@@ -125,9 +124,9 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			return this._sync.statSync(path);
 		}
 
-		public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+		public touchSync(path: string, metadata: InodeLike): void {
 			this.checkSync(path, 'touch');
-			return this._sync.touchSync(path, create, metadata);
+			return this._sync.touchSync(path, metadata);
 		}
 
 		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): LazyFile<this> {

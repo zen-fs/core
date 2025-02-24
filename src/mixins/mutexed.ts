@@ -1,6 +1,6 @@
 import type { File } from '../internal/file.js';
 import type { CreationOptions, FileSystem, FileSystemMetadata, StreamOptions, UsageInfo } from '../internal/filesystem.js';
-import type { Inode, InodeLike } from '../internal/inode.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { Concrete } from '../utils.js';
 
 import { ErrnoError } from '../internal/error.js';
@@ -154,14 +154,14 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.statSync(path);
 	}
 
-	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+	public async touch(path: string, metadata: InodeLike): Promise<void> {
 		using _ = await this.lock(path, 'touch');
-		return await this._fs.touch(path, create, metadata);
+		await this._fs.touch(path, metadata);
 	}
 
-	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+	public touchSync(path: string, metadata: InodeLike): void {
 		using _ = this.lockSync(path, 'touch');
-		return this._fs.touchSync(path, create, metadata);
+		this._fs.touchSync(path, metadata);
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {

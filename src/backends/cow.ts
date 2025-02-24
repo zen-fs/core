@@ -1,6 +1,6 @@
 import type { File } from '../internal/file.js';
 import type { CreationOptions, StreamOptions, UsageInfo } from '../internal/filesystem.js';
-import { isDirectory, type Inode, type InodeLike } from '../internal/inode.js';
+import { isDirectory, type InodeLike } from '../internal/inode.js';
 import type { Backend } from './backend.js';
 
 import { EventEmitter } from 'eventemitter3';
@@ -240,12 +240,12 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 	}
 
-	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
-		return await this.writable.touch(path, create, metadata);
+	public async touch(path: string, metadata: InodeLike): Promise<void> {
+		await this.writable.touch(path, metadata);
 	}
 
-	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
-		return this.writable.touchSync(path, create, metadata);
+	public touchSync(path: string, metadata: InodeLike): void {
+		this.writable.touchSync(path, metadata);
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {

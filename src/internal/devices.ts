@@ -122,6 +122,11 @@ export interface DeviceDriver<TData = any> {
 	writeD(device: Device<TData>, buffer: Uint8Array, offset: number): void;
 
 	/**
+	 * Update a devices metadata
+	 */
+	touch?(device: Device<TData>, metadata: InodeLike): void;
+
+	/**
 	 * Sync the device
 	 * @group File operations
 	 */
@@ -400,16 +405,16 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.statSync(path);
 	}
 
-	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
-		if (this.devices.has(path)) {
-		}
-		return super.touch(path, create, metadata);
+	public async touch(path: string, metadata: InodeLike): Promise<void> {
+		const dev = this.devices.get(path);
+		if (dev) dev.driver.touch?.(dev, metadata);
+		else await super.touch(path, metadata);
 	}
 
-	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
-		if (this.devices.has(path)) {
-		}
-		return super.touchSync(path, create, metadata);
+	public touchSync(path: string, metadata: InodeLike): void {
+		const dev = this.devices.get(path);
+		if (dev) dev.driver.touch?.(dev, metadata);
+		else super.touchSync(path, metadata);
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {

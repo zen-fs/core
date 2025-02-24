@@ -341,38 +341,22 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return this.findInodeSync(tx, path, 'stat');
 	}
 
-	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+	public async touch(path: string, metadata: Partial<InodeLike>): Promise<void> {
 		await using tx = this.transaction();
-
-		let inode;
-		try {
-			inode = await this.findInode(tx, path, 'touch');
-		} catch (_ex: any) {
-			const ex = _ex as ErrnoError;
-			if (!create || ex.code != 'ENOENT') throw ex;
-			inode = new Inode(metadata);
-		}
+		const inode = await this.findInode(tx, path, 'touch');
 
 		if (inode.update(metadata)) {
 			this._add(inode.ino, path);
-			await tx.set(inode.ino, serialize(inode));
+			tx.setSync(inode.ino, serialize(inode));
 		}
 
 		await tx.commit();
-		return inode;
 	}
 
-	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+	public touchSync(path: string, metadata: Partial<InodeLike>): void {
 		using tx = this.transaction();
 
-		let inode;
-		try {
-			inode = this.findInodeSync(tx, path, 'touch');
-		} catch (_ex: any) {
-			const ex = _ex as ErrnoError;
-			if (!create || ex.code != 'ENOENT') throw ex;
-			inode = new Inode(metadata);
-		}
+		const inode = this.findInodeSync(tx, path, 'touch');
 
 		if (inode.update(metadata)) {
 			this._add(inode.ino, path);
@@ -380,7 +364,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		tx.commitSync();
-		return inode;
 	}
 
 	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {

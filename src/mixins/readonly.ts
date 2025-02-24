@@ -1,6 +1,6 @@
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, FileSystemMetadata } from '../internal/filesystem.js';
-import type { StatsLike } from '../vfs/stats.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { Mixin } from './shared.js';
 
 /**
@@ -20,8 +20,8 @@ export interface ReadonlyMixin {
 	mkdirSync(path: string, mode: number): never;
 	link(srcpath: string, dstpath: string): Promise<never>;
 	linkSync(srcpath: string, dstpath: string): never;
-	sync(path: string, data: Uint8Array, stats: Readonly<StatsLike<number>>): Promise<never>;
-	syncSync(path: string, data: Uint8Array, stats: Readonly<StatsLike<number>>): never;
+	sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<never>;
+	syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): never;
 	write(path: string, buffer: Uint8Array, offset: number): Promise<never>;
 	writeSync(path: string, buffer: Uint8Array, offset: number): Promise<never>;
 }

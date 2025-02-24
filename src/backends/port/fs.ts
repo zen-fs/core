@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ExtractProperties } from 'utilium';
-import type { InodeLike } from '../..//internal/inode.js';
+import type { Inode, InodeLike } from '../..//internal/inode.js';
 import type { MountConfiguration } from '../../config.js';
 import type { File } from '../../internal/file.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 
 import { pick } from 'utilium';
-import { Inode } from '../..//internal/inode.js';
 import { resolveMountConfig } from '../../config.js';
 import { Errno, ErrnoError } from '../../internal/error.js';
 import { FileSystem } from '../../internal/filesystem.js';
@@ -70,8 +69,8 @@ export class PortFS extends Async(FileSystem) {
 		return await this.rpc('stat', path);
 	}
 
-	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
-		return new Inode(await this.rpc('touch', path, create, metadata));
+	public async touch(path: string, metadata: InodeLike): Promise<void> {
+		await this.rpc('touch', path, metadata);
 	}
 
 	public sync(path: string, data: Uint8Array | undefined, stats: Readonly<InodeLike | Inode>): Promise<void> {

@@ -2,7 +2,7 @@ import { extendBuffer } from 'utilium/buffer.js';
 import '../polyfills.js';
 import { config } from '../vfs/config.js';
 import * as c from '../vfs/constants.js';
-import { _chown, type StatsLike } from '../vfs/stats.js';
+import { _chown } from '../vfs/stats.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem, StreamOptions } from './filesystem.js';
 import type { InodeLike } from './inode.js';
@@ -661,7 +661,7 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		fs: FS,
 		path: string,
 		public readonly flag: string,
-		public readonly stats: StatsLike<number>
+		public readonly stats: InodeLike
 	) {
 		super(fs, path);
 	}
