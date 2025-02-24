@@ -1,6 +1,6 @@
 {
 	"name": "@zenfs/core",
-	"version": "1.11.3",
+	"version": "1.11.4",
 	"description": "A filesystem, anywhere",
 	"funding": {
 		"type": "individual",
