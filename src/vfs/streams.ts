@@ -63,7 +63,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 			.then(({ file }) => {
 				this._path = file.path;
 
-				const internal = file.fs.streamRead(file.path, { start: opts.start, end: opts.end });
+				const internal = file.streamRead({ start: opts.start, end: opts.end });
 				this.reader = internal.getReader();
 				this.pending = false;
 				return this._read();
@@ -127,7 +127,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 		this.ready = Promise.resolve(handleOrPromise)
 			.then(({ file }) => {
 				this._path = file.path;
-				const internal = file.fs.streamWrite(file.path, { start: opts.start });
+				const internal = file.streamWrite({ start: opts.start });
 				this.writer = internal.getWriter();
 				this.pending = false;
 			})

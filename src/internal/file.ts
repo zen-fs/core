@@ -3,7 +3,7 @@ import { _chown, Stats, type StatsLike } from '../stats.js';
 import { config } from '../vfs/config.js';
 import * as c from '../vfs/constants.js';
 import { Errno, ErrnoError } from './error.js';
-import type { FileSystem } from './filesystem.js';
+import type { FileSystem, StreamOptions } from './filesystem.js';
 import { err, log_deprecated } from './log.js';
 import '../polyfills.js';
 
@@ -257,6 +257,20 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 	 * Change the file timestamps of the file.
 	 */
 	public abstract utimesSync(atime: number, mtime: number): void;
+
+	/**
+	 * Create a stream for reading the file.
+	 */
+	public streamRead(options: StreamOptions): ReadableStream {
+		return this.fs.streamRead(this.path, options);
+	}
+
+	/**
+	 * Create a stream for writing the file.
+	 */
+	public streamWrite(options: StreamOptions): WritableStream {
+		return this.fs.streamWrite(this.path, options);
+	}
 }
 
 /**
