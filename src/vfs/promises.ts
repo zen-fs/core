@@ -202,7 +202,7 @@ export class FileHandle implements promises.FileHandle {
 	 * The handle will not be closed automatically.
 	 */
 	public readableWebStream(options: promises.ReadableWebStreamOptions = {}): NodeReadableStream<Uint8Array> {
-		return this.file.fs.streamRead(this.file.path, {});
+		return this.file.streamRead({});
 	}
 
 	/**
