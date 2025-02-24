@@ -1,6 +1,6 @@
 import type { File } from '../internal/file.js';
 import type { CreationOptions, StreamOptions, UsageInfo } from '../internal/filesystem.js';
-import { isDirectory, type InodeLike } from '../internal/inode.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { Backend } from './backend.js';
 
 import { EventEmitter } from 'eventemitter3';
@@ -9,6 +9,7 @@ import { resolveMountConfig, type MountConfiguration } from '../config.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { LazyFile } from '../internal/file.js';
 import { FileSystem } from '../internal/filesystem.js';
+import { isDirectory } from '../internal/inode.js';
 import { debug, err, warn } from '../internal/log.js';
 import { dirname, join } from '../vfs/path.js';
 
