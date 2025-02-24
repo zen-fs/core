@@ -5,7 +5,7 @@ import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
 import { basename, dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from './error.js';
 import type { InodeLike } from './inode.js';
-import { __inode_sz, Inode } from './inode.js';
+import { Inode } from './inode.js';
 import type { UsageInfo } from './filesystem.js';
 
 /**
@@ -50,7 +50,7 @@ export class Index extends Map<string, Inode> {
 	 * Get the size in bytes of the index (including the size reported for each entry)
 	 */
 	public get byteSize(): number {
-		let size = this.size * __inode_sz;
+		let size = this.size * sizeof(Inode);
 		for (const entry of this.values()) size += entry.size;
 		return size;
 	}

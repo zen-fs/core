@@ -3,7 +3,7 @@
 import type * as fs from 'node:fs';
 import type { File } from '../internal/file.js';
 import type { FileSystem } from '../internal/filesystem.js';
-import type { Stats } from '../stats.js';
+import type { Stats } from './stats.js';
 
 import { InMemory } from '../backends/memory.js';
 import { bindContext, type BoundContext, type V_Context } from '../context.js';

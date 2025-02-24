@@ -1,17 +1,16 @@
 import type { File } from '../internal/file.js';
 import type { CreationOptions, StreamOptions, UsageInfo } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
-import type { Stats } from '../stats.js';
+import { isDirectory, type Inode, type InodeLike } from '../internal/inode.js';
 import type { Backend } from './backend.js';
 
+import { EventEmitter } from 'eventemitter3';
 import { canary } from 'utilium';
+import { resolveMountConfig, type MountConfiguration } from '../config.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { LazyFile } from '../internal/file.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { debug, err, warn } from '../internal/log.js';
 import { dirname, join } from '../vfs/path.js';
-import { EventEmitter } from 'eventemitter3';
-import { resolveMountConfig, type MountConfiguration } from '../config.js';
 
 /**
  * Configuration options for CoW.
@@ -215,7 +214,7 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 	}
 
-	public async stat(path: string): Promise<Stats> {
+	public async stat(path: string): Promise<InodeLike> {
 		try {
 			return await this.writable.stat(path);
 		} catch {
@@ -228,7 +227,7 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 	}
 
-	public statSync(path: string): Stats {
+	public statSync(path: string): InodeLike {
 		try {
 			return this.writable.statSync(path);
 		} catch {
@@ -239,6 +238,14 @@ export class CopyOnWriteFS extends FileSystem {
 			oldStat.mode |= 0o222;
 			return oldStat;
 		}
+	}
+
+	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+		return await this.writable.touch(path, create, metadata);
+	}
+
+	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+		return this.writable.touchSync(path, create, metadata);
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {
@@ -466,7 +473,7 @@ export class CopyOnWriteFS extends FileSystem {
 	private copyToWritableSync(path: string): void {
 		const stats = this.statSync(path);
 		stats.mode |= 0o222;
-		if (stats.isDirectory()) {
+		if (isDirectory(stats)) {
 			this.writable.mkdirSync(path, stats.mode, stats);
 			for (const k of this.readable.readdirSync(path)) {
 				this.copyToWritableSync(join(path, k));
@@ -484,7 +491,7 @@ export class CopyOnWriteFS extends FileSystem {
 	private async copyToWritable(path: string): Promise<void> {
 		const stats = await this.stat(path);
 		stats.mode |= 0o222;
-		if (stats.isDirectory()) {
+		if (isDirectory(stats)) {
 			await this.writable.mkdir(path, stats.mode, stats);
 			for (const k of await this.readable.readdir(path)) {
 				await this.copyToWritable(join(path, k));

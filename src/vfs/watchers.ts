@@ -4,7 +4,7 @@ import type { V_Context } from '../context.js';
 
 import { EventEmitter } from 'eventemitter3';
 import { ErrnoError } from '../internal/error.js';
-import { isStatsEqual, type Stats } from '../stats.js';
+import { isStatsEqual, type Stats } from './stats.js';
 import { normalizePath } from '../utils.js';
 import { basename, dirname, join, relative } from './path.js';
 import { statSync } from './sync.js';

@@ -1,5 +1,5 @@
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
-import type { Stats } from '../stats.js';
+import type { Stats } from '../vfs/stats.js';
 import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
 import { getAllPrototypes } from 'utilium';
@@ -8,6 +8,7 @@ import { Errno, ErrnoError } from '../internal/error.js';
 import { LazyFile, parseFlag } from '../internal/file.js';
 import { crit, debug, err } from '../internal/log.js';
 import { join } from '../vfs/path.js';
+import { isDirectory, type Inode, type InodeLike } from '../internal/inode.js';
 
 /**
  * @internal
@@ -119,9 +120,14 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(this.rename(oldPath, newPath));
 		}
 
-		public statSync(path: string): Stats {
+		public statSync(path: string): InodeLike {
 			this.checkSync(path, 'stat');
 			return this._sync.statSync(path);
+		}
+
+		public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+			this.checkSync(path, 'touch');
+			return this._sync.touchSync(path, create, metadata);
 		}
 
 		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): LazyFile<this> {
@@ -166,7 +172,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(this.link(srcpath, dstpath));
 		}
 
-		public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+		public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
 			this.checkSync(path, 'sync');
 			this._sync.syncSync(path, data, stats);
 			this._async(this.sync(path, data, stats));
@@ -212,7 +218,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		protected async crossCopy(path: string): Promise<void> {
 			this.checkSync(path, 'crossCopy');
 			const stats = await this.stat(path);
-			if (!stats.isDirectory()) {
+			if (!isDirectory(stats)) {
 				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats);
 				const buffer = new Uint8Array(stats.size);
 				await this.read(path, buffer, 0, stats.size);

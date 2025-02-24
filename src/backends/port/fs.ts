@@ -1,18 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ExtractProperties } from 'utilium';
-import type { Inode, InodeLike } from '../..//internal/inode.js';
+import type { InodeLike } from '../..//internal/inode.js';
 import type { MountConfiguration } from '../../config.js';
 import type { File } from '../../internal/file.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 
 import { pick } from 'utilium';
+import { Inode } from '../..//internal/inode.js';
 import { resolveMountConfig } from '../../config.js';
 import { Errno, ErrnoError } from '../../internal/error.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { err, info } from '../../internal/log.js';
 import { Async } from '../../mixins/async.js';
-import { Stats } from '../../stats.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
 
@@ -66,8 +66,12 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('rename', oldPath, newPath);
 	}
 
-	public async stat(path: string): Promise<Stats> {
-		return new Stats(await this.rpc('stat', path));
+	public async stat(path: string): Promise<InodeLike> {
+		return await this.rpc('stat', path);
+	}
+
+	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+		return new Inode(await this.rpc('touch', path, create, metadata));
 	}
 
 	public sync(path: string, data: Uint8Array | undefined, stats: Readonly<InodeLike | Inode>): Promise<void> {

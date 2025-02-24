@@ -3,7 +3,7 @@ export * from './config.js';
 export * from './context.js';
 export * from './internal/index.js';
 export * from './mixins/index.js';
-export * from './stats.js';
+export * from './vfs/stats.js';
 export * from './utils.js';
 export * from './vfs/index.js';
 export { fs };

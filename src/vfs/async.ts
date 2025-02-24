@@ -1,17 +1,16 @@
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
-import type { Stats } from '../stats.js';
 import type { Callback } from '../utils.js';
 import type { Dir, Dirent } from './dir.js';
 import type { FileContents, GlobOptionsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { BigIntStats } from '../stats.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { R_OK } from './constants.js';
 import * as promises from './promises.js';
 import { fd2file, fdMap } from './shared.js';
+import { BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream, type ReadStreamOptions, type WriteStreamOptions } from './streams.js';
 import { FSWatcher, StatWatcher } from './watchers.js';
 
@@ -261,7 +260,10 @@ export function fstat(
 	fd2file(fd)
 		.stat()
 		.then(stats =>
-			(cb as Callback<[Stats | BigIntStats]>)(undefined, typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : stats)
+			(cb as Callback<[Stats | BigIntStats]>)(
+				undefined,
+				typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : new Stats(stats)
+			)
 		)
 		.catch(cb);
 }

@@ -1,11 +1,12 @@
 import { extendBuffer } from 'utilium/buffer.js';
-import { _chown, Stats, type StatsLike } from '../stats.js';
+import '../polyfills.js';
 import { config } from '../vfs/config.js';
 import * as c from '../vfs/constants.js';
+import { _chown, type StatsLike } from '../vfs/stats.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem, StreamOptions } from './filesystem.js';
+import type { InodeLike } from './inode.js';
 import { err, log_deprecated } from './log.js';
-import '../polyfills.js';
 
 const maxByteLength = 0xffff; // 64 KiB
 
@@ -161,8 +162,8 @@ export abstract class File<FS extends FileSystem = FileSystem> {
 	 */
 	public abstract position: number;
 
-	public abstract stat(): Promise<Stats>;
-	public abstract statSync(): Stats;
+	public abstract stat(): Promise<InodeLike>;
+	public abstract statSync(): InodeLike;
 
 	public abstract close(): Promise<void>;
 	public abstract closeSync(): void;
@@ -302,7 +303,7 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		fs: FS,
 		path: string,
 		public readonly flag: string,
-		public readonly stats: Stats,
+		public readonly stats: InodeLike,
 		/**
 		 * A buffer containing the entire contents of the file.
 		 */
@@ -392,14 +393,14 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		this.closed = true;
 	}
 
-	public stat(): Promise<Stats> {
+	public stat(): Promise<InodeLike> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
-		return Promise.resolve(new Stats(this.stats));
+		return Promise.resolve(this.stats);
 	}
 
-	public statSync(): Stats {
+	public statSync(): InodeLike {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
-		return new Stats(this.stats);
+		return this.stats;
 	}
 
 	protected _truncate(length: number): void {
@@ -706,16 +707,16 @@ export class LazyFile<FS extends FileSystem> extends File<FS> {
 		this.closed = true;
 	}
 
-	public stat(): Promise<Stats> {
+	public stat(): Promise<InodeLike> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
 
-		return Promise.resolve(new Stats(this.stats));
+		return Promise.resolve(this.stats);
 	}
 
-	public statSync(): Stats {
+	public statSync(): InodeLike {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
 
-		return new Stats(this.stats);
+		return this.stats;
 	}
 
 	public async truncate(length: number): Promise<void> {

@@ -1,4 +1,4 @@
-import { _throw, canary, serialize } from 'utilium';
+import { _throw, canary, serialize, sizeof } from 'utilium';
 import { extendBuffer } from 'utilium/buffer.js';
 import { Errno, ErrnoError } from '../../internal/error.js';
 import type { File } from '../../internal/file.js';
@@ -6,9 +6,8 @@ import { LazyFile } from '../../internal/file.js';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, PureCreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
-import { __inode_sz, Inode, rootIno, type InodeLike } from '../../internal/inode.js';
+import { Inode, rootIno, type InodeLike } from '../../internal/inode.js';
 import { crit, debug, err, log_deprecated, notice, warn } from '../../internal/log.js';
-import type { Stats } from '../../stats.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, relative } from '../../vfs/path.js';
@@ -332,14 +331,56 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._move(oldPath, newPath);
 	}
 
-	public async stat(path: string): Promise<Stats> {
+	public async stat(path: string): Promise<InodeLike> {
 		await using tx = this.transaction();
-		return (await this.findInode(tx, path, 'stat')).toStats();
+		return await this.findInode(tx, path, 'stat');
 	}
 
-	public statSync(path: string): Stats {
+	public statSync(path: string): InodeLike {
 		using tx = this.transaction();
-		return this.findInodeSync(tx, path, 'stat').toStats();
+		return this.findInodeSync(tx, path, 'stat');
+	}
+
+	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+		await using tx = this.transaction();
+
+		let inode;
+		try {
+			inode = await this.findInode(tx, path, 'touch');
+		} catch (_ex: any) {
+			const ex = _ex as ErrnoError;
+			if (!create || ex.code != 'ENOENT') throw ex;
+			inode = new Inode(metadata);
+		}
+
+		if (inode.update(metadata)) {
+			this._add(inode.ino, path);
+			await tx.set(inode.ino, serialize(inode));
+		}
+
+		await tx.commit();
+		return inode;
+	}
+
+	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+		using tx = this.transaction();
+
+		let inode;
+		try {
+			inode = this.findInodeSync(tx, path, 'touch');
+		} catch (_ex: any) {
+			const ex = _ex as ErrnoError;
+			if (!create || ex.code != 'ENOENT') throw ex;
+			inode = new Inode(metadata);
+		}
+
+		if (inode.update(metadata)) {
+			this._add(inode.ino, path);
+			tx.setSync(inode.ino, serialize(inode));
+		}
+
+		tx.commitSync();
+		return inode;
 	}
 
 	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
@@ -608,7 +649,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			return;
 		}
 
-		if (rootData.length != __inode_sz) {
+		if (rootData.length != sizeof(Inode)) {
 			crit('Store contains an invalid root inode. Refusing to populate tables');
 			return;
 		}
@@ -634,7 +675,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				continue;
 			}
 
-			if (inodeData.length != __inode_sz) {
+			if (inodeData.length != sizeof(Inode)) {
 				warn(`Invalid inode size for ino ${ino}: ${inodeData.length}`);
 				continue;
 			}

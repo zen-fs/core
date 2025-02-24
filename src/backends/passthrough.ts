@@ -3,8 +3,8 @@ import type { Errno } from '../internal/error.js';
 import { ErrnoError } from '../internal/error.js';
 import { File, type FileReadResult } from '../internal/file.js';
 import { FileSystem, type UsageInfo } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
-import { Stats } from '../stats.js';
+import type { Inode, InodeLike } from '../internal/inode.js';
+import { Stats } from '../vfs/stats.js';
 import { join, resolve } from '../vfs/path.js';
 import type { Backend } from './backend.js';
 
@@ -209,6 +209,14 @@ export class PassthroughFS extends FileSystem {
 		} catch (err) {
 			this.error(err, path);
 		}
+	}
+
+	public touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+		throw ErrnoError.With('ENOSYS', path, 'touch');
+	}
+
+	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+		throw ErrnoError.With('ENOSYS', path, 'touch');
 	}
 
 	/**

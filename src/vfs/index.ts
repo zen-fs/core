@@ -1,4 +1,4 @@
-export { BigIntStatsFs, Stats, StatsFs } from '../stats.js';
+export { BigIntStatsFs, Stats, StatsFs } from './stats.js';
 export * from './async.js';
 export * as constants from './constants.js';
 export * from './dir.js';

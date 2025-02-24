@@ -1,7 +1,8 @@
 import type { ConstMap } from 'utilium';
-import type { Stats, StatsLike } from '../stats.js';
+import type { StatsLike } from '../vfs/stats.js';
 import type { ErrnoError } from './error.js';
 import type { File } from './file.js';
+import type { Inode, InodeLike } from './inode.js';
 
 /**
  * Usage information about a file system
@@ -255,8 +256,14 @@ export abstract class FileSystem {
 	public abstract rename(oldPath: string, newPath: string): Promise<void>;
 	public abstract renameSync(oldPath: string, newPath: string): void;
 
-	public abstract stat(path: string): Promise<Stats>;
-	public abstract statSync(path: string): Stats;
+	public abstract stat(path: string): Promise<InodeLike>;
+	public abstract statSync(path: string): InodeLike;
+
+	/** Modify metadata. */
+	public abstract touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode>;
+
+	/** Modify metadata. */
+	public abstract touchSync(path: string, create: boolean, metadata: InodeLike): Inode;
 
 	/**
 	 * Opens the file at `path` with `flag`. The file must exist.

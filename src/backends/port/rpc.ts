@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { TransferListItem, Worker as NodeWorker } from 'node:worker_threads';
+import type { Worker as NodeWorker, TransferListItem } from 'node:worker_threads';
 import type { WithOptional } from 'utilium';
 import type { ErrnoErrorJSON } from '../../internal/error.js';
 import type { FileSystem } from '../../internal/filesystem.js';
+import type { StatsLike } from '../../vfs/stats.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 import type { PortFS } from './fs.js';
 
 import { Errno, ErrnoError } from '../../internal/error.js';
 import { LazyFile } from '../../internal/file.js';
 import { err, info } from '../../internal/log.js';
-import { Stats, type StatsLike } from '../../stats.js';
 import { handleRequest } from './fs.js';
 
 type _MessageEvent<T = any> = T | { data: T };
@@ -137,7 +137,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 
 	if (isFileData(value)) {
 		const { path, flag, stats } = value;
-		const file = new LazyFile(fs!, path, flag, new Stats(stats));
+		const file = new LazyFile(fs!, path, flag, stats);
 		resolve(file);
 		executors.delete(id);
 		return;

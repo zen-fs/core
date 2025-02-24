@@ -5,7 +5,6 @@ This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/dev
 import { canary } from 'utilium';
 import { InMemoryStore } from '../backends/memory.js';
 import { StoreFS } from '../backends/store/fs.js';
-import { Stats } from '../stats.js';
 import { decodeUTF8 } from '../utils.js';
 import { S_IFBLK, S_IFCHR } from '../vfs/constants.js';
 import { basename, dirname } from '../vfs/path.js';
@@ -13,7 +12,7 @@ import { Errno, ErrnoError } from './error.js';
 import type { FileReadResult } from './file.js';
 import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
-import { Inode } from './inode.js';
+import { Inode, type InodeLike } from './inode.js';
 import { alert, debug, err, info, log_deprecated } from './log.js';
 
 /**
@@ -162,12 +161,12 @@ export class DeviceFile<TData = any> extends File {
 		mode: (this.driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666,
 	});
 
-	public async stat(): Promise<Stats> {
-		return Promise.resolve(new Stats(this.stats));
+	public async stat(): Promise<InodeLike> {
+		return Promise.resolve(this.stats);
 	}
 
-	public statSync(): Stats {
-		return new Stats(this.stats);
+	public statSync(): InodeLike {
+		return this.stats;
 	}
 
 	public readSync(
@@ -385,7 +384,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.renameSync(oldPath, newPath);
 	}
 
-	public async stat(path: string): Promise<Stats> {
+	public async stat(path: string): Promise<InodeLike> {
 		if (this.devices.has(path)) {
 			await using file = await this.openFile(path, 'r');
 			return file.stat();
@@ -393,12 +392,24 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.stat(path);
 	}
 
-	public statSync(path: string): Stats {
+	public statSync(path: string): InodeLike {
 		if (this.devices.has(path)) {
 			using file = this.openFileSync(path, 'r');
 			return file.statSync();
 		}
 		return super.statSync(path);
+	}
+
+	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+		if (this.devices.has(path)) {
+		}
+		return super.touch(path, create, metadata);
+	}
+
+	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+		if (this.devices.has(path)) {
+		}
+		return super.touchSync(path, create, metadata);
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {
@@ -505,14 +516,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.linkSync(target, link);
 	}
 
-	public async sync(path: string, data: Uint8Array, stats: Readonly<Stats>): Promise<void> {
+	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {
 		if (this.devices.has(path)) {
 			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'), { fs: this });
 		}
 		return super.sync(path, data, stats);
 	}
 
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<Stats>): void {
+	public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
 		if (this.devices.has(path)) {
 			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'), { fs: this });
 		}

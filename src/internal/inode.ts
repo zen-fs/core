@@ -1,7 +1,11 @@
 import { deserialize, pick, randomInt, sizeof, struct, types as t } from 'utilium';
-import { Stats, type StatsLike } from '../stats.js';
+import { Stats, type StatsLike } from '../vfs/stats.js';
 import { size_max } from '../vfs/constants.js';
-import { crit, debug } from './log.js';
+import { crit, debug, err, warn } from './log.js';
+import type { JSONPrimitive } from 'utilium';
+import { decodeUTF8 } from '../utils.js';
+import { Errno, ErrnoError } from './error.js';
+import * as c from '../vfs/constants.js';
 
 /**
  * Root inode
@@ -9,12 +13,15 @@ import { crit, debug } from './log.js';
  */
 export const rootIno = 0;
 
+export type Attributes = Record<string, JSONPrimitive>;
+
 /**
  * @internal @hidden
  */
 export interface InodeFields {
 	data?: number;
 	flags?: number;
+	attributes?: Attributes;
 }
 
 /**
@@ -32,10 +39,11 @@ export const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', '
  * Represents which version of the `Inode` format we are on.
  * 1. 58 bytes. The first member was called `ino` but used as the ID for data.
  * 2. 66 bytes. Renamed the first member from `ino` to `data` and added a separate `ino` field
- * 3. (current) 72 bytes. Changed the ID fields from 64 to 32 bits and added `flags`.
+ * 3. 72 bytes. Changed the ID fields from 64 to 32 bits and added `flags`.
+ * 4. (current) Added extended attributes. At least 128 bytes.
  * @internal @hidden
  */
-export const _inode_version = 3;
+export const _inode_version = 4;
 
 /**
  * Generic inode definition that can easily be serialized.
@@ -45,7 +53,7 @@ export const _inode_version = 3;
  */
 @struct()
 export class Inode implements InodeLike {
-	public constructor(data?: ArrayBufferLike | ArrayBufferView | Readonly<Partial<InodeLike>>) {
+	public constructor(data?: Uint8Array | Readonly<Partial<InodeLike>>) {
 		if (!data) return;
 
 		if (!('byteLength' in data)) {
@@ -58,15 +66,19 @@ export class Inode implements InodeLike {
 		}
 
 		// Expand the buffer so it is the right size
-		if (data.byteLength < __inode_sz) {
+		if (data.byteLength < sizeof(Inode)) {
 			const buf = ArrayBuffer.isView(data) ? data.buffer : data;
-			const newBuffer = new Uint8Array(__inode_sz);
+			const newBuffer = new Uint8Array(sizeof(Inode));
 			newBuffer.set(new Uint8Array(buf));
 			debug('Extending undersized buffer for inode');
 			data = newBuffer;
 		}
 
 		deserialize(this, data);
+		const rawAttr = data.subarray(sizeof(Inode));
+		if (rawAttr.length != this.attributes_size) err(new ErrnoError(Errno.EIO, 'Attributes size mismatch with actual size'));
+		else if (rawAttr.length < 2) warn('Attributes is empty');
+		else this.attributes = JSON.parse(decodeUTF8(rawAttr));
 	}
 
 	@t.uint32 public data: number = randomInt(0, size_max);
@@ -86,7 +98,14 @@ export class Inode implements InodeLike {
 	@t.uint32 public __ino_old: number = 0;
 	@t.uint32 public flags: number = 0;
 	/** For future use */
-	@t.uint16 public __padding: number = 0;
+	@t.uint16 protected __after_flags: number = 0;
+
+	@t.uint32 public attributes_size: number = 0;
+
+	/** Pad to 128 bytes */
+	@t.uint8(52) protected __padding = [];
+
+	public attributes: Attributes = {};
 
 	public toString(): string {
 		return `<Inode ${this.ino}>`;
@@ -134,7 +153,30 @@ export class Inode implements InodeLike {
 	}
 }
 
-/**
- * @internal @hidden
- */
-export const __inode_sz = sizeof(Inode);
+export function isFile(metadata: InodeLike): boolean {
+	return (metadata.mode & c.S_IFMT) === c.S_IFREG;
+}
+
+export function isDirectory(metadata: InodeLike): boolean {
+	return (metadata.mode & c.S_IFMT) === c.S_IFDIR;
+}
+
+export function isSymbolicLink(metadata: InodeLike): boolean {
+	return (metadata.mode & c.S_IFMT) === c.S_IFLNK;
+}
+
+export function isSocket(metadata: InodeLike): boolean {
+	return (metadata.mode & c.S_IFMT) === c.S_IFSOCK;
+}
+
+export function isBlockDevice(metadata: InodeLike): boolean {
+	return (metadata.mode & c.S_IFMT) === c.S_IFBLK;
+}
+
+export function isCharacterDevice(metadata: InodeLike): boolean {
+	return (metadata.mode & c.S_IFMT) === c.S_IFCHR;
+}
+
+export function isFIFO(metadata: InodeLike): boolean {
+	return (metadata.mode & c.S_IFMT) === c.S_IFIFO;
+}

@@ -1,6 +1,6 @@
 import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
 import type { V_Context } from '../context.js';
-import type { Stats } from '../stats.js';
+import type { Stats } from './stats.js';
 import type { Callback } from '../utils.js';
 
 import { Errno, ErrnoError } from '../internal/error.js';

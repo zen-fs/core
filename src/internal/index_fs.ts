@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/require-await */
 import { _throw } from 'utilium';
-import { Stats } from '../stats.js';
 import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../vfs/constants.js';
 import { dirname, join, relative } from '../vfs/path.js';
 import { ErrnoError } from './error.js';
@@ -90,16 +89,32 @@ export abstract class IndexFS extends FileSystem {
 		this.removeSync(oldPath);
 	}
 
-	public async stat(path: string): Promise<Stats> {
+	public async stat(path: string): Promise<Inode> {
 		const inode = this.index.get(path);
 		if (!inode) throw ErrnoError.With('ENOENT', path, 'stat');
-		return new Stats(inode);
+		return inode;
 	}
 
-	public statSync(path: string): Stats {
+	public statSync(path: string): Inode {
 		const inode = this.index.get(path);
 		if (!inode) throw ErrnoError.With('ENOENT', path, 'stat');
-		return new Stats(inode);
+		return inode;
+	}
+
+	public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+		let inode = this.index.get(path);
+		if (create) inode ??= new Inode();
+		if (!inode) throw ErrnoError.With('ENOENT', path, 'touch');
+		inode.update(metadata);
+		return inode;
+	}
+
+	public touchSync(path: string, create: boolean, metadata: InodeLike): Inode {
+		let inode = this.index.get(path);
+		if (create) inode ??= new Inode();
+		if (!inode) throw ErrnoError.With('ENOENT', path, 'touch');
+		inode.update(metadata);
+		return inode;
 	}
 
 	public async openFile(path: string, flag: string): Promise<File> {

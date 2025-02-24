@@ -1,6 +1,7 @@
 import type { File } from '../internal/file.js';
 import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
-import type { Stats, StatsLike } from '../stats.js';
+import type { Inode, InodeLike } from '../internal/inode.js';
+import type { StatsLike } from '../vfs/stats.js';
 import type { AsyncFSMethods, Mixin } from './shared.js';
 
 /**
@@ -18,8 +19,12 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.renameSync(oldPath, newPath);
 		}
 
-		public async stat(path: string): Promise<Stats> {
+		public async stat(path: string): Promise<InodeLike> {
 			return this.statSync(path);
+		}
+
+		public async touch(path: string, create: boolean, metadata: InodeLike): Promise<Inode> {
+			return this.touchSync(path, create, metadata);
 		}
 
 		public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
