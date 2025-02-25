@@ -66,25 +66,23 @@ export class ReadStream extends Readable implements fs.ReadStream {
 				const internal = file.streamRead({ start: opts.start, end: opts.end });
 				this.reader = internal.getReader();
 				this.pending = false;
-				return this._read();
 			})
 			.catch(err => this.destroy(err));
 	}
 
 	async _read(): Promise<void> {
 		if (!this.reader) return;
-
-		const { done, value } = await this.reader.read();
-
-		if (done) {
-			this.push(null);
-			return;
+		try {
+			const { done, value } = await this.reader.read();
+			if (done) {
+				this.push(null);
+				return;
+			}
+			this._bytesRead += value.byteLength;
+			this.push(value);
+		} catch (err: any) {
+			this.destroy(new ErrnoError(Errno.EIO, err.toString()));
 		}
-
-		this._bytesRead += value.byteLength;
-		if (!this.push(value)) return;
-
-		await this._read();
 	}
 
 	close(callback: Callback<[void], null> = () => null): void {
