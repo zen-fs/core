@@ -32,22 +32,6 @@ export abstract class IndexFS extends FileSystem {
 		return this.index.usage();
 	}
 
-	/* node:coverage disable */
-	/**
-	 * @deprecated
-	 */
-	public reloadFiles(): never {
-		throw ErrnoError.With('ENOTSUP');
-	}
-
-	/**
-	 * @deprecated
-	 */
-	public reloadFilesSync(): never {
-		throw ErrnoError.With('ENOTSUP');
-	}
-	/* node:coverage enable */
-
 	/**
 	 * Finds all the paths in the index that need to be moved for a rename
 	 */

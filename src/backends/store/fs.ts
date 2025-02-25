@@ -7,7 +7,7 @@ import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, PureCreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { Inode, rootIno, type InodeLike } from '../../internal/inode.js';
-import { crit, debug, err, log_deprecated, notice, warn } from '../../internal/log.js';
+import { crit, debug, err, notice, warn } from '../../internal/log.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, relative } from '../../vfs/path.js';
@@ -115,28 +115,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			}
 		);
 	}
-
-	/* node:coverage disable */
-	/**
-	 * Delete all contents stored in the file system.
-	 * @deprecated
-	 */
-	public async empty(): Promise<void> {
-		log_deprecated('StoreFS#empty');
-		// Root always exists.
-		await this.checkRoot();
-	}
-
-	/**
-	 * Delete all contents stored in the file system.
-	 * @deprecated
-	 */
-	public emptySync(): void {
-		log_deprecated('StoreFS#emptySync');
-		// Root always exists.
-		this.checkRootSync();
-	}
-	/* node:coverage enable */
 
 	/**
 	 * Load an index into the StoreFS.

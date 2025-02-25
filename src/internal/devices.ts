@@ -2,7 +2,6 @@
 This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
 */
 
-import { canary } from 'utilium';
 import { InMemoryStore } from '../backends/memory.js';
 import { StoreFS } from '../backends/store/fs.js';
 import { decodeUTF8 } from '../utils.js';
@@ -13,7 +12,7 @@ import type { FileReadResult } from './file.js';
 import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
-import { alert, debug, err, info, log_deprecated } from './log.js';
+import { alert, debug, err, info } from './log.js';
 
 /**
  * A device
@@ -89,37 +88,19 @@ export interface DeviceDriver<TData = any> {
 	init?(ino: number, options: object): DeviceInit<TData>;
 
 	/**
-	 * Synchronously read from a device file
-	 * @group File operations
-	 * @deprecated
-	 * @todo [BREAKING] Remove
-	 */
-	read?(file: DeviceFile<TData>, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
-
-	/**
 	 * Synchronously read from a device.
 	 * @privateRemarks
 	 * For many devices there is no concept of an offset or end.
 	 * For example, /dev/random will be "the same" regardless of where you read from- random data.
 	 * @group File operations
-	 * @todo [BREAKING] Rename to `read`
 	 */
-	readD(device: Device<TData>, buffer: Uint8Array, offset: number, end: number): void;
-
-	/**
-	 * Synchronously write to a device file
-	 * @group File operations
-	 * @deprecated
-	 * @todo [BREAKING] Remove
-	 */
-	write?(file: DeviceFile<TData>, buffer: Uint8Array, offset: number, length: number, position?: number): number;
+	read(device: Device<TData>, buffer: Uint8Array, offset: number, end: number): void;
 
 	/**
 	 * Synchronously write to a device
 	 * @group File operations
-	 * @todo [BREAKING] Rename to `write`
 	 */
-	writeD(device: Device<TData>, buffer: Uint8Array, offset: number): void;
+	write(device: Device<TData>, buffer: Uint8Array, offset: number): void;
 
 	/**
 	 * Update a devices metadata
@@ -187,7 +168,7 @@ export class DeviceFile<TData = any> extends File {
 
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 
-		this.driver.readD(this.device, uint8.subarray(offset, length), position, end);
+		this.driver.read(this.device, uint8.subarray(offset, length), position, end);
 
 		return length;
 	}
@@ -207,7 +188,7 @@ export class DeviceFile<TData = any> extends File {
 
 		const data = buffer.subarray(offset, offset + length);
 
-		this.driver.writeD(this.device, data, position);
+		this.driver.write(this.device, data, position);
 
 		return length;
 	}
@@ -282,33 +263,6 @@ export class DeviceFile<TData = any> extends File {
  */
 export class DeviceFS extends StoreFS<InMemoryStore> {
 	protected readonly devices = new Map<string, Device>();
-
-	/* node:coverage disable */
-	/**
-	 * Creates a new device at `path` relative to the `DeviceFS` root.
-	 * @deprecated
-	 */
-	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
-		log_deprecated('DeviceFS#createDevice');
-		if (this.existsSync(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mknod');
-		}
-		let ino = 1;
-		const silence = canary(ErrnoError.With('EDEADLK', path, 'mknod'));
-		while (this.store.has(ino)) ino++;
-		silence();
-		const dev = {
-			driver,
-			ino,
-			data: {},
-			minor: 0,
-			major: 0,
-			...driver.init?.(ino, options),
-		};
-		this.devices.set(path, dev);
-		return dev;
-	}
-	/* node:coverage enable */
 
 	protected devicesWithDriver(driver: DeviceDriver<unknown> | string, forceIdentity?: boolean): Device[] {
 		if (forceIdentity && typeof driver == 'string') {
@@ -542,7 +496,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			return;
 		}
 
-		device.driver.readD(device, buffer, offset, end);
+		device.driver.read(device, buffer, offset, end);
 	}
 
 	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
@@ -552,7 +506,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			return;
 		}
 
-		device.driver.readD(device, buffer, offset, end);
+		device.driver.read(device, buffer, offset, end);
 	}
 
 	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
@@ -561,7 +515,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			return await super.write(path, data, offset);
 		}
 
-		device.driver.writeD(device, data, offset);
+		device.driver.write(device, data, offset);
 	}
 
 	public writeSync(path: string, data: Uint8Array, offset: number): void {
@@ -570,12 +524,8 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			return super.writeSync(path, data, offset);
 		}
 
-		device.driver.writeD(device, data, offset);
+		device.driver.write(device, data, offset);
 	}
-}
-
-function defaultWrite(device: Device, data: Uint8Array, offset: number) {
-	return;
 }
 
 const emptyBuffer = new Uint8Array();
@@ -593,13 +543,12 @@ export const nullDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 3 };
 	},
-	read(): number {
-		return 0;
-	},
-	readD(): Uint8Array {
+	read(): Uint8Array {
 		return emptyBuffer;
 	},
-	writeD: defaultWrite,
+	write() {
+		return;
+	},
 };
 
 /**
@@ -619,10 +568,12 @@ export const zeroDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 5 };
 	},
-	readD(device, buffer, offset, end) {
+	read(device, buffer, offset, end) {
 		buffer.fill(0, offset, end);
 	},
-	writeD: defaultWrite,
+	write() {
+		return;
+	},
 };
 
 /**
@@ -638,13 +589,10 @@ export const fullDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 7 };
 	},
-	readD(device, buffer, offset, end) {
+	read(device, buffer, offset, end) {
 		buffer.fill(0, offset, end);
 	},
-	write(file: DeviceFile): number {
-		throw ErrnoError.With('ENOSPC', file.path, 'write');
-	},
-	writeD() {
+	write() {
 		throw ErrnoError.With('ENOSPC', undefined, 'write');
 	},
 };
@@ -662,12 +610,14 @@ export const randomDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 8 };
 	},
-	readD(device, buffer) {
+	read(device, buffer) {
 		for (let i = 0; i < buffer.length; i++) {
 			buffer[i] = Math.floor(Math.random() * 256);
 		}
 	},
-	writeD: defaultWrite,
+	write() {
+		return;
+	},
 };
 
 /**
@@ -681,10 +631,10 @@ const consoleDevice: DeviceDriver<{ output: (text: string, offset: number) => un
 	init(ino: number, { output = text => console.log(text) }: { output?: (text: string) => unknown } = {}) {
 		return { major: 5, minor: 1, data: { output } };
 	},
-	readD() {
+	read() {
 		return emptyBuffer;
 	},
-	writeD(device, buffer, offset) {
+	write(device, buffer, offset) {
 		const text = decodeUTF8(buffer);
 		device.data.output(text, offset);
 	},

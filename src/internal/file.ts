@@ -6,7 +6,7 @@ import { _chown } from '../vfs/stats.js';
 import { Errno, ErrnoError } from './error.js';
 import type { FileSystem, StreamOptions } from './filesystem.js';
 import type { InodeLike } from './inode.js';
-import { err, log_deprecated } from './log.js';
+import { err } from './log.js';
 
 const maxByteLength = 0xffff; // 64 KiB
 
@@ -587,32 +587,6 @@ export class PreloadFile<FS extends FileSystem> extends File<FS> {
 		if (config.syncImmediately) this.syncSync();
 	}
 }
-
-/* node:coverage disable */
-/**
- * For the file systems which do not sync to anything.
- * @category Internals
- * @deprecated
- */
-export class NoSyncFile<T extends FileSystem> extends PreloadFile<T> {
-	public constructor(...args: ConstructorParameters<typeof PreloadFile<T>>) {
-		log_deprecated('NoSyncFile');
-		super(...args);
-	}
-
-	public sync(): Promise<void> {
-		return Promise.resolve();
-	}
-
-	public syncSync(): void {}
-
-	public close(): Promise<void> {
-		return Promise.resolve();
-	}
-
-	public closeSync(): void {}
-}
-/* node:coverage enable */
 
 /**
  * An implementation of `File` that uses the FS

@@ -39,20 +39,6 @@ export interface Store {
 	 */
 	sync(): Promise<void>;
 
-	/* node:coverage disable */
-	/**
-	 * Empties the store completely.
-	 * @deprecated
-	 */
-	clear?(): Promise<void> | void;
-
-	/**
-	 * Empties the store completely.
-	 * @deprecated
-	 */
-	clearSync?(): void;
-	/* node:coverage enable */
-
 	/**
 	 * Begins a new transaction.
 	 */

@@ -1,5 +1,5 @@
 import { Errno, ErrnoError } from '../internal/error.js';
-import type { FileSystem, FileSystemMetadata } from '../internal/filesystem.js';
+import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Mixin } from './shared.js';
 
@@ -7,7 +7,6 @@ import type { Mixin } from './shared.js';
  * @internal
  */
 export interface ReadonlyMixin {
-	metadata(): FileSystemMetadata;
 	rename(oldPath: string, newPath: string): Promise<never>;
 	renameSync(oldPath: string, newPath: string): never;
 	createFile(path: string, flag: string, mode: number): Promise<never>;

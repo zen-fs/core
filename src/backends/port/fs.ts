@@ -8,9 +8,9 @@ import type { Backend, FilesystemOf } from '../backend.js';
 
 import { pick } from 'utilium';
 import { resolveMountConfig } from '../../config.js';
-import { Errno, ErrnoError } from '../../internal/error.js';
+import { ErrnoError } from '../../internal/error.js';
 import { FileSystem } from '../../internal/filesystem.js';
-import { err, info } from '../../internal/log.js';
+import { info } from '../../internal/log.js';
 import { Async } from '../../mixins/async.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
@@ -38,7 +38,7 @@ export class PortFS extends Async(FileSystem) {
 	/**`
 	 * @hidden
 	 */
-	_sync = InMemory.create({ name: 'tmpfs:port' });
+	_sync = InMemory.create({ label: 'tmpfs:port' });
 
 	/**
 	 * Constructs a new PortFS instance that connects with the FS running on `options.port`.
@@ -166,14 +166,8 @@ const _Port = {
 	name: 'Port',
 	options: {
 		port: {
-			type: 'object',
+			type: (port: RPC.Port) => typeof port?.postMessage != 'function',
 			required: true,
-			validator(port: RPC.Port) {
-				// Check for a `postMessage` function.
-				if (typeof port?.postMessage != 'function') {
-					throw err(new ErrnoError(Errno.EINVAL, 'option must be a port'));
-				}
-			},
 		},
 		timeout: { type: 'number', required: false },
 	},

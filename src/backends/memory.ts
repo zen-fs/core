@@ -50,9 +50,6 @@ export interface InMemoryOptions {
 
 	/** The label to use for the store and file system */
 	label?: string;
-
-	/** @deprecated use `label` */
-	name?: string;
 }
 
 const _InMemory = {
@@ -60,10 +57,9 @@ const _InMemory = {
 	options: {
 		maxSize: { type: 'number', required: false },
 		label: { type: 'string', required: false },
-		name: { type: 'string', required: false },
 	},
-	create({ maxSize, label, name }: InMemoryOptions) {
-		const fs = new StoreFS(new InMemoryStore(maxSize, label ?? name));
+	create({ maxSize, label }: InMemoryOptions) {
+		const fs = new StoreFS(new InMemoryStore(maxSize, label));
 		fs.checkRootSync();
 		return fs;
 	},

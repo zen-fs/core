@@ -28,11 +28,6 @@ export interface CopyOnWriteOptions {
 	journal?: Journal;
 }
 
-/**
- *  @hidden @deprecated use `CopyOnWriteOptions`
- */
-export type OverlayOptions = CopyOnWriteOptions;
-
 const journalOperations = ['delete'] as const;
 
 /**
@@ -507,11 +502,6 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 }
 
-/**
- * @hidden @deprecated use `CopyOnWriteFS`
- */
-export class OverlayFS extends CopyOnWriteFS {}
-
 const _CopyOnWrite = {
 	name: 'CopyOnWrite',
 	options: {
@@ -536,13 +526,3 @@ export interface CopyOnWrite extends _CopyOnWrite {}
  * @internal
  */
 export const CopyOnWrite: CopyOnWrite = _CopyOnWrite;
-
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface Overlay extends _CopyOnWrite {}
-
-/**
- * @deprecated Use `CopyOnWrite`
- * @category Backends and Configuration
- * @internal @hidden
- */
-export const Overlay: Overlay = _CopyOnWrite;

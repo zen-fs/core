@@ -41,7 +41,7 @@ rename satisfies Omit<typeof fs.rename, '__promisify__'>;
 /**
  * Test whether or not `path` exists by checking with the file system.
  * Then call the callback argument with either true or false.
- * @deprecated Use {@link stat} or {@link access} instead.
+ * According to Node.js: deprecated Use {@link stat} or {@link access} instead.
  */
 export function exists(this: V_Context, path: fs.PathLike, cb: (exists: boolean) => unknown = nop): void {
 	promises.exists

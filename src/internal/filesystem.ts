@@ -37,54 +37,6 @@ export interface UsageInfo {
 	freeNodes?: number;
 }
 
-/* node:coverage disable */
-/**
- * Metadata about a FileSystem
- * @category Internals
- * @deprecated
- */
-export interface FileSystemMetadata extends UsageInfo {
-	/**
-	 * The name of the FS
-	 * @deprecated Use `FileSystem#name`
-	 */
-	name: string;
-
-	/**
-	 * Whether the FS is readonly or not
-	 * @deprecated Use `FileSystem#attributes
-	 */
-	readonly: boolean;
-
-	/**
-	 * If set, disables File from using a resizable array buffer.
-	 * @default false
-	 * @deprecated Use `FileSystem#attributes`
-	 */
-	noResizableBuffers: boolean;
-
-	/**
-	 * If set, disables caching on async file systems.
-	 * This means *sync operations will not work*.
-	 * It has no affect on sync file systems.
-	 * @default false
-	 * @deprecated Use `FileSystem#attributes
-	 */
-	noAsyncCache: boolean;
-
-	/**
-	 * The type of the FS
-	 */
-	type: number;
-
-	/**
-	 * Various features the file system supports.
-	 * @deprecated Use `FileSystem#attributes`
-	 */
-	features?: unknown[];
-}
-/* node:coverage enable */
-
 /**
  * Attributes that control how the file system interacts with the VFS.
  * No options are set by default.
@@ -232,24 +184,6 @@ export abstract class FileSystem {
 			freeSpace: 0,
 		};
 	}
-
-	/* node:coverage disable */
-	/**
-	 * Get metadata about the current file system
-	 * @deprecated
-	 */
-	public metadata(): FileSystemMetadata {
-		return {
-			...this.usage(),
-			name: this.name,
-			readonly: this.attributes.has('no_write'),
-			noResizableBuffers: this.attributes.has('no_buffer_resize'),
-			noAsyncCache: this.attributes.has('no_async'),
-			features: Array.from(this.attributes.keys()),
-			type: this.id,
-		};
-	}
-	/* node:coverage enable */
 
 	public async ready(): Promise<void> {}
 

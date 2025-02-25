@@ -1,5 +1,5 @@
 import type { File } from '../internal/file.js';
-import type { CreationOptions, FileSystem, FileSystemMetadata, StreamOptions, UsageInfo } from '../internal/filesystem.js';
+import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Concrete } from '../utils.js';
 
@@ -72,10 +72,6 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 
 	public usage(): UsageInfo {
 		return this._fs.usage();
-	}
-
-	public metadata(): FileSystemMetadata {
-		return this._fs.metadata();
 	}
 
 	/**
