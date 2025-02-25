@@ -104,6 +104,19 @@ export function isBackend(arg: unknown): arg is Backend {
 }
 
 /**
+ * Use a function as the type of an option, but don't treat it as a class.
+ *
+ * Optionally sets the name of a function, useful for error messages.
+ * @category Backends and Configuration
+ * @internal
+ */
+export function _fnOpt<const T>(name: string | null | undefined, fn: (arg: T) => boolean): (arg: T) => boolean {
+	Object.defineProperty(fn, 'prototype', { value: undefined });
+	if (name) Object.defineProperty(fn, 'name', { value: name });
+	return fn;
+}
+
+/**
  * Checks that `options` object is valid for the file system options.
  * @category Backends and Configuration
  * @internal
@@ -132,7 +145,7 @@ export function checkOptions<T extends Backend>(backend: T, options: Record<stri
 
 		const isType = (type: OptionType, _ = value): _ is T =>
 			typeof type == 'function'
-				? Symbol.hasInstance in type
+				? Symbol.hasInstance in type && type.prototype
 					? value instanceof type
 					: (type as (v: any) => boolean)(value)
 				: typeof value === type || value?.constructor?.name === type;

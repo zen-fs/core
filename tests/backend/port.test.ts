@@ -4,7 +4,7 @@ import { MessageChannel, Worker } from 'node:worker_threads';
 import { Port, attachFS } from '../../dist/backends/port/fs.js';
 import { waitOnline } from '../../dist/backends/port/rpc.js';
 import type { InMemoryStore, StoreFS } from '../../dist/index.js';
-import { ErrnoError, InMemory, configure, configureSingle, fs, resolveMountConfig } from '../../dist/index.js';
+import { InMemory, configure, configureSingle, fs, resolveMountConfig } from '../../dist/index.js';
 
 // Tests a mis-configured `Port` using a MessageChannel
 
@@ -12,36 +12,21 @@ const timeoutChannel = new MessageChannel();
 timeoutChannel.port2.unref();
 
 await suite('Timeout', { timeout: 1000 }, () => {
-	test('Misconfiguration', async () => {
-		let error: ErrnoError;
-		try {
-			await configure({
-				mounts: {
-					'/tmp-timeout': { backend: InMemory, name: 'tmp' },
-					'/port': { backend: Port, port: timeoutChannel.port1, timeout: 100 },
-				},
-			});
-		} catch (e) {
-			assert(e instanceof ErrnoError);
-			error = e;
-		}
-		assert(error! instanceof ErrnoError);
-		assert.equal(error.code, 'EIO');
-		assert(error.message.includes('RPC Failed'));
+	test('Misconfiguration', () => {
+		const configured = configure({
+			mounts: {
+				'/tmp-timeout': { backend: InMemory, label: 'tmp' },
+				'/port': { backend: Port, port: timeoutChannel.port1, timeout: 100 },
+			},
+		});
+
+		assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
 	});
 
-	test('Remote not attached', async () => {
-		let error: ErrnoError;
-		try {
-			await configureSingle({ backend: Port, port: timeoutChannel.port1, timeout: 100 });
-			await fs.promises.writeFile('/test', 'anything');
-		} catch (e) {
-			assert(e instanceof ErrnoError);
-			error = e;
-		}
-		assert(error! instanceof ErrnoError);
-		assert.equal(error.code, 'EIO');
-		assert(error.message.includes('RPC Failed'));
+	test('Remote not attached', () => {
+		const configured = configureSingle({ backend: Port, port: timeoutChannel.port1, timeout: 100 });
+
+		assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
 	});
 });
 
@@ -79,7 +64,7 @@ let tmpfs: StoreFS<InMemoryStore>;
 
 await suite('FS with MessageChannel', () => {
 	test('configuration', async () => {
-		tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
+		tmpfs = await resolveMountConfig({ backend: InMemory, label: 'tmp' });
 		attachFS(channel.port2, tmpfs);
 		await configureSingle({ backend: Port, port: channel.port1, disableAsyncCache: true, timeout: 100 });
 	});

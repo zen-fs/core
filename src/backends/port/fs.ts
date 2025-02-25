@@ -12,6 +12,7 @@ import { ErrnoError } from '../../internal/error.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { info } from '../../internal/log.js';
 import { Async } from '../../mixins/async.js';
+import { _fnOpt } from '../backend.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
 
@@ -166,7 +167,7 @@ const _Port = {
 	name: 'Port',
 	options: {
 		port: {
-			type: (port: RPC.Port) => typeof port?.postMessage != 'function',
+			type: _fnOpt('RPC.Port', (port: RPC.Port) => typeof port?.postMessage == 'function'),
 			required: true,
 		},
 		timeout: { type: 'number', required: false },

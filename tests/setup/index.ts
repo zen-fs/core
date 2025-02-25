@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path/posix';
-import { configureSingle, InMemory, InMemoryStore, mounts, Overlay, Readonly, resolveMountConfig, StoreFS } from '../../dist/index.js';
+import { configureSingle, CopyOnWrite, InMemory, InMemoryStore, mounts, Readonly, StoreFS } from '../../dist/index.js';
 import { S_IFDIR } from '../../dist/vfs/constants.js';
 import { copySync, data } from '../setup.js';
 
@@ -32,7 +32,7 @@ const readable = new MockFS();
 await readable.ready();
 
 await configureSingle({
-	backend: Overlay,
+	backend: CopyOnWrite,
 	readable,
-	writable: await resolveMountConfig({ backend: InMemory, name: 'cow' }),
+	writable: { backend: InMemory, label: 'cow' },
 });
