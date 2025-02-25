@@ -14,6 +14,7 @@ type OptionType =
 	| 'object'
 	| 'function'
 	| string
+	| ((arg: any) => boolean)
 	| { [Symbol.hasInstance](instance: any): boolean; toString(): string };
 
 /**
