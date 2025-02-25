@@ -163,7 +163,7 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): File {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
 		const { euid: uid, egid: gid } = this?.credentials ?? credentials;
-		const file = fs.createFileSync(resolved, flag, mode, { uid, gid });
+		const file = fs.createFileSync(resolved, flag, { mode, uid, gid });
 		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw ErrnoError.With('EISDIR', path, '_open');
 		applySetId(file, uid, gid);
 		return file;
@@ -493,7 +493,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			if (config.checkAccess && !new Stats(fs.statSync(dirname(resolved))).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
-			fs.mkdirSync(resolved, mode, { uid, gid });
+			fs.mkdirSync(resolved, { mode, uid, gid });
 			applySetId(fs.openFileSync(resolved, 'r+'), uid, gid);
 			return;
 		}
@@ -507,7 +507,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			if (config.checkAccess && !new Stats(fs.statSync(dirname(dir))).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
-			fs.mkdirSync(dir, mode, { uid, gid });
+			fs.mkdirSync(dir, { mode, uid, gid });
 			applySetId(fs.openFileSync(dir, 'r+'), uid, gid);
 			emitChange(this, 'rename', dir);
 		}

@@ -260,13 +260,13 @@ export class CopyOnWriteFS extends FileSystem {
 		return new LazyFile(this, path, flag, stats);
 	}
 
-	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		await this.writable.createFile(path, flag, mode, options);
+	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+		await this.writable.createFile(path, flag, options);
 		return this.openFile(path, flag);
 	}
 
-	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
-		this.writable.createFileSync(path, flag, mode, options);
+	public createFileSync(path: string, flag: string, options: CreationOptions): File {
+		this.writable.createFileSync(path, flag, options);
 		return this.openFileSync(path, flag);
 	}
 
@@ -342,16 +342,16 @@ export class CopyOnWriteFS extends FileSystem {
 		this.journal.add('delete', path);
 	}
 
-	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
+	public async mkdir(path: string, options: CreationOptions): Promise<void> {
 		if (await this.exists(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
 		await this.createParentDirectories(path);
-		await this.writable.mkdir(path, mode, options);
+		await this.writable.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
+	public mkdirSync(path: string, options: CreationOptions): void {
 		if (this.existsSync(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
 		this.createParentDirectoriesSync(path);
-		this.writable.mkdirSync(path, mode, options);
+		this.writable.mkdirSync(path, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -405,8 +405,7 @@ export class CopyOnWriteFS extends FileSystem {
 		if (toCreate.length) debug('COW: Creating parent directories: ' + toCreate.join(', '));
 
 		for (const path of toCreate.reverse()) {
-			const { uid, gid, mode } = this.statSync(path);
-			this.writable.mkdirSync(path, mode, { uid, gid });
+			this.writable.mkdirSync(path, this.statSync(path));
 		}
 	}
 
@@ -426,8 +425,7 @@ export class CopyOnWriteFS extends FileSystem {
 		if (toCreate.length) debug('COW: Creating parent directories: ' + toCreate.join(', '));
 
 		for (const path of toCreate.reverse()) {
-			const { uid, gid, mode } = await this.stat(path);
-			await this.writable.mkdir(path, mode, { uid, gid });
+			await this.writable.mkdir(path, await this.stat(path));
 		}
 	}
 
@@ -470,7 +468,7 @@ export class CopyOnWriteFS extends FileSystem {
 		const stats = this.statSync(path);
 		stats.mode |= 0o222;
 		if (isDirectory(stats)) {
-			this.writable.mkdirSync(path, stats.mode, stats);
+			this.writable.mkdirSync(path, stats);
 			for (const k of this.readable.readdirSync(path)) {
 				this.copyToWritableSync(join(path, k));
 			}
@@ -480,7 +478,7 @@ export class CopyOnWriteFS extends FileSystem {
 		const data = new Uint8Array(stats.size);
 		using readable = this.readable.openFileSync(path, 'r');
 		readable.readSync(data);
-		using writable = this.writable.createFileSync(path, 'w', stats.mode, stats);
+		using writable = this.writable.createFileSync(path, 'w', stats);
 		writable.writeSync(data);
 	}
 
@@ -488,7 +486,7 @@ export class CopyOnWriteFS extends FileSystem {
 		const stats = await this.stat(path);
 		stats.mode |= 0o222;
 		if (isDirectory(stats)) {
-			await this.writable.mkdir(path, stats.mode, stats);
+			await this.writable.mkdir(path, stats);
 			for (const k of await this.readable.readdir(path)) {
 				await this.copyToWritable(join(path, k));
 			}
@@ -497,7 +495,7 @@ export class CopyOnWriteFS extends FileSystem {
 
 		const data = new Uint8Array(stats.size);
 		await this.readable.read(path, data, 0, stats.size);
-		await using writable = await this.writable.createFile(path, 'w', stats.mode, stats);
+		await using writable = await this.writable.createFile(path, 'w', stats);
 		await writable.write(data);
 	}
 }

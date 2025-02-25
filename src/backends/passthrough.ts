@@ -2,7 +2,8 @@ import type * as fs from 'node:fs';
 import type { Errno } from '../internal/error.js';
 import { ErrnoError } from '../internal/error.js';
 import { File, type FileReadResult } from '../internal/file.js';
-import { FileSystem, type UsageInfo } from '../internal/filesystem.js';
+import type { UsageInfo, CreationOptions } from '../internal/filesystem.js';
+import { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import { join, resolve } from '../vfs/path.js';
 import { Stats } from '../vfs/stats.js';
@@ -268,9 +269,9 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a directory.
 	 */
-	public async mkdir(path: string, mode: number): Promise<void> {
+	public async mkdir(path: string, options: CreationOptions): Promise<void> {
 		try {
-			await this.nodeFS.promises.mkdir(this.path(path), { mode });
+			await this.nodeFS.promises.mkdir(this.path(path), options);
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -279,9 +280,9 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a directory synchronously.
 	 */
-	public mkdirSync(path: string, mode: number): void {
+	public mkdirSync(path: string, options: CreationOptions): void {
 		try {
-			this.nodeFS.mkdirSync(this.path(path), { mode });
+			this.nodeFS.mkdirSync(this.path(path), options);
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -312,9 +313,9 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a file.
 	 */
-	public async createFile(path: string, flag: string, mode: number): Promise<File> {
+	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
 		try {
-			const { fd } = await this.nodeFS.promises.open(this.path(path), flag, mode);
+			const { fd } = await this.nodeFS.promises.open(this.path(path), flag, options.mode);
 			return new PassthroughFile(this, path, fd);
 		} catch (err) {
 			this.error(err, path);
@@ -324,9 +325,9 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a file synchronously.
 	 */
-	public createFileSync(path: string, flag: string, mode: number): File {
+	public createFileSync(path: string, flag: string, options: CreationOptions): File {
 		try {
-			const fd = this.nodeFS.openSync(this.path(path), flag, mode);
+			const fd = this.nodeFS.openSync(this.path(path), flag, options.mode);
 			return new PassthroughFile(this, path, fd);
 		} catch (err) {
 			this.error(err, path);

@@ -174,16 +174,16 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return file;
 	}
 
-	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
+	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
 		using _ = await this.lock(path, 'createFile');
-		const file = await this._fs.createFile(path, flag, mode, options);
+		const file = await this._fs.createFile(path, flag, options);
 		file.fs = this;
 		return file;
 	}
 
-	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
+	public createFileSync(path: string, flag: string, options: CreationOptions): File {
 		using _ = this.lockSync(path, 'createFile');
-		const file = this._fs.createFileSync(path, flag, mode, options);
+		const file = this._fs.createFileSync(path, flag, options);
 		file.fs = this;
 		return file;
 	}
@@ -208,14 +208,14 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
+	public async mkdir(path: string, options: CreationOptions): Promise<void> {
 		using _ = await this.lock(path, 'mkdir');
-		await this._fs.mkdir(path, mode, options);
+		await this._fs.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
+	public mkdirSync(path: string, options: CreationOptions): void {
 		using _ = this.lockSync(path, 'mkdir');
-		return this._fs.mkdirSync(path, mode, options);
+		return this._fs.mkdirSync(path, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {

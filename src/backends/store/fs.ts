@@ -344,13 +344,15 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		const node = await this.commitNew(path, { mode: mode | S_IFREG, ...options }, new Uint8Array(), 'createFile');
+	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+		options.mode |= S_IFREG;
+		const node = await this.commitNew(path, options, new Uint8Array(), 'createFile');
 		return new LazyFile(this, path, flag, node.toStats());
 	}
 
-	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
-		const node = this.commitNewSync(path, { mode: mode | S_IFREG, ...options }, new Uint8Array(), 'createFile');
+	public createFileSync(path: string, flag: string, options: CreationOptions): File {
+		options.mode |= S_IFREG;
+		const node = this.commitNewSync(path, options, new Uint8Array(), 'createFile');
 		return new LazyFile(this, path, flag, node.toStats());
 	}
 
@@ -390,12 +392,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this.removeSync(path, true);
 	}
 
-	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		await this.commitNew(path, { mode: mode | S_IFDIR, ...options }, encodeUTF8('{}'), 'mkdir');
+	public async mkdir(path: string, options: CreationOptions): Promise<void> {
+		options.mode |= S_IFDIR;
+		await this.commitNew(path, options, encodeUTF8('{}'), 'mkdir');
 	}
 
-	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
-		this.commitNewSync(path, { mode: mode | S_IFDIR, ...options }, encodeUTF8('{}'), 'mkdir');
+	public mkdirSync(path: string, options: CreationOptions): void {
+		options.mode |= S_IFDIR;
+		this.commitNewSync(path, options, encodeUTF8('{}'), 'mkdir');
 	}
 
 	public async readdir(path: string): Promise<string[]> {

@@ -26,8 +26,8 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.touchSync(path, metadata);
 		}
 
-		public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-			return this.createFileSync(path, flag, mode, options);
+		public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+			return this.createFileSync(path, flag, options);
 		}
 
 		public async openFile(path: string, flag: string): Promise<File> {
@@ -42,8 +42,8 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.rmdirSync(path);
 		}
 
-		public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-			return this.mkdirSync(path, mode, options);
+		public async mkdir(path: string, options: CreationOptions): Promise<void> {
+			return this.mkdirSync(path, options);
 		}
 
 		public async readdir(path: string): Promise<string[]> {

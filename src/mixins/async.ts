@@ -129,10 +129,10 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			return this._sync.touchSync(path, metadata);
 		}
 
-		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): LazyFile<this> {
+		public createFileSync(path: string, flag: string, options: CreationOptions): LazyFile<this> {
 			this.checkSync(path, 'createFile');
-			const file = this._sync.createFileSync(path, flag, mode, options);
-			this._async(this.createFile(path, flag, mode, options));
+			const file = this._sync.createFileSync(path, flag, options);
+			this._async(this.createFile(path, flag, options));
 			return new LazyFile(this, path, flag, file.statSync());
 		}
 
@@ -154,10 +154,10 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(this.rmdir(path));
 		}
 
-		public mkdirSync(path: string, mode: number, options: CreationOptions): void {
+		public mkdirSync(path: string, options: CreationOptions): void {
 			this.checkSync(path, 'mkdir');
-			this._sync.mkdirSync(path, mode, options);
-			this._async(this.mkdir(path, mode, options));
+			this._sync.mkdirSync(path, options);
+			this._async(this.mkdir(path, options));
 		}
 
 		public readdirSync(path: string): string[] {
@@ -218,7 +218,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this.checkSync(path, 'crossCopy');
 			const stats = await this.stat(path);
 			if (!isDirectory(stats)) {
-				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats);
+				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats);
 				const buffer = new Uint8Array(stats.size);
 				await this.read(path, buffer, 0, stats.size);
 				syncFile.writeSync(buffer, 0, stats.size);
@@ -226,7 +226,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			}
 			if (path !== '/') {
 				const stats = await this.stat(path);
-				this._sync.mkdirSync(path, stats.mode, stats);
+				this._sync.mkdirSync(path, stats);
 			}
 			const promises = [];
 			for (const file of await this.readdir(path)) {

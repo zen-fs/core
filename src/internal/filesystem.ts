@@ -85,7 +85,6 @@ export type FileSystemAttributes = {
 /**
  * Options used when creating files and directories.
  * This weird naming and such is to preserve backward compatibility.
- * @todo [BREAKING] Move the `mode` parameter of `createFile` and `mkdir` into this
  * @category Internals
  * @internal
  */
@@ -105,7 +104,7 @@ export interface CreationOptions {
 	/**
 	 * The mode to create the file with.
 	 */
-	mode?: number;
+	mode: number;
 }
 
 /**
@@ -216,12 +215,12 @@ export abstract class FileSystem {
 	/**
 	 * Create the file at `path` with the given options. Then, open it with `flag`.
 	 */
-	public abstract createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File>;
+	public abstract createFile(path: string, flag: string, options: CreationOptions): Promise<File>;
 
 	/**
 	 * Create the file at `path` with the given options. Then, open it with `flag`.
 	 */
-	public abstract createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File;
+	public abstract createFileSync(path: string, flag: string, options: CreationOptions): File;
 
 	public abstract unlink(path: string): Promise<void>;
 	public abstract unlinkSync(path: string): void;
@@ -231,8 +230,8 @@ export abstract class FileSystem {
 	public abstract rmdir(path: string): Promise<void>;
 	public abstract rmdirSync(path: string): void;
 
-	public abstract mkdir(path: string, mode: number, options: CreationOptions): Promise<void>;
-	public abstract mkdirSync(path: string, mode: number, options: CreationOptions): void;
+	public abstract mkdir(path: string, options: CreationOptions): Promise<void>;
+	public abstract mkdirSync(path: string, options: CreationOptions): void;
 
 	public abstract readdir(path: string): Promise<string[]>;
 	public abstract readdirSync(path: string): string[];

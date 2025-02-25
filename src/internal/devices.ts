@@ -385,18 +385,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.openFileSync(path, flag);
 	}
 
-	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EEXIST', path, 'createFile');
-		}
-		return super.createFile(path, flag, mode, options);
+	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'createFile');
+		return super.createFile(path, flag, options);
 	}
 
-	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EEXIST', path, 'createFile');
-		}
-		return super.createFileSync(path, flag, mode, options);
+	public createFileSync(path: string, flag: string, options: CreationOptions): File {
+		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'createFile');
+		return super.createFileSync(path, flag, options);
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -421,18 +417,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mkdir');
-		}
-		return super.mkdir(path, mode, options);
+	public async mkdir(path: string, options: CreationOptions): Promise<void> {
+		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
+		return super.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mkdir');
-		}
-		return super.mkdirSync(path, mode, options);
+	public mkdirSync(path: string, options: CreationOptions): void {
+		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
+		return super.mkdirSync(path, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {

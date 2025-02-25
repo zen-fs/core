@@ -485,7 +485,7 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 			throw ErrnoError.With('ENOTDIR', dirname(fullPath), '_open');
 		}
 		const { euid: uid, egid: gid } = $?.credentials ?? credentials;
-		const file = await fs.createFile(resolved, flag, mode, { uid, gid });
+		const file = await fs.createFile(resolved, flag, { mode, uid, gid });
 		await applySetId(file, uid, gid);
 		return new FileHandle(file, $);
 	}
@@ -671,7 +671,7 @@ export async function mkdir(
 			if (config.checkAccess && !new Stats(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
 			}
-			await fs.mkdir(resolved, mode, { uid, gid });
+			await fs.mkdir(resolved, { mode, uid, gid });
 			await applySetId(await fs.openFile(resolved, 'r+'), uid, gid);
 			emitChange(this, 'rename', path.toString());
 			return;
@@ -686,7 +686,7 @@ export async function mkdir(
 			if (config.checkAccess && !new Stats(await fs.stat(dirname(dir))).hasAccess(constants.W_OK, this)) {
 				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
 			}
-			await fs.mkdir(dir, mode, { uid, gid });
+			await fs.mkdir(dir, { mode, uid, gid });
 			await applySetId(await fs.openFile(dir, 'r+'), uid, gid);
 			emitChange(this, 'rename', dir);
 		}

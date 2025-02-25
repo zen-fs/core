@@ -82,8 +82,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('openFile', path, flag);
 	}
 
-	public createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		return this.rpc('createFile', path, flag, mode, options);
+	public createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+		return this.rpc('createFile', path, flag, options);
 	}
 
 	public unlink(path: string): Promise<void> {
@@ -94,8 +94,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('rmdir', path);
 	}
 
-	public mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		return this.rpc('mkdir', path, mode, options);
+	public mkdir(path: string, options: CreationOptions): Promise<void> {
+		return this.rpc('mkdir', path, options);
 	}
 
 	public readdir(path: string): Promise<string[]> {
