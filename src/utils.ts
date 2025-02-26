@@ -1,8 +1,6 @@
 import type * as fs from 'node:fs';
 import type { ClassLike, OptionalTuple } from 'utilium';
 import { Errno, ErrnoError } from './internal/error.js';
-import { log_deprecated } from './internal/log.js';
-import type { AbsolutePath } from './vfs/path.js';
 import { resolve } from './vfs/path.js';
 
 declare global {
@@ -48,10 +46,6 @@ export function encodeUTF8(input: string): Uint8Array {
 	return encoder.encode(input);
 }
 
-/* node:coverage disable */
-export { /** @deprecated @hidden */ encodeUTF8 as encode };
-/* node:coverage enable */
-
 const decoder = new TextDecoder();
 
 /**
@@ -65,10 +59,6 @@ export function decodeUTF8(input?: Uint8Array): string {
 
 	return decoder.decode(input);
 }
-
-/* node:coverage disable */
-export { /** @deprecated @hidden */ decodeUTF8 as decode };
-/* node:coverage enable */
 
 /**
  * Decodes a directory listing
@@ -175,29 +165,3 @@ export function normalizeOptions(
 }
 
 export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: any[]) => InstanceType<T>);
-
-/* node:coverage disable */
-import { randomHex } from 'utilium';
-/**
- * Generate a random ino
- * @internal @deprecated @hidden
- */
-export function randomBigInt(): bigint {
-	log_deprecated('randomBigInt');
-	return BigInt('0x' + randomHex(8));
-}
-
-/**
- * Prevents infinite loops
- * @internal
- * @deprecated Use `canary` from Utilium
- */
-export function canary(path?: string, syscall?: string) {
-	log_deprecated('canary');
-	const timeout = setTimeout(() => {
-		throw ErrnoError.With('EDEADLK', path, syscall);
-	}, 5000);
-
-	return () => clearTimeout(timeout);
-}
-/* node:coverage enable */

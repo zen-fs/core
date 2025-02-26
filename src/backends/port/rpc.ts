@@ -3,12 +3,10 @@ import type { Worker as NodeWorker, TransferListItem } from 'node:worker_threads
 import type { WithOptional } from 'utilium';
 import type { ErrnoErrorJSON } from '../../internal/error.js';
 import type { FileSystem } from '../../internal/filesystem.js';
-import type { InodeLike } from '../../internal/inode.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 import type { PortFS } from './fs.js';
 
 import { Errno, ErrnoError } from '../../internal/error.js';
-import { LazyFile } from '../../internal/file.js';
 import { err, info } from '../../internal/log.js';
 import { handleRequest } from './fs.js';
 
@@ -55,7 +53,7 @@ interface _ResponseWithError extends Message {
 
 interface _ResponseWithValue<T> extends Message {
 	error: false;
-	value: Awaited<T> extends File ? FileData : Awaited<T>;
+	value: Awaited<T>;
 }
 
 interface _ResponseRead extends Message {
@@ -65,18 +63,6 @@ interface _ResponseRead extends Message {
 }
 
 export type Response<T = unknown> = _ResponseWithError | _ResponseWithValue<T> | _ResponseRead;
-
-export interface FileData {
-	path: string;
-	flag: string;
-	stats: InodeLike;
-}
-
-function isFileData(value: unknown): value is FileData {
-	return typeof value == 'object' && value != null && 'path' in value && 'flag' in value;
-}
-
-export type { FileData as File };
 
 // general types
 
@@ -126,19 +112,11 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 		error.stack += stack;
 		throw error;
 	}
-	const { resolve, reject, fs } = executors.get(id)!;
+	const { resolve, reject } = executors.get(id)!;
 	if (error) {
 		const e = ErrnoError.fromJSON({ code: 'EIO', errno: Errno.EIO, ...value });
 		e.stack += stack;
 		reject(e);
-		executors.delete(id);
-		return;
-	}
-
-	if (isFileData(value)) {
-		const { path, flag, stats } = value;
-		const file = new LazyFile(fs!, path, flag, stats);
-		resolve(file);
 		executors.delete(id);
 		return;
 	}

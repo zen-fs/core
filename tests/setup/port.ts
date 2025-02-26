@@ -5,7 +5,7 @@ import { copySync, data } from '../setup.js';
 const { port1: localPort, port2: remotePort } = new MessageChannel();
 
 fs.umount('/');
-const tmpfs = await resolveMountConfig({ backend: InMemory, name: 'tmp' });
+const tmpfs = await resolveMountConfig({ backend: InMemory, label: 'tmp' });
 
 fs.mount('/', tmpfs);
 copySync(data, fs);

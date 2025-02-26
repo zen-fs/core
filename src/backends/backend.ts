@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents */
 import type { Entries, RequiredKeys } from 'utilium';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem } from '../internal/filesystem.js';
@@ -13,7 +13,9 @@ type OptionType =
 	| 'undefined'
 	| 'object'
 	| 'function'
-	| (abstract new (...args: any[]) => any);
+	| string
+	| ((arg: any) => boolean)
+	| { [Symbol.hasInstance](instance: any): boolean; toString(): string };
 
 /**
  * Resolves the type of Backend.options from the options interface
@@ -22,29 +24,18 @@ type OptionType =
 export type OptionsConfig<T> = {
 	[K in keyof T]: {
 		/**
-		 * The basic JavaScript type(s) for this option.
+		 * The type of the option. Can be a:
+		 * - string given by `typeof`
+		 * - string that is the name of the class (e.g. `'Map'`)
+		 * - object with a `Symbol.hasInstance` property
+		 * - function that returns a boolean
 		 */
 		type: OptionType | readonly OptionType[];
-
-		/* node:coverage disable */
-		/**
-		 * Description of the option. Used in error messages and documentation.
-		 * @deprecated
-		 */
-		description?: string;
-		/* node:coverage enable */
 
 		/**
 		 * Whether or not the option is required (optional can be set to null or undefined). Defaults to false.
 		 */
 		required: K extends RequiredKeys<T> ? true : false;
-
-		/**
-		 * A custom validation function to check if the option is valid.
-		 * When async, resolves if valid and rejects if not.
-		 * When sync, it will throw an error if not valid.
-		 */
-		validator?(opt: T[K]): void | Promise<void>;
 	};
 };
 
@@ -114,11 +105,24 @@ export function isBackend(arg: unknown): arg is Backend {
 }
 
 /**
+ * Use a function as the type of an option, but don't treat it as a class.
+ *
+ * Optionally sets the name of a function, useful for error messages.
+ * @category Backends and Configuration
+ * @internal
+ */
+export function _fnOpt<const T>(name: string | null | undefined, fn: (arg: T) => boolean): (arg: T) => boolean {
+	Object.defineProperty(fn, 'prototype', { value: undefined });
+	if (name) Object.defineProperty(fn, 'name', { value: name });
+	return fn;
+}
+
+/**
  * Checks that `options` object is valid for the file system options.
  * @category Backends and Configuration
  * @internal
  */
-export async function checkOptions<T extends Backend>(backend: T, options: Record<string, unknown>): Promise<void> {
+export function checkOptions<T extends Backend>(backend: T, options: Record<string, unknown>): void {
 	if (typeof options != 'object' || options === null) {
 		throw err(new ErrnoError(Errno.EINVAL, 'Invalid options'));
 	}
@@ -140,23 +144,23 @@ export async function checkOptions<T extends Backend>(backend: T, options: Recor
 
 		type T = typeof opt.type extends (infer U)[] ? U : typeof opt.type;
 
-		const isType = (type: OptionType, _ = value): _ is T => (typeof type == 'function' ? value instanceof type : typeof value === type);
+		const isType = (type: OptionType, _ = value): _ is T =>
+			typeof type == 'function'
+				? Symbol.hasInstance in type && type.prototype
+					? value instanceof type
+					: (type as (v: any) => boolean)(value)
+				: typeof value === type || value?.constructor?.name === type;
 
-		if (Array.isArray(opt.type) ? !opt.type.some(v => isType(v)) : !isType(opt.type as OptionType)) {
-			// The type of the value as a string
-			const type = typeof value == 'object' && 'constructor' in value ? value.constructor.name : typeof value;
+		if (Array.isArray(opt.type) ? opt.type.some(v => isType(v)) : isType(opt.type as OptionType)) continue;
 
-			// The expected type (as a string)
-			const name = (type: OptionType) => (typeof type == 'function' ? type.name : type);
-			const expected = Array.isArray(opt.type) ? `one of ${opt.type.map(name).join(', ')}` : name(opt.type as OptionType);
+		// The type of the value as a string
+		const type = typeof value == 'object' && 'constructor' in value ? value.constructor.name : typeof value;
 
-			throw err(new ErrnoError(Errno.EINVAL, `Incorrect type for "${optName}": ${type} (expected ${expected})`));
-		}
+		// The expected type (as a string)
+		const name = (type: OptionType) => (typeof type == 'function' ? (type.name != 'type' ? type.name : type.toString()) : (type as string));
+		const expected = Array.isArray(opt.type) ? `one of ${opt.type.map(name).join(', ')}` : name(opt.type as OptionType);
 
-		debug('Using custom validator for option: ' + optName);
-
-		if (opt.validator) await opt.validator(value);
-		// Otherwise: All good!
+		throw err(new ErrnoError(Errno.EINVAL, `Incorrect type for "${optName}": ${type} (expected ${expected})`));
 	}
 }
 

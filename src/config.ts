@@ -62,7 +62,8 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	if (typeof backend.isAvailable == 'function' && !(await backend.isAvailable())) {
 		throw err(new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name));
 	}
-	await checkOptions(backend, configuration);
+
+	checkOptions(backend, configuration);
 	const mount = (await backend.create(configuration)) as FilesystemOf<T>;
 	if (configuration.disableAsyncCache) mount.attributes.set('no_async');
 	await mount.ready();

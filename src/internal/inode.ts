@@ -153,30 +153,30 @@ export class Inode implements InodeLike {
 	}
 }
 
-export function isFile(metadata: InodeLike): boolean {
+export function isFile(metadata: { mode: number }): boolean {
 	return (metadata.mode & c.S_IFMT) === c.S_IFREG;
 }
 
-export function isDirectory(metadata: InodeLike): boolean {
+export function isDirectory(metadata: { mode: number }): boolean {
 	return (metadata.mode & c.S_IFMT) === c.S_IFDIR;
 }
 
-export function isSymbolicLink(metadata: InodeLike): boolean {
+export function isSymbolicLink(metadata: { mode: number }): boolean {
 	return (metadata.mode & c.S_IFMT) === c.S_IFLNK;
 }
 
-export function isSocket(metadata: InodeLike): boolean {
+export function isSocket(metadata: { mode: number }): boolean {
 	return (metadata.mode & c.S_IFMT) === c.S_IFSOCK;
 }
 
-export function isBlockDevice(metadata: InodeLike): boolean {
+export function isBlockDevice(metadata: { mode: number }): boolean {
 	return (metadata.mode & c.S_IFMT) === c.S_IFBLK;
 }
 
-export function isCharacterDevice(metadata: InodeLike): boolean {
+export function isCharacterDevice(metadata: { mode: number }): boolean {
 	return (metadata.mode & c.S_IFMT) === c.S_IFCHR;
 }
 
-export function isFIFO(metadata: InodeLike): boolean {
+export function isFIFO(metadata: { mode: number }): boolean {
 	return (metadata.mode & c.S_IFMT) === c.S_IFIFO;
 }

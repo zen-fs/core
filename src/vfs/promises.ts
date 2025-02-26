@@ -5,57 +5,99 @@ import type { Interface as ReadlineInterface } from 'node:readline';
 import type { Stream } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { V_Context } from '../context.js';
-import type { File } from '../internal/file.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { ResolvedPath } from './shared.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
-import { _throw } from 'utilium';
+import { _throw, pick } from 'utilium';
 import { credentials } from '../internal/credentials.js';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../internal/file.js';
+import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
+import { isBlockDevice, isCharacterDevice } from '../internal/inode.js';
 import '../polyfills.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
+import * as file from './file.js';
 import { dirname, join, parse, resolve } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
-import { BigIntStats, Stats } from './stats.js';
+import { _statfs, fixError, resolveMount } from './shared.js';
+import { _chown, BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';
-import { FSWatcher, emitChange } from './watchers.js';
+import { emitChange, FSWatcher } from './watchers.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
-	/**
-	 * The file descriptor for this file handle.
-	 */
-	public readonly fd: number;
+	protected _buffer?: Uint8Array;
 
 	/**
-	 * @internal
-	 * The file for this file handle
+	 * Current position
 	 */
-	public readonly file: File;
+	protected _position: number = 0;
+
+	/**
+	 * Get the current file position.
+	 *
+	 * We emulate the following bug mentioned in the Node documentation:
+	 *
+	 * On Linux, positional writes don't work when the file is opened in append mode.
+	 * The kernel ignores the position argument and always appends the data to the end of the file.
+	 * @returns The current file position.
+	 */
+	public get position(): number {
+		return file.isAppendable(this.flag) ? this.stats.size : this._position;
+	}
+
+	public set position(value: number) {
+		this._position = value;
+	}
+
+	/**
+	 * Whether the file has changes which have not been written to the FS
+	 */
+	protected dirty: boolean = false;
+
+	/**
+	 * Whether the file is open or closed
+	 */
+	protected closed: boolean = false;
+
+	/** The path relative to the context's root */
+	public readonly path!: string;
+
+	/** The internal FS associated with the handle */
+	protected readonly fs!: FileSystem;
+
+	/** The path relative to the `FileSystem`'s root */
+	public readonly internalPath!: string;
+
+	/** The flag the handle was opened with */
+	public readonly flag!: string;
+
+	/** Stats for the handle */
+	public readonly stats!: InodeLike;
 
 	public constructor(
-		fdOrFile: number | File,
-		protected context?: V_Context
+		protected context: V_Context,
+		public readonly fd: number
 	) {
-		const isFile = typeof fdOrFile != 'number';
-		this.fd = isFile ? file2fd(fdOrFile) : fdOrFile;
-		this.file = isFile ? fdOrFile : fd2file(fdOrFile);
+		const sync = file.fromFD(context, fd);
+		Object.assign(this, pick(sync, 'path', 'fs', 'internalPath', 'flag', 'stats'));
 	}
 
 	private _emitChange() {
-		emitChange(this.context, 'change', this.file.path.slice(this.context?.root?.length ?? 0));
+		emitChange(this.context, 'change', this.path);
 	}
 
 	/**
 	 * Asynchronous fchown(2) - Change ownership of a file.
 	 */
 	public async chown(uid: number, gid: number): Promise<void> {
-		await this.file.chown(uid, gid);
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
+		this.dirty = true;
+		_chown(this.stats, uid, gid);
+		if (config.syncImmediately) await this.sync();
 		this._emitChange();
 	}
 
@@ -66,7 +108,10 @@ export class FileHandle implements promises.FileHandle {
 	public async chmod(mode: fs.Mode): Promise<void> {
 		const numMode = normalizeMode(mode, -1);
 		if (numMode < 0) throw new ErrnoError(Errno.EINVAL, 'Invalid mode');
-		await this.file.chmod(numMode);
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
+		this.dirty = true;
+		this.stats.mode = (this.stats.mode & (numMode > constants.S_IFMT ? ~constants.S_IFMT : constants.S_IFMT)) | numMode;
+		if (config.syncImmediately || numMode > constants.S_IFMT) await this.sync();
 		this._emitChange();
 	}
 
@@ -74,24 +119,37 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronous fdatasync(2) - synchronize a file's in-core state with storage device.
 	 */
 	public datasync(): Promise<void> {
-		return this.file.datasync();
+		return this.sync();
 	}
 
 	/**
 	 * Asynchronous fsync(2) - synchronize a file's in-core state with the underlying storage device.
 	 */
-	public sync(): Promise<void> {
-		return this.file.sync();
+	public async sync(): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
+
+		if (!this.dirty) return;
+
+		if (!this.fs.attributes.has('no_write')) await this.fs.sync(this.internalPath, undefined, this.stats);
+		this.dirty = false;
 	}
 
 	/**
 	 * Asynchronous ftruncate(2) - Truncate a file to a specified length.
 	 * @param length If not specified, defaults to `0`.
 	 */
-	public async truncate(length?: number | null): Promise<void> {
-		length ||= 0;
+	public async truncate(length: number = 0): Promise<void> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'truncate');
+
 		if (length < 0) throw new ErrnoError(Errno.EINVAL);
-		await this.file.truncate(length);
+
+		this.dirty = true;
+		if (!file.isWriteable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
+		}
+		this.stats.mtimeMs = Date.now();
+		this.stats.size = length;
+		if (config.syncImmediately) await this.sync();
 		this._emitChange();
 	}
 
@@ -101,7 +159,13 @@ export class FileHandle implements promises.FileHandle {
 	 * @param mtime The last modified time. If a string is provided, it will be coerced to number.
 	 */
 	public async utimes(atime: string | number | Date, mtime: string | number | Date): Promise<void> {
-		await this.file.utimes(normalizeTime(atime), normalizeTime(mtime));
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
+
+		this.dirty = true;
+		this.stats.atimeMs = normalizeTime(atime);
+		this.stats.mtimeMs = normalizeTime(mtime);
+		if (config.syncImmediately) await this.sync();
+
 		this._emitChange();
 	}
 
@@ -119,16 +183,57 @@ export class FileHandle implements promises.FileHandle {
 		_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {}
 	): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
-		const flag = parseFlag(options.flag);
-		if (!isAppendable(flag)) {
+		const flag = file.parseFlag(options.flag);
+		if (!file.isAppendable(flag)) {
 			throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 		}
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
-		await this.file.write(encodedData, 0, encodedData.length);
+		await this._write(encodedData, 0, encodedData.length);
 		this._emitChange();
+	}
+
+	/**
+	 * Computes position information for reading
+	 */
+	protected prepareRead(length: number, position: number): number {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
+
+		if (!file.isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
+
+		if (config.updateOnRead) this.dirty = true;
+
+		this.stats.atimeMs = Date.now();
+
+		let end = position + length;
+		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) {
+			end = position + Math.max(this.stats.size - position, 0);
+		}
+		this._position = end;
+		return end;
+	}
+
+	/**
+	 * Read data from the file.
+	 * @param buffer The buffer that the data will be written to.
+	 * @param offset The offset within the buffer where writing will start.
+	 * @param length An integer specifying the number of bytes to read.
+	 * @param position An integer specifying where to begin reading from in the file.
+	 * If position is unset, data will be read from the current file position.
+	 */
+	public async _read<TBuffer extends ArrayBufferView>(
+		buffer: TBuffer,
+		offset: number = 0,
+		length: number = buffer.byteLength - offset,
+		position: number = this.position
+	): Promise<{ bytesRead: number; buffer: TBuffer }> {
+		const end = this.prepareRead(length, position);
+		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+		await this.fs.read(this.internalPath, uint8.subarray(offset, offset + length), position, end);
+		if (config.syncImmediately) await this.sync();
+		return { bytesRead: end - position, buffer };
 	}
 
 	/**
@@ -169,10 +274,10 @@ export class FileHandle implements promises.FileHandle {
 			buffer = buffer.buffer;
 		}
 
-		const pos = Number.isSafeInteger(position) ? position! : this.file.position;
-		buffer ||= new Uint8Array((await this.file.stat()).size) as T;
+		const pos = Number.isSafeInteger(position) ? position! : this.position;
+		buffer ||= new Uint8Array(this.stats.size) as T;
 		offset ??= 0;
-		return this.file.read(buffer, offset, length ?? buffer.byteLength - offset, pos);
+		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos);
 	}
 
 	/**
@@ -185,13 +290,13 @@ export class FileHandle implements promises.FileHandle {
 	public async readFile(_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string>;
 	public async readFile(_options?: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
-		const flag = parseFlag(options.flag);
-		if (!isReadable(flag)) {
+		const flag = file.parseFlag(options.flag);
+		if (!file.isReadable(flag)) {
 			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for reading');
 		}
 
 		const { size } = await this.stat();
-		const { buffer: data } = await this.file.read(new Uint8Array(size), 0, size, 0);
+		const { buffer: data } = await this._read(new Uint8Array(size), 0, size, 0);
 		const buffer = Buffer.from(data);
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}
@@ -200,15 +305,26 @@ export class FileHandle implements promises.FileHandle {
 	 * Read file data using a `ReadableStream`.
 	 * The handle will not be closed automatically.
 	 */
-	public readableWebStream(options: promises.ReadableWebStreamOptions = {}): NodeReadableStream<Uint8Array> {
-		return this.file.streamRead({});
+	public readableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): NodeReadableStream<Uint8Array> {
+		return this.fs.streamRead(this.internalPath, options);
+	}
+
+	/**
+	 * Not part of the Node.js API!
+	 *
+	 * Write file data using a `WritableStream`.
+	 * The handle will not be closed automatically.
+	 * @internal
+	 */
+	public writableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): WritableStream {
+		return this.fs.streamWrite(this.internalPath, options);
 	}
 
 	/**
 	 * @todo Implement
 	 */
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
-		throw ErrnoError.With('ENOSYS', this.file.path, 'FileHandle.readLines');
+		throw ErrnoError.With('ENOSYS', this.path, 'FileHandle.readLines');
 	}
 
 	public [Symbol.asyncDispose](): Promise<void> {
@@ -221,11 +337,51 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts: fs.BigIntOptions): Promise<BigIntStats>;
 	public async stat(opts?: fs.StatOptions & { bigint?: false }): Promise<Stats>;
 	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
-		const stats = new Stats(await this.file.stat());
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
+
+		const stats = new Stats(this.stats);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK, this.context)) {
-			throw ErrnoError.With('EACCES', this.file.path, 'stat');
+			throw ErrnoError.With('EACCES', this.path, 'stat');
 		}
 		return opts?.bigint ? new BigIntStats(stats) : stats;
+	}
+
+	protected prepareWrite(buffer: Uint8Array, offset: number, length: number, position: number): Uint8Array {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
+
+		if (!file.isWriteable(this.flag)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
+		}
+
+		this.dirty = true;
+		const end = position + length;
+		const slice = buffer.subarray(offset, offset + length);
+
+		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
+
+		this.stats.mtimeMs = Date.now();
+		this._position = position + slice.byteLength;
+		return slice;
+	}
+
+	/**
+	 * Write buffer to the file.
+	 * @param buffer Uint8Array containing the data to write to the file.
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this data should be written.
+	 * If position is null, the data will be written at  the current position.
+	 */
+	public async _write(
+		buffer: Uint8Array,
+		offset: number = 0,
+		length: number = buffer.byteLength - offset,
+		position: number = this.position
+	): Promise<number> {
+		const slice = this.prepareWrite(buffer, offset, length, position);
+		await this.fs.write(this.internalPath, slice, position);
+		if (config.syncImmediately) await this.sync();
+		return slice.byteLength;
 	}
 
 	/**
@@ -257,8 +413,8 @@ export class FileHandle implements promises.FileHandle {
 			length = typeof lenOrEnc == 'number' ? lenOrEnc : buffer.byteLength;
 			position = typeof position === 'number' ? position : null;
 		}
-		position ??= this.file.position;
-		const bytesWritten = await this.file.write(buffer, offset, length, position);
+		position ??= this.position;
+		const bytesWritten = await this._write(buffer, offset, length, position);
 		this._emitChange();
 		return { buffer: data, bytesWritten };
 	}
@@ -275,15 +431,15 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async writeFile(data: string | Uint8Array, _options: fs.WriteFileOptions = {}): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
-		const flag = parseFlag(options.flag);
-		if (!isWriteable(flag)) {
+		const flag = file.parseFlag(options.flag);
+		if (!file.isWriteable(flag)) {
 			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for writing');
 		}
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
 		}
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
-		await this.file.write(encodedData, 0, encodedData.length, 0);
+		await this._write(encodedData, 0, encodedData.length, 0);
 		this._emitChange();
 	}
 
@@ -291,8 +447,21 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronous close(2) - close a `FileHandle`.
 	 */
 	public async close(): Promise<void> {
-		await this.file.close();
-		fdMap.delete(this.fd);
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'close');
+		await this.sync();
+		this.dispose();
+		file.deleteFD(this.context, this.fd);
+	}
+
+	/**
+	 * Cleans up. This will *not* sync the file data to the FS
+	 */
+	protected dispose(force?: boolean): void {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'dispose');
+
+		if (this.dirty && !force) throw ErrnoError.With('EBUSY', this.path, 'dispose');
+
+		this.closed = true;
 	}
 
 	/**
@@ -302,7 +471,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The number of bytes written.
 	 */
 	public async writev(buffers: Uint8Array[], position?: number): Promise<fs.WriteVResult> {
-		if (typeof position == 'number') this.file.position = position;
+		if (typeof position == 'number') this.position = position;
 
 		let bytesWritten = 0;
 
@@ -320,7 +489,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The number of bytes read.
 	 */
 	public async readv(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<fs.ReadVResult> {
-		if (typeof position == 'number') this.file.position = position;
+		if (typeof position == 'number') this.position = position;
 
 		let bytesRead = 0;
 
@@ -449,31 +618,18 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 unlink satisfies typeof promises.unlink;
 
 /**
- * Manually apply setuid/setgid.
- */
-async function applySetId(file: File, uid: number, gid: number) {
-	if (file.fs.attributes.has('setid')) return;
-
-	const parent = await file.fs.stat(dirname(file.path));
-	await file.chown(
-		parent.mode & constants.S_ISUID ? parent.uid : uid, // manually apply setuid/setgid
-		parent.mode & constants.S_ISGID ? parent.gid : gid
-	);
-}
-
-/**
  * Opens a file. This helper handles the complexity of file flags.
  * @internal
  */
 async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise<FileHandle> {
 	path = normalizePath(path);
 	const mode = normalizeMode(opt.mode, 0o644),
-		flag = parseFlag(opt.flag);
+		flag = file.parseFlag(opt.flag);
 
 	const { fullPath, fs, path: resolved, stats } = await _resolve($, path.toString(), opt.preserveSymlinks);
 
 	if (!stats) {
-		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
+		if ((!file.isWriteable(flag) && !file.isAppendable(flag)) || flag == 'r+') {
 			throw ErrnoError.With('ENOENT', fullPath, '_open');
 		}
 		// Create the file
@@ -485,20 +641,25 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 			throw ErrnoError.With('ENOTDIR', dirname(fullPath), '_open');
 		}
 		const { euid: uid, egid: gid } = $?.credentials ?? credentials;
-		const file = await fs.createFile(resolved, flag, mode, { uid, gid });
-		await applySetId(file, uid, gid);
-		return new FileHandle(file, $);
+
+		const inode = await fs.createFile(resolved, {
+			mode,
+			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
+			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
+		});
+
+		return new FileHandle($, file.toFD(new file.SyncHandle($, path, fs, resolved, flag, inode)));
 	}
 
-	if (config.checkAccess && !stats.hasAccess(flagToMode(flag), $)) {
+	if (config.checkAccess && !stats.hasAccess(file.flagToMode(flag), $)) {
 		throw ErrnoError.With('EACCES', fullPath, '_open');
 	}
 
-	if (isExclusive(flag)) {
+	if (file.isExclusive(flag)) {
 		throw ErrnoError.With('EEXIST', fullPath, '_open');
 	}
 
-	const handle = new FileHandle(await fs.openFile(resolved, flag), $);
+	const handle = new FileHandle($, file.toFD(new file.SyncHandle($, path, fs, resolved, flag, stats)));
 
 	/*
 		In a previous implementation, we deleted the file and
@@ -506,7 +667,7 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 		asynchronous request was trying to read the file, as the file
 		would not exist for a small period of time.
 	*/
-	if (isTruncating(flag)) {
+	if (file.isTruncating(flag)) {
 		await handle.truncate(0);
 	}
 
@@ -579,7 +740,7 @@ export async function writeFile(
 		throw new ErrnoError(
 			Errno.EINVAL,
 			'The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received ' + typeof data,
-			handle.file.path,
+			handle.path,
 			'writeFile'
 		);
 	}
@@ -600,8 +761,8 @@ export async function appendFile(
 	_options?: BufferEncoding | (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | null
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
-	const flag = parseFlag(options.flag);
-	if (!isAppendable(flag)) {
+	const flag = file.parseFlag(options.flag);
+	if (!file.isAppendable(flag)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 	}
 	if (typeof data != 'string' && !options.encoding) {
@@ -666,14 +827,23 @@ export async function mkdir(
 	const { fs, path: resolved, root } = resolveMount(path, this);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
+	const __create = async (path: string, parentStats: Stats) => {
+		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, this)) {
+			throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
+		}
+
+		const inode = await fs.mkdir(path, {
+			mode,
+			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
+			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
+		});
+		emitChange(this, 'rename', path);
+		return new Stats(inode);
+	};
+
 	try {
 		if (!options?.recursive) {
-			if (config.checkAccess && !new Stats(await fs.stat(dirname(resolved))).hasAccess(constants.W_OK, this)) {
-				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
-			}
-			await fs.mkdir(resolved, mode, { uid, gid });
-			await applySetId(await fs.openFile(resolved, 'r+'), uid, gid);
-			emitChange(this, 'rename', path.toString());
+			await __create(resolved, new Stats(await fs.stat(dirname(resolved))));
 			return;
 		}
 
@@ -682,13 +852,13 @@ export async function mkdir(
 			dirs.unshift(dir);
 			errorPaths[dir] = origDir;
 		}
-		for (const dir of dirs) {
-			if (config.checkAccess && !new Stats(await fs.stat(dirname(dir))).hasAccess(constants.W_OK, this)) {
-				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
-			}
-			await fs.mkdir(dir, mode, { uid, gid });
-			await applySetId(await fs.openFile(dir, 'r+'), uid, gid);
-			emitChange(this, 'rename', dir);
+
+		if (!dirs.length) return;
+
+		const stats: Stats[] = [new Stats(await fs.stat(dirname(dirs[0])))];
+
+		for (const [i, dir] of dirs.entries()) {
+			stats.push(await __create(dir, stats[i]));
 		}
 		return root.length == 1 ? dirs[0] : dirs[0]?.slice(root.length);
 	} catch (e) {
@@ -843,7 +1013,7 @@ export async function symlink(
 
 	await using handle = await _open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
 	await handle.writeFile(normalizePath(target, true));
-	await handle.file.chmod(constants.S_IFLNK);
+	await handle.chmod(constants.S_IFLNK);
 }
 symlink satisfies typeof promises.symlink;
 

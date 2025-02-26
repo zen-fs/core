@@ -60,10 +60,10 @@ export class ReadStream extends Readable implements fs.ReadStream {
 		super({ ...opts, encoding: opts.encoding ?? undefined });
 
 		Promise.resolve(handleOrPromise)
-			.then(({ file }) => {
-				this._path = file.path;
+			.then(handle => {
+				this._path = handle.path;
 
-				const internal = file.streamRead({ start: opts.start, end: opts.end });
+				const internal = handle.readableWebStream({ start: opts.start, end: opts.end });
 				this.reader = internal.getReader();
 				this.pending = false;
 			})
@@ -123,9 +123,9 @@ export class WriteStream extends Writable implements fs.WriteStream {
 		super(opts);
 
 		this.ready = Promise.resolve(handleOrPromise)
-			.then(({ file }) => {
-				this._path = file.path;
-				const internal = file.streamWrite({ start: opts.start });
+			.then(handle => {
+				this._path = handle.path;
+				const internal = handle.writableWebStream({ start: opts.start });
 				this.writer = internal.getWriter();
 				this.pending = false;
 			})

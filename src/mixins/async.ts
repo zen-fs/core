@@ -4,7 +4,6 @@ import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.
 import { getAllPrototypes } from 'utilium';
 import { StoreFS } from '../backends/store/fs.js';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { LazyFile, parseFlag } from '../internal/file.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { crit, debug, err } from '../internal/log.js';
 import { join } from '../vfs/path.js';
@@ -129,17 +128,10 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			return this._sync.touchSync(path, metadata);
 		}
 
-		public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): LazyFile<this> {
+		public createFileSync(path: string, options: CreationOptions): InodeLike {
 			this.checkSync(path, 'createFile');
-			const file = this._sync.createFileSync(path, flag, mode, options);
-			this._async(this.createFile(path, flag, mode, options));
-			return new LazyFile(this, path, flag, file.statSync());
-		}
-
-		public openFileSync(path: string, flag: string): LazyFile<this> {
-			this.checkSync(path, 'openFile');
-			const stats = this._sync.statSync(path);
-			return new LazyFile(this, path, flag, stats);
+			this._async(this.createFile(path, options));
+			return this._sync.createFileSync(path, options);
 		}
 
 		public unlinkSync(path: string): void {
@@ -154,10 +146,10 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(this.rmdir(path));
 		}
 
-		public mkdirSync(path: string, mode: number, options: CreationOptions): void {
+		public mkdirSync(path: string, options: CreationOptions): InodeLike {
 			this.checkSync(path, 'mkdir');
-			this._sync.mkdirSync(path, mode, options);
-			this._async(this.mkdir(path, mode, options));
+			this._async(this.mkdir(path, options));
+			return this._sync.mkdirSync(path, options);
 		}
 
 		public readdirSync(path: string): string[] {
@@ -218,15 +210,15 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this.checkSync(path, 'crossCopy');
 			const stats = await this.stat(path);
 			if (!isDirectory(stats)) {
-				using syncFile = this._sync.createFileSync(path, parseFlag('w'), stats.mode, stats);
+				this._sync.createFileSync(path, stats);
 				const buffer = new Uint8Array(stats.size);
 				await this.read(path, buffer, 0, stats.size);
-				syncFile.writeSync(buffer, 0, stats.size);
+				this._sync.writeSync(path, buffer, 0);
 				return;
 			}
 			if (path !== '/') {
 				const stats = await this.stat(path);
-				this._sync.mkdirSync(path, stats.mode, stats);
+				this._sync.mkdirSync(path, stats);
 			}
 			const promises = [];
 			for (const file of await this.readdir(path)) {

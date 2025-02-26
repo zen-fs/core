@@ -1,21 +1,21 @@
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
-import type { File } from '../internal/file.js';
+import { deleteFD, fromFD, SyncHandle, toFD } from './file.js';
+import type { ResolvedPath } from './shared.js';
 import { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
-import type { ResolvedPath } from './shared.js';
 
 import { Buffer } from 'buffer';
 import { credentials } from '../internal/credentials.js';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from '../internal/file.js';
-import { BigIntStats } from './stats.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
+import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from './file.js';
 import { dirname, join, parse, resolve } from './path.js';
-import { _statfs, fd2file, fdMap, file2fd, fixError, resolveMount } from './shared.js';
+import { _statfs, fixError, resolveMount } from './shared.js';
+import { BigIntStats } from './stats.js';
 import { emitChange } from './watchers.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
@@ -122,20 +122,7 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 }
 unlinkSync satisfies typeof fs.unlinkSync;
 
-/**
- * Manually apply setuid/setgid.
- */
-function applySetId(file: File, uid: number, gid: number) {
-	if (file.fs.attributes.has('setid')) return;
-
-	const parent = file.fs.statSync(dirname(file.path));
-	file.chownSync(
-		parent.mode & constants.S_ISUID ? parent.uid : uid, // manually apply setuid/setgid
-		parent.mode & constants.S_ISGID ? parent.gid : gid
-	);
-}
-
-function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): File {
+function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHandle {
 	path = normalizePath(path);
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = parseFlag(opt.flag);
@@ -159,25 +146,33 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): File {
 		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', dirname(path), '_open');
 		}
+
 		if (!parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
 		}
-		const { euid: uid, egid: gid } = this?.credentials ?? credentials;
-		const file = fs.createFileSync(resolved, flag, mode, { uid, gid });
+
 		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw ErrnoError.With('EISDIR', path, '_open');
-		applySetId(file, uid, gid);
-		return file;
+
+		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, this)) {
+			throw ErrnoError.With('EACCES', dirname(resolved), '_open');
+		}
+
+		const { euid: uid, egid: gid } = this?.credentials ?? credentials;
+		const inode = fs.createFileSync(resolved, {
+			mode,
+			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
+			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
+		});
+		return new SyncHandle(this, path, fs, resolved, flag, inode);
 	}
 
 	if (config.checkAccess && (!stats.hasAccess(mode, this) || !stats.hasAccess(flagToMode(flag), this))) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
-	if (isExclusive(flag)) {
-		throw ErrnoError.With('EEXIST', path, '_open');
-	}
+	if (isExclusive(flag)) throw ErrnoError.With('EEXIST', path, '_open');
 
-	const file = fs.openFileSync(resolved, flag);
+	const file = new SyncHandle(this, path, fs, resolved, flag, stats);
 
 	if (isTruncating(flag)) {
 		file.truncateSync(0);
@@ -193,7 +188,7 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): File {
  * @see http://www.manpagez.com/man/2/open/
  */
 export function openSync(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
-	return file2fd(_openSync.call(this, path, { flag, mode }));
+	return toFD(_openSync.call(this, path, { flag, mode }));
 }
 openSync satisfies typeof fs.openSync;
 
@@ -202,7 +197,7 @@ openSync satisfies typeof fs.openSync;
  * @internal
  */
 export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode?: fs.Mode | null): number {
-	return file2fd(_openSync.call(this, path, { flag, mode, preserveSymlinks: true }));
+	return toFD(_openSync.call(this, path, { flag, mode, preserveSymlinks: true }));
 }
 
 function _readFileSync(this: V_Context, path: fs.PathLike, flag: string, preserveSymlinks: boolean): Uint8Array {
@@ -234,7 +229,7 @@ export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _op
 	if (!isReadable(flag)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading');
 	}
-	const data: Buffer = Buffer.from(_readFileSync.call(this, typeof path == 'number' ? fd2file(path).path : path, options.flag, false));
+	const data: Buffer = Buffer.from(_readFileSync.call(this, typeof path == 'number' ? fromFD(this, path).path : path, options.flag, false));
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFileSync satisfies typeof fs.readFileSync;
@@ -268,7 +263,7 @@ export function writeFileSync(
 	if (!encodedData) {
 		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
 	}
-	using file = _openSync.call(this, typeof path == 'number' ? fd2file(path).path : path.toString(), {
+	using file = _openSync.call(this, typeof path == 'number' ? fromFD(this, path).path : path.toString(), {
 		flag,
 		mode: options.mode,
 		preserveSymlinks: true,
@@ -295,7 +290,7 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 	}
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	using file = _openSync.call(this, typeof filename == 'number' ? fd2file(filename).path : filename.toString(), {
+	using file = _openSync.call(this, typeof filename == 'number' ? fromFD(this, filename).path : filename.toString(), {
 		flag,
 		mode: options.mode,
 		preserveSymlinks: true,
@@ -312,14 +307,14 @@ appendFileSync satisfies typeof fs.appendFileSync;
 export function fstatSync(this: V_Context, fd: number, options?: { bigint?: boolean }): Stats;
 export function fstatSync(this: V_Context, fd: number, options: { bigint: true }): BigIntStats;
 export function fstatSync(this: V_Context, fd: number, options?: fs.StatOptions): Stats | BigIntStats {
-	const stats: Stats = new Stats(fd2file(fd).statSync());
+	const stats: Stats = new Stats(fromFD(this, fd).statSync());
 	return options?.bigint ? new BigIntStats(stats) : stats;
 }
 fstatSync satisfies typeof fs.fstatSync;
 
 export function closeSync(this: V_Context, fd: number): void {
-	fd2file(fd).closeSync();
-	fdMap.delete(fd);
+	fromFD(this, fd).closeSync();
+	deleteFD(this, fd);
 }
 closeSync satisfies typeof fs.closeSync;
 
@@ -328,17 +323,17 @@ export function ftruncateSync(this: V_Context, fd: number, len: number | null = 
 	if (len < 0) {
 		throw new ErrnoError(Errno.EINVAL);
 	}
-	fd2file(fd).truncateSync(len);
+	fromFD(this, fd).truncateSync(len);
 }
 ftruncateSync satisfies typeof fs.ftruncateSync;
 
 export function fsyncSync(this: V_Context, fd: number): void {
-	fd2file(fd).syncSync();
+	fromFD(this, fd).syncSync();
 }
 fsyncSync satisfies typeof fs.fsyncSync;
 
 export function fdatasyncSync(this: V_Context, fd: number): void {
-	fd2file(fd).datasyncSync();
+	fromFD(this, fd).datasyncSync();
 }
 fdatasyncSync satisfies typeof fs.fdatasyncSync;
 
@@ -383,7 +378,7 @@ export function writeSync(
 		position = typeof pos === 'number' ? pos : null;
 	}
 
-	const file = fd2file(fd);
+	const file = fromFD(this, fd);
 	position ??= file.position;
 	const bytesWritten = file.writeSync(buffer, offset, length, position);
 	emitChange(this, 'change', file.path);
@@ -416,7 +411,7 @@ export function readSync(
 	length?: number,
 	position?: fs.ReadPosition | null
 ): number {
-	const file = fd2file(fd);
+	const file = fromFD(this, fd);
 	const offset = typeof options == 'object' ? options.offset : options;
 	if (typeof options == 'object') {
 		length = options.length;
@@ -433,7 +428,7 @@ export function readSync(
 readSync satisfies typeof fs.readSync;
 
 export function fchownSync(this: V_Context, fd: number, uid: number, gid: number): void {
-	fd2file(fd).chownSync(uid, gid);
+	fromFD(this, fd).chownSync(uid, gid);
 }
 fchownSync satisfies typeof fs.fchownSync;
 
@@ -442,7 +437,7 @@ export function fchmodSync(this: V_Context, fd: number, mode: number | string): 
 	if (numMode < 0) {
 		throw new ErrnoError(Errno.EINVAL, `Invalid mode.`);
 	}
-	fd2file(fd).chmodSync(numMode);
+	fromFD(this, fd).chmodSync(numMode);
 }
 fchmodSync satisfies typeof fs.fchmodSync;
 
@@ -450,7 +445,7 @@ fchmodSync satisfies typeof fs.fchmodSync;
  * Change the file timestamps of a file referenced by the supplied file descriptor.
  */
 export function futimesSync(this: V_Context, fd: number, atime: string | number | Date, mtime: string | number | Date): void {
-	fd2file(fd).utimesSync(normalizeTime(atime), normalizeTime(mtime));
+	fromFD(this, fd).utimesSync(normalizeTime(atime), normalizeTime(mtime));
 }
 futimesSync satisfies typeof fs.futimesSync;
 
@@ -465,6 +460,7 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 		if (config.checkAccess && !stats.hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', resolved, 'rmdir');
 		}
+
 		fs.rmdirSync(resolved);
 		emitChange(this, 'rename', path.toString());
 	} catch (e) {
@@ -488,13 +484,24 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 	const { fs, path: resolved, root } = resolveMount(path, this);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
+	const __create = (path: string, parentStats: Stats) => {
+		if (config.checkAccess && !parentStats.hasAccess(constants.W_OK, this)) {
+			throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
+		}
+
+		const inode = fs.mkdirSync(path, {
+			mode,
+			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
+			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
+		});
+
+		emitChange(this, 'rename', path);
+		return new Stats(inode);
+	};
+
 	try {
 		if (!options?.recursive) {
-			if (config.checkAccess && !new Stats(fs.statSync(dirname(resolved))).hasAccess(constants.W_OK, this)) {
-				throw ErrnoError.With('EACCES', dirname(resolved), 'mkdir');
-			}
-			fs.mkdirSync(resolved, mode, { uid, gid });
-			applySetId(fs.openFileSync(resolved, 'r+'), uid, gid);
+			__create(resolved, new Stats(fs.statSync(dirname(resolved))));
 			return;
 		}
 
@@ -503,13 +510,13 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 			dirs.unshift(dir);
 			errorPaths[dir] = original;
 		}
-		for (const dir of dirs) {
-			if (config.checkAccess && !new Stats(fs.statSync(dirname(dir))).hasAccess(constants.W_OK, this)) {
-				throw ErrnoError.With('EACCES', dirname(dir), 'mkdir');
-			}
-			fs.mkdirSync(dir, mode, { uid, gid });
-			applySetId(fs.openFileSync(dir, 'r+'), uid, gid);
-			emitChange(this, 'rename', dir);
+
+		if (!dirs.length) return;
+
+		const stats: Stats[] = [new Stats(fs.statSync(dirname(dirs[0])))];
+
+		for (const [i, dir] of dirs.entries()) {
+			stats.push(__create(dir, stats[i]));
 		}
 		return root.length == 1 ? dirs[0] : dirs[0]?.slice(root.length);
 	} catch (e) {
@@ -657,29 +664,29 @@ readlinkSync satisfies typeof fs.readlinkSync;
 
 export function chownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
 	const fd = openSync.call(this, path, 'r+');
-	fchownSync(fd, uid, gid);
-	closeSync(fd);
+	fchownSync.call(this, fd, uid, gid);
+	closeSync.call(this, fd);
 }
 chownSync satisfies typeof fs.chownSync;
 
 export function lchownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
 	const fd = lopenSync.call(this, path, 'r+');
-	fchownSync(fd, uid, gid);
-	closeSync(fd);
+	fchownSync.call(this, fd, uid, gid);
+	closeSync.call(this, fd);
 }
 lchownSync satisfies typeof fs.lchownSync;
 
 export function chmodSync(this: V_Context, path: fs.PathLike, mode: fs.Mode): void {
 	const fd = openSync.call(this, path, 'r+');
-	fchmodSync(fd, mode);
-	closeSync(fd);
+	fchmodSync.call(this, fd, mode);
+	closeSync.call(this, fd);
 }
 chmodSync satisfies typeof fs.chmodSync;
 
 export function lchmodSync(this: V_Context, path: fs.PathLike, mode: number | string): void {
 	const fd = lopenSync.call(this, path, 'r+');
-	fchmodSync(fd, mode);
-	closeSync(fd);
+	fchmodSync.call(this, fd, mode);
+	closeSync.call(this, fd);
 }
 lchmodSync satisfies typeof fs.lchmodSync;
 
@@ -688,8 +695,8 @@ lchmodSync satisfies typeof fs.lchmodSync;
  */
 export function utimesSync(this: V_Context, path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): void {
 	const fd = openSync.call(this, path, 'r+');
-	futimesSync(fd, atime, mtime);
-	closeSync(fd);
+	futimesSync.call(this, fd, atime, mtime);
+	closeSync.call(this, fd);
 }
 utimesSync satisfies typeof fs.utimesSync;
 
@@ -698,8 +705,8 @@ utimesSync satisfies typeof fs.utimesSync;
  */
 export function lutimesSync(this: V_Context, path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): void {
 	const fd = lopenSync.call(this, path, 'r+');
-	futimesSync(fd, atime, mtime);
-	closeSync(fd);
+	futimesSync.call(this, fd, atime, mtime);
+	closeSync.call(this, fd);
 }
 lutimesSync satisfies typeof fs.lutimesSync;
 
@@ -861,7 +868,7 @@ copyFileSync satisfies typeof fs.copyFileSync;
  * @returns The number of bytes read.
  */
 export function readvSync(this: V_Context, fd: number, buffers: readonly NodeJS.ArrayBufferView[], position?: number): number {
-	const file = fd2file(fd);
+	const file = fromFD(this, fd);
 	let bytesRead = 0;
 
 	for (const buffer of buffers) {
@@ -880,7 +887,7 @@ readvSync satisfies typeof fs.readvSync;
  * @returns The number of bytes written.
  */
 export function writevSync(this: V_Context, fd: number, buffers: readonly ArrayBufferView[], position?: number): number {
-	const file = fd2file(fd);
+	const file = fromFD(this, fd);
 	let bytesWritten = 0;
 
 	for (const buffer of buffers) {

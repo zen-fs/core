@@ -2,6 +2,7 @@
 import type { ExtractProperties } from 'utilium';
 import type { CredentialInit, Credentials } from './internal/credentials.js';
 import { createCredentials, credentials as defaultCredentials } from './internal/credentials.js';
+import type { SyncHandle } from './vfs/file.js';
 import * as fs from './vfs/index.js';
 
 type Fn_FS = ExtractProperties<typeof fs, (...args: any[]) => any>;
@@ -22,6 +23,7 @@ function _bindFunctions<T extends Record<string, unknown>>(fns: T, thisValue: an
 export interface FSContext {
 	root: string;
 	readonly credentials: Credentials;
+	descriptors: Map<number, SyncHandle>;
 }
 
 /**
@@ -46,6 +48,7 @@ export function bindContext(root: string, credentials: CredentialInit = structur
 	const ctx = {
 		root,
 		credentials: createCredentials(credentials),
+		descriptors: new Map(),
 	} satisfies FSContext;
 
 	const fn_fs = _bindFunctions<Fn_FS>(fs, ctx);

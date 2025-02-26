@@ -3,7 +3,6 @@ import { _throw } from 'utilium';
 import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../vfs/constants.js';
 import { dirname, join, relative } from '../vfs/path.js';
 import { ErrnoError } from './error.js';
-import { LazyFile, type File } from './file.js';
 import { Index } from './file_index.js';
 import { FileSystem, type CreationOptions, type PureCreationOptions, type UsageInfo } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
@@ -31,22 +30,6 @@ export abstract class IndexFS extends FileSystem {
 	public usage(): UsageInfo {
 		return this.index.usage();
 	}
-
-	/* node:coverage disable */
-	/**
-	 * @deprecated
-	 */
-	public reloadFiles(): never {
-		throw ErrnoError.With('ENOTSUP');
-	}
-
-	/**
-	 * @deprecated
-	 */
-	public reloadFilesSync(): never {
-		throw ErrnoError.With('ENOTSUP');
-	}
-	/* node:coverage enable */
 
 	/**
 	 * Finds all the paths in the index that need to be moved for a rename
@@ -111,15 +94,6 @@ export abstract class IndexFS extends FileSystem {
 		inode.update(metadata);
 	}
 
-	public async openFile(path: string, flag: string): Promise<File> {
-		const stats = this.index.get(path) ?? _throw(ErrnoError.With('ENOENT', path, 'openFile'));
-		return new LazyFile(this, path, flag, stats);
-	}
-	public openFileSync(path: string, flag: string): File {
-		const stats = this.index.get(path) ?? _throw(ErrnoError.With('ENOENT', path, 'openFile'));
-		return new LazyFile(this, path, flag, stats);
-	}
-
 	protected _remove(path: string, isUnlink: boolean): void {
 		const syscall = isUnlink ? 'unlink' : 'rmdir';
 		const inode = this.index.get(path);
@@ -176,22 +150,24 @@ export abstract class IndexFS extends FileSystem {
 		return inode;
 	}
 
-	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		const node = this.create(path, { mode: mode | S_IFREG, ...options });
-		return new LazyFile(this, path, flag, node.toStats());
+	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+		options.mode |= S_IFREG;
+		return this.create(path, options);
 	}
 
-	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
-		const node = this.create(path, { mode: mode | S_IFREG, ...options });
-		return new LazyFile(this, path, flag, node.toStats());
+	public createFileSync(path: string, options: CreationOptions): InodeLike {
+		options.mode |= S_IFREG;
+		return this.create(path, options);
 	}
 
-	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		this.create(path, { mode: mode | S_IFDIR, ...options });
+	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+		options.mode |= S_IFDIR;
+		return this.create(path, options);
 	}
 
-	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
-		this.create(path, { mode: mode | S_IFDIR, ...options });
+	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+		options.mode |= S_IFDIR;
+		return this.create(path, options);
 	}
 
 	public link(target: string, link: string): Promise<void> {

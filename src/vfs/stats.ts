@@ -4,16 +4,9 @@ import type { V_Context } from '../context.js';
 import { credentials } from '../internal/credentials.js';
 import type { InodeFields, InodeLike } from '../internal/inode.js';
 import { _inode_fields } from '../internal/inode.js';
-import { log_deprecated } from '../internal/log.js';
 import * as c from './constants.js';
 
 const n1000 = BigInt(1000) as 1000n;
-
-/**
- * Indicates the type of a file. Applied to 'mode'.
- * @deprecated
- */
-export type FileType = typeof c.S_IFREG | typeof c.S_IFDIR | typeof c.S_IFLNK;
 
 export interface StatsLike<T extends number | bigint = number | bigint> {
 	/**
@@ -115,15 +108,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * Group ID of owner
 	 */
 	public gid: T = this._convert(0);
-
-	/* node:coverage disable */
-	/**
-	 * Some file systems stash data on stats objects.
-	 * @todo [BREAKING] Remove this
-	 * @deprecated @hidden
-	 */
-	public fileData?: unknown;
-	/* node:coverage enable */
 
 	/**
 	 * Time of last access, since epoch
@@ -275,35 +259,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		return (perm & mode) === mode;
 	}
 
-	/* node:coverage disable */
-	/**
-	 * Change the mode of the file.
-	 * We use this helper function to prevent messing up the type of the file.
-	 * @internal @deprecated
-	 */
-	public chmod(mode: number): void {
-		log_deprecated('StatsCommon#chmod');
-		this.mode = this._convert((this.mode & c.S_IFMT) | mode);
-	}
-
-	/**
-	 * Change the owner user/group of the file.
-	 * This function makes sure it is a valid UID/GID (that is, a 32 unsigned int)
-	 * @internal @deprecated
-	 */
-	public chown(uid: number, gid: number): void {
-		log_deprecated('StatsCommon#chown');
-		uid = Number(uid);
-		gid = Number(gid);
-		if (!isNaN(uid) && 0 <= uid && uid < 2 ** 32) {
-			this.uid = this._convert(uid);
-		}
-		if (!isNaN(gid) && 0 <= gid && gid < 2 ** 32) {
-			this.gid = this._convert(gid);
-		}
-	}
-	/* node:coverage enable */
-
 	public get atimeNs(): bigint {
 		return BigInt(this.atimeMs) * n1000;
 	}
@@ -324,13 +279,16 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 /**
  * @hidden @internal
  */
-export function _chown(stats: Partial<StatsLike<number>>, uid: number, gid: number) {
-	if (!isNaN(uid) && 0 <= uid && uid < c.size_max) {
-		stats.uid = uid;
-	}
-	if (!isNaN(gid) && 0 <= gid && gid < 2 ** 32) {
-		stats.gid = gid;
-	}
+export function _chown(stats: Partial<StatsLike<number>>, uid: number, gid: number): boolean {
+	let valid = true;
+
+	if (!isNaN(uid) && uid >= 0 && uid < c.size_max) stats.uid = uid;
+	else valid = false;
+
+	if (!isNaN(gid) && gid >= 0 && gid < c.size_max) stats.gid = gid;
+	else valid = false;
+
+	return valid;
 }
 
 /**

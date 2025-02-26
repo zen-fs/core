@@ -2,18 +2,16 @@
 This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
 */
 
-import { canary } from 'utilium';
+import { omit } from 'utilium';
 import { InMemoryStore } from '../backends/memory.js';
 import { StoreFS } from '../backends/store/fs.js';
 import { decodeUTF8 } from '../utils.js';
-import { S_IFBLK, S_IFCHR } from '../vfs/constants.js';
+import { S_IFCHR } from '../vfs/constants.js';
 import { basename, dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from './error.js';
-import type { FileReadResult } from './file.js';
-import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
-import { alert, debug, err, info, log_deprecated } from './log.js';
+import { debug, err, info } from './log.js';
 
 /**
  * A device
@@ -29,9 +27,9 @@ export interface Device<TData = any> {
 	driver: DeviceDriver<TData>;
 
 	/**
-	 * Which inode the device is assigned
+	 * Device metadata
 	 */
-	ino: number;
+	inode: Inode;
 
 	/**
 	 * Data associated with a device.
@@ -58,6 +56,7 @@ export interface DeviceInit<TData = any> {
 	minor?: number;
 	major?: number;
 	name?: string;
+	metadata?: Partial<InodeLike>;
 }
 
 /**
@@ -77,24 +76,10 @@ export interface DeviceDriver<TData = any> {
 	singleton?: boolean;
 
 	/**
-	 * Whether the device is buffered (a "block" device) or unbuffered (a "character" device)
-	 * @default false
-	 */
-	isBuffered?: boolean;
-
-	/**
 	 * Initializes a new device.
 	 * @returns `Device.data`
 	 */
 	init?(ino: number, options: object): DeviceInit<TData>;
-
-	/**
-	 * Synchronously read from a device file
-	 * @group File operations
-	 * @deprecated
-	 * @todo [BREAKING] Remove
-	 */
-	read?(file: DeviceFile<TData>, buffer: ArrayBufferView, offset?: number, length?: number, position?: number): number;
 
 	/**
 	 * Synchronously read from a device.
@@ -102,178 +87,26 @@ export interface DeviceDriver<TData = any> {
 	 * For many devices there is no concept of an offset or end.
 	 * For example, /dev/random will be "the same" regardless of where you read from- random data.
 	 * @group File operations
-	 * @todo [BREAKING] Rename to `read`
 	 */
-	readD(device: Device<TData>, buffer: Uint8Array, offset: number, end: number): void;
-
-	/**
-	 * Synchronously write to a device file
-	 * @group File operations
-	 * @deprecated
-	 * @todo [BREAKING] Remove
-	 */
-	write?(file: DeviceFile<TData>, buffer: Uint8Array, offset: number, length: number, position?: number): number;
+	read(device: Device<TData>, buffer: Uint8Array, offset: number, end: number): void;
 
 	/**
 	 * Synchronously write to a device
 	 * @group File operations
-	 * @todo [BREAKING] Rename to `write`
 	 */
-	writeD(device: Device<TData>, buffer: Uint8Array, offset: number): void;
-
-	/**
-	 * Update a devices metadata
-	 */
-	touch?(device: Device<TData>, metadata: InodeLike): void;
+	write(device: Device<TData>, buffer: Uint8Array, offset: number): void;
 
 	/**
 	 * Sync the device
 	 * @group File operations
 	 */
-	sync?(file: DeviceFile<TData>): void;
+	sync?(device: Device<TData>): void;
 
 	/**
 	 * Close the device
 	 * @group File operations
 	 */
-	close?(file: DeviceFile<TData>): void;
-}
-
-/**
- * The base class for device files
- * This class only does some simple things:
- * It implements `truncate` using `write` and it has non-device methods throw.
- * It is up to device drivers to implement the rest of the functionality.
- * @category Internals
- * @internal
- */
-export class DeviceFile<TData = any> extends File {
-	public position = 0;
-
-	public constructor(
-		public fs: DeviceFS,
-		path: string,
-		public readonly device: Device<TData>
-	) {
-		super(fs, path);
-	}
-
-	public get driver(): DeviceDriver<TData> {
-		return this.device.driver;
-	}
-
-	protected stats = new Inode({
-		mode: (this.driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666,
-	});
-
-	public async stat(): Promise<InodeLike> {
-		return Promise.resolve(this.stats);
-	}
-
-	public statSync(): InodeLike {
-		return this.stats;
-	}
-
-	public readSync(
-		buffer: ArrayBufferView,
-		offset: number = 0,
-		length: number = buffer.byteLength - offset,
-		position: number = this.position
-	): number {
-		this.stats.atimeMs = Date.now();
-
-		const end = position + length;
-		this.position = end;
-
-		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-
-		this.driver.readD(this.device, uint8.subarray(offset, length), position, end);
-
-		return length;
-	}
-
-	// eslint-disable-next-line @typescript-eslint/require-await
-	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number): Promise<FileReadResult<TBuffer>> {
-		return { bytesRead: this.readSync(buffer, offset, length), buffer };
-	}
-
-	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.byteLength - offset, position: number = this.position): number {
-		const end = position + length;
-
-		if (end > this.stats.size) this.stats.size = end;
-
-		this.stats.mtimeMs = Date.now();
-		this.position = end;
-
-		const data = buffer.subarray(offset, offset + length);
-
-		this.driver.writeD(this.device, data, position);
-
-		return length;
-	}
-
-	// eslint-disable-next-line @typescript-eslint/require-await
-	public async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
-		return this.writeSync(buffer, offset, length, position);
-	}
-
-	public async truncate(length: number): Promise<void> {
-		const { size } = await this.stat();
-
-		const buffer = new Uint8Array(length > size ? length - size : 0);
-
-		await this.write(buffer, 0, buffer.length, length > size ? size : length);
-	}
-
-	public truncateSync(length: number): void {
-		const { size } = this.statSync();
-
-		const buffer = new Uint8Array(length > size ? length - size : 0);
-
-		this.writeSync(buffer, 0, buffer.length, length > size ? size : length);
-	}
-
-	public closeSync(): void {
-		this.driver.close?.(this);
-	}
-
-	public close(): Promise<void> {
-		this.closeSync();
-		return Promise.resolve();
-	}
-
-	public syncSync(): void {
-		this.driver.sync?.(this);
-	}
-
-	public sync(): Promise<void> {
-		this.syncSync();
-		return Promise.resolve();
-	}
-
-	public chown(): Promise<void> {
-		throw ErrnoError.With('ENOTSUP', this.path, 'chown');
-	}
-
-	public chownSync(): void {
-		throw ErrnoError.With('ENOTSUP', this.path, 'chown');
-	}
-
-	public chmod(): Promise<void> {
-		throw ErrnoError.With('ENOTSUP', this.path, 'chmod');
-	}
-
-	public chmodSync(): void {
-		throw ErrnoError.With('ENOTSUP', this.path, 'chmod');
-	}
-
-	public utimes(): Promise<void> {
-		throw ErrnoError.With('ENOTSUP', this.path, 'utimes');
-	}
-
-	public utimesSync(): void {
-		throw ErrnoError.With('ENOTSUP', this.path, 'utimes');
-	}
+	close?(file: Device<TData>): void;
 }
 
 /**
@@ -282,33 +115,6 @@ export class DeviceFile<TData = any> extends File {
  */
 export class DeviceFS extends StoreFS<InMemoryStore> {
 	protected readonly devices = new Map<string, Device>();
-
-	/* node:coverage disable */
-	/**
-	 * Creates a new device at `path` relative to the `DeviceFS` root.
-	 * @deprecated
-	 */
-	public createDevice<TData = any>(path: string, driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
-		log_deprecated('DeviceFS#createDevice');
-		if (this.existsSync(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mknod');
-		}
-		let ino = 1;
-		const silence = canary(ErrnoError.With('EDEADLK', path, 'mknod'));
-		while (this.store.has(ino)) ino++;
-		silence();
-		const dev = {
-			driver,
-			ino,
-			data: {},
-			minor: 0,
-			major: 0,
-			...driver.init?.(ino, options),
-		};
-		this.devices.set(path, dev);
-		return dev;
-	}
-	/* node:coverage enable */
 
 	protected devicesWithDriver(driver: DeviceDriver<unknown> | string, forceIdentity?: boolean): Device[] {
 		if (forceIdentity && typeof driver == 'string') {
@@ -331,15 +137,23 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	 */
 	_createDevice<TData = any>(driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
 		let ino = 1;
-		while (this.store.has(ino)) ino++;
+		const lastDev = Array.from(this.devices.values()).at(-1);
+		while (this.store.has(ino) || lastDev?.inode.ino == ino) ino++;
+
+		const init = driver.init?.(ino, options);
+
 		const dev = {
-			driver,
-			ino,
 			data: {},
 			minor: 0,
 			major: 0,
-			...driver.init?.(ino, options),
-		};
+			...omit(init ?? {}, 'metadata'),
+			driver,
+			inode: new Inode({
+				mode: S_IFCHR | 0o666,
+				...init?.metadata,
+			}),
+		} satisfies Device;
+
 		const path = '/' + (dev.name || driver.name) + (driver.singleton ? '' : this.devicesWithDriver(driver).length);
 
 		if (this.existsSync(path)) throw ErrnoError.With('EEXIST', path, 'mknod');
@@ -390,59 +204,37 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async stat(path: string): Promise<InodeLike> {
-		if (this.devices.has(path)) {
-			await using file = await this.openFile(path, 'r');
-			return file.stat();
-		}
+		const dev = this.devices.get(path);
+		if (dev) return dev.inode;
 		return super.stat(path);
 	}
 
 	public statSync(path: string): InodeLike {
-		if (this.devices.has(path)) {
-			using file = this.openFileSync(path, 'r');
-			return file.statSync();
-		}
+		const dev = this.devices.get(path);
+		if (dev) return dev.inode;
 		return super.statSync(path);
 	}
 
 	public async touch(path: string, metadata: InodeLike): Promise<void> {
 		const dev = this.devices.get(path);
-		if (dev) dev.driver.touch?.(dev, metadata);
+		if (dev) dev.inode.update(metadata);
 		else await super.touch(path, metadata);
 	}
 
 	public touchSync(path: string, metadata: InodeLike): void {
 		const dev = this.devices.get(path);
-		if (dev) dev.driver.touch?.(dev, metadata);
+		if (dev) dev.inode.update(metadata);
 		else super.touchSync(path, metadata);
 	}
 
-	public async openFile(path: string, flag: string): Promise<File> {
-		if (this.devices.has(path)) {
-			return new DeviceFile(this, path, this.devices.get(path)!);
-		}
-		return await super.openFile(path, flag);
+	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'createFile');
+		return super.createFile(path, options);
 	}
 
-	public openFileSync(path: string, flag: string): File {
-		if (this.devices.has(path)) {
-			return new DeviceFile(this, path, this.devices.get(path)!);
-		}
-		return super.openFileSync(path, flag);
-	}
-
-	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EEXIST', path, 'createFile');
-		}
-		return super.createFile(path, flag, mode, options);
-	}
-
-	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EEXIST', path, 'createFile');
-		}
-		return super.createFileSync(path, flag, mode, options);
+	public createFileSync(path: string, options: CreationOptions): InodeLike {
+		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'createFile');
+		return super.createFileSync(path, options);
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -467,18 +259,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mkdir');
-		}
-		return super.mkdir(path, mode, options);
+	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
+		return super.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EEXIST', path, 'mkdir');
-		}
-		return super.mkdirSync(path, mode, options);
+	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
+		return super.mkdirSync(path, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -522,16 +310,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {
-		if (this.devices.has(path)) {
-			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'), { fs: this });
-		}
+		const device = this.devices.get(path);
+		if (device) return device.driver.sync?.(device);
 		return super.sync(path, data, stats);
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
-		if (this.devices.has(path)) {
-			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'), { fs: this });
-		}
+		const device = this.devices.get(path);
+		if (device) return device.driver.sync?.(device);
 		return super.syncSync(path, data, stats);
 	}
 
@@ -542,7 +328,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			return;
 		}
 
-		device.driver.readD(device, buffer, offset, end);
+		device.driver.read(device, buffer, offset, end);
 	}
 
 	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
@@ -552,7 +338,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			return;
 		}
 
-		device.driver.readD(device, buffer, offset, end);
+		device.driver.read(device, buffer, offset, end);
 	}
 
 	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
@@ -561,7 +347,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			return await super.write(path, data, offset);
 		}
 
-		device.driver.writeD(device, data, offset);
+		device.driver.write(device, data, offset);
 	}
 
 	public writeSync(path: string, data: Uint8Array, offset: number): void {
@@ -570,12 +356,8 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 			return super.writeSync(path, data, offset);
 		}
 
-		device.driver.writeD(device, data, offset);
+		device.driver.write(device, data, offset);
 	}
-}
-
-function defaultWrite(device: Device, data: Uint8Array, offset: number) {
-	return;
 }
 
 const emptyBuffer = new Uint8Array();
@@ -593,13 +375,12 @@ export const nullDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 3 };
 	},
-	read(): number {
-		return 0;
-	},
-	readD(): Uint8Array {
+	read(): Uint8Array {
 		return emptyBuffer;
 	},
-	writeD: defaultWrite,
+	write() {
+		return;
+	},
 };
 
 /**
@@ -619,10 +400,12 @@ export const zeroDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 5 };
 	},
-	readD(device, buffer, offset, end) {
+	read(device, buffer, offset, end) {
 		buffer.fill(0, offset, end);
 	},
-	writeD: defaultWrite,
+	write() {
+		return;
+	},
 };
 
 /**
@@ -638,13 +421,10 @@ export const fullDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 7 };
 	},
-	readD(device, buffer, offset, end) {
+	read(device, buffer, offset, end) {
 		buffer.fill(0, offset, end);
 	},
-	write(file: DeviceFile): number {
-		throw ErrnoError.With('ENOSPC', file.path, 'write');
-	},
-	writeD() {
+	write() {
 		throw ErrnoError.With('ENOSPC', undefined, 'write');
 	},
 };
@@ -662,12 +442,14 @@ export const randomDevice: DeviceDriver = {
 	init() {
 		return { major: 1, minor: 8 };
 	},
-	readD(device, buffer) {
+	read(device, buffer) {
 		for (let i = 0; i < buffer.length; i++) {
 			buffer[i] = Math.floor(Math.random() * 256);
 		}
 	},
-	writeD: defaultWrite,
+	write() {
+		return;
+	},
 };
 
 /**
@@ -681,10 +463,10 @@ const consoleDevice: DeviceDriver<{ output: (text: string, offset: number) => un
 	init(ino: number, { output = text => console.log(text) }: { output?: (text: string) => unknown } = {}) {
 		return { major: 5, minor: 1, data: { output } };
 	},
-	readD() {
+	read() {
 		return emptyBuffer;
 	},
-	writeD(device, buffer, offset) {
+	write(device, buffer, offset) {
 		const text = decodeUTF8(buffer);
 		device.data.output(text, offset);
 	},

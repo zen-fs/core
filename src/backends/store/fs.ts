@@ -1,13 +1,11 @@
 import { _throw, canary, serialize, sizeof } from 'utilium';
 import { extendBuffer } from 'utilium/buffer.js';
 import { Errno, ErrnoError } from '../../internal/error.js';
-import type { File } from '../../internal/file.js';
-import { LazyFile } from '../../internal/file.js';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, PureCreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { Inode, rootIno, type InodeLike } from '../../internal/inode.js';
-import { crit, debug, err, log_deprecated, notice, warn } from '../../internal/log.js';
+import { crit, debug, err, notice, warn } from '../../internal/log.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, S_ISGID, S_ISUID, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, relative } from '../../vfs/path.js';
@@ -99,7 +97,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public constructor(protected readonly store: T) {
 		super(store.id ?? 0x6b766673, store.name);
-		this.attributes.set('setid');
 		store._fs = this;
 		debug(this.name + ': supports features: ' + this.store.flags?.join(', '));
 	}
@@ -115,28 +112,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			}
 		);
 	}
-
-	/* node:coverage disable */
-	/**
-	 * Delete all contents stored in the file system.
-	 * @deprecated
-	 */
-	public async empty(): Promise<void> {
-		log_deprecated('StoreFS#empty');
-		// Root always exists.
-		await this.checkRoot();
-	}
-
-	/**
-	 * Delete all contents stored in the file system.
-	 * @deprecated
-	 */
-	public emptySync(): void {
-		log_deprecated('StoreFS#emptySync');
-		// Root always exists.
-		this.checkRootSync();
-	}
-	/* node:coverage enable */
 
 	/**
 	 * Load an index into the StoreFS.
@@ -366,28 +341,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public async createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		const node = await this.commitNew(path, { mode: mode | S_IFREG, ...options }, new Uint8Array(), 'createFile');
-		return new LazyFile(this, path, flag, node.toStats());
+	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+		options.mode |= S_IFREG;
+		return await this.commitNew(path, options, new Uint8Array(), 'createFile');
 	}
 
-	public createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File {
-		const node = this.commitNewSync(path, { mode: mode | S_IFREG, ...options }, new Uint8Array(), 'createFile');
-		return new LazyFile(this, path, flag, node.toStats());
-	}
-
-	public async openFile(path: string, flag: string): Promise<File> {
-		await using tx = this.transaction();
-		const node = await this.findInode(tx, path, 'openFile');
-
-		return new LazyFile(this, path, flag, node.toStats());
-	}
-
-	public openFileSync(path: string, flag: string): File {
-		using tx = this.transaction();
-		const node = this.findInodeSync(tx, path, 'openFile');
-
-		return new LazyFile(this, path, flag, node.toStats());
+	public createFileSync(path: string, options: CreationOptions): InodeLike {
+		options.mode |= S_IFREG;
+		return this.commitNewSync(path, options, new Uint8Array(), 'createFile');
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -412,12 +373,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this.removeSync(path, true);
 	}
 
-	public async mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		await this.commitNew(path, { mode: mode | S_IFDIR, ...options }, encodeUTF8('{}'), 'mkdir');
+	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+		options.mode |= S_IFDIR;
+		return await this.commitNew(path, options, encodeUTF8('{}'), 'mkdir');
 	}
 
-	public mkdirSync(path: string, mode: number, options: CreationOptions): void {
-		this.commitNewSync(path, { mode: mode | S_IFDIR, ...options }, encodeUTF8('{}'), 'mkdir');
+	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+		options.mode |= S_IFDIR;
+		return this.commitNewSync(path, options, encodeUTF8('{}'), 'mkdir');
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -754,12 +717,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Commit data.
 		const inode = new Inode({
+			...options,
 			ino: id,
 			data: id + 1,
-			mode: options.mode,
 			size: data.byteLength,
-			uid: parent.mode & S_ISUID ? parent.uid : options.uid,
-			gid: parent.mode & S_ISGID ? parent.gid : options.gid,
 		});
 
 		await tx.set(inode.ino, serialize(inode));
@@ -802,12 +763,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Commit data.
 		const inode = new Inode({
+			...options,
 			ino: id,
 			data: id + 1,
-			mode: options.mode,
 			size: data.byteLength,
-			uid: parent.mode & S_ISUID ? parent.uid : options.uid,
-			gid: parent.mode & S_ISGID ? parent.gid : options.gid,
 		});
 
 		// Update and commit parent directory listing.

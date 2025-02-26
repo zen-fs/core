@@ -1,7 +1,6 @@
 import type { ConstMap } from 'utilium';
 import type { StatsLike } from '../vfs/stats.js';
 import type { ErrnoError } from './error.js';
-import type { File } from './file.js';
 import type { InodeLike } from './inode.js';
 
 /**
@@ -37,54 +36,6 @@ export interface UsageInfo {
 	freeNodes?: number;
 }
 
-/* node:coverage disable */
-/**
- * Metadata about a FileSystem
- * @category Internals
- * @deprecated
- */
-export interface FileSystemMetadata extends UsageInfo {
-	/**
-	 * The name of the FS
-	 * @deprecated Use `FileSystem#name`
-	 */
-	name: string;
-
-	/**
-	 * Whether the FS is readonly or not
-	 * @deprecated Use `FileSystem#attributes
-	 */
-	readonly: boolean;
-
-	/**
-	 * If set, disables File from using a resizable array buffer.
-	 * @default false
-	 * @deprecated Use `FileSystem#attributes`
-	 */
-	noResizableBuffers: boolean;
-
-	/**
-	 * If set, disables caching on async file systems.
-	 * This means *sync operations will not work*.
-	 * It has no affect on sync file systems.
-	 * @default false
-	 * @deprecated Use `FileSystem#attributes
-	 */
-	noAsyncCache: boolean;
-
-	/**
-	 * The type of the FS
-	 */
-	type: number;
-
-	/**
-	 * Various features the file system supports.
-	 * @deprecated Use `FileSystem#attributes`
-	 */
-	features?: unknown[];
-}
-/* node:coverage enable */
-
 /**
  * Attributes that control how the file system interacts with the VFS.
  * No options are set by default.
@@ -92,9 +43,6 @@ export interface FileSystemMetadata extends UsageInfo {
  * @internal
  */
 export type FileSystemAttributes = {
-	/** The FS supports setuid and setgid when creating files and directories. */
-	setid: void;
-
 	/** If set, disables `PreloadFile` from using a resizable array buffer. */
 	no_buffer_resize: void;
 
@@ -133,7 +81,6 @@ export type FileSystemAttributes = {
 /**
  * Options used when creating files and directories.
  * This weird naming and such is to preserve backward compatibility.
- * @todo [BREAKING] Move the `mode` parameter of `createFile` and `mkdir` into this
  * @category Internals
  * @internal
  */
@@ -153,7 +100,7 @@ export interface CreationOptions {
 	/**
 	 * The mode to create the file with.
 	 */
-	mode?: number;
+	mode: number;
 }
 
 /**
@@ -233,24 +180,6 @@ export abstract class FileSystem {
 		};
 	}
 
-	/* node:coverage disable */
-	/**
-	 * Get metadata about the current file system
-	 * @deprecated
-	 */
-	public metadata(): FileSystemMetadata {
-		return {
-			...this.usage(),
-			name: this.name,
-			readonly: this.attributes.has('no_write'),
-			noResizableBuffers: this.attributes.has('no_buffer_resize'),
-			noAsyncCache: this.attributes.has('no_async'),
-			features: Array.from(this.attributes.keys()),
-			type: this.id,
-		};
-	}
-	/* node:coverage enable */
-
 	public async ready(): Promise<void> {}
 
 	public abstract rename(oldPath: string, newPath: string): Promise<void>;
@@ -266,28 +195,14 @@ export abstract class FileSystem {
 	public abstract touchSync(path: string, metadata: Partial<InodeLike>): void;
 
 	/**
-	 * Opens the file at `path` with `flag`. The file must exist.
-	 * @param path The path to open.
-	 * @param flag The flag to use when opening the file.
+	 * Create the file at `path` with the given options.
 	 */
-	public abstract openFile(path: string, flag: string): Promise<File>;
+	public abstract createFile(path: string, options: CreationOptions): Promise<InodeLike>;
 
 	/**
-	 * Opens the file at `path` with `flag`. The file must exist.
-	 * @param path The path to open.
-	 * @param flag The flag to use when opening the file.
+	 * Create the file at `path` with the given options.
 	 */
-	public abstract openFileSync(path: string, flag: string): File;
-
-	/**
-	 * Create the file at `path` with the given options. Then, open it with `flag`.
-	 */
-	public abstract createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File>;
-
-	/**
-	 * Create the file at `path` with the given options. Then, open it with `flag`.
-	 */
-	public abstract createFileSync(path: string, flag: string, mode: number, options: CreationOptions): File;
+	public abstract createFileSync(path: string, options: CreationOptions): InodeLike;
 
 	public abstract unlink(path: string): Promise<void>;
 	public abstract unlinkSync(path: string): void;
@@ -297,8 +212,8 @@ export abstract class FileSystem {
 	public abstract rmdir(path: string): Promise<void>;
 	public abstract rmdirSync(path: string): void;
 
-	public abstract mkdir(path: string, mode: number, options: CreationOptions): Promise<void>;
-	public abstract mkdirSync(path: string, mode: number, options: CreationOptions): void;
+	public abstract mkdir(path: string, options: CreationOptions): Promise<InodeLike>;
+	public abstract mkdirSync(path: string, options: CreationOptions): InodeLike;
 
 	public abstract readdir(path: string): Promise<string[]>;
 	public abstract readdirSync(path: string): string[];

@@ -2,15 +2,16 @@ import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { Callback } from '../utils.js';
 import type { Dir, Dirent } from './dir.js';
+import type { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { R_OK } from './constants.js';
+import { deleteFD } from './file.js';
 import * as promises from './promises.js';
-import { fd2file, fdMap } from './shared.js';
-import { BigIntStats, Stats } from './stats.js';
+import { BigIntStats } from './stats.js';
 import { ReadStream, WriteStream, type ReadStreamOptions, type WriteStreamOptions } from './streams.js';
 import { FSWatcher, StatWatcher } from './watchers.js';
 
@@ -41,7 +42,7 @@ rename satisfies Omit<typeof fs.rename, '__promisify__'>;
 /**
  * Test whether or not `path` exists by checking with the file system.
  * Then call the callback argument with either true or false.
- * @deprecated Use {@link stat} or {@link access} instead.
+ * According to Node.js: deprecated Use {@link stat} or {@link access} instead.
  */
 export function exists(this: V_Context, path: fs.PathLike, cb: (exists: boolean) => unknown = nop): void {
 	promises.exists
@@ -257,21 +258,18 @@ export function fstat(
 ): void {
 	cb = typeof options == 'function' ? options : cb;
 
-	fd2file(fd)
+	new promises.FileHandle(this, fd)
 		.stat()
 		.then(stats =>
-			(cb as Callback<[Stats | BigIntStats]>)(
-				undefined,
-				typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : new Stats(stats)
-			)
+			(cb as Callback<[Stats | BigIntStats]>)(undefined, typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : stats)
 		)
 		.catch(cb);
 }
 fstat satisfies Omit<typeof fs.fstat, '__promisify__'>;
 
 export function close(this: V_Context, fd: number, cb: Callback = nop): void {
-	const close = fd2file(fd).close();
-	fdMap.delete(fd);
+	const close = new promises.FileHandle(this, fd).close();
+	deleteFD(this, fd);
 	close.then(() => cb()).catch(cb);
 }
 close satisfies Omit<typeof fs.close, '__promisify__'>;
@@ -281,7 +279,7 @@ export function ftruncate(this: V_Context, fd: number, len?: number, cb?: Callba
 export function ftruncate(this: V_Context, fd: number, lenOrCB?: number | Callback, cb: Callback = nop): void {
 	const length = typeof lenOrCB === 'number' ? lenOrCB : 0;
 	cb = typeof lenOrCB === 'function' ? lenOrCB : cb;
-	const file = fd2file(fd);
+	const file = new promises.FileHandle(this, fd);
 	if (length < 0) {
 		throw new ErrnoError(Errno.EINVAL);
 	}
@@ -292,7 +290,7 @@ export function ftruncate(this: V_Context, fd: number, lenOrCB?: number | Callba
 ftruncate satisfies Omit<typeof fs.ftruncate, '__promisify__'>;
 
 export function fsync(this: V_Context, fd: number, cb: Callback = nop): void {
-	fd2file(fd)
+	new promises.FileHandle(this, fd)
 		.sync()
 		.then(() => cb())
 		.catch(cb);
@@ -300,7 +298,7 @@ export function fsync(this: V_Context, fd: number, cb: Callback = nop): void {
 fsync satisfies Omit<typeof fs.fsync, '__promisify__'>;
 
 export function fdatasync(this: V_Context, fd: number, cb: Callback = nop): void {
-	fd2file(fd)
+	new promises.FileHandle(this, fd)
 		.datasync()
 		.then(() => cb())
 		.catch(cb);
@@ -347,7 +345,7 @@ export function write(
 	cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop
 ): void {
 	let buffer: Buffer, offset: number | undefined, length: number | undefined, position: number | undefined | null, encoding: BufferEncoding;
-	const handle = new promises.FileHandle(fd, this);
+	const handle = new promises.FileHandle(this, fd);
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]], cb?)
 		encoding = 'utf8';
@@ -413,7 +411,7 @@ export function read(
 	position?: number,
 	cb: Callback<[number, Uint8Array]> = nop
 ): void {
-	new promises.FileHandle(fd, this)
+	new promises.FileHandle(this, fd)
 		.read(buffer, offset, length, position)
 		.then(({ bytesRead, buffer }) => cb(undefined, bytesRead, buffer))
 		.catch(cb);
@@ -421,7 +419,7 @@ export function read(
 read satisfies Omit<typeof fs.read, '__promisify__'>;
 
 export function fchown(this: V_Context, fd: number, uid: number, gid: number, cb: Callback = nop): void {
-	new promises.FileHandle(fd, this)
+	new promises.FileHandle(this, fd)
 		.chown(uid, gid)
 		.then(() => cb())
 		.catch(cb);
@@ -429,7 +427,7 @@ export function fchown(this: V_Context, fd: number, uid: number, gid: number, cb
 fchown satisfies Omit<typeof fs.fchown, '__promisify__'>;
 
 export function fchmod(this: V_Context, fd: number, mode: string | number, cb: Callback): void {
-	new promises.FileHandle(fd, this)
+	new promises.FileHandle(this, fd)
 		.chmod(mode)
 		.then(() => cb())
 		.catch(cb);
@@ -440,7 +438,7 @@ fchmod satisfies Omit<typeof fs.fchmod, '__promisify__'>;
  * Change the file timestamps of a file referenced by the supplied file descriptor.
  */
 export function futimes(this: V_Context, fd: number, atime: number | Date, mtime: number | Date, cb: Callback = nop): void {
-	new promises.FileHandle(fd, this)
+	new promises.FileHandle(this, fd)
 		.utimes(atime, mtime)
 		.then(() => cb())
 		.catch(cb);
@@ -806,7 +804,7 @@ export function readv(this: V_Context, fd: number, buffers: NodeJS.ArrayBufferVi
 export function readv(this: V_Context, fd: number, buffers: NodeJS.ArrayBufferView[], position: number, cb: readvCb): void;
 export function readv(this: V_Context, fd: number, buffers: NodeJS.ArrayBufferView[], position: number | readvCb, cb: readvCb = nop): void {
 	cb = typeof position === 'function' ? position : cb;
-	new promises.FileHandle(fd, this)
+	new promises.FileHandle(this, fd)
 		.readv(buffers, typeof position === 'function' ? undefined : position)
 		.then(({ buffers, bytesRead }) => cb(undefined, bytesRead, buffers))
 		.catch(cb);
@@ -819,7 +817,7 @@ export function writev(this: V_Context, fd: number, buffers: Uint8Array[], cb: w
 export function writev(this: V_Context, fd: number, buffers: Uint8Array[], position: number, cb: writevCb): void;
 export function writev(this: V_Context, fd: number, buffers: Uint8Array[], position: number | writevCb, cb: writevCb = nop) {
 	cb = typeof position === 'function' ? position : cb;
-	new promises.FileHandle(fd, this)
+	new promises.FileHandle(this, fd)
 		.writev(buffers, typeof position === 'function' ? undefined : position)
 		.then(({ buffers, bytesWritten }) => cb(undefined, bytesWritten, buffers))
 		.catch(cb);

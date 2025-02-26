@@ -2,16 +2,16 @@
 import type { ExtractProperties } from 'utilium';
 import type { Inode, InodeLike } from '../..//internal/inode.js';
 import type { MountConfiguration } from '../../config.js';
-import type { File } from '../../internal/file.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 
 import { pick } from 'utilium';
 import { resolveMountConfig } from '../../config.js';
-import { Errno, ErrnoError } from '../../internal/error.js';
+import { ErrnoError } from '../../internal/error.js';
 import { FileSystem } from '../../internal/filesystem.js';
-import { err, info } from '../../internal/log.js';
+import { info } from '../../internal/log.js';
 import { Async } from '../../mixins/async.js';
+import { _fnOpt } from '../backend.js';
 import { InMemory } from '../memory.js';
 import * as RPC from './rpc.js';
 
@@ -38,7 +38,7 @@ export class PortFS extends Async(FileSystem) {
 	/**`
 	 * @hidden
 	 */
-	_sync = InMemory.create({ name: 'tmpfs:port' });
+	_sync = InMemory.create({ label: 'tmpfs:port' });
 
 	/**
 	 * Constructs a new PortFS instance that connects with the FS running on `options.port`.
@@ -78,12 +78,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('sync', path, data, stats);
 	}
 
-	public openFile(path: string, flag: string): Promise<File> {
-		return this.rpc('openFile', path, flag);
-	}
-
-	public createFile(path: string, flag: string, mode: number, options: CreationOptions): Promise<File> {
-		return this.rpc('createFile', path, flag, mode, options);
+	public createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+		return this.rpc('createFile', path, options);
 	}
 
 	public unlink(path: string): Promise<void> {
@@ -94,8 +90,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('rmdir', path);
 	}
 
-	public mkdir(path: string, mode: number, options: CreationOptions): Promise<void> {
-		return this.rpc('mkdir', path, mode, options);
+	public mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+		return this.rpc('mkdir', path, options);
 	}
 
 	public readdir(path: string): Promise<string[]> {
@@ -133,15 +129,6 @@ export async function handleRequest(port: RPC.Port, fs: FileSystem & { _descript
 		// @ts-expect-error 2556
 		value = await fs[method](...args);
 		switch (method) {
-			case 'openFile':
-			case 'createFile': {
-				value = {
-					path: args[0],
-					flag: args[1],
-					stats: await fs.stat(args[0]),
-				} satisfies RPC.FileData;
-				break;
-			}
 			case 'read':
 				value = args[1];
 				break;
@@ -166,14 +153,8 @@ const _Port = {
 	name: 'Port',
 	options: {
 		port: {
-			type: 'object',
+			type: _fnOpt('RPC.Port', (port: RPC.Port) => typeof port?.postMessage == 'function'),
 			required: true,
-			validator(port: RPC.Port) {
-				// Check for a `postMessage` function.
-				if (typeof port?.postMessage != 'function') {
-					throw err(new ErrnoError(Errno.EINVAL, 'option must be a port'));
-				}
-			},
 		},
 		timeout: { type: 'number', required: false },
 	},

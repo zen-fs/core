@@ -1,44 +1,16 @@
 // Utilities and shared data
 
 import type * as fs from 'node:fs';
-import type { File } from '../internal/file.js';
 import type { FileSystem } from '../internal/filesystem.js';
 import type { Stats } from './stats.js';
 
 import { InMemory } from '../backends/memory.js';
 import { bindContext, type BoundContext, type V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { alert, debug, err, info, log_deprecated, notice, warn } from '../internal/log.js';
+import { alert, debug, err, info, notice, warn } from '../internal/log.js';
 import { normalizePath } from '../utils.js';
 import { size_max } from './constants.js';
 import { join, resolve, type AbsolutePath } from './path.js';
-
-// descriptors
-
-/**
- * @internal @hidden
- */
-export const fdMap: Map<number, File> = new Map();
-let nextFd = 100;
-
-/**
- * @internal @hidden
- */
-export function file2fd(file: File): number {
-	const fd = nextFd++;
-	fdMap.set(fd, file);
-	return fd;
-}
-
-/**
- * @internal @hidden
- */
-export function fd2file(fd: number): File {
-	if (!fdMap.has(fd)) {
-		throw new ErrnoError(Errno.EBADF);
-	}
-	return fdMap.get(fd)!;
-}
 
 /**
  * @internal @hidden
@@ -53,7 +25,7 @@ export type MountObject = Record<AbsolutePath, FileSystem>;
 export const mounts: Map<string, FileSystem> = new Map();
 
 // Set a default root.
-mount('/', InMemory.create({ name: 'root' }));
+mount('/', InMemory.create({ label: 'root' }));
 
 /**
  * Mounts the file system at `mountPoint`.
@@ -156,21 +128,6 @@ export function fixError<E extends ErrnoError>(e: E, paths: Record<string, strin
 	if (e.path) e.path = fixPaths(e.path, paths);
 	return e;
 }
-
-/* node:coverage disable */
-/**
- * @internal @deprecated
- */
-export function mountObject(mounts: MountObject): void {
-	log_deprecated('mountObject');
-	if ('/' in mounts) {
-		umount('/');
-	}
-	for (const [point, fs] of Object.entries(mounts)) {
-		mount(point, fs);
-	}
-}
-/* node:coverage enable */
 
 /**
  * @internal @hidden
