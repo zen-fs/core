@@ -5,6 +5,7 @@ import type { Interface as ReadlineInterface } from 'node:readline';
 import type { Stream } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { V_Context } from '../context.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { ResolvedPath } from './shared.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
@@ -13,7 +14,7 @@ import { _throw, pick } from 'utilium';
 import { credentials } from '../internal/credentials.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
+import { isBlockDevice, isCharacterDevice } from '../internal/inode.js';
 import '../polyfills.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { config } from './config.js';
@@ -207,7 +208,7 @@ export class FileHandle implements promises.FileHandle {
 		this.stats.atimeMs = Date.now();
 
 		let end = position + length;
-		if (end > this.stats.size) {
+		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) {
 			end = position + Math.max(this.stats.size - position, 0);
 		}
 		this._position = end;
@@ -356,7 +357,7 @@ export class FileHandle implements promises.FileHandle {
 		const end = position + length;
 		const slice = buffer.subarray(offset, offset + length);
 
-		if (end > this.stats.size) this.stats.size = end;
+		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
 
 		this.stats.mtimeMs = Date.now();
 		this._position = position + slice.byteLength;

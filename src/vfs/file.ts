@@ -1,7 +1,7 @@
 import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
+import { isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
 import { config } from './config.js';
 import * as c from './constants.js';
@@ -258,7 +258,7 @@ export class SyncHandle {
 		const end = position + length;
 		const slice = buffer.subarray(offset, offset + length);
 
-		if (end > this.stats.size) this.stats.size = end;
+		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
 
 		this.stats.mtimeMs = Date.now();
 		this._position = position + slice.byteLength;
@@ -294,7 +294,7 @@ export class SyncHandle {
 		this.stats.atimeMs = Date.now();
 
 		let end = position + length;
-		if (end > this.stats.size) {
+		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) {
 			end = position + Math.max(this.stats.size - position, 0);
 		}
 		this._position = end;

@@ -2,15 +2,16 @@
 This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
 */
 
+import { omit } from 'utilium';
 import { InMemoryStore } from '../backends/memory.js';
 import { StoreFS } from '../backends/store/fs.js';
 import { decodeUTF8 } from '../utils.js';
-import { S_IFBLK, S_IFCHR } from '../vfs/constants.js';
+import { S_IFCHR } from '../vfs/constants.js';
 import { basename, dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from './error.js';
 import type { CreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
-import { alert, debug, err, info } from './log.js';
+import { debug, err, info } from './log.js';
 
 /**
  * A device
@@ -55,6 +56,7 @@ export interface DeviceInit<TData = any> {
 	minor?: number;
 	major?: number;
 	name?: string;
+	metadata?: Partial<InodeLike>;
 }
 
 /**
@@ -72,12 +74,6 @@ export interface DeviceDriver<TData = any> {
 	 * Note that if this is unset or false, auto-named devices will have a number suffix
 	 */
 	singleton?: boolean;
-
-	/**
-	 * Whether the device is buffered (a "block" device) or unbuffered (a "character" device)
-	 * @default false
-	 */
-	isBuffered?: boolean;
 
 	/**
 	 * Initializes a new device.
@@ -144,15 +140,18 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		const lastDev = Array.from(this.devices.values()).at(-1);
 		while (this.store.has(ino) || lastDev?.inode.ino == ino) ino++;
 
+		const init = driver.init?.(ino, options);
+
 		const dev = {
-			driver,
-			inode: new Inode({
-				mode: (driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666,
-			}),
 			data: {},
 			minor: 0,
 			major: 0,
-			...driver.init?.(ino, options),
+			...omit(init ?? {}, 'metadata'),
+			driver,
+			inode: new Inode({
+				mode: S_IFCHR | 0o666,
+				...init?.metadata,
+			}),
 		} satisfies Device;
 
 		const path = '/' + (dev.name || driver.name) + (driver.singleton ? '' : this.devicesWithDriver(driver).length);
