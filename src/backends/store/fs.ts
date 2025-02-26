@@ -1,8 +1,6 @@
 import { _throw, canary, serialize, sizeof } from 'utilium';
 import { extendBuffer } from 'utilium/buffer.js';
 import { Errno, ErrnoError } from '../../internal/error.js';
-import type { File } from '../../internal/file.js';
-import { LazyFile } from '../../internal/file.js';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, PureCreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
@@ -344,30 +342,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
 		options.mode |= S_IFREG;
-		const node = await this.commitNew(path, options, new Uint8Array(), 'createFile');
-		return new LazyFile(this, path, flag, node.toStats());
+		return await this.commitNew(path, options, new Uint8Array(), 'createFile');
 	}
 
-	public createFileSync(path: string, flag: string, options: CreationOptions): File {
+	public createFileSync(path: string, options: CreationOptions): InodeLike {
 		options.mode |= S_IFREG;
-		const node = this.commitNewSync(path, options, new Uint8Array(), 'createFile');
-		return new LazyFile(this, path, flag, node.toStats());
-	}
-
-	public async openFile(path: string, flag: string): Promise<File> {
-		await using tx = this.transaction();
-		const node = await this.findInode(tx, path, 'openFile');
-
-		return new LazyFile(this, path, flag, node.toStats());
-	}
-
-	public openFileSync(path: string, flag: string): File {
-		using tx = this.transaction();
-		const node = this.findInodeSync(tx, path, 'openFile');
-
-		return new LazyFile(this, path, flag, node.toStats());
+		return this.commitNewSync(path, options, new Uint8Array(), 'createFile');
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -392,14 +374,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this.removeSync(path, true);
 	}
 
-	public async mkdir(path: string, options: CreationOptions): Promise<void> {
+	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		options.mode |= S_IFDIR;
-		await this.commitNew(path, options, encodeUTF8('{}'), 'mkdir');
+		return await this.commitNew(path, options, encodeUTF8('{}'), 'mkdir');
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): void {
+	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		options.mode |= S_IFDIR;
-		this.commitNewSync(path, options, encodeUTF8('{}'), 'mkdir');
+		return this.commitNewSync(path, options, encodeUTF8('{}'), 'mkdir');
 	}
 
 	public async readdir(path: string): Promise<string[]> {

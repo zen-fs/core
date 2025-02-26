@@ -1,7 +1,6 @@
 import type { ConstMap } from 'utilium';
 import type { StatsLike } from '../vfs/stats.js';
 import type { ErrnoError } from './error.js';
-import type { File } from './file.js';
 import type { InodeLike } from './inode.js';
 
 /**
@@ -199,28 +198,14 @@ export abstract class FileSystem {
 	public abstract touchSync(path: string, metadata: Partial<InodeLike>): void;
 
 	/**
-	 * Opens the file at `path` with `flag`. The file must exist.
-	 * @param path The path to open.
-	 * @param flag The flag to use when opening the file.
+	 * Create the file at `path` with the given options.
 	 */
-	public abstract openFile(path: string, flag: string): Promise<File>;
+	public abstract createFile(path: string, options: CreationOptions): Promise<InodeLike>;
 
 	/**
-	 * Opens the file at `path` with `flag`. The file must exist.
-	 * @param path The path to open.
-	 * @param flag The flag to use when opening the file.
+	 * Create the file at `path` with the given options.
 	 */
-	public abstract openFileSync(path: string, flag: string): File;
-
-	/**
-	 * Create the file at `path` with the given options. Then, open it with `flag`.
-	 */
-	public abstract createFile(path: string, flag: string, options: CreationOptions): Promise<File>;
-
-	/**
-	 * Create the file at `path` with the given options. Then, open it with `flag`.
-	 */
-	public abstract createFileSync(path: string, flag: string, options: CreationOptions): File;
+	public abstract createFileSync(path: string, options: CreationOptions): InodeLike;
 
 	public abstract unlink(path: string): Promise<void>;
 	public abstract unlinkSync(path: string): void;
@@ -230,8 +215,8 @@ export abstract class FileSystem {
 	public abstract rmdir(path: string): Promise<void>;
 	public abstract rmdirSync(path: string): void;
 
-	public abstract mkdir(path: string, options: CreationOptions): Promise<void>;
-	public abstract mkdirSync(path: string, options: CreationOptions): void;
+	public abstract mkdir(path: string, options: CreationOptions): Promise<InodeLike>;
+	public abstract mkdirSync(path: string, options: CreationOptions): InodeLike;
 
 	public abstract readdir(path: string): Promise<string[]>;
 	public abstract readdirSync(path: string): string[];

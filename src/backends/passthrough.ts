@@ -1,12 +1,10 @@
 import type * as fs from 'node:fs';
 import type { Errno } from '../internal/error.js';
 import { ErrnoError } from '../internal/error.js';
-import { File, type FileReadResult } from '../internal/file.js';
-import type { UsageInfo, CreationOptions } from '../internal/filesystem.js';
+import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
+import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { join, resolve } from '../vfs/path.js';
-import { Stats } from '../vfs/stats.js';
 import type { Backend } from './backend.js';
 
 // Type for Node.js fs module
@@ -19,128 +17,6 @@ export type NodeFS = typeof fs;
 export interface PassthroughOptions {
 	fs: NodeFS;
 	prefix?: string;
-}
-
-class PassthroughFile extends File<PassthroughFS> {
-	protected node: NodeFS;
-	protected nodePath: string;
-
-	public constructor(
-		fs: PassthroughFS,
-		path: string,
-		public readonly fd: number
-	) {
-		super(fs, path);
-		this.node = fs.nodeFS;
-		this.nodePath = fs.path(path);
-	}
-
-	protected error(err: unknown): ErrnoError {
-		const error = err as NodeJS.ErrnoException;
-		return ErrnoError.With(error.code as keyof typeof Errno, this.path, error.syscall);
-	}
-
-	public get position(): number {
-		// Placeholder: Implement proper position tracking if needed.
-		return 0;
-	}
-
-	public async stat(): Promise<Stats> {
-		const { resolve, reject, promise } = Promise.withResolvers<Stats>();
-
-		this.node.fstat(this.fd, (err, stats) => (err ? reject(this.error(err)) : resolve(new Stats(stats))));
-
-		return promise;
-	}
-
-	public statSync(): Stats {
-		return new Stats(this.node.fstatSync(this.fd));
-	}
-
-	public close(): Promise<void> {
-		const { resolve, reject, promise } = Promise.withResolvers<void>();
-		this.node.close(this.fd, err => (err ? reject(this.error(err)) : resolve()));
-		return promise;
-	}
-
-	public closeSync(): void {
-		this.node.closeSync(this.fd);
-	}
-
-	public async truncate(len: number): Promise<void> {
-		await this.node.promises.truncate(this.nodePath, len);
-	}
-
-	public truncateSync(len: number): void {
-		this.node.ftruncateSync(this.fd, len);
-	}
-
-	public async sync(): Promise<void> {
-		const { resolve, reject, promise } = Promise.withResolvers<void>();
-		this.node.fsync(this.fd, err => (err ? reject(this.error(err)) : resolve()));
-		return promise;
-	}
-
-	public syncSync(): void {
-		this.node.fsyncSync(this.fd);
-	}
-
-	public async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
-		const { resolve, reject, promise } = Promise.withResolvers<number>();
-		this.node.write(this.fd, buffer, offset, length, position, (err, written) => (err ? reject(this.error(err)) : resolve(written)));
-		return promise;
-	}
-
-	public writeSync(buffer: Uint8Array, offset?: number, length?: number, position?: number): number {
-		return this.node.writeSync(this.fd, buffer, offset, length, position);
-	}
-
-	public async read<TBuffer extends ArrayBufferView>(
-		buffer: TBuffer & NodeJS.ArrayBufferView,
-		offset: number = 0,
-		length?: number,
-		position: number | null = null
-	): Promise<FileReadResult<TBuffer>> {
-		const { resolve, reject, promise } = Promise.withResolvers<{ bytesRead: number; buffer: TBuffer }>();
-
-		this.node.read(this.fd, buffer, offset, length || (await this.stat()).size, position, (err, bytesRead, buffer) =>
-			err ? reject(this.error(err)) : resolve({ bytesRead, buffer })
-		);
-		return promise;
-	}
-
-	public readSync(
-		buffer: ArrayBufferView & NodeJS.ArrayBufferView,
-		offset: number = 0,
-		length: number = this.statSync().size,
-		position: number | null = null
-	): number {
-		return this.node.readSync(this.fd, buffer, offset, length, position);
-	}
-
-	public async chmod(mode: number): Promise<void> {
-		await this.node.promises.chmod(this.nodePath, mode);
-	}
-
-	public chmodSync(mode: number): void {
-		this.node.fchmodSync(this.fd, mode);
-	}
-
-	public async chown(uid: number, gid: number): Promise<void> {
-		await this.node.promises.chown(this.nodePath, uid, gid);
-	}
-
-	public chownSync(uid: number, gid: number): void {
-		this.node.fchownSync(this.fd, uid, gid);
-	}
-
-	public async utimes(atime: number, mtime: number): Promise<void> {
-		await this.node.promises.utimes(this.nodePath, atime, mtime);
-	}
-
-	public utimesSync(atime: number, mtime: number): void {
-		this.node.futimesSync(this.fd, atime, mtime);
-	}
 }
 
 export class PassthroughFS extends FileSystem {
@@ -193,9 +69,9 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Get file statistics.
 	 */
-	public async stat(path: string): Promise<Stats> {
+	public async stat(path: string): Promise<InodeLike> {
 		try {
-			return new Stats(await this.nodeFS.promises.stat(this.path(path)));
+			return await this.nodeFS.promises.stat(this.path(path));
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -204,9 +80,9 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Get file statistics synchronously.
 	 */
-	public statSync(path: string): Stats {
+	public statSync(path: string): InodeLike {
 		try {
-			return new Stats(this.nodeFS.statSync(this.path(path)));
+			return this.nodeFS.statSync(this.path(path));
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -218,30 +94,6 @@ export class PassthroughFS extends FileSystem {
 
 	public touchSync(path: string, metadata: InodeLike): void {
 		throw ErrnoError.With('ENOSYS', path, 'touch');
-	}
-
-	/**
-	 * Open a file.
-	 */
-	public async openFile(path: string, flag: string): Promise<File> {
-		try {
-			const { fd } = await this.nodeFS.promises.open(this.path(path), flag);
-			return new PassthroughFile(this, path, fd);
-		} catch (err) {
-			this.error(err, path);
-		}
-	}
-
-	/**
-	 * Open a file synchronously.
-	 */
-	public openFileSync(path: string, flag: string): File {
-		try {
-			const fd = this.nodeFS.openSync(this.path(path), flag);
-			return new PassthroughFile(this, path, fd);
-		} catch (err) {
-			this.error(err, path);
-		}
 	}
 
 	/**
@@ -269,9 +121,10 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a directory.
 	 */
-	public async mkdir(path: string, options: CreationOptions): Promise<void> {
+	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		try {
 			await this.nodeFS.promises.mkdir(this.path(path), options);
+			return await this.nodeFS.promises.stat(this.path(path));
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -280,9 +133,10 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a directory synchronously.
 	 */
-	public mkdirSync(path: string, options: CreationOptions): void {
+	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		try {
 			this.nodeFS.mkdirSync(this.path(path), options);
+			return this.nodeFS.statSync(this.path(path));
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -313,10 +167,16 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a file.
 	 */
-	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
 		try {
-			const { fd } = await this.nodeFS.promises.open(this.path(path), flag, options.mode);
-			return new PassthroughFile(this, path, fd);
+			if (isDirectory(options)) {
+				await this.nodeFS.promises.mkdir(this.path(path), { mode: options.mode });
+			} else {
+				await using handle = await this.nodeFS.promises.open(this.path(path), 'wx');
+				await handle.close();
+			}
+
+			return await this.nodeFS.promises.stat(this.path(path));
 		} catch (err) {
 			this.error(err, path);
 		}
@@ -325,10 +185,15 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a file synchronously.
 	 */
-	public createFileSync(path: string, flag: string, options: CreationOptions): File {
+	public createFileSync(path: string, options: CreationOptions): InodeLike {
 		try {
-			const fd = this.nodeFS.openSync(this.path(path), flag, options.mode);
-			return new PassthroughFile(this, path, fd);
+			if (isDirectory(options)) {
+				this.nodeFS.mkdirSync(this.path(path), { mode: options.mode });
+			} else {
+				const fd = this.nodeFS.openSync(this.path(path), 'wx');
+				this.nodeFS.closeSync(fd);
+			}
+			return this.nodeFS.statSync(this.path(path));
 		} catch (err) {
 			this.error(err, path);
 		}

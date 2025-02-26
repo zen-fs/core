@@ -1,4 +1,3 @@
-import type { File } from '../internal/file.js';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Concrete } from '../utils.js';
@@ -160,32 +159,14 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		this._fs.touchSync(path, metadata);
 	}
 
-	public async openFile(path: string, flag: string): Promise<File> {
-		using _ = await this.lock(path, 'openFile');
-		const file = await this._fs.openFile(path, flag);
-		file.fs = this;
-		return file;
-	}
-
-	public openFileSync(path: string, flag: string): File {
-		using _ = this.lockSync(path, 'openFile');
-		const file = this._fs.openFileSync(path, flag);
-		file.fs = this;
-		return file;
-	}
-
-	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
 		using _ = await this.lock(path, 'createFile');
-		const file = await this._fs.createFile(path, flag, options);
-		file.fs = this;
-		return file;
+		return await this._fs.createFile(path, options);
 	}
 
-	public createFileSync(path: string, flag: string, options: CreationOptions): File {
+	public createFileSync(path: string, options: CreationOptions): InodeLike {
 		using _ = this.lockSync(path, 'createFile');
-		const file = this._fs.createFileSync(path, flag, options);
-		file.fs = this;
-		return file;
+		return this._fs.createFileSync(path, options);
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -208,12 +189,12 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, options: CreationOptions): Promise<void> {
+	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		using _ = await this.lock(path, 'mkdir');
-		await this._fs.mkdir(path, options);
+		return await this._fs.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): void {
+	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		using _ = this.lockSync(path, 'mkdir');
 		return this._fs.mkdirSync(path, options);
 	}

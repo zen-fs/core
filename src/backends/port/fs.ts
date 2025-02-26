@@ -2,7 +2,6 @@
 import type { ExtractProperties } from 'utilium';
 import type { Inode, InodeLike } from '../..//internal/inode.js';
 import type { MountConfiguration } from '../../config.js';
-import type { File } from '../../internal/file.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import type { Backend, FilesystemOf } from '../backend.js';
 
@@ -79,12 +78,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('sync', path, data, stats);
 	}
 
-	public openFile(path: string, flag: string): Promise<File> {
-		return this.rpc('openFile', path, flag);
-	}
-
-	public createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
-		return this.rpc('createFile', path, flag, options);
+	public createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+		return this.rpc('createFile', path, options);
 	}
 
 	public unlink(path: string): Promise<void> {
@@ -95,7 +90,7 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('rmdir', path);
 	}
 
-	public mkdir(path: string, options: CreationOptions): Promise<void> {
+	public mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		return this.rpc('mkdir', path, options);
 	}
 
@@ -134,15 +129,6 @@ export async function handleRequest(port: RPC.Port, fs: FileSystem & { _descript
 		// @ts-expect-error 2556
 		value = await fs[method](...args);
 		switch (method) {
-			case 'openFile':
-			case 'createFile': {
-				value = {
-					path: args[0],
-					flag: args[1],
-					stats: await fs.stat(args[0]),
-				} satisfies RPC.FileData;
-				break;
-			}
 			case 'read':
 				value = args[1];
 				break;

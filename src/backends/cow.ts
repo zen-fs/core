@@ -1,4 +1,3 @@
-import type { File } from '../internal/file.js';
 import type { CreationOptions, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Backend } from './backend.js';
@@ -7,7 +6,6 @@ import { EventEmitter } from 'eventemitter3';
 import { canary } from 'utilium';
 import { resolveMountConfig, type MountConfiguration } from '../config.js';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { LazyFile } from '../internal/file.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory } from '../internal/inode.js';
 import { debug, err, warn } from '../internal/log.js';
@@ -244,30 +242,14 @@ export class CopyOnWriteFS extends FileSystem {
 		this.writable.touchSync(path, metadata);
 	}
 
-	public async openFile(path: string, flag: string): Promise<File> {
-		if (await this.writable.exists(path)) {
-			return this.writable.openFile(path, flag);
-		}
-		const stats = await this.readable.stat(path);
-		return new LazyFile(this, path, flag, stats);
+	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+		await this.createParentDirectories(path);
+		return await this.writable.createFile(path, options);
 	}
 
-	public openFileSync(path: string, flag: string): File {
-		if (this.writable.existsSync(path)) {
-			return this.writable.openFileSync(path, flag);
-		}
-		const stats = this.readable.statSync(path);
-		return new LazyFile(this, path, flag, stats);
-	}
-
-	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
-		await this.writable.createFile(path, flag, options);
-		return this.openFile(path, flag);
-	}
-
-	public createFileSync(path: string, flag: string, options: CreationOptions): File {
-		this.writable.createFileSync(path, flag, options);
-		return this.openFileSync(path, flag);
+	public createFileSync(path: string, options: CreationOptions): InodeLike {
+		this.createParentDirectoriesSync(path);
+		return this.writable.createFileSync(path, options);
 	}
 
 	public async link(srcpath: string, dstpath: string): Promise<void> {
@@ -342,16 +324,16 @@ export class CopyOnWriteFS extends FileSystem {
 		this.journal.add('delete', path);
 	}
 
-	public async mkdir(path: string, options: CreationOptions): Promise<void> {
+	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		if (await this.exists(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
 		await this.createParentDirectories(path);
-		await this.writable.mkdir(path, options);
+		return await this.writable.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): void {
+	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		if (this.existsSync(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
 		this.createParentDirectoriesSync(path);
-		this.writable.mkdirSync(path, options);
+		return this.writable.mkdirSync(path, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -476,10 +458,10 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 
 		const data = new Uint8Array(stats.size);
-		using readable = this.readable.openFileSync(path, 'r');
-		readable.readSync(data);
-		using writable = this.writable.createFileSync(path, 'w', stats);
-		writable.writeSync(data);
+		this.readable.readSync(path, data, 0, data.byteLength);
+		this.writable.createFileSync(path, stats);
+		this.writable.touchSync(path, stats);
+		this.writable.writeSync(path, data, 0);
 	}
 
 	private async copyToWritable(path: string): Promise<void> {
@@ -495,8 +477,9 @@ export class CopyOnWriteFS extends FileSystem {
 
 		const data = new Uint8Array(stats.size);
 		await this.readable.read(path, data, 0, stats.size);
-		await using writable = await this.writable.createFile(path, 'w', stats);
-		await writable.write(data);
+		await this.writable.createFile(path, stats);
+		await this.writable.touch(path, stats);
+		await this.writable.write(path, data, 0);
 	}
 }
 

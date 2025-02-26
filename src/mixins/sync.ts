@@ -1,4 +1,3 @@
-import type { File } from '../internal/file.js';
 import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { AsyncFSMethods, Mixin } from './shared.js';
@@ -26,12 +25,8 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.touchSync(path, metadata);
 		}
 
-		public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
-			return this.createFileSync(path, flag, options);
-		}
-
-		public async openFile(path: string, flag: string): Promise<File> {
-			return this.openFileSync(path, flag);
+		public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+			return this.createFileSync(path, options);
 		}
 
 		public async unlink(path: string): Promise<void> {
@@ -42,7 +37,7 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.rmdirSync(path);
 		}
 
-		public async mkdir(path: string, options: CreationOptions): Promise<void> {
+		public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 			return this.mkdirSync(path, options);
 		}
 

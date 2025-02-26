@@ -8,8 +8,6 @@ import { decodeUTF8 } from '../utils.js';
 import { S_IFBLK, S_IFCHR } from '../vfs/constants.js';
 import { basename, dirname } from '../vfs/path.js';
 import { Errno, ErrnoError } from './error.js';
-import type { FileReadResult } from './file.js';
-import { File } from './file.js';
 import type { CreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
 import { alert, debug, err, info } from './log.js';
@@ -28,9 +26,9 @@ export interface Device<TData = any> {
 	driver: DeviceDriver<TData>;
 
 	/**
-	 * Which inode the device is assigned
+	 * Device metadata
 	 */
-	ino: number;
+	inode: Inode;
 
 	/**
 	 * Data associated with a device.
@@ -103,158 +101,16 @@ export interface DeviceDriver<TData = any> {
 	write(device: Device<TData>, buffer: Uint8Array, offset: number): void;
 
 	/**
-	 * Update a devices metadata
-	 */
-	touch?(device: Device<TData>, metadata: InodeLike): void;
-
-	/**
 	 * Sync the device
 	 * @group File operations
 	 */
-	sync?(file: DeviceFile<TData>): void;
+	sync?(device: Device<TData>): void;
 
 	/**
 	 * Close the device
 	 * @group File operations
 	 */
-	close?(file: DeviceFile<TData>): void;
-}
-
-/**
- * The base class for device files
- * This class only does some simple things:
- * It implements `truncate` using `write` and it has non-device methods throw.
- * It is up to device drivers to implement the rest of the functionality.
- * @category Internals
- * @internal
- */
-export class DeviceFile<TData = any> extends File {
-	public position = 0;
-
-	public constructor(
-		public fs: DeviceFS,
-		path: string,
-		public readonly device: Device<TData>
-	) {
-		super(fs, path);
-	}
-
-	public get driver(): DeviceDriver<TData> {
-		return this.device.driver;
-	}
-
-	protected stats = new Inode({
-		mode: (this.driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666,
-	});
-
-	public async stat(): Promise<InodeLike> {
-		return Promise.resolve(this.stats);
-	}
-
-	public statSync(): InodeLike {
-		return this.stats;
-	}
-
-	public readSync(
-		buffer: ArrayBufferView,
-		offset: number = 0,
-		length: number = buffer.byteLength - offset,
-		position: number = this.position
-	): number {
-		this.stats.atimeMs = Date.now();
-
-		const end = position + length;
-		this.position = end;
-
-		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-
-		this.driver.read(this.device, uint8.subarray(offset, length), position, end);
-
-		return length;
-	}
-
-	// eslint-disable-next-line @typescript-eslint/require-await
-	public async read<TBuffer extends ArrayBufferView>(buffer: TBuffer, offset?: number, length?: number): Promise<FileReadResult<TBuffer>> {
-		return { bytesRead: this.readSync(buffer, offset, length), buffer };
-	}
-
-	public writeSync(buffer: Uint8Array, offset = 0, length = buffer.byteLength - offset, position: number = this.position): number {
-		const end = position + length;
-
-		if (end > this.stats.size) this.stats.size = end;
-
-		this.stats.mtimeMs = Date.now();
-		this.position = end;
-
-		const data = buffer.subarray(offset, offset + length);
-
-		this.driver.write(this.device, data, position);
-
-		return length;
-	}
-
-	// eslint-disable-next-line @typescript-eslint/require-await
-	public async write(buffer: Uint8Array, offset?: number, length?: number, position?: number): Promise<number> {
-		return this.writeSync(buffer, offset, length, position);
-	}
-
-	public async truncate(length: number): Promise<void> {
-		const { size } = await this.stat();
-
-		const buffer = new Uint8Array(length > size ? length - size : 0);
-
-		await this.write(buffer, 0, buffer.length, length > size ? size : length);
-	}
-
-	public truncateSync(length: number): void {
-		const { size } = this.statSync();
-
-		const buffer = new Uint8Array(length > size ? length - size : 0);
-
-		this.writeSync(buffer, 0, buffer.length, length > size ? size : length);
-	}
-
-	public closeSync(): void {
-		this.driver.close?.(this);
-	}
-
-	public close(): Promise<void> {
-		this.closeSync();
-		return Promise.resolve();
-	}
-
-	public syncSync(): void {
-		this.driver.sync?.(this);
-	}
-
-	public sync(): Promise<void> {
-		this.syncSync();
-		return Promise.resolve();
-	}
-
-	public chown(): Promise<void> {
-		throw ErrnoError.With('ENOTSUP', this.path, 'chown');
-	}
-
-	public chownSync(): void {
-		throw ErrnoError.With('ENOTSUP', this.path, 'chown');
-	}
-
-	public chmod(): Promise<void> {
-		throw ErrnoError.With('ENOTSUP', this.path, 'chmod');
-	}
-
-	public chmodSync(): void {
-		throw ErrnoError.With('ENOTSUP', this.path, 'chmod');
-	}
-
-	public utimes(): Promise<void> {
-		throw ErrnoError.With('ENOTSUP', this.path, 'utimes');
-	}
-
-	public utimesSync(): void {
-		throw ErrnoError.With('ENOTSUP', this.path, 'utimes');
-	}
+	close?(file: Device<TData>): void;
 }
 
 /**
@@ -285,15 +141,20 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	 */
 	_createDevice<TData = any>(driver: DeviceDriver<TData>, options: object = {}): Device<TData | Record<string, never>> {
 		let ino = 1;
-		while (this.store.has(ino)) ino++;
+		const lastDev = Array.from(this.devices.values()).at(-1);
+		while (this.store.has(ino) || lastDev?.inode.ino == ino) ino++;
+
 		const dev = {
 			driver,
-			ino,
+			inode: new Inode({
+				mode: (driver.isBuffered ? S_IFBLK : S_IFCHR) | 0o666,
+			}),
 			data: {},
 			minor: 0,
 			major: 0,
 			...driver.init?.(ino, options),
-		};
+		} satisfies Device;
+
 		const path = '/' + (dev.name || driver.name) + (driver.singleton ? '' : this.devicesWithDriver(driver).length);
 
 		if (this.existsSync(path)) throw ErrnoError.With('EEXIST', path, 'mknod');
@@ -344,55 +205,37 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async stat(path: string): Promise<InodeLike> {
-		if (this.devices.has(path)) {
-			await using file = await this.openFile(path, 'r');
-			return file.stat();
-		}
+		const dev = this.devices.get(path);
+		if (dev) return dev.inode;
 		return super.stat(path);
 	}
 
 	public statSync(path: string): InodeLike {
-		if (this.devices.has(path)) {
-			using file = this.openFileSync(path, 'r');
-			return file.statSync();
-		}
+		const dev = this.devices.get(path);
+		if (dev) return dev.inode;
 		return super.statSync(path);
 	}
 
 	public async touch(path: string, metadata: InodeLike): Promise<void> {
 		const dev = this.devices.get(path);
-		if (dev) dev.driver.touch?.(dev, metadata);
+		if (dev) dev.inode.update(metadata);
 		else await super.touch(path, metadata);
 	}
 
 	public touchSync(path: string, metadata: InodeLike): void {
 		const dev = this.devices.get(path);
-		if (dev) dev.driver.touch?.(dev, metadata);
+		if (dev) dev.inode.update(metadata);
 		else super.touchSync(path, metadata);
 	}
 
-	public async openFile(path: string, flag: string): Promise<File> {
-		if (this.devices.has(path)) {
-			return new DeviceFile(this, path, this.devices.get(path)!);
-		}
-		return await super.openFile(path, flag);
-	}
-
-	public openFileSync(path: string, flag: string): File {
-		if (this.devices.has(path)) {
-			return new DeviceFile(this, path, this.devices.get(path)!);
-		}
-		return super.openFileSync(path, flag);
-	}
-
-	public async createFile(path: string, flag: string, options: CreationOptions): Promise<File> {
+	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
 		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'createFile');
-		return super.createFile(path, flag, options);
+		return super.createFile(path, options);
 	}
 
-	public createFileSync(path: string, flag: string, options: CreationOptions): File {
+	public createFileSync(path: string, options: CreationOptions): InodeLike {
 		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'createFile');
-		return super.createFileSync(path, flag, options);
+		return super.createFileSync(path, options);
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -417,12 +260,12 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, options: CreationOptions): Promise<void> {
+	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
 		return super.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): void {
+	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
 		return super.mkdirSync(path, options);
 	}
@@ -468,16 +311,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {
-		if (this.devices.has(path)) {
-			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'), { fs: this });
-		}
+		const device = this.devices.get(path);
+		if (device) return device.driver.sync?.(device);
 		return super.sync(path, data, stats);
 	}
 
 	public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
-		if (this.devices.has(path)) {
-			throw alert(new ErrnoError(Errno.EINVAL, 'Attempted to sync a device incorrectly (bug)', path, 'sync'), { fs: this });
-		}
+		const device = this.devices.get(path);
+		if (device) return device.driver.sync?.(device);
 		return super.syncSync(path, data, stats);
 	}
 
