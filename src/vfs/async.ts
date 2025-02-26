@@ -2,15 +2,16 @@ import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { Callback } from '../utils.js';
 import type { Dir, Dirent } from './dir.js';
+import type { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { R_OK } from './constants.js';
-import { fdMap } from './file.js';
+import { deleteFD } from './file.js';
 import * as promises from './promises.js';
-import { BigIntStats, Stats } from './stats.js';
+import { BigIntStats } from './stats.js';
 import { ReadStream, WriteStream, type ReadStreamOptions, type WriteStreamOptions } from './streams.js';
 import { FSWatcher, StatWatcher } from './watchers.js';
 
@@ -260,10 +261,7 @@ export function fstat(
 	new promises.FileHandle(this, fd)
 		.stat()
 		.then(stats =>
-			(cb as Callback<[Stats | BigIntStats]>)(
-				undefined,
-				typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : new Stats(stats)
-			)
+			(cb as Callback<[Stats | BigIntStats]>)(undefined, typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : stats)
 		)
 		.catch(cb);
 }
@@ -271,7 +269,7 @@ fstat satisfies Omit<typeof fs.fstat, '__promisify__'>;
 
 export function close(this: V_Context, fd: number, cb: Callback = nop): void {
 	const close = new promises.FileHandle(this, fd).close();
-	fdMap.delete(fd);
+	deleteFD(this, fd);
 	close.then(() => cb()).catch(cb);
 }
 close satisfies Omit<typeof fs.close, '__promisify__'>;

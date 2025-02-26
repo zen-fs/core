@@ -1,3 +1,4 @@
+import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
@@ -183,12 +184,10 @@ export class SyncHandle {
 	 * Note that, if contents is specified, it will be mutated by the file.
 	 */
 	public constructor(
-		/**
-		 * @internal
-		 * The file system that created the file
-		 */
-		public readonly fs: FileSystem,
+		public readonly context: V_Context,
 		public readonly path: string,
+		public readonly fs: FileSystem,
+		public readonly internalPath: string,
 		public readonly flag: string,
 		public readonly stats: InodeLike
 	) {}
@@ -202,7 +201,7 @@ export class SyncHandle {
 
 		if (!this.dirty) return;
 
-		if (!this.fs.attributes.has('no_write')) this.fs.syncSync(this.path, undefined, this.stats);
+		if (!this.fs.attributes.has('no_write')) this.fs.syncSync(this.internalPath, undefined, this.stats);
 		this.dirty = false;
 	}
 
@@ -277,7 +276,7 @@ export class SyncHandle {
 	 */
 	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		const slice = this.prepareWrite(buffer, offset, length, position);
-		this.fs.writeSync(this.path, slice, position);
+		this.fs.writeSync(this.internalPath, slice, position);
 		if (config.syncImmediately) this.syncSync();
 		return slice.byteLength;
 	}
@@ -319,7 +318,7 @@ export class SyncHandle {
 	): number {
 		const end = this.prepareRead(length, position);
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		this.fs.readSync(this.path, uint8.subarray(offset, offset + length), position, end);
+		this.fs.readSync(this.internalPath, uint8.subarray(offset, offset + length), position, end);
 		if (config.syncImmediately) this.syncSync();
 		return end - position;
 	}
@@ -354,39 +353,45 @@ export class SyncHandle {
 	 * Create a stream for reading the file.
 	 */
 	public streamRead(options: StreamOptions): ReadableStream {
-		return this.fs.streamRead(this.path, options);
+		return this.fs.streamRead(this.internalPath, options);
 	}
 
 	/**
 	 * Create a stream for writing the file.
 	 */
 	public streamWrite(options: StreamOptions): WritableStream {
-		return this.fs.streamWrite(this.path, options);
+		return this.fs.streamWrite(this.internalPath, options);
 	}
 }
 
 // descriptors
 
 /**
+ * A map of FDs that are not bound to a context.
  * @internal @hidden
  */
-export const fdMap = new Map<number, SyncHandle>();
-let nextFd = 100;
+const fdMap = new Map<number, SyncHandle>();
 
 /**
  * @internal @hidden
  */
 export function toFD(file: SyncHandle): number {
-	const fd = nextFd++;
-	fdMap.set(fd, file);
+	const map = file.context?.descriptors ?? fdMap;
+	const fd = map.size ? Math.max(...map.keys()) + 1 : 0;
+	map.set(fd, file);
 	return fd;
 }
 
 /**
  * @internal @hidden
  */
-export function fromFD(fd: number): SyncHandle {
-	const value = fdMap.get(fd);
+export function fromFD($: V_Context, fd: number): SyncHandle {
+	const map = $?.descriptors ?? fdMap;
+	const value = map.get(fd);
 	if (!value) throw new ErrnoError(Errno.EBADF);
 	return value;
+}
+
+export function deleteFD($: V_Context, fd: number): boolean {
+	return ($?.descriptors ?? fdMap).delete(fd);
 }

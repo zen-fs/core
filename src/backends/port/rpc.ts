@@ -112,7 +112,7 @@ export function handleResponse<const TResponse extends Response>(response: TResp
 		error.stack += stack;
 		throw error;
 	}
-	const { resolve, reject, fs } = executors.get(id)!;
+	const { resolve, reject } = executors.get(id)!;
 	if (error) {
 		const e = ErrnoError.fromJSON({ code: 'EIO', errno: Errno.EIO, ...value });
 		e.stack += stack;
