@@ -43,9 +43,6 @@ export interface UsageInfo {
  * @internal
  */
 export type FileSystemAttributes = {
-	/** The FS supports setuid and setgid when creating files and directories. */
-	setid: void;
-
 	/** If set, disables `PreloadFile` from using a resizable array buffer. */
 	no_buffer_resize: void;
 

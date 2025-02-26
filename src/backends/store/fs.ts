@@ -97,7 +97,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public constructor(protected readonly store: T) {
 		super(store.id ?? 0x6b766673, store.name);
-		this.attributes.set('setid');
 		store._fs = this;
 		debug(this.name + ': supports features: ' + this.store.flags?.join(', '));
 	}
@@ -718,12 +717,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Commit data.
 		const inode = new Inode({
+			...options,
 			ino: id,
 			data: id + 1,
-			mode: options.mode,
 			size: data.byteLength,
-			uid: parent.mode & S_ISUID ? parent.uid : options.uid,
-			gid: parent.mode & S_ISGID ? parent.gid : options.gid,
 		});
 
 		await tx.set(inode.ino, serialize(inode));
@@ -766,12 +763,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// Commit data.
 		const inode = new Inode({
+			...options,
 			ino: id,
 			data: id + 1,
-			mode: options.mode,
 			size: data.byteLength,
-			uid: parent.mode & S_ISUID ? parent.uid : options.uid,
-			gid: parent.mode & S_ISGID ? parent.gid : options.gid,
 		});
 
 		// Update and commit parent directory listing.
