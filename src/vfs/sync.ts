@@ -122,19 +122,6 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 }
 unlinkSync satisfies typeof fs.unlinkSync;
 
-/**
- * Manually apply setuid/setgid.
- */
-function applySetId(file: SyncHandle, uid: number, gid: number) {
-	if (file.fs.attributes.has('setid')) return;
-
-	const parent = file.fs.statSync(dirname(file.path));
-	file.chownSync(
-		parent.mode & constants.S_ISUID ? parent.uid : uid, // manually apply setuid/setgid
-		parent.mode & constants.S_ISGID ? parent.gid : gid
-	);
-}
-
 function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHandle {
 	path = normalizePath(path);
 	const mode = normalizeMode(opt.mode, 0o644),
