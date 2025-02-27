@@ -55,11 +55,12 @@ export class ReadStream extends Readable implements fs.ReadStream {
 	private _path = '<unknown>';
 	private _bytesRead = 0;
 	private reader?: ReadableStreamDefaultReader<Uint8Array>;
+	private ready: Promise<void>;
 
 	public constructor(opts: CreateReadStreamOptions = {}, handleOrPromise: FileHandle | Promise<FileHandle>) {
 		super({ ...opts, encoding: opts.encoding ?? undefined });
 
-		Promise.resolve(handleOrPromise)
+		this.ready = Promise.resolve(handleOrPromise)
 			.then(handle => {
 				this._path = handle.path;
 
@@ -67,12 +68,16 @@ export class ReadStream extends Readable implements fs.ReadStream {
 				this.reader = internal.getReader();
 				this.pending = false;
 			})
-			.catch(err => this.destroy(err));
+			.catch(err => {
+				this.destroy(err);
+			});
 	}
 
 	async _read(): Promise<void> {
-		if (!this.reader) return;
 		try {
+			await this.ready;
+			if (!this.reader) return;
+
 			const { done, value } = await this.reader.read();
 			if (done) {
 				this.push(null);
