@@ -55,36 +55,39 @@ export class ReadStream extends Readable implements fs.ReadStream {
 	private _path = '<unknown>';
 	private _bytesRead = 0;
 	private reader?: ReadableStreamDefaultReader<Uint8Array>;
+	private ready: Promise<void>;
 
 	public constructor(opts: CreateReadStreamOptions = {}, handleOrPromise: FileHandle | Promise<FileHandle>) {
 		super({ ...opts, encoding: opts.encoding ?? undefined });
 
-		Promise.resolve(handleOrPromise)
+		this.ready = Promise.resolve(handleOrPromise)
 			.then(handle => {
 				this._path = handle.path;
 
 				const internal = handle.readableWebStream({ start: opts.start, end: opts.end });
 				this.reader = internal.getReader();
 				this.pending = false;
-				return this._read();
 			})
-			.catch(err => this.destroy(err));
+			.catch(err => {
+				this.destroy(err);
+			});
 	}
 
 	async _read(): Promise<void> {
-		if (!this.reader) return;
+		try {
+			await this.ready;
+			if (!this.reader) return;
 
-		const { done, value } = await this.reader.read();
-
-		if (done) {
-			this.push(null);
-			return;
+			const { done, value } = await this.reader.read();
+			if (done) {
+				this.push(null);
+				return;
+			}
+			this._bytesRead += value.byteLength;
+			this.push(value);
+		} catch (err: any) {
+			this.destroy(new ErrnoError(Errno.EIO, err.toString()));
 		}
-
-		this._bytesRead += value.byteLength;
-		if (!this.push(value)) return;
-
-		await this._read();
 	}
 
 	close(callback: Callback<[void], null> = () => null): void {
