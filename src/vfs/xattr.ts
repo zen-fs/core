@@ -48,7 +48,7 @@ export async function get(
 	opt: Options & (BufferEncodingOption | { encoding?: null })
 ): Promise<Uint8Array>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): Promise<string>;
-export async function get(this: V_Context, path: string, name: Name, opt: Options): Promise<string | Uint8Array> {
+export async function get(this: V_Context, path: string, name: Name, opt: Options = {}): Promise<string | Uint8Array> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.get');
@@ -71,7 +71,7 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 
 export function getSync(this: V_Context, path: string, name: Name, opt: Options & (BufferEncodingOption | { encoding?: null })): Uint8Array;
 export function getSync(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): string;
-export function getSync(this: V_Context, path: string, name: Name, opt: Options): string | Uint8Array {
+export function getSync(this: V_Context, path: string, name: Name, opt: Options = {}): string | Uint8Array {
 	path = normalizePath(path);
 	checkName(this, name, path, 'xattr.get');
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -93,7 +93,7 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options)
 	}
 }
 
-export async function set(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions): Promise<void> {
+export async function set(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): Promise<void> {
 	path = normalizePath(path);
 	opt.flags ??= 0;
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -120,7 +120,7 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
 	}
 }
 
-export function setSync(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions): void {
+export function setSync(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): void {
 	path = normalizePath(path);
 	opt.flags ??= 0;
 	const { fs, path: resolved } = resolveMount(path, this);
