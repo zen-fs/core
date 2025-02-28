@@ -5,7 +5,7 @@ import { Errno, ErrnoError } from '../internal/error.js';
 import { normalizePath } from '../utils.js';
 import { fixError, resolveMount } from './shared.js';
 
-export const enum Flags {
+export enum Flags {
 	/* set value, fail if attr already exists */
 	CREATE = 0x01,
 	/* set value, fail if attr does not exist */
@@ -54,7 +54,9 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 	try {
 		const inode = await fs.stat(resolved);
 
-		if (!inode.attributes || !(name in inode.attributes)) {
+		inode.attributes ||= {};
+
+		if (!(name in inode.attributes)) {
 			throw ErrnoError.With('ENODATA', resolved, 'xattr.get');
 		}
 
@@ -77,7 +79,9 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 	try {
 		const inode = fs.statSync(resolved);
 
-		if (!inode.attributes || !(name in inode.attributes)) {
+		inode.attributes ||= {};
+
+		if (!(name in inode.attributes)) {
 			throw ErrnoError.With('ENODATA', resolved, 'xattr.get');
 		}
 

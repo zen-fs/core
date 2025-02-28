@@ -1,5 +1,5 @@
-import { deserialize, pick, randomInt, sizeof, struct, types as t } from 'utilium';
-import { decodeUTF8 } from '../utils.js';
+import { deserialize, pick, randomInt, serialize, sizeof, struct, types as t } from 'utilium';
+import { decodeUTF8, encodeUTF8 } from '../utils.js';
 import * as c from '../vfs/constants.js';
 import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
@@ -145,10 +145,26 @@ export class Inode implements InodeLike {
 			if (this[key] === data[key]) continue;
 
 			this[key] = data[key];
+
+			hasChanged = true;
+		}
+
+		if (data.attributes && JSON.stringify(this.attributes) !== JSON.stringify(data.attributes)) {
+			this.attributes = data.attributes;
+			this.attributes_size = encodeUTF8(JSON.stringify(this.attributes)).byteLength;
 			hasChanged = true;
 		}
 
 		return hasChanged;
+	}
+
+	public serialize(): Uint8Array {
+		const data = serialize(this);
+		const attr = encodeUTF8(JSON.stringify(this.attributes));
+		const buf = new Uint8Array(data.byteLength + attr.byteLength);
+		buf.set(data);
+		buf.set(attr, data.byteLength);
+		return buf;
 	}
 }
 
