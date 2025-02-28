@@ -12,9 +12,7 @@ export const enum Flags {
 	REPLACE = 0x02,
 }
 
-export type Namespace = 'user' | 'trusted' | 'system' | 'security';
-
-export type Name = `${Namespace}.${string}` | 'posix_acl_access' | 'posix_acl_default';
+export type Name = `${'user' | 'trusted' | 'system' | 'security'}.${string}`;
 
 export interface Options {
 	/**
