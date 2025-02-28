@@ -1,11 +1,10 @@
 import { deserialize, pick, randomInt, sizeof, struct, types as t } from 'utilium';
-import { Stats, type StatsLike } from '../vfs/stats.js';
-import { size_max } from '../vfs/constants.js';
-import { crit, debug, err, warn } from './log.js';
-import type { JSONPrimitive } from 'utilium';
 import { decodeUTF8 } from '../utils.js';
-import { Errno, ErrnoError } from './error.js';
 import * as c from '../vfs/constants.js';
+import { size_max } from '../vfs/constants.js';
+import { Stats, type StatsLike } from '../vfs/stats.js';
+import { Errno, ErrnoError } from './error.js';
+import { crit, debug, err, warn } from './log.js';
 
 /**
  * Root inode
@@ -13,7 +12,7 @@ import * as c from '../vfs/constants.js';
  */
 export const rootIno = 0;
 
-export type Attributes = Record<string, JSONPrimitive>;
+export type Attributes = Record<string, string>;
 
 /**
  * @internal @hidden

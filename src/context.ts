@@ -6,7 +6,8 @@ import type { SyncHandle } from './vfs/file.js';
 import * as fs from './vfs/index.js';
 
 type Fn_FS = ExtractProperties<typeof fs, (...args: any[]) => any>;
-type Fn_Promises = ExtractProperties<typeof fs.promises, (...args: any[]) => any>;
+type Fn_promises = ExtractProperties<typeof fs.promises, (...args: any[]) => any>;
+type Fn_xattr = ExtractProperties<typeof fs.xattr, (...args: any[]) => any>;
 
 /**
  * Binds a this value for all of the functions in an object (not recursive)
@@ -52,7 +53,16 @@ export function bindContext(root: string, credentials: CredentialInit = structur
 	} satisfies FSContext;
 
 	const fn_fs = _bindFunctions<Fn_FS>(fs, ctx);
-	const fn_promises = _bindFunctions<Fn_Promises>(fs.promises, ctx);
+	const fn_promises = _bindFunctions<Fn_promises>(fs.promises, ctx);
+	const fn_xattr = _bindFunctions<Fn_xattr>(fs.xattr, ctx);
 
-	return { ...ctx, fs: { ...fs, ...fn_fs, promises: { ...fs.promises, ...fn_promises } } };
+	return {
+		...ctx,
+		fs: {
+			...fs,
+			...fn_fs,
+			promises: { ...fs.promises, ...fn_promises },
+			xattr: { ...fs.xattr, ...fn_xattr },
+		},
+	};
 }
