@@ -4,7 +4,7 @@ import { ErrnoError } from '../internal/error.js';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
-import { join, resolve } from '../vfs/path.js';
+import { join, resolve } from '../path.js';
 import type { Backend } from './backend.js';
 
 // Type for Node.js fs module

@@ -21,7 +21,7 @@ import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import * as file from './file.js';
-import { dirname, join, parse, resolve } from './path.js';
+import { dirname, join, parse, resolve } from '../path.js';
 import { _statfs, fixError, resolveMount } from './shared.js';
 import { _chown, BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';

@@ -1,7 +1,7 @@
 import type * as fs from 'node:fs';
 import type { ClassLike, OptionalTuple } from 'utilium';
 import { Errno, ErrnoError } from './internal/error.js';
-import { resolve } from './vfs/path.js';
+import { resolve } from './path.js';
 
 declare global {
 	function atob(data: string): string;

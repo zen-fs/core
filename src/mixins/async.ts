@@ -6,7 +6,7 @@ import { StoreFS } from '../backends/store/fs.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { crit, debug, err } from '../internal/log.js';
-import { join } from '../vfs/path.js';
+import { join } from '../path.js';
 
 /**
  * @internal

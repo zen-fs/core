@@ -9,7 +9,7 @@ import { Errno, ErrnoError } from '../internal/error.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory } from '../internal/inode.js';
 import { debug, err, warn } from '../internal/log.js';
-import { dirname, join } from '../vfs/path.js';
+import { dirname, join } from '../path.js';
 
 /**
  * Configuration options for CoW.

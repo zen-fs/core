@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await */
 import { _throw } from 'utilium';
 import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../vfs/constants.js';
-import { dirname, join, relative } from '../vfs/path.js';
+import { dirname, join, relative } from '../path.js';
 import { ErrnoError } from './error.js';
 import { Index } from './file_index.js';
 import { FileSystem, type CreationOptions, type PureCreationOptions, type UsageInfo } from './filesystem.js';

@@ -7,7 +7,7 @@ import { InMemoryStore } from '../backends/memory.js';
 import { StoreFS } from '../backends/store/fs.js';
 import { decodeUTF8 } from '../utils.js';
 import { S_IFCHR } from '../vfs/constants.js';
-import { basename, dirname } from '../vfs/path.js';
+import { basename, dirname } from '../path.js';
 import { Errno, ErrnoError } from './error.js';
 import type { CreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';

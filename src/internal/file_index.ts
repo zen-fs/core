@@ -2,7 +2,7 @@
 
 import { isJSON, randomInt, sizeof } from 'utilium';
 import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
-import { basename, dirname } from '../vfs/path.js';
+import { basename, dirname } from '../path.js';
 import { Errno, ErrnoError } from './error.js';
 import type { InodeLike } from './inode.js';
 import { Inode } from './inode.js';

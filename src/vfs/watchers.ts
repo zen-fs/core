@@ -6,7 +6,7 @@ import { EventEmitter } from 'eventemitter3';
 import { ErrnoError } from '../internal/error.js';
 import { isStatsEqual, type Stats } from './stats.js';
 import { normalizePath } from '../utils.js';
-import { basename, dirname, join, relative } from './path.js';
+import { basename, dirname, join, relative } from '../path.js';
 import { statSync } from './sync.js';
 
 /**

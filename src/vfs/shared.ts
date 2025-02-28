@@ -10,7 +10,7 @@ import { Errno, ErrnoError } from '../internal/error.js';
 import { alert, debug, err, info, notice, warn } from '../internal/log.js';
 import { normalizePath } from '../utils.js';
 import { size_max } from './constants.js';
-import { join, resolve, type AbsolutePath } from './path.js';
+import { join, resolve, type AbsolutePath } from '../path.js';
 
 /**
  * @internal @hidden

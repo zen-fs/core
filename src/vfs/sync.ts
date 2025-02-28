@@ -13,7 +13,7 @@ import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from './file.js';
-import { dirname, join, parse, resolve } from './path.js';
+import { dirname, join, parse, resolve } from '../path.js';
 import { _statfs, fixError, resolveMount } from './shared.js';
 import { BigIntStats } from './stats.js';
 import { emitChange } from './watchers.js';

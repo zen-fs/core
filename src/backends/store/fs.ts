@@ -8,7 +8,7 @@ import { Inode, rootIno, type InodeLike } from '../../internal/inode.js';
 import { crit, debug, err, notice, warn } from '../../internal/log.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, size_max } from '../../vfs/constants.js';
-import { basename, dirname, join, parse, relative } from '../../vfs/path.js';
+import { basename, dirname, join, parse, relative } from '../../path.js';
 import { WrappedTransaction, type Store } from './store.js';
 
 /**
