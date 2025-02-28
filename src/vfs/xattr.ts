@@ -5,8 +5,21 @@ import { Errno, ErrnoError } from '../internal/error.js';
 import { normalizePath } from '../utils.js';
 import { fixError, resolveMount } from './shared.js';
 
+/**
+ * Extended attribute name with namespace prefix.
+ * Format is namespace.attributename where namespace is one of:
+ * - user: User attributes
+ * - trusted: Trusted attributes (privileged)
+ * - system: System attributes
+ * - security: Security attributes
+ *
+ * Note: Currently only the 'user' namespace is supported.
+ */
 export type Name = `${'user' | 'trusted' | 'system' | 'security'}.${string}`;
 
+/**
+ * Options for xattr operations.
+ */
 export interface Options {
 	/**
 	 * If true, don't follow symlinks.
@@ -14,10 +27,19 @@ export interface Options {
 	 */
 	noFollow?: boolean;
 
-	/** Encoding */
+	/**
+	 * Encoding for attribute values.
+	 * If 'buffer' or undefined, the value is returned as a Buffer.
+	 * Otherwise, the value is returned as a string using the specified encoding.
+	 * @default undefined
+	 */
 	encoding?: BufferEncoding | 'buffer';
 }
 
+/**
+ * Options for setting extended attributes.
+ * Extends the base Options with additional flags for create/replace behavior.
+ */
 export interface SetOptions extends Options {
 	/**
 	 * If true, fail if the attribute already exists.
@@ -41,6 +63,14 @@ function checkName($: V_Context, name: Name, path: string, syscall: string): voi
 	if (!name.startsWith('user.')) throw new ErrnoError(Errno.EPERM, 'Only attributes in the user namespace are supported', path, syscall);
 }
 
+/**
+ * Gets the value of an extended attribute.
+ *
+ * @param path Path to the file
+ * @param name Name of the attribute to get
+ * @param opt Options for the operation
+ * @returns A buffer containing the attribute value when encoding is 'buffer' or undefined, or a string when a string encoding is specified
+ */
 export async function get(
 	this: V_Context,
 	path: string,
@@ -71,6 +101,14 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 	}
 }
 
+/**
+ * Synchronously gets the value of an extended attribute.
+ *
+ * @param path Path to the file
+ * @param name Name of the attribute to get
+ * @param opt Options for the operation
+ * @returns A buffer containing the attribute value when encoding is 'buffer' or undefined, or a string when a string encoding is specified
+ */
 export function getSync(this: V_Context, path: string, name: Name, opt: Options & (BufferEncodingOption | { encoding?: null })): Uint8Array;
 export function getSync(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): string;
 export function getSync(this: V_Context, path: string, name: Name, opt: Options = {}): string | Uint8Array {
@@ -97,6 +135,14 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 	}
 }
 
+/**
+ * Sets the value of an extended attribute.
+ *
+ * @param path Path to the file
+ * @param name Name of the attribute to set
+ * @param value Value to set
+ * @param opt Options for the operation
+ */
 export async function set(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -123,6 +169,14 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
 	}
 }
 
+/**
+ * Synchronously sets the value of an extended attribute.
+ *
+ * @param path Path to the file
+ * @param name Name of the attribute to set
+ * @param value Value to set
+ * @param opt Options for the operation
+ */
 export function setSync(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -150,6 +204,12 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
 	}
 }
 
+/**
+ * Removes an extended attribute from a file.
+ *
+ * @param path Path to the file
+ * @param name Name of the attribute to remove
+ */
 export async function remove(this: V_Context, path: string, name: Name): Promise<void> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -171,6 +231,12 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
 	}
 }
 
+/**
+ * Synchronously removes an extended attribute from a file.
+ *
+ * @param path Path to the file
+ * @param name Name of the attribute to remove
+ */
 export function removeSync(this: V_Context, path: string, name: Name): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -192,6 +258,12 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
 	}
 }
 
+/**
+ * Lists all extended attributes of a file.
+ *
+ * @param path Path to the file
+ * @returns Array of attribute names
+ */
 export async function list(this: V_Context, path: string): Promise<Name[]> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -207,6 +279,12 @@ export async function list(this: V_Context, path: string): Promise<Name[]> {
 	}
 }
 
+/**
+ * Synchronously lists all extended attributes of a file.
+ *
+ * @param path Path to the file
+ * @returns Array of attribute names
+ */
 export function listSync(this: V_Context, path: string): Name[] {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
