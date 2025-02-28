@@ -59,7 +59,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 
 	const { backend } = configuration;
 
-	if (typeof backend.isAvailable == 'function' && !(await backend.isAvailable())) {
+	if (typeof backend.isAvailable == 'function' && !(await backend.isAvailable(configuration))) {
 		throw err(new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name));
 	}
 

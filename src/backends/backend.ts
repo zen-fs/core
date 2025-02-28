@@ -79,7 +79,7 @@ export interface Backend<FS extends FileSystem = FileSystem, TOptions extends ob
 	 * 'false' if the API is unavailable
 	 *
 	 */
-	isAvailable?(): boolean | Promise<boolean>;
+	isAvailable?(config: TOptions): boolean | Promise<boolean>;
 }
 
 /**
