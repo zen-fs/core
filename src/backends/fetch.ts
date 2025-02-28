@@ -64,6 +64,7 @@ export interface FetchOptions extends SharedConfig {
 
 /**
  * A simple filesystem backed by HTTP using the `fetch` API.
+ * @category Internals
  * @internal
  */
 export class FetchFS extends IndexFS {

@@ -116,6 +116,8 @@ export interface PureCreationOptions extends CreationOptions {
 }
 
 /**
+ * Options for streaming operations
+ * @category Internals
  * @internal
  */
 export interface StreamOptions {

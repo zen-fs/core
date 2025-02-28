@@ -329,6 +329,10 @@ const _Passthrough = {
 
 type _Passthrough = typeof _Passthrough;
 
+/**
+ * A file system that passes through to another FS
+ * @category Backends and Configuration
+ */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Passthrough extends _Passthrough {}
 

@@ -29,6 +29,7 @@ export interface CopyOnWriteOptions {
 const journalOperations = ['delete'] as const;
 
 /**
+ * @category Internals
  * @internal
  */
 export type JournalOperation = (typeof journalOperations)[number];
@@ -41,6 +42,7 @@ function isJournalOp(op: string): op is JournalOperation {
 const maxOpLength = Math.max(...journalOperations.map(op => op.length));
 
 /**
+ * @category Internals
  * @internal
  */
 export interface JournalEntry {
@@ -52,6 +54,7 @@ const journalMagicString = '#journal@v0\n';
 
 /**
  * Tracks various operations for the CoW backend
+ * @category Internals
  * @internal
  */
 export class Journal extends EventEmitter<{
@@ -117,6 +120,7 @@ export class Journal extends EventEmitter<{
 /**
  * Using a readable file system as a base, writes are done to a writable file system.
  * @internal
+ * @category Internals
  */
 export class CopyOnWriteFS extends FileSystem {
 	async ready(): Promise<void> {
@@ -498,6 +502,11 @@ const _CopyOnWrite = {
 } as const satisfies Backend<CopyOnWriteFS, CopyOnWriteOptions>;
 type _CopyOnWrite = typeof _CopyOnWrite;
 
+/**
+ * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.
+ * Deletes are persisted via metadata stored on the writable file system.
+ * @category Backends and Configuration
+ */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CopyOnWrite extends _CopyOnWrite {}
 /**

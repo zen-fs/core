@@ -31,6 +31,8 @@ export type FSRequest<TMethod extends FSMethod = FSMethod> = RPC.Message
  *
  * Note that *direct* synchronous operations are not permitted on the PortFS,
  * regardless of the configuration option of the remote FS.
+ * @category Internals
+ * @internal
  */
 export class PortFS extends Async(FileSystem) {
 	public readonly port: RPC.Port;
@@ -163,6 +165,10 @@ const _Port = {
 	},
 } satisfies Backend<PortFS, RPC.Options>;
 type _Port = typeof _Port;
+
+/**
+ * @category Backends and Configuration
+ */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface Port extends _Port {}
 
