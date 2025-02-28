@@ -3,8 +3,6 @@ import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
-const { Flags } = fs.xattr;
-
 suite('Extended Attributes', () => {
 	const testFile = 'xattr-test.txt';
 	const testValue = 'test value';
@@ -51,24 +49,24 @@ suite('Extended Attributes', () => {
 		assert(attrs.includes('user.list2'));
 	});
 
-	test('handle create and replace flags', async () => {
+	test('handle create and replace options', async () => {
 		const flagTestName = 'user.flag-test';
 
-		await fs.xattr.set(testFile, flagTestName, 'original', { flags: Flags.CREATE });
+		await fs.xattr.set(testFile, flagTestName, 'original', { create: true });
 
 		try {
-			await fs.xattr.set(testFile, flagTestName, 'new value', { flags: Flags.CREATE });
+			await fs.xattr.set(testFile, flagTestName, 'new value', { create: true });
 			assert.fail('Should have thrown EEXIST error');
 		} catch (err: any) {
 			assert.equal(err.code, 'EEXIST');
 		}
 
-		await fs.xattr.set(testFile, flagTestName, 'updated', { flags: Flags.REPLACE });
+		await fs.xattr.set(testFile, flagTestName, 'updated', { replace: true });
 		const value = await fs.xattr.get(testFile, flagTestName, { encoding: 'utf8' });
 		assert.equal(value, 'updated');
 
 		try {
-			await fs.xattr.set(testFile, 'user.nonexistent', 'value', { flags: Flags.REPLACE });
+			await fs.xattr.set(testFile, 'user.nonexistent', 'value', { replace: true });
 			assert.fail('Should have thrown ENODATA error');
 		} catch (err: any) {
 			assert.equal(err.code, 'ENODATA');

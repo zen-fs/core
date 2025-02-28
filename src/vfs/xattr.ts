@@ -5,13 +5,6 @@ import { Errno, ErrnoError } from '../internal/error.js';
 import { normalizePath } from '../utils.js';
 import { fixError, resolveMount } from './shared.js';
 
-export enum Flags {
-	/* set value, fail if attr already exists */
-	CREATE = 0x01,
-	/* set value, fail if attr does not exist */
-	REPLACE = 0x02,
-}
-
 export type Name = `${'user' | 'trusted' | 'system' | 'security'}.${string}`;
 
 export interface Options {
@@ -26,8 +19,17 @@ export interface Options {
 }
 
 export interface SetOptions extends Options {
-	/** Flags */
-	flags?: number;
+	/**
+	 * If true, fail if the attribute already exists.
+	 * @default false
+	 */
+	create?: boolean;
+
+	/**
+	 * If true, fail if the attribute does not exist.
+	 * @default false
+	 */
+	replace?: boolean;
 }
 
 /**
@@ -97,7 +99,6 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 
 export async function set(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): Promise<void> {
 	path = normalizePath(path);
-	opt.flags ??= 0;
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	checkName(this, name, path, 'xattr.set');
@@ -106,11 +107,11 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
 
 		inode.attributes ||= {};
 
-		if (opt.flags & Flags.CREATE && name in inode.attributes) {
+		if (opt.create && name in inode.attributes) {
 			throw ErrnoError.With('EEXIST', resolved, 'xattr.set');
 		}
 
-		if (opt.flags & Flags.REPLACE && !(name in inode.attributes)) {
+		if (opt.replace && !(name in inode.attributes)) {
 			throw ErrnoError.With('ENODATA', resolved, 'xattr.set');
 		}
 
@@ -124,7 +125,6 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
 
 export function setSync(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): void {
 	path = normalizePath(path);
-	opt.flags ??= 0;
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	checkName(this, name, path, 'xattr.set');
@@ -134,11 +134,11 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
 
 		inode.attributes ||= {};
 
-		if (opt.flags & Flags.CREATE && name in inode.attributes) {
+		if (opt.create && name in inode.attributes) {
 			throw ErrnoError.With('EEXIST', resolved, 'xattr.set');
 		}
 
-		if (opt.flags & Flags.REPLACE && !(name in inode.attributes)) {
+		if (opt.replace && !(name in inode.attributes)) {
 			throw ErrnoError.With('ENODATA', resolved, 'xattr.set');
 		}
 
