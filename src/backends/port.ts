@@ -13,6 +13,7 @@ import { Errno, ErrnoError } from '../internal/error.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { err, info } from '../internal/log.js';
 import { Async } from '../mixins/async.js';
+import '../polyfills.js';
 import { _fnOpt } from './backend.js';
 import { InMemory } from './memory.js';
 
