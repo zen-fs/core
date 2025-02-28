@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { MessageChannel, Worker } from 'node:worker_threads';
-import { Port, attachFS } from '../../dist/backends/port/fs.js';
-import { waitOnline } from '../../dist/backends/port/rpc.js';
+import { Port, attachFS, waitOnline } from '../../dist/backends/port.js';
 import type { InMemoryStore, StoreFS } from '../../dist/index.js';
 import { InMemory, configure, configureSingle, fs, resolveMountConfig } from '../../dist/index.js';
 

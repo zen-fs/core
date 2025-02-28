@@ -3,7 +3,7 @@ export * from './cow.js';
 export * from './fetch.js';
 export * from './memory.js';
 export * from './passthrough.js';
-export * from './port/fs.js';
+export * from './port.js';
 export * from './single_buffer.js';
 export * from './store/fs.js';
 export * from './store/map.js';
