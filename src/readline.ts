@@ -746,4 +746,4 @@ export function emitKeypressEvents(stream: NodeJS.ReadableStream, readlineInterf
 		}
 	});
 }
-emitKeypressEvents satisfies typeof readline.node_emit;
+emitKeypressEvents satisfies typeof readline.emitKeypressEvents;
