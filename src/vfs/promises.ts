@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
-import type { Interface as ReadlineInterface } from 'node:readline';
 import type { Stream } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { V_Context } from '../context.js';
 import type { InodeLike } from '../internal/inode.js';
+import type { Interface as ReadlineInterface } from '../readline.js';
 import type { ResolvedPath } from './shared.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
@@ -15,13 +15,14 @@ import { credentials } from '../internal/credentials.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { isBlockDevice, isCharacterDevice } from '../internal/inode.js';
+import { dirname, join, parse, resolve } from '../path.js';
 import '../polyfills.js';
+import { createInterface } from '../readline.js';
 import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import * as file from './file.js';
-import { dirname, join, parse, resolve } from '../path.js';
 import { _statfs, fixError, resolveMount } from './shared.js';
 import { _chown, BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';
@@ -321,10 +322,18 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	/**
-	 * @todo Implement
+	 * Creates a readline Interface object that allows reading the file line by line
+	 * @param options Options for creating a read stream
+	 * @returns A readline interface for reading the file line by line
 	 */
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
-		throw ErrnoError.With('ENOSYS', this.path, 'FileHandle.readLines');
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'readLines');
+
+		if (!file.isReadable(this.flag)) {
+			throw ErrnoError.With('EBADF', this.path, 'readLines');
+		}
+
+		return createInterface({ input: this.createReadStream(options), crlfDelay: Infinity });
 	}
 
 	public [Symbol.asyncDispose](): Promise<void> {
@@ -711,7 +720,7 @@ export async function readFile(
 	path: fs.PathLike | promises.FileHandle,
 	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
 ): Promise<Buffer | string> {
-	const options = normalizeOptions(_options, null, 'r', 0o644);
+	const options = normalizeOptions(_options, null, 'r', 0o444);
 	await using handle: FileHandle =
 		typeof path == 'object' && 'fd' in path ? (path as FileHandle) : await open.call(this, path, options.flag, options.mode);
 	return await handle.readFile(options);
