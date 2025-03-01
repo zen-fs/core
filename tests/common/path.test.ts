@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { basename, dirname, extname, join, normalize, resolve } from '../../dist/vfs/path.js';
+import { basename, dirname, extname, join, normalize, resolve } from '../../dist/path.js';
 import * as fs from '../../dist/vfs/index.js';
 
 suite('Path emulation', () => {

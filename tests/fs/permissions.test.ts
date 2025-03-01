@@ -3,7 +3,7 @@ import { suite, test } from 'node:test';
 import { credentials, ErrnoError } from '../../dist/index.js';
 import { encodeUTF8 } from '../../dist/utils.js';
 import { R_OK, W_OK, X_OK } from '../../dist/vfs/constants.js';
-import { join } from '../../dist/vfs/path.js';
+import { join } from '../../dist/path.js';
 import { fs } from '../common.js';
 
 const asyncMode = 0o777;

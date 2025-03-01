@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { join } from '../../dist/vfs/path.js';
+import { join } from '../../dist/path.js';
 import { fs } from '../common.js';
 import type { ErrnoError } from '../../dist/index.js';
 
