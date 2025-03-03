@@ -1,25 +1,22 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
+import { wait } from 'utilium';
+import { Interface as ReadlineInterface } from '../../dist/readline.js';
 import { constants, type FileHandle, open } from '../../dist/vfs/promises.js';
 
 const content = 'The cake is a lie',
 	appended = '\nAnother lie';
 
+await using handle: FileHandle = await open('./test.txt', 'w+');
+
 await suite('FileHandle', () => {
-	let handle: FileHandle;
-	const filePath = './test.txt';
-
-	test('open', async () => {
-		handle = await open(filePath, 'w+');
-	});
-
 	test('writeFile', async () => {
 		await handle.writeFile(content);
 		await handle.sync();
 	});
 
 	test('readFile', async () => {
-		assert((await handle.readFile('utf8')) === content);
+		assert.equal(await handle.readFile('utf8'), content);
 	});
 
 	test('appendFile', async () => {
@@ -27,12 +24,12 @@ await suite('FileHandle', () => {
 	});
 
 	test('readFile after appendFile', async () => {
-		assert((await handle.readFile({ encoding: 'utf8' })) === content + appended);
+		assert.equal(await handle.readFile({ encoding: 'utf8' }), content + appended);
 	});
 
 	test('truncate', async () => {
 		await handle.truncate(5);
-		assert((await handle.readFile({ encoding: 'utf8' })) === content.slice(0, 5));
+		assert.equal(await handle.readFile({ encoding: 'utf8' }), content.slice(0, 5));
 	});
 
 	test('stat', async () => {
@@ -54,7 +51,18 @@ await suite('FileHandle', () => {
 		assert.equal(stats.gid, 5678);
 	});
 
-	test('close', async () => {
-		await handle.close();
+	test('readLines', async () => {
+		await handle.writeFile('first line\nsecond line\nthird line');
+
+		await using rl = handle.readLines();
+
+		assert.ok(rl instanceof ReadlineInterface, 'Should return a ReadlineInterface instance');
+
+		const lines: string[] = [];
+		rl.on('line', (line: string) => lines.push(line));
+
+		await wait(50);
+
+		assert.deepEqual(lines, ['first line', 'second line', 'third line'], 'Should read all lines correctly');
 	});
 });
