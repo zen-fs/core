@@ -76,7 +76,19 @@ function _messageString(msg: { toString(): string } | ErrnoError, options: LogSh
 
 	const mountPoint = typeof options.fs == 'string' ? options.fs : (options.fs?._mountPoint ?? '<unknown>');
 
-	return beforePath + ': ' + join(mountPoint, msg.path);
+	return (
+		beforePath
+		+ ': '
+		+ join(mountPoint, msg.path)
+		+ (includeStack
+			? '\n'
+				+ msg.stack
+					.split('\n')
+					.map(line => '\t' + line)
+					.slice(1)
+					.join('\n')
+			: '')
+	);
 }
 
 function _shortcut(level: Level) {
@@ -123,119 +135,113 @@ function ansi(text: string, format: string): string {
 	return `\x1b[${format}m${text}\x1b[0m`;
 }
 
-function _prettyMs(entry: Entry, style: 'css'): string[];
-function _prettyMs(entry: Entry, style?: 'ansi'): string;
-function _prettyMs(entry: Entry, style?: 'ansi' | 'css') {
+function _prettyMs(entry: Entry, style?: 'ansi' | 'css'): string[] {
 	const text = '[' + (entry.elapsedMs / 1000).toFixed(3).padStart(10) + '] ';
 
 	switch (style) {
 		case 'ansi':
-			return ansi(text, '2;37');
+			return [ansi(text, '2;37')];
 		case 'css':
 			return ['%c' + text, 'opacity: 0.8; color: white;'];
 		default:
-			return text;
+			return [text];
 	}
 }
 
-const _ansiLevelColor: Record<Level, string> = {
-	[Level.EMERG]: '1;4;37;41',
-	[Level.ALERT]: '1;37;41',
-	[Level.CRIT]: '1;35',
-	[Level.ERR]: '1;31',
-	[Level.WARN]: '1;33',
-	[Level.NOTICE]: '1;36',
-	[Level.INFO]: '1;37',
-	[Level.DEBUG]: '0;2;37',
+const levelColor = {
+	ansi: {
+		[Level.EMERG]: '1;4;37;41',
+		[Level.ALERT]: '1;37;41',
+		[Level.CRIT]: '1;35',
+		[Level.ERR]: '1;31',
+		[Level.WARN]: '1;33',
+		[Level.NOTICE]: '1;36',
+		[Level.INFO]: '1;37',
+		[Level.DEBUG]: '0;2;37',
+	},
+	css: {
+		[Level.EMERG]: 'font-weight: bold; text-decoration: underline; color: white; background-color: red;',
+		[Level.ALERT]: 'font-weight: bold; color: white; background-color: red;',
+		[Level.CRIT]: 'font-weight: bold; color: magenta;',
+		[Level.ERR]: 'font-weight: bold; color: red;',
+		[Level.WARN]: 'font-weight: bold; color: yellow;',
+		[Level.NOTICE]: 'font-weight: bold; color: cyan;',
+		[Level.INFO]: 'font-weight: bold; color: white;',
+		[Level.DEBUG]: 'opacity: 0.8; color: white;',
+	},
 };
 
-const _ansiMessageColor: Record<Level, string> = {
-	[Level.EMERG]: '1;31',
-	[Level.ALERT]: '1;31',
-	[Level.CRIT]: '1;31',
-	[Level.ERR]: '31',
-	[Level.WARN]: '33',
-	[Level.NOTICE]: '1;37',
-	[Level.INFO]: '37',
-	[Level.DEBUG]: '2;37',
+const messageColor = {
+	ansi: {
+		[Level.EMERG]: '1;31',
+		[Level.ALERT]: '1;31',
+		[Level.CRIT]: '1;31',
+		[Level.ERR]: '31',
+		[Level.WARN]: '33',
+		[Level.NOTICE]: '1;37',
+		[Level.INFO]: '37',
+		[Level.DEBUG]: '2;37',
+	},
+	css: {
+		[Level.EMERG]: 'font-weight: bold; color: red;',
+		[Level.ALERT]: 'font-weight: bold; color: red;',
+		[Level.CRIT]: 'font-weight: bold; color: red;',
+		[Level.ERR]: 'color: red;',
+		[Level.WARN]: 'color: yellow;',
+		[Level.NOTICE]: 'font-weight: bold; color: white;',
+		[Level.INFO]: 'color: white;',
+		[Level.DEBUG]: 'opacity: 0.8; color: white;',
+	},
 };
 
-const _cssLevelColor = {
-	[Level.EMERG]: 'font-weight: bold; text-decoration: underline; color: white; background-color: red;',
-	[Level.ALERT]: 'font-weight: bold; color: white; background-color: red;',
-	[Level.CRIT]: 'font-weight: bold; color: magenta;',
-	[Level.ERR]: 'font-weight: bold; color: red;',
-	[Level.WARN]: 'font-weight: bold; color: yellow;',
-	[Level.NOTICE]: 'font-weight: bold; color: cyan;',
-	[Level.INFO]: 'font-weight: bold; color: white;',
-	[Level.DEBUG]: 'opacity: 0.8; color: white;',
-};
+export interface FormatOptions {
+	/**
+	 * Whether to use ANSI escape codes (e.g. for Xterm) or CSS (for browsers) to colorize the log
+	 */
+	style: 'ansi' | 'css';
 
-const _cssMessageColor = {
-	[Level.EMERG]: 'font-weight: bold; color: red;',
-	[Level.ALERT]: 'font-weight: bold; color: red;',
-	[Level.CRIT]: 'font-weight: bold; color: red;',
-	[Level.ERR]: 'color: red;',
-	[Level.WARN]: 'color: yellow;',
-	[Level.NOTICE]: 'font-weight: bold; color: white;',
-	[Level.INFO]: 'color: white;',
-	[Level.DEBUG]: 'opacity: 0.8; color: white;',
-};
+	/**
+	 * How to colorize the message:
+	 * - `level`: Colorize the level.
+	 * - `message`: Colorize the message. For EMERG and ALERT, the level is also included.
+	 */
+	colorize: 'level' | 'message';
+}
 
 /**
  * Various format functions included to make using the logger easier.
  * These are not the only formats you can use.
  */
-export const formats = {
-	/** Format with a timestamp and the level, colorized with ANSI escape codes */
-	ansi_level(this: void, entry: Entry) {
-		const levelText = ansi(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]);
-		return [_prettyMs(entry, 'ansi'), levelText, entry.message];
-	},
-	/**
-	 * Format with a timestamp and colorize the message with ANSI escape codes.
-	 * For EMERG and ALERT, the levels are included
-	 */
-	ansi_message(this: void, entry: Entry) {
-		let msg = _prettyMs(entry, 'ansi');
+export function fancy({ style, colorize }: FormatOptions) {
+	return function* (entry: Entry) {
+		yield* _prettyMs(entry, style);
 
-		const isImportant = entry.level < Level.CRIT;
+		const levelText =
+			style == 'ansi'
+				? [ansi(levels[entry.level].toUpperCase(), levelColor.ansi[entry.level])]
+				: ['%c' + levels[entry.level].toUpperCase(), levelColor.css[entry.level]];
 
-		if (isImportant) msg += ansi(levels[entry.level].toUpperCase(), _ansiLevelColor[entry.level]) + ': ';
-
-		msg += ansi(entry.message, _ansiMessageColor[entry.level]);
-
-		return msg;
-	},
-	css_level(this: void, entry: Entry) {
-		const levelLabel = levels[entry.level].toUpperCase();
-
-		return [..._prettyMs(entry, 'css'), '%c' + levelLabel, _cssLevelColor[entry.level], entry.message];
-	},
-	css_message(this: void, entry: Entry) {
-		const text = _prettyMs(entry, 'css');
-
-		const isImportant = entry.level < Level.CRIT;
-		if (isImportant) {
-			const levelLabel = levels[entry.level].toUpperCase();
-
-			text.push('%c' + levelLabel, _cssLevelColor[entry.level]);
+		if (colorize == 'level') {
+			yield* levelText;
+			yield entry.message;
+			return;
 		}
 
-		text.push('%c' + entry.message, _cssMessageColor[entry.level]);
+		if (entry.level < Level.CRIT) {
+			yield* levelText;
+			yield ': ';
+		}
 
-		return text;
-	},
-	default(this: void, entry: Entry) {
-		return [_prettyMs(entry), entry.message];
-	},
-} as const;
+		if (colorize == 'message') yield ansi(entry.message, messageColor.ansi[entry.level]);
+		else yield* ['%c' + entry.message, messageColor.css[entry.level]];
+	};
+}
 
-let _format: (entry: Entry) => string | string[] = formats.default;
+let _format: (entry: Entry) => string | Iterable<string> = (entry: Entry) => [..._prettyMs(entry), entry.message];
 
 export function format(entry: Entry): string[] {
 	const formatted = _format(entry);
-	return Array.isArray(formatted) ? formatted : [formatted];
+	return typeof formatted == 'string' ? [formatted] : Array.from(formatted);
 }
 
 let _output: (...message: string[]) => unknown = console.error;
@@ -246,6 +252,8 @@ function output(entry: Entry) {
 }
 
 let minLevel: Level = Level.ALERT;
+
+let includeStack: boolean = false;
 
 // Configuration
 
@@ -266,10 +274,16 @@ export interface LogConfiguration {
 	level?: Level | (typeof levels)[Level];
 
 	/**
+	 * Whether to include stack traces.
+	 * @default false
+	 */
+	stack?: boolean;
+
+	/**
 	 * Formats a log entry into a string
 	 * @default `[${ms / 1000}] ${message}`
 	 */
-	format?(this: void, entry: Entry): string | string[];
+	format?(this: void, entry: Entry): string | Iterable<string>;
 
 	/**
 	 * Outputs a log message
@@ -290,6 +304,7 @@ export function configure(options: LogConfiguration): void {
 	_output = options.output ?? _output;
 	minLevel = typeof options.level == 'string' ? levelOf(options.level) : (options.level ?? minLevel);
 	isEnabled = options.enabled ?? isEnabled;
+	includeStack = options.stack ?? includeStack;
 
 	if (!options.dumpBacklog) return;
 

@@ -4,6 +4,9 @@ import { suite, test } from 'node:test';
 import { Worker } from 'node:worker_threads';
 import { Fetch, configureSingle, fs, mounts, type FetchFS } from '../../dist/index.js';
 import { baseUrl, defaultEntries, indexPath, whenServerReady } from '../fetch/config.js';
+import { setupLogs } from '../logs.js';
+
+setupLogs();
 
 const server = new Worker(join(import.meta.dirname, '../fetch/server.js'));
 
