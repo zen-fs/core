@@ -103,9 +103,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		protected checkSync(path?: string, syscall?: string): asserts this is { _sync: FileSystem } {
 			if (this.attributes.has('no_async')) {
-				throw crit(new ErrnoError(Errno.ENOTSUP, 'Sync preloading has been disabled for this async file system', path, syscall), {
-					fs: this,
-				});
+				throw new ErrnoError(Errno.ENOTSUP, 'Sync preloading has been disabled for this async file system', path, syscall);
 			}
 			if (!this._sync) {
 				throw crit(new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall), { fs: this });
