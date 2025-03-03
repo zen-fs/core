@@ -133,7 +133,7 @@ export function checkOptions<T extends Backend>(backend: T, options: Record<stri
 
 		if (value === undefined || value === null) {
 			if (!opt.required) {
-				debug('Missing non-required option: ' + optName);
+				debug('Using default for option: ' + optName);
 				continue;
 			}
 
