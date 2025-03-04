@@ -4,7 +4,7 @@ import { ErrnoError } from '../internal/error.js';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
-import { join, resolve } from '../path.js';
+import { resolve } from '../path.js';
 import type { Backend } from './backend.js';
 
 // Type for Node.js fs module
@@ -16,7 +16,7 @@ export type NodeFS = typeof fs;
  */
 export interface PassthroughOptions {
 	fs: NodeFS;
-	prefix?: string;
+	prefix: string;
 }
 
 export class PassthroughFS extends FileSystem {
@@ -36,7 +36,7 @@ export class PassthroughFS extends FileSystem {
 	}
 
 	public path(path: string): string {
-		return join(this.prefix, path.slice(1));
+		return this.prefix + path;
 	}
 
 	public error(err: unknown, path: string): never {
@@ -320,9 +320,9 @@ const _Passthrough = {
 	name: 'Passthrough',
 	options: {
 		fs: { type: 'object', required: true },
-		prefix: { type: 'string', required: false },
+		prefix: { type: 'string', required: true },
 	},
-	create({ fs, prefix = '/' }: PassthroughOptions) {
+	create({ fs, prefix }: PassthroughOptions) {
 		return new PassthroughFS(fs, resolve(prefix));
 	},
 } as const satisfies Backend<PassthroughFS, PassthroughOptions>;
