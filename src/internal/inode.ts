@@ -99,12 +99,21 @@ export class Inode implements InodeLike {
 	/** For future use */
 	@t.uint16 protected __after_flags: number = 0;
 
-	@t.uint32 public attributes_size: number = 0;
+	@t.uint32 public attributes_size: number = 2;
 
 	/** Pad to 128 bytes */
 	@t.uint8(52) protected __padding = [];
 
-	public attributes: Attributes = {};
+	protected _attributes: Attributes = {};
+
+	public get attributes(): Attributes {
+		return this._attributes;
+	}
+
+	public set attributes(value: Attributes) {
+		this._attributes = value;
+		this.attributes_size = encodeUTF8(JSON.stringify(this.attributes)).byteLength;
+	}
 
 	public toString(): string {
 		return `<Inode ${this.ino}>`;

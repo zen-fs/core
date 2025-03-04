@@ -1,5 +1,5 @@
 import { parentPort } from 'node:worker_threads';
-import { attachFS } from '../../dist/backends/port/fs.js';
+import { attachFS } from '../../dist/backends/port.js';
 import { mounts } from '../../dist/index.js';
 import { setupLogs } from '../logs.js';
 
