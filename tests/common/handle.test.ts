@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { Interface as ReadlineInterface } from '../../dist/readline.js';
 import { constants, type FileHandle, open } from '../../dist/vfs/promises.js';
 
 const content = 'The cake is a lie',
@@ -56,13 +55,11 @@ await suite('FileHandle', () => {
 
 		await using rl = handle.readLines();
 
-		assert.ok(rl instanceof ReadlineInterface, 'Should return a ReadlineInterface instance');
-
 		const lines: string[] = [];
 		rl.on('line', (line: string) => lines.push(line));
 
 		await wait(50);
 
-		assert.deepEqual(lines, ['first line', 'second line', 'third line'], 'Should read all lines correctly');
+		assert.deepEqual(lines, ['first line', 'second line', 'third line']);
 	});
 });

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { createInterface, Interface } from '../../src/readline.js';
+import { createInterface, Interface } from '../../dist/readline.js';
 
 suite('Readline interface', { skip: true }, () => {
 	test('creates interface with readable stream', async () => {
