@@ -48,7 +48,6 @@ export const _inode_version = 4;
  * Generic inode definition that can easily be serialized.
  * @category Internals
  * @internal
- * @todo [BREAKING] Remove 58 byte Inode upgrade path
  */
 @struct()
 export class Inode implements InodeLike {
@@ -60,23 +59,12 @@ export class Inode implements InodeLike {
 			return;
 		}
 
-		if (data.byteLength < 58) {
-			throw crit(new RangeError('Can not create an inode from a buffer less than 58 bytes'));
-		}
-
-		// Expand the buffer so it is the right size
-		if (data.byteLength < sizeof(Inode)) {
-			const buf = ArrayBuffer.isView(data) ? data.buffer : data;
-			const newBuffer = new Uint8Array(sizeof(Inode));
-			newBuffer.set(new Uint8Array(buf));
-			debug('Extending undersized buffer for inode');
-			data = newBuffer;
-		}
+		if (data.byteLength < sizeof(Inode)) throw crit(new ErrnoError(Errno.EIO, 'Buffer is too small to create an inode'));
 
 		deserialize(this, data);
 		const rawAttr = data.subarray(sizeof(Inode));
-		if (rawAttr.length != this.attributes_size) err(new ErrnoError(Errno.EIO, 'Attributes size mismatch with actual size'));
-		else if (rawAttr.length < 2) warn('Attributes is empty');
+		if (rawAttr.length < 2) warn('Attributes is empty');
+		else if (rawAttr.length != this.attributes_size) err(new ErrnoError(Errno.EIO, 'Attributes size mismatch with actual size'));
 		else this.attributes = JSON.parse(decodeUTF8(rawAttr));
 	}
 
@@ -104,16 +92,7 @@ export class Inode implements InodeLike {
 	/** Pad to 128 bytes */
 	@t.uint8(52) protected __padding = [];
 
-	protected _attributes: Attributes = {};
-
-	public get attributes(): Attributes {
-		return this._attributes;
-	}
-
-	public set attributes(value: Attributes) {
-		this._attributes = value;
-		this.attributes_size = encodeUTF8(JSON.stringify(this.attributes)).byteLength;
-	}
+	public attributes: Attributes = {};
 
 	public toString(): string {
 		return `<Inode ${this.ino}>`;
