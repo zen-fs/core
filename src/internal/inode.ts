@@ -4,7 +4,7 @@ import * as c from '../vfs/constants.js';
 import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { Errno, ErrnoError } from './error.js';
-import { crit, debug, err, warn } from './log.js';
+import { crit, err, warn } from './log.js';
 
 /**
  * Root inode
@@ -43,6 +43,81 @@ export const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', '
  * @internal @hidden
  */
 export const _inode_version = 4;
+
+/**
+ * Inode flags (FS_IOC_GETFLAGS / FS_IOC_SETFLAGS)
+ * @see `FS_*_FL` in `include/uapi/linux/fs.h` (around L250)
+ * @experimental
+ */
+export enum InodeFlags {
+	/** Secure deletion */
+	SECRM = 0x00000001,
+	/** Undelete */
+	UNRM = 0x00000002,
+	/** Compress file */
+	COMPR = 0x00000004,
+	/** Synchronous updates */
+	SYNC = 0x00000008,
+	/** Immutable file */
+	IMMUTABLE = 0x00000010,
+	/** Writes to file may only append */
+	APPEND = 0x00000020,
+	/** do not dump file */
+	NODUMP = 0x00000040,
+	/** do not update atime */
+	NOATIME = 0x00000080,
+	// Reserved for compression usage...
+	DIRTY = 0x00000100,
+	/** One or more compressed clusters */
+	COMPRBLK = 0x00000200,
+	/** Don't compress */
+	NOCOMP = 0x00000400,
+	// End compression flags --- maybe not all used
+	/** Encrypted file */
+	ENCRYPT = 0x00000800,
+	/** btree format dir */
+	BTREE = 0x00001000,
+	/** hash-indexed directory */
+	// eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
+	INDEX = 0x00001000,
+	/** AFS directory */
+	IMAGIC = 0x00002000,
+	/** Reserved for ext3 */
+	JOURNAL_DATA = 0x00004000,
+	/** file tail should not be merged */
+	NOTAIL = 0x00008000,
+	/** dirsync behaviour (directories only) */
+	DIRSYNC = 0x00010000,
+	/** Top of directory hierarchies*/
+	TOPDIR = 0x00020000,
+	/** Reserved for ext4 */
+	HUGE_FILE = 0x00040000,
+	/** Extents */
+	EXTENT = 0x00080000,
+	/** Verity protected inode */
+	VERITY = 0x00100000,
+	/** Inode used for large EA */
+	EA_INODE = 0x00200000,
+	/** Reserved for ext4 */
+	EOFBLOCKS = 0x00400000,
+	/** Do not cow file */
+	NOCOW = 0x00800000,
+	/** Inode is DAX */
+	DAX = 0x02000000,
+	/** Reserved for ext4 */
+	INLINE_DATA = 0x10000000,
+	/** Create with parents projid */
+	PROJINHERIT = 0x20000000,
+	/** Folder is case insensitive */
+	CASEFOLD = 0x40000000,
+	/** reserved for ext2 lib */
+	RESERVED = 0x80000000,
+}
+
+/** User visible flags */
+export const FL_USER_VISIBLE = 0x0003dfff;
+/** User modifiable flags */
+export const FL_USER_MODIFIABLE = 0x000380ff;
 
 /**
  * Generic inode definition that can easily be serialized.
