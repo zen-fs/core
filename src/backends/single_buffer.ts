@@ -85,6 +85,8 @@ class SuperBlock {
 		if (store._view.getUint32(offsetof(SuperBlock, 'magic'), true) != sb_magic) {
 			warn('SingleBuffer: Invalid magic value, assuming this is a fresh super block');
 			this.metadata = new MetadataBlock(this);
+			this.metadata.offset = sizeof(SuperBlock);
+			this.metadata_offset = this.metadata.offset;
 			this.used_bytes = BigInt(sizeof(SuperBlock) + sizeof(MetadataBlock));
 			this.total_bytes = BigInt(store._buffer.byteLength);
 			store._write(this);
