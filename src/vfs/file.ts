@@ -1,7 +1,7 @@
 import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import { isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
+import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
 import { config } from './config.js';
 import * as c from './constants.js';
@@ -247,24 +247,6 @@ export class SyncHandle {
 		if (config.syncImmediately) this.syncSync();
 	}
 
-	protected prepareWrite(buffer: Uint8Array, offset: number, length: number, position: number): Uint8Array {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
-
-		if (!isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
-		}
-
-		this.dirty = true;
-		const end = position + length;
-		const slice = buffer.subarray(offset, offset + length);
-
-		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
-
-		this.stats.mtimeMs = Date.now();
-		this._position = position + slice.byteLength;
-		return slice;
-	}
-
 	/**
 	 * Write buffer to the file.
 	 * @param buffer Uint8Array containing the data to write to the file.
@@ -275,30 +257,23 @@ export class SyncHandle {
 	 * @returns bytes written
 	 */
 	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
-		const slice = this.prepareWrite(buffer, offset, length, position);
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
+
+		if (!isWriteable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
+
+		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'write');
+
+		this.dirty = true;
+		const end = position + length;
+		const slice = buffer.subarray(offset, offset + length);
+
+		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
+
+		this.stats.mtimeMs = Date.now();
+		this._position = position + slice.byteLength;
 		this.fs.writeSync(this.internalPath, slice, position);
 		if (config.syncImmediately) this.syncSync();
 		return slice.byteLength;
-	}
-
-	/**
-	 * Computes position information for reading
-	 */
-	protected prepareRead(length: number, position: number): number {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
-
-		if (!isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
-
-		if (config.updateOnRead) this.dirty = true;
-
-		this.stats.atimeMs = Date.now();
-
-		let end = position + length;
-		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) {
-			end = position + Math.max(this.stats.size - position, 0);
-		}
-		this._position = end;
-		return end;
 	}
 
 	/**
@@ -316,7 +291,19 @@ export class SyncHandle {
 		length: number = buffer.byteLength - offset,
 		position: number = this.position
 	): number {
-		const end = this.prepareRead(length, position);
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
+
+		if (!isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
+
+		if (config.updateOnRead) this.dirty = true;
+
+		this.stats.atimeMs = Date.now();
+
+		let end = position + length;
+		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) {
+			end = position + Math.max(this.stats.size - position, 0);
+		}
+		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		this.fs.readSync(this.internalPath, uint8.subarray(offset, offset + length), position, end);
 		if (config.syncImmediately) this.syncSync();
@@ -353,6 +340,8 @@ export class SyncHandle {
 	 * Create a stream for reading the file.
 	 */
 	public streamRead(options: StreamOptions): ReadableStream {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'streamRead');
+
 		return this.fs.streamRead(this.internalPath, options);
 	}
 
@@ -360,6 +349,8 @@ export class SyncHandle {
 	 * Create a stream for writing the file.
 	 */
 	public streamWrite(options: StreamOptions): WritableStream {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'streamWrite');
+		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'streamWrite');
 		return this.fs.streamWrite(this.internalPath, options);
 	}
 }

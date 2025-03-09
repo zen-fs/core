@@ -14,7 +14,7 @@ import { _throw, pick } from 'utilium';
 import { credentials } from '../internal/credentials.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import { isBlockDevice, isCharacterDevice } from '../internal/inode.js';
+import { InodeFlags, isBlockDevice, isCharacterDevice } from '../internal/inode.js';
 import { dirname, join, parse, resolve } from '../path.js';
 import '../polyfills.js';
 import { createInterface } from '../readline.js';
@@ -197,9 +197,19 @@ export class FileHandle implements promises.FileHandle {
 	}
 
 	/**
-	 * Computes position information for reading
+	 * Read data from the file.
+	 * @param buffer The buffer that the data will be written to.
+	 * @param offset The offset within the buffer where writing will start.
+	 * @param length An integer specifying the number of bytes to read.
+	 * @param position An integer specifying where to begin reading from in the file.
+	 * If position is unset, data will be read from the current file position.
 	 */
-	protected prepareRead(length: number, position: number): number {
+	protected async _read<TBuffer extends ArrayBufferView>(
+		buffer: TBuffer,
+		offset: number = 0,
+		length: number = buffer.byteLength - offset,
+		position: number = this.position
+	): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
 
 		if (!file.isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
@@ -213,24 +223,6 @@ export class FileHandle implements promises.FileHandle {
 			end = position + Math.max(this.stats.size - position, 0);
 		}
 		this._position = end;
-		return end;
-	}
-
-	/**
-	 * Read data from the file.
-	 * @param buffer The buffer that the data will be written to.
-	 * @param offset The offset within the buffer where writing will start.
-	 * @param length An integer specifying the number of bytes to read.
-	 * @param position An integer specifying where to begin reading from in the file.
-	 * If position is unset, data will be read from the current file position.
-	 */
-	public async _read<TBuffer extends ArrayBufferView>(
-		buffer: TBuffer,
-		offset: number = 0,
-		length: number = buffer.byteLength - offset,
-		position: number = this.position
-	): Promise<{ bytesRead: number; buffer: TBuffer }> {
-		const end = this.prepareRead(length, position);
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		await this.fs.read(this.internalPath, uint8.subarray(offset, offset + length), position, end);
 		if (config.syncImmediately) await this.sync();
@@ -307,6 +299,7 @@ export class FileHandle implements promises.FileHandle {
 	 * The handle will not be closed automatically.
 	 */
 	public readableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): NodeReadableStream<Uint8Array> {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'readableWebStream');
 		return this.fs.streamRead(this.internalPath, options);
 	}
 
@@ -318,6 +311,8 @@ export class FileHandle implements promises.FileHandle {
 	 * @internal
 	 */
 	public writableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): WritableStream {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'writableWebStream');
+		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'writableWebStream');
 		return this.fs.streamWrite(this.internalPath, options);
 	}
 
@@ -355,12 +350,25 @@ export class FileHandle implements promises.FileHandle {
 		return opts?.bigint ? new BigIntStats(stats) : stats;
 	}
 
-	protected prepareWrite(buffer: Uint8Array, offset: number, length: number, position: number): Uint8Array {
+	/**
+	 * Write buffer to the file.
+	 * @param buffer Uint8Array containing the data to write to the file.
+	 * @param offset Offset in the buffer to start reading data from.
+	 * @param length The amount of bytes to write to the file.
+	 * @param position Offset from the beginning of the file where this data should be written.
+	 * If position is null, the data will be written at  the current position.
+	 */
+	protected async _write(
+		buffer: Uint8Array,
+		offset: number = 0,
+		length: number = buffer.byteLength - offset,
+		position: number = this.position
+	): Promise<number> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
 
-		if (!file.isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
-		}
+		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'write');
+
+		if (!file.isWriteable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 
 		this.dirty = true;
 		const end = position + length;
@@ -370,24 +378,6 @@ export class FileHandle implements promises.FileHandle {
 
 		this.stats.mtimeMs = Date.now();
 		this._position = position + slice.byteLength;
-		return slice;
-	}
-
-	/**
-	 * Write buffer to the file.
-	 * @param buffer Uint8Array containing the data to write to the file.
-	 * @param offset Offset in the buffer to start reading data from.
-	 * @param length The amount of bytes to write to the file.
-	 * @param position Offset from the beginning of the file where this data should be written.
-	 * If position is null, the data will be written at  the current position.
-	 */
-	public async _write(
-		buffer: Uint8Array,
-		offset: number = 0,
-		length: number = buffer.byteLength - offset,
-		position: number = this.position
-	): Promise<number> {
-		const slice = this.prepareWrite(buffer, offset, length, position);
 		await this.fs.write(this.internalPath, slice, position);
 		if (config.syncImmediately) await this.sync();
 		return slice.byteLength;
@@ -514,6 +504,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the readable stream
 	 */
 	public createReadStream(options: promises.CreateReadStreamOptions = {}): ReadStream {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'createReadStream');
 		return new ReadStream(options, this);
 	}
 
@@ -522,6 +513,8 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the writeable stream.
 	 */
 	public createWriteStream(options: promises.CreateWriteStreamOptions = {}): WriteStream {
+		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'createWriteStream');
+		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'createWriteStream');
 		return new WriteStream(options, this);
 	}
 }

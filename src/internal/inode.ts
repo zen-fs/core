@@ -228,6 +228,7 @@ export class Inode implements InodeLike {
 			if (key == 'ino' || key == 'data') continue;
 
 			if (this[key] === data[key]) continue;
+			if (key == 'atimeMs' && this.flags & InodeFlags.NoAtime) continue;
 
 			this[key] = data[key];
 
