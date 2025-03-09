@@ -19,8 +19,8 @@ import { BigIntStats } from './stats.js';
 import { emitChange } from './watchers.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
-	oldPath = normalizePath(this, oldPath);
-	newPath = normalizePath(this, newPath);
+	oldPath = normalizePath(oldPath);
+	newPath = normalizePath(newPath);
 	const oldMount = resolveMount(oldPath, this);
 	const newMount = resolveMount(newPath, this);
 	if (config.checkAccess && !statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath)).hasAccess(constants.W_OK, this)) {
@@ -47,7 +47,7 @@ renameSync satisfies typeof fs.renameSync;
  * Test whether or not `path` exists by checking with the file system.
  */
 export function existsSync(this: V_Context, path: fs.PathLike): boolean {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	try {
 		const { fs, path: resolvedPath } = resolveMount(realpathSync.call(this, path), this);
 		return fs.existsSync(resolvedPath);
@@ -64,7 +64,7 @@ existsSync satisfies typeof fs.existsSync;
 export function statSync(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function statSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	try {
 		const stats = new Stats(fs.statSync(resolved));
@@ -86,7 +86,7 @@ statSync satisfies fs.StatSyncFn;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
 		const stats = new Stats(fs.statSync(resolved));
@@ -108,7 +108,7 @@ export function truncateSync(this: V_Context, path: fs.PathLike, len: number | n
 truncateSync satisfies typeof fs.truncateSync;
 
 export function unlinkSync(this: V_Context, path: fs.PathLike): void {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
 		if (config.checkAccess && !new Stats(fs.statSync(resolved)).hasAccess(constants.W_OK, this)) {
@@ -123,7 +123,7 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 unlinkSync satisfies typeof fs.unlinkSync;
 
 function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHandle {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = parseFlag(opt.flag);
 
@@ -450,7 +450,7 @@ export function futimesSync(this: V_Context, fd: number, atime: string | number 
 futimesSync satisfies typeof fs.futimesSync;
 
 export function rmdirSync(this: V_Context, path: fs.PathLike): void {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	try {
 		const stats = new Stats(fs.statSync(resolved));
@@ -544,7 +544,7 @@ export function readdirSync(
 	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
 ): string[] | Dirent[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	let entries: string[];
 	try {
@@ -595,11 +595,11 @@ export function readdirSync(
 readdirSync satisfies typeof fs.readdirSync;
 
 export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.PathLike): void {
-	targetPath = normalizePath(this, targetPath);
+	targetPath = normalizePath(targetPath);
 	if (config.checkAccess && !statSync(dirname(targetPath)).hasAccess(constants.R_OK, this)) {
 		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
 	}
-	linkPath = normalizePath(this, linkPath);
+	linkPath = normalizePath(linkPath);
 	if (config.checkAccess && !statSync(dirname(linkPath)).hasAccess(constants.W_OK, this)) {
 		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 	}
@@ -634,7 +634,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
 	}
 
-	writeFileSync.call(this, path, normalizePath(this, target, true));
+	writeFileSync.call(this, path, normalizePath(target, true));
 	const file = _openSync.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true });
 	file.chmod(constants.S_IFLNK);
 }
@@ -765,7 +765,7 @@ export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.Buf
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 
 	const { fullPath } = _resolveSync(this, path);
 	if (encoding == 'utf8' || encoding == 'utf-8') return fullPath;
@@ -788,7 +788,7 @@ accessSync satisfies typeof fs.accessSync;
  * @param path The path to the file or directory to remove.
  */
 export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOptions): void {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 
 	let stats: Stats | undefined;
 	try {
@@ -848,8 +848,8 @@ mkdtempSync satisfies typeof fs.mkdtempSync;
  * - `fs.constants.COPYFILE_EXCL`: If the destination file already exists, the operation fails.
  */
 export function copyFileSync(this: V_Context, source: fs.PathLike, destination: fs.PathLike, flags?: number): void {
-	source = normalizePath(this, source);
-	destination = normalizePath(this, destination);
+	source = normalizePath(source);
+	destination = normalizePath(destination);
 
 	if (flags && flags & constants.COPYFILE_EXCL && existsSync(destination)) {
 		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists', destination, 'copyFile');
@@ -906,7 +906,7 @@ writevSync satisfies typeof fs.writevSync;
  * @todo Handle options
  */
 export function opendirSync(this: V_Context, path: fs.PathLike, options?: fs.OpenDirOptions): Dir {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	return new Dir(path, this);
 }
 opendirSync satisfies typeof fs.opendirSync;
@@ -924,8 +924,8 @@ opendirSync satisfies typeof fs.opendirSync;
  * - `recursive`: If `true`, copies directories recursively.
  */
 export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.PathLike, opts?: fs.CopySyncOptions): void {
-	source = normalizePath(this, source);
-	destination = normalizePath(this, destination);
+	source = normalizePath(source);
+	destination = normalizePath(destination);
 
 	const srcStats = lstatSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
 
@@ -974,7 +974,7 @@ export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.Stat
 export function statfsSync(this: V_Context, path: fs.PathLike, options: fs.StatFsOptions & { bigint: true }): fs.BigIntStatsFs;
 export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs;
 export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs {
-	path = normalizePath(this, path);
+	path = normalizePath(path);
 	const { fs } = resolveMount(path, this);
 	return _statfs(fs, options?.bigint);
 }

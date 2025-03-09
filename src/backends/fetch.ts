@@ -165,7 +165,7 @@ const _Fetch = {
 
 	async create(options: FetchOptions) {
 		const url = new URL(options.baseUrl);
-		url.pathname = normalizePath(null, url.pathname);
+		url.pathname = normalizePath(url.pathname);
 		let baseUrl = url.toString();
 		if (baseUrl.at(-1) == '/') baseUrl = baseUrl.slice(0, -1);
 

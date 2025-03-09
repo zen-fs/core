@@ -107,7 +107,7 @@ export function formatExt(ext: string): string {
 export function resolve(this: V_Context, ...parts: (string | undefined)[]): AbsolutePath {
 	let resolved = '';
 
-	for (const part of [...parts.reverse(), this?.pwd]) {
+	for (const part of [...parts.reverse(), this?.pwd ?? '/']) {
 		if (!part?.length) continue;
 
 		resolved = `${part}/${resolved}`;

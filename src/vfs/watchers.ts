@@ -168,7 +168,7 @@ export class StatWatcher
 const watchers: Map<string, Set<FSWatcher>> = new Map();
 
 export function addWatcher(path: string, watcher: FSWatcher) {
-	const normalizedPath = normalizePath(watcher._context, path);
+	const normalizedPath = normalizePath(path);
 	if (!watchers.has(normalizedPath)) {
 		watchers.set(normalizedPath, new Set());
 	}
@@ -176,7 +176,7 @@ export function addWatcher(path: string, watcher: FSWatcher) {
 }
 
 export function removeWatcher(path: string, watcher: FSWatcher) {
-	const normalizedPath = normalizePath(watcher._context, path);
+	const normalizedPath = normalizePath(path);
 	if (watchers.has(normalizedPath)) {
 		watchers.get(normalizedPath)!.delete(watcher);
 		if (watchers.get(normalizedPath)!.size === 0) {
@@ -190,7 +190,7 @@ export function removeWatcher(path: string, watcher: FSWatcher) {
  */
 export function emitChange($: V_Context, eventType: fs.WatchEventType, filename: string) {
 	if ($) filename = join($.root ?? '/', filename);
-	filename = normalizePath($, filename);
+	filename = normalizePath(filename);
 
 	// Notify watchers, including ones on parent directories if they are watching recursively
 	for (let path = filename; path != '/'; path = dirname(path)) {
