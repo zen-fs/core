@@ -162,10 +162,10 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(this.link(srcpath, dstpath));
 		}
 
-		public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
+		public syncSync(path: string): void {
 			this.checkSync(path, 'sync');
-			this._sync.syncSync(path, data, stats);
-			this._async(this.sync(path, data, stats));
+			this._sync.syncSync(path);
+			this._async(this.sync(path));
 		}
 
 		public existsSync(path: string): boolean {

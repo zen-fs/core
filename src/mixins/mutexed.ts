@@ -242,14 +242,14 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.linkSync(srcpath, dstpath);
 	}
 
-	public async sync(path: string, data?: Uint8Array, stats?: Readonly<InodeLike>): Promise<void> {
+	public async sync(path: string): Promise<void> {
 		using _ = await this.lock(path, 'sync');
-		await this._fs.sync(path, data, stats);
+		await this._fs.sync(path);
 	}
 
-	public syncSync(path: string, data?: Uint8Array, stats?: Readonly<InodeLike>): void {
+	public syncSync(path: string): void {
 		using _ = this.lockSync(path, 'sync');
-		return this._fs.syncSync(path, data, stats);
+		return this._fs.syncSync(path);
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {

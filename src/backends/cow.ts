@@ -158,14 +158,14 @@ export class CopyOnWriteFS extends FileSystem {
 		return this.readable.usage();
 	}
 
-	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {
+	public async sync(path: string): Promise<void> {
 		await this.copyForWrite(path);
-		await this.writable.sync(path, data, stats);
+		await this.writable.sync(path);
 	}
 
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
+	public syncSync(path: string): void {
 		this.copyForWriteSync(path);
-		this.writable.syncSync(path, data, stats);
+		this.writable.syncSync(path);
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {

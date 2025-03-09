@@ -238,9 +238,8 @@ export class PortFS extends Async(FileSystem) {
 		await this.rpc('touch', path, metadata);
 	}
 
-	public sync(path: string, data: Uint8Array | undefined, stats: Readonly<InodeLike | Inode>): Promise<void> {
-		stats = 'toJSON' in stats ? stats.toJSON() : stats;
-		return this.rpc('sync', path, data, stats);
+	public sync(path: string): Promise<void> {
+		return this.rpc('sync', path);
 	}
 
 	public createFile(path: string, options: CreationOptions): Promise<InodeLike> {

@@ -186,27 +186,7 @@ export abstract class IndexFS extends FileSystem {
 		return Object.keys(this.index.directoryEntries(path));
 	}
 
-	/**
-	 * Optional hook for implementations to support updating metadata
-	 */
-	protected syncMetadata?(path: string, metadata: Readonly<InodeLike>): Promise<void>;
+	public async sync(path: string): Promise<void> {}
 
-	public async sync(path: string, data?: Uint8Array, stats?: Readonly<InodeLike>): Promise<void> {
-		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'sync');
-		if (inode.update(stats)) await this.syncMetadata?.(path, stats!);
-		if (data) await this.write(path, data, 0);
-	}
-
-	/**
-	 * Optional hook for implementations to support updating metadata
-	 */
-	protected syncMetadataSync?(path: string, metadata: Readonly<InodeLike>): void;
-
-	public syncSync(path: string, data?: Uint8Array, stats?: Readonly<InodeLike>): void {
-		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'sync');
-		if (inode.update(stats)) this.syncMetadataSync?.(path, stats!);
-		if (data) this.writeSync(path, data, 0);
-	}
+	public syncSync(path: string): void {}
 }

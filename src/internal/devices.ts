@@ -309,16 +309,16 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.linkSync(target, link);
 	}
 
-	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {
+	public async sync(path: string): Promise<void> {
 		const device = this.devices.get(path);
 		if (device) return device.driver.sync?.(device);
-		return super.sync(path, data, stats);
+		return super.sync(path);
 	}
 
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
+	public syncSync(path: string): void {
 		const device = this.devices.get(path);
 		if (device) return device.driver.sync?.(device);
-		return super.syncSync(path, data, stats);
+		return super.syncSync(path);
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {

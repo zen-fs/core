@@ -6,6 +6,7 @@ import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { resolve } from '../path.js';
 import type { Backend } from './backend.js';
+import { warn } from '../internal/log.js';
 
 // Type for Node.js fs module
 export type NodeFS = typeof fs;
@@ -88,12 +89,25 @@ export class PassthroughFS extends FileSystem {
 		}
 	}
 
-	public touch(path: string, metadata: InodeLike): Promise<void> {
-		throw ErrnoError.With('ENOSYS', path, 'touch');
+	public async touch(path: string, metadata: InodeLike): Promise<void> {
+		try {
+			await using handle = await this.nodeFS.promises.open(this.path(path), 'w');
+			await handle.chmod(metadata.mode);
+			await handle.chown(metadata.uid, metadata.gid);
+			await handle.utimes(metadata.atimeMs, metadata.mtimeMs);
+		} catch (err) {
+			this.error(err, path);
+		}
 	}
 
 	public touchSync(path: string, metadata: InodeLike): void {
-		throw ErrnoError.With('ENOSYS', path, 'touch');
+		try {
+			this.nodeFS.chmodSync(this.path(path), metadata.mode);
+			this.nodeFS.chownSync(this.path(path), metadata.uid, metadata.gid);
+			this.nodeFS.utimesSync(this.path(path), metadata.atimeMs, metadata.mtimeMs);
+		} catch (err) {
+			this.error(err, path);
+		}
 	}
 
 	/**
@@ -224,31 +238,15 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Synchronize data to the file system.
 	 */
-	public async sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<void> {
-		try {
-			await using handle = await this.nodeFS.promises.open(this.path(path), 'w');
-			await handle.writeFile(data);
-			await handle.chmod(stats.mode);
-			await handle.chown(stats.uid, stats.gid);
-			await handle.utimes(stats.atimeMs, stats.mtimeMs);
-		} catch (err) {
-			this.error(err, path);
-		}
+	public async sync(path: string): Promise<void> {
+		warn('Sync on passthrough is unnecessary');
 	}
 
 	/**
 	 * Synchronize data to the file system synchronously.
 	 */
-	public syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): void {
-		try {
-			const p = this.path(path);
-			this.nodeFS.writeFileSync(p, data);
-			this.nodeFS.chmodSync(p, stats.mode);
-			this.nodeFS.chownSync(p, stats.uid, stats.gid);
-			this.nodeFS.utimesSync(p, stats.atimeMs, stats.mtimeMs);
-		} catch (err) {
-			this.error(err, path);
-		}
+	public syncSync(path: string): void {
+		warn('Sync on passthrough is unnecessary');
 	}
 
 	/**
