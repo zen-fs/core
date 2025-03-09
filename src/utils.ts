@@ -3,6 +3,7 @@ import type * as fs from 'node:fs';
 import type { ClassLike, OptionalTuple } from 'utilium';
 import { Errno, ErrnoError } from './internal/error.js';
 import { resolve } from './path.js';
+import type { V_Context } from './context.js';
 
 declare global {
 	function atob(data: string): string;
@@ -119,7 +120,7 @@ export function normalizeTime(time: string | number | Date): number {
  * Normalizes a path
  * @internal
  */
-export function normalizePath(p: fs.PathLike, noResolve: boolean = false): string {
+export function normalizePath($: V_Context, p: fs.PathLike, noResolve: boolean = false): string {
 	if (p instanceof URL) {
 		if (p.protocol != 'file:') throw new ErrnoError(Errno.EINVAL, 'URLs must use the file: protocol');
 		p = p.pathname;
@@ -133,7 +134,7 @@ export function normalizePath(p: fs.PathLike, noResolve: boolean = false): strin
 		throw new ErrnoError(Errno.EINVAL, 'Path can not be empty');
 	}
 	p = p.replaceAll(/[/\\]+/g, '/');
-	return noResolve ? p : resolve(p);
+	return noResolve ? p : resolve.call($, p);
 }
 
 /**

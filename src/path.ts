@@ -27,14 +27,9 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 */
 
 import type { ParsedPath } from 'node:path';
+import type { V_Context } from './context.js';
 
 export type AbsolutePath = `/${string}`;
-
-export let cwd = '/';
-
-export function cd(path: string): void {
-	cwd = resolve(cwd, path);
-}
 
 export const sep = '/';
 
@@ -109,13 +104,11 @@ export function formatExt(ext: string): string {
 	return ext ? `${ext[0] === '.' ? '' : '.'}${ext}` : '';
 }
 
-export function resolve(...parts: string[]): AbsolutePath {
+export function resolve(this: V_Context, ...parts: (string | undefined)[]): AbsolutePath {
 	let resolved = '';
 
-	for (const part of [...parts.reverse(), cwd]) {
-		if (!part.length) {
-			continue;
-		}
+	for (const part of [...parts.reverse(), this?.pwd]) {
+		if (!part?.length) continue;
 
 		resolved = `${part}/${resolved}`;
 
@@ -167,12 +160,12 @@ export function join(...parts: string[]): string {
 	return normalize(joined);
 }
 
-export function relative(from: string, to: string): string {
+export function relative(this: V_Context, from: string, to: string): string {
 	if (from === to) return '';
 
 	// Trim leading forward slashes.
-	from = resolve(from);
-	to = resolve(to);
+	from = resolve.call(this, from);
+	to = resolve.call(this, to);
 
 	if (from === to) return '';
 

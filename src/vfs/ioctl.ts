@@ -170,7 +170,7 @@ export async function ioctl<const T extends keyof ioctl_ops>(
 	command: T,
 	...args: Parameters<ioctl_ops[T]>
 ): Promise<ReturnType<ioctl_ops[T]>> {
-	path = normalizePath(path);
+	path = normalizePath(this, path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 
@@ -224,7 +224,7 @@ export function ioctlSync<const T extends keyof ioctl_ops>(
 	command: T,
 	...args: Parameters<ioctl_ops[T]>
 ): ReturnType<ioctl_ops[T]> {
-	path = normalizePath(path);
+	path = normalizePath(this, path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 

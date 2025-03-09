@@ -32,10 +32,10 @@ mount('/', InMemory.create({ label: 'root' }));
  * @category Backends and Configuration
  * @internal
  */
-export function mount(mountPoint: string, fs: FileSystem): void {
+export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void {
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
 
-	mountPoint = resolve(mountPoint);
+	mountPoint = resolve.call(this, mountPoint);
 	if (mounts.has(mountPoint)) throw err(new ErrnoError(Errno.EINVAL, 'Mount point is already in use: ' + mountPoint));
 
 	fs._mountPoint = mountPoint;
@@ -48,10 +48,10 @@ export function mount(mountPoint: string, fs: FileSystem): void {
  * Unmounts the file system at `mountPoint`.
  * @category Backends and Configuration
  */
-export function umount(mountPoint: string): void {
+export function umount(this: V_Context, mountPoint: string): void {
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
 
-	mountPoint = resolve(mountPoint);
+	mountPoint = resolve.call(this, mountPoint);
 	if (!mounts.has(mountPoint)) {
 		warn(mountPoint + ' is already unmounted');
 		return;
@@ -87,7 +87,7 @@ export interface ResolvedPath extends ResolvedMount {
  */
 export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 	const root = ctx?.root || '/';
-	path = normalizePath(join(root, path));
+	path = normalizePath(ctx, join(root, path));
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
