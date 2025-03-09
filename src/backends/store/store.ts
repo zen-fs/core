@@ -1,9 +1,10 @@
+import type { UUID } from 'node:crypto';
 import { Resource } from 'utilium/cache.js';
 import { ErrnoError } from '../../internal/error.js';
+import type { UsageInfo } from '../../internal/filesystem.js';
 import { err, warn } from '../../internal/log.js';
 import '../../polyfills.js';
 import type { StoreFS } from './fs.js';
-import type { UsageInfo } from '../../internal/filesystem.js';
 
 /**
  * @category Stores and Transactions
@@ -20,7 +21,7 @@ export interface Store {
 	/**
 	 * @see FileSystem#id
 	 */
-	readonly id?: number;
+	readonly type?: number;
 
 	/**
 	 * What the file system using this store should be called.
@@ -33,6 +34,11 @@ export interface Store {
 	 * For example, you might use a share name for a network-based store
 	 */
 	readonly label?: string;
+
+	/**
+	 * A UUID for this instance of the store.
+	 */
+	readonly uuid?: UUID;
 
 	/**
 	 * Syncs the store

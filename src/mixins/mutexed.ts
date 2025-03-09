@@ -1,3 +1,4 @@
+import type { UUID } from 'node:crypto';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Concrete } from '../utils.js';
@@ -45,8 +46,8 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	 */
 	public _fs!: T;
 
-	public get id(): number {
-		return this._fs.id;
+	public get type(): number {
+		return this._fs.type;
 	}
 
 	public get name(): string {
@@ -63,6 +64,18 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 
 	public get attributes() {
 		return this._fs.attributes;
+	}
+
+	get _uuid(): UUID {
+		return this._fs._uuid;
+	}
+
+	set _uuid(value: UUID) {
+		this._fs._uuid = value;
+	}
+
+	public get uuid(): UUID {
+		return this._fs.uuid;
 	}
 
 	public async ready(): Promise<void> {

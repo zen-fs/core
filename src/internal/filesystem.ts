@@ -2,6 +2,7 @@ import type { ConstMap } from 'utilium';
 import type { StatsLike } from '../vfs/stats.js';
 import type { ErrnoError } from './error.js';
 import type { InodeLike } from './inode.js';
+import type { UUID } from 'node:crypto';
 
 /**
  * Usage information about a file system
@@ -145,6 +146,17 @@ export abstract class FileSystem {
 	_mountPoint?: string;
 
 	/**
+	 * The UUID of the file system.
+	 * @privateRemarks This is only used by `ioctl`
+	 * @internal @protected
+	 */
+	_uuid: UUID = crypto.randomUUID();
+
+	public get uuid(): UUID {
+		return this._uuid;
+	}
+
+	/**
 	 * @see FileSystemAttributes
 	 */
 	public readonly attributes = new Map() as ConstMap<FileSystemAttributes> & Map<string, any>;
@@ -154,7 +166,7 @@ export abstract class FileSystem {
 		 * A unique ID for this kind of file system.
 		 * Currently unused internally, but could be used for partition tables or something
 		 */
-		public readonly id: number,
+		public readonly type: number,
 
 		/**
 		 * The name for this file system.

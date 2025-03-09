@@ -20,6 +20,7 @@ export type Attributes = Record<string, string>;
 export interface InodeFields {
 	data?: number;
 	flags?: number;
+	version?: number;
 	attributes?: Attributes;
 }
 
@@ -32,7 +33,21 @@ export interface InodeLike extends StatsLike<number>, InodeFields {}
 /**
  * @internal @hidden
  */
-export const _inode_fields = ['ino', 'data', 'size', 'mode', 'flags', 'nlink', 'uid', 'gid', 'atimeMs', 'birthtimeMs', 'mtimeMs', 'ctimeMs'] as const;
+export const _inode_fields = [
+	'ino',
+	'data',
+	'size',
+	'mode',
+	'flags',
+	'nlink',
+	'uid',
+	'gid',
+	'atimeMs',
+	'birthtimeMs',
+	'mtimeMs',
+	'ctimeMs',
+	'version',
+] as const;
 
 /**
  * Represents which version of the `Inode` format we are on.
@@ -51,73 +66,73 @@ export const _inode_version = 4;
  */
 export enum InodeFlags {
 	/** Secure deletion */
-	SECRM = 0x00000001,
+	SecureRm = 0x00000001,
 	/** Undelete */
-	UNRM = 0x00000002,
+	Undelete = 0x00000002,
 	/** Compress file */
-	COMPR = 0x00000004,
+	Compress = 0x00000004,
 	/** Synchronous updates */
-	SYNC = 0x00000008,
+	Sync = 0x00000008,
 	/** Immutable file */
-	IMMUTABLE = 0x00000010,
+	Immutable = 0x00000010,
 	/** Writes to file may only append */
-	APPEND = 0x00000020,
+	Append = 0x00000020,
 	/** do not dump file */
-	NODUMP = 0x00000040,
+	NoDump = 0x00000040,
 	/** do not update atime */
-	NOATIME = 0x00000080,
+	NoAtime = 0x00000080,
 	// Reserved for compression usage...
-	DIRTY = 0x00000100,
+	Dirty = 0x00000100,
 	/** One or more compressed clusters */
-	COMPRBLK = 0x00000200,
+	CompressBlk = 0x00000200,
 	/** Don't compress */
-	NOCOMP = 0x00000400,
+	NoCompress = 0x00000400,
 	// End compression flags --- maybe not all used
 	/** Encrypted file */
-	ENCRYPT = 0x00000800,
+	Encrypt = 0x00000800,
 	/** btree format dir */
-	BTREE = 0x00001000,
+	Btree = 0x00001000,
 	/** hash-indexed directory */
 	// eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
-	INDEX = 0x00001000,
+	Index = 0x00001000,
 	/** AFS directory */
-	IMAGIC = 0x00002000,
+	IMagic = 0x00002000,
 	/** Reserved for ext3 */
-	JOURNAL_DATA = 0x00004000,
+	JournalData = 0x00004000,
 	/** file tail should not be merged */
-	NOTAIL = 0x00008000,
+	NoTail = 0x00008000,
 	/** dirsync behaviour (directories only) */
-	DIRSYNC = 0x00010000,
+	DirSync = 0x00010000,
 	/** Top of directory hierarchies*/
-	TOPDIR = 0x00020000,
+	TopDir = 0x00020000,
 	/** Reserved for ext4 */
-	HUGE_FILE = 0x00040000,
+	HugeFile = 0x00040000,
 	/** Extents */
-	EXTENT = 0x00080000,
+	Extent = 0x00080000,
 	/** Verity protected inode */
-	VERITY = 0x00100000,
+	Verity = 0x00100000,
 	/** Inode used for large EA */
-	EA_INODE = 0x00200000,
+	EaInode = 0x00200000,
 	/** Reserved for ext4 */
-	EOFBLOCKS = 0x00400000,
+	EofBlocks = 0x00400000,
 	/** Do not cow file */
-	NOCOW = 0x00800000,
+	NoCow = 0x00800000,
 	/** Inode is DAX */
-	DAX = 0x02000000,
+	Dax = 0x02000000,
 	/** Reserved for ext4 */
-	INLINE_DATA = 0x10000000,
+	InlineData = 0x10000000,
 	/** Create with parents projid */
-	PROJINHERIT = 0x20000000,
+	ProjInherit = 0x20000000,
 	/** Folder is case insensitive */
-	CASEFOLD = 0x40000000,
+	CaseFold = 0x40000000,
 	/** reserved for ext2 lib */
-	RESERVED = 0x80000000,
+	Reserved = 0x80000000,
 }
 
 /** User visible flags */
-export const FL_USER_VISIBLE = 0x0003dfff;
+export const userVisibleFlags = 0x0003dfff;
 /** User modifiable flags */
-export const FL_USER_MODIFIABLE = 0x000380ff;
+export const userModifiableFlags = 0x000380ff;
 
 /**
  * Generic inode definition that can easily be serialized.
@@ -162,10 +177,17 @@ export class Inode implements InodeLike {
 	/** For future use */
 	@t.uint16 protected __after_flags: number = 0;
 
+	/**
+	 * The "version" of the inode/data.
+	 *
+	 * Unrelated to the inode format!
+	 */
+	@t.uint32 public version: number = 0;
+
 	@t.uint32 public attributes_size: number = 2;
 
 	/** Pad to 128 bytes */
-	@t.uint8(52) protected __padding = [];
+	@t.uint8(48) protected __padding = [];
 
 	public attributes: Attributes = {};
 

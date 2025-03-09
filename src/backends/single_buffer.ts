@@ -8,6 +8,8 @@ import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
 import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 import type { Store } from './store/store.js';
+import type { UUID } from 'node:crypto';
+import { stringifyUUID } from '../utils.js';
 
 @struct()
 class MetadataEntry {
@@ -125,8 +127,8 @@ class SuperBlock {
 	/** The total size of the entire file system, including the super block and metadata */
 	@t.uint64 total_bytes: bigint = BigInt(0);
 
-	/** An ID for this file system */
-	@t.uint128 id: bigint = BigInt(0);
+	/** A UUID for this file system */
+	@t.uint128 uuid: bigint = BigInt(0);
 
 	/**
 	 * The size in bytes of a metadata block.
@@ -210,7 +212,11 @@ function checksumMatches(value: SuperBlock | MetadataBlock): boolean {
 export class SingleBufferStore implements SyncMapStore {
 	public readonly flags = [] as const;
 	public readonly name = 'sbfs';
-	public readonly id = 0x73626673; // 'sbfs'
+	public readonly type = 0x73626673; // 'sbfs'
+
+	public get uuid(): UUID {
+		return stringifyUUID(this.superblock.uuid);
+	}
 
 	protected superblock: SuperBlock;
 

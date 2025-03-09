@@ -1,3 +1,4 @@
+import type { UUID } from 'node:crypto';
 import type * as fs from 'node:fs';
 import type { ClassLike, OptionalTuple } from 'utilium';
 import { Errno, ErrnoError } from './internal/error.js';
@@ -165,3 +166,12 @@ export function normalizeOptions(
 }
 
 export type Concrete<T extends ClassLike> = Pick<T, keyof T> & (new (...args: any[]) => InstanceType<T>);
+
+export function stringifyUUID(uuid: bigint): UUID {
+	const hex = uuid.toString(16).padStart(32, '0');
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+export function parseUUID(uuid: UUID): bigint {
+	return BigInt(`0x${uuid.replace(/-/g, '')}`);
+}

@@ -137,7 +137,7 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 	const bs = md.blockSize || 4096;
 
 	return {
-		type: (bigint ? BigInt : Number)(fs.id),
+		type: (bigint ? BigInt : Number)(fs.type),
 		bsize: (bigint ? BigInt : Number)(bs),
 		ffree: (bigint ? BigInt : Number)(md.freeNodes || size_max),
 		files: (bigint ? BigInt : Number)(md.totalNodes || size_max),

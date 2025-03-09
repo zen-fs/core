@@ -167,8 +167,20 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 */
 	public size: T;
 
+	/**
+	 * @internal Used by inodes
+	 */
 	public data?: number;
+
+	/**
+	 * @internal Used by inodes
+	 */
 	public flags?: number;
+
+	/**
+	 * @internal Used by inodes
+	 */
+	public version?: number;
 
 	/**
 	 * Creates a new stats instance from a stats-like object. Can be used to copy stats (note)
