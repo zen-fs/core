@@ -123,7 +123,8 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public touchSync(path: string, metadata: InodeLike): void {
 			this.checkSync(path, 'touch');
-			return this._sync.touchSync(path, metadata);
+			this._sync.touchSync(path, metadata);
+			this._async(this.touch(path, metadata));
 		}
 
 		public createFileSync(path: string, options: CreationOptions): InodeLike {
@@ -212,11 +213,12 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				const buffer = new Uint8Array(stats.size);
 				await this.read(path, buffer, 0, stats.size);
 				this._sync.writeSync(path, buffer, 0);
+				this._sync.touchSync(path, stats);
 				return;
 			}
 			if (path !== '/') {
-				const stats = await this.stat(path);
 				this._sync.mkdirSync(path, stats);
+				this._sync.touchSync(path, stats);
 			}
 			const promises = [];
 			for (const file of await this.readdir(path)) {

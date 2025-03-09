@@ -233,7 +233,8 @@ export class PortFS extends Async(FileSystem) {
 		return await this.rpc('stat', path);
 	}
 
-	public async touch(path: string, metadata: InodeLike): Promise<void> {
+	public async touch(path: string, metadata: InodeLike | Inode): Promise<void> {
+		metadata = 'toJSON' in metadata ? metadata.toJSON() : metadata;
 		await this.rpc('touch', path, metadata);
 	}
 

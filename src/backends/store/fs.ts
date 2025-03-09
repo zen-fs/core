@@ -4,7 +4,7 @@ import { Errno, ErrnoError } from '../../internal/error.js';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, PureCreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
-import { Inode, rootIno, type InodeLike } from '../../internal/inode.js';
+import { Inode, isDirectory, rootIno, type InodeLike } from '../../internal/inode.js';
 import { crit, debug, err, notice, warn } from '../../internal/log.js';
 import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
 import { S_IFDIR, S_IFREG, size_max } from '../../vfs/constants.js';
@@ -398,7 +398,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	/**
 	 * Updated the inode and data node at `path`
-	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public async sync(path: string, data?: Uint8Array, metadata?: Readonly<InodeLike>): Promise<void> {
 		await using tx = this.transaction();
@@ -417,7 +416,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	/**
 	 * Updated the inode and data node at `path`
-	 * @todo Ensure mtime updates properly, and use that to determine if a data update is required.
 	 */
 	public syncSync(path: string, data?: Uint8Array, metadata?: Readonly<InodeLike>): void {
 		using tx = this.transaction();
@@ -508,9 +506,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		await tx.set(inode.data, buffer, offset);
 
-		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
 		this._add(inode.ino, path);
-		await tx.set(inode.ino, inode.serialize());
 
 		await tx.commit();
 	}
@@ -529,9 +525,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		tx.setSync(inode.data, buffer, offset);
 
-		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
 		this._add(inode.ino, path);
-		tx.setSync(inode.ino, inode.serialize());
 
 		tx.commitSync();
 	}
@@ -783,7 +777,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Remove all traces of `path` from the file system.
 	 * @param path The path to remove from the file system.
 	 * @param isDir Does the path belong to a directory, or a file?
-	 * @todo Update mtime.
 	 */
 	protected async remove(path: string, isDir: boolean): Promise<void> {
 		const syscall = isDir ? 'rmdir' : 'unlink';
@@ -797,26 +790,25 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			throw ErrnoError.With('ENOENT', path, syscall);
 		}
 
-		const fileIno = listing[fileName];
+		const ino = listing[fileName];
 
-		// Get file inode.
-		const fileNode = new Inode((await tx.get(fileIno)) ?? _throw(ErrnoError.With('ENOENT', path, syscall)));
+		const inode = new Inode((await tx.get(ino)) ?? _throw(ErrnoError.With('ENOENT', path, syscall)));
 
-		// Remove from directory listing of parent.
 		delete listing[fileName];
 
-		if (!isDir && fileNode.toStats().isDirectory()) throw ErrnoError.With('EISDIR', path, syscall);
+		if (!isDir && isDirectory(inode)) throw ErrnoError.With('EISDIR', path, syscall);
 
 		await tx.set(parentNode.data, encodeDirListing(listing));
 
-		if (--fileNode.nlink < 1) {
-			// remove file
-			await tx.remove(fileNode.data);
-			await tx.remove(fileIno);
-			this._remove(fileIno);
+		if (inode.nlink > 1) {
+			inode.update({ nlink: inode.nlink - 1 });
+			await tx.set(inode.ino, inode.serialize());
+		} else {
+			await tx.remove(inode.data);
+			await tx.remove(ino);
+			this._remove(ino);
 		}
 
-		// Success.
 		await tx.commit();
 	}
 
@@ -824,7 +816,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Remove all traces of `path` from the file system.
 	 * @param path The path to remove from the file system.
 	 * @param isDir Does the path belong to a directory, or a file?
-	 * @todo Update mtime.
 	 */
 	protected removeSync(path: string, isDir: boolean): void {
 		const syscall = isDir ? 'rmdir' : 'unlink';
@@ -832,31 +823,29 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const { dir: parent, base: fileName } = parse(path),
 			parentNode = this.findInodeSync(tx, parent, syscall),
 			listing = decodeDirListing(tx.getSync(parentNode.data) ?? _throw(ErrnoError.With('ENOENT', parent, syscall))),
-			fileIno: number = listing[fileName];
+			ino: number = listing[fileName];
 
-		if (!fileIno) throw ErrnoError.With('ENOENT', path, syscall);
+		if (!ino) throw ErrnoError.With('ENOENT', path, syscall);
 
-		// Get file inode.
-		const fileNode = new Inode(tx.getSync(fileIno) ?? _throw(ErrnoError.With('ENOENT', path, syscall)));
+		const inode = new Inode(tx.getSync(ino) ?? _throw(ErrnoError.With('ENOENT', path, syscall)));
 
-		// Remove from directory listing of parent.
 		delete listing[fileName];
 
-		if (!isDir && fileNode.toStats().isDirectory()) {
+		if (!isDir && isDirectory(inode)) {
 			throw ErrnoError.With('EISDIR', path, syscall);
 		}
 
-		// Update directory listing.
 		tx.setSync(parentNode.data, encodeDirListing(listing));
 
-		if (--fileNode.nlink < 1) {
-			// remove file
-			tx.removeSync(fileNode.data);
-			tx.removeSync(fileIno);
-			this._remove(fileIno);
+		if (inode.nlink > 1) {
+			inode.update({ nlink: inode.nlink - 1 });
+			tx.setSync(inode.ino, inode.serialize());
+		} else {
+			tx.removeSync(inode.data);
+			tx.removeSync(ino);
+			this._remove(ino);
 		}
 
-		// Success.
 		tx.commitSync();
 	}
 }

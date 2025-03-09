@@ -131,7 +131,7 @@ export class FileHandle implements promises.FileHandle {
 
 		if (!this.dirty) return;
 
-		if (!this.fs.attributes.has('no_write')) await this.fs.sync(this.internalPath, undefined, this.stats);
+		if (!this.fs.attributes.has('no_write')) await this.fs.touch(this.internalPath, this.stats);
 		this.dirty = false;
 	}
 
@@ -377,6 +377,8 @@ export class FileHandle implements promises.FileHandle {
 		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
 
 		this.stats.mtimeMs = Date.now();
+		this.stats.ctimeMs = Date.now();
+
 		this._position = position + slice.byteLength;
 		await this.fs.write(this.internalPath, slice, position);
 		if (config.syncImmediately) await this.sync();

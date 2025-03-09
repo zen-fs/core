@@ -129,21 +129,12 @@ suite('Streams', () => {
 	test('FileHandle.createReadStream after close should give an error', async () => {
 		const fileHandle = await fs.promises.open(testFilePath, 'r');
 		await fileHandle.close();
-		const stream = fileHandle.createReadStream();
-		const { promise, resolve, reject } = Promise.withResolvers();
-		setTimeout(resolve, 100);
-		stream.on('error', reject);
-		assert.rejects(promise);
+		assert.throws(() => fileHandle.createReadStream(), { code: 'EBADF' });
 	});
 
 	test('FileHandle.createWriteStream after close should give an error', async () => {
 		const fileHandle = await fs.promises.open(testFilePathWrite, 'w');
 		await fileHandle.close();
-		const stream = fileHandle.createWriteStream();
-		const { promise, resolve, reject } = Promise.withResolvers();
-		setTimeout(resolve, 100);
-		stream.on('error', reject);
-		assert.rejects(promise);
-		stream.write('Nuh-uh');
+		assert.throws(() => fileHandle.createWriteStream(), { code: 'EBADF' });
 	});
 });

@@ -193,28 +193,29 @@ export class SyncHandle {
 	) {}
 
 	public [Symbol.dispose](): void {
-		this.closeSync();
+		this.close();
 	}
 
-	public syncSync(): void {
+	public sync(): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
 
 		if (!this.dirty) return;
 
-		if (!this.fs.attributes.has('no_write')) this.fs.syncSync(this.internalPath, undefined, this.stats);
+		if (!this.fs.attributes.has('no_write')) this.fs.touchSync(this.internalPath, this.stats);
+
 		this.dirty = false;
 	}
 
 	/**
 	 * Default implementation maps to `syncSync`.
 	 */
-	public datasyncSync(): void {
-		return this.syncSync();
+	public datasync(): void {
+		return this.sync();
 	}
 
-	public closeSync(): void {
+	public close(): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'close');
-		this.syncSync();
+		this.sync();
 		this.dispose();
 	}
 
@@ -229,13 +230,13 @@ export class SyncHandle {
 		this.closed = true;
 	}
 
-	public statSync(): InodeLike {
+	public stat(): InodeLike {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
 
 		return this.stats;
 	}
 
-	public truncateSync(length: number): void {
+	public truncate(length: number): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'truncate');
 
 		this.dirty = true;
@@ -244,7 +245,8 @@ export class SyncHandle {
 		}
 		this.stats.mtimeMs = Date.now();
 		this.stats.size = length;
-		if (config.syncImmediately) this.syncSync();
+		this.stats.ctimeMs = Date.now();
+		if (config.syncImmediately) this.sync();
 	}
 
 	/**
@@ -256,7 +258,7 @@ export class SyncHandle {
 	 * If position is null, the data will be written at  the current position.
 	 * @returns bytes written
 	 */
-	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
+	public write(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
 
 		if (!isWriteable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
@@ -270,9 +272,13 @@ export class SyncHandle {
 		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
 
 		this.stats.mtimeMs = Date.now();
+		this.stats.ctimeMs = Date.now();
+
 		this._position = position + slice.byteLength;
+
 		this.fs.writeSync(this.internalPath, slice, position);
-		if (config.syncImmediately) this.syncSync();
+
+		if (config.syncImmediately) this.sync();
 		return slice.byteLength;
 	}
 
@@ -285,12 +291,7 @@ export class SyncHandle {
 	 * If position is null, data will be read from the current file position.
 	 * @returns number of bytes written
 	 */
-	public readSync(
-		buffer: ArrayBufferView,
-		offset: number = 0,
-		length: number = buffer.byteLength - offset,
-		position: number = this.position
-	): number {
+	public read(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
 
 		if (!isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
@@ -306,34 +307,34 @@ export class SyncHandle {
 		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		this.fs.readSync(this.internalPath, uint8.subarray(offset, offset + length), position, end);
-		if (config.syncImmediately) this.syncSync();
+		if (config.syncImmediately) this.sync();
 		return end - position;
 	}
 
-	public chmodSync(mode: number): void {
+	public chmod(mode: number): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
 		this.dirty = true;
 		this.stats.mode = (this.stats.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
-		if (config.syncImmediately || mode > c.S_IFMT) this.syncSync();
+		if (config.syncImmediately || mode > c.S_IFMT) this.sync();
 	}
 
-	public chownSync(uid: number, gid: number): void {
+	public chown(uid: number, gid: number): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
 		this.dirty = true;
 		_chown(this.stats, uid, gid);
-		if (config.syncImmediately) this.syncSync();
+		if (config.syncImmediately) this.sync();
 	}
 
 	/**
 	 * Change the file timestamps of the file.
 	 */
-	public utimesSync(atime: number, mtime: number): void {
+	public utimes(atime: number, mtime: number): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
 
 		this.dirty = true;
 		this.stats.atimeMs = atime;
 		this.stats.mtimeMs = mtime;
-		if (config.syncImmediately) this.syncSync();
+		if (config.syncImmediately) this.sync();
 	}
 
 	/**

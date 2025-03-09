@@ -322,8 +322,16 @@ export abstract class FileSystem {
 		let position = options.start ?? 0;
 		return new WritableStream<Uint8Array>({
 			write: async (chunk, controller) => {
-				await this.write(path, chunk, position).catch(controller.error.bind(controller));
+				let err = false;
+				const _err = (ex: any) => {
+					err = true;
+					controller.error(ex);
+				};
+				const { size } = await this.stat(path);
+				await this.write(path, chunk, position).catch(_err);
+				if (err) return;
 				position += chunk.byteLength;
+				await this.touch(path, { mtimeMs: Date.now(), size: Math.max(size, position) }).catch(_err);
 			},
 		});
 	}

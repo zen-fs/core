@@ -169,7 +169,14 @@ export class Inode implements InodeLike {
 	@t.float64 public atimeMs: number = Date.now();
 	@t.float64 public birthtimeMs: number = Date.now();
 	@t.float64 public mtimeMs: number = Date.now();
+
+	/**
+	 * The time the inode was changed.
+	 *
+	 * This is automatically updated whenever changed are made using `update()`.
+	 */
 	@t.float64 public ctimeMs: number = Date.now();
+
 	@t.uint32 public ino: number = randomInt(0, size_max);
 	/** For future use */
 	@t.uint32 public __ino_old: number = 0;
@@ -240,6 +247,8 @@ export class Inode implements InodeLike {
 			this.attributes_size = encodeUTF8(JSON.stringify(this.attributes)).byteLength;
 			hasChanged = true;
 		}
+
+		if (hasChanged) this.ctimeMs = Date.now();
 
 		return hasChanged;
 	}

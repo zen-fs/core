@@ -239,10 +239,12 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public async touch(path: string, metadata: InodeLike): Promise<void> {
+		await this.copyForWrite(path);
 		await this.writable.touch(path, metadata);
 	}
 
 	public touchSync(path: string, metadata: InodeLike): void {
+		this.copyForWriteSync(path);
 		this.writable.touchSync(path, metadata);
 	}
 

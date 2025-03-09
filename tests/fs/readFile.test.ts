@@ -36,7 +36,7 @@ suite('Read and Unlink', () => {
 	});
 });
 
-suite('Read File Test', () => {
+suite('Read File', () => {
 	const fn = 'empty.txt';
 
 	test('read file asynchronously', async () => {
@@ -64,10 +64,10 @@ suite('fs file reading', () => {
 	test('read file synchronously and verify the content', () => {
 		const content = fs.readFileSync('elipses.txt', 'utf8');
 
+		assert.equal(content.length, 10000);
+
 		for (let i = 0; i < content.length; i++) {
 			assert.equal(content[i], '…');
 		}
-
-		assert.equal(content.length, 10000);
 	});
 });
