@@ -149,21 +149,26 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 
 /**
  * Change the root path
- * @param inPlace if true, this changes the root for the current context instead of creating a new one (if associated with a context).
  * @category Backends and Configuration
  */
-export function chroot(this: V_Context, path: string, inPlace?: false): BoundContext;
-export function chroot<T extends V_Context>(this: T, path: string, inPlace: true): T;
-export function chroot<T extends V_Context>(this: T & V_Context, path: string, inPlace?: boolean): T | BoundContext {
-	const creds = this?.credentials;
-	if (creds?.uid && creds?.gid && creds?.euid && creds?.egid) {
+export function chroot(this: V_Context, path: string) {
+	if (!this) throw new ErrnoError(Errno.EPERM, 'Can not chroot() without a context');
+
+	if (this.credentials?.uid !== 0 && this.credentials?.gid !== 0 && this.credentials?.euid !== 0 && this.credentials?.egid !== 0)
 		throw new ErrnoError(Errno.EPERM, 'Can not chroot() as non-root user');
+
+	this.root ??= '/';
+
+	const newRoot = join(this.root, path);
+
+	for (const handle of this.descriptors?.values() ?? []) {
+		if (!handle.path.startsWith(this.root)) throw ErrnoError.With('EBUSY', handle.path, 'chroot');
+		(handle as any).path = handle.path.slice(this.root.length);
 	}
-	if (inPlace && this) {
-		this.root += path;
-		return this;
-	}
-	return bindContext(join(this?.root || '/', path), creds);
+
+	if (newRoot.length > this.root.length) throw new ErrnoError(Errno.EPERM, 'Can not chroot() outside of current root');
+
+	this.root = newRoot;
 }
 
 /**

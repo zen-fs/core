@@ -5,7 +5,7 @@ import * as fs from '../../dist/vfs/index.js';
 import { canary } from 'utilium';
 
 fs.mkdirSync('/ctx');
-const { fs: ctx } = bindContext('/ctx');
+const { fs: ctx } = bindContext({ root: '/ctx' });
 
 suite('Context', () => {
 	test('create a file', () => {

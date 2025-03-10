@@ -34,7 +34,7 @@ export const credentials: Credentials = {
  * Initialization for a set of credentials
  * @category Internals
  */
-export interface CredentialInit extends Partial<Credentials> {
+export interface CredentialsInit extends Partial<Credentials> {
 	uid: number;
 	gid: number;
 }
@@ -42,7 +42,7 @@ export interface CredentialInit extends Partial<Credentials> {
 /**
  * @category Internals
  */
-export function createCredentials(source: CredentialInit): Credentials {
+export function createCredentials(source: CredentialsInit): Credentials {
 	return {
 		suid: source.uid,
 		sgid: source.gid,
@@ -57,6 +57,6 @@ export function createCredentials(source: CredentialInit): Credentials {
  * Uses credentials from the provided uid and gid.
  * @category Internals
  */
-export function useCredentials(source: CredentialInit): void {
+export function useCredentials(source: CredentialsInit): void {
 	Object.assign(credentials, createCredentials(source));
 }

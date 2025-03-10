@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { CredentialInit, Credentials } from './internal/credentials.js';
+import type { CredentialsInit, Credentials } from './internal/credentials.js';
 import { createCredentials, credentials as defaultCredentials } from './internal/credentials.js';
 import * as path from './path.js';
 import type { SyncHandle } from './vfs/file.js';
@@ -18,14 +18,34 @@ function _bindFunctions<T extends Record<string, unknown>>(fns: T, thisValue: FS
 }
 
 /**
- * Represents some context used for FS operations
+ * A context used for FS operations
  * @category Backends and Configuration
  */
 export interface FSContext {
+	/** The unique ID of the context */
+	readonly id: number;
+
+	/**
+	 * The absolute root path of the context
+	 *
+	 * Note the parent's root is not considered
+	 */
 	root: string;
+
+	/** The current working directory of the context */
 	pwd: string;
+
+	/** The credentials of the context, used for access checks */
 	readonly credentials: Credentials;
+
+	/** A map of open file descriptors to their handles */
 	descriptors: Map<number, SyncHandle>;
+
+	/** The parent context, if any. */
+	parent: V_Context;
+
+	/** The child contexts */
+	children: FSContext[];
 }
 
 /**
@@ -42,22 +62,44 @@ export interface BoundContext extends FSContext {
 
 	/** Path functions, bound to the context */
 	path: Bound<typeof path>;
+
+	/** Creates a new child context with this context as the parent */
+	bind(init: ContextInit): BoundContext;
 }
+
+let _nextId = 0;
+
+export interface ContextInit {
+	root?: string;
+	pwd?: string;
+	credentials?: CredentialsInit;
+}
+
+/**
+ * @internal
+ */
+const _contexts = new Map<number, BoundContext>();
 
 /**
  * Allows you to restrict operations to a specific root path and set of credentials.
  * Note that the default credentials of a bound context are copied from the global credentials.
  * @category Backends and Configuration
  */
-export function bindContext(root: string, credentials: CredentialInit = structuredClone(defaultCredentials)): BoundContext {
-	const ctx = {
+export function bindContext(
+	this: V_Context,
+	{ root = this?.root || '/', pwd = this?.pwd || '/', credentials = structuredClone(defaultCredentials) }: ContextInit = {}
+): BoundContext {
+	const ctx: FSContext = {
+		id: _nextId++,
 		root,
+		pwd,
 		credentials: createCredentials(credentials),
 		descriptors: new Map(),
-		pwd: root,
-	} satisfies FSContext;
+		parent: this ?? undefined,
+		children: [],
+	};
 
-	return {
+	const bound = {
 		...ctx,
 		fs: {
 			..._bindFunctions(fs, ctx),
@@ -65,5 +107,14 @@ export function bindContext(root: string, credentials: CredentialInit = structur
 			xattr: _bindFunctions(fs.xattr, ctx),
 		},
 		path: _bindFunctions(path, ctx),
+		bind: (init: ContextInit) => {
+			const child = bindContext.call(ctx, init);
+			ctx.children.push(child);
+			return child;
+		},
 	};
+
+	_contexts.set(ctx.id, bound);
+
+	return bound;
 }
