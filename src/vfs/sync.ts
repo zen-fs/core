@@ -16,7 +16,7 @@ import { dirname, join, parse, resolve } from '../path.js';
 import { _statfs, fixError, resolveMount } from './shared.js';
 import { BigIntStats } from './stats.js';
 import { emitChange } from './watchers.js';
-import { _default } from '../internal/contexts.js';
+import { defaultContext } from '../internal/contexts.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
@@ -157,7 +157,7 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHa
 			throw ErrnoError.With('EACCES', dirname(resolved), '_open');
 		}
 
-		const { euid: uid, egid: gid } = this?.credentials ?? _default.credentials;
+		const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
 		const inode = fs.createFileSync(resolved, {
 			mode,
 			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
@@ -476,7 +476,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options: fs.MakeDi
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined;
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined | void {
-	const { euid: uid, egid: gid } = this?.credentials ?? _default.credentials;
+	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 

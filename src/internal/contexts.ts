@@ -50,7 +50,7 @@ export interface BoundContext extends FSContext {
 	fs: Bound<typeof fs, FSContext> & { promises: Bound<typeof fs.promises, FSContext>; xattr: Bound<typeof fs.xattr, FSContext> };
 
 	/** Path functions, bound to the context */
-	path: Bound<typeof path>;
+	path: Bound<typeof path, FSContext>;
 
 	/** Creates a new child context with this context as the parent */
 	bind(init: ContextInit): BoundContext;
@@ -73,7 +73,7 @@ export interface ContextInit {
  * @internal @hidden
  * @category Contexts
  */
-export const _default: FSContext = {
+export const defaultContext: FSContext = {
 	id: 0,
 	root: '/',
 	pwd: '/',

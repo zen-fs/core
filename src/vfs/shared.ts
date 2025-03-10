@@ -11,7 +11,7 @@ import { alert, debug, err, info, notice, warn } from '../internal/log.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
 import { size_max } from './constants.js';
-import { _default } from '../internal/contexts.js';
+import { defaultContext } from '../internal/contexts.js';
 
 /**
  * @internal @hidden
@@ -87,7 +87,7 @@ export interface ResolvedPath extends ResolvedMount {
  * @internal @hidden
  */
 export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
-	const root = ctx?.root || _default.root;
+	const root = ctx?.root || defaultContext.root;
 	path = normalizePath(join(root, path));
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
@@ -153,7 +153,7 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
  * @category Backends and Configuration
  */
 export function chroot(this: V_Context, path: string) {
-	const $ = this ?? _default;
+	const $ = this ?? defaultContext;
 	if ($.credentials?.uid !== 0 && $.credentials?.gid !== 0 && $.credentials?.euid !== 0 && $.credentials?.egid !== 0)
 		throw new ErrnoError(Errno.EPERM, 'Can not chroot() as non-root user');
 

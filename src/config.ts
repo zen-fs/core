@@ -1,6 +1,6 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
-import { _default } from './internal/contexts.js';
+import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import type { Device, DeviceDriver } from './internal/devices.js';
 import { DeviceFS } from './internal/devices.js';
@@ -194,7 +194,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	const uid = 'uid' in configuration ? configuration.uid || 0 : 0;
 	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
 
-	Object.assign(_default.credentials, createCredentials({ uid, gid }));
+	Object.assign(defaultContext.credentials, createCredentials({ uid, gid }));
 
 	config.checkAccess = !configuration.disableAccessChecks;
 	config.updateOnRead = !configuration.disableUpdateOnRead;

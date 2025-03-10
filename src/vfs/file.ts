@@ -1,5 +1,5 @@
 import type { V_Context } from '../context.js';
-import { _default } from '../internal/contexts.js';
+import { defaultContext } from '../internal/contexts.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
@@ -363,7 +363,7 @@ export class SyncHandle {
  * @internal @hidden
  */
 export function toFD(file: SyncHandle): number {
-	const map = file.context?.descriptors ?? _default.descriptors;
+	const map = file.context?.descriptors ?? defaultContext.descriptors;
 	const fd = map.size ? Math.max(...map.keys()) + 1 : 0;
 	map.set(fd, file);
 	return fd;
@@ -373,12 +373,12 @@ export function toFD(file: SyncHandle): number {
  * @internal @hidden
  */
 export function fromFD($: V_Context, fd: number): SyncHandle {
-	const map = $?.descriptors ?? _default.descriptors;
+	const map = $?.descriptors ?? defaultContext.descriptors;
 	const value = map.get(fd);
 	if (!value) throw new ErrnoError(Errno.EBADF);
 	return value;
 }
 
 export function deleteFD($: V_Context, fd: number): boolean {
-	return ($?.descriptors ?? _default.descriptors).delete(fd);
+	return ($?.descriptors ?? defaultContext.descriptors).delete(fd);
 }

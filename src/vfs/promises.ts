@@ -26,7 +26,7 @@ import { _statfs, fixError, resolveMount } from './shared.js';
 import { _chown, BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { emitChange, FSWatcher } from './watchers.js';
-import { _default } from '../internal/contexts.js';
+import { defaultContext } from '../internal/contexts.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -644,7 +644,7 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 		if (!parentStats.isDirectory()) {
 			throw ErrnoError.With('ENOTDIR', dirname(fullPath), '_open');
 		}
-		const { euid: uid, egid: gid } = $?.credentials ?? _default.credentials;
+		const { euid: uid, egid: gid } = $?.credentials ?? defaultContext.credentials;
 
 		const inode = await fs.createFile(resolved, {
 			mode,
@@ -823,7 +823,7 @@ export async function mkdir(
 	path: fs.PathLike,
 	options?: fs.Mode | fs.MakeDirectoryOptions | null
 ): Promise<string | undefined | void> {
-	const { euid: uid, egid: gid } = this?.credentials ?? _default.credentials;
+	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 

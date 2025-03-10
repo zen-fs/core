@@ -1,6 +1,6 @@
 import { bindFunctions } from 'utilium';
 import type { BoundContext, ContextInit, FSContext, V_Context } from './internal/contexts.js';
-import { _default } from './internal/contexts.js';
+import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import * as path from './path.js';
 import * as fs from './vfs/index.js';
@@ -23,9 +23,9 @@ const _contexts = new Map<number, BoundContext>();
  */
 export function bindContext(
 	this: void | null | FSContext,
-	{ root = this?.root || '/', pwd = this?.pwd || '/', credentials = structuredClone(_default.credentials) }: ContextInit = {}
+	{ root = this?.root || '/', pwd = this?.pwd || '/', credentials = structuredClone(defaultContext.credentials) }: ContextInit = {}
 ): BoundContext {
-	const parent = this ?? _default;
+	const parent = this ?? defaultContext;
 
 	const ctx: FSContext & { parent: FSContext } = {
 		id: _nextId++,
