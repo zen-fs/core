@@ -47,7 +47,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The current file position.
 	 */
 	public get position(): number {
-		return file.isAppendable(this.flag) ? this.stats.size : this._position;
+		return file.isAppendable(this.flag) ? this.inode.size : this._position;
 	}
 
 	public set position(value: number) {
@@ -77,14 +77,14 @@ export class FileHandle implements promises.FileHandle {
 	public readonly flag!: string;
 
 	/** Stats for the handle */
-	public readonly stats!: InodeLike;
+	public readonly inode!: InodeLike;
 
 	public constructor(
 		protected context: V_Context,
 		public readonly fd: number
 	) {
 		const sync = file.fromFD(context, fd);
-		Object.assign(this, pick(sync, 'path', 'fs', 'internalPath', 'flag', 'stats'));
+		Object.assign(this, pick(sync, 'path', 'fs', 'internalPath', 'flag', 'inode'));
 	}
 
 	private _emitChange() {
@@ -97,7 +97,7 @@ export class FileHandle implements promises.FileHandle {
 	public async chown(uid: number, gid: number): Promise<void> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
 		this.dirty = true;
-		_chown(this.stats, uid, gid);
+		_chown(this.inode, uid, gid);
 		if (config.syncImmediately) await this.sync();
 		this._emitChange();
 	}
@@ -111,7 +111,7 @@ export class FileHandle implements promises.FileHandle {
 		if (numMode < 0) throw new ErrnoError(Errno.EINVAL, 'Invalid mode');
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
 		this.dirty = true;
-		this.stats.mode = (this.stats.mode & (numMode > constants.S_IFMT ? ~constants.S_IFMT : constants.S_IFMT)) | numMode;
+		this.inode.mode = (this.inode.mode & (numMode > constants.S_IFMT ? ~constants.S_IFMT : constants.S_IFMT)) | numMode;
 		if (config.syncImmediately || numMode > constants.S_IFMT) await this.sync();
 		this._emitChange();
 	}
@@ -131,7 +131,7 @@ export class FileHandle implements promises.FileHandle {
 
 		if (!this.dirty) return;
 
-		if (!this.fs.attributes.has('no_write')) await this.fs.touch(this.internalPath, this.stats);
+		if (!this.fs.attributes.has('no_write')) await this.fs.touch(this.internalPath, this.inode);
 		this.dirty = false;
 	}
 
@@ -148,8 +148,8 @@ export class FileHandle implements promises.FileHandle {
 		if (!file.isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 		}
-		this.stats.mtimeMs = Date.now();
-		this.stats.size = length;
+		this.inode.mtimeMs = Date.now();
+		this.inode.size = length;
 		if (config.syncImmediately) await this.sync();
 		this._emitChange();
 	}
@@ -163,8 +163,8 @@ export class FileHandle implements promises.FileHandle {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
 
 		this.dirty = true;
-		this.stats.atimeMs = normalizeTime(atime);
-		this.stats.mtimeMs = normalizeTime(mtime);
+		this.inode.atimeMs = normalizeTime(atime);
+		this.inode.mtimeMs = normalizeTime(mtime);
 		if (config.syncImmediately) await this.sync();
 
 		this._emitChange();
@@ -214,13 +214,14 @@ export class FileHandle implements promises.FileHandle {
 
 		if (!file.isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
 
-		if (config.updateOnRead) this.dirty = true;
-
-		this.stats.atimeMs = Date.now();
+		if (!(this.inode.flags! & InodeFlags.NoAtime)) {
+			this.dirty = true;
+			this.inode.atimeMs = Date.now();
+		}
 
 		let end = position + length;
-		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) {
-			end = position + Math.max(this.stats.size - position, 0);
+		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
+			end = position + Math.max(this.inode.size - position, 0);
 		}
 		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
@@ -268,7 +269,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 
 		const pos = Number.isSafeInteger(position) ? position! : this.position;
-		buffer ||= new Uint8Array(this.stats.size) as T;
+		buffer ||= new Uint8Array(this.inode.size) as T;
 		offset ??= 0;
 		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos);
 	}
@@ -312,7 +313,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public writableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): WritableStream {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'writableWebStream');
-		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'writableWebStream');
+		if (this.inode.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'writableWebStream');
 		return this.fs.streamWrite(this.internalPath, options);
 	}
 
@@ -343,7 +344,7 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
 
-		const stats = new Stats(this.stats);
+		const stats = new Stats(this.inode);
 		if (config.checkAccess && !stats.hasAccess(constants.R_OK, this.context)) {
 			throw ErrnoError.With('EACCES', this.path, 'stat');
 		}
@@ -366,7 +367,7 @@ export class FileHandle implements promises.FileHandle {
 	): Promise<number> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
 
-		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'write');
+		if (this.inode.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'write');
 
 		if (!file.isWriteable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 
@@ -374,10 +375,10 @@ export class FileHandle implements promises.FileHandle {
 		const end = position + length;
 		const slice = buffer.subarray(offset, offset + length);
 
-		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
+		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) this.inode.size = end;
 
-		this.stats.mtimeMs = Date.now();
-		this.stats.ctimeMs = Date.now();
+		this.inode.mtimeMs = Date.now();
+		this.inode.ctimeMs = Date.now();
 
 		this._position = position + slice.byteLength;
 		await this.fs.write(this.internalPath, slice, position);
@@ -516,7 +517,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public createWriteStream(options: promises.CreateWriteStreamOptions = {}): WriteStream {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'createWriteStream');
-		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'createWriteStream');
+		if (this.inode.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'createWriteStream');
 		return new WriteStream(options, this);
 	}
 }

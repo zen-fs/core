@@ -5,11 +5,6 @@ export const config = {
 	checkAccess: true,
 
 	/**
-	 * Whether to mark a file as dirty after updating its `atime` when read from
-	 */
-	updateOnRead: true,
-
-	/**
 	 * Whether to immediately sync when files are changed
 	 */
 	syncImmediately: true,

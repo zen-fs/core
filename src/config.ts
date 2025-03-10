@@ -116,15 +116,6 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	disableAccessChecks: boolean;
 
 	/**
-	 * If true, disables `read` and `readSync` from updating the atime.
-	 *
-	 * This can increase performance.
-	 * @experimental
-	 * @default false
-	 */
-	disableUpdateOnRead: boolean;
-
-	/**
 	 * If true, files will only sync to the file system when closed.
 	 * This overrides `disableUpdateOnRead`
 	 *
@@ -136,7 +127,6 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 
 	/**
 	 * Configurations options for the log.
-	 * @experimental
 	 */
 	log: LogConfiguration;
 }
@@ -197,7 +187,6 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	Object.assign(defaultContext.credentials, createCredentials({ uid, gid }));
 
 	config.checkAccess = !configuration.disableAccessChecks;
-	config.updateOnRead = !configuration.disableUpdateOnRead;
 	config.syncImmediately = !configuration.onlySyncOnClose;
 
 	if (configuration.log) configureLog(configuration.log);

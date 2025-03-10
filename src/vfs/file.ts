@@ -163,7 +163,7 @@ export class SyncHandle {
 	 * @returns The current file position.
 	 */
 	public get position(): number {
-		return isAppendable(this.flag) ? this.stats.size : this._position;
+		return isAppendable(this.flag) ? this.inode.size : this._position;
 	}
 
 	public set position(value: number) {
@@ -190,7 +190,7 @@ export class SyncHandle {
 		public readonly fs: FileSystem,
 		public readonly internalPath: string,
 		public readonly flag: string,
-		public readonly stats: InodeLike
+		public readonly inode: InodeLike
 	) {}
 
 	public [Symbol.dispose](): void {
@@ -202,7 +202,7 @@ export class SyncHandle {
 
 		if (!this.dirty) return;
 
-		if (!this.fs.attributes.has('no_write')) this.fs.touchSync(this.internalPath, this.stats);
+		if (!this.fs.attributes.has('no_write')) this.fs.touchSync(this.internalPath, this.inode);
 
 		this.dirty = false;
 	}
@@ -234,7 +234,7 @@ export class SyncHandle {
 	public stat(): InodeLike {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
 
-		return this.stats;
+		return this.inode;
 	}
 
 	public truncate(length: number): void {
@@ -244,9 +244,9 @@ export class SyncHandle {
 		if (!isWriteable(this.flag)) {
 			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 		}
-		this.stats.mtimeMs = Date.now();
-		this.stats.size = length;
-		this.stats.ctimeMs = Date.now();
+		this.inode.mtimeMs = Date.now();
+		this.inode.size = length;
+		this.inode.ctimeMs = Date.now();
 		if (config.syncImmediately) this.sync();
 	}
 
@@ -264,16 +264,16 @@ export class SyncHandle {
 
 		if (!isWriteable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
 
-		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'write');
+		if (this.inode.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'write');
 
 		this.dirty = true;
 		const end = position + length;
 		const slice = buffer.subarray(offset, offset + length);
 
-		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) this.stats.size = end;
+		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) this.inode.size = end;
 
-		this.stats.mtimeMs = Date.now();
-		this.stats.ctimeMs = Date.now();
+		this.inode.mtimeMs = Date.now();
+		this.inode.ctimeMs = Date.now();
 
 		this._position = position + slice.byteLength;
 
@@ -297,13 +297,14 @@ export class SyncHandle {
 
 		if (!isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
 
-		if (config.updateOnRead) this.dirty = true;
-
-		this.stats.atimeMs = Date.now();
+		if (!(this.inode.flags! & InodeFlags.NoAtime)) {
+			this.dirty = true;
+			this.inode.atimeMs = Date.now();
+		}
 
 		let end = position + length;
-		if (!isCharacterDevice(this.stats) && !isBlockDevice(this.stats) && end > this.stats.size) {
-			end = position + Math.max(this.stats.size - position, 0);
+		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
+			end = position + Math.max(this.inode.size - position, 0);
 		}
 		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
@@ -315,14 +316,14 @@ export class SyncHandle {
 	public chmod(mode: number): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
 		this.dirty = true;
-		this.stats.mode = (this.stats.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
+		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
 		if (config.syncImmediately || mode > c.S_IFMT) this.sync();
 	}
 
 	public chown(uid: number, gid: number): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
 		this.dirty = true;
-		_chown(this.stats, uid, gid);
+		_chown(this.inode, uid, gid);
 		if (config.syncImmediately) this.sync();
 	}
 
@@ -333,8 +334,8 @@ export class SyncHandle {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
 
 		this.dirty = true;
-		this.stats.atimeMs = atime;
-		this.stats.mtimeMs = mtime;
+		this.inode.atimeMs = atime;
+		this.inode.mtimeMs = mtime;
 		if (config.syncImmediately) this.sync();
 	}
 
@@ -352,7 +353,7 @@ export class SyncHandle {
 	 */
 	public streamWrite(options: StreamOptions): WritableStream {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'streamWrite');
-		if (this.stats.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'streamWrite');
+		if (this.inode.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'streamWrite');
 		return this.fs.streamWrite(this.internalPath, options);
 	}
 }
