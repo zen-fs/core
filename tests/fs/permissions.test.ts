@@ -5,7 +5,7 @@ import { encodeUTF8 } from '../../dist/utils.js';
 import { R_OK, W_OK, X_OK } from '../../dist/vfs/constants.js';
 import { join } from '../../dist/path.js';
 import { fs } from '../common.js';
-import { _default } from '../../dist/internal/contexts.js';
+import { defaultContext } from '../../dist/internal/contexts.js';
 
 const asyncMode = 0o777;
 const syncMode = 0o644;
@@ -88,8 +88,8 @@ suite('Permissions', () => {
 		assert(stats.hasAccess(R_OK));
 	}
 
-	const copy = { ..._default.credentials };
-	Object.assign(_default.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
+	const copy = { ...defaultContext.credentials };
+	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));
-	Object.assign(_default.credentials, copy);
+	Object.assign(defaultContext.credentials, copy);
 });
