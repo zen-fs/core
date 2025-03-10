@@ -1,10 +1,10 @@
 import type * as Node from 'node:fs';
 import { pick } from 'utilium';
 import type { V_Context } from '../context.js';
-import { credentials } from '../internal/credentials.js';
 import type { InodeFields, InodeLike } from '../internal/inode.js';
 import { _inode_fields } from '../internal/inode.js';
 import * as c from './constants.js';
+import { _default } from '../internal/contexts.js';
 
 const n1000 = BigInt(1000) as 1000n;
 
@@ -242,7 +242,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @internal
 	 */
 	public hasAccess(mode: number, context?: V_Context): boolean {
-		const creds = context?.credentials || credentials;
+		const creds = context?.credentials || _default.credentials;
 
 		if (this.isSymbolicLink() || creds.euid === 0 || creds.egid === 0) return true;
 

@@ -5,12 +5,13 @@ import type { FileSystem } from '../internal/filesystem.js';
 import type { Stats } from './stats.js';
 
 import { InMemory } from '../backends/memory.js';
-import { bindContext, type BoundContext, type V_Context } from '../context.js';
+import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { alert, debug, err, info, notice, warn } from '../internal/log.js';
+import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
 import { size_max } from './constants.js';
-import { join, resolve, type AbsolutePath } from '../path.js';
+import { _default } from '../internal/contexts.js';
 
 /**
  * @internal @hidden
@@ -86,7 +87,7 @@ export interface ResolvedPath extends ResolvedMount {
  * @internal @hidden
  */
 export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
-	const root = ctx?.root || '/';
+	const root = ctx?.root || _default.root;
 	path = normalizePath(join(root, path));
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
@@ -152,23 +153,22 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
  * @category Backends and Configuration
  */
 export function chroot(this: V_Context, path: string) {
-	if (!this) throw new ErrnoError(Errno.EPERM, 'Can not chroot() without a context');
-
-	if (this.credentials?.uid !== 0 && this.credentials?.gid !== 0 && this.credentials?.euid !== 0 && this.credentials?.egid !== 0)
+	const $ = this ?? _default;
+	if ($.credentials?.uid !== 0 && $.credentials?.gid !== 0 && $.credentials?.euid !== 0 && $.credentials?.egid !== 0)
 		throw new ErrnoError(Errno.EPERM, 'Can not chroot() as non-root user');
 
-	this.root ??= '/';
+	$.root ??= '/';
 
-	const newRoot = join(this.root, path);
+	const newRoot = join($.root, path);
 
-	for (const handle of this.descriptors?.values() ?? []) {
-		if (!handle.path.startsWith(this.root)) throw ErrnoError.With('EBUSY', handle.path, 'chroot');
-		(handle as any).path = handle.path.slice(this.root.length);
+	for (const handle of $.descriptors?.values() ?? []) {
+		if (!handle.path.startsWith($.root)) throw ErrnoError.With('EBUSY', handle.path, 'chroot');
+		(handle as any).path = handle.path.slice($.root.length);
 	}
 
-	if (newRoot.length > this.root.length) throw new ErrnoError(Errno.EPERM, 'Can not chroot() outside of current root');
+	if (newRoot.length > $.root.length) throw new ErrnoError(Errno.EPERM, 'Can not chroot() outside of current root');
 
-	this.root = newRoot;
+	$.root = newRoot;
 }
 
 /**

@@ -122,6 +122,9 @@ const _sz_fiemap = 32;
 const _sz_fsuuid2 = 17;
 const _sz_fs_sysfs_path = 129;
 
+/**
+ * @todo Use this vs a string for the command?
+ */
 enum IOC {
 	GetFlags = _encode(_ior, _f, 1, 8),
 	SetFlags = _encode(_iow, _f, 2, 8),
@@ -147,7 +150,12 @@ enum IOC32 {
 	SetVersion = _encode(_iow, _v, 2, 4),
 }
 
-interface ioctl_ops {
+/**
+ * Used by `ioctl` for type inference
+ * @internal @hidden
+ * @category Internals
+ */
+export interface _ioctl_ops {
 	IOC_GETFLAGS(): void;
 	IOC_SETFLAGS(flags: number): void;
 	IOC_GETVERSION(): void;
@@ -164,17 +172,17 @@ interface ioctl_ops {
 /**
  * @todo enum vs string for command?
  */
-export async function ioctl<const T extends keyof ioctl_ops>(
+export async function ioctl<const T extends keyof _ioctl_ops>(
 	this: V_Context,
 	path: string,
 	command: T,
-	...args: Parameters<ioctl_ops[T]>
-): Promise<ReturnType<ioctl_ops[T]>> {
+	...args: Parameters<_ioctl_ops[T]>
+): Promise<ReturnType<_ioctl_ops[T]>> {
 	path = normalizePath(path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 
-	type _rt = ReturnType<ioctl_ops[T]>;
+	type _rt = ReturnType<_ioctl_ops[T]>;
 
 	try {
 		const inode = new Inode(await fs.stat(resolved));
@@ -183,13 +191,13 @@ export async function ioctl<const T extends keyof ioctl_ops>(
 			case 'IOC_GETFLAGS':
 				return inode.flags as _rt;
 			case 'IOC_SETFLAGS':
-				inode.flags = (args as Parameters<ioctl_ops['IOC_SETFLAGS']>)[0];
+				inode.flags = (args as Parameters<_ioctl_ops['IOC_SETFLAGS']>)[0];
 				await fs.touch(resolved, inode);
 				return undefined as _rt;
 			case 'IOC_GETVERSION':
 				return inode.version as _rt;
 			case 'IOC_SETVERSION':
-				inode.version = (args as Parameters<ioctl_ops['IOC_SETVERSION']>)[0];
+				inode.version = (args as Parameters<_ioctl_ops['IOC_SETVERSION']>)[0];
 				await fs.touch(resolved, inode);
 				return undefined as _rt;
 			case 'IOC_FIEMAP':
@@ -201,7 +209,7 @@ export async function ioctl<const T extends keyof ioctl_ops>(
 			case 'IOC_GETLABEL':
 				return fs.label as _rt;
 			case 'IOC_SETLABEL':
-				fs.label = (args as Parameters<ioctl_ops['IOC_SETLABEL']>)[0];
+				fs.label = (args as Parameters<_ioctl_ops['IOC_SETLABEL']>)[0];
 				return undefined as _rt;
 			case 'IOC_GETUUID':
 				return fs.uuid as _rt;
@@ -218,17 +226,17 @@ export async function ioctl<const T extends keyof ioctl_ops>(
 	throw new ErrnoError(Errno.ENOTSUP, 'Unsupported command: ' + command, path, 'ioctl');
 }
 
-export function ioctlSync<const T extends keyof ioctl_ops>(
+export function ioctlSync<const T extends keyof _ioctl_ops>(
 	this: V_Context,
 	path: string,
 	command: T,
-	...args: Parameters<ioctl_ops[T]>
-): ReturnType<ioctl_ops[T]> {
+	...args: Parameters<_ioctl_ops[T]>
+): ReturnType<_ioctl_ops[T]> {
 	path = normalizePath(path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 
-	type _rt = ReturnType<ioctl_ops[T]>;
+	type _rt = ReturnType<_ioctl_ops[T]>;
 
 	try {
 		const inode = new Inode(fs.statSync(resolved));
@@ -237,13 +245,13 @@ export function ioctlSync<const T extends keyof ioctl_ops>(
 			case 'IOC_GETFLAGS':
 				return inode.flags as _rt;
 			case 'IOC_SETFLAGS':
-				inode.flags = (args as Parameters<ioctl_ops['IOC_SETFLAGS']>)[0];
+				inode.flags = (args as Parameters<_ioctl_ops['IOC_SETFLAGS']>)[0];
 				fs.touchSync(resolved, inode);
 				return undefined as _rt;
 			case 'IOC_GETVERSION':
 				return inode.version as _rt;
 			case 'IOC_SETVERSION':
-				inode.version = (args as Parameters<ioctl_ops['IOC_SETVERSION']>)[0];
+				inode.version = (args as Parameters<_ioctl_ops['IOC_SETVERSION']>)[0];
 				fs.touchSync(resolved, inode);
 				return undefined as _rt;
 			case 'IOC_FIEMAP':
@@ -256,7 +264,7 @@ export function ioctlSync<const T extends keyof ioctl_ops>(
 			case 'IOC_GETLABEL':
 				return fs.label as _rt;
 			case 'IOC_SETLABEL':
-				fs.label = (args as Parameters<ioctl_ops['IOC_SETLABEL']>)[0];
+				fs.label = (args as Parameters<_ioctl_ops['IOC_SETLABEL']>)[0];
 				return undefined as _rt;
 			case 'IOC_GETUUID':
 				return fs.uuid as _rt;

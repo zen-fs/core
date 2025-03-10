@@ -18,19 +18,6 @@ export interface Credentials {
 }
 
 /**
- * @category Internals
- */
-export const credentials: Credentials = {
-	uid: 0,
-	gid: 0,
-	suid: 0,
-	sgid: 0,
-	euid: 0,
-	egid: 0,
-	groups: [],
-};
-
-/**
  * Initialization for a set of credentials
  * @category Internals
  */
@@ -51,12 +38,4 @@ export function createCredentials(source: CredentialsInit): Credentials {
 		groups: [],
 		...source,
 	};
-}
-
-/**
- * Uses credentials from the provided uid and gid.
- * @category Internals
- */
-export function useCredentials(source: CredentialsInit): void {
-	Object.assign(credentials, createCredentials(source));
 }
