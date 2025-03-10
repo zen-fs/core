@@ -5,12 +5,12 @@
 	- include/uapi/linux/fs.h (`FS_IOC_*`)
 */
 
-import { sizeof, struct, types as t } from 'utilium';
+import { struct, types as t } from 'utilium';
 import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
+import { Inode, InodeFlags } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { fixError, resolveMount } from './shared.js';
-import { Inode, InodeFlags } from '../internal/inode.js';
 
 /*
  * Flags for the fsxattr.xflags field
@@ -79,142 +79,120 @@ class fsxattr {
 	}
 }
 
-const _ionone = 0;
-const _iow = 1;
-const _ior = 2;
-const _iorw = 3;
-
-const _bits_nr = 8;
-const _bits_type = 8;
-const _bits_size = 14;
-const _bits_dir = 2;
-
-const _mask_nr = 1 << (_bits_nr - 1);
-const _mask_type = 1 << (_bits_type - 1);
-const _mask_size = 1 << (_bits_size - 1);
-const _mask_dir = 1 << (_bits_dir - 1);
-
-const _shift_nr = 0;
-const _shift_type = _shift_nr + _bits_nr;
-const _shift_size = _shift_type + _bits_type;
-const _shift_dir = _shift_size + _bits_size;
-
-function _encode(dir: number, type: number, nr: number, size: number): number {
-	const value = (dir << _shift_dir) | (type << _shift_type) | (nr << _shift_nr) | (size << _shift_size);
-	return value < 0 ? 1 + ~value : value; // Why doesn't JS have unsigned left shift?!
-}
-
-function _decode(value: number): [dir: number, type: number, nr: number, size: number] {
-	return [
-		(value >> _shift_dir) & _mask_dir,
-		(value >> _shift_type) & _mask_type,
-		(value >> _shift_nr) & _mask_nr,
-		(value >> _shift_size) & _mask_size,
-	];
-}
-
-const _f = 0x66;
-const _v = 0x76;
-const _X = 0x58;
-
-// Precomputed since it doesn't make sense to implement just for the size
-const _sz_fiemap = 32;
-const _sz_fsuuid2 = 17;
-const _sz_fs_sysfs_path = 129;
-
 /**
- * @todo Use this vs a string for the command?
+ * `FS_IOC_*` commands for {@link ioctl | `ioctl`}
+ * @remarks
+ * These are computed from a script since constant values are needed for enum member types
  */
-enum IOC {
-	GetFlags = _encode(_ior, _f, 1, 8),
-	SetFlags = _encode(_iow, _f, 2, 8),
-	GetVersion = _encode(_ior, _v, 1, 8),
-	SetVersion = _encode(_iow, _v, 2, 8),
-	Fiemap = _encode(_iorw, _f, 11, _sz_fiemap),
-	GetXattr = _encode(_ior, _X, 31, sizeof(fsxattr)),
-	SetXattr = _encode(_iow, _X, 32, sizeof(fsxattr)),
-	GetLabel = _encode(_ior, 0x94, 49, 256),
-	SetLabel = _encode(_iow, 0x94, 50, 256),
-	GetUuid = _encode(_ior, 0x15, 0, _sz_fsuuid2),
-	/*
-	 * Returns the path component under /sys/fs/ that refers to this filesystem;
-	 * also /sys/kernel/debug/ for filesystems with debugfs exports
-	 */
-	GetSysfsPath = _encode(_ior, 0x15, 1, _sz_fs_sysfs_path),
-}
-
-enum IOC32 {
-	GetFlags = _encode(_ior, _f, 1, 4),
-	SetFlags = _encode(_iow, _f, 2, 4),
-	GetVersion = _encode(_ior, _v, 1, 4),
-	SetVersion = _encode(_iow, _v, 2, 4),
+export enum IOC {
+	GetFlags = 0x80086601,
+	SetFlags = 0x40086602,
+	GetVersion = 0x80087601,
+	SetVersion = 0x40087602,
+	Fiemap = 0xc020660b,
+	GetXattr = 0x801c581f,
+	SetXattr = 0x401c5820,
+	GetLabel = 0x81009431,
+	SetLabel = 0x41009432,
+	GetUuid = 0x80111500,
+	GetSysfsPath = 0x80811501,
 }
 
 /**
- * Used by `ioctl` for type inference
- * @internal @hidden
- * @category Internals
+ * `FS_IOC32_*` commands for {@link ioctl | `ioctl`}
+ * @remarks
+ * These are computed from a script since constant values are needed for enum member types
  */
-export interface _ioctl_ops {
-	IOC_GETFLAGS(): void;
-	IOC_SETFLAGS(flags: number): void;
-	IOC_GETVERSION(): void;
-	IOC_SETVERSION(version: number): void;
-	IOC_FIEMAP(): never;
-	IOC_GETXATTR(name: string): fsxattr;
-	IOC_SETXATTR(name: string, value: fsxattr): never;
-	IOC_GETLABEL(): string;
-	IOC_SETLABEL(label: string): void;
-	IOC_GETUUID(): string;
-	IOC_GETSYSFSPATH(): string;
+export enum IOC32 {
+	GetFlags = 0x80046601,
+	SetFlags = 0x40046602,
+	GetVersion = 0x80047601,
+	SetVersion = 0x40047602,
 }
 
-/**
- * @todo enum vs string for command?
- */
-export async function ioctl<const T extends keyof _ioctl_ops>(
+/** Used by `ioctl` for type inference */
+interface _ioc_ops {
+	[IOC.GetFlags](): number;
+	[IOC.SetFlags](flags: number): void;
+	[IOC.GetVersion](): number;
+	[IOC.SetVersion](version: number): void;
+	[IOC.Fiemap](): never;
+	[IOC.GetXattr](name: string): fsxattr;
+	[IOC.SetXattr](name: string, value: fsxattr): never;
+	[IOC.GetLabel](): string;
+	[IOC.SetLabel](label: string): void;
+	[IOC.GetUuid](): string;
+	[IOC.GetSysfsPath](): string;
+}
+
+/** Used by `ioctl` for type inference */
+interface _ioc32_ops extends Record<keyof IOC32, (...args: any[]) => any> {
+	[IOC32.GetFlags](): number;
+	[IOC32.SetFlags](flags: number): void;
+	[IOC32.GetVersion](): number;
+	[IOC32.SetVersion](version: number): void;
+}
+
+/** Used by `ioctl` for type inference */
+type __ioctl_args__<T extends number> = T extends IOC ? Parameters<_ioc_ops[T]> : T extends IOC32 ? Parameters<_ioc32_ops[T]> : any[];
+
+/** Used by `ioctl` for type inference */
+type __ioctl_return__<T extends number> = T extends IOC ? ReturnType<_ioc_ops[T]> : T extends IOC32 ? ReturnType<_ioc32_ops[T]> : any;
+
+/** Perform an `ioctl` on a file or file system. */
+export async function ioctl<const Command extends number, const Args extends __ioctl_args__<Command>, const Return extends __ioctl_return__<Command>>(
 	this: V_Context,
+	/** The path to the file or file system to perform the `ioctl` on */
 	path: string,
-	command: T,
-	...args: Parameters<_ioctl_ops[T]>
-): Promise<ReturnType<_ioctl_ops[T]>> {
+	/** The command to perform (uint32) */
+	command: Command,
+	/** The arguments to pass to the command */
+	...args: Args
+): Promise<Return> {
 	path = normalizePath(path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 
-	type _rt = ReturnType<_ioctl_ops[T]>;
+	type _rt = Return;
+	type _args<C extends number> = __ioctl_args__<C>;
 
 	try {
 		const inode = new Inode(await fs.stat(resolved));
 
 		switch (command) {
-			case 'IOC_GETFLAGS':
+			case IOC.GetFlags:
+			case IOC32.GetFlags:
 				return inode.flags as _rt;
-			case 'IOC_SETFLAGS':
-				inode.flags = (args as Parameters<_ioctl_ops['IOC_SETFLAGS']>)[0];
+			case IOC.SetFlags:
+			case IOC32.SetFlags:
+				inode.flags = (args as _args<IOC.SetFlags>)[0];
 				await fs.touch(resolved, inode);
 				return undefined as _rt;
-			case 'IOC_GETVERSION':
+			case IOC.GetVersion:
+			case IOC32.GetVersion:
 				return inode.version as _rt;
-			case 'IOC_SETVERSION':
-				inode.version = (args as Parameters<_ioctl_ops['IOC_SETVERSION']>)[0];
+			case IOC.SetVersion:
+			case IOC32.SetVersion:
+				inode.version = (args as _args<IOC.SetVersion>)[0];
 				await fs.touch(resolved, inode);
 				return undefined as _rt;
-			case 'IOC_FIEMAP':
+			case IOC.Fiemap:
 				break;
-			case 'IOC_GETXATTR':
+			case IOC.GetXattr:
 				return new fsxattr(inode) as _rt;
-			case 'IOC_SETXATTR':
+			case IOC.SetXattr:
 				break;
-			case 'IOC_GETLABEL':
+			case IOC.GetLabel:
 				return fs.label as _rt;
-			case 'IOC_SETLABEL':
-				fs.label = (args as Parameters<_ioctl_ops['IOC_SETLABEL']>)[0];
+			case IOC.SetLabel:
+				fs.label = (args as _args<IOC.SetLabel>)[0];
 				return undefined as _rt;
-			case 'IOC_GETUUID':
+			case IOC.GetUuid:
 				return fs.uuid as _rt;
-			case 'IOC_GETSYSFSPATH':
+			case IOC.GetSysfsPath:
 				/**
+				 * Returns the path component under /sys/fs/ that refers to this filesystem;
+				 * also /sys/kernel/debug/ for filesystems with debugfs exports
 				 * @todo Implement sysfs and have each FS implement the /sys/fs/<name> tree
 				 */
 				return `/sys/fs/${fs.name}/${fs.uuid}` as _rt;
@@ -226,50 +204,60 @@ export async function ioctl<const T extends keyof _ioctl_ops>(
 	throw new ErrnoError(Errno.ENOTSUP, 'Unsupported command: ' + command, path, 'ioctl');
 }
 
-export function ioctlSync<const T extends keyof _ioctl_ops>(
+/** Perform an `ioctl` on a file or file system */
+export function ioctlSync<const Command extends number, const Args extends __ioctl_args__<Command>, const Return extends __ioctl_return__<Command>>(
 	this: V_Context,
+	/** The path to the file or file system to perform the `ioctl` on */
 	path: string,
-	command: T,
-	...args: Parameters<_ioctl_ops[T]>
-): ReturnType<_ioctl_ops[T]> {
+	/** The command to perform (uint32) */
+	command: Command,
+	/** The arguments to pass to the command */
+	...args: Args
+): Return {
 	path = normalizePath(path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 
-	type _rt = ReturnType<_ioctl_ops[T]>;
+	type _rt = Return;
+	type _args<C extends number> = __ioctl_args__<C>;
 
 	try {
 		const inode = new Inode(fs.statSync(resolved));
 
 		switch (command) {
-			case 'IOC_GETFLAGS':
+			case IOC.GetFlags:
+			case IOC32.GetFlags:
 				return inode.flags as _rt;
-			case 'IOC_SETFLAGS':
-				inode.flags = (args as Parameters<_ioctl_ops['IOC_SETFLAGS']>)[0];
+			case IOC.SetFlags:
+			case IOC32.SetFlags:
+				inode.flags = (args as _args<IOC.SetFlags>)[0];
 				fs.touchSync(resolved, inode);
 				return undefined as _rt;
-			case 'IOC_GETVERSION':
+			case IOC.GetVersion:
+			case IOC32.GetVersion:
 				return inode.version as _rt;
-			case 'IOC_SETVERSION':
-				inode.version = (args as Parameters<_ioctl_ops['IOC_SETVERSION']>)[0];
+			case IOC.SetVersion:
+			case IOC32.SetVersion:
+				inode.version = (args as _args<IOC.SetVersion>)[0];
 				fs.touchSync(resolved, inode);
 				return undefined as _rt;
-			case 'IOC_FIEMAP':
+			case IOC.Fiemap:
 				break;
-			case 'IOC_GETXATTR':
+			case IOC.GetXattr:
 				return new fsxattr(inode) as _rt;
-
-			case 'IOC_SETXATTR':
+			case IOC.SetXattr:
 				break;
-			case 'IOC_GETLABEL':
+			case IOC.GetLabel:
 				return fs.label as _rt;
-			case 'IOC_SETLABEL':
-				fs.label = (args as Parameters<_ioctl_ops['IOC_SETLABEL']>)[0];
+			case IOC.SetLabel:
+				fs.label = (args as _args<IOC.SetLabel>)[0];
 				return undefined as _rt;
-			case 'IOC_GETUUID':
+			case IOC.GetUuid:
 				return fs.uuid as _rt;
-			case 'IOC_GETSYSFSPATH':
+			case IOC.GetSysfsPath:
 				/**
+				 * Returns the path component under /sys/fs/ that refers to this filesystem;
+				 * also /sys/kernel/debug/ for filesystems with debugfs exports
 				 * @todo Implement sysfs and have each FS implement the /sys/fs/<name> tree
 				 */
 				return `/sys/fs/${fs.name}/${fs.uuid}` as _rt;

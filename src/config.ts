@@ -126,10 +126,10 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 
 	/**
 	 * If true, files will only sync to the file system when closed.
+	 * This overrides `disableUpdateOnRead`
 	 *
 	 * This can increase performance.
 	 * @experimental
-	 * @overrides `disableUpdateOnRead`
 	 * @default false
 	 */
 	onlySyncOnClose: boolean;
