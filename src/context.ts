@@ -5,12 +5,16 @@ import * as path from './path.js';
 import type { SyncHandle } from './vfs/file.js';
 import * as fs from './vfs/index.js';
 
+/**
+ * @category Contexts
+ */
 type Bound<T> = T & {
 	[k in keyof T]: T[k] extends (...args: any[]) => any ? (this: FSContext, ...args: Parameters<T[k]>) => ReturnType<T[k]> : T[k];
 };
 
 /**
  * Binds a this value for all of the functions in an object (not recursive)
+ * @category Contexts
  * @internal
  */
 function _bindFunctions<T extends Record<string, unknown>>(fns: T, thisValue: FSContext) {
@@ -19,7 +23,7 @@ function _bindFunctions<T extends Record<string, unknown>>(fns: T, thisValue: FS
 
 /**
  * A context used for FS operations
- * @category Backends and Configuration
+ * @category Contexts
  */
 export interface FSContext {
 	/** The unique ID of the context */
@@ -55,7 +59,7 @@ export type V_Context = void | null | (Partial<FSContext> & object);
 
 /**
  * Allows you to restrict operations to a specific root path and set of credentials.
- * @category Backends and Configuration
+ * @category Contexts
  */
 export interface BoundContext extends FSContext {
 	fs: Bound<typeof fs> & { promises: Bound<typeof fs.promises>; xattr: Bound<typeof fs.xattr> };
@@ -69,6 +73,9 @@ export interface BoundContext extends FSContext {
 
 let _nextId = 0;
 
+/**
+ * @category Contexts
+ */
 export interface ContextInit {
 	root?: string;
 	pwd?: string;
@@ -77,13 +84,14 @@ export interface ContextInit {
 
 /**
  * @internal
+ * @category Contexts
  */
 const _contexts = new Map<number, BoundContext>();
 
 /**
  * Allows you to restrict operations to a specific root path and set of credentials.
  * Note that the default credentials of a bound context are copied from the global credentials.
- * @category Backends and Configuration
+ * @category Contexts
  */
 export function bindContext(
 	this: V_Context,
