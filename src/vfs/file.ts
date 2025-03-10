@@ -247,7 +247,8 @@ export class SyncHandle {
 		this.inode.mtimeMs = Date.now();
 		this.inode.size = length;
 		this.inode.ctimeMs = Date.now();
-		if (config.syncImmediately) this.sync();
+
+		if (this.inode.flags! & InodeFlags.Sync) this.sync();
 	}
 
 	/**
@@ -279,7 +280,7 @@ export class SyncHandle {
 
 		this.fs.writeSync(this.internalPath, slice, position);
 
-		if (config.syncImmediately) this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) this.sync();
 		return slice.byteLength;
 	}
 
@@ -309,7 +310,7 @@ export class SyncHandle {
 		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		this.fs.readSync(this.internalPath, uint8.subarray(offset, offset + length), position, end);
-		if (config.syncImmediately) this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) this.sync();
 		return end - position;
 	}
 
@@ -317,14 +318,14 @@ export class SyncHandle {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
 		this.dirty = true;
 		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
-		if (config.syncImmediately || mode > c.S_IFMT) this.sync();
+		if (this.inode.flags! & InodeFlags.Sync || mode > c.S_IFMT) this.sync();
 	}
 
 	public chown(uid: number, gid: number): void {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
 		this.dirty = true;
 		_chown(this.inode, uid, gid);
-		if (config.syncImmediately) this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) this.sync();
 	}
 
 	/**
@@ -336,7 +337,7 @@ export class SyncHandle {
 		this.dirty = true;
 		this.inode.atimeMs = atime;
 		this.inode.mtimeMs = mtime;
-		if (config.syncImmediately) this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) this.sync();
 	}
 
 	/**

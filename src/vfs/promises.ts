@@ -98,7 +98,7 @@ export class FileHandle implements promises.FileHandle {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
 		this.dirty = true;
 		_chown(this.inode, uid, gid);
-		if (config.syncImmediately) await this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
 		this._emitChange();
 	}
 
@@ -112,7 +112,7 @@ export class FileHandle implements promises.FileHandle {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
 		this.dirty = true;
 		this.inode.mode = (this.inode.mode & (numMode > constants.S_IFMT ? ~constants.S_IFMT : constants.S_IFMT)) | numMode;
-		if (config.syncImmediately || numMode > constants.S_IFMT) await this.sync();
+		if (this.inode.flags! & InodeFlags.Sync || numMode > constants.S_IFMT) await this.sync();
 		this._emitChange();
 	}
 
@@ -150,7 +150,7 @@ export class FileHandle implements promises.FileHandle {
 		}
 		this.inode.mtimeMs = Date.now();
 		this.inode.size = length;
-		if (config.syncImmediately) await this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
 		this._emitChange();
 	}
 
@@ -165,7 +165,7 @@ export class FileHandle implements promises.FileHandle {
 		this.dirty = true;
 		this.inode.atimeMs = normalizeTime(atime);
 		this.inode.mtimeMs = normalizeTime(mtime);
-		if (config.syncImmediately) await this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
 
 		this._emitChange();
 	}
@@ -226,7 +226,7 @@ export class FileHandle implements promises.FileHandle {
 		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		await this.fs.read(this.internalPath, uint8.subarray(offset, offset + length), position, end);
-		if (config.syncImmediately) await this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
 		return { bytesRead: end - position, buffer };
 	}
 
@@ -382,7 +382,7 @@ export class FileHandle implements promises.FileHandle {
 
 		this._position = position + slice.byteLength;
 		await this.fs.write(this.internalPath, slice, position);
-		if (config.syncImmediately) await this.sync();
+		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
 		return slice.byteLength;
 	}
 

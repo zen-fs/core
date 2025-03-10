@@ -187,7 +187,6 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	Object.assign(defaultContext.credentials, createCredentials({ uid, gid }));
 
 	config.checkAccess = !configuration.disableAccessChecks;
-	config.syncImmediately = !configuration.onlySyncOnClose;
 
 	if (configuration.log) configureLog(configuration.log);
 

@@ -5,11 +5,6 @@ export const config = {
 	checkAccess: true,
 
 	/**
-	 * Whether to immediately sync when files are changed
-	 */
-	syncImmediately: true,
-
-	/**
 	 * If a file's buffer is not large enough to store content when writing and the buffer can't be resized, reuse the buffer passed to write()
 	 */
 	unsafeBufferReplace: false,
