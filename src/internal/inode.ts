@@ -294,10 +294,10 @@ export function isFIFO(metadata: { mode: number }): boolean {
 
 /**
  * Checks if a given user/group has access to this item
- * @param mode The requested access, combination of `W_OK`, `R_OK`, and `X_OK`
+ * @param access The requested access, combination of `W_OK`, `R_OK`, and `X_OK`
  * @internal
  */
-export function hasAccess($: V_Context, inode: InodeLike, mode: number): boolean {
+export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 'gid'>, access: number): boolean {
 	const credentials = $?.credentials || defaultContext.credentials;
 
 	if (isSymbolicLink(inode) || credentials.euid === 0 || credentials.egid === 0) return true;
@@ -320,5 +320,5 @@ export function hasAccess($: V_Context, inode: InodeLike, mode: number): boolean
 	if (inode.mode & c.S_IWOTH) perm |= c.W_OK;
 	if (inode.mode & c.S_IXOTH) perm |= c.X_OK;
 
-	return (perm & mode) === mode;
+	return (perm & access) === access;
 }

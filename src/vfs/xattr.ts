@@ -81,7 +81,7 @@ export async function get(
 	this: V_Context,
 	path: string,
 	name: Name,
-	opt: Options & (BufferEncodingOption | { encoding?: null })
+	opt?: Options & (BufferEncodingOption | { encoding?: null })
 ): Promise<Uint8Array>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): Promise<string>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options = {}): Promise<string | Uint8Array> {
@@ -102,9 +102,8 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 			throw ErrnoError.With('ENODATA', resolved, 'xattr.get');
 		}
 
-		const value = inode.attributes[name];
+		const buffer = Buffer.from(inode.attributes[name]);
 
-		const buffer = Buffer.from(value);
 		return opt.encoding == 'buffer' || !opt.encoding ? buffer : buffer.toString(opt.encoding);
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [resolved]: path });
@@ -119,7 +118,7 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
  * @param opt Options for the operation
  * @returns A buffer containing the attribute value when encoding is 'buffer' or undefined, or a string when a string encoding is specified
  */
-export function getSync(this: V_Context, path: string, name: Name, opt: Options & (BufferEncodingOption | { encoding?: null })): Uint8Array;
+export function getSync(this: V_Context, path: string, name: Name, opt?: Options & (BufferEncodingOption | { encoding?: null })): Uint8Array;
 export function getSync(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): string;
 export function getSync(this: V_Context, path: string, name: Name, opt: Options = {}): string | Uint8Array {
 	path = normalizePath(path);
@@ -139,9 +138,7 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 			throw ErrnoError.With('ENODATA', resolved, 'xattr.get');
 		}
 
-		const value = inode.attributes[name];
-
-		const buffer = Buffer.from(value);
+		const buffer = Buffer.from(inode.attributes[name]);
 
 		return opt.encoding == 'buffer' || !opt.encoding ? buffer : buffer.toString(opt.encoding);
 	} catch (e) {
