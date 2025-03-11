@@ -4,6 +4,7 @@ import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
+import { checkAccess } from './config.js';
 import { R_OK, W_OK } from './constants.js';
 import { fixError, resolveMount } from './shared.js';
 
@@ -91,7 +92,7 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 	try {
 		const inode = await fs.stat(resolved);
 
-		if (!hasAccess(this, inode, R_OK)) {
+		if (checkAccess && !hasAccess(this, inode, R_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'xattr.get');
 		}
 
@@ -128,7 +129,7 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 	try {
 		const inode = fs.statSync(resolved);
 
-		if (!hasAccess(this, inode, R_OK)) {
+		if (checkAccess && !hasAccess(this, inode, R_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'xattr.get');
 		}
 
@@ -164,7 +165,7 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
 	try {
 		const inode = await fs.stat(resolved);
 
-		if (!hasAccess(this, inode, W_OK)) {
+		if (checkAccess && !hasAccess(this, inode, W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'xattr.set');
 		}
 
@@ -203,7 +204,7 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
 	try {
 		const inode = fs.statSync(resolved);
 
-		if (!hasAccess(this, inode, W_OK)) {
+		if (checkAccess && !hasAccess(this, inode, W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'xattr.set');
 		}
 
@@ -239,7 +240,7 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
 	try {
 		const inode = await fs.stat(resolved);
 
-		if (!hasAccess(this, inode, W_OK)) {
+		if (checkAccess && !hasAccess(this, inode, W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'xattr.remove');
 		}
 
@@ -270,7 +271,7 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
 	try {
 		const inode = fs.statSync(resolved);
 
-		if (!hasAccess(this, inode, W_OK)) {
+		if (checkAccess && !hasAccess(this, inode, W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'xattr.remove');
 		}
 

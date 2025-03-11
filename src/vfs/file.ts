@@ -5,7 +5,6 @@ import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
 import * as c from './constants.js';
-import * as flags from './flags.js';
 import { _chown } from './stats.js';
 
 /** @hidden */

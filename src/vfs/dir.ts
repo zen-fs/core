@@ -1,6 +1,6 @@
 import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
 import type { V_Context } from '../context.js';
-import type { Stats } from './stats.js';
+import { isBlockDevice, isCharacterDevice, isDirectory, isFIFO, isFile, isSocket, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 import type { Callback } from '../utils.js';
 
 import { Errno, ErrnoError } from '../internal/error.js';
@@ -15,7 +15,7 @@ export class Dirent implements _Dirent {
 
 	public constructor(
 		public path: string,
-		protected stats: Stats
+		protected stats: InodeLike
 	) {}
 
 	get parentPath(): string {
@@ -23,25 +23,25 @@ export class Dirent implements _Dirent {
 	}
 
 	isFile(): boolean {
-		return this.stats.isFile();
+		return isFile(this.stats);
 	}
 	isDirectory(): boolean {
-		return this.stats.isDirectory();
+		return isDirectory(this.stats);
 	}
 	isBlockDevice(): boolean {
-		return this.stats.isBlockDevice();
+		return isBlockDevice(this.stats);
 	}
 	isCharacterDevice(): boolean {
-		return this.stats.isCharacterDevice();
+		return isCharacterDevice(this.stats);
 	}
 	isSymbolicLink(): boolean {
-		return this.stats.isSymbolicLink();
+		return isSymbolicLink(this.stats);
 	}
 	isFIFO(): boolean {
-		return this.stats.isFIFO();
+		return isFIFO(this.stats);
 	}
 	isSocket(): boolean {
-		return this.stats.isSocket();
+		return isSocket(this.stats);
 	}
 }
 

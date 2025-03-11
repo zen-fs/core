@@ -14,7 +14,7 @@ import { _throw, pick } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import { InodeFlags, isBlockDevice, isCharacterDevice } from '../internal/inode.js';
+import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { dirname, join, parse, resolve } from '../path.js';
 import '../polyfills.js';
 import { createInterface } from '../readline.js';
@@ -345,11 +345,11 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
 
-		const stats = new Stats(this.inode);
-		if (checkAccess && !stats.hasAccess(constants.R_OK, this.context)) {
+		if (checkAccess && !hasAccess(this.context, this.inode, constants.R_OK)) {
 			throw ErrnoError.With('EACCES', this.path, 'stat');
 		}
-		return opts?.bigint ? new BigIntStats(stats) : stats;
+
+		return opts?.bigint ? new BigIntStats(this.inode) : new Stats(this.inode);
 	}
 
 	/**
@@ -571,11 +571,11 @@ export async function stat(this: V_Context, path: fs.PathLike, options?: fs.Stat
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(await realpath.call(this, path), this);
 	try {
-		const stats = new Stats(await fs.stat(resolved));
-		if (checkAccess && !stats.hasAccess(constants.R_OK, this)) {
+		const stats = await fs.stat(resolved);
+		if (checkAccess && !hasAccess(this, stats, constants.R_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'stat');
 		}
-		return options?.bigint ? new BigIntStats(stats) : stats;
+		return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
@@ -593,8 +593,11 @@ export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.Sta
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		const stats = new Stats(await fs.stat(resolved));
-		return options?.bigint ? new BigIntStats(stats) : stats;
+		const stats = await fs.stat(resolved);
+		if (checkAccess && !hasAccess(this, stats, constants.R_OK)) {
+			throw ErrnoError.With('EACCES', resolved, 'lstat');
+		}
+		return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [resolved]: path });
 	}
@@ -613,7 +616,7 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		if (checkAccess && !new Stats(await fs.stat(resolved)).hasAccess(constants.W_OK, this)) {
+		if (checkAccess && !hasAccess(this, await fs.stat(resolved), constants.W_OK)) {
 			throw ErrnoError.With('EACCES', resolved, 'unlink');
 		}
 		await fs.unlink(resolved);
@@ -639,12 +642,14 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 		if (!(flag & constants.O_CREAT)) {
 			throw ErrnoError.With('ENOENT', fullPath, '_open');
 		}
+
 		// Create the file
-		const parentStats: Stats = new Stats(await fs.stat(dirname(resolved)));
-		if (checkAccess && !parentStats.hasAccess(constants.W_OK, $)) {
+		const parentStats = await fs.stat(dirname(resolved));
+		if (checkAccess && !hasAccess($, parentStats, constants.W_OK)) {
 			throw ErrnoError.With('EACCES', dirname(fullPath), '_open');
 		}
-		if (!parentStats.isDirectory()) {
+
+		if (!isDirectory(parentStats)) {
 			throw ErrnoError.With('ENOTDIR', dirname(fullPath), '_open');
 		}
 		const { euid: uid, egid: gid } = $?.credentials ?? defaultContext.credentials;
@@ -658,7 +663,7 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 		return new FileHandle($, toFD(new SyncHandle($, path, fs, resolved, flag, inode)));
 	}
 
-	if (checkAccess && !stats.hasAccess(flags.toMode(flag), $)) {
+	if (checkAccess && !hasAccess($, stats, flags.toMode(flag))) {
 		throw ErrnoError.With('EACCES', fullPath, '_open');
 	}
 
@@ -780,22 +785,18 @@ export async function appendFile(
 }
 appendFile satisfies typeof promises.appendFile;
 
-// DIRECTORY-ONLY METHODS
-
 export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 	path = await realpath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		const stats = new Stats(await fs.stat(resolved));
-		if (!stats) {
-			throw ErrnoError.With('ENOENT', path, 'rmdir');
-		}
-		if (!stats.isDirectory()) {
-			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
-		}
-		if (checkAccess && !stats.hasAccess(constants.W_OK, this)) {
-			throw ErrnoError.With('EACCES', resolved, 'rmdir');
-		}
+		const stats = await fs.stat(resolved);
+
+		if (!stats) throw ErrnoError.With('ENOENT', path, 'rmdir');
+
+		if (!isDirectory(stats)) throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
+
+		if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw ErrnoError.With('EACCES', resolved, 'rmdir');
+
 		await fs.rmdir(resolved);
 		emitChange(this, 'rename', path.toString());
 	} catch (e) {
@@ -830,23 +831,21 @@ export async function mkdir(
 	const { fs, path: resolved, root } = resolveMount(path, this);
 	const errorPaths: Record<string, string> = { [resolved]: path };
 
-	const __create = async (path: string, parentStats: Stats) => {
-		if (checkAccess && !parentStats.hasAccess(constants.W_OK, this)) {
-			throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
-		}
+	const __create = async (path: string, parent: InodeLike) => {
+		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
 
 		const inode = await fs.mkdir(path, {
 			mode,
-			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
-			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
+			uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
+			gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
 		});
 		emitChange(this, 'rename', path);
-		return new Stats(inode);
+		return inode;
 	};
 
 	try {
 		if (!options?.recursive) {
-			await __create(resolved, new Stats(await fs.stat(dirname(resolved))));
+			await __create(resolved, await fs.stat(dirname(resolved)));
 			return;
 		}
 
@@ -858,7 +857,7 @@ export async function mkdir(
 
 		if (!dirs.length) return;
 
-		const stats: Stats[] = [new Stats(await fs.stat(dirname(dirs[0])))];
+		const stats: InodeLike[] = [await fs.stat(dirname(dirs[0]))];
 
 		for (const [i, dir] of dirs.entries()) {
 			stats.push(await __create(dir, stats[i]));
@@ -904,38 +903,29 @@ export async function readdir(
 
 	const { fs, path: resolved } = resolveMount(path, this);
 
-	const stats = await fs
-		.stat(resolved)
-		.then(i => new Stats(i))
-		.catch((e: ErrnoError) => _throw(fixError(e, { [resolved]: path })));
+	const stats = await fs.stat(resolved).catch((e: ErrnoError) => _throw(fixError(e, { [resolved]: path })));
 
 	if (!stats) {
 		throw ErrnoError.With('ENOENT', path, 'readdir');
 	}
 
-	if (checkAccess && !stats.hasAccess(constants.R_OK, this)) {
-		throw ErrnoError.With('EACCES', path, 'readdir');
-	}
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw ErrnoError.With('EACCES', path, 'readdir');
 
-	if (!stats.isDirectory()) {
-		throw ErrnoError.With('ENOTDIR', path, 'readdir');
-	}
+	if (!isDirectory(stats)) throw ErrnoError.With('ENOTDIR', path, 'readdir');
 
 	const entries = await fs.readdir(resolved).catch((e: ErrnoError) => _throw(fixError(e, { [resolved]: path })));
 
 	const values: (string | Dirent | Buffer)[] = [];
 	const addEntry = async (entry: string) => {
-		let entryStats: Stats | undefined;
+		let entryStats: InodeLike | undefined;
 		if (options?.recursive || options?.withFileTypes) {
-			entryStats = await fs
-				.stat(join(resolved, entry))
-				.then(i => new Stats(i))
-				.catch((e: ErrnoError): undefined => {
-					if (e.code == 'ENOENT') return;
-					throw fixError(e, { [resolved]: path });
-				});
+			entryStats = await fs.stat(join(resolved, entry)).catch((e: ErrnoError): undefined => {
+				if (e.code == 'ENOENT') return;
+				throw fixError(e, { [resolved]: path });
+			});
 			if (!entryStats) return;
 		}
+
 		if (options?.withFileTypes) {
 			values.push(new Dirent(entry, entryStats!));
 		} else if (options?.encoding == 'buffer') {
@@ -944,7 +934,7 @@ export async function readdir(
 			values.push(entry);
 		}
 
-		if (!options?.recursive || !entryStats?.isDirectory()) return;
+		if (!options?.recursive || !isDirectory(entryStats!)) return;
 
 		for (const subEntry of await readdir.call(this, join(path, entry), options)) {
 			if (subEntry instanceof Dirent) {
@@ -976,17 +966,19 @@ export async function link(this: V_Context, targetPath: fs.PathLike, linkPath: f
 	}
 
 	try {
-		if (checkAccess && !new Stats(await fs.stat(dirname(targetPath))).hasAccess(constants.R_OK, this)) {
+		if (checkAccess && !hasAccess(this, await fs.stat(dirname(path)), constants.R_OK)) {
 			throw ErrnoError.With('EACCES', dirname(path), 'link');
 		}
 
+		// We need to use the VFS here since the link path may be a mount point
 		if (checkAccess && !(await stat.call(this, dirname(linkPath))).hasAccess(constants.W_OK, this)) {
 			throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
 		}
 
-		if (checkAccess && !new Stats(await fs.stat(path)).hasAccess(constants.R_OK, this)) {
+		if (checkAccess && !hasAccess(this, await fs.stat(path), constants.R_OK)) {
 			throw ErrnoError.With('EACCES', path, 'link');
 		}
+
 		return await fs.link(path, link.path);
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [link.path]: linkPath, [path]: targetPath });
@@ -1105,10 +1097,7 @@ lutimes satisfies typeof promises.lutimes;
 async function _resolve($: V_Context, path: string, preserveSymlinks?: boolean): Promise<ResolvedPath> {
 	if (preserveSymlinks) {
 		const resolved = resolveMount(path, $);
-		const stats = await resolved.fs
-			.stat(resolved.path)
-			.then(i => new Stats(i))
-			.catch(() => undefined);
+		const stats = await resolved.fs.stat(resolved.path).catch(() => undefined);
 		return { ...resolved, fullPath: path, stats };
 	}
 
@@ -1118,9 +1107,9 @@ async function _resolve($: V_Context, path: string, preserveSymlinks?: boolean):
 		const resolved = resolveMount(path, $);
 
 		// Stat it to make sure it exists
-		const stats = new Stats(await resolved.fs.stat(resolved.path));
+		const stats = await resolved.fs.stat(resolved.path);
 
-		if (!stats.isSymbolicLink()) {
+		if (!isSymbolicLink(stats)) {
 			return { ...resolved, fullPath: path, stats };
 		}
 
@@ -1136,8 +1125,8 @@ async function _resolve($: V_Context, path: string, preserveSymlinks?: boolean):
 	const resolved = resolveMount(maybePath, $);
 
 	try {
-		const stats = new Stats(await resolved.fs.stat(resolved.path));
-		if (!stats.isSymbolicLink()) {
+		const stats = await resolved.fs.stat(resolved.path);
+		if (!isSymbolicLink(stats)) {
 			return { ...resolved, fullPath: maybePath, stats };
 		}
 
