@@ -11,10 +11,11 @@ export type { BoundContext, ContextInit, FSContext, V_Context };
 let _nextId = 1;
 
 /**
+ * A map of all contexts.
  * @internal
  * @category Contexts
  */
-const _contexts = new Map<number, BoundContext>();
+export const boundContexts = new Map<number, BoundContext>();
 
 /**
  * Allows you to restrict operations to a specific root path and set of credentials.
@@ -52,7 +53,7 @@ export function bindContext(
 		},
 	};
 
-	_contexts.set(ctx.id, bound);
+	boundContexts.set(ctx.id, bound);
 
 	return bound;
 }
