@@ -8,7 +8,7 @@ import { Errno, ErrnoError } from './internal/error.js';
 import { FileSystem } from './internal/filesystem.js';
 import type { LogConfiguration } from './internal/log.js';
 import { configure as configureLog, crit, err, info } from './internal/log.js';
-import { config } from './vfs/config.js';
+import { _setAccessChecks } from './vfs/config.js';
 import * as fs from './vfs/index.js';
 import { mounts } from './vfs/shared.js';
 
@@ -186,7 +186,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	Object.assign(defaultContext.credentials, createCredentials({ uid, gid }));
 
-	config.checkAccess = !configuration.disableAccessChecks;
+	_setAccessChecks(!configuration.disableAccessChecks);
 
 	if (configuration.log) configureLog(configuration.log);
 
