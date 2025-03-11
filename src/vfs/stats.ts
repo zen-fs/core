@@ -1,10 +1,9 @@
 import type * as Node from 'node:fs';
 import { pick } from 'utilium';
 import type { V_Context } from '../context.js';
-import type { InodeFields, InodeLike } from '../internal/inode.js';
-import { _inode_fields } from '../internal/inode.js';
+import type { InodeFields } from '../internal/inode.js';
+import { _inode_fields, hasAccess } from '../internal/inode.js';
 import * as c from './constants.js';
-import { defaultContext } from '../internal/contexts.js';
 
 const n1000 = BigInt(1000) as 1000n;
 
@@ -185,7 +184,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	/**
 	 * Creates a new stats instance from a stats-like object. Can be used to copy stats (note)
 	 */
-	public constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino, ...rest }: Partial<InodeLike> = {}) {
+	public constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino, ...rest }: Partial<StatsLike & InodeFields> = {}) {
 		const now = Date.now();
 		this.atimeMs = this._convert(atimeMs ?? now);
 		this.mtimeMs = this._convert(mtimeMs ?? now);
@@ -242,33 +241,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	 * @internal
 	 */
 	public hasAccess(mode: number, context?: V_Context): boolean {
-		const creds = context?.credentials || defaultContext.credentials;
-
-		if (this.isSymbolicLink() || creds.euid === 0 || creds.egid === 0) return true;
-
-		let perm = 0;
-
-		// Owner permissions
-		if (creds.uid === this.uid) {
-			if (this.mode & c.S_IRUSR) perm |= c.R_OK;
-			if (this.mode & c.S_IWUSR) perm |= c.W_OK;
-			if (this.mode & c.S_IXUSR) perm |= c.X_OK;
-		}
-
-		// Group permissions
-		if (creds.gid === this.gid || creds.groups.includes(Number(this.gid))) {
-			if (this.mode & c.S_IRGRP) perm |= c.R_OK;
-			if (this.mode & c.S_IWGRP) perm |= c.W_OK;
-			if (this.mode & c.S_IXGRP) perm |= c.X_OK;
-		}
-
-		// Others permissions
-		if (this.mode & c.S_IROTH) perm |= c.R_OK;
-		if (this.mode & c.S_IWOTH) perm |= c.W_OK;
-		if (this.mode & c.S_IXOTH) perm |= c.X_OK;
-
-		// Perform the access check
-		return (perm & mode) === mode;
+		return hasAccess(context, this._isBigint ? new Stats(this) : (this as unknown as Stats), mode);
 	}
 
 	public get atimeNs(): bigint {

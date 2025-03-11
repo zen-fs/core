@@ -2,7 +2,9 @@ import { Buffer } from 'buffer';
 import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
 import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
+import { hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
+import { R_OK, W_OK } from './constants.js';
 import { fixError, resolveMount } from './shared.js';
 
 /**
@@ -54,13 +56,16 @@ export interface SetOptions extends Options {
 	replace?: boolean;
 }
 
+const _allowedRestrictedNames = ['system.posix_acl_access', 'system.posix_acl_default'];
+
 /**
  * Check permission for the attribute name.
  * For now, only attributes in the 'user' namespace are supported.
  * @throws EPERM for attributes in namespaces other than 'user'
  */
 function checkName($: V_Context, name: Name, path: string, syscall: string): void {
-	if (!name.startsWith('user.')) throw new ErrnoError(Errno.EPERM, 'Only attributes in the user namespace are supported', path, syscall);
+	if (!name.startsWith('user.') && !_allowedRestrictedNames.includes(name))
+		throw new ErrnoError(Errno.EPERM, 'Only attributes in the user namespace are supported', path, syscall);
 }
 
 /**
@@ -85,6 +90,10 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 
 	try {
 		const inode = await fs.stat(resolved);
+
+		if (!hasAccess(this, inode, R_OK)) {
+			throw ErrnoError.With('EACCES', resolved, 'xattr.get');
+		}
 
 		inode.attributes ||= {};
 
@@ -119,6 +128,10 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 	try {
 		const inode = fs.statSync(resolved);
 
+		if (!hasAccess(this, inode, R_OK)) {
+			throw ErrnoError.With('EACCES', resolved, 'xattr.get');
+		}
+
 		inode.attributes ||= {};
 
 		if (!(name in inode.attributes)) {
@@ -150,6 +163,10 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
 	checkName(this, name, path, 'xattr.set');
 	try {
 		const inode = await fs.stat(resolved);
+
+		if (!hasAccess(this, inode, W_OK)) {
+			throw ErrnoError.With('EACCES', resolved, 'xattr.set');
+		}
 
 		inode.attributes ||= {};
 
@@ -186,6 +203,10 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
 	try {
 		const inode = fs.statSync(resolved);
 
+		if (!hasAccess(this, inode, W_OK)) {
+			throw ErrnoError.With('EACCES', resolved, 'xattr.set');
+		}
+
 		inode.attributes ||= {};
 
 		if (opt.create && name in inode.attributes) {
@@ -218,6 +239,10 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
 	try {
 		const inode = await fs.stat(resolved);
 
+		if (!hasAccess(this, inode, W_OK)) {
+			throw ErrnoError.With('EACCES', resolved, 'xattr.remove');
+		}
+
 		if (!inode.attributes || !(name in inode.attributes)) {
 			throw ErrnoError.With('ENODATA', resolved, 'xattr.remove');
 		}
@@ -244,6 +269,10 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
 
 	try {
 		const inode = fs.statSync(resolved);
+
+		if (!hasAccess(this, inode, W_OK)) {
+			throw ErrnoError.With('EACCES', resolved, 'xattr.remove');
+		}
 
 		if (!inode.attributes || !(name in inode.attributes)) {
 			throw ErrnoError.With('ENODATA', resolved, 'xattr.remove');

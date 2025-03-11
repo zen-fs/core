@@ -3,6 +3,7 @@ import { decodeUTF8, encodeUTF8 } from '../utils.js';
 import * as c from '../vfs/constants.js';
 import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
+import { defaultContext, type V_Context } from './contexts.js';
 import { Errno, ErrnoError } from './error.js';
 import { crit, err, warn } from './log.js';
 
@@ -289,4 +290,35 @@ export function isCharacterDevice(metadata: { mode: number }): boolean {
 
 export function isFIFO(metadata: { mode: number }): boolean {
 	return (metadata.mode & c.S_IFMT) === c.S_IFIFO;
+}
+
+/**
+ * Checks if a given user/group has access to this item
+ * @param mode The requested access, combination of `W_OK`, `R_OK`, and `X_OK`
+ * @internal
+ */
+export function hasAccess($: V_Context, inode: InodeLike, mode: number): boolean {
+	const credentials = $?.credentials || defaultContext.credentials;
+
+	if (isSymbolicLink(inode) || credentials.euid === 0 || credentials.egid === 0) return true;
+
+	let perm = 0;
+
+	if (credentials.uid === inode.uid) {
+		if (inode.mode & c.S_IRUSR) perm |= c.R_OK;
+		if (inode.mode & c.S_IWUSR) perm |= c.W_OK;
+		if (inode.mode & c.S_IXUSR) perm |= c.X_OK;
+	}
+
+	if (credentials.gid === inode.gid || credentials.groups.includes(Number(inode.gid))) {
+		if (inode.mode & c.S_IRGRP) perm |= c.R_OK;
+		if (inode.mode & c.S_IWGRP) perm |= c.W_OK;
+		if (inode.mode & c.S_IXGRP) perm |= c.X_OK;
+	}
+
+	if (inode.mode & c.S_IROTH) perm |= c.R_OK;
+	if (inode.mode & c.S_IWOTH) perm |= c.W_OK;
+	if (inode.mode & c.S_IXOTH) perm |= c.X_OK;
+
+	return (perm & mode) === mode;
 }
