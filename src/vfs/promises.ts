@@ -11,6 +11,7 @@ import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, 
 
 import { Buffer } from 'buffer';
 import { _throw, pick } from 'utilium';
+import { defaultContext } from '../internal/contexts.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { InodeFlags, isBlockDevice, isCharacterDevice } from '../internal/inode.js';
@@ -21,12 +22,12 @@ import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTi
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
-import * as file from './file.js';
+import { deleteFD, fromFD, SyncHandle, toFD } from './file.js';
+import * as flags from './flags.js';
 import { _statfs, fixError, resolveMount } from './shared.js';
 import { _chown, BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';
 import { emitChange, FSWatcher } from './watchers.js';
-import { defaultContext } from '../internal/contexts.js';
 export * as constants from './constants.js';
 
 export class FileHandle implements promises.FileHandle {
@@ -47,7 +48,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The current file position.
 	 */
 	public get position(): number {
-		return file.isAppendable(this.flag) ? this.inode.size : this._position;
+		return this.flag & constants.O_APPEND ? this.inode.size : this._position;
 	}
 
 	public set position(value: number) {
@@ -74,7 +75,7 @@ export class FileHandle implements promises.FileHandle {
 	public readonly internalPath!: string;
 
 	/** The flag the handle was opened with */
-	public readonly flag!: string;
+	public readonly flag!: number;
 
 	/** Stats for the handle */
 	public readonly inode!: InodeLike;
@@ -83,8 +84,12 @@ export class FileHandle implements promises.FileHandle {
 		protected context: V_Context,
 		public readonly fd: number
 	) {
-		const sync = file.fromFD(context, fd);
+		const sync = fromFD(context, fd);
 		Object.assign(this, pick(sync, 'path', 'fs', 'internalPath', 'flag', 'inode'));
+	}
+
+	private get _isSync(): boolean {
+		return !!(this.flag & constants.O_SYNC || this.inode.flags! & InodeFlags.Sync);
 	}
 
 	private _emitChange() {
@@ -98,7 +103,7 @@ export class FileHandle implements promises.FileHandle {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
 		this.dirty = true;
 		_chown(this.inode, uid, gid);
-		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
+		if (this._isSync) await this.sync();
 		this._emitChange();
 	}
 
@@ -112,7 +117,7 @@ export class FileHandle implements promises.FileHandle {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
 		this.dirty = true;
 		this.inode.mode = (this.inode.mode & (numMode > constants.S_IFMT ? ~constants.S_IFMT : constants.S_IFMT)) | numMode;
-		if (this.inode.flags! & InodeFlags.Sync || numMode > constants.S_IFMT) await this.sync();
+		if (this._isSync || numMode > constants.S_IFMT) await this.sync();
 		this._emitChange();
 	}
 
@@ -145,12 +150,12 @@ export class FileHandle implements promises.FileHandle {
 		if (length < 0) throw new ErrnoError(Errno.EINVAL);
 
 		this.dirty = true;
-		if (!file.isWriteable(this.flag)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
+		if (!(this.flag & constants.O_WRONLY || this.flag & constants.O_RDWR)) {
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode', this.path, 'truncate');
 		}
 		this.inode.mtimeMs = Date.now();
 		this.inode.size = length;
-		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
+		if (this._isSync) await this.sync();
 		this._emitChange();
 	}
 
@@ -165,7 +170,7 @@ export class FileHandle implements promises.FileHandle {
 		this.dirty = true;
 		this.inode.atimeMs = normalizeTime(atime);
 		this.inode.mtimeMs = normalizeTime(mtime);
-		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
+		if (this._isSync) await this.sync();
 
 		this._emitChange();
 	}
@@ -184,8 +189,8 @@ export class FileHandle implements promises.FileHandle {
 		_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {}
 	): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
-		const flag = file.parseFlag(options.flag);
-		if (!file.isAppendable(flag)) {
+		const flag = flags.parse(options.flag);
+		if (!(flag & constants.O_APPEND)) {
 			throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 		}
 		if (typeof data != 'string' && !options.encoding) {
@@ -212,7 +217,7 @@ export class FileHandle implements promises.FileHandle {
 	): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
 
-		if (!file.isReadable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
+		if (this.flag & constants.O_WRONLY) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
 
 		if (!(this.inode.flags! & InodeFlags.NoAtime)) {
 			this.dirty = true;
@@ -226,7 +231,7 @@ export class FileHandle implements promises.FileHandle {
 		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		await this.fs.read(this.internalPath, uint8.subarray(offset, offset + length), position, end);
-		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
+		if (this._isSync) await this.sync();
 		return { bytesRead: end - position, buffer };
 	}
 
@@ -284,9 +289,9 @@ export class FileHandle implements promises.FileHandle {
 	public async readFile(_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string>;
 	public async readFile(_options?: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
-		const flag = file.parseFlag(options.flag);
-		if (!file.isReadable(flag)) {
-			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for reading');
+		const flag = flags.parse(options.flag);
+		if (flag & constants.O_WRONLY) {
+			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for reading', this.path, 'readFile');
 		}
 
 		const { size } = await this.stat();
@@ -323,11 +328,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns A readline interface for reading the file line by line
 	 */
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'readLines');
-
-		if (!file.isReadable(this.flag)) {
-			throw ErrnoError.With('EBADF', this.path, 'readLines');
-		}
+		if (this.closed || this.flag & constants.O_WRONLY) throw ErrnoError.With('EBADF', this.path, 'readLines');
 
 		return createInterface({ input: this.createReadStream(options), crlfDelay: Infinity });
 	}
@@ -369,7 +370,8 @@ export class FileHandle implements promises.FileHandle {
 
 		if (this.inode.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'write');
 
-		if (!file.isWriteable(this.flag)) throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
+		if (!(this.flag & constants.O_WRONLY || this.flag & constants.O_RDWR))
+			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode', this.path, 'write');
 
 		this.dirty = true;
 		const end = position + length;
@@ -382,7 +384,7 @@ export class FileHandle implements promises.FileHandle {
 
 		this._position = position + slice.byteLength;
 		await this.fs.write(this.internalPath, slice, position);
-		if (this.inode.flags! & InodeFlags.Sync) await this.sync();
+		if (this._isSync) await this.sync();
 		return slice.byteLength;
 	}
 
@@ -433,9 +435,9 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async writeFile(data: string | Uint8Array, _options: fs.WriteFileOptions = {}): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
-		const flag = file.parseFlag(options.flag);
-		if (!file.isWriteable(flag)) {
-			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for writing');
+		const flag = flags.parse(options.flag);
+		if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) {
+			throw new ErrnoError(Errno.EINVAL, 'Flag passed must allow for writing', this.path, 'writeFile');
 		}
 		if (typeof data != 'string' && !options.encoding) {
 			throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
@@ -452,7 +454,7 @@ export class FileHandle implements promises.FileHandle {
 		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'close');
 		await this.sync();
 		this.dispose();
-		file.deleteFD(this.context, this.fd);
+		deleteFD(this.context, this.fd);
 	}
 
 	/**
@@ -507,7 +509,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the readable stream
 	 */
 	public createReadStream(options: promises.CreateReadStreamOptions = {}): ReadStream {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'createReadStream');
+		if (this.closed || this.flag & constants.O_WRONLY) throw ErrnoError.With('EBADF', this.path, 'createReadStream');
 		return new ReadStream(options, this);
 	}
 
@@ -629,12 +631,12 @@ unlink satisfies typeof promises.unlink;
 async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise<FileHandle> {
 	path = normalizePath(path);
 	const mode = normalizeMode(opt.mode, 0o644),
-		flag = file.parseFlag(opt.flag);
+		flag = flags.parse(opt.flag);
 
 	const { fullPath, fs, path: resolved, stats } = await _resolve($, path.toString(), opt.preserveSymlinks);
 
 	if (!stats) {
-		if ((!file.isWriteable(flag) && !file.isAppendable(flag)) || flag == 'r+') {
+		if (!(flag & constants.O_CREAT)) {
 			throw ErrnoError.With('ENOENT', fullPath, '_open');
 		}
 		// Create the file
@@ -653,18 +655,16 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
 		});
 
-		return new FileHandle($, file.toFD(new file.SyncHandle($, path, fs, resolved, flag, inode)));
+		return new FileHandle($, toFD(new SyncHandle($, path, fs, resolved, flag, inode)));
 	}
 
-	if (config.checkAccess && !stats.hasAccess(file.flagToMode(flag), $)) {
+	if (config.checkAccess && !stats.hasAccess(flags.toMode(flag), $)) {
 		throw ErrnoError.With('EACCES', fullPath, '_open');
 	}
 
-	if (file.isExclusive(flag)) {
-		throw ErrnoError.With('EEXIST', fullPath, '_open');
-	}
+	if (flag & constants.O_EXCL) throw ErrnoError.With('EEXIST', fullPath, '_open');
 
-	const handle = new FileHandle($, file.toFD(new file.SyncHandle($, path, fs, resolved, flag, stats)));
+	const handle = new FileHandle($, toFD(new SyncHandle($, path, fs, resolved, flag, stats)));
 
 	/*
 		In a previous implementation, we deleted the file and
@@ -672,17 +672,15 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 		asynchronous request was trying to read the file, as the file
 		would not exist for a small period of time.
 	*/
-	if (file.isTruncating(flag)) {
-		await handle.truncate(0);
-	}
+	if (flag & constants.O_TRUNC) await handle.truncate(0);
 
 	return handle;
 }
 
 /**
  * Asynchronous file open.
- * @see http://www.manpagez.com/man/2/open/
- * @param flag Handles the complexity of the various file modes. See its API for more details.
+ * @see https://nodejs.org/api/fs.html#fspromisesopenpath-flags-mode
+ * @param flag {@link https://nodejs.org/api/fs.html#file-system-flags}
  * @param mode Mode to use to open the file. Can be ignored if the filesystem doesn't support permissions.
  */
 export async function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode = 'r', mode: fs.Mode = 0o644): Promise<FileHandle> {
@@ -766,8 +764,8 @@ export async function appendFile(
 	_options?: BufferEncoding | (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | null
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
-	const flag = file.parseFlag(options.flag);
-	if (!file.isAppendable(flag)) {
+	const flag = flags.parse(options.flag);
+	if (!(flag & constants.O_APPEND)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 	}
 	if (typeof data != 'string' && !options.encoding) {

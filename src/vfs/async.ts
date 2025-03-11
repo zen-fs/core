@@ -9,7 +9,6 @@ import { Buffer } from 'buffer';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { R_OK } from './constants.js';
-import { deleteFD } from './file.js';
 import * as promises from './promises.js';
 import { BigIntStats } from './stats.js';
 import { ReadStream, WriteStream, type ReadStreamOptions, type WriteStreamOptions } from './streams.js';
@@ -118,29 +117,15 @@ unlink satisfies Omit<typeof fs.unlink, '__promisify__'>;
  * Exclusive mode ensures that path is newly created.
  * Mode defaults to `0644`
  *
- * `flags` can be:
- *
- * * `'r'` - Open file for reading. An exception occurs if the file does not exist.
- * * `'r+'` - Open file for reading and writing. An exception occurs if the file does not exist.
- * * `'rs'` - Open file for reading in synchronous mode. Instructs the filesystem to not cache writes.
- * * `'rs+'` - Open file for reading and writing, and opens the file in synchronous mode.
- * * `'w'` - Open file for writing. The file is created (if it does not exist) or truncated (if it exists).
- * * `'wx'` - Like 'w' but opens the file in exclusive mode.
- * * `'w+'` - Open file for reading and writing. The file is created (if it does not exist) or truncated (if it exists).
- * * `'wx+'` - Like 'w+' but opens the file in exclusive mode.
- * * `'a'` - Open file for appending. The file is created if it does not exist.
- * * `'ax'` - Like 'a' but opens the file in exclusive mode.
- * * `'a+'` - Open file for reading and appending. The file is created if it does not exist.
- * * `'ax+'` - Like 'a+' but opens the file in exclusive mode.
- *
- * @see http://www.manpagez.com/man/2/open/
+ * @see https://nodejs.org/api/fs.html#fsopenpath-flags-mode-callback
+ * @param flags {@link https://nodejs.org/api/fs.html#file-system-flags}
  */
-export function open(this: V_Context, path: fs.PathLike, flag: string, cb?: Callback<[number]>): void;
-export function open(this: V_Context, path: fs.PathLike, flag: string, mode: number | string, cb?: Callback<[number]>): void;
+export function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, cb?: Callback<[number]>): void;
+export function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, mode: number | string, cb?: Callback<[number]>): void;
 export function open(
 	this: V_Context,
 	path: fs.PathLike,
-	flag: string,
+	flag: fs.OpenMode,
 	cbMode?: number | string | Callback<[number]>,
 	cb: Callback<[number]> = nop
 ): void {
@@ -268,9 +253,10 @@ export function fstat(
 fstat satisfies Omit<typeof fs.fstat, '__promisify__'>;
 
 export function close(this: V_Context, fd: number, cb: Callback = nop): void {
-	const close = new promises.FileHandle(this, fd).close();
-	deleteFD(this, fd);
-	close.then(() => cb()).catch(cb);
+	new promises.FileHandle(this, fd)
+		.close()
+		.then(() => cb())
+		.catch(cb);
 }
 close satisfies Omit<typeof fs.close, '__promisify__'>;
 

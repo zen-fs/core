@@ -6,7 +6,7 @@ import { constants, type FileHandle, open } from '../../dist/vfs/promises.js';
 const content = 'The cake is a lie',
 	appended = '\nAnother lie';
 
-await using handle: FileHandle = await open('./test.txt', 'w+');
+await using handle: FileHandle = await open('./test.txt', 'ws+');
 
 await suite('FileHandle', () => {
 	test('writeFile', async () => {

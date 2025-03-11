@@ -7,11 +7,11 @@ import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, 
 
 import { Buffer } from 'buffer';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { decodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { decodeUTF8, encodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { config } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
-import { flagToMode, isAppendable, isExclusive, isReadable, isTruncating, isWriteable, parseFlag } from './file.js';
+import * as flags from './flags.js';
 import { dirname, join, parse, resolve } from '../path.js';
 import { _statfs, fixError, resolveMount } from './shared.js';
 import { BigIntStats } from './stats.js';
@@ -125,7 +125,7 @@ unlinkSync satisfies typeof fs.unlinkSync;
 function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHandle {
 	path = normalizePath(path);
 	const mode = normalizeMode(opt.mode, 0o644),
-		flag = parseFlag(opt.flag);
+		flag = flags.parse(opt.flag);
 
 	path = opt.preserveSymlinks ? path : realpathSync.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -138,7 +138,7 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHa
 	}
 
 	if (!stats) {
-		if ((!isWriteable(flag) && !isAppendable(flag)) || flag == 'r+') {
+		if (!(flag & constants.O_CREAT)) {
 			throw ErrnoError.With('ENOENT', path, '_open');
 		}
 		// Create the file
@@ -166,17 +166,15 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHa
 		return new SyncHandle(this, path, fs, resolved, flag, inode);
 	}
 
-	if (config.checkAccess && (!stats.hasAccess(mode, this) || !stats.hasAccess(flagToMode(flag), this))) {
+	if (config.checkAccess && (!stats.hasAccess(mode, this) || !stats.hasAccess(flags.toMode(flag), this))) {
 		throw ErrnoError.With('EACCES', path, '_open');
 	}
 
-	if (isExclusive(flag)) throw ErrnoError.With('EEXIST', path, '_open');
+	if (flag & constants.O_EXCL) throw ErrnoError.With('EEXIST', path, '_open');
 
 	const file = new SyncHandle(this, path, fs, resolved, flag, stats);
 
-	if (isTruncating(flag)) {
-		file.truncate(0);
-	}
+	if (flag & constants.O_TRUNC) file.truncate(0);
 
 	if (!opt.allowDirectory && stats.mode & constants.S_IFDIR) throw ErrnoError.With('EISDIR', path, '_open');
 
@@ -185,7 +183,8 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHa
 
 /**
  * Synchronous file open.
- * @see http://www.manpagez.com/man/2/open/
+ * @see https://nodejs.org/api/fs.html#fsopensyncpath-flags-mode
+ * @param flag {@link https://nodejs.org/api/fs.html#file-system-flags}
  */
 export function openSync(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
 	return toFD(_openSync.call(this, path, { flag, mode }));
@@ -222,8 +221,8 @@ export function readFileSync(
 ): string;
 export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
-	const flag = parseFlag(options.flag);
-	if (!isReadable(flag)) {
+	const flag = flags.parse(options.flag);
+	if (flag & constants.O_WRONLY) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading');
 	}
 	const data: Buffer = Buffer.from(_readFileSync.call(this, path, options.flag, false));
@@ -248,8 +247,8 @@ export function writeFileSync(
 	_options: fs.WriteFileOptions | BufferEncoding = {}
 ): void {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
-	const flag = parseFlag(options.flag);
-	if (!isWriteable(flag)) {
+	const flag = flags.parse(options.flag);
+	if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to writeFile must allow for writing');
 	}
 	if (typeof data != 'string' && !options.encoding) {
@@ -281,8 +280,8 @@ writeFileSync satisfies typeof fs.writeFileSync;
  */
 export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescriptor, data: FileContents, _options: fs.WriteFileOptions = {}): void {
 	const options = normalizeOptions(_options, 'utf8', 'a+', 0o644);
-	const flag = parseFlag(options.flag);
-	if (!isAppendable(flag)) {
+	const flag = flags.parse(options.flag);
+	if (!(flag & constants.O_APPEND)) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 	}
 	if (typeof data != 'string' && !options.encoding) {
@@ -630,12 +629,11 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 	if (!['file', 'dir', 'junction'].includes(type!)) {
 		throw new ErrnoError(Errno.EINVAL, 'Invalid type: ' + type);
 	}
-	if (existsSync.call(this, path)) {
-		throw ErrnoError.With('EEXIST', path.toString(), 'symlink');
-	}
 
-	writeFileSync.call(this, path, normalizePath(target, true));
-	const file = _openSync.call(this, path, { flag: 'r+', mode: 0o644, preserveSymlinks: true });
+	path = normalizePath(path);
+
+	using file = _openSync.call(this, path, { flag: 'wx', mode: 0o644 });
+	file.write(encodeUTF8(normalizePath(target, true)));
 	file.chmod(constants.S_IFLNK);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
