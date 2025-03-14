@@ -1,16 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Worker as NodeWorker, TransferListItem } from 'node:worker_threads';
-import type { ExtractProperties, WithOptional } from 'utilium';
+import type { WithOptional } from 'utilium';
 import type { MountConfiguration } from '../config.js';
 import type { ErrnoErrorJSON } from '../internal/error.js';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
-import type { Inode, InodeLike } from '../internal/inode.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { Backend, FilesystemOf } from './backend.js';
 
-import { pick } from 'utilium';
+import { pick, serialize } from 'utilium';
 import { resolveMountConfig } from '../config.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { FileSystem } from '../internal/filesystem.js';
+import { Inode } from '../internal/inode.js';
 import { err, info } from '../internal/log.js';
 import { Async } from '../mixins/async.js';
 import '../polyfills.js';
@@ -28,7 +29,11 @@ export interface RPCPort {
 	removeEventListener?(type: 'message', listener: (ev: _MessageEvent) => void): void;
 }
 
-interface RPCOptions {
+/**
+ * The options for the Port backend
+ * @category Backends and Configuration
+ */
+export interface PortOptions {
 	/**
 	 * The target port that you want to connect to, or the current port if in a port context.
 	 */
@@ -40,39 +45,60 @@ interface RPCOptions {
 }
 
 /**
+ * The API for remote procedure calls
+ * @category Internals
+ * @internal
+ */
+export interface RPCMethods {
+	usage(): UsageInfo;
+	ready(): void;
+	rename(oldPath: string, newPath: string): void;
+	createFile(path: string, options: CreationOptions): Uint8Array;
+	unlink(path: string): void;
+	rmdir(path: string): void;
+	mkdir(path: string, options: CreationOptions): Uint8Array;
+	readdir(path: string): string[];
+	touch(path: string, metadata: Uint8Array): void;
+	exists(path: string): boolean;
+	link(target: string, link: string): void;
+	sync(path: string): void;
+	read(path: string, buffer: Uint8Array, start: number, end: number): Uint8Array;
+	write(path: string, buffer: Uint8Array, offset: number): void;
+	stat(path: string): Uint8Array;
+}
+
+/**
+ * The methods that can be called on the RPC port
+ * @category Internals
+ * @internal
+ */
+export type RPCMethod = keyof RPCMethods;
+
+/**
  * An RPC message
- * @internal @hidden
+ * @category Internals
+ * @internal
  */
 export interface RPCMessage {
 	_zenfs: true;
 	id: string;
-	method: string;
+	method: RPCMethod;
 	stack: string;
 }
 
-interface RPCRequest extends RPCMessage {
-	args: unknown[];
+interface RPCRequest<TMethod extends RPCMethod = RPCMethod> extends RPCMessage {
+	method: TMethod;
+	args: Parameters<RPCMethods[TMethod]>;
 }
 
-interface _ResponseWithError extends RPCMessage {
-	error: true;
-	value: WithOptional<ErrnoErrorJSON, 'code' | 'errno'>;
+interface RPCResponse<TMethod extends RPCMethod = RPCMethod> extends RPCMessage {
+	error?: WithOptional<ErrnoErrorJSON, 'code' | 'errno'>;
+	method: TMethod;
+
+	// Note: This is undefined if an error occurs, and we check it at runtime
+	// We don't do the type stuff because Typescript gets confused
+	value: ReturnType<RPCMethods[TMethod]>;
 }
-
-interface _ResponseWithValue<T> extends RPCMessage {
-	error: false;
-	value: Awaited<T>;
-}
-
-interface _ResponseRead extends RPCMessage {
-	error: false;
-	method: 'read';
-	value: Uint8Array;
-}
-
-type RPCResponse<T = unknown> = _ResponseWithError | _ResponseWithValue<T> | _ResponseRead;
-
-// general types
 
 function isRPCMessage(arg: unknown): arg is RPCMessage {
 	return typeof arg == 'object' && arg != null && '_zenfs' in arg && !!arg._zenfs;
@@ -89,7 +115,7 @@ const executors: Map<string, RPCExecutor> = new Map();
 
 function request<const TRequest extends RPCRequest, TValue>(
 	request: Omit<TRequest, 'id' | 'stack' | '_zenfs'>,
-	{ port, timeout = 1000, fs }: Partial<RPCOptions> & { fs?: PortFS } = {}
+	{ port, timeout = 1000, fs }: Partial<PortOptions> & { fs?: PortFS } = {}
 ): Promise<TValue> {
 	const stack = '\n' + new Error().stack!.slice('Error:'.length);
 	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Can not make an RPC request without a port'));
@@ -111,27 +137,35 @@ function request<const TRequest extends RPCRequest, TValue>(
 	return promise;
 }
 
-function handleResponse<const TResponse extends RPCResponse>(response: TResponse): void {
-	if (!isRPCMessage(response)) {
-		return;
-	}
-	const { id, value, error, stack } = response;
-	if (!executors.has(id)) {
-		const error = err(new ErrnoError(Errno.EIO, 'Invalid RPC id:' + id));
-		error.stack += stack;
+// Why Typescript, WHY does the type need to be asserted even when the method is explicitly checked?
+
+function __requestMethod<const T extends RPCMethod>(req: RPCRequest): asserts req is RPCRequest<T> {}
+
+function __responseMethod<const R extends RPCResponse, const T extends RPCMethod>(res: R, ...t: T[]): res is R & RPCResponse<T> {
+	return t.includes(res.method as T);
+}
+
+function handleResponse<const TMethod extends RPCMethod>(response: RPCResponse<TMethod>): void {
+	if (!isRPCMessage(response)) return;
+
+	if (!executors.has(response.id)) {
+		const error = err(new ErrnoError(Errno.EIO, 'Invalid RPC id:' + response.id));
+		error.stack += response.stack;
 		throw error;
 	}
-	const { resolve, reject } = executors.get(id)!;
-	if (error) {
-		const e = ErrnoError.fromJSON({ code: 'EIO', errno: Errno.EIO, ...value });
-		e.stack += stack;
+
+	const { resolve, reject } = executors.get(response.id)!;
+	if (response.error) {
+		const e = ErrnoError.fromJSON({ code: 'EIO', errno: Errno.EIO, ...response.error });
+		e.stack += response.stack;
 		reject(e);
-		executors.delete(id);
+		executors.delete(response.id);
 		return;
 	}
 
-	resolve(value);
-	executors.delete(id);
+	resolve(__responseMethod(response, 'stat', 'createFile', 'mkdir') ? new Inode(response.value) : response.value);
+
+	executors.delete(response.id);
 	return;
 }
 
@@ -177,17 +211,6 @@ export async function waitOnline(port: RPCPort): Promise<void> {
 	await online.promise;
 }
 
-type FSMethods = ExtractProperties<FileSystem, (...args: any[]) => Promise<any> | UsageInfo>;
-type FSMethod = keyof FSMethods;
-
-export type FSRequest<TMethod extends FSMethod = FSMethod> = RPCRequest
-	& {
-		[M in TMethod]: {
-			method: M;
-			args: Parameters<FSMethods[M]>;
-		};
-	}[TMethod];
-
 /**
  * PortFS lets you access an FS instance that is running in a port, or the other way around.
  *
@@ -207,14 +230,14 @@ export class PortFS extends Async(FileSystem) {
 	/**
 	 * Constructs a new PortFS instance that connects with the FS running on `options.port`.
 	 */
-	public constructor(public readonly options: RPCOptions) {
+	public constructor(public readonly options: PortOptions) {
 		super(0x706f7274, 'portfs');
 		this.port = options.port;
 		attach<RPCResponse>(this.port, handleResponse);
 	}
 
-	protected rpc<const T extends FSMethod>(method: T, ...args: Parameters<FSMethods[T]>): Promise<Awaited<ReturnType<FSMethods[T]>>> {
-		return request<FSRequest<T>, Awaited<ReturnType<FSMethods[T]>>>({ method, args } as Omit<FSRequest<T>, 'id' | 'stack' | '_zenfs'>, {
+	protected rpc<const T extends RPCMethod>(method: T, ...args: Parameters<RPCMethods[T]>): Promise<Awaited<ReturnType<RPCMethods[T]>>> {
+		return request<RPCRequest<T>, Awaited<ReturnType<RPCMethods[T]>>>({ method, args } as Omit<RPCRequest<T>, 'id' | 'stack' | '_zenfs'>, {
 			...this.options,
 			fs: this,
 		});
@@ -229,21 +252,20 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('rename', oldPath, newPath);
 	}
 
-	public async stat(path: string): Promise<InodeLike> {
-		return await this.rpc('stat', path);
+	public async stat(path: string): Promise<Inode> {
+		return new Inode(await this.rpc('stat', path));
 	}
 
 	public async touch(path: string, metadata: InodeLike | Inode): Promise<void> {
-		metadata = 'toJSON' in metadata ? metadata.toJSON() : metadata;
-		await this.rpc('touch', path, metadata);
+		await this.rpc('touch', path, serialize(metadata instanceof Inode ? metadata : new Inode(metadata)));
 	}
 
 	public sync(path: string): Promise<void> {
 		return this.rpc('sync', path);
 	}
 
-	public createFile(path: string, options: CreationOptions): Promise<InodeLike> {
-		return this.rpc('createFile', path, options);
+	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
+		return new Inode(await this.rpc('createFile', path, options));
 	}
 
 	public unlink(path: string): Promise<void> {
@@ -254,8 +276,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('rmdir', path);
 	}
 
-	public mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
-		return this.rpc('mkdir', path, options);
+	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
+		return new Inode(await this.rpc('mkdir', path, options));
 	}
 
 	public readdir(path: string): Promise<string[]> {
@@ -270,9 +292,8 @@ export class PortFS extends Async(FileSystem) {
 		return this.rpc('link', srcpath, dstpath);
 	}
 
-	public async read(path: string, buffer: Uint8Array, offset: number, length: number): Promise<void> {
-		const _buf = (await this.rpc('read', path, buffer, offset, length)) as unknown as Uint8Array;
-		buffer.set(_buf);
+	public async read(path: string, buffer: Uint8Array, start: number, end: number): Promise<void> {
+		buffer.set(await this.rpc('read', path, buffer, start, end));
 	}
 
 	public write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
@@ -281,36 +302,54 @@ export class PortFS extends Async(FileSystem) {
 }
 
 /** @internal */
-export async function handleRequest(port: RPCPort, fs: FileSystem & { _descriptors?: Map<number, File> }, request: FSRequest): Promise<void> {
+export async function handleRequest(port: RPCPort, fs: FileSystem & { _descriptors?: Map<number, File> }, request: RPCRequest): Promise<void> {
 	if (!isRPCMessage(request)) return;
 
-	const { method, args, id, stack } = request;
-
-	let value,
-		error: boolean = false;
+	let value, error: ErrnoErrorJSON | Pick<Error, 'message' | 'stack'> | undefined;
+	const transferList: TransferListItem[] = [];
 
 	try {
-		// @ts-expect-error 2556
-		value = await fs[method](...args);
-		switch (method) {
-			case 'read':
-				value = args[1];
+		switch (request.method) {
+			case 'read': {
+				__requestMethod<'read'>(request);
+				const [path, buffer, start, end] = request.args;
+				await fs.read(path, buffer, start, end);
+				value = buffer;
 				break;
+			}
+			case 'stat':
+			case 'createFile':
+			case 'mkdir': {
+				__requestMethod<'stat' | 'createFile' | 'mkdir'>(request);
+				// @ts-expect-error 2556
+				const inode = await fs[request.method](...request.args);
+				value = serialize(inode instanceof Inode ? inode : new Inode(inode));
+				break;
+			}
+			case 'touch': {
+				__requestMethod<'touch'>(request);
+				const [path, metadata] = request.args;
+				await fs.touch(path, new Inode(metadata));
+				value = undefined;
+				break;
+			}
+
+			default:
+				// @ts-expect-error 2556
+				value = (await fs[request.method](...request.args)) as ReturnType<RPCMethods[TMethod]>;
 		}
 	} catch (e: any) {
-		value = e instanceof ErrnoError ? e.toJSON() : pick(e, 'message', 'stack');
-		error = true;
+		error = e instanceof ErrnoError ? e.toJSON() : pick(e, 'message', 'stack');
 	}
-
-	port.postMessage({ _zenfs: true, id, error, method, stack, value });
+	port.postMessage({ _zenfs: true, ...pick(request, 'id', 'method', 'stack'), error, value }, transferList);
 }
 
 export function attachFS(port: RPCPort, fs: FileSystem): void {
-	attach<FSRequest>(port, request => handleRequest(port, fs, request));
+	attach<RPCRequest>(port, request => handleRequest(port, fs, request));
 }
 
 export function detachFS(port: RPCPort, fs: FileSystem): void {
-	detach<FSRequest>(port, request => handleRequest(port, fs, request));
+	detach<RPCRequest>(port, request => handleRequest(port, fs, request));
 }
 
 const _Port = {
@@ -322,10 +361,10 @@ const _Port = {
 		},
 		timeout: { type: 'number', required: false },
 	},
-	create(options: RPCOptions) {
+	create(options: PortOptions) {
 		return new PortFS(options);
 	},
-} satisfies Backend<PortFS, RPCOptions>;
+} satisfies Backend<PortFS, PortOptions>;
 type _Port = typeof _Port;
 
 /**

@@ -1,4 +1,4 @@
-import { deserialize, member, pick, randomInt, serialize, sizeof, struct, types as t } from 'utilium';
+import { deserialize, member, pick, randomInt, sizeof, struct, types as t } from 'utilium';
 import * as c from '../vfs/constants.js';
 import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
@@ -106,14 +106,15 @@ export interface InodeFields {
 	data?: number;
 	flags?: number;
 	version?: number;
-	attributes?: Attributes;
 }
 
 /**
  * @category Internals
  * @internal
  */
-export interface InodeLike extends StatsLike<number>, InodeFields {}
+export interface InodeLike extends StatsLike<number>, InodeFields {
+	attributes?: Attributes;
+}
 
 /**
  * @internal @hidden
@@ -282,7 +283,10 @@ export class Inode implements InodeLike {
 	}
 
 	public toJSON(): InodeLike {
-		return pick(this, _inode_fields);
+		return {
+			...pick(this, _inode_fields),
+			attributes: this.attributes,
+		};
 	}
 
 	/**
@@ -329,10 +333,6 @@ export class Inode implements InodeLike {
 		if (hasChanged) this.ctimeMs = Date.now();
 
 		return hasChanged;
-	}
-
-	public serialize(): Uint8Array {
-		return serialize(this);
 	}
 }
 

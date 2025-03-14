@@ -265,17 +265,17 @@ export abstract class FileSystem {
 	/**
 	 * Reads into a buffer
 	 * @param buffer The buffer to read into. You must set the `byteOffset` and `byteLength` appropriately!
-	 * @param offset The offset into the file to start reading from
+	 * @param start The offset into the file to start reading from
 	 * @param end The position in the file to stop reading
 	 */
-	public abstract read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void>;
+	public abstract read(path: string, buffer: Uint8Array, start: number, end: number): Promise<void>;
 	/**
 	 * Reads into a buffer
 	 * @param buffer The buffer to read into. You must set the `byteOffset` and `byteLength` appropriately!
-	 * @param offset The offset into the file to start reading from
+	 * @param start The offset into the file to start reading from
 	 * @param end The position in the file to stop reading
 	 */
-	public abstract readSync(path: string, buffer: Uint8Array, offset: number, end: number): void;
+	public abstract readSync(path: string, buffer: Uint8Array, start: number, end: number): void;
 
 	/**
 	 * Writes a buffer to a file
