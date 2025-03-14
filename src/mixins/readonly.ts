@@ -19,10 +19,12 @@ export interface ReadonlyMixin {
 	mkdirSync(path: string, mode: number): never;
 	link(srcpath: string, dstpath: string): Promise<never>;
 	linkSync(srcpath: string, dstpath: string): never;
-	sync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): Promise<never>;
-	syncSync(path: string, data: Uint8Array, stats: Readonly<InodeLike>): never;
+	touch(path: string, metadata: Readonly<InodeLike>): Promise<never>;
+	touchSync(path: string, metadata: Readonly<InodeLike>): never;
+	sync(path: string): Promise<never>;
+	syncSync(path: string): never;
 	write(path: string, buffer: Uint8Array, offset: number): Promise<never>;
-	writeSync(path: string, buffer: Uint8Array, offset: number): Promise<never>;
+	writeSync(path: string, buffer: Uint8Array, offset: number): never;
 }
 
 /**
@@ -82,6 +84,14 @@ export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(
 		}
 
 		public linkSync(): never {
+			throw new ErrnoError(Errno.EROFS);
+		}
+
+		public async touch(): Promise<never> {
+			throw new ErrnoError(Errno.EROFS);
+		}
+
+		public touchSync(): never {
 			throw new ErrnoError(Errno.EROFS);
 		}
 
