@@ -94,7 +94,7 @@ export enum IOC {
 	SetXattr = 0x401c5820,
 	GetLabel = 0x81009431,
 	SetLabel = 0x41009432,
-	GetUuid = 0x80111500,
+	GetUUID = 0x80111500,
 	GetSysfsPath = 0x80811501,
 }
 
@@ -121,7 +121,7 @@ interface _ioc_ops {
 	[IOC.SetXattr](name: string, value: fsxattr): never;
 	[IOC.GetLabel](): string;
 	[IOC.SetLabel](label: string): void;
-	[IOC.GetUuid](): string;
+	[IOC.GetUUID](): string;
 	[IOC.GetSysfsPath](): string;
 }
 
@@ -187,7 +187,7 @@ export async function ioctl<const Command extends number, const Args extends __i
 			case IOC.SetLabel:
 				fs.label = (args as _args<IOC.SetLabel>)[0];
 				return undefined as _rt;
-			case IOC.GetUuid:
+			case IOC.GetUUID:
 				return fs.uuid as _rt;
 			case IOC.GetSysfsPath:
 				/**
@@ -252,7 +252,7 @@ export function ioctlSync<const Command extends number, const Args extends __ioc
 			case IOC.SetLabel:
 				fs.label = (args as _args<IOC.SetLabel>)[0];
 				return undefined as _rt;
-			case IOC.GetUuid:
+			case IOC.GetUUID:
 				return fs.uuid as _rt;
 			case IOC.GetSysfsPath:
 				/**
