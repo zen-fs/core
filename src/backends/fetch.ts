@@ -1,3 +1,4 @@
+import { decodeUTF8 } from 'utilium';
 import * as requests from 'utilium/requests.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { IndexData } from '../internal/file_index.js';
@@ -5,7 +6,7 @@ import { Index } from '../internal/file_index.js';
 import type { FileSystem } from '../internal/filesystem.js';
 import { IndexFS } from '../internal/index_fs.js';
 import { err, warn } from '../internal/log.js';
-import { decodeUTF8, normalizePath } from '../utils.js';
+import { normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
 import type { Backend, SharedConfig } from './backend.js';
 

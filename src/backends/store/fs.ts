@@ -1,4 +1,4 @@
-import { _throw, canary, sizeof } from 'utilium';
+import { _throw, canary, encodeUTF8, sizeof } from 'utilium';
 import { extendBuffer } from 'utilium/buffer.js';
 import { Errno, ErrnoError } from '../../internal/error.js';
 import { Index } from '../../internal/file_index.js';
@@ -6,7 +6,7 @@ import type { CreationOptions, PureCreationOptions, UsageInfo } from '../../inte
 import { FileSystem } from '../../internal/filesystem.js';
 import { Inode, isDirectory, rootIno, type InodeLike } from '../../internal/inode.js';
 import { crit, debug, err, notice, warn } from '../../internal/log.js';
-import { decodeDirListing, encodeDirListing, encodeUTF8 } from '../../utils.js';
+import { decodeDirListing, encodeDirListing } from '../../utils.js';
 import { S_IFDIR, S_IFREG, size_max } from '../../vfs/constants.js';
 import { basename, dirname, join, parse, relative } from '../../path.js';
 import { WrappedTransaction, type Store } from './store.js';

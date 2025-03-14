@@ -1,7 +1,7 @@
 import type { UUID } from 'node:crypto';
+import type { Concrete } from 'utilium';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
-import type { Concrete } from '../utils.js';
 
 import { ErrnoError } from '../internal/error.js';
 import { err } from '../internal/log.js';

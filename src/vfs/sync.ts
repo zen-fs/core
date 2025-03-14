@@ -6,18 +6,19 @@ import { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
+import { decodeUTF8, encodeUTF8 } from 'utilium';
+import { defaultContext } from '../internal/contexts.js';
 import { Errno, ErrnoError } from '../internal/error.js';
-import { decodeUTF8, encodeUTF8, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
+import { dirname, join, parse, resolve } from '../path.js';
+import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import * as flags from './flags.js';
-import { dirname, join, parse, resolve } from '../path.js';
 import { _statfs, fixError, resolveMount } from './shared.js';
 import { BigIntStats } from './stats.js';
 import { emitChange } from './watchers.js';
-import { defaultContext } from '../internal/contexts.js';
-import { hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);

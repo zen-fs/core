@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
+import { encodeUTF8 } from 'utilium';
 import { ErrnoError } from '../../dist/index.js';
-import { encodeUTF8 } from '../../dist/utils.js';
-import { R_OK, W_OK, X_OK } from '../../dist/vfs/constants.js';
-import { join } from '../../dist/path.js';
-import { fs } from '../common.js';
 import { defaultContext } from '../../dist/internal/contexts.js';
+import { join } from '../../dist/path.js';
+import { R_OK, W_OK, X_OK } from '../../dist/vfs/constants.js';
+import { fs } from '../common.js';
 
 const asyncMode = 0o777;
 const syncMode = 0o644;

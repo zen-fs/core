@@ -5,7 +5,7 @@
 	- include/uapi/linux/fs.h (`FS_IOC_*`)
 */
 
-import { struct, types as t } from 'utilium';
+import { _throw, struct, types as t } from 'utilium';
 import type { V_Context } from '../context.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { Inode, InodeFlags } from '../internal/inode.js';
@@ -66,7 +66,7 @@ class fsxattr {
 	@t.uint32 public cowextsize: number = 0;
 	@t.char(8) protected pad = [];
 
-	public constructor(inode: Inode) {
+	public constructor(inode: Inode = _throw(new ErrnoError(Errno.EINVAL, 'fsxattr must be initialized with an inode'))) {
 		this.extsize = inode.size;
 		this.nextents = 1;
 		this.projid = inode.uid;

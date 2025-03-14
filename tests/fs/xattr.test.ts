@@ -32,12 +32,7 @@ suite('Extended Attributes', () => {
 		await fs.xattr.set(testFile, 'user.to-remove', testValue);
 		await fs.xattr.remove(testFile, 'user.to-remove');
 
-		try {
-			await fs.xattr.get(testFile, 'user.to-remove', { encoding: 'utf8' });
-			assert.fail('Should have thrown ENODATA error');
-		} catch (err: any) {
-			assert.equal(err.code, 'ENODATA');
-		}
+		assert.rejects(fs.xattr.get(testFile, 'user.to-remove', { encoding: 'utf8' }), { code: 'ENODATA' });
 	});
 
 	test('list attributes', async () => {
@@ -54,23 +49,13 @@ suite('Extended Attributes', () => {
 
 		await fs.xattr.set(testFile, flagTestName, 'original', { create: true });
 
-		try {
-			await fs.xattr.set(testFile, flagTestName, 'new value', { create: true });
-			assert.fail('Should have thrown EEXIST error');
-		} catch (err: any) {
-			assert.equal(err.code, 'EEXIST');
-		}
+		assert.rejects(fs.xattr.set(testFile, flagTestName, 'new value', { create: true }), { code: 'EEXIST' });
 
 		await fs.xattr.set(testFile, flagTestName, 'updated', { replace: true });
 		const value = await fs.xattr.get(testFile, flagTestName, { encoding: 'utf8' });
 		assert.equal(value, 'updated');
 
-		try {
-			await fs.xattr.set(testFile, 'user.nonexistent', 'value', { replace: true });
-			assert.fail('Should have thrown ENODATA error');
-		} catch (err: any) {
-			assert.equal(err.code, 'ENODATA');
-		}
+		assert.rejects(fs.xattr.set(testFile, 'user.nonexistent', 'value', { replace: true }), { code: 'ENODATA' });
 	});
 
 	test('file must exist', () => {
@@ -85,12 +70,8 @@ suite('Extended Attributes', () => {
 		assert.equal(value, testValue);
 
 		fs.xattr.removeSync(testFile, syncAttrName);
-		try {
-			fs.xattr.getSync(testFile, syncAttrName, { encoding: 'utf8' });
-			assert.fail('Should have thrown ENODATA error');
-		} catch (err: any) {
-			assert.equal(err.code, 'ENODATA');
-		}
+
+		assert.throws(() => fs.xattr.getSync(testFile, syncAttrName, { encoding: 'utf8' }), { code: 'ENODATA' });
 
 		const syncList1 = 'user.sync-list1';
 		const syncList2 = 'user.sync-list2';

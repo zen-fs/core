@@ -1,11 +1,10 @@
-import { deserialize, pick, randomInt, serialize, sizeof, struct, types as t } from 'utilium';
-import { decodeUTF8, encodeUTF8 } from '../utils.js';
+import { deserialize, member, pick, randomInt, serialize, sizeof, struct, types as t } from 'utilium';
 import * as c from '../vfs/constants.js';
 import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { defaultContext, type V_Context } from './contexts.js';
 import { Errno, ErrnoError } from './error.js';
-import { crit, err, warn } from './log.js';
+import { crit } from './log.js';
 
 /**
  * Root inode
@@ -13,7 +12,92 @@ import { crit, err, warn } from './log.js';
  */
 export const rootIno = 0;
 
-export type Attributes = Record<string, string>;
+const maxAttributeValueSize = 1024;
+
+@struct()
+class Attribute {
+	@t.uint32 protected keySize: number = 0;
+	@t.uint32 protected valueSize: number = 0;
+
+	@t.char('keySize') protected _key: string = '';
+
+	public get key(): string {
+		return this._key;
+	}
+
+	public set key(value: string) {
+		this._key = value;
+		this.keySize = value.length;
+	}
+
+	@t.uint8('valueSize') protected _value: Uint8Array = new Uint8Array(maxAttributeValueSize);
+
+	public get value(): Uint8Array {
+		return this._value.subarray(0, this.valueSize);
+	}
+
+	public set value(value: Uint8Array) {
+		this._value = value;
+		this.valueSize = value.length;
+	}
+
+	public constructor(key?: string, value?: Uint8Array) {
+		if (key) this.key = key;
+		if (value) this.value = value;
+	}
+}
+
+/**
+ * Extended attributes
+ * @category Internals
+ * @internal
+ */
+@struct()
+export class Attributes {
+	@t.uint32 public size: number = 0;
+
+	@member(Attribute, 'size') public data: Attribute[] = [];
+
+	public has(name: string): boolean {
+		return this.data.some(entry => entry.key == name);
+	}
+
+	public get(name: string): Attribute | undefined {
+		return this.data.find(entry => entry.key == name);
+	}
+
+	public set(name: string, value: Uint8Array): void {
+		const attr = this.get(name);
+
+		if (attr) {
+			attr.value = value;
+			return;
+		}
+
+		this.data.push(new Attribute(name, value));
+		this.size++;
+	}
+
+	public remove(name: string): boolean {
+		const index = this.data.findIndex(entry => entry.key == name);
+		if (index === -1) return false;
+		this.data.splice(index, 1);
+		this.size--;
+		return true;
+	}
+
+	public keys(): string[] {
+		return this.data.map(entry => entry.key);
+	}
+
+	public values(): Uint8Array[] {
+		return this.data.map(entry => entry.value);
+	}
+
+	public entries(): [string, Uint8Array][] {
+		return this.data.map(entry => [entry.key, entry.value]);
+	}
+}
 
 /**
  * @internal @hidden
@@ -153,10 +237,6 @@ export class Inode implements InodeLike {
 		if (data.byteLength < sizeof(Inode)) throw crit(new ErrnoError(Errno.EIO, 'Buffer is too small to create an inode'));
 
 		deserialize(this, data);
-		const rawAttr = data.subarray(sizeof(Inode));
-		if (rawAttr.length < 2) warn('Attributes is empty');
-		else if (rawAttr.length != this.attributes_size) err(new ErrnoError(Errno.EIO, 'Attributes size mismatch with actual size'));
-		else this.attributes = JSON.parse(decodeUTF8(rawAttr));
 	}
 
 	@t.uint32 public data: number = randomInt(0, size_max);
@@ -192,12 +272,10 @@ export class Inode implements InodeLike {
 	 */
 	@t.uint32 public version: number = 0;
 
-	@t.uint32 public attributes_size: number = 2;
-
 	/** Pad to 128 bytes */
 	@t.uint8(48) protected __padding = [];
 
-	public attributes: Attributes = {};
+	@member(Attributes) public attributes = new Attributes();
 
 	public toString(): string {
 		return `<Inode ${this.ino}>`;
@@ -243,9 +321,8 @@ export class Inode implements InodeLike {
 			hasChanged = true;
 		}
 
-		if (data.attributes && JSON.stringify(this.attributes) !== JSON.stringify(data.attributes)) {
+		if (data.attributes) {
 			this.attributes = data.attributes;
-			this.attributes_size = encodeUTF8(JSON.stringify(this.attributes)).byteLength;
 			hasChanged = true;
 		}
 
@@ -255,12 +332,7 @@ export class Inode implements InodeLike {
 	}
 
 	public serialize(): Uint8Array {
-		const data = serialize(this);
-		const attr = encodeUTF8(JSON.stringify(this.attributes));
-		const buf = new Uint8Array(data.byteLength + attr.byteLength);
-		buf.set(data);
-		buf.set(attr, data.byteLength);
-		return buf;
+		return serialize(this);
 	}
 }
 

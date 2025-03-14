@@ -1,4 +1,4 @@
-import { deserialize, member, offsetof, serialize, sizeof, struct, types as t } from 'utilium';
+import { _throw, deserialize, member, offsetof, serialize, sizeof, struct, types as t } from 'utilium';
 import { crc32c } from 'utilium/checksum.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { UsageInfo } from '../internal/filesystem.js';
@@ -39,7 +39,7 @@ const entries_per_block = 255;
 @struct()
 class MetadataBlock {
 	public constructor(
-		protected readonly superblock: SuperBlock,
+		protected readonly superblock: SuperBlock = _throw(new ErrnoError(Errno.EINVAL, 'Metadata block must be initialized with a superblock')),
 		public offset: number = 0
 	) {
 		if (!offset) return; // fresh block
@@ -83,7 +83,9 @@ const sb_magic = 0x7a2e7362; // 'z.sb'
  */
 @struct()
 class SuperBlock {
-	public constructor(public readonly store: SingleBufferStore) {
+	public constructor(
+		public readonly store: SingleBufferStore = _throw(new ErrnoError(Errno.EINVAL, 'Super block must be initialized with a store'))
+	) {
 		if (store._view.getUint32(offsetof(SuperBlock, 'magic'), true) != sb_magic) {
 			warn('SingleBuffer: Invalid magic value, assuming this is a fresh super block');
 			this.metadata = new MetadataBlock(this);
