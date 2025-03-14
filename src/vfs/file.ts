@@ -241,7 +241,7 @@ export class SyncHandle {
  */
 export function toFD(file: SyncHandle): number {
 	const map = file.context?.descriptors ?? defaultContext.descriptors;
-	const fd = map.size ? Math.max(...map.keys()) + 1 : 0;
+	const fd = Math.max(map.size ? Math.max(...map.keys()) + 1 : 0, 4);
 	map.set(fd, file);
 	return fd;
 }
