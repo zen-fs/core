@@ -58,7 +58,7 @@ export interface SetOptions extends Options {
 	replace?: boolean;
 }
 
-const _allowedRestrictedNames = ['system.posix_acl_access', 'system.posix_acl_default'];
+const _allowedRestrictedNames: Name[] = [];
 
 /**
  * Check permission for the attribute name.
