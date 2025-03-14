@@ -105,18 +105,6 @@ export interface CreationOptions {
 }
 
 /**
- * This is the correct type that will be used when the API is updated in a breaking release
- * @category Internals
- * @internal
- */
-export interface PureCreationOptions extends CreationOptions {
-	/**
-	 * The mode to create the file with.
-	 */
-	mode: number;
-}
-
-/**
  * Options for streaming operations
  * @category Internals
  * @internal

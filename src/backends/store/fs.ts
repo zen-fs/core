@@ -2,7 +2,7 @@ import { _throw, canary, encodeUTF8, serialize, sizeof } from 'utilium';
 import { extendBuffer } from 'utilium/buffer.js';
 import { Errno, ErrnoError } from '../../internal/error.js';
 import { Index } from '../../internal/file_index.js';
-import type { CreationOptions, PureCreationOptions, UsageInfo } from '../../internal/filesystem.js';
+import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { Inode, isDirectory, rootIno, type InodeLike } from '../../internal/inode.js';
 import { crit, debug, err, notice, warn } from '../../internal/log.js';
@@ -691,7 +691,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param options The options to create the new file with.
 	 * @param data The data to store at the file's data node.
 	 */
-	protected async commitNew(path: string, options: PureCreationOptions, data: Uint8Array, syscall: string): Promise<Inode> {
+	protected async commitNew(path: string, options: CreationOptions, data: Uint8Array, syscall: string): Promise<Inode> {
 		/*
 			The root always exists.
 			If we don't check this prior to taking steps below,
@@ -736,7 +736,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
-	protected commitNewSync(path: string, options: PureCreationOptions, data: Uint8Array, syscall: string): Inode {
+	protected commitNewSync(path: string, options: CreationOptions, data: Uint8Array, syscall: string): Inode {
 		/*
 			The root always exists.
 			If we don't check this prior to taking steps below,

@@ -4,7 +4,7 @@ import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../vfs/constants.js'
 import { dirname, join, relative } from '../path.js';
 import { ErrnoError } from './error.js';
 import { Index } from './file_index.js';
-import { FileSystem, type CreationOptions, type PureCreationOptions, type UsageInfo } from './filesystem.js';
+import { FileSystem, type CreationOptions, type UsageInfo } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
 
 interface MoveInfo {
@@ -127,7 +127,7 @@ export abstract class IndexFS extends FileSystem {
 		this.removeSync(path);
 	}
 
-	protected create(path: string, options: PureCreationOptions) {
+	protected create(path: string, options: CreationOptions) {
 		const syscall = (options.mode & S_IFMT) == S_IFDIR ? 'mkdir' : 'createFile';
 
 		if (this.index.has(path)) throw ErrnoError.With('EEXIST', path, syscall);
