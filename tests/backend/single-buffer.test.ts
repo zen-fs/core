@@ -1,48 +1,51 @@
-import { test, suite } from 'node:test';
-import { fs, mount, resolveMountConfig, SingleBuffer, umount } from '../../dist/index.js';
 import assert from 'node:assert';
+import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
+import { fs, mount, resolveMountConfig, SingleBuffer } from '../../dist/index.js';
+import { setupLogs } from '../logs.js';
+
+setupLogs();
 
 await suite('SingleBuffer', () => {
-	test('should be able to restore filesystem (with same metadata) from original buffer', async () => {
+	test('filesystem restoration from original buffer (with same metadata)', async () => {
 		const buffer = new ArrayBuffer(0x100000);
 
-		umount('/');
 		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer });
-		mount('/', writable);
+		mount('/mnt', writable);
 
-		fs.writeFileSync('/example.ts', 'console.log("hello world")', 'utf-8');
-		const stats = fs.statSync('/example.ts');
+		fs.writeFileSync('/mnt/example.ts', 'console.log("hello world")', 'utf-8');
+		const stats = fs.statSync('/mnt/example.ts');
 
-		umount('/');
 		const snapshot = await resolveMountConfig({ backend: SingleBuffer, buffer });
-		mount('/', snapshot);
+		mount('/snapshot', snapshot);
 
-		const snapshotStats = fs.statSync('/example.ts');
+		const snapshotStats = fs.statSync('/snapshot/example.ts');
 
 		assert.deepEqual(snapshotStats, stats);
 	});
 
-	test('should support SharedArrayBuffer across threads', async () => {
+	test('cross-thread SharedArrayBuffer', async () => {
 		const sharedBuffer = new SharedArrayBuffer(0x100000);
 
-		umount('/');
 		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer: sharedBuffer });
-		mount('/', writable);
+		mount('/shared', writable);
 
 		const worker = new Worker(import.meta.dirname + '/single-buffer.worker.js', { workerData: sharedBuffer });
 
 		// Pause while we wait for the worker to emit the 'continue' message, which
 		// means it has mounted the filesystem and created /worker-file.ts
-		await new Promise<void>(resolve => {
-			worker.on('message', message => {
-				if (message === 'continue') resolve();
-			});
+		const { promise, resolve, reject } = Promise.withResolvers<void>();
+
+		setTimeout(reject, 1000);
+		worker.on('message', message => {
+			if (message === 'continue') resolve();
 		});
 
-		worker.terminate();
+		await promise;
+
+		await worker.terminate();
 		worker.unref();
 
-		assert(fs.existsSync('/worker-file.ts'));
+		assert(fs.existsSync('/shared/worker-file.ts'));
 	});
 });
