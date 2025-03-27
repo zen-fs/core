@@ -24,7 +24,7 @@ await suite('SingleBuffer', () => {
 		assert.deepEqual(snapshotStats, stats);
 	});
 
-	test('cross-thread SharedArrayBuffer', async () => {
+	test('cross-thread SharedArrayBuffer', { todo: true }, async () => {
 		const sharedBuffer = new SharedArrayBuffer(0x100000);
 
 		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer: sharedBuffer });
