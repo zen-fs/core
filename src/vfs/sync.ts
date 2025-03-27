@@ -655,13 +655,18 @@ export function readlinkSync(
 	path: fs.PathLike,
 	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
 ): Buffer | string {
-	const value: Buffer = Buffer.from(_readFileSync.call(this, path, 'r', true));
+	using handle = _openSync.call(this, normalizePath(path), { flag: 'r', mode: 0o644, preserveSymlinks: true });
+	if (!isSymbolicLink(handle.inode)) throw new ErrnoError(Errno.EINVAL, 'Not a symbolic link: ' + path);
+	const size = handle.inode.size;
+	const data = Buffer.alloc(size);
+	handle.read(data, 0, size, 0);
+
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	if (encoding == 'buffer') {
-		return value;
+		return data;
 	}
 	// always defaults to utf-8 to avoid wrangler (cloudflare) worker "unknown encoding" exception
-	return value.toString(encoding ?? 'utf-8');
+	return data.toString(encoding ?? 'utf-8');
 }
 readlinkSync satisfies typeof fs.readlinkSync;
 
