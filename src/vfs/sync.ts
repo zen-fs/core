@@ -26,23 +26,25 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	newPath = normalizePath(newPath);
 	const oldMount = resolveMount(oldPath, this);
 	const newMount = resolveMount(newPath, this);
-	if (checkAccess && !statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath)).hasAccess(constants.W_OK, this)) {
+
+	const oldStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath));
+
+	if (checkAccess && !oldStats.hasAccess(constants.W_OK, this)) {
 		throw ErrnoError.With('EACCES', oldPath, 'rename');
 	}
-	try {
-		if (oldMount === newMount) {
-			oldMount.fs.renameSync(oldMount.path, newMount.path);
-			emitChange(this, 'rename', oldPath.toString());
-			emitChange(this, 'change', newPath.toString());
-			return;
-		}
 
-		writeFileSync.call(this, newPath, readFileSync(oldPath));
-		unlinkSync.call(this, oldPath);
-		emitChange(this, 'rename', oldPath.toString());
+	if (oldMount.fs !== newMount.fs) {
+		throw new ErrnoError(Errno.EXDEV, `cross-device link not permitted, rename '${oldPath}' -> '${newPath}'`);
+	}
+
+	try {
+		oldMount.fs.renameSync(oldMount.path, newMount.path);
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [oldMount.path]: oldPath, [newMount.path]: newPath });
 	}
+
+	emitChange(this, 'rename', oldPath.toString());
+	emitChange(this, 'change', newPath.toString());
 }
 renameSync satisfies typeof fs.renameSync;
 
@@ -205,14 +207,6 @@ export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode
 	return toFD(_openSync.call(this, path, { flag, mode, preserveSymlinks: true }));
 }
 
-function _readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, flag: string, preserveSymlinks: boolean): Uint8Array {
-	using file = typeof path == 'number' ? fromFD(this, path) : _openSync.call(this, path.toString(), { flag, mode: 0o644, preserveSymlinks });
-	const { size } = file.stat();
-	const data = new Uint8Array(size);
-	file.read(data, 0, size, 0);
-	return data;
-}
-
 /**
  * Synchronously reads the entire contents of a file.
  * @option encoding The string encoding for the file contents. Defaults to `null`.
@@ -231,7 +225,15 @@ export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _op
 	if (flag & constants.O_WRONLY) {
 		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading');
 	}
-	const data: Buffer = Buffer.from(_readFileSync.call(this, path, options.flag, false));
+
+	using file =
+		typeof path == 'number'
+			? fromFD(this, path)
+			: _openSync.call(this, path.toString(), { flag: options.flag, mode: 0o644, preserveSymlinks: false });
+	const { size } = file.stat();
+	const data = Buffer.alloc(size);
+	file.read(data, 0, size, 0);
+
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFileSync satisfies typeof fs.readFileSync;

@@ -530,22 +530,23 @@ export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.
 	newPath = normalizePath(newPath);
 	const src = resolveMount(oldPath, this);
 	const dst = resolveMount(newPath, this);
+
+	if (src.fs !== dst.fs) {
+		throw new ErrnoError(Errno.EXDEV, `cross-device link not permitted, rename '${oldPath}' -> '${newPath}'`);
+	}
+
 	if (checkAccess && !(await stat.call(this, dirname(oldPath))).hasAccess(constants.W_OK, this)) {
 		throw ErrnoError.With('EACCES', oldPath, 'rename');
 	}
+
 	try {
-		if (src.mountPoint == dst.mountPoint) {
-			await src.fs.rename(src.path, dst.path);
-			emitChange(this, 'rename', oldPath.toString());
-			emitChange(this, 'change', newPath.toString());
-			return;
-		}
-		await writeFile.call(this, newPath, await readFile(oldPath));
-		await unlink.call(this, oldPath);
-		emitChange(this, 'rename', oldPath.toString());
+		await src.fs.rename(src.path, dst.path);
 	} catch (e) {
 		throw fixError(e as ErrnoError, { [src.path]: oldPath, [dst.path]: newPath });
 	}
+
+	emitChange(this, 'rename', oldPath.toString());
+	emitChange(this, 'change', newPath.toString());
 }
 rename satisfies typeof promises.rename;
 
