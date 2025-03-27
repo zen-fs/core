@@ -5,9 +5,10 @@
 	- include/uapi/linux/fs.h (`FS_IOC_*`)
 */
 
+import { Errno } from 'kerium';
 import { _throw, struct, types as t } from 'utilium';
 import type { V_Context } from '../context.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import { Inode, InodeFlags } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { fixError, resolveMount } from './shared.js';

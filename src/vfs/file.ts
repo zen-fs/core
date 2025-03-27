@@ -1,6 +1,7 @@
+import { Errno } from 'kerium';
 import type { V_Context } from '../context.js';
 import { defaultContext } from '../internal/contexts.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';

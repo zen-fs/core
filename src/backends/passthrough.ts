@@ -1,6 +1,6 @@
+import type { Errno } from 'kerium';
 import { warn } from 'kerium/log';
 import type * as fs from 'node:fs';
-import type { Errno } from '../internal/error.js';
 import { ErrnoError } from '../internal/error.js';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';

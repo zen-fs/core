@@ -4,10 +4,11 @@
 	They also are not checked for permissions yet.
 	Please use a namespace import for the best experience.
 */
+import { Errno } from 'kerium';
 import { err } from 'kerium/log';
 import { assignWithDefaults, deserialize, serialize, sizeof, struct, types as t } from 'utilium';
 import { defaultContext, type V_Context } from '../internal/contexts.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import { Attributes, type InodeLike } from '../internal/inode.js';
 import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from './constants.js';
 import * as xattr from './xattr.js';

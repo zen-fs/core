@@ -1,10 +1,11 @@
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
+import { Errno } from 'kerium';
 import { crit, debug, err } from 'kerium/log';
 import { getAllPrototypes } from 'utilium';
 import { StoreFS } from '../backends/store/fs.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { join } from '../path.js';
 

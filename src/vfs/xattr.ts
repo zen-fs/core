@@ -1,8 +1,9 @@
 import { Buffer } from 'buffer';
+import { Errno } from 'kerium';
 import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
 import { pick } from 'utilium';
 import type { V_Context } from '../context.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import { Attributes, hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { checkAccess } from './config.js';

@@ -1,11 +1,11 @@
-import { log } from 'kerium';
+import { Errno, log } from 'kerium';
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import type { Device, DeviceDriver } from './internal/devices.js';
 import { DeviceFS } from './internal/devices.js';
-import { Errno, ErrnoError } from './internal/error.js';
+import { ErrnoError } from './internal/error.js';
 import { FileSystem } from './internal/filesystem.js';
 import { _setAccessChecks } from './vfs/config.js';
 import * as fs from './vfs/index.js';

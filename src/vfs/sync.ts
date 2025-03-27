@@ -6,9 +6,10 @@ import { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
+import { Errno } from 'kerium';
 import { decodeUTF8, encodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 import { dirname, join, parse, resolve } from '../path.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';

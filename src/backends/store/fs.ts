@@ -1,7 +1,8 @@
+import { Errno } from 'kerium';
 import { crit, debug, err, notice, warn } from 'kerium/log';
 import { _throw, canary, encodeUTF8, serialize, sizeof } from 'utilium';
 import { extendBuffer } from 'utilium/buffer.js';
-import { Errno, ErrnoError } from '../../internal/error.js';
+import { ErrnoError } from '../../internal/error.js';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';

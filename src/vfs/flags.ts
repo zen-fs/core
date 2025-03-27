@@ -1,4 +1,5 @@
-import { Errno, ErrnoError } from '../internal/error.js';
+import { Errno } from 'kerium';
+import { ErrnoError } from '../internal/error.js';
 import * as c from './constants.js';
 
 export const pattern = /[rwasx]{1,2}\+?/;

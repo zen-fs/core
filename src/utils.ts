@@ -1,7 +1,8 @@
+import { Errno } from 'kerium';
 import type { UUID } from 'node:crypto';
 import type * as fs from 'node:fs';
 import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
-import { Errno, ErrnoError } from './internal/error.js';
+import { ErrnoError } from './internal/error.js';
 import { resolve } from './path.js';
 
 declare global {

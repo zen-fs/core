@@ -1,12 +1,13 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
+import { Errno } from 'kerium';
 import { isJSON, randomInt, sizeof } from 'utilium';
-import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
 import { basename, dirname } from '../path.js';
-import { Errno, ErrnoError } from './error.js';
+import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
+import { ErrnoError } from './error.js';
+import type { UsageInfo } from './filesystem.js';
 import type { InodeLike } from './inode.js';
 import { Inode } from './inode.js';
-import type { UsageInfo } from './filesystem.js';
 
 /**
  * An Index in JSON form

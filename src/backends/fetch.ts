@@ -1,7 +1,8 @@
+import { Errno } from 'kerium';
 import { err, warn } from 'kerium/log';
 import { decodeUTF8 } from 'utilium';
 import * as requests from 'utilium/requests.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import type { IndexData } from '../internal/file_index.js';
 import { Index } from '../internal/file_index.js';
 import type { FileSystem } from '../internal/filesystem.js';

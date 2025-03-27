@@ -6,9 +6,10 @@ import type { CreateReadStreamOptions, CreateWriteStreamOptions } from 'node:fs/
 import type { Callback } from '../utils.js';
 import type { FileHandle } from './promises.js';
 
+import { Errno } from 'kerium';
 import { warn } from 'kerium/log';
 import { Readable, Writable } from 'readable-stream';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 
 interface FSImplementation {
 	open?: (...args: unknown[]) => unknown;

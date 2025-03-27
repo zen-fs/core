@@ -1,4 +1,5 @@
-import { Errno, ErrnoError } from '../internal/error.js';
+import { Errno } from 'kerium';
+import { ErrnoError } from '../internal/error.js';
 import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Mixin } from './shared.js';

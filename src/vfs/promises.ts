@@ -11,9 +11,10 @@ import type { ResolvedPath } from './shared.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
+import { Errno } from 'kerium';
 import { _throw, decodeUTF8, pick } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { dirname, join, parse, resolve } from '../path.js';
 import '../polyfills.js';

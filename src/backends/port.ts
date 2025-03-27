@@ -7,10 +7,11 @@ import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Backend, FilesystemOf } from './backend.js';
 
+import { Errno } from 'kerium';
 import { err, info } from 'kerium/log';
 import { pick, serialize } from 'utilium';
 import { resolveMountConfig } from '../config.js';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { ErrnoError } from '../internal/error.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { Inode } from '../internal/inode.js';
 import { Async } from '../mixins/async.js';
