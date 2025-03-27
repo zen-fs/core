@@ -52,15 +52,12 @@ suite('Permissions', () => {
 			assert(error instanceof ErrnoError);
 			assert.equal(error.code, 'EACCES');
 		});
-		if (!stats) {
-			return;
-		}
+		if (!stats) return;
 		assert(stats.hasAccess(X_OK));
 
 		function checkError(access: number) {
 			return function (error: ErrnoError) {
 				assert(error instanceof ErrnoError);
-				assert(error);
 				assert(!stats!.hasAccess(access));
 			};
 		}
@@ -80,12 +77,10 @@ suite('Permissions', () => {
 			await fs.promises.unlink(testFile).catch(checkError(W_OK));
 		} else {
 			const handle = await fs.promises.open(path, 'a').catch(checkError(W_OK));
-			if (!handle) {
-				return;
-			}
+			if (!handle) return;
 			await handle.close();
 		}
-		assert(stats.hasAccess(R_OK));
+		assert(stats.hasAccess(W_OK));
 	}
 
 	const copy = { ...defaultContext.credentials };

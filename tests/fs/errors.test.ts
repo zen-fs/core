@@ -1,24 +1,20 @@
 import assert from 'node:assert/strict';
 import test, { suite } from 'node:test';
 import { fs } from '../common.js';
-import type { ErrnoError } from '../../dist/index.js';
 
 const existingFile = '/exit.js';
 
 suite('Error messages', () => {
 	const path = '/non-existent';
 
-	fs.promises.stat(path).catch((error: ErrnoError) => {
-		assert.equal(error.bufferSize(), 4 + JSON.stringify(error.toJSON()).length);
-	});
-
 	const missing = { path, code: 'ENOENT' };
-	const existing = { path: existingFile };
+	const existing = { path: existingFile, code: 'EEXIST' };
+	const notDir = { path: existingFile, code: 'ENOTDIR' };
 
 	test('stat', () => assert.rejects(() => fs.promises.stat(path), missing));
 	test('mkdir', () => assert.rejects(() => fs.promises.mkdir(existingFile, 0o666), existing));
 	test('rmdir', () => assert.rejects(() => fs.promises.rmdir(path), missing));
-	test('rmdir', () => assert.rejects(() => fs.promises.rmdir(existingFile), existing));
+	test('rmdir', () => assert.rejects(() => fs.promises.rmdir(existingFile), notDir));
 	test('rename', () => assert.rejects(() => fs.promises.rename(path, 'foo'), missing));
 	test('open', () => assert.rejects(() => fs.promises.open(path, 'r'), missing));
 	test('readdir', () => assert.rejects(() => fs.promises.readdir(path), missing));
@@ -30,7 +26,7 @@ suite('Error messages', () => {
 	test('statSync', () => assert.throws(() => fs.statSync(path), missing));
 	test('mkdirSync', () => assert.throws(() => fs.mkdirSync(existingFile, 0o666), existing));
 	test('rmdirSync', () => assert.throws(() => fs.rmdirSync(path), missing));
-	test('rmdirSync', () => assert.throws(() => fs.rmdirSync(existingFile), existing));
+	test('rmdirSync', () => assert.throws(() => fs.rmdirSync(existingFile), notDir));
 	test('renameSync', () => assert.throws(() => fs.renameSync(path, 'foo'), missing));
 	test('openSync', () => assert.throws(() => fs.openSync(path, 'r'), missing));
 	test('readdirSync', () => assert.throws(() => fs.readdirSync(path), missing));

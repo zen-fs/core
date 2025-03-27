@@ -19,7 +19,7 @@ export function unixTimestamps(stats: StatsLike<number>): Record<'atime' | 'mtim
 	};
 }
 
-suite('times', () => {
+suite('Times', () => {
 	async function runTest(atime: Date | number, mtime: Date | number): Promise<void> {
 		const times = {
 			atime: typeof atime == 'number' ? Math.floor(atime) : atime.getTime(),

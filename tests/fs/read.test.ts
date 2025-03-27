@@ -22,25 +22,18 @@ suite('read', () => {
 		assert.equal(bytesRead, expected.length);
 		assert.equal(buffer.toString(), expected);
 	});
-});
 
-suite('read binary', () => {
 	test('Read a file and check its binary bytes (asynchronous)', async () => {
 		const buff = await fs.promises.readFile('elipses.txt');
+		const buff2 = fs.readFileSync('elipses.txt');
+		assert.equal(buff.toString(), buff2.toString());
 		assert.equal((buff[1] << 8) | buff[0], 32994);
 	});
 
-	test('Read a file and check its binary bytes (synchronous)', () => {
-		const buff = fs.readFileSync('elipses.txt');
-		assert.equal((buff[1] << 8) | buff[0], 32994);
-	});
-});
-
-suite('read buffer', () => {
 	const bufferAsync = Buffer.alloc(expected.length);
 	const bufferSync = Buffer.alloc(expected.length);
 
-	test('read file asynchronously', async () => {
+	test('read file from handle asynchronously', async () => {
 		const handle = await fs.promises.open(filepath, 'r');
 		const { bytesRead } = await handle.read(bufferAsync, 0, expected.length, 0);
 
@@ -48,7 +41,7 @@ suite('read buffer', () => {
 		assert.equal(bufferAsync.toString(), expected);
 	});
 
-	test('read file synchronously', () => {
+	test('read file from handle synchronously', () => {
 		const fd = fs.openSync(filepath, 'r');
 		const bytesRead = fs.readSync(fd, bufferSync, 0, expected.length, 0);
 

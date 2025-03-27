@@ -70,28 +70,28 @@ suite('Directories', () => {
 		assert.rejects(fs.promises.readdir('a.js'), { code: 'ENOTDIR' });
 	});
 
-	test('readdirSync on non-existant directory', () => {
+	test('readdirSync on non-existent directory', () => {
 		assert.throws(() => fs.readdirSync('/does/not/exist'), { code: 'ENOENT' });
 	});
 
-	test('readdir on non-existant directory', () => {
+	test('readdir on non-existent directory', () => {
 		assert.rejects(fs.promises.readdir('/does/not/exist'), { code: 'ENOENT' });
 	});
 
-	test('rm recursively asynchronously', async () => {
-		await fs.promises.mkdir('/rmDirRecusrively');
-		await fs.promises.mkdir('/rmDirRecusrively/rmDirNested');
-		await fs.promises.writeFile('/rmDirRecusrively/rmDirNested/test.txt', 'hello world!');
+	test('rm recursively', async () => {
+		await fs.promises.mkdir('/rmDirRecursively');
+		await fs.promises.mkdir('/rmDirRecursively/rmDirNested');
+		await fs.promises.writeFile('/rmDirRecursively/rmDirNested/test.txt', 'hello world!');
 
-		await fs.promises.rm('/rmDirRecusrively', { recursive: true });
+		await fs.promises.rm('/rmDirRecursively', { recursive: true });
 	});
 
-	test('rm recursively synchronously', () => {
-		fs.mkdirSync('/rmDirRecusrively');
-		fs.mkdirSync('/rmDirRecusrively/rmDirNested');
-		fs.writeFileSync('/rmDirRecusrively/rmDirNested/test.txt', 'hello world!');
+	test('rmSync recursively', () => {
+		fs.mkdirSync('/rmDirRecursively');
+		fs.mkdirSync('/rmDirRecursively/rmDirNested');
+		fs.writeFileSync('/rmDirRecursively/rmDirNested/test.txt', 'hello world!');
 
-		fs.rmSync('/rmDirRecusrively', { recursive: true });
+		fs.rmSync('/rmDirRecursively', { recursive: true });
 	});
 
 	test('readdir returns files and directories', async () => {
@@ -143,17 +143,17 @@ suite('Directories', () => {
 
 	test('readdir returns Dirent recursively', async () => {
 		const entries = await fs.promises.readdir(testDir, { recursive: true, withFileTypes: true });
-		assert(entries.find(entry => entry.path === 'file1.txt'));
-		assert(entries.find(entry => entry.path === 'subdir1/file4.txt'));
-		assert(entries.find(entry => entry.path === 'subdir2/file5.txt'));
+		const paths = entries.map(entry => entry.path).sort();
+		assert.equal(paths[0], 'file1.txt');
+		assert.equal(paths[4], 'subdir1/file4.txt');
+		assert.equal(paths[8], 'subdir2/file5.txt');
 	});
 
-	// New test for readdirSync with recursive: true
 	test('readdirSync returns files recursively', () => {
-		const entries = fs.readdirSync(testDir, { recursive: true });
-		assert(entries.includes('file1.txt'));
-		assert(entries.includes('subdir1/file4.txt'));
-		assert(entries.includes('subdir2/file5.txt'));
+		const entries = fs.readdirSync(testDir, { recursive: true }).sort();
+		assert.equal(entries[0], 'file1.txt');
+		assert.equal(entries[4], 'subdir1/file4.txt');
+		assert.equal(entries[8], 'subdir2/file5.txt');
 	});
 
 	test('Cyrillic file names', () => {

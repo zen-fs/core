@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { ErrnoError } from '../../dist/index.js';
 import { fs } from '../common.js';
 
 suite('Rename', () => {
@@ -77,10 +76,8 @@ suite('Rename', () => {
 		await fs.promises.mkdir(dir);
 		await fs.promises.writeFile(file, 'file contents go here');
 
-		await fs.promises.rename(file, dir).catch((error: ErrnoError) => {
-			assert(error instanceof ErrnoError);
-			assert.match(error.code, /EISDIR|EPERM/);
-		});
+		assert.rejects(fs.promises.rename(file, dir), { code: /EISDIR|EPERM/ });
+		assert.throws(() => fs.renameSync(file, dir), { code: /EISDIR|EPERM/ });
 	});
 
 	test('rename directory inside itself', async () => {
@@ -89,9 +86,7 @@ suite('Rename', () => {
 
 		await fs.promises.mkdir(renDir1);
 
-		await fs.promises.rename(renDir1, renDir2).catch((error: ErrnoError) => {
-			assert(error instanceof ErrnoError);
-			assert.equal(error.code, 'EBUSY');
-		});
+		assert.rejects(fs.promises.rename(renDir1, renDir2), { code: 'EBUSY' });
+		assert.throws(() => fs.renameSync(renDir1, renDir2), { code: 'EBUSY' });
 	});
 });
