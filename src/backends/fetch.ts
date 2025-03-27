@@ -1,3 +1,4 @@
+import { err, warn } from 'kerium/log';
 import { decodeUTF8 } from 'utilium';
 import * as requests from 'utilium/requests.js';
 import { Errno, ErrnoError } from '../internal/error.js';
@@ -5,7 +6,6 @@ import type { IndexData } from '../internal/file_index.js';
 import { Index } from '../internal/file_index.js';
 import type { FileSystem } from '../internal/filesystem.js';
 import { IndexFS } from '../internal/index_fs.js';
-import { err, warn } from '../internal/log.js';
 import { normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
 import type { Backend, SharedConfig } from './backend.js';
@@ -13,24 +13,23 @@ import type { Backend, SharedConfig } from './backend.js';
 /** Parse and throw */
 function parseError(path?: string, fs?: FileSystem): (error: requests.Issue) => never {
 	return (error: requests.Issue) => {
-		if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.stack, path), { fs });
+		if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.stack, path));
 
 		switch (error.tag) {
 			case 'fetch':
-				throw err(new ErrnoError(Errno.EREMOTEIO, error.message, path), { fs });
+				throw err(new ErrnoError(Errno.EREMOTEIO, error.message, path));
 			case 'status':
 				throw err(
 					new ErrnoError(
 						error.response.status > 500 ? Errno.EREMOTEIO : Errno.EIO,
 						'Response status code is ' + error.response.status,
 						path
-					),
-					{ fs }
+					)
 				);
 			case 'size':
-				throw err(new ErrnoError(Errno.EBADE, error.message, path), { fs });
+				throw err(new ErrnoError(Errno.EBADE, error.message, path));
 			case 'buffer':
-				throw err(new ErrnoError(Errno.EIO, 'Failed to decode buffer', path), { fs });
+				throw err(new ErrnoError(Errno.EIO, 'Failed to decode buffer', path));
 		}
 	};
 }

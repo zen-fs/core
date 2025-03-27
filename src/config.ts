@@ -1,3 +1,4 @@
+import { log } from 'kerium';
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { defaultContext } from './internal/contexts.js';
@@ -6,8 +7,6 @@ import type { Device, DeviceDriver } from './internal/devices.js';
 import { DeviceFS } from './internal/devices.js';
 import { Errno, ErrnoError } from './internal/error.js';
 import { FileSystem } from './internal/filesystem.js';
-import type { LogConfiguration } from './internal/log.js';
-import { configure as configureLog, crit, err, info } from './internal/log.js';
 import { _setAccessChecks } from './vfs/config.js';
 import * as fs from './vfs/index.js';
 import { mounts } from './vfs/shared.js';
@@ -29,11 +28,11 @@ function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfigurati
  */
 export async function resolveMountConfig<T extends Backend>(configuration: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
 	if (typeof configuration !== 'object' || configuration == null) {
-		throw err(new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration'));
+		throw log.err(new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration'));
 	}
 
 	if (!isMountConfig(configuration)) {
-		throw err(new ErrnoError(Errno.EINVAL, 'Invalid mount configuration'));
+		throw log.err(new ErrnoError(Errno.EINVAL, 'Invalid mount configuration'));
 	}
 
 	if (configuration instanceof FileSystem) {
@@ -49,10 +48,10 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 		if (key == 'backend') continue;
 		if (!isMountConfig(value)) continue;
 
-		info('Resolving nested mount configuration: ' + key);
+		log.info('Resolving nested mount configuration: ' + key);
 
 		if (_depth > 10) {
-			throw err(new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite'));
+			throw log.err(new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite'));
 		}
 
 		(configuration as Record<string, FileSystem>)[key] = await resolveMountConfig(value, ++_depth);
@@ -61,7 +60,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	const { backend } = configuration;
 
 	if (typeof backend.isAvailable == 'function' && !(await backend.isAvailable(configuration))) {
-		throw err(new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name));
+		throw log.err(new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name));
 	}
 
 	checkOptions(backend, configuration);
@@ -128,7 +127,7 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	/**
 	 * Configurations options for the log.
 	 */
-	log: LogConfiguration;
+	log: log.Configuration;
 }
 
 /**
@@ -171,7 +170,7 @@ async function mount(path: string, mount: FileSystem): Promise<void> {
  */
 export function addDevice(driver: DeviceDriver, options?: object): Device {
 	const devfs = mounts.get('/dev');
-	if (!(devfs instanceof DeviceFS)) throw crit(new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system'));
+	if (!(devfs instanceof DeviceFS)) throw log.crit(new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
 
@@ -188,7 +187,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	_setAccessChecks(!configuration.disableAccessChecks);
 
-	if (configuration.log) configureLog(configuration.log);
+	if (configuration.log) log.configure(configuration.log);
 
 	if (configuration.mounts) {
 		// sort to make sure any root replacement is done first

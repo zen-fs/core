@@ -1,8 +1,8 @@
+import { err, warn } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 import { Resource } from 'utilium/cache.js';
 import { ErrnoError } from '../../internal/error.js';
 import type { UsageInfo } from '../../internal/filesystem.js';
-import { err, warn } from '../../internal/log.js';
 import '../../polyfills.js';
 import type { StoreFS } from './fs.js';
 

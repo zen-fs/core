@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // A cross-platform node:readline implementation
 import { EventEmitter } from 'eventemitter3';
+import { warn } from 'kerium/log';
 import type { Abortable } from 'node:events';
 import type * as readline from 'node:readline';
-import { warn } from './internal/log.js';
 
 interface InterfaceEvents {
 	close: [];

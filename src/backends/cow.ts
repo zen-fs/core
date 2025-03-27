@@ -3,12 +3,12 @@ import type { InodeLike } from '../internal/inode.js';
 import type { Backend } from './backend.js';
 
 import { EventEmitter } from 'eventemitter3';
+import { debug, err, warn } from 'kerium/log';
 import { canary } from 'utilium';
 import { resolveMountConfig, type MountConfiguration } from '../config.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory } from '../internal/inode.js';
-import { debug, err, warn } from '../internal/log.js';
 import { dirname, join } from '../path.js';
 
 /**

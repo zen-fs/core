@@ -1,11 +1,11 @@
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
+import { crit, debug, err } from 'kerium/log';
 import { getAllPrototypes } from 'utilium';
 import { StoreFS } from '../backends/store/fs.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
-import { crit, debug, err } from '../internal/log.js';
 import { join } from '../path.js';
 
 /**
@@ -97,7 +97,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				this._isInitialized = true;
 			} catch (e: any) {
 				this._isInitialized = false;
-				throw crit(e, { fs: this });
+				throw crit(e);
 			}
 		}
 
@@ -106,7 +106,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				throw new ErrnoError(Errno.ENOTSUP, 'Sync preloading has been disabled for this async file system', path, syscall);
 			}
 			if (!this._sync) {
-				throw crit(new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall), { fs: this });
+				throw crit(new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall));
 			}
 		}
 
@@ -258,7 +258,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 						// @ts-expect-error 2556 - The type of `args` is not narrowed
 						this._sync?.[`${key}Sync`]?.(...args);
 					} catch (e: any) {
-						throw err(new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key), { fs: this });
+						throw err(new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key));
 					}
 					return result;
 				};

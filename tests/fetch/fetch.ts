@@ -1,6 +1,6 @@
+import { log } from 'kerium';
 import { configure, Fetch } from '../../dist/index.js';
 import { baseUrl } from './config.js';
-import * as log from '../../dist/internal/log.js';
 
 await configure({
 	mounts: {

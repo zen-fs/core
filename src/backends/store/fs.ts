@@ -1,3 +1,4 @@
+import { crit, debug, err, notice, warn } from 'kerium/log';
 import { _throw, canary, encodeUTF8, serialize, sizeof } from 'utilium';
 import { extendBuffer } from 'utilium/buffer.js';
 import { Errno, ErrnoError } from '../../internal/error.js';
@@ -5,7 +6,6 @@ import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { Inode, isDirectory, rootIno, type InodeLike } from '../../internal/inode.js';
-import { crit, debug, err, notice, warn } from '../../internal/log.js';
 import { basename, dirname, join, parse, relative } from '../../path.js';
 import { decodeDirListing, encodeDirListing } from '../../utils.js';
 import { S_IFDIR, S_IFREG, size_max } from '../../vfs/constants.js';
@@ -679,7 +679,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._lastID ??= Math.max(...this._paths.keys());
 		this._lastID += 2;
 		const id = this._lastID;
-		if (id > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall), { fs: this });
+		if (id > size_max) throw err(new ErrnoError(Errno.ENOSPC, 'No IDs available', path, syscall));
 		this._add(id, path);
 		return id;
 	}

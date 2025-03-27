@@ -1,6 +1,6 @@
 /* node:coverage disable */
 
-import { warn } from './internal/log.js';
+import { warn } from 'kerium/log';
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
 Promise.withResolvers ??=

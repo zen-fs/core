@@ -1,3 +1,4 @@
+import { warn } from 'kerium/log';
 import type * as fs from 'node:fs';
 import type { Errno } from '../internal/error.js';
 import { ErrnoError } from '../internal/error.js';
@@ -6,7 +7,6 @@ import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { resolve } from '../path.js';
 import type { Backend } from './backend.js';
-import { warn } from '../internal/log.js';
 
 // Type for Node.js fs module
 export type NodeFS = typeof fs;

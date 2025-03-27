@@ -3,12 +3,12 @@
 import type * as fs from 'node:fs';
 import type { FileSystem } from '../internal/filesystem.js';
 
+import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
 import type { V_Context } from '../context.js';
 import { defaultContext } from '../internal/contexts.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { InodeLike } from '../internal/inode.js';
-import { alert, debug, err, info, notice, warn } from '../internal/log.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
 import { size_max } from './constants.js';

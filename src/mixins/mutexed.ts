@@ -3,8 +3,8 @@ import type { Concrete } from 'utilium';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 
+import { err } from 'kerium/log';
 import { ErrnoError } from '../internal/error.js';
-import { err } from '../internal/log.js';
 import '../polyfills.js';
 
 /**
@@ -113,7 +113,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 			if (lock.isLocked) {
 				const error = ErrnoError.With('EDEADLK', path, syscall);
 				error.stack += stack?.slice('Error'.length);
-				throw err(error, { fs: this });
+				throw err(error);
 			}
 		}, 5000);
 		await previous?.done();
@@ -127,7 +127,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	 */
 	public lockSync(path: string, syscall: string): MutexLock {
 		if (this.currentLock?.isLocked) {
-			throw err(ErrnoError.With('EBUSY', path, syscall), { fs: this });
+			throw err(ErrnoError.With('EBUSY', path, syscall));
 		}
 
 		return this.addLock();

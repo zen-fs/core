@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents */
+import { debug, err } from 'kerium/log';
 import type { Entries, RequiredKeys } from 'utilium';
 import { Errno, ErrnoError } from '../internal/error.js';
 import type { FileSystem } from '../internal/filesystem.js';
-import { debug, err } from '../internal/log.js';
 
 type OptionType =
 	| 'string'

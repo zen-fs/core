@@ -1,4 +1,4 @@
-import * as log from '../dist/internal/log.js';
+import { log } from 'kerium';
 
 export function setupLogs(prefix) {
 	const { ZENFS_LOG_LEVEL } = process.env;

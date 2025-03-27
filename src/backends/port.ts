@@ -7,12 +7,12 @@ import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Backend, FilesystemOf } from './backend.js';
 
+import { err, info } from 'kerium/log';
 import { pick, serialize } from 'utilium';
 import { resolveMountConfig } from '../config.js';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { Inode } from '../internal/inode.js';
-import { err, info } from '../internal/log.js';
 import { Async } from '../mixins/async.js';
 import '../polyfills.js';
 import { _fnOpt } from './backend.js';
@@ -126,9 +126,7 @@ function request<const TRequest extends RPCRequest, TValue>(
 	executors.set(id, { resolve, reject, promise, fs });
 	port.postMessage({ ...request, _zenfs: true, id, stack });
 	const _ = setTimeout(() => {
-		const error = err(new ErrnoError(Errno.EIO, 'RPC Failed', typeof request.args[0] == 'string' ? request.args[0] : '', request.method), {
-			fs,
-		});
+		const error = err(new ErrnoError(Errno.EIO, 'RPC Failed', typeof request.args[0] == 'string' ? request.args[0] : '', request.method));
 		error.stack += stack;
 		reject(error);
 		if (typeof _ == 'object') _.unref();

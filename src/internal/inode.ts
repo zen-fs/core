@@ -1,10 +1,10 @@
+import { crit } from 'kerium/log';
 import { deserialize, member, pick, randomInt, sizeof, struct, types as t } from 'utilium';
 import * as c from '../vfs/constants.js';
 import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { defaultContext, type V_Context } from './contexts.js';
 import { Errno, ErrnoError } from './error.js';
-import { crit } from './log.js';
 
 /**
  * Root inode

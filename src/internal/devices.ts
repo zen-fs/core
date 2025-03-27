@@ -2,6 +2,7 @@
 This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
 */
 
+import { debug, err, info } from 'kerium/log';
 import { decodeUTF8, omit } from 'utilium';
 import { InMemoryStore } from '../backends/memory.js';
 import { StoreFS } from '../backends/store/fs.js';
@@ -10,7 +11,6 @@ import { S_IFCHR } from '../vfs/constants.js';
 import { Errno, ErrnoError } from './error.js';
 import type { CreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
-import { debug, err, info } from './log.js';
 
 /**
  * A device
@@ -117,7 +117,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 
 	protected devicesWithDriver(driver: DeviceDriver<unknown> | string, forceIdentity?: boolean): Device[] {
 		if (forceIdentity && typeof driver == 'string') {
-			throw err(new ErrnoError(Errno.EINVAL, 'Can not fetch devices using only a driver name'), { fs: this });
+			throw err(new ErrnoError(Errno.EINVAL, 'Can not fetch devices using only a driver name'));
 		}
 		const devs: Device[] = [];
 		for (const device of this.devices.values()) {
