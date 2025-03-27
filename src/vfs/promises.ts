@@ -1025,6 +1025,7 @@ export async function readlink(
 	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
 ): Promise<string | Buffer> {
 	await using handle = await _open(this, normalizePath(path), { flag: 'r', mode: 0o644, preserveSymlinks: true });
+	if (!isSymbolicLink(handle.inode)) throw new ErrnoError(Errno.EINVAL, 'Not a symbolic link: ' + path);
 	const value = await handle.readFile();
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	// always defaults to utf-8 to avoid wrangler (cloudflare) worker "unknown encoding" exception

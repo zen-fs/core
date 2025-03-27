@@ -21,6 +21,7 @@ suite('Links', () => {
 	test('readlink', async () => {
 		const destination = await fs.promises.readlink(symlink);
 		assert.equal(destination, target);
+		assert.throws(() => fs.readlinkSync(destination));
 	});
 
 	test('read target contents', async () => {
