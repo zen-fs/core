@@ -11,16 +11,19 @@ export interface ErrnoErrorJSON extends ErrnoExceptionJSON {
  * An error with additional information about what happened
  * @category Internals
  */
-export class ErrnoError extends ErrnoException implements NodeJS.ErrnoException {
-	public static fromJSON(json: ErrnoErrorJSON): ErrnoError {
+export class ErrnoError extends ErrnoException {
+	public static fromJSON(this: void, json: ErrnoErrorJSON): ErrnoError {
 		const err = new ErrnoError(json.errno, json.message, json.path, json.syscall);
 		err.code = json.code;
 		err.stack = json.stack;
+		Error.captureStackTrace?.(err, ErrnoError.fromJSON);
 		return err;
 	}
 
-	public static With(code: keyof typeof Errno, path?: string, syscall?: string): ErrnoError {
-		return new ErrnoError(Errno[code], undefined, path, syscall);
+	public static With(this: void, code: keyof typeof Errno, path?: string, syscall?: string): ErrnoError {
+		const err = new ErrnoError(Errno[code], undefined, path, syscall);
+		Error.captureStackTrace?.(err, ErrnoError.With);
+		return err;
 	}
 
 	public constructor(
@@ -30,6 +33,7 @@ export class ErrnoError extends ErrnoException implements NodeJS.ErrnoException 
 		syscall?: string
 	) {
 		super(errno, message, syscall);
+		Error.captureStackTrace?.(this, this.constructor);
 	}
 
 	public toString(): string {
