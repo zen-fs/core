@@ -4,11 +4,10 @@
 	They also are not checked for permissions yet.
 	Please use a namespace import for the best experience.
 */
-import { Errno } from 'kerium';
+import { withErrno } from 'kerium';
 import { err } from 'kerium/log';
 import { assignWithDefaults, deserialize, serialize, sizeof, struct, types as t } from 'utilium';
 import { defaultContext, type V_Context } from '../internal/contexts.js';
-import { ErrnoError } from '../internal/error.js';
 import { Attributes, type InodeLike } from '../internal/inode.js';
 import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from './constants.js';
 import * as xattr from './xattr.js';
@@ -62,10 +61,10 @@ export class ACL {
 
 		deserialize(this, data);
 
-		if (this.version != version) throw err(new ErrnoError(Errno.EINVAL, 'Invalid ACL version'));
+		if (this.version != version) throw err(withErrno('EINVAL', 'Invalid ACL version'));
 
 		for (let offset = sizeof(ACL); offset < data.length; offset += sizeof(Entry)) {
-			if (offset + sizeof(Entry) > data.length) throw err(new ErrnoError(Errno.EIO, 'Invalid ACL data'));
+			if (offset + sizeof(Entry) > data.length) throw err(withErrno('EIO', 'Invalid ACL data'));
 
 			const slice = data.subarray(offset, offset + sizeof(Entry));
 

@@ -1,11 +1,10 @@
-import { Errno } from 'kerium';
+import { withErrno } from 'kerium';
 import { crit } from 'kerium/log';
 import { deserialize, member, pick, randomInt, sizeof, struct, types as t } from 'utilium';
 import * as c from '../vfs/constants.js';
 import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { defaultContext, type V_Context } from './contexts.js';
-import { ErrnoError } from './error.js';
 
 /**
  * Root inode
@@ -236,7 +235,7 @@ export class Inode implements InodeLike {
 			return;
 		}
 
-		if (data.byteLength < sizeof(Inode)) throw crit(new ErrnoError(Errno.EIO, 'Buffer is too small to create an inode'));
+		if (data.byteLength < sizeof(Inode)) throw crit(withErrno('EIO', 'Buffer is too small to create an inode'));
 
 		deserialize(this, data);
 	}

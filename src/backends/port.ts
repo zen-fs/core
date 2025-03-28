@@ -1,17 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { ExceptionJSON } from 'kerium';
 import type { Worker as NodeWorker, TransferListItem } from 'node:worker_threads';
 import type { WithOptional } from 'utilium';
 import type { MountConfiguration } from '../config.js';
-import type { ErrnoErrorJSON } from '../internal/error.js';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Backend, FilesystemOf } from './backend.js';
 
-import { Errno } from 'kerium';
+import { Errno, Exception, withErrno } from 'kerium';
 import { err, info } from 'kerium/log';
 import { pick, serialize } from 'utilium';
 import { resolveMountConfig } from '../config.js';
-import { ErrnoError } from '../internal/error.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { Inode } from '../internal/inode.js';
 import { Async } from '../mixins/async.js';
@@ -93,7 +92,7 @@ interface RPCRequest<TMethod extends RPCMethod = RPCMethod> extends RPCMessage {
 }
 
 interface RPCResponse<TMethod extends RPCMethod = RPCMethod> extends RPCMessage {
-	error?: WithOptional<ErrnoErrorJSON, 'code' | 'errno'>;
+	error?: WithOptional<ExceptionJSON, 'code' | 'errno'>;
 	method: TMethod;
 
 	// Note: This is undefined if an error occurs, and we check it at runtime
@@ -119,7 +118,7 @@ function request<const TRequest extends RPCRequest, TValue>(
 	{ port, timeout = 1000, fs }: Partial<PortOptions> & { fs?: PortFS } = {}
 ): Promise<TValue> {
 	const stack = '\n' + new Error().stack!.slice('Error:'.length);
-	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Can not make an RPC request without a port'));
+	if (!port) throw err(withErrno('EINVAL', 'Can not make an RPC request without a port'));
 
 	const { resolve, reject, promise } = Promise.withResolvers<TValue>();
 
@@ -127,7 +126,7 @@ function request<const TRequest extends RPCRequest, TValue>(
 	executors.set(id, { resolve, reject, promise, fs });
 	port.postMessage({ ...request, _zenfs: true, id, stack });
 	const _ = setTimeout(() => {
-		const error = err(new ErrnoError(Errno.EIO, 'RPC Failed', typeof request.args[0] == 'string' ? request.args[0] : '', request.method));
+		const error = err(withErrno('EIO', 'RPC Failed'));
 		error.stack += stack;
 		reject(error);
 		if (typeof _ == 'object') _.unref();
@@ -148,14 +147,14 @@ function handleResponse<const TMethod extends RPCMethod>(response: RPCResponse<T
 	if (!isRPCMessage(response)) return;
 
 	if (!executors.has(response.id)) {
-		const error = err(new ErrnoError(Errno.EIO, 'Invalid RPC id:' + response.id));
+		const error = err(withErrno('EIO', 'Invalid RPC id:' + response.id));
 		error.stack += response.stack;
 		throw error;
 	}
 
 	const { resolve, reject } = executors.get(response.id)!;
 	if (response.error) {
-		const e = ErrnoError.fromJSON({ code: 'EIO', errno: Errno.EIO, ...response.error });
+		const e = Exception.fromJSON({ code: 'EIO', errno: Errno.EIO, ...response.error });
 		e.stack += response.stack;
 		reject(e);
 		executors.delete(response.id);
@@ -169,7 +168,7 @@ function handleResponse<const TMethod extends RPCMethod>(response: RPCResponse<T
 }
 
 export function attach<T extends RPCMessage>(port: RPCPort, handler: (message: T) => unknown) {
-	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Cannot attach to non-existent port'));
+	if (!port) throw err(withErrno('EINVAL', 'Cannot attach to non-existent port'));
 	info('Attached handler to port: ' + handler.name);
 
 	port['on' in port ? 'on' : 'addEventListener']!('message', (message: T | _MessageEvent<T>) => {
@@ -178,7 +177,7 @@ export function attach<T extends RPCMessage>(port: RPCPort, handler: (message: T
 }
 
 export function detach<T extends RPCMessage>(port: RPCPort, handler: (message: T) => unknown) {
-	if (!port) throw err(new ErrnoError(Errno.EINVAL, 'Cannot detach from non-existent port'));
+	if (!port) throw err(withErrno('EINVAL', 'Cannot detach from non-existent port'));
 	info('Detached handler from port: ' + handler.name);
 
 	port['off' in port ? 'off' : 'removeEventListener']!('message', (message: T | _MessageEvent<T>) => {
@@ -304,7 +303,7 @@ export class PortFS extends Async(FileSystem) {
 export async function handleRequest(port: RPCPort, fs: FileSystem & { _descriptors?: Map<number, File> }, request: RPCRequest): Promise<void> {
 	if (!isRPCMessage(request)) return;
 
-	let value, error: ErrnoErrorJSON | Pick<Error, 'message' | 'stack'> | undefined;
+	let value, error: ExceptionJSON | Pick<Error, 'message' | 'stack'> | undefined;
 	const transferList: TransferListItem[] = [];
 
 	try {
@@ -338,7 +337,7 @@ export async function handleRequest(port: RPCPort, fs: FileSystem & { _descripto
 				value = (await fs[request.method](...request.args)) as ReturnType<RPCMethods[TMethod]>;
 		}
 	} catch (e: any) {
-		error = e instanceof ErrnoError ? e.toJSON() : pick(e, 'message', 'stack');
+		error = e instanceof Exception ? e.toJSON() : pick(e, 'message', 'stack');
 	}
 	port.postMessage({ _zenfs: true, ...pick(request, 'id', 'method', 'stack'), error, value }, transferList);
 }

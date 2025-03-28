@@ -1,5 +1,4 @@
-import { Errno } from 'kerium';
-import { ErrnoError } from '../internal/error.js';
+import { withErrno } from 'kerium';
 import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Mixin } from './shared.js';
@@ -41,79 +40,79 @@ export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(
 		}
 
 		public async rename(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public renameSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public async createFile(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public createFileSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public async unlink(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public unlinkSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public async rmdir(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public rmdirSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public async mkdir(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public mkdirSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public async link(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public linkSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public async touch(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public touchSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public async sync(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public syncSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public async write(): Promise<never> {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public writeSync(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 
 		public streamWrite(): never {
-			throw new ErrnoError(Errno.EROFS);
+			throw withErrno('EROFS');
 		}
 	}
 	return ReadonlyFS;

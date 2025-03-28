@@ -1,8 +1,7 @@
-import { Errno } from 'kerium';
+import { withErrno, type Exception } from 'kerium';
 import type { UUID } from 'node:crypto';
 import type * as fs from 'node:fs';
 import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
-import { ErrnoError } from './internal/error.js';
 import { resolve } from './path.js';
 
 declare global {
@@ -28,7 +27,7 @@ export function encodeDirListing(data: Record<string, number>): Uint8Array {
 	return encodeUTF8(JSON.stringify(data));
 }
 
-export type Callback<Args extends unknown[] = [], NoError = undefined | void> = (e: ErrnoError | NoError, ...args: OptionalTuple<Args>) => unknown;
+export type Callback<Args extends unknown[] = [], NoError = undefined | void> = (e: Exception | NoError, ...args: OptionalTuple<Args>) => unknown;
 
 /**
  * Normalizes a mode
@@ -47,7 +46,7 @@ export function normalizeMode(mode: unknown, def?: number): number {
 
 	if (typeof def == 'number') return def;
 
-	throw new ErrnoError(Errno.EINVAL, 'Invalid mode: ' + mode?.toString());
+	throw withErrno('EINVAL', 'Invalid mode: ' + mode?.toString());
 }
 
 /**
@@ -60,9 +59,16 @@ export function normalizeTime(time: string | number | Date): number {
 	try {
 		return Number(time);
 	} catch {
-		throw new ErrnoError(Errno.EINVAL, 'Invalid time.');
+		throw withErrno('EINVAL', 'Invalid time.');
 	}
 }
+
+/**
+ * TypeScript is dumb, so we need to assert the type of a value sometimes.
+ * For example, after calling `normalizePath`, TS still thinks the type is `PathLike` and not `string`.
+ * @internal @hidden
+ */
+export function __assertType<T>(value: unknown): asserts value is T {}
 
 /**
  * Normalizes a path
@@ -70,17 +76,13 @@ export function normalizeTime(time: string | number | Date): number {
  */
 export function normalizePath(p: fs.PathLike, noResolve: boolean = false): string {
 	if (p instanceof URL) {
-		if (p.protocol != 'file:') throw new ErrnoError(Errno.EINVAL, 'URLs must use the file: protocol');
+		if (p.protocol != 'file:') throw withErrno('EINVAL', 'URLs must use the file: protocol');
 		p = p.pathname;
 	}
 	p = p.toString();
 	if (p.startsWith('file://')) p = p.slice('file://'.length);
-	if (p.includes('\x00')) {
-		throw new ErrnoError(Errno.EINVAL, 'Path can not contain null character');
-	}
-	if (p.length == 0) {
-		throw new ErrnoError(Errno.EINVAL, 'Path can not be empty');
-	}
+	if (p.includes('\x00')) throw withErrno('EINVAL', 'Path can not contain null character');
+	if (p.length == 0) throw withErrno('EINVAL', 'Path can not be empty');
 	p = p.replaceAll(/[/\\]+/g, '/');
 
 	// Note: PWD is not resolved here, it is resolved later.

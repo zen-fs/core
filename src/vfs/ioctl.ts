@@ -5,10 +5,9 @@
 	- include/uapi/linux/fs.h (`FS_IOC_*`)
 */
 
-import { Errno } from 'kerium';
+import { UV, withErrno } from 'kerium';
 import { _throw, struct, types as t } from 'utilium';
 import type { V_Context } from '../context.js';
-import { ErrnoError } from '../internal/error.js';
 import { Inode, InodeFlags } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { fixError, resolveMount } from './shared.js';
@@ -67,7 +66,7 @@ class fsxattr {
 	@t.uint32 public cowextsize: number = 0;
 	@t.char(8) protected pad = [];
 
-	public constructor(inode: Inode = _throw(new ErrnoError(Errno.EINVAL, 'fsxattr must be initialized with an inode'))) {
+	public constructor(inode: Inode = _throw(withErrno('EINVAL', 'fsxattr must be initialized with an inode'))) {
 		this.extsize = inode.size;
 		this.nextents = 1;
 		this.projid = inode.uid;
@@ -198,11 +197,11 @@ export async function ioctl<const Command extends number, const Args extends __i
 				 */
 				return `/sys/fs/${fs.name}/${fs.uuid}` as _rt;
 		}
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+	} catch (e: any) {
+		throw fixError(e, { [resolved]: path });
 	}
 
-	throw new ErrnoError(Errno.ENOTSUP, 'Unsupported command: ' + command, path, 'ioctl');
+	throw UV('ENOTSUP', 'ioctl', path);
 }
 
 /** Perform an `ioctl` on a file or file system */
@@ -263,9 +262,9 @@ export function ioctlSync<const Command extends number, const Args extends __ioc
 				 */
 				return `/sys/fs/${fs.name}/${fs.uuid}` as _rt;
 		}
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+	} catch (e: any) {
+		throw fixError(e, { [resolved]: path });
 	}
 
-	throw new ErrnoError(Errno.ENOTSUP, 'Unsupported command: ' + command, path, 'ioctl');
+	throw UV('ENOTSUP', 'ioctl', path);
 }

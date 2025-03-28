@@ -1,14 +1,13 @@
 import { Buffer } from 'buffer';
-import { Errno } from 'kerium';
+import { rethrow, setUVMessage, UV } from 'kerium';
 import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
 import { pick } from 'utilium';
 import type { V_Context } from '../context.js';
-import { ErrnoError } from '../internal/error.js';
-import { Attributes, hasAccess } from '../internal/inode.js';
+import { Attributes, hasAccess, type InodeLike } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { checkAccess } from './config.js';
 import { R_OK, W_OK } from './constants.js';
-import { fixError, resolveMount } from './shared.js';
+import { resolveMount } from './shared.js';
 
 /**
  * Extended attribute name with namespace prefix.
@@ -67,8 +66,7 @@ const _allowedRestrictedNames: Name[] = [];
  * @throws EPERM for attributes in namespaces other than 'user'
  */
 function checkName($: V_Context, name: Name, path: string, syscall: string): void {
-	if (!name.startsWith('user.') && !_allowedRestrictedNames.includes(name))
-		throw new ErrnoError(Errno.EPERM, 'Only attributes in the user namespace are supported', path, syscall);
+	if (!name.startsWith('user.') && !_allowedRestrictedNames.includes(name)) throw UV('ENOTSUP', syscall, path);
 }
 
 /**
@@ -91,24 +89,18 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 	const { fs, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.get');
 
-	try {
-		const inode = await fs.stat(resolved);
+	const inode = await fs.stat(resolved).catch(rethrow('xattr.get', path));
 
-		if (checkAccess && !hasAccess(this, inode, R_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'xattr.get');
-		}
+	if (checkAccess && !hasAccess(this, inode, R_OK)) throw UV('EACCES', 'xattr.get', path);
 
-		inode.attributes ??= new Attributes();
+	inode.attributes ??= new Attributes();
 
-		const attr = inode.attributes.get(name);
-		if (!attr) throw ErrnoError.With('ENODATA', resolved, 'xattr.get');
+	const attr = inode.attributes.get(name);
+	if (!attr) throw UV('ENODATA', 'xattr.get', path);
 
-		const buffer = Buffer.from(attr.value);
+	const buffer = Buffer.from(attr.value);
 
-		return opt.encoding == 'buffer' || !opt.encoding ? buffer : buffer.toString(opt.encoding);
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
-	}
+	return opt.encoding == 'buffer' || !opt.encoding ? buffer : buffer.toString(opt.encoding);
 }
 
 /**
@@ -126,24 +118,23 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 	checkName(this, name, path, 'xattr.get');
 	const { fs, path: resolved } = resolveMount(path, this);
 
+	let inode: InodeLike;
 	try {
-		const inode = fs.statSync(resolved);
-
-		if (checkAccess && !hasAccess(this, inode, R_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'xattr.get');
-		}
-
-		inode.attributes ??= new Attributes();
-
-		const attr = inode.attributes.get(name);
-		if (!attr) throw ErrnoError.With('ENODATA', resolved, 'xattr.get');
-
-		const buffer = Buffer.from(attr.value);
-
-		return opt.encoding == 'buffer' || !opt.encoding ? buffer : buffer.toString(opt.encoding);
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+		inode = fs.statSync(resolved);
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
 	}
+
+	if (checkAccess && !hasAccess(this, inode, R_OK)) throw UV('EACCES', 'xattr.get', path);
+
+	inode.attributes ??= new Attributes();
+
+	const attr = inode.attributes.get(name);
+	if (!attr) throw UV('ENODATA', 'xattr.get', path);
+
+	const buffer = Buffer.from(attr.value);
+
+	return opt.encoding == 'buffer' || !opt.encoding ? buffer : buffer.toString(opt.encoding);
 }
 
 /**
@@ -159,31 +150,21 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	checkName(this, name, path, 'xattr.set');
-	try {
-		const inode = await fs.stat(resolved);
+	const inode = await fs.stat(resolved).catch(rethrow('xattr.set', path));
 
-		if (checkAccess && !hasAccess(this, inode, W_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'xattr.set');
-		}
+	if (checkAccess && !hasAccess(this, inode, W_OK)) throw UV('EACCES', 'xattr.set', path);
 
-		inode.attributes ??= new Attributes();
+	inode.attributes ??= new Attributes();
 
-		const attr = inode.attributes.get(name);
+	const attr = inode.attributes.get(name);
 
-		if (opt.create && attr) {
-			throw ErrnoError.With('EEXIST', resolved, 'xattr.set');
-		}
+	if (opt.create && attr) throw UV('EEXIST', 'xattr.set', path);
 
-		if (opt.replace && !attr) {
-			throw ErrnoError.With('ENODATA', resolved, 'xattr.set');
-		}
+	if (opt.replace && !attr) throw UV('ENODATA', 'xattr.set', path);
 
-		inode.attributes.set(name, Buffer.from(value));
+	inode.attributes.set(name, Buffer.from(value));
 
-		await fs.touch(resolved, pick(inode, 'attributes'));
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
-	}
+	await fs.touch(resolved, pick(inode, 'attributes')).catch(rethrow('xattr.set', path));
 }
 
 /**
@@ -200,30 +181,29 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
 
 	checkName(this, name, path, 'xattr.set');
 
+	let inode: InodeLike;
 	try {
-		const inode = fs.statSync(resolved);
+		inode = fs.statSync(resolved);
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
+	}
 
-		if (checkAccess && !hasAccess(this, inode, W_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'xattr.set');
-		}
+	if (checkAccess && !hasAccess(this, inode, W_OK)) throw UV('EACCES', 'xattr.set', path);
 
-		inode.attributes ??= new Attributes();
+	inode.attributes ??= new Attributes();
 
-		const attr = inode.attributes.get(name);
+	const attr = inode.attributes.get(name);
 
-		if (opt.create && attr) {
-			throw ErrnoError.With('EEXIST', resolved, 'xattr.set');
-		}
+	if (opt.create && attr) throw UV('EEXIST', 'xattr.set', path);
 
-		if (opt.replace && !attr) {
-			throw ErrnoError.With('ENODATA', resolved, 'xattr.set');
-		}
+	if (opt.replace && !attr) throw UV('ENODATA', 'xattr.set', path);
 
-		inode.attributes.set(name, Buffer.from(value));
+	inode.attributes.set(name, Buffer.from(value));
 
+	try {
 		fs.touchSync(resolved, pick(inode, 'attributes'));
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
 	}
 }
 
@@ -238,24 +218,18 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
 	const { fs, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.remove');
 
-	try {
-		const inode = await fs.stat(resolved);
+	const inode = await fs.stat(resolved).catch(rethrow('xattr.remove', path));
 
-		if (checkAccess && !hasAccess(this, inode, W_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'xattr.remove');
-		}
+	if (checkAccess && !hasAccess(this, inode, W_OK)) throw UV('EACCES', 'xattr.remove', path);
 
-		inode.attributes ??= new Attributes();
+	inode.attributes ??= new Attributes();
 
-		const attr = inode.attributes.get(name);
-		if (!attr) throw ErrnoError.With('ENODATA', resolved, 'xattr.remove');
+	const attr = inode.attributes.get(name);
+	if (!attr) throw UV('ENODATA', 'xattr.remove', path);
 
-		inode.attributes.remove(name);
+	inode.attributes.remove(name);
 
-		await fs.touch(resolved, pick(inode, 'attributes'));
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
-	}
+	await fs.touch(resolved, pick(inode, 'attributes'));
 }
 
 /**
@@ -269,23 +243,26 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
 	const { fs, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.remove');
 
+	let inode: InodeLike;
 	try {
-		const inode = fs.statSync(resolved);
+		inode = fs.statSync(resolved);
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
+	}
 
-		if (checkAccess && !hasAccess(this, inode, W_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'xattr.remove');
-		}
+	if (checkAccess && !hasAccess(this, inode, W_OK)) throw UV('EACCES', 'xattr.remove', path);
 
-		inode.attributes ??= new Attributes();
+	inode.attributes ??= new Attributes();
 
-		const attr = inode.attributes.get(name);
-		if (!attr) throw ErrnoError.With('ENODATA', resolved, 'xattr.remove');
+	const attr = inode.attributes.get(name);
+	if (!attr) throw UV('ENODATA', 'xattr.remove', path);
 
-		inode.attributes.remove(name);
+	inode.attributes.remove(name);
 
+	try {
 		fs.touchSync(resolved, pick(inode, 'attributes'));
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
 	}
 }
 
@@ -299,15 +276,11 @@ export async function list(this: V_Context, path: string): Promise<Name[]> {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 
-	try {
-		const inode = await fs.stat(resolved);
+	const inode = await fs.stat(resolved).catch(rethrow('xattr.list', path));
 
-		if (!inode.attributes) return [];
+	if (!inode.attributes) return [];
 
-		return inode.attributes.keys() as Name[];
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
-	}
+	return inode.attributes.keys() as Name[];
 }
 
 /**
@@ -320,13 +293,14 @@ export function listSync(this: V_Context, path: string): Name[] {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
 
+	let inode: InodeLike;
 	try {
-		const inode = fs.statSync(resolved);
-
-		if (!inode.attributes) return [];
-
-		return inode.attributes.keys() as Name[];
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+		inode = fs.statSync(resolved);
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
 	}
+
+	if (!inode.attributes) return [];
+
+	return inode.attributes.keys() as Name[];
 }

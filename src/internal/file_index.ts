@@ -1,10 +1,9 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
-import { Errno } from 'kerium';
+import { withErrno } from 'kerium';
 import { isJSON, randomInt, sizeof } from 'utilium';
 import { basename, dirname } from '../path.js';
 import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
-import { ErrnoError } from './error.js';
 import type { UsageInfo } from './filesystem.js';
 import type { InodeLike } from './inode.js';
 import { Inode } from './inode.js';
@@ -82,9 +81,9 @@ export class Index extends Map<string, Inode> {
 	public directoryEntries(path: string): Record<string, number> {
 		const node = this.get(path);
 
-		if (!node) throw ErrnoError.With('ENOENT', path);
+		if (!node) throw withErrno('ENOENT');
 
-		if ((node.mode & S_IFMT) != S_IFDIR) throw ErrnoError.With('ENOTDIR', path);
+		if ((node.mode & S_IFMT) != S_IFDIR) throw withErrno('ENOTDIR');
 
 		const entries: Record<string, number> = {};
 
@@ -130,9 +129,7 @@ export class Index extends Map<string, Inode> {
 	 * Loads the index from JSON data
 	 */
 	public fromJSON(json: IndexData): this {
-		if (json.version != version) {
-			throw new ErrnoError(Errno.EINVAL, 'Index version mismatch');
-		}
+		if (json.version != version) throw withErrno('EINVAL', 'Index version mismatch');
 
 		this.clear();
 
@@ -151,7 +148,7 @@ export class Index extends Map<string, Inode> {
 	 * Parses an index from a string
 	 */
 	public static parse(data: string): Index {
-		if (!isJSON(data)) throw new ErrnoError(Errno.EINVAL, 'Invalid JSON');
+		if (!isJSON(data)) throw withErrno('EINVAL', 'Invalid JSON');
 
 		const json = JSON.parse(data) as IndexData;
 		const index = new Index();

@@ -1,11 +1,10 @@
-import { Errno, log } from 'kerium';
+import { log, withErrno } from 'kerium';
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import type { Device, DeviceDriver } from './internal/devices.js';
 import { DeviceFS } from './internal/devices.js';
-import { ErrnoError } from './internal/error.js';
 import { FileSystem } from './internal/filesystem.js';
 import { _setAccessChecks } from './vfs/config.js';
 import * as fs from './vfs/index.js';
@@ -28,11 +27,11 @@ function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfigurati
  */
 export async function resolveMountConfig<T extends Backend>(configuration: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
 	if (typeof configuration !== 'object' || configuration == null) {
-		throw log.err(new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration'));
+		throw log.err(withErrno('EINVAL', 'Invalid options on mount configuration'));
 	}
 
 	if (!isMountConfig(configuration)) {
-		throw log.err(new ErrnoError(Errno.EINVAL, 'Invalid mount configuration'));
+		throw log.err(withErrno('EINVAL', 'Invalid mount configuration'));
 	}
 
 	if (configuration instanceof FileSystem) {
@@ -51,7 +50,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 		log.info('Resolving nested mount configuration: ' + key);
 
 		if (_depth > 10) {
-			throw log.err(new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite'));
+			throw log.err(withErrno('EINVAL', 'Invalid configuration, too deep and possibly infinite'));
 		}
 
 		(configuration as Record<string, FileSystem>)[key] = await resolveMountConfig(value, ++_depth);
@@ -60,7 +59,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	const { backend } = configuration;
 
 	if (typeof backend.isAvailable == 'function' && !(await backend.isAvailable(configuration))) {
-		throw log.err(new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name));
+		throw log.err(withErrno('EPERM', 'Backend not available: ' + backend.name));
 	}
 
 	checkOptions(backend, configuration);
@@ -160,7 +159,7 @@ async function mount(path: string, mount: FileSystem): Promise<void> {
 	if (!stats) {
 		await fs.promises.mkdir(path, { recursive: true });
 	} else if (!stats.isDirectory()) {
-		throw ErrnoError.With('ENOTDIR', path, 'configure');
+		throw withErrno('ENOTDIR', 'Missing directory at mount point: ' + path);
 	}
 	fs.mount(path, mount);
 }
@@ -170,7 +169,7 @@ async function mount(path: string, mount: FileSystem): Promise<void> {
  */
 export function addDevice(driver: DeviceDriver, options?: object): Device {
 	const devfs = mounts.get('/dev');
-	if (!(devfs instanceof DeviceFS)) throw log.crit(new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system'));
+	if (!(devfs instanceof DeviceFS)) throw log.crit(withErrno('ENOTSUP', '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
 

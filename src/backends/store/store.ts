@@ -1,7 +1,7 @@
+import { withErrno } from 'kerium';
 import { err, warn } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 import { Resource } from 'utilium/cache.js';
-import { ErrnoError } from '../../internal/error.js';
 import type { UsageInfo } from '../../internal/filesystem.js';
 import '../../polyfills.js';
 import type { StoreFS } from './fs.js';
@@ -188,7 +188,7 @@ export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extend
 			this.async(this.get(id, start, end));
 		}
 
-		if (missing.length) throw err(ErrnoError.With('EAGAIN', this.store._fs?._path(id)));
+		if (missing.length) throw withErrno('EAGAIN');
 
 		const region = resource.regionAt(offset);
 

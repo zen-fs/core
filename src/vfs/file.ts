@@ -1,7 +1,6 @@
-import { Errno } from 'kerium';
+import { UV, withErrno } from 'kerium';
 import type { V_Context } from '../context.js';
 import { defaultContext } from '../internal/contexts.js';
-import { ErrnoError } from '../internal/error.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
@@ -74,7 +73,7 @@ export class SyncHandle {
 	}
 
 	public sync(): void {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'sync');
+		if (this.closed) throw UV('EBADF', 'sync', this.path);
 
 		if (!this.dirty) return;
 
@@ -91,7 +90,7 @@ export class SyncHandle {
 	}
 
 	public close(): void {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'close');
+		if (this.closed) throw UV('EBADF', 'close', this.path);
 		this.sync();
 		this.dispose();
 	}
@@ -100,26 +99,23 @@ export class SyncHandle {
 	 * Cleans up. This will *not* sync the file data to the FS
 	 */
 	protected dispose(force?: boolean): void {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'dispose');
-
-		if (this.dirty && !force) throw ErrnoError.With('EBUSY', this.path, 'dispose');
+		if (this.closed) throw UV('EBADF', 'close', this.path);
+		if (this.dirty && !force) throw UV('EBUSY', 'close', this.path);
 
 		this.closed = true;
 	}
 
 	public stat(): InodeLike {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'stat');
+		if (this.closed) throw UV('EBADF', 'stat', this.path);
 
 		return this.inode;
 	}
 
 	public truncate(length: number): void {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'truncate');
+		if (this.closed) throw UV('EBADF', 'truncate', this.path);
+		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw UV('EBADF', 'write', this.path);
 
 		this.dirty = true;
-		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) {
-			throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode', this.path, 'truncate');
-		}
 		this.inode.mtimeMs = Date.now();
 		this.inode.size = length;
 		this.inode.ctimeMs = Date.now();
@@ -137,11 +133,9 @@ export class SyncHandle {
 	 * @returns bytes written
 	 */
 	public write(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'write');
-
-		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw new ErrnoError(Errno.EPERM, 'File not opened with a writeable mode');
-
-		if (this.inode.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'write');
+		if (this.closed) throw UV('EBADF', 'write', this.path);
+		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw UV('EBADF', 'write', this.path);
+		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
 
 		this.dirty = true;
 		const end = position + length;
@@ -170,9 +164,8 @@ export class SyncHandle {
 	 * @returns number of bytes written
 	 */
 	public read(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'read');
-
-		if (this.flag & c.O_WRONLY) throw new ErrnoError(Errno.EPERM, 'File not opened with a readable mode');
+		if (this.closed) throw UV('EBADF', 'read', this.path);
+		if (this.flag & c.O_WRONLY) throw UV('EBADF', 'read', this.path);
 
 		if (!(this.inode.flags! & InodeFlags.NoAtime)) {
 			this.dirty = true;
@@ -191,14 +184,14 @@ export class SyncHandle {
 	}
 
 	public chmod(mode: number): void {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chmod');
+		if (this.closed) throw UV('EBADF', 'chmod', this.path);
 		this.dirty = true;
 		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
 		if (this._isSync || mode > c.S_IFMT) this.sync();
 	}
 
 	public chown(uid: number, gid: number): void {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'chown');
+		if (this.closed) throw UV('EBADF', 'chmod', this.path);
 		this.dirty = true;
 		_chown(this.inode, uid, gid);
 		if (this._isSync) this.sync();
@@ -208,7 +201,7 @@ export class SyncHandle {
 	 * Change the file timestamps of the file.
 	 */
 	public utimes(atime: number, mtime: number): void {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'utimes');
+		if (this.closed) throw UV('EBADF', 'utimes', this.path);
 
 		this.dirty = true;
 		this.inode.atimeMs = atime;
@@ -220,7 +213,7 @@ export class SyncHandle {
 	 * Create a stream for reading the file.
 	 */
 	public streamRead(options: StreamOptions): ReadableStream {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'streamRead');
+		if (this.closed) throw UV('EBADF', 'streamRead', this.path);
 
 		return this.fs.streamRead(this.internalPath, options);
 	}
@@ -229,8 +222,8 @@ export class SyncHandle {
 	 * Create a stream for writing the file.
 	 */
 	public streamWrite(options: StreamOptions): WritableStream {
-		if (this.closed) throw ErrnoError.With('EBADF', this.path, 'streamWrite');
-		if (this.inode.flags! & InodeFlags.Immutable) throw new ErrnoError(Errno.EPERM, 'File is immutable', this.path, 'streamWrite');
+		if (this.closed) throw UV('EBADF', 'write', this.path);
+		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
 		return this.fs.streamWrite(this.internalPath, options);
 	}
 }
@@ -253,7 +246,7 @@ export function toFD(file: SyncHandle): number {
 export function fromFD($: V_Context, fd: number): SyncHandle {
 	const map = $?.descriptors ?? defaultContext.descriptors;
 	const value = map.get(fd);
-	if (!value) throw new ErrnoError(Errno.EBADF);
+	if (!value) throw withErrno('EBADF');
 	return value;
 }
 

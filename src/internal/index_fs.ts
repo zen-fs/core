@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/require-await */
+import { withErrno } from 'kerium';
 import { _throw } from 'utilium';
-import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../vfs/constants.js';
 import { dirname, join, relative } from '../path.js';
-import { ErrnoError } from './error.js';
+import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../vfs/constants.js';
 import { Index } from './file_index.js';
 import { FileSystem, type CreationOptions, type UsageInfo } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
@@ -35,8 +35,8 @@ export abstract class IndexFS extends FileSystem {
 	 * Finds all the paths in the index that need to be moved for a rename
 	 */
 	private pathsForRename(oldPath: string, newPath: string): MoveInfo[] {
-		if (!this.index.has(oldPath)) throw ErrnoError.With('ENOENT', oldPath, 'rename');
-		if ((dirname(newPath) + '/').startsWith(oldPath + '/')) throw ErrnoError.With('EBUSY', dirname(oldPath), 'rename');
+		if (!this.index.has(oldPath)) throw withErrno('ENOENT');
+		if ((dirname(newPath) + '/').startsWith(oldPath + '/')) throw withErrno('EBUSY');
 		const toRename: MoveInfo[] = [];
 		for (const [from, inode] of this.index.entries()) {
 			const rel = relative(oldPath, from);
@@ -74,33 +74,32 @@ export abstract class IndexFS extends FileSystem {
 
 	public async stat(path: string): Promise<Inode> {
 		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'stat');
+		if (!inode) throw withErrno('ENOENT');
 		return inode;
 	}
 
 	public statSync(path: string): Inode {
 		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'stat');
+		if (!inode) throw withErrno('ENOENT');
 		return inode;
 	}
 
 	public async touch(path: string, metadata: InodeLike): Promise<void> {
-		const inode = this.index.get(path) ?? _throw(ErrnoError.With('ENOENT', path, 'touch'));
+		const inode = this.index.get(path) ?? _throw(withErrno('ENOENT'));
 		inode.update(metadata);
 	}
 
 	public touchSync(path: string, metadata: InodeLike): void {
-		const inode = this.index.get(path) ?? _throw(ErrnoError.With('ENOENT', path, 'touch'));
+		const inode = this.index.get(path) ?? _throw(withErrno('ENOENT'));
 		inode.update(metadata);
 	}
 
 	protected _remove(path: string, isUnlink: boolean): void {
-		const syscall = isUnlink ? 'unlink' : 'rmdir';
 		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, syscall);
+		if (!inode) throw withErrno('ENOENT');
 		const isDir = (inode.mode & S_IFMT) == S_IFDIR;
-		if (!isDir && !isUnlink) throw ErrnoError.With('ENOTDIR', path, syscall);
-		if (isDir && isUnlink) throw ErrnoError.With('EISDIR', path, syscall);
+		if (!isDir && !isUnlink) throw withErrno('ENOTDIR');
+		if (isDir && isUnlink) throw withErrno('EISDIR');
 		this.index.delete(path);
 	}
 
@@ -128,12 +127,10 @@ export abstract class IndexFS extends FileSystem {
 	}
 
 	protected create(path: string, options: CreationOptions) {
-		const syscall = (options.mode & S_IFMT) == S_IFDIR ? 'mkdir' : 'createFile';
-
-		if (this.index.has(path)) throw ErrnoError.With('EEXIST', path, syscall);
+		if (this.index.has(path)) throw withErrno('EEXIST');
 
 		const parent = this.index.get(dirname(path));
-		if (!parent) throw ErrnoError.With('ENOENT', dirname(path), syscall);
+		if (!parent) throw withErrno('ENOENT');
 
 		const id = this.index._alloc();
 
@@ -171,11 +168,11 @@ export abstract class IndexFS extends FileSystem {
 	}
 
 	public link(target: string, link: string): Promise<void> {
-		throw ErrnoError.With('ENOSYS', link, 'link');
+		throw withErrno('ENOSYS');
 	}
 
 	public linkSync(target: string, link: string): void {
-		throw ErrnoError.With('ENOSYS', link, 'link');
+		throw withErrno('ENOSYS');
 	}
 
 	public async readdir(path: string): Promise<string[]> {

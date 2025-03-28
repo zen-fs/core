@@ -1,5 +1,4 @@
-import { Errno } from 'kerium';
-import { ErrnoError } from '../internal/error.js';
+import { withErrno } from 'kerium';
 import * as c from './constants.js';
 
 export const pattern = /[rwasx]{1,2}\+?/;
@@ -11,7 +10,7 @@ export function parse(flag: string | number): number {
 	if (typeof flag == 'number') return flag;
 
 	if (!pattern.test(flag)) {
-		throw new ErrnoError(Errno.EINVAL, 'Invalid flag string: ' + flag);
+		throw withErrno('EINVAL', 'Invalid flag string: ' + flag);
 	}
 
 	return toNumber(flag);
@@ -35,7 +34,7 @@ export function toString(flag: number): string {
  */
 export function toNumber(flag: string): number {
 	if (!flag.includes('r') && !flag.includes('w') && !flag.includes('a')) {
-		throw new ErrnoError(Errno.EINVAL, 'Invalid flag string: ' + flag);
+		throw withErrno('EINVAL', 'Invalid flag string: ' + flag);
 	}
 
 	let n = flag.includes('r') ? c.O_RDONLY : c.O_CREAT;

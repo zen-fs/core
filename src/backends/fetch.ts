@@ -1,38 +1,28 @@
-import { Errno } from 'kerium';
+import { withErrno } from 'kerium';
 import { err, warn } from 'kerium/log';
 import { decodeUTF8 } from 'utilium';
 import * as requests from 'utilium/requests.js';
-import { ErrnoError } from '../internal/error.js';
 import type { IndexData } from '../internal/file_index.js';
 import { Index } from '../internal/file_index.js';
-import type { FileSystem } from '../internal/filesystem.js';
 import { IndexFS } from '../internal/index_fs.js';
 import { normalizePath } from '../utils.js';
 import { S_IFREG } from '../vfs/constants.js';
 import type { Backend, SharedConfig } from './backend.js';
 
 /** Parse and throw */
-function parseError(path?: string, fs?: FileSystem): (error: requests.Issue) => never {
-	return (error: requests.Issue) => {
-		if (!('tag' in error)) throw err(new ErrnoError(Errno.EIO, error.stack, path));
+function parseError(error: requests.Issue): never {
+	if (!('tag' in error)) throw err(withErrno('EIO', error.stack));
 
-		switch (error.tag) {
-			case 'fetch':
-				throw err(new ErrnoError(Errno.EREMOTEIO, error.message, path));
-			case 'status':
-				throw err(
-					new ErrnoError(
-						error.response.status > 500 ? Errno.EREMOTEIO : Errno.EIO,
-						'Response status code is ' + error.response.status,
-						path
-					)
-				);
-			case 'size':
-				throw err(new ErrnoError(Errno.EBADE, error.message, path));
-			case 'buffer':
-				throw err(new ErrnoError(Errno.EIO, 'Failed to decode buffer', path));
-		}
-	};
+	switch (error.tag) {
+		case 'fetch':
+			throw err(withErrno('EREMOTEIO', error.message));
+		case 'status':
+			throw err(withErrno(error.response.status > 500 ? 'EREMOTEIO' : 'EIO', 'Response status code is ' + error.response.status));
+		case 'size':
+			throw err(withErrno('EBADE', error.message));
+		case 'buffer':
+			throw err(withErrno('EIO', 'Failed to decode buffer'));
+	}
 }
 
 /**
@@ -97,33 +87,33 @@ export class FetchFS extends IndexFS {
 
 	public async read(path: string, buffer: Uint8Array, offset: number = 0, end: number): Promise<void> {
 		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'read');
+		if (!inode) throw withErrno('ENOENT');
 
 		if (end - offset == 0) return;
 
 		const data = await requests
 			.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }, this.requestInit)
-			.catch(parseError(path, this))
+			.catch(parseError)
 			.catch(() => undefined);
 
-		if (!data) throw ErrnoError.With('ENODATA', path, 'read');
+		if (!data) throw withErrno('ENODATA');
 
 		buffer.set(data);
 	}
 
 	public readSync(path: string, buffer: Uint8Array, offset: number = 0, end: number): void {
 		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'read');
+		if (!inode) throw withErrno('ENOENT');
 
 		if (end - offset == 0) return;
 
 		const { data, missing } = requests.getCached(this.baseUrl + path, { start: offset, end, size: inode.size, warn });
 
-		if (!data) throw ErrnoError.With('ENODATA', path, 'read');
+		if (!data) throw withErrno('ENODATA');
 
 		if (missing.length) {
 			this._async(requests.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }));
-			throw ErrnoError.With('EAGAIN', path, 'read');
+			throw withErrno('EAGAIN');
 		}
 
 		buffer.set(data);
@@ -131,22 +121,20 @@ export class FetchFS extends IndexFS {
 
 	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
 		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'write');
+		if (!inode) throw withErrno('ENOENT');
 
 		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
 
-		await requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError(path, this));
+		await requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError);
 	}
 
 	public writeSync(path: string, data: Uint8Array, offset: number): void {
 		const inode = this.index.get(path);
-		if (!inode) throw ErrnoError.With('ENOENT', path, 'write');
+		if (!inode) throw withErrno('ENOENT');
 
 		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
 
-		this._async(
-			requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError(path, this))
-		);
+		this._async(requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError));
 	}
 }
 
@@ -177,7 +165,7 @@ const _Fetch = {
 		if (typeof options.index != 'string') {
 			index.fromJSON(options.index);
 		} else {
-			const data = await requests.get(options.index, { warn }, options.requestInit).catch(parseError());
+			const data = await requests.get(options.index, { warn }, options.requestInit).catch(parseError);
 			index.fromJSON(JSON.parse(decodeUTF8(data)));
 		}
 
@@ -189,7 +177,7 @@ const _Fetch = {
 		for (const [path, node] of index) {
 			if (!(node.mode & S_IFREG)) continue;
 
-			await requests.get(baseUrl + path, { warn }, options.requestInit).catch(parseError(path, fs));
+			await requests.get(baseUrl + path, { warn }, options.requestInit).catch(parseError);
 		}
 
 		return fs;

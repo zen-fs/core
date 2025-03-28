@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents */
-import { Errno } from 'kerium';
+import { withErrno } from 'kerium';
 import { debug, err } from 'kerium/log';
 import type { Entries, RequiredKeys } from 'utilium';
-import { ErrnoError } from '../internal/error.js';
 import type { FileSystem } from '../internal/filesystem.js';
 
 type OptionType =
@@ -125,7 +124,7 @@ export function _fnOpt<const T>(name: string | null | undefined, fn: (arg: T) =>
  */
 export function checkOptions<T extends Backend>(backend: T, options: Record<string, unknown>): void {
 	if (typeof options != 'object' || options === null) {
-		throw err(new ErrnoError(Errno.EINVAL, 'Invalid options'));
+		throw err(withErrno('EINVAL', 'Invalid options'));
 	}
 
 	// Check for required options.
@@ -138,7 +137,7 @@ export function checkOptions<T extends Backend>(backend: T, options: Record<stri
 				continue;
 			}
 
-			throw err(new ErrnoError(Errno.EINVAL, 'Missing required option: ' + optName));
+			throw err(withErrno('EINVAL', 'Missing required option: ' + optName));
 		}
 
 		// Option provided, check type.
@@ -161,7 +160,7 @@ export function checkOptions<T extends Backend>(backend: T, options: Record<stri
 		const name = (type: OptionType) => (typeof type == 'function' ? (type.name != 'type' ? type.name : type.toString()) : (type as string));
 		const expected = Array.isArray(opt.type) ? `one of ${opt.type.map(name).join(', ')}` : name(opt.type as OptionType);
 
-		throw err(new ErrnoError(Errno.EINVAL, `Incorrect type for "${optName}": ${type} (expected ${expected})`));
+		throw err(withErrno('EINVAL', `Incorrect type for "${optName}": ${type} (expected ${expected})`));
 	}
 }
 

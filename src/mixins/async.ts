@@ -1,11 +1,10 @@
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
 
-import { Errno } from 'kerium';
+import { withErrno } from 'kerium';
 import { crit, debug, err } from 'kerium/log';
 import { getAllPrototypes } from 'utilium';
 import { StoreFS } from '../backends/store/fs.js';
-import { ErrnoError } from '../internal/error.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { join } from '../path.js';
 
@@ -102,91 +101,91 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			}
 		}
 
-		protected checkSync(path?: string, syscall?: string): asserts this is { _sync: FileSystem } {
+		protected checkSync(): asserts this is { _sync: FileSystem } {
 			if (this.attributes.has('no_async')) {
-				throw new ErrnoError(Errno.ENOTSUP, 'Sync preloading has been disabled for this async file system', path, syscall);
+				throw withErrno('ENOTSUP', 'Sync preloading has been disabled for this async file system');
 			}
 			if (!this._sync) {
-				throw crit(new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall));
+				throw crit(withErrno('ENOTSUP', 'No sync cache is attached to this async file system'));
 			}
 		}
 
 		public renameSync(oldPath: string, newPath: string): void {
-			this.checkSync(oldPath, 'rename');
+			this.checkSync();
 			this._sync.renameSync(oldPath, newPath);
 			this._async(this.rename(oldPath, newPath));
 		}
 
 		public statSync(path: string): InodeLike {
-			this.checkSync(path, 'stat');
+			this.checkSync();
 			return this._sync.statSync(path);
 		}
 
 		public touchSync(path: string, metadata: InodeLike): void {
-			this.checkSync(path, 'touch');
+			this.checkSync();
 			this._sync.touchSync(path, metadata);
 			this._async(this.touch(path, metadata));
 		}
 
 		public createFileSync(path: string, options: CreationOptions): InodeLike {
-			this.checkSync(path, 'createFile');
+			this.checkSync();
 			this._async(this.createFile(path, options));
 			return this._sync.createFileSync(path, options);
 		}
 
 		public unlinkSync(path: string): void {
-			this.checkSync(path, 'unlinkSync');
+			this.checkSync();
 			this._sync.unlinkSync(path);
 			this._async(this.unlink(path));
 		}
 
 		public rmdirSync(path: string): void {
-			this.checkSync(path, 'rmdir');
+			this.checkSync();
 			this._sync.rmdirSync(path);
 			this._async(this.rmdir(path));
 		}
 
 		public mkdirSync(path: string, options: CreationOptions): InodeLike {
-			this.checkSync(path, 'mkdir');
+			this.checkSync();
 			this._async(this.mkdir(path, options));
 			return this._sync.mkdirSync(path, options);
 		}
 
 		public readdirSync(path: string): string[] {
-			this.checkSync(path, 'readdir');
+			this.checkSync();
 			return this._sync.readdirSync(path);
 		}
 
 		public linkSync(srcpath: string, dstpath: string): void {
-			this.checkSync(srcpath, 'link');
+			this.checkSync();
 			this._sync.linkSync(srcpath, dstpath);
 			this._async(this.link(srcpath, dstpath));
 		}
 
 		public syncSync(path: string): void {
-			this.checkSync(path, 'sync');
+			this.checkSync();
 			this._sync.syncSync(path);
 			this._async(this.sync(path));
 		}
 
 		public existsSync(path: string): boolean {
-			this.checkSync(path, 'exists');
+			this.checkSync();
 			return this._sync.existsSync(path);
 		}
 
 		public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
-			this.checkSync(path, 'read');
+			this.checkSync();
 			this._sync.readSync(path, buffer, offset, end);
 		}
 
 		public writeSync(path: string, buffer: Uint8Array, offset: number): void {
-			this.checkSync(path, 'write');
+			this.checkSync();
 			this._sync.writeSync(path, buffer, offset);
 			this._async(this.write(path, buffer, offset));
 		}
 
 		public streamWrite(path: string, options: StreamOptions): WritableStream {
-			this.checkSync(path, 'streamWrite');
+			this.checkSync();
 			const sync = this._sync.streamWrite(path, options).getWriter();
 			const async = super.streamWrite(path, options).getWriter();
 
@@ -207,7 +206,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		 * @internal
 		 */
 		protected async crossCopy(path: string): Promise<void> {
-			this.checkSync(path, 'crossCopy');
+			this.checkSync();
 			const stats = await this.stat(path);
 			if (!isDirectory(stats)) {
 				this._sync.createFileSync(path, stats);
@@ -259,7 +258,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 						// @ts-expect-error 2556 - The type of `args` is not narrowed
 						this._sync?.[`${key}Sync`]?.(...args);
 					} catch (e: any) {
-						throw err(new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key));
+						throw err(withErrno(e.errno, e.message + ' (Out of sync!)'));
 					}
 					return result;
 				};

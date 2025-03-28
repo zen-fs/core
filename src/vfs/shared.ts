@@ -3,12 +3,11 @@
 import type * as fs from 'node:fs';
 import type { FileSystem } from '../internal/filesystem.js';
 
-import { Errno } from 'kerium';
+import { Errno, Exception, UV, withErrno } from 'kerium';
 import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
 import type { V_Context } from '../context.js';
 import { defaultContext } from '../internal/contexts.js';
-import { ErrnoError } from '../internal/error.js';
 import type { InodeLike } from '../internal/inode.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
@@ -38,7 +37,7 @@ export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
 
 	mountPoint = resolve.call(this, mountPoint);
-	if (mounts.has(mountPoint)) throw err(new ErrnoError(Errno.EINVAL, 'Mount point is already in use: ' + mountPoint));
+	if (mounts.has(mountPoint)) throw err(withErrno('EINVAL', 'Mount point is already in use: ' + mountPoint));
 
 	fs._mountPoint = mountPoint;
 	mounts.set(mountPoint, fs);
@@ -100,7 +99,7 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 		}
 	}
 
-	throw alert(new ErrnoError(Errno.EIO, 'No file system', path));
+	throw alert(new Exception(Errno.EIO, 'No file system for ' + path));
 }
 
 /**
@@ -118,10 +117,7 @@ export function fixPaths(text: string, paths: Record<string, string>): string {
  * Fix paths in error stacks
  * @internal @hidden
  */
-export function fixError<E extends ErrnoError>(e: E, paths: Record<string, string>): E {
-	if (typeof e.stack == 'string') {
-		e.stack = fixPaths(e.stack, paths);
-	}
+export function fixError<E extends Exception>(e: E, paths: Record<string, string>): E {
 	try {
 		e.message = fixPaths(e.message, paths);
 	} catch {
@@ -156,18 +152,18 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
 export function chroot(this: V_Context, path: string) {
 	const $ = this ?? defaultContext;
 	if ($.credentials?.uid !== 0 && $.credentials?.gid !== 0 && $.credentials?.euid !== 0 && $.credentials?.egid !== 0)
-		throw new ErrnoError(Errno.EPERM, 'Can not chroot() as non-root user');
+		throw withErrno('EPERM', 'Can not chroot() as non-root user');
 
 	$.root ??= '/';
 
 	const newRoot = join($.root, path);
 
 	for (const handle of $.descriptors?.values() ?? []) {
-		if (!handle.path.startsWith($.root)) throw ErrnoError.With('EBUSY', handle.path, 'chroot');
+		if (!handle.path.startsWith($.root)) throw UV('EBUSY', 'chroot', handle.path);
 		(handle as any).path = handle.path.slice($.root.length);
 	}
 
-	if (newRoot.length > $.root.length) throw new ErrnoError(Errno.EPERM, 'Can not chroot() outside of current root');
+	if (newRoot.length > $.root.length) throw withErrno('EPERM', 'Can not chroot() outside of current root');
 
 	$.root = newRoot;
 }

@@ -6,13 +6,13 @@ import { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
-import { Errno } from 'kerium';
+import { Errno, Exception, setUVMessage, UV } from 'kerium';
 import { decodeUTF8, encodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
-import { ErrnoError } from '../internal/error.js';
+import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 import { dirname, join, parse, resolve } from '../path.js';
-import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { __assertType, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -23,28 +23,28 @@ import { emitChange } from './watchers.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
+	__assertType<string>(oldPath);
 	newPath = normalizePath(newPath);
+	__assertType<string>(newPath);
 	const oldMount = resolveMount(oldPath, this);
 	const newMount = resolveMount(newPath, this);
 
 	const oldStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath));
 
-	if (checkAccess && !oldStats.hasAccess(constants.W_OK, this)) {
-		throw ErrnoError.With('EACCES', oldPath, 'rename');
-	}
+	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 
-	if (oldMount.fs !== newMount.fs) {
-		throw new ErrnoError(Errno.EXDEV, `cross-device link not permitted, rename '${oldPath}' -> '${newPath}'`);
-	}
+	if (checkAccess && !oldStats.hasAccess(constants.W_OK, this)) throw UV('EACCES', $ex);
+
+	if (oldMount.fs !== newMount.fs) throw UV('EXDEV', $ex);
 
 	try {
 		oldMount.fs.renameSync(oldMount.path, newMount.path);
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [oldMount.path]: oldPath, [newMount.path]: newPath });
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, $ex));
 	}
 
-	emitChange(this, 'rename', oldPath.toString());
-	emitChange(this, 'change', newPath.toString());
+	emitChange(this, 'rename', oldPath);
+	emitChange(this, 'change', newPath);
 }
 renameSync satisfies typeof fs.renameSync;
 
@@ -56,10 +56,8 @@ export function existsSync(this: V_Context, path: fs.PathLike): boolean {
 	try {
 		const { fs, path: resolvedPath } = resolveMount(realpathSync.call(this, path), this);
 		return fs.existsSync(resolvedPath);
-	} catch (e) {
-		if ((e as ErrnoError).errno == Errno.ENOENT) {
-			return false;
-		}
+	} catch (e: any) {
+		if (e.errno == Errno.ENOENT) return false;
 
 		throw e;
 	}
@@ -71,15 +69,17 @@ export function statSync(this: V_Context, path: fs.PathLike, options: { bigint: 
 export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
+
+	let stats: InodeLike;
 	try {
-		const stats = fs.statSync(resolved);
-		if (checkAccess && !hasAccess(this, stats, constants.R_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'stat');
-		}
-		return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+		stats = fs.statSync(resolved);
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
 	}
+
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'stat', path });
+
+	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 statSync satisfies fs.StatSyncFn;
 
@@ -93,24 +93,17 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint:
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(path, this);
-	try {
-		const stats = fs.statSync(resolved);
-		if (checkAccess && !hasAccess(this, stats, constants.R_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'lstat');
-		}
-		return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
-	}
+	const stats = wrap(fs, 'statSync', path)(resolved);
+
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'lstat', path });
+	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 lstatSync satisfies typeof fs.lstatSync;
 
 export function truncateSync(this: V_Context, path: fs.PathLike, len: number | null = 0): void {
 	using file = _openSync.call(this, path, { flag: 'r+' });
 	len ||= 0;
-	if (len < 0) {
-		throw new ErrnoError(Errno.EINVAL);
-	}
+	if (len < 0) throw UV('EINVAL', 'truncate', path.toString());
 	file.truncate(len);
 }
 truncateSync satisfies typeof fs.truncateSync;
@@ -120,13 +113,13 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
 		if (checkAccess && !hasAccess(this, fs.statSync(resolved), constants.W_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'unlink');
+			throw UV('EACCES', 'unlink');
 		}
 		fs.unlinkSync(resolved);
-		emitChange(this, 'rename', path.toString());
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
 	}
+	emitChange(this, 'rename', path.toString());
 }
 unlinkSync satisfies typeof fs.unlinkSync;
 
@@ -147,22 +140,22 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHa
 
 	if (!stats) {
 		if (!(flag & constants.O_CREAT)) {
-			throw ErrnoError.With('ENOENT', path, '_open');
+			throw UV('ENOENT', 'open', path);
 		}
 		// Create the file
 		const parentStats = fs.statSync(dirname(resolved));
 		if (checkAccess && !hasAccess(this, parentStats, constants.W_OK)) {
-			throw ErrnoError.With('EACCES', dirname(path), '_open');
+			throw UV('EACCES', 'open', path);
 		}
 
 		if (!isDirectory(parentStats)) {
-			throw ErrnoError.With('ENOTDIR', dirname(path), '_open');
+			throw UV('ENOTDIR', 'open', path);
 		}
 
-		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw ErrnoError.With('EISDIR', path, '_open');
+		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
 
 		if (checkAccess && !hasAccess(this, parentStats, constants.W_OK)) {
-			throw ErrnoError.With('EACCES', dirname(resolved), '_open');
+			throw UV('EACCES', 'open', path);
 		}
 
 		const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
@@ -175,16 +168,16 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHa
 	}
 
 	if (checkAccess && (!hasAccess(this, stats, mode) || !hasAccess(this, stats, flags.toMode(flag)))) {
-		throw ErrnoError.With('EACCES', path, '_open');
+		throw UV('EACCES', 'open', path);
 	}
 
-	if (flag & constants.O_EXCL) throw ErrnoError.With('EEXIST', path, '_open');
+	if (flag & constants.O_EXCL) throw UV('EEXIST', 'open', path);
 
 	const file = new SyncHandle(this, path, fs, resolved, flag, stats);
 
 	if (flag & constants.O_TRUNC) file.truncate(0);
 
-	if (!opt.allowDirectory && stats.mode & constants.S_IFDIR) throw ErrnoError.With('EISDIR', path, '_open');
+	if (!opt.allowDirectory && stats.mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
 
 	return file;
 }
@@ -222,9 +215,7 @@ export function readFileSync(
 export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = flags.parse(options.flag);
-	if (flag & constants.O_WRONLY) {
-		throw new ErrnoError(Errno.EINVAL, 'Flag passed to readFile must allow for reading');
-	}
+	if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', path.toString());
 
 	using file =
 		typeof path == 'number'
@@ -257,15 +248,15 @@ export function writeFileSync(
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const flag = flags.parse(options.flag);
 	if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) {
-		throw new ErrnoError(Errno.EINVAL, 'Flag passed to writeFile must allow for writing');
+		throw new Exception(Errno.EINVAL, 'Flag passed to writeFile must allow for writing');
 	}
 	if (typeof data != 'string' && !options.encoding) {
-		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
+		throw new Exception(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	if (!encodedData) {
-		throw new ErrnoError(Errno.EINVAL, 'Data not specified');
+		throw new Exception(Errno.EINVAL, 'Data not specified');
 	}
 	using file =
 		typeof path == 'number'
@@ -290,10 +281,10 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 	const options = normalizeOptions(_options, 'utf8', 'a+', 0o644);
 	const flag = flags.parse(options.flag);
 	if (!(flag & constants.O_APPEND)) {
-		throw new ErrnoError(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
+		throw new Exception(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 	}
 	if (typeof data != 'string' && !options.encoding) {
-		throw new ErrnoError(Errno.EINVAL, 'Encoding not specified');
+		throw new Exception(Errno.EINVAL, 'Encoding not specified');
 	}
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
@@ -328,7 +319,7 @@ closeSync satisfies typeof fs.closeSync;
 export function ftruncateSync(this: V_Context, fd: number, len: number | null = 0): void {
 	len ||= 0;
 	if (len < 0) {
-		throw new ErrnoError(Errno.EINVAL);
+		throw new Exception(Errno.EINVAL);
 	}
 	fromFD(this, fd).truncate(len);
 }
@@ -442,7 +433,7 @@ fchownSync satisfies typeof fs.fchownSync;
 export function fchmodSync(this: V_Context, fd: number, mode: number | string): void {
 	const numMode = normalizeMode(mode, -1);
 	if (numMode < 0) {
-		throw new ErrnoError(Errno.EINVAL, `Invalid mode.`);
+		throw new Exception(Errno.EINVAL, `Invalid mode.`);
 	}
 	fromFD(this, fd).chmod(numMode);
 }
@@ -461,17 +452,13 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
 	try {
 		const stats = fs.statSync(resolved);
-		if (!isDirectory(stats)) {
-			throw ErrnoError.With('ENOTDIR', resolved, 'rmdir');
-		}
-		if (checkAccess && !hasAccess(this, stats, constants.W_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'rmdir');
-		}
+		if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir');
+		if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', 'rmdir');
 
 		fs.rmdirSync(resolved);
 		emitChange(this, 'rename', path.toString());
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { path }));
 	}
 }
 rmdirSync satisfies typeof fs.rmdirSync;
@@ -489,14 +476,11 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 
 	path = realpathSync.call(this, path);
 	const { fs, path: resolved, root } = resolveMount(path, this);
-	const errorPaths: Record<string, string> = { [resolved]: path };
 
-	const __create = (path: string, parent: InodeLike) => {
-		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) {
-			throw ErrnoError.With('EACCES', dirname(path), 'mkdir');
-		}
+	const __create = (resolved: string, path: string, parent: InodeLike) => {
+		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', dirname(path));
 
-		const inode = fs.mkdirSync(path, {
+		const inode = fs.mkdirSync(resolved, {
 			mode,
 			uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
 			gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
@@ -506,29 +490,24 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 		return inode;
 	};
 
-	try {
-		if (!options?.recursive) {
-			__create(resolved, fs.statSync(dirname(resolved)));
-			return;
-		}
-
-		const dirs: string[] = [];
-		for (let dir = resolved, original = path; !fs.existsSync(dir); dir = dirname(dir), original = dirname(original)) {
-			dirs.unshift(dir);
-			errorPaths[dir] = original;
-		}
-
-		if (!dirs.length) return;
-
-		const stats: InodeLike[] = [fs.statSync(dirname(dirs[0]))];
-
-		for (const [i, dir] of dirs.entries()) {
-			stats.push(__create(dir, stats[i]));
-		}
-		return root.length == 1 ? dirs[0] : dirs[0]?.slice(root.length);
-	} catch (e) {
-		throw fixError(e as ErrnoError, errorPaths);
+	if (!options?.recursive) {
+		__create(resolved, path, wrap(fs, 'statSync', dirname(path))(dirname(resolved)));
+		return;
 	}
+
+	const dirs: { resolved: string; original: string }[] = [];
+	for (let dir = resolved, original = path; !wrap(fs, 'existsSync', original)(dir); dir = dirname(dir), original = dirname(original)) {
+		dirs.unshift({ resolved: dir, original });
+	}
+
+	if (!dirs.length) return;
+
+	const stats: InodeLike[] = [wrap(fs, 'statSync', dirname(dirs[0].resolved))(dirname(dirs[0].original))];
+
+	for (const [i, dir] of dirs.entries()) {
+		stats.push(__create(dir.resolved, dir.original, stats[i]));
+	}
+	return root.length == 1 ? dirs[0].original : dirs[0].original.slice(root.length);
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
@@ -553,19 +532,12 @@ export function readdirSync(
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
-	let entries: string[];
-	try {
-		const stats = fs.statSync(resolved);
-		if (checkAccess && !hasAccess(this, stats, constants.R_OK)) {
-			throw ErrnoError.With('EACCES', resolved, 'readdir');
-		}
-		if (!isDirectory(stats)) {
-			throw ErrnoError.With('ENOTDIR', resolved, 'readdir');
-		}
-		entries = fs.readdirSync(resolved);
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [resolved]: path });
-	}
+
+	const stats = wrap(fs, 'statSync', path)(resolved);
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'readdir', path);
+
+	if (!isDirectory(stats)) throw UV('ENOTDIR', 'readdir', path);
+	const entries = wrap(fs, 'readdirSync', path)(resolved);
 
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
@@ -604,26 +576,21 @@ readdirSync satisfies typeof fs.readdirSync;
 export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 	targetPath = normalizePath(targetPath);
 	if (checkAccess && !statSync(dirname(targetPath)).hasAccess(constants.R_OK, this)) {
-		throw ErrnoError.With('EACCES', dirname(targetPath), 'link');
+		throw UV('EACCES', 'link', dirname(targetPath));
 	}
 	linkPath = normalizePath(linkPath);
 	if (checkAccess && !statSync(dirname(linkPath)).hasAccess(constants.W_OK, this)) {
-		throw ErrnoError.With('EACCES', dirname(linkPath), 'link');
+		throw UV('EACCES', 'link', dirname(linkPath));
 	}
 
 	const { fs, path } = resolveMount(targetPath, this);
 	const link = resolveMount(linkPath, this);
 	if (fs != link.fs) {
-		throw ErrnoError.With('EXDEV', linkPath, 'link');
+		throw UV('EXDEV', 'link', linkPath);
 	}
-	try {
-		if (checkAccess && !hasAccess(this, fs.statSync(path), constants.R_OK)) {
-			throw ErrnoError.With('EACCES', path, 'link');
-		}
-		return fs.linkSync(path, link.path);
-	} catch (e) {
-		throw fixError(e as ErrnoError, { [path]: targetPath, [link.path]: linkPath });
-	}
+	const stats = wrap(fs, 'statSync', targetPath)(path);
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'link', path);
+	return wrap(fs, 'linkSync', targetPath, linkPath)(path, link.path);
 }
 linkSync satisfies typeof fs.linkSync;
 
@@ -634,9 +601,7 @@ linkSync satisfies typeof fs.linkSync;
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
 export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | null = 'file'): void {
-	if (!['file', 'dir', 'junction'].includes(type!)) {
-		throw new ErrnoError(Errno.EINVAL, 'Invalid type: ' + type);
-	}
+	if (!['file', 'dir', 'junction'].includes(type!)) throw new TypeError('Invalid symlink type: ' + type);
 
 	path = normalizePath(path);
 
@@ -659,7 +624,7 @@ export function readlinkSync(
 	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
 ): Buffer | string {
 	using handle = _openSync.call(this, normalizePath(path), { flag: 'r', mode: 0o644, preserveSymlinks: true });
-	if (!isSymbolicLink(handle.inode)) throw new ErrnoError(Errno.EINVAL, 'Not a symbolic link: ' + path);
+	if (!isSymbolicLink(handle.inode)) throw new Exception(Errno.EINVAL, 'Not a symbolic link: ' + path);
 	const size = handle.inode.size;
 	const data = Buffer.alloc(size);
 	handle.read(data, 0, size, 0);
@@ -765,10 +730,10 @@ function _resolveSync($: V_Context, path: string, preserveSymlinks?: boolean): R
 		const target = resolve.call($, realDir, readlinkSync.call($, maybePath).toString());
 		return _resolveSync($, target);
 	} catch (e) {
-		if ((e as ErrnoError).code == 'ENOENT') {
+		if ((e as Exception).code == 'ENOENT') {
 			return { ...resolved, fullPath: path };
 		}
-		throw fixError(e as ErrnoError, { [resolved.path]: maybePath });
+		throw fixError(e as Exception, { [resolved.path]: maybePath });
 	}
 }
 
@@ -789,7 +754,7 @@ realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
 export function accessSync(this: V_Context, path: fs.PathLike, mode: number = 0o600): void {
 	if (!checkAccess) return;
 	if (!hasAccess(this, statSync.call<V_Context, Parameters<fs.StatSyncFn>, InodeLike>(this, path), mode)) {
-		throw new ErrnoError(Errno.EACCES);
+		throw new Exception(Errno.EACCES);
 	}
 }
 accessSync satisfies typeof fs.accessSync;
@@ -805,7 +770,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 	try {
 		stats = (lstatSync.bind(this) as typeof statSync)(path);
 	} catch (error) {
-		if ((error as ErrnoError).code != 'ENOENT' || !options?.force) throw error;
+		if ((error as Exception).code != 'ENOENT' || !options?.force) throw error;
 	}
 
 	if (!stats) return;
@@ -829,7 +794,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			throw new ErrnoError(Errno.EPERM, 'File type not supported', path, 'rm');
+			throw UV('ENOSYS', 'rm', path);
 	}
 }
 rmSync satisfies typeof fs.rmSync;
@@ -862,9 +827,7 @@ export function copyFileSync(this: V_Context, source: fs.PathLike, destination: 
 	source = normalizePath(source);
 	destination = normalizePath(destination);
 
-	if (flags && flags & constants.COPYFILE_EXCL && existsSync(destination)) {
-		throw new ErrnoError(Errno.EEXIST, 'Destination file already exists', destination, 'copyFile');
-	}
+	if (flags && flags & constants.COPYFILE_EXCL && existsSync(destination)) throw UV('EEXIST', 'copyFile', destination);
 
 	writeFileSync.call(this, destination, readFileSync(source));
 	emitChange(this, 'rename', destination.toString());
@@ -940,15 +903,11 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 
 	const srcStats = lstatSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
 
-	if (opts?.errorOnExist && existsSync.call(this, destination)) {
-		throw new ErrnoError(Errno.EEXIST, 'Destination file or directory already exists', destination, 'cp');
-	}
+	if (opts?.errorOnExist && existsSync.call(this, destination)) throw UV('EEXIST', 'cp', destination);
 
 	switch (srcStats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
-			if (!opts?.recursive) {
-				throw new ErrnoError(Errno.EISDIR, source + ' is a directory (not copied)', source, 'cp');
-			}
+			if (!opts?.recursive) throw UV('EISDIR', 'cp', source);
 			mkdirSync.call(this, destination, { recursive: true }); // Ensure the destination directory exists
 			for (const dirent of readdirSync.call<V_Context, [string, any], Dirent[]>(this, source, { withFileTypes: true })) {
 				if (opts.filter && !opts.filter(join(source, dirent.name), join(destination, dirent.name))) {
@@ -966,7 +925,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 		case constants.S_IFIFO:
 		case constants.S_IFSOCK:
 		default:
-			throw new ErrnoError(Errno.EPERM, 'File type not supported', source, 'rm');
+			throw UV('ENOSYS', 'cp', source);
 	}
 
 	// Optionally preserve timestamps

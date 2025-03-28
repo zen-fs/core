@@ -3,8 +3,7 @@ import type { V_Context } from '../context.js';
 import { isBlockDevice, isCharacterDevice, isDirectory, isFIFO, isFile, isSocket, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 import type { Callback } from '../utils.js';
 
-import { Errno } from 'kerium';
-import { ErrnoError } from '../internal/error.js';
+import { withErrno } from 'kerium';
 import { basename } from '../path.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';
@@ -53,9 +52,7 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 	protected closed = false;
 
 	protected checkClosed(): void {
-		if (this.closed) {
-			throw new ErrnoError(Errno.EBADF, 'Can not use closed Dir');
-		}
+		if (this.closed) throw withErrno('EBADF', 'Can not use closed Dir');
 	}
 
 	protected _entries?: Dirent[];

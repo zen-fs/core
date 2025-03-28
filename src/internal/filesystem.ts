@@ -1,8 +1,6 @@
-import type { ConstMap } from 'utilium';
-import type { StatsLike } from '../vfs/stats.js';
-import type { ErrnoError } from './error.js';
-import type { InodeLike } from './inode.js';
 import type { UUID } from 'node:crypto';
+import type { ConstMap } from 'utilium';
+import type { InodeLike } from './inode.js';
 
 /**
  * Usage information about a file system
@@ -227,8 +225,8 @@ export abstract class FileSystem {
 		try {
 			await this.stat(path);
 			return true;
-		} catch (e) {
-			return (e as ErrnoError).code != 'ENOENT';
+		} catch (e: any) {
+			return e.code != 'ENOENT';
 		}
 	}
 
@@ -239,8 +237,8 @@ export abstract class FileSystem {
 		try {
 			this.statSync(path);
 			return true;
-		} catch (e) {
-			return (e as ErrnoError).code != 'ENOENT';
+		} catch (e: any) {
+			return e.code != 'ENOENT';
 		}
 	}
 

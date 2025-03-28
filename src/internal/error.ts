@@ -1,49 +1,36 @@
-import { Errno, ErrnoException, type ErrnoExceptionJSON } from 'kerium';
+import { Exception, setUVMessage, type ExceptionJSON } from 'kerium';
 
 /**
+ * @deprecated Use {@link ExceptionJSON} instead
  * @category Internals
  */
-export interface ErrnoErrorJSON extends ErrnoExceptionJSON {
-	path?: string;
+export type ErrnoErrorJSON = ExceptionJSON;
+
+/**
+ * @deprecated Use {@link Exception} instead
+ * @category Internals
+ */
+export const ErrnoError = Exception;
+
+/**
+ * @deprecated Use {@link Exception} instead
+ * @category Internals
+ */
+export type ErrnoError = Exception;
+
+export function withPath<E extends Exception>(e: E, path: string): E {
+	e.path = path;
+	return e;
 }
 
-/**
- * An error with additional information about what happened
- * @category Internals
- */
-export class ErrnoError extends ErrnoException {
-	public static fromJSON(this: void, json: ErrnoErrorJSON): ErrnoError {
-		const err = new ErrnoError(json.errno, json.message, json.path, json.syscall);
-		err.code = json.code;
-		err.stack = json.stack;
-		Error.captureStackTrace?.(err, ErrnoError.fromJSON);
-		return err;
-	}
-
-	public static With(this: void, code: keyof typeof Errno, path?: string, syscall?: string): ErrnoError {
-		const err = new ErrnoError(Errno[code], undefined, path, syscall);
-		Error.captureStackTrace?.(err, ErrnoError.With);
-		return err;
-	}
-
-	public constructor(
-		errno: Errno,
-		message?: string,
-		public path?: string,
-		syscall?: string
-	) {
-		super(errno, message, syscall);
-		Error.captureStackTrace?.(this, this.constructor);
-	}
-
-	public toString(): string {
-		return super.toString() + (this.path ? `, '${this.path}'` : '');
-	}
-
-	public toJSON(): ErrnoErrorJSON {
-		return {
-			...super.toJSON(),
-			path: this.path,
-		};
-	}
+export function wrap<const FS, const Prop extends keyof FS & string>(fs: FS, prop: Prop, path: string, dest?: string): FS[Prop] {
+	const fn = fs[prop] as FS[Prop] & ((...args: any[]) => any);
+	if (typeof fn !== 'function') throw new TypeError(`${prop} is not a function`);
+	return function (...args: Parameters<typeof fn>) {
+		try {
+			return fn(...args);
+		} catch (e: any) {
+			throw setUVMessage(Object.assign(e, { path, dest }));
+		}
+	} as FS[Prop];
 }

@@ -1,9 +1,8 @@
-import { Errno } from 'kerium';
+import { withErrno } from 'kerium';
 import { crit, warn } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 import { _throw, deserialize, member, offsetof, serialize, sizeof, struct, types as t } from 'utilium';
 import { crc32c } from 'utilium/checksum.js';
-import { ErrnoError } from '../internal/error.js';
 import type { UsageInfo } from '../internal/filesystem.js';
 import { _inode_version } from '../internal/inode.js';
 import { stringifyUUID } from '../utils.js';
@@ -40,15 +39,14 @@ const entries_per_block = 255;
 @struct()
 class MetadataBlock {
 	public constructor(
-		protected readonly superblock: SuperBlock = _throw(new ErrnoError(Errno.EINVAL, 'Metadata block must be initialized with a superblock')),
+		protected readonly superblock: SuperBlock = _throw(withErrno('EINVAL', 'Metadata block must be initialized with a superblock')),
 		public offset: number = 0
 	) {
 		if (!offset) return; // fresh block
 
 		deserialize(this, superblock.store._buffer.subarray(offset, offset + sizeof(MetadataBlock)));
 
-		if (!checksumMatches(this))
-			throw crit(new ErrnoError(Errno.EIO, 'SingleBuffer: Checksum mismatch for metadata block at 0x' + offset.toString(16)));
+		if (!checksumMatches(this)) throw crit(withErrno('EIO', 'sbfs: Checksum mismatch for metadata block at 0x' + offset.toString(16)));
 	}
 
 	/**
@@ -84,11 +82,9 @@ const sb_magic = 0x7a2e7362; // 'z.sb'
  */
 @struct()
 class SuperBlock {
-	public constructor(
-		public readonly store: SingleBufferStore = _throw(new ErrnoError(Errno.EINVAL, 'Super block must be initialized with a store'))
-	) {
+	public constructor(public readonly store: SingleBufferStore = _throw(withErrno('EINVAL', 'Super block must be initialized with a store'))) {
 		if (store._view.getUint32(offsetof(SuperBlock, 'magic'), true) != sb_magic) {
-			warn('SingleBuffer: Invalid magic value, assuming this is a fresh super block');
+			warn('sbfs: Invalid magic value, assuming this is a fresh super block');
 			this.metadata = new MetadataBlock(this);
 			this.metadata.offset = sizeof(SuperBlock);
 			this.metadata_offset = this.metadata.offset;
@@ -101,7 +97,7 @@ class SuperBlock {
 
 		deserialize(this, store._buffer.subarray(0, sizeof(SuperBlock)));
 
-		if (!checksumMatches(this)) throw crit(new ErrnoError(Errno.EIO, 'SingleBuffer: Checksum mismatch for super block!'));
+		if (!checksumMatches(this)) throw crit(withErrno('EIO', 'sbfs: Checksum mismatch for super block!'));
 
 		this.metadata = new MetadataBlock(this, this.metadata_offset);
 	}
@@ -235,7 +231,7 @@ export class SingleBufferStore implements SyncMapStore {
 
 	public constructor(buffer: ArrayBufferLike | ArrayBufferView) {
 		if (buffer.byteLength < sizeof(SuperBlock) + sizeof(MetadataBlock))
-			throw crit(new ErrnoError(Errno.EINVAL, 'SingleBuffer: Buffer is too small for a file system'));
+			throw crit(withErrno('EINVAL', 'sbfs: Buffer is too small for a file system'));
 
 		this._view = !ArrayBuffer.isView(buffer) ? new DataView(buffer) : new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		this._buffer = !ArrayBuffer.isView(buffer) ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);

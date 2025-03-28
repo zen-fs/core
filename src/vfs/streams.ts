@@ -6,10 +6,9 @@ import type { CreateReadStreamOptions, CreateWriteStreamOptions } from 'node:fs/
 import type { Callback } from '../utils.js';
 import type { FileHandle } from './promises.js';
 
-import { Errno } from 'kerium';
+import { Errno, Exception, UV } from 'kerium';
 import { warn } from 'kerium/log';
 import { Readable, Writable } from 'readable-stream';
-import { ErrnoError } from '../internal/error.js';
 
 interface FSImplementation {
 	open?: (...args: unknown[]) => unknown;
@@ -87,7 +86,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 			this._bytesRead += value.byteLength;
 			this.push(value);
 		} catch (err: any) {
-			this.destroy(new ErrnoError(Errno.EIO, err.toString()));
+			this.destroy(new Exception(Errno.EIO, err.toString()));
 		}
 	}
 
@@ -97,7 +96,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 			this.emit('close');
 			callback(null);
 		} catch (err: any) {
-			callback(new ErrnoError(Errno.EIO, err.toString()));
+			callback(new Exception(Errno.EIO, err.toString()));
 		}
 	}
 
@@ -141,8 +140,8 @@ export class WriteStream extends Writable implements fs.WriteStream {
 	async _write(chunk: any, encoding: BufferEncoding | 'buffer', callback: (error?: Error | null) => void): Promise<void> {
 		await this.ready;
 
-		if (!this.writer) return callback(warn(new ErrnoError(Errno.EAGAIN, 'Underlying writable stream not ready', this._path)));
-		if (encoding != 'buffer') return callback(warn(new ErrnoError(Errno.ENOTSUP, 'Unsupported encoding for stream', this._path)));
+		if (!this.writer) return callback(warn(UV('EAGAIN', 'write', this._path)));
+		if (encoding != 'buffer') return callback(warn(UV('ENOTSUP', 'write', this._path)));
 
 		const data = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
 
@@ -151,7 +150,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 			this._bytesWritten += chunk.byteLength;
 			callback();
 		} catch (error: any) {
-			callback(new ErrnoError(Errno.EIO, error.toString()));
+			callback(new Exception(Errno.EIO, error.toString()));
 		}
 	}
 
@@ -164,7 +163,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 			await this.writer.close();
 			callback();
 		} catch (error: any) {
-			callback(new ErrnoError(Errno.EIO, error.toString()));
+			callback(new Exception(Errno.EIO, error.toString()));
 		}
 	}
 
@@ -174,7 +173,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 			this.emit('close');
 			callback(null);
 		} catch (error: any) {
-			callback(new ErrnoError(Errno.EIO, error.toString()));
+			callback(new Exception(Errno.EIO, error.toString()));
 		}
 	}
 
