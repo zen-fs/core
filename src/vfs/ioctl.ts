@@ -5,14 +5,14 @@
 	- include/uapi/linux/fs.h (`FS_IOC_*`)
 */
 
-import { Errno, Exception, UV } from 'kerium';
+import { Errno, Exception, setUVMessage, UV } from 'kerium';
 import { sizeof, struct, types as t } from 'memium';
 import { _throw } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import type { V_Context } from '../context.js';
 import { Inode, InodeFlags } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
-import { fixError, resolveMount } from './shared.js';
+import { resolveMount } from './shared.js';
 
 /*
  * Flags for the fsxattr.xflags field
@@ -202,7 +202,7 @@ export async function ioctl<const Command extends number, const Args extends __i
 				return `/sys/fs/${fs.name}/${fs.uuid}` as _rt;
 		}
 	} catch (e: any) {
-		throw fixError(e, { [resolved]: path });
+		throw setUVMessage(Object.assign(e, { syscall: 'ioctl', path }));
 	}
 
 	throw UV('ENOTSUP', 'ioctl', path);
@@ -267,7 +267,7 @@ export function ioctlSync<const Command extends number, const Args extends __ioc
 				return `/sys/fs/${fs.name}/${fs.uuid}` as _rt;
 		}
 	} catch (e: any) {
-		throw fixError(e, { [resolved]: path });
+		throw setUVMessage(Object.assign(e, { syscall: 'ioctl', path }));
 	}
 
 	throw UV('ENOTSUP', 'ioctl', path);

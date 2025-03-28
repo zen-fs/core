@@ -17,7 +17,7 @@ import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
 import { deleteFD, fromFD, SyncHandle, toFD } from './file.js';
 import * as flags from './flags.js';
-import { _statfs, fixError, resolveMount } from './shared.js';
+import { _statfs, resolveMount } from './shared.js';
 import { BigIntStats, Stats } from './stats.js';
 import { emitChange } from './watchers.js';
 
@@ -450,16 +450,13 @@ futimesSync satisfies typeof fs.futimesSync;
 export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
-	try {
-		const stats = fs.statSync(resolved);
-		if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir');
-		if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', 'rmdir');
 
-		fs.rmdirSync(resolved);
-		emitChange(this, 'rename', path.toString());
-	} catch (e: any) {
-		throw setUVMessage(Object.assign(e, { path }));
-	}
+	const stats = wrap(fs, 'statSync', path)(resolved);
+	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
+	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', 'rmdir', path);
+
+	wrap(fs, 'rmdirSync', path)(resolved);
+	emitChange(this, 'rename', path.toString());
 }
 rmdirSync satisfies typeof fs.rmdirSync;
 
@@ -480,7 +477,11 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 	const __create = (resolved: string, path: string, parent: InodeLike) => {
 		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', dirname(path));
 
-		const inode = fs.mkdirSync(resolved, {
+		const inode = wrap(
+			fs,
+			'mkdirSync',
+			path
+		)(resolved, {
 			mode,
 			uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
 			gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
@@ -721,20 +722,20 @@ function _resolveSync($: V_Context, path: string, preserveSymlinks?: boolean): R
 	const maybePath = join(realDir, base);
 	const resolved = resolveMount(maybePath, $);
 
+	let stats: InodeLike | undefined;
 	try {
-		const stats = resolved.fs.statSync(resolved.path);
-		if (!isSymbolicLink(stats)) {
-			return { ...resolved, fullPath: maybePath, stats };
-		}
-
-		const target = resolve.call($, realDir, readlinkSync.call($, maybePath).toString());
-		return _resolveSync($, target);
-	} catch (e) {
-		if ((e as Exception).code == 'ENOENT') {
-			return { ...resolved, fullPath: path };
-		}
-		throw fixError(e as Exception, { [resolved.path]: maybePath });
+		stats = resolved.fs.statSync(resolved.path);
+	} catch (e: any) {
+		if (e.code === 'ENOENT') return { ...resolved, fullPath: path };
+		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath }));
 	}
+
+	if (!isSymbolicLink(stats)) {
+		return { ...resolved, fullPath: maybePath, stats };
+	}
+
+	const target = resolve.call($, realDir, readlinkSync.call($, maybePath).toString());
+	return _resolveSync($, target);
 }
 
 export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Buffer;

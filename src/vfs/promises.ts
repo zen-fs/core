@@ -789,11 +789,13 @@ export async function mkdir(
 	const __create = async (path: string, parent: InodeLike) => {
 		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', dirname(path));
 
-		const inode = await fs.mkdir(path, {
-			mode,
-			uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
-			gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
-		});
+		const inode = await fs
+			.mkdir(path, {
+				mode,
+				uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
+				gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
+			})
+			.catch(rethrow({ syscall: 'mkdir', path }));
 		emitChange(this, 'rename', path);
 		return inode;
 	};
@@ -926,7 +928,7 @@ export async function link(this: V_Context, path: fs.PathLike, dest: fs.PathLike
 	// We need to use the VFS here since the link path may be a mount point
 	if (checkAccess && !(await stat.call(this, dirname(dest))).hasAccess(constants.W_OK, this)) throw UV('EACCES', 'link', dirname(dest));
 
-	if (checkAccess && !hasAccess(this, await fs.stat(resolved), constants.R_OK)) throw UV('EACCES', $ex);
+	if (checkAccess && !hasAccess(this, await fs.stat(resolved).catch(rethrow($ex)), constants.R_OK)) throw UV('EACCES', $ex);
 
 	return await fs.link(resolved, dst.path).catch(rethrow($ex));
 }
@@ -1066,7 +1068,12 @@ async function _resolve($: V_Context, path: string, preserveSymlinks?: boolean):
 	const maybePath = join(realDir, base);
 	const resolved = resolveMount(maybePath, $);
 
-	const stats = await resolved.fs.stat(resolved.path).catch(rethrow({ syscall: 'stat', path: maybePath }));
+	const stats = await resolved.fs.stat(resolved.path).catch((e: Exception) => {
+		if (e.code == 'ENOENT') return;
+		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath }));
+	});
+
+	if (!stats) return { ...resolved, fullPath: path };
 	if (!isSymbolicLink(stats)) {
 		return { ...resolved, fullPath: maybePath, stats };
 	}

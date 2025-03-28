@@ -13,8 +13,8 @@ suite('Error messages', () => {
 
 	test('stat', () => assert.rejects(() => fs.promises.stat(path), missing));
 	test('mkdir', () => assert.rejects(() => fs.promises.mkdir(existingFile, 0o666), existing));
-	test('rmdir', () => assert.rejects(() => fs.promises.rmdir(path), missing));
-	test('rmdir', () => assert.rejects(() => fs.promises.rmdir(existingFile), notDir));
+	test('rmdir (missing)', () => assert.rejects(() => fs.promises.rmdir(path), missing));
+	test('rmdir (existing)', () => assert.rejects(() => fs.promises.rmdir(existingFile), notDir));
 	test('rename', () => assert.rejects(() => fs.promises.rename(path, 'foo'), missing));
 	test('open', () => assert.rejects(() => fs.promises.open(path, 'r'), missing));
 	test('readdir', () => assert.rejects(() => fs.promises.readdir(path), missing));

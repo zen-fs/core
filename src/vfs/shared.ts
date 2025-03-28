@@ -103,31 +103,6 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 }
 
 /**
- * Reverse maps the paths in text from the mounted FileSystem to the global path
- * @internal @hidden
- */
-export function fixPaths(text: string, paths: Record<string, string>): string {
-	for (const [from, to] of Object.entries(paths)) {
-		text = text?.replaceAll(from, to);
-	}
-	return text;
-}
-
-/**
- * Fix paths in error stacks
- * @internal @hidden
- */
-export function fixError<E extends Exception>(e: E, paths: Record<string, string>): E {
-	try {
-		e.message = fixPaths(e.message, paths);
-	} catch {
-		// `message` is read only
-	}
-	if (e.path) e.path = fixPaths(e.path, paths);
-	return e;
-}
-
-/**
  * @internal @hidden
  */
 export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T extends true ? fs.BigIntStatsFs : fs.StatsFs {

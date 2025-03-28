@@ -28,9 +28,9 @@ export function wrap<const FS, const Prop extends keyof FS & string>(fs: FS, pro
 	if (typeof fn !== 'function') throw new TypeError(`${prop} is not a function`);
 	return function (...args: Parameters<typeof fn>) {
 		try {
-			return fn(...args);
+			return fn.call(fs, ...args);
 		} catch (e: any) {
-			throw setUVMessage(Object.assign(e, { path, dest }));
+			throw setUVMessage(Object.assign(e, { path, dest, syscall: prop.endsWith('Sync') ? prop.slice(0, -4) : prop }));
 		}
 	} as FS[Prop];
 }
