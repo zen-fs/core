@@ -1,9 +1,10 @@
 import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
 import type { V_Context } from '../context.js';
-import { isBlockDevice, isCharacterDevice, isDirectory, isFIFO, isFile, isSocket, isSymbolicLink, type InodeLike } from '../internal/inode.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { Callback } from '../utils.js';
 
 import { withErrno } from 'kerium';
+import { isBlockDevice, isCharacterDevice, isDirectory, isFIFO, isFile, isSocket, isSymbolicLink } from '../internal/inode.js';
 import { basename } from '../path.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';

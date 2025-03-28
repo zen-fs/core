@@ -259,14 +259,16 @@ export class WrappedTransaction<T extends Store = Store> {
 		return data;
 	}
 
-	public async set(id: number, data: Uint8Array, offset: number = 0): Promise<void> {
-		await this.markModified(id, offset, data.byteLength);
-		await this.raw.set(id, data, offset);
+	public async set(id: number, view: Uint8Array | ArrayBufferView, offset: number = 0): Promise<void> {
+		await this.markModified(id, offset, view.byteLength);
+		const buffer = view instanceof Uint8Array ? view : new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+		await this.raw.set(id, buffer, offset);
 	}
 
-	public setSync(id: number, data: Uint8Array, offset: number = 0): void {
-		this.markModifiedSync(id, offset, data.byteLength);
-		this.raw.setSync(id, data, offset);
+	public setSync(id: number, view: Uint8Array | ArrayBufferView, offset: number = 0): void {
+		this.markModifiedSync(id, offset, view.byteLength);
+		const buffer = view instanceof Uint8Array ? view : new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+		this.raw.setSync(id, buffer, offset);
 	}
 
 	public async remove(id: number): Promise<void> {

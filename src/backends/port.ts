@@ -9,7 +9,7 @@ import type { Backend, FilesystemOf } from './backend.js';
 
 import { Errno, Exception, withErrno } from 'kerium';
 import { err, info } from 'kerium/log';
-import { pick, serialize } from 'utilium';
+import { pick } from 'utilium';
 import { resolveMountConfig } from '../config.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { Inode } from '../internal/inode.js';
@@ -255,7 +255,8 @@ export class PortFS extends Async(FileSystem) {
 	}
 
 	public async touch(path: string, metadata: InodeLike | Inode): Promise<void> {
-		await this.rpc('touch', path, serialize(metadata instanceof Inode ? metadata : new Inode(metadata)));
+		const inode = metadata instanceof Inode ? metadata : new Inode(metadata);
+		await this.rpc('touch', path, new Uint8Array(inode.buffer, inode.byteOffset, inode.byteLength));
 	}
 
 	public sync(path: string): Promise<void> {
@@ -320,8 +321,9 @@ export async function handleRequest(port: RPCPort, fs: FileSystem & { _descripto
 			case 'mkdir': {
 				__requestMethod<'stat' | 'createFile' | 'mkdir'>(request);
 				// @ts-expect-error 2556
-				const inode = await fs[request.method](...request.args);
-				value = serialize(inode instanceof Inode ? inode : new Inode(inode));
+				const md = await fs[request.method](...request.args);
+				const inode = md instanceof Inode ? md : new Inode(md);
+				value = new Uint8Array(inode.buffer, inode.byteOffset, inode.byteLength);
 				break;
 			}
 			case 'touch': {

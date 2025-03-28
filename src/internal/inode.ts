@@ -1,8 +1,9 @@
 import { withErrno } from 'kerium';
-import { crit } from 'kerium/log';
-import { deserialize, member, pick, randomInt, sizeof, struct, types as t } from 'utilium';
+import { crit, warn } from 'kerium/log';
+import { field, packed, sizeof, struct, types as t, type Struct } from 'memium';
+import { decodeUTF8, encodeUTF8, pick } from 'utilium';
+import { BufferView } from 'utilium/buffer.js';
 import * as c from '../vfs/constants.js';
-import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { defaultContext, type V_Context } from './contexts.js';
 
@@ -12,38 +13,33 @@ import { defaultContext, type V_Context } from './contexts.js';
  */
 export const rootIno = 0;
 
-const maxAttributeValueSize = 1024;
+const maxAttrValueSize = 1024;
 
-@struct()
-class Attribute {
-	@t.uint32 protected keySize: number = 0;
-	@t.uint32 protected valueSize: number = 0;
+@struct(packed)
+class Attribute extends BufferView {
+	@t.uint32 protected accessor keySize!: number;
+	@t.uint32 protected accessor valueSize!: number;
 
-	@t.char('keySize') protected _key: string = '';
+	@t.char(0, { countedBy: 'keySize' }) protected accessor _name!: Uint8Array;
 
-	public get key(): string {
-		return this._key;
+	public get name(): string {
+		return decodeUTF8(this._name).replace(/\0/g, '');
 	}
 
-	public set key(value: string) {
-		this._key = value;
-		this.keySize = value.length;
+	public set name(value: string) {
+		this._name = encodeUTF8(value);
+		this.keySize = this._name.length;
 	}
 
-	@t.uint8('valueSize') protected _value: Uint8Array = new Uint8Array(maxAttributeValueSize);
+	@t.uint8(maxAttrValueSize, { countedBy: 'valueSize' }) protected accessor _value!: Uint8Array;
 
 	public get value(): Uint8Array {
-		return this._value.subarray(0, this.valueSize);
+		return this._value;
 	}
 
 	public set value(value: Uint8Array) {
 		this._value = value;
-		this.valueSize = value.length;
-	}
-
-	public constructor(key?: string, value?: Uint8Array) {
-		if (key) this.key = key;
-		if (value) this.value = value;
+		this.valueSize = Math.min(value.length, maxAttrValueSize);
 	}
 }
 
@@ -52,18 +48,18 @@ class Attribute {
  * @category Internals
  * @internal
  */
-@struct()
-export class Attributes {
-	@t.uint32 public size: number = 0;
+@struct(packed)
+export class Attributes extends BufferView {
+	@t.uint32 accessor size!: number;
 
-	@member(Attribute, 'size') public data: Attribute[] = [];
+	@field(Attribute, { length: 0, countedBy: 'size' }) accessor data!: Attribute[];
 
 	public has(name: string): boolean {
-		return this.data.some(entry => entry.key == name);
+		return this.data.some(entry => entry.name == name);
 	}
 
 	public get(name: string): Attribute | undefined {
-		return this.data.find(entry => entry.key == name);
+		return this.data.find(entry => entry.name == name);
 	}
 
 	public set(name: string, value: Uint8Array): void {
@@ -74,12 +70,15 @@ export class Attributes {
 			return;
 		}
 
-		this.data.push(new Attribute(name, value));
+		const new_attr = new Attribute();
+		new_attr.name = name;
+		new_attr.value = value;
+		this.data.push(new_attr);
 		this.size++;
 	}
 
 	public remove(name: string): boolean {
-		const index = this.data.findIndex(entry => entry.key == name);
+		const index = this.data.findIndex(entry => entry.name == name);
 		if (index === -1) return false;
 		this.data.splice(index, 1);
 		this.size--;
@@ -87,7 +86,7 @@ export class Attributes {
 	}
 
 	public keys(): string[] {
-		return this.data.map(entry => entry.key);
+		return this.data.map(entry => entry.name);
 	}
 
 	public values(): Uint8Array[] {
@@ -95,7 +94,7 @@ export class Attributes {
 	}
 
 	public entries(): [string, Uint8Array][] {
-		return this.data.map(entry => [entry.key, entry.value]);
+		return this.data.map(entry => [entry.name, entry.value]);
 	}
 }
 
@@ -225,58 +224,73 @@ export const userModifiableFlags = 0x000380ff;
  * @category Internals
  * @internal
  */
-@struct()
-export class Inode implements InodeLike {
-	public constructor(data?: Uint8Array | Readonly<Partial<InodeLike>>) {
-		if (!data) return;
+@struct(packed)
+export class Inode extends BufferView implements InodeLike {
+	declare static readonly [Symbol.metadata]: { struct: Struct.Metadata };
 
-		if (!('byteLength' in data)) {
-			Object.assign(this, data);
-			return;
+	public constructor(...args: ConstructorParameters<typeof BufferView> | [Readonly<Partial<InodeLike>>]) {
+		let data = {};
+
+		if (typeof args[0] === 'object' && args[0] !== null && !('length' in args[0])) {
+			data = args[0];
+			args = [new ArrayBuffer(Inode[Symbol.metadata].struct.size)];
 		}
 
-		if (data.byteLength < sizeof(Inode)) throw crit(withErrno('EIO', 'Buffer is too small to create an inode'));
+		super(...(args as ConstructorParameters<typeof BufferView>));
 
-		deserialize(this, data);
+		if (this.byteLength < sizeof(Inode)) {
+			throw crit(withErrno('EIO', `Buffer is too small to create an inode (${this.byteLength} bytes)`));
+		}
+
+		Object.assign(this, data);
+
+		this.atimeMs ||= Date.now();
+		this.mtimeMs ||= Date.now();
+		this.ctimeMs ||= Date.now();
+		this.birthtimeMs ||= Date.now();
+
+		if (this.ino && !this.nlink) {
+			warn(`Inode ${this.ino} has an nlink of 0`);
+		}
 	}
 
-	@t.uint32 public data: number = randomInt(0, size_max);
+	@t.uint32 accessor data!: number;
 	/** For future use */
-	@t.uint32 public __data_old: number = 0;
-	@t.uint32 public size: number = 0;
-	@t.uint16 public mode: number = 0;
-	@t.uint32 public nlink: number = 1;
-	@t.uint32 public uid: number = 0;
-	@t.uint32 public gid: number = 0;
-	@t.float64 public atimeMs: number = Date.now();
-	@t.float64 public birthtimeMs: number = Date.now();
-	@t.float64 public mtimeMs: number = Date.now();
+	@t.uint32 accessor __data_old!: number;
+	@t.uint32 accessor size!: number;
+	@t.uint16 accessor mode!: number;
+	@t.uint32 accessor nlink!: number;
+	@t.uint32 accessor uid!: number;
+	@t.uint32 accessor gid!: number;
+	@t.float64 accessor atimeMs!: number;
+	@t.float64 accessor birthtimeMs!: number;
+	@t.float64 accessor mtimeMs!: number;
 
 	/**
 	 * The time the inode was changed.
 	 *
 	 * This is automatically updated whenever changed are made using `update()`.
 	 */
-	@t.float64 public ctimeMs: number = Date.now();
+	@t.float64 accessor ctimeMs!: number;
 
-	@t.uint32 public ino: number = randomInt(0, size_max);
+	@t.uint32 accessor ino!: number;
 	/** For future use */
-	@t.uint32 public __ino_old: number = 0;
-	@t.uint32 public flags: number = 0;
+	@t.uint32 accessor __ino_old!: number;
+	@t.uint32 accessor flags!: number;
 	/** For future use */
-	@t.uint16 protected __after_flags: number = 0;
+	@t.uint16 protected accessor __after_flags!: number;
 
 	/**
 	 * The "version" of the inode/data.
 	 *
 	 * Unrelated to the inode format!
 	 */
-	@t.uint32 public version: number = 0;
+	@t.uint32 accessor version!: number;
 
 	/** Pad to 128 bytes */
-	@t.uint8(48) protected __padding = [];
+	@t.uint8(48) protected accessor __padding!: Uint8Array;
 
-	@member(Attributes) public attributes = new Attributes();
+	@field(Attributes) accessor attributes!: Attributes;
 
 	public toString(): string {
 		return `<Inode ${this.ino}>`;

@@ -1,9 +1,10 @@
+import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
+import type { V_Context } from '../context.js';
+import type { InodeLike } from '../internal/inode.js';
 import { Buffer } from 'buffer';
 import { rethrow, setUVMessage, UV } from 'kerium';
-import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
 import { pick } from 'utilium';
-import type { V_Context } from '../context.js';
-import { Attributes, hasAccess, type InodeLike } from '../internal/inode.js';
+import { Attributes, hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { checkAccess } from './config.js';
 import { R_OK, W_OK } from './constants.js';

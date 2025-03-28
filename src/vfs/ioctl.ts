@@ -5,8 +5,10 @@
 	- include/uapi/linux/fs.h (`FS_IOC_*`)
 */
 
-import { UV, withErrno } from 'kerium';
-import { _throw, struct, types as t } from 'utilium';
+import { Errno, Exception, UV } from 'kerium';
+import { sizeof, struct, types as t } from 'memium';
+import { _throw } from 'utilium';
+import { BufferView } from 'utilium/buffer.js';
 import type { V_Context } from '../context.js';
 import { Inode, InodeFlags } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
@@ -53,20 +55,22 @@ enum XFlag {
 }
 
 @struct()
-class fsxattr {
+class fsxattr extends BufferView {
 	/** xflags field value */
-	@t.uint32 public xflags: number = 0;
+	@t.uint32 accessor xflags!: number;
 	/** extsize field value */
-	@t.uint32 public extsize: number = 0;
+	@t.uint32 accessor extsize!: number;
 	/** nextents field value */
-	@t.uint32 public nextents: number = 0;
+	@t.uint32 accessor nextents!: number;
 	/** project identifier */
-	@t.uint32 public projid: number = 0;
+	@t.uint32 accessor projid!: number;
 	/** CoW extsize field value */
-	@t.uint32 public cowextsize: number = 0;
-	@t.char(8) protected pad = [];
+	@t.uint32 accessor cowextsize!: number;
+	@t.char(8) protected accessor pad: number[] = [];
 
-	public constructor(inode: Inode = _throw(withErrno('EINVAL', 'fsxattr must be initialized with an inode'))) {
+	public constructor(inode: Inode = _throw(new Exception(Errno.EINVAL, 'fsxattr must be initialized with an inode'))) {
+		super(new ArrayBuffer(sizeof(fsxattr)));
+
 		this.extsize = inode.size;
 		this.nextents = 1;
 		this.projid = inode.uid;

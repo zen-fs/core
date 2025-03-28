@@ -1,8 +1,8 @@
+import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { join } from '../../dist/path.js';
 import { fs } from '../common.js';
-import type { ErrnoError } from '../../dist/index.js';
 
 suite('Links', () => {
 	const target = '/a1.js',
@@ -60,7 +60,7 @@ suite('Links', () => {
 	});
 
 	test('link', async t => {
-		const _ = await fs.promises.link(target, hardlink).catch((e: ErrnoError) => {
+		const _ = await fs.promises.link(target, hardlink).catch((e: Exception) => {
 			if (e.code == 'ENOSYS') return e;
 			throw e;
 		});

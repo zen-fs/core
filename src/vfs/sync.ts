@@ -1,8 +1,7 @@
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
-import { deleteFD, fromFD, SyncHandle, toFD } from './file.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { ResolvedPath } from './shared.js';
-import { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
 import { Buffer } from 'buffer';
@@ -10,15 +9,16 @@ import { Errno, Exception, setUVMessage, UV } from 'kerium';
 import { decodeUTF8, encodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
-import { hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
+import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { dirname, join, parse, resolve } from '../path.js';
 import { __assertType, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
+import { deleteFD, fromFD, SyncHandle, toFD } from './file.js';
 import * as flags from './flags.js';
 import { _statfs, fixError, resolveMount } from './shared.js';
-import { BigIntStats } from './stats.js';
+import { BigIntStats, Stats } from './stats.js';
 import { emitChange } from './watchers.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {

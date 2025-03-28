@@ -1,14 +1,14 @@
 // Utilities and shared data
 
 import type * as fs from 'node:fs';
+import type { V_Context } from '../context.js';
 import type { FileSystem } from '../internal/filesystem.js';
+import type { InodeLike } from '../internal/inode.js';
 
 import { Errno, Exception, UV, withErrno } from 'kerium';
 import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
-import type { V_Context } from '../context.js';
 import { defaultContext } from '../internal/contexts.js';
-import type { InodeLike } from '../internal/inode.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
 import { size_max } from './constants.js';

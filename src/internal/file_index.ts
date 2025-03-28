@@ -1,7 +1,8 @@
 /* Note: this file is named file_index.ts because Typescript has special behavior regarding index.ts which can't be disabled. */
 
 import { withErrno } from 'kerium';
-import { isJSON, randomInt, sizeof } from 'utilium';
+import { sizeof } from 'memium';
+import { isJSON, randomInt } from 'utilium';
 import { basename, dirname } from '../path.js';
 import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
 import type { UsageInfo } from './filesystem.js';

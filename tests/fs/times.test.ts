@@ -1,7 +1,7 @@
+import { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { ErrnoError } from '../../dist/index.js';
 import type { StatsLike } from '../../dist/vfs/stats.js';
 import { fs } from '../common.js';
 
@@ -30,8 +30,8 @@ suite('Times', () => {
 
 		assert.deepEqual(unixTimestamps(await fs.promises.stat(path)), times);
 
-		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: ErrnoError) => {
-			assert(error instanceof ErrnoError);
+		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: Exception) => {
+			assert(error instanceof Exception);
 			assert.equal(error.code, 'ENOENT');
 		});
 
@@ -46,14 +46,14 @@ suite('Times', () => {
 		try {
 			fs.utimesSync('foobarbaz', atime, mtime);
 		} catch (error: any) {
-			assert(error instanceof ErrnoError);
+			assert(error instanceof Exception);
 			assert.equal(error.code, 'ENOENT');
 		}
 
 		try {
 			fs.futimesSync(-1, atime, mtime);
 		} catch (error: any) {
-			assert(error instanceof ErrnoError);
+			assert(error instanceof Exception);
 			assert.equal(error.code, 'EBADF');
 		}
 	}

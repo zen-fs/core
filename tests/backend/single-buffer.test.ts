@@ -39,6 +39,7 @@ await suite('SingleBuffer', () => {
 		setTimeout(reject, 1000);
 		worker.on('message', message => {
 			if (message === 'continue') resolve();
+			else reject(message ?? new Error('Failed'));
 		});
 
 		await promise;
