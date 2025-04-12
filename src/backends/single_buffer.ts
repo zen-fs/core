@@ -2,22 +2,17 @@ import { withErrno } from 'kerium';
 import { alert, crit, err, warn } from 'kerium/log';
 import { field, offsetof, packed, sizeof, struct, types as t, type StructArray } from 'memium';
 import type { UUID } from 'node:crypto';
-import { randomInt } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import { crc32c } from 'utilium/checksum.js';
 import { decodeUUID, encodeUUID } from 'utilium/string.js';
 import type { UsageInfo } from '../internal/filesystem.js';
 import { _inode_version, Inode } from '../internal/inode.js';
-import { size_max } from '../vfs/constants.js';
 import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
 import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 import type { Store } from './store/store.js';
 
-interface Lock extends Disposable {
-	nonce: number;
-	release(): void;
-}
+type Lock = Disposable & (() => void);
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const { format } = new Intl.NumberFormat('en-US', {
@@ -41,7 +36,7 @@ class MetadataEntry extends BufferView {
 	/** The size of the data */
 	@t.uint32 accessor size!: number;
 
-	toString(long: boolean = false) {
+	public toString(long: boolean = false) {
 		if (!long) return `<MetadataEntry @ 0x${this.byteOffset.toString(16).padStart(8, '0')}>`;
 
 		return `0x${this.id.toString(16).padStart(8, '0')}: ${format(this.size).padStart(5)} at 0x${this.offset.toString(16).padStart(8, '0')}`;
@@ -126,39 +121,34 @@ export class MetadataBlock extends Int32Array<ArrayBufferLike> {
 		if (depth > max_lock_attempts)
 			throw crit(withErrno('EBUSY', `sbfs: exceeded max attempts waiting for metadata block at ${this.offsetHex} to be unlocked`));
 
-		const i = offsetof(this, 'locked');
-		if (Atomics.load(this, i) !== 0) {
-			switch (Atomics.wait(this, i, 0)) {
-				case 'ok':
-					break;
-				case 'not-equal':
-					depth++;
-					err(`sbfs: waiting for metadata block at ${this.offsetHex} to be unlocked (${depth}/${max_lock_attempts})`);
-					return this.waitUnlocked(depth);
-				case 'timed-out':
-					throw crit(withErrno('EBUSY', `sbfs: timed out waiting for metadata block at ${this.offsetHex} to be unlocked`));
-			}
+		const i = this.length - 1;
+		if (!Atomics.load(this, i)) return;
+		switch (Atomics.wait(this, i, 1)) {
+			case 'ok':
+				break;
+			case 'not-equal':
+				depth++;
+				err(`sbfs: waiting for metadata block at ${this.offsetHex} to be unlocked (${depth}/${max_lock_attempts})`);
+				return this.waitUnlocked(depth);
+			case 'timed-out':
+				throw crit(withErrno('EBUSY', `sbfs: timed out waiting for metadata block at ${this.offsetHex} to be unlocked`));
 		}
 	}
 
-	public lock(nonce: number = randomInt(1, size_max / 2)): Lock {
+	public lock(): Lock {
 		this.waitUnlocked();
 
 		const i = offsetof(this, 'locked');
-		Atomics.store(this, i, nonce);
+		Atomics.store(this, i, 1);
 
 		const release = () => {
 			Atomics.store(this, i, 0);
 			Atomics.notify(this, i, 1);
 		};
 
-		return {
-			nonce,
-			release,
-			[Symbol.dispose]() {
-				release();
-			},
-		};
+		release[Symbol.dispose] = release;
+
+		return release;
 	}
 }
 
@@ -193,11 +183,11 @@ export class SuperBlock extends BufferView {
 			return;
 		}
 
-		if (!checksumMatches(this)) throw crit(withErrno('EIO', 'sbfs: checksum mismatch for super block'));
+		if (this.checksum !== checksum(this)) throw crit(withErrno('EIO', 'sbfs: checksum mismatch for super block'));
 
 		this.metadata = new MetadataBlock(this.buffer, this.metadata_offset);
 
-		if (!checksumMatches(this.metadata))
+		if (this.metadata.checksum !== checksum(this.metadata))
 			throw crit(
 				withErrno(
 					'EIO',
@@ -310,16 +300,11 @@ export class SuperBlock extends BufferView {
  * Note we don't include the checksum when computing a new one.
  */
 function checksum(value: SuperBlock | MetadataBlock): number {
-	const buffer = new Uint8Array(value.buffer, value.byteOffset + 4, sizeof(value) - 4);
-	return crc32c(buffer);
-}
-
-function checksumMatches(value: SuperBlock | MetadataBlock): boolean {
-	return value.checksum === checksum(value);
+	return crc32c(new Uint8Array(value.buffer, value.byteOffset + 4, sizeof(value) - 4));
 }
 
 /**
- * Update a block's checksum and write it to the store's buffer.
+ * Update a block's checksum and timestamp.
  * @internal @hidden
  */
 function _update(value: SuperBlock | MetadataBlock): void {
@@ -360,22 +345,25 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		this.superblock = new SuperBlock(this.buffer, this.byteOffset);
 	}
 
-	public keys(): Iterable<number> {
+	public *keys(): Iterable<number> {
 		const keys = new Set<number>();
 		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
 			block.waitUnlocked();
-			for (const entry of block.items) if (entry.offset) keys.add(entry.id);
+			for (const entry of block.items) {
+				if (!entry.offset || keys.has(entry.id)) continue;
+				keys.add(entry.id);
+				yield entry.id;
+			}
 		}
-		return keys;
 	}
 
 	public get(id: number): Uint8Array | undefined {
 		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
 			block.waitUnlocked();
 			for (const entry of block.items) {
-				if (entry.offset && entry.id == id) {
-					return new Uint8Array(this.buffer, entry.offset, entry.size);
-				}
+				if (!entry.offset || entry.id != id) continue;
+				const off = this.byteOffset + entry.offset;
+				return new Uint8Array(this.buffer.slice(off, off + entry.size));
 			}
 		}
 	}
@@ -390,29 +378,21 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 
 				using lock = block.lock();
 
-				const _write = () => {
-					for (let i = 0; i < data.length; i++) this._u8[entry.offset + i] = data[i];
-				};
-
-				if (data.length <= entry.size) {
-					_write();
-					if (data.length < entry.size) {
-						entry.size = data.length;
-						_update(block);
-					}
+				if (data.length == entry.size) {
+					this._u8.set(data, entry.offset);
 					return;
 				}
 
-				if (this.superblock.isUnused(entry.offset, data.length)) {
+				if (data.length < entry.size || this.superblock.isUnused(entry.offset, data.length)) {
+					this._u8.set(data, entry.offset);
 					entry.size = data.length;
-					_write();
 					_update(block);
 					return;
 				}
 
 				entry.offset = Number(this.superblock.used_bytes);
 				entry.size = data.length;
-				_write();
+				this._u8.set(data, entry.offset);
 				_update(block);
 				this.superblock.used_bytes += BigInt(data.length);
 				_update(this.superblock);
@@ -435,7 +415,7 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		entry.offset = offset;
 		entry.size = data.length;
 
-		for (let i = 0; i < data.length; i++) this._u8[offset + i] = data[i];
+		this._u8.set(data, offset);
 
 		this.superblock.used_bytes += BigInt(data.length);
 		_update(this.superblock.metadata);
@@ -449,6 +429,7 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 				if (entry.id != id) continue;
 				entry.offset = 0;
 				entry.size = 0;
+				entry.id = 0;
 				_update(block);
 				return;
 			}
