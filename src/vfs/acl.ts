@@ -143,11 +143,11 @@ export function check($: V_Context, inode: InodeLike, access: number): boolean {
 
 	const { euid, egid } = $?.credentials ?? defaultContext.credentials;
 
-	const attr = inode.attributes.get('system.posix_acl_access');
+	const data = inode.attributes.get('system.posix_acl_access');
 
-	if (!attr) return true;
+	if (!data) return true;
 
-	const acl = new ACL(attr.value);
+	const acl = new ACL(data);
 
 	let mask = R_OK | W_OK | X_OK;
 

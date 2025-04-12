@@ -96,10 +96,10 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 
 	inode.attributes ??= new Attributes();
 
-	const attr = inode.attributes.get(name);
-	if (!attr) throw UV('ENODATA', 'xattr.get', path);
+	const value = inode.attributes.get(name);
+	if (!value) throw UV('ENODATA', 'xattr.get', path);
 
-	const buffer = Buffer.from(attr.value);
+	const buffer = Buffer.from(value);
 
 	return opt.encoding == 'buffer' || !opt.encoding ? buffer : buffer.toString(opt.encoding);
 }
@@ -130,10 +130,10 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 
 	inode.attributes ??= new Attributes();
 
-	const attr = inode.attributes.get(name);
-	if (!attr) throw UV('ENODATA', 'xattr.get', path);
+	const value = inode.attributes.get(name);
+	if (!value) throw UV('ENODATA', 'xattr.get', path);
 
-	const buffer = Buffer.from(attr.value);
+	const buffer = Buffer.from(value);
 
 	return opt.encoding == 'buffer' || !opt.encoding ? buffer : buffer.toString(opt.encoding);
 }
@@ -281,7 +281,7 @@ export async function list(this: V_Context, path: string): Promise<Name[]> {
 
 	if (!inode.attributes) return [];
 
-	return inode.attributes.keys() as Name[];
+	return inode.attributes.keys().toArray() as Name[];
 }
 
 /**
@@ -303,5 +303,5 @@ export function listSync(this: V_Context, path: string): Name[] {
 
 	if (!inode.attributes) return [];
 
-	return inode.attributes.keys() as Name[];
+	return inode.attributes.keys().toArray() as Name[];
 }

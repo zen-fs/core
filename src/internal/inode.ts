@@ -2,7 +2,7 @@ import { withErrno } from 'kerium';
 import { crit, warn } from 'kerium/log';
 import { field, packed, sizeof, struct, types as t, type Struct } from 'memium';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
-import { BufferView } from 'utilium/buffer.js';
+import { BufferView, initView } from 'utilium/buffer.js';
 import * as c from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { defaultContext, type V_Context } from './contexts.js';
@@ -13,33 +13,42 @@ import { defaultContext, type V_Context } from './contexts.js';
  */
 export const rootIno = 0;
 
-const maxAttrValueSize = 1024;
+/** 4 KiB minus static inode data */
+const maxDynamicData = 3968;
 
 @struct(packed)
-class Attribute extends BufferView {
-	@t.uint32 protected accessor keySize!: number;
-	@t.uint32 protected accessor valueSize!: number;
-
-	@t.char(0, { countedBy: 'keySize' }) protected accessor _name!: Uint8Array;
+class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<B> {
+	@t.uint32 public accessor keySize!: number;
+	@t.uint32 public accessor valueSize!: number;
 
 	public get name(): string {
-		return decodeUTF8(this._name).replace(/\0/g, '');
+		return decodeUTF8(this.subarray(8, 8 + this.keySize));
 	}
 
+	/**
+	 * Note that this does not handle moving the data.
+	 * Changing the name after setting the value is undefined behavior and will lead to corruption.
+	 * This should only be used when creating a new attribute.
+	 */
 	public set name(value: string) {
-		this._name = encodeUTF8(value);
-		this.keySize = this._name.length;
+		const buf = encodeUTF8(value);
+		if (8 + buf.length + this.valueSize > maxDynamicData) throw withErrno('EOVERFLOW');
+		this.set(buf, 8);
+		this.keySize = buf.length;
 	}
-
-	@t.uint8(maxAttrValueSize, { countedBy: 'valueSize' }) protected accessor _value!: Uint8Array;
 
 	public get value(): Uint8Array {
-		return this._value;
+		return this.subarray(8 + this.keySize, this.size);
 	}
 
 	public set value(value: Uint8Array) {
-		this._value = value;
-		this.valueSize = Math.min(value.length, maxAttrValueSize);
+		if (8 + this.keySize + value.length > maxDynamicData) throw withErrno('EOVERFLOW');
+		this.valueSize = value.length;
+		this.set(value, 8 + this.keySize);
+	}
+
+	public get size(): number {
+		return 8 + this.keySize + this.valueSize;
 	}
 }
 
@@ -49,52 +58,117 @@ class Attribute extends BufferView {
  * @internal
  */
 @struct(packed)
-export class Attributes extends BufferView {
+export class Attributes<T extends ArrayBufferLike = ArrayBufferLike> implements ArrayBufferView<T> {
 	@t.uint32 accessor size!: number;
 
-	@field(Attribute, { length: 0, countedBy: 'size' }) accessor data!: Attribute[];
+	declare ['constructor']: typeof Attributes;
 
-	public has(name: string): boolean {
-		return this.data.some(entry => entry.name == name);
+	declare readonly buffer: T;
+	declare readonly byteOffset: number;
+	declare readonly byteLength: number;
+	constructor(buffer?: T | ArrayBufferView<T> | ArrayLike<number> | number, byteOffset?: number, byteLength?: number) {
+		initView(this, buffer, byteOffset, byteLength);
 	}
 
-	public get(name: string): Attribute | undefined {
-		return this.data.find(entry => entry.name == name);
+	public get byteSize(): number {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			offset += entry.size;
+		}
+		return offset;
+	}
+
+	public has(name: string): boolean {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) return true;
+			offset += entry.size;
+		}
+		return false;
+	}
+
+	public get(name: string): Uint8Array | undefined {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) return entry.value;
+			//if (entry.name == name) return new Uint8Array(this.buffer, offset, entry.valueSize);
+			offset += entry.size;
+		}
 	}
 
 	public set(name: string, value: Uint8Array): void {
-		const attr = this.get(name);
-
-		if (attr) {
-			attr.value = value;
-			return;
+		let offset = this.byteOffset + sizeof(this);
+		let remove;
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) remove = [offset, entry.size];
+			offset += entry.size;
 		}
 
-		const new_attr = new Attribute();
-		new_attr.name = name;
-		new_attr.value = value;
-		this.data.push(new_attr);
+		const buf = new Uint8Array(this.buffer);
+
+		if (remove) {
+			const [start, size] = remove;
+			offset -= size;
+			buf.copyWithin(start, start + size, offset + size);
+			buf.fill(0, offset, offset + size);
+			this.size--;
+		}
+
+		const attr = new Attribute(this.buffer, offset);
+		attr.name = name;
+		attr.value = value;
 		this.size++;
 	}
 
 	public remove(name: string): boolean {
-		const index = this.data.findIndex(entry => entry.name == name);
-		if (index === -1) return false;
-		this.data.splice(index, 1);
+		let offset = this.byteOffset + sizeof(this);
+		let remove;
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) remove = [offset, entry.size];
+			offset += entry.size;
+		}
+
+		if (!remove) return false;
+
+		const [start, size] = remove;
+		const buf = new Uint8Array(this.buffer);
+		buf.copyWithin(start, start + size, offset);
+		buf.fill(0, offset - size, offset);
+
 		this.size--;
 		return true;
 	}
 
-	public keys(): string[] {
-		return this.data.map(entry => entry.name);
+	public *keys() {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			yield entry.name;
+			offset += entry.size;
+		}
 	}
 
-	public values(): Uint8Array[] {
-		return this.data.map(entry => entry.value);
+	public *values() {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			yield entry.value;
+			offset += entry.size;
+		}
 	}
 
-	public entries(): [string, Uint8Array][] {
-		return this.data.map(entry => [entry.name, entry.value]);
+	public *entries() {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			yield [entry.name, entry.value];
+			offset += entry.size;
+		}
 	}
 }
 
@@ -139,10 +213,11 @@ export const _inode_fields = [
  * 1. 58 bytes. The first member was called `ino` but used as the ID for data.
  * 2. 66 bytes. Renamed the first member from `ino` to `data` and added a separate `ino` field
  * 3. 72 bytes. Changed the ID fields from 64 to 32 bits and added `flags`.
- * 4. (current) Added extended attributes. At least 128 bytes.
+ * 4. >= 128 bytes. Added extended attributes.
+ * 5. (current) 4 KiB. Changed to a fixed size to make a lot of size-related stuff easier.
  * @internal @hidden
  */
-export const _inode_version = 4;
+export const _inode_version = 5;
 
 /**
  * Inode flags (FS_IOC_GETFLAGS / FS_IOC_SETFLAGS)
@@ -282,15 +357,25 @@ export class Inode extends BufferView implements InodeLike {
 
 	/**
 	 * The "version" of the inode/data.
-	 *
 	 * Unrelated to the inode format!
 	 */
 	@t.uint32 accessor version!: number;
 
-	/** Pad to 128 bytes */
+	/**
+	 * Padding up to 128 bytes.
+	 * This ensures there is enough room for expansion without breaking the ABI.
+	 * @internal
+	 */
 	@t.uint8(48) protected accessor __padding!: Uint8Array;
 
 	@field(Attributes) accessor attributes!: Attributes;
+
+	/**
+	 * Since the attribute data uses dynamic arrays,
+	 * it is necessary to add this so attributes can be added.
+	 * @internal @hidden
+	 */
+	@t.uint8(maxDynamicData) protected accessor __data!: Uint8Array;
 
 	public toString(): string {
 		return `<Inode ${this.ino}>`;
