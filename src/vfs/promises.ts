@@ -783,14 +783,13 @@ export async function mkdir(
 	const mode = normalizeMode(options?.mode, 0o777);
 
 	path = await realpath.call(this, path);
-	const { fs, path: resolved, root } = resolveMount(path, this);
-	const errorPaths: Record<string, string> = { [resolved]: path };
+	const { fs, path: resolved } = resolveMount(path, this);
 
-	const __create = async (path: string, parent: InodeLike) => {
+	const __create = async (path: string, resolved: string, parent: InodeLike) => {
 		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', dirname(path));
 
 		const inode = await fs
-			.mkdir(path, {
+			.mkdir(resolved, {
 				mode,
 				uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
 				gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
@@ -801,29 +800,28 @@ export async function mkdir(
 	};
 
 	if (!options?.recursive) {
-		await __create(resolved, await fs.stat(dirname(resolved)));
+		await __create(path, resolved, await fs.stat(dirname(resolved)));
 		return;
 	}
 
-	const dirs: string[] = [];
+	const dirs: [path: string, resolved: string][] = [];
 	let origDir = path;
 	for (
 		let dir = resolved;
 		!(await fs.exists(dir).catch(rethrow({ syscall: 'exists', path: origDir })));
 		dir = dirname(dir), origDir = dirname(origDir)
 	) {
-		dirs.unshift(dir);
-		errorPaths[dir] = origDir;
+		dirs.unshift([origDir, dir]);
 	}
 
 	if (!dirs.length) return;
 
-	const stats: InodeLike[] = [await fs.stat(dirname(dirs[0])).catch(rethrow({ syscall: 'stat', path: dirname(origDir) }))];
+	const stats: InodeLike[] = [await fs.stat(dirname(dirs[0][1])).catch(rethrow({ syscall: 'stat', path: dirname(dirs[0][0]) }))];
 
-	for (const [i, dir] of dirs.entries()) {
-		stats.push(await __create(dir, stats[i]));
+	for (const [i, [path, resolved]] of dirs.entries()) {
+		stats.push(await __create(path, resolved, stats[i]));
 	}
-	return root.length == 1 ? dirs[0] : dirs[0]?.slice(root.length);
+	return dirs[0][0];
 }
 mkdir satisfies typeof promises.mkdir;
 

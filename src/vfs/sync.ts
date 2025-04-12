@@ -472,9 +472,9 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 	const mode = normalizeMode(options?.mode, 0o777);
 
 	path = realpathSync.call(this, path);
-	const { fs, path: resolved, root } = resolveMount(path, this);
+	const { fs, path: resolved } = resolveMount(path, this);
 
-	const __create = (resolved: string, path: string, parent: InodeLike) => {
+	const __create = (path: string, resolved: string, parent: InodeLike) => {
 		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', dirname(path));
 
 		const inode = wrap(
@@ -492,7 +492,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 	};
 
 	if (!options?.recursive) {
-		__create(resolved, path, wrap(fs, 'statSync', dirname(path))(dirname(resolved)));
+		__create(path, resolved, wrap(fs, 'statSync', dirname(path))(dirname(resolved)));
 		return;
 	}
 
@@ -503,12 +503,12 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 
 	if (!dirs.length) return;
 
-	const stats: InodeLike[] = [wrap(fs, 'statSync', dirname(dirs[0].resolved))(dirname(dirs[0].original))];
+	const stats: InodeLike[] = [wrap(fs, 'statSync', dirname(dirs[0].original))(dirname(dirs[0].resolved))];
 
 	for (const [i, dir] of dirs.entries()) {
-		stats.push(__create(dir.resolved, dir.original, stats[i]));
+		stats.push(__create(dir.original, dir.resolved, stats[i]));
 	}
-	return root.length == 1 ? dirs[0].original : dirs[0].original.slice(root.length);
+	return dirs[0].original;
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
