@@ -242,9 +242,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			: decodeDirListing((await tx.get(newDirNode.data)) ?? _throw(withErrno('ENODATA')));
 
 		if (newDirList[_new.base]) {
-			// If it's a file, delete it, if it's a directory, throw a permissions error.
 			const existing = new Inode((await tx.get(newDirList[_new.base])) ?? _throw(withErrno('ENOENT')));
-			if (!existing.toStats().isFile()) throw withErrno('EPERM');
+			if (!existing.toStats().isFile()) throw withErrno('EISDIR');
 
 			await tx.remove(existing.data);
 			await tx.remove(newDirList[_new.base]);
@@ -288,9 +287,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const newDirList: typeof oldDirList = sameParent ? oldDirList : decodeDirListing(tx.getSync(newDirNode.data) ?? _throw(withErrno('ENODATA')));
 
 		if (newDirList[_new.base]) {
-			// If it's a file, delete it, if it's a directory, throw a permissions error.
 			const existing = new Inode(tx.getSync(newDirList[_new.base]) ?? _throw(withErrno('ENOENT')));
-			if (!existing.toStats().isFile()) throw withErrno('EPERM');
+			if (!existing.toStats().isFile()) throw withErrno('EISDIR');
 
 			tx.removeSync(existing.data);
 			tx.removeSync(newDirList[_new.base]);

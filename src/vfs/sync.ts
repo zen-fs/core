@@ -29,13 +29,25 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	const oldMount = resolveMount(oldPath, this);
 	const newMount = resolveMount(newPath, this);
 
-	const oldStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath));
-
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 
-	if (checkAccess && !oldStats.hasAccess(constants.W_OK, this)) throw UV('EACCES', $ex);
-
 	if (oldMount.fs !== newMount.fs) throw UV('EXDEV', $ex);
+
+	const oldStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, oldPath);
+	const oldParent = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath));
+	const newParent = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(newPath));
+	let newStats: Stats | undefined;
+	try {
+		newStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, newPath);
+	} catch (e: any) {
+		setUVMessage(Object.assign(e, $ex));
+		if (e.code != 'ENOENT') throw e;
+	}
+
+	if (checkAccess && (!oldParent.hasAccess(constants.R_OK, this) || !newParent.hasAccess(constants.W_OK, this))) throw UV('EACCES', $ex);
+
+	if (newStats && !isDirectory(oldStats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
+	if (newStats && isDirectory(oldStats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
 
 	try {
 		oldMount.fs.renameSync(oldMount.path, newMount.path);
@@ -175,9 +187,9 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHa
 
 	const file = new SyncHandle(this, path, fs, resolved, flag, stats);
 
-	if (flag & constants.O_TRUNC) file.truncate(0);
-
 	if (!opt.allowDirectory && stats.mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+
+	if (flag & constants.O_TRUNC) file.truncate(0);
 
 	return file;
 }

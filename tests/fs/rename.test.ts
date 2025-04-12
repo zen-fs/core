@@ -76,8 +76,8 @@ suite('Rename', () => {
 		await fs.promises.mkdir(dir);
 		await fs.promises.writeFile(file, 'file contents go here');
 
-		assert.rejects(fs.promises.rename(file, dir), { code: /EISDIR|EPERM/ });
-		assert.throws(() => fs.renameSync(file, dir), { code: /EISDIR|EPERM/ });
+		assert.rejects(fs.promises.rename(file, dir), { code: 'EISDIR' });
+		assert.throws(() => fs.renameSync(file, dir), { code: 'EISDIR' });
 	});
 
 	test('rename directory inside itself', async () => {

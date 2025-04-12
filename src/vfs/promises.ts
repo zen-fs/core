@@ -209,7 +209,6 @@ export class FileHandle implements promises.FileHandle {
 		position: number = this.position
 	): Promise<{ bytesRead: number; buffer: TBuffer }> {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
-
 		if (this.flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.path);
 
 		if (!(this.inode.flags! & InodeFlags.NoAtime)) {
@@ -286,7 +285,8 @@ export class FileHandle implements promises.FileHandle {
 		if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.path);
 
 		const { size } = await this.stat();
-		const { buffer: data } = await this._read(new Uint8Array(size), 0, size, 0);
+		const data = new Uint8Array(size);
+		await this._read(data, 0, size, 0);
 		const buffer = Buffer.from(data);
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}
@@ -518,9 +518,18 @@ export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.
 
 	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
 
-	const stats = await stat.call(this, dirname(oldPath)).catch(rethrow($ex));
+	const parent = (await stat.call(this, dirname(oldPath)).catch(rethrow($ex))) as Stats;
+	const stats = (await stat.call(this, oldPath).catch(rethrow($ex))) as Stats;
+	const newParent = (await stat.call(this, dirname(newPath)).catch(rethrow($ex))) as Stats;
+	const newStats = (await stat.call(this, newPath).catch((e: Exception) => {
+		if (e.code == 'ENOENT') return null;
+		throw setUVMessage(Object.assign(e, $ex));
+	})) as Stats;
 
-	if (checkAccess && !stats.hasAccess(constants.W_OK, this)) throw UV('EACCES', $ex);
+	if (checkAccess && (!parent.hasAccess(constants.R_OK, this) || !newParent.hasAccess(constants.W_OK, this))) throw UV('EACCES', $ex);
+
+	if (newStats && !isDirectory(stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
+	if (newStats && isDirectory(stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
 
 	await src.fs.rename(src.path, dst.path).catch(rethrow($ex));
 
@@ -618,6 +627,8 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 
 		if (!isDirectory(parentStats)) throw UV('ENOTDIR', 'open', dirname(path));
 
+		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+
 		const { euid: uid, egid: gid } = $?.credentials ?? defaultContext.credentials;
 
 		const inode = await fs.createFile(resolved, {
@@ -630,17 +641,12 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 	}
 
 	if (checkAccess && !hasAccess($, stats, flags.toMode(flag))) throw UV('EACCES', $ex);
-
 	if (flag & constants.O_EXCL) throw UV('EEXIST', $ex);
 
 	const handle = new FileHandle($, toFD(new SyncHandle($, path, fs, resolved, flag, stats)));
 
-	/*
-		In a previous implementation, we deleted the file and
-		re-created it. However, this created a race condition if another
-		asynchronous request was trying to read the file, as the file
-		would not exist for a small period of time.
-	*/
+	if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+
 	if (flag & constants.O_TRUNC) await handle.truncate(0);
 
 	return handle;

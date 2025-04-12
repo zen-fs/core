@@ -3,7 +3,7 @@ import { log } from 'kerium';
 export function setupLogs(prefix) {
 	const { ZENFS_LOG_LEVEL } = process.env;
 
-	let level = log.Level.CRIT;
+	let level = log.Level.ERR;
 
 	if (ZENFS_LOG_LEVEL) {
 		const tmp = parseInt(ZENFS_LOG_LEVEL);
