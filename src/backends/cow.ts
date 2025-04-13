@@ -213,11 +213,7 @@ export class CopyOnWriteFS extends FileSystem {
 			return await this.writable.stat(path);
 		} catch {
 			if (this.isDeleted(path)) throw withErrno('ENOENT');
-
-			const oldStat = await this.readable.stat(path);
-			// Make the oldStat's mode writable.
-			oldStat.mode |= 0o222;
-			return oldStat;
+			return await this.readable.stat(path);
 		}
 	}
 
@@ -226,11 +222,7 @@ export class CopyOnWriteFS extends FileSystem {
 			return this.writable.statSync(path);
 		} catch {
 			if (this.isDeleted(path)) throw withErrno('ENOENT');
-
-			const oldStat = this.readable.statSync(path);
-			// Make the oldStat's mode writable.
-			oldStat.mode |= 0o222;
-			return oldStat;
+			return this.readable.statSync(path);
 		}
 	}
 
