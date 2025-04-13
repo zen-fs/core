@@ -9,7 +9,7 @@ const { values: options, positionals } = parseArgs({
 	options: {
 		// Output
 		help: { short: 'h', type: 'boolean', default: false },
-		verbose: { short: 'w', type: 'boolean', default: false },
+		verbose: { short: 'v', type: 'boolean', default: false },
 		quiet: { short: 'q', type: 'boolean', default: false },
 		log: { short: 'l', type: 'string', default: '' },
 		'file-names': { short: 'N', type: 'boolean', default: false },
@@ -49,7 +49,7 @@ Behavior:
 
 Output:
     -h, --help          Outputs this help message
-    -w, --verbose       Output verbose messages
+    -v, --verbose       Output verbose messages
     -q, --quiet         Don't output normal messages
     -l, --logs <level>  Change the default log level for test output. Level can be a number or string
     -N, --file-names    Use full file paths for tests from setup files instead of the base name

@@ -38,28 +38,28 @@ jobs:
               run: npm run lint
 
             - name: 'Unit tests: common'
-              run: npx zenfs-test -pfw --common
+              run: npx zenfs-test -pfv --common
 
             - name: 'Unit tests: InMemory'
-              run: npx zenfs-test -pfw tests/setup/memory.ts
+              run: npx zenfs-test -pfv tests/setup/memory.ts
 
             - name: 'Unit tests: contexts'
-              run: npx zenfs-test -pfw tests/setup/context.ts
+              run: npx zenfs-test -pfv tests/setup/context.ts
 
             - name: 'Unit tests: Copy-on-Write'
-              run: npx zenfs-test -pfw tests/setup/cow.ts
+              run: npx zenfs-test -pfv tests/setup/cow.ts
 
             - name: 'Unit tests: Index'
-              run: npx zenfs-test -pfw tests/setup/index.ts
+              run: npx zenfs-test -pfv tests/setup/index.ts
 
             - name: 'Unit tests: Port'
-              run: npx zenfs-test -pfw tests/setup/port.ts
+              run: npx zenfs-test -pfv tests/setup/port.ts
 
             - name: 'Unit tests: SingleBuffer'
-              run: npx zenfs-test -pfw tests/setup/single-buffer.ts
+              run: npx zenfs-test -pfv tests/setup/single-buffer.ts
 
             - name: 'Unit tests: Fetch'
-              run: tests/fetch/run.sh -w
+              run: tests/fetch/run.sh -v
 
             - name: Report coverage
               run: npx zenfs-test --report
