@@ -36,10 +36,8 @@ class MetadataEntry extends BufferView {
 	/** The size of the data */
 	@t.uint32 accessor size!: number;
 
-	public toString(long: boolean = false) {
-		if (!long) return `<MetadataEntry @ 0x${this.byteOffset.toString(16).padStart(8, '0')}>`;
-
-		return `0x${this.id.toString(16).padStart(8, '0')}: ${format(this.size).padStart(5)} at 0x${this.offset.toString(16).padStart(8, '0')}`;
+	public toString() {
+		return `<MetadataEntry @ 0x${this.byteOffset.toString(16).padStart(8, '0')}>`;
 	}
 }
 
@@ -89,20 +87,20 @@ export class MetadataBlock extends Int32Array<ArrayBufferLike> {
 	/** Metadata entries. */
 	@field(MetadataEntry, { length: entries_per_block }) accessor items!: StructArray<MetadataEntry>;
 
-	toString(long: boolean = false) {
+	public toString(long: boolean = false): string {
 		if (!long) return `<MetadataBlock @ ${this.offsetHex}>`;
 
 		let text = [
-			`----- Metadata block at ${this.offsetHex} -----`,
-			'Checksum: ' + this.checksum.toString(16).padStart(8, '0'),
-			'Last updated: ' + new Date(Number(this.timestamp)).toLocaleString(),
-			'Previous block: 0x' + this.previous_offset.toString(16).padStart(8, '0'),
+			`---- Metadata block at ${this.offsetHex} ----`,
+			`Checksum: 0x${this.checksum.toString(16).padStart(8, '0')}`,
+			`Last updated: ${new Date(Number(this.timestamp)).toLocaleString()}`,
+			`Previous block: 0x${this.previous_offset.toString(16).padStart(8, '0')}`,
 			'Entries:',
 		].join('\n');
 
 		for (const entry of this.items) {
 			if (!entry.offset) continue;
-			text += '\n\t' + entry.toString(long);
+			text += `\n\t0x${entry.id.toString(16).padStart(8, '0')}: ${format(entry.size).padStart(5)} at 0x${entry.offset.toString(16).padStart(8, '0')}`;
 		}
 
 		return text;
