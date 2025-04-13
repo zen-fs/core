@@ -42,25 +42,24 @@ export interface UsageInfo {
  * @internal
  */
 export type FileSystemAttributes = {
-	/** If set, disables `PreloadFile` from using a resizable array buffer. */
-	no_buffer_resize: void;
-
 	/**
 	 * If set disables async file systems from preloading their contents.
 	 * This means *sync operations will not work* (unless the contents are cached)
 	 * It has no affect on sync file systems.
 	 */
-	no_async: void;
+	no_async_preload: void;
 
 	/**
 	 * Currently unused. In the future, this will disable caching.
-	 * Not recommended due to performance impact.
+	 * Analogous to `S_DAX` on every file.
 	 */
 	no_cache: void;
 
 	/**
 	 * If set, the file system should not be written to.
 	 * This should be set for read-only file systems.
+	 * Note this does NOT trigger EROFS errors;
+	 * writes will silently be dropped.
 	 */
 	no_write: void;
 
@@ -75,6 +74,24 @@ export type FileSystemAttributes = {
 	 * @internal
 	 */
 	default_stream_write: void;
+
+	/**
+	 * Do not update access times.
+	 */
+	no_atime: void;
+
+	/**
+	 * Ignore suid and sgid bits.
+	 * @todo Implement
+	 * @experimental
+	 */
+	no_suid: void;
+
+	/**
+	 * Writes are synced at once
+	 * @experimental
+	 */
+	sync: void;
 };
 
 /**

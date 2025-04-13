@@ -1,5 +1,5 @@
 import { withErrno } from 'kerium';
-import { err, warn } from 'kerium/log';
+import { warn } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 import { Resource } from 'utilium/cache.js';
 import type { UsageInfo } from '../../internal/filesystem.js';

@@ -65,7 +65,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 
 	checkOptions(backend, configuration);
 	const mount = (await backend.create(configuration)) as FilesystemOf<T>;
-	if (configuration.disableAsyncCache) mount.attributes.set('no_async');
+	if (configuration.disableAsyncCache) mount.attributes.set('no_async_preload');
 	await mount.ready();
 	return mount;
 }

@@ -69,7 +69,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public async ready(): Promise<void> {
 			await super.ready();
 			await this.queueDone();
-			if (this._isInitialized || this.attributes.has('no_async')) return;
+			if (this._isInitialized || this.attributes.has('no_async_preload')) return;
 
 			this.checkSync();
 
@@ -102,7 +102,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		}
 
 		protected checkSync(): asserts this is { _sync: FileSystem } {
-			if (this.attributes.has('no_async')) {
+			if (this.attributes.has('no_async_preload')) {
 				throw withErrno('ENOTSUP', 'Sync preloading has been disabled for this async file system');
 			}
 			if (!this._sync) {

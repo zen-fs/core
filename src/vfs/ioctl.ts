@@ -84,6 +84,76 @@ class fsxattr extends BufferView {
 }
 
 /**
+ * Inode flags (FS_IOC_GETFLAGS / FS_IOC_SETFLAGS)
+ * @see `FS_*_FL` in `include/uapi/linux/fs.h` (around L250)
+ * @experimental
+ */
+enum FileFlag {
+	/** Secure deletion */
+	SecureRm = 0x00000001,
+	/** Undelete */
+	Undelete = 0x00000002,
+	/** Compress file */
+	Compress = 0x00000004,
+	/** Synchronous updates */
+	Sync = 0x00000008,
+	/** Immutable file */
+	Immutable = 0x00000010,
+	/** Writes to file may only append */
+	Append = 0x00000020,
+	/** do not dump file */
+	NoDump = 0x00000040,
+	/** do not update atime */
+	NoAtime = 0x00000080,
+	// Reserved for compression usage...
+	Dirty = 0x00000100,
+	/** One or more compressed clusters */
+	CompressBlk = 0x00000200,
+	/** Don't compress */
+	NoCompress = 0x00000400,
+	// End compression flags --- maybe not all used
+	/** Encrypted file */
+	Encrypt = 0x00000800,
+	/** btree format dir */
+	Btree = 0x00001000,
+	/** hash-indexed directory */
+	// eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
+	Index = 0x00001000,
+	/** AFS directory */
+	IMagic = 0x00002000,
+	/** Reserved for ext3 */
+	JournalData = 0x00004000,
+	/** file tail should not be merged */
+	NoTail = 0x00008000,
+	/** dirsync behaviour (directories only) */
+	DirSync = 0x00010000,
+	/** Top of directory hierarchies*/
+	TopDir = 0x00020000,
+	/** Reserved for ext4 */
+	HugeFile = 0x00040000,
+	/** Extents */
+	Extent = 0x00080000,
+	/** Verity protected inode */
+	Verity = 0x00100000,
+	/** Inode used for large EA */
+	EaInode = 0x00200000,
+	/** Reserved for ext4 */
+	EofBlocks = 0x00400000,
+	/** Do not cow file */
+	NoCow = 0x00800000,
+	/** Inode is DAX */
+	Dax = 0x02000000,
+	/** Reserved for ext4 */
+	InlineData = 0x10000000,
+	/** Create with parents projid */
+	ProjInherit = 0x20000000,
+	/** Folder is case insensitive */
+	CaseFold = 0x40000000,
+	/** reserved for ext2 lib */
+	Reserved = 0x80000000,
+}
+
+/**
  * `FS_IOC_*` commands for {@link ioctl | `ioctl`}
  * @remarks
  * These are computed from a script since constant values are needed for enum member types

@@ -147,6 +147,9 @@ export class FileHandle implements promises.FileHandle {
 	public async truncate(length: number = 0): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'truncate', this.path);
 		if (length < 0) throw UV('EINVAL', 'truncate', this.path);
+		if (!(this.flag & constants.O_WRONLY || this.flag & constants.O_RDWR)) throw UV('EBADF', 'truncate', this.path);
+		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'truncate', this.path);
+		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'truncate', this.path);
 
 		this.dirty = true;
 		if (!(this.flag & constants.O_WRONLY || this.flag & constants.O_RDWR)) throw UV('EBADF', 'truncate', this.path);
@@ -211,7 +214,7 @@ export class FileHandle implements promises.FileHandle {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
 		if (this.flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.path);
 
-		if (!(this.inode.flags! & InodeFlags.NoAtime)) {
+		if (!(this.inode.flags! & InodeFlags.NoAtime) && !this.fs.attributes.has('no_atime')) {
 			this.dirty = true;
 			this.inode.atimeMs = Date.now();
 		}
@@ -356,10 +359,9 @@ export class FileHandle implements promises.FileHandle {
 		position: number = this.position
 	): Promise<number> {
 		if (this.closed) throw UV('EBADF', 'write', this.path);
-
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
-
 		if (!(this.flag & constants.O_WRONLY || this.flag & constants.O_RDWR)) throw UV('EBADF', 'write', this.path);
+		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
 
 		this.dirty = true;
 		const end = position + length;
@@ -503,6 +505,7 @@ export class FileHandle implements promises.FileHandle {
 	public createWriteStream(options: promises.CreateWriteStreamOptions = {}): WriteStream {
 		if (this.closed) throw UV('EBADF', 'createWriteStream', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'createWriteStream', this.path);
+		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'createWriteStream', this.path);
 		return new WriteStream(options, this);
 	}
 }

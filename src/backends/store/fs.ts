@@ -100,6 +100,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		super(store.type ?? 0x6b766673, store.name);
 		store._fs = this;
 		this._uuid = store.uuid ?? this.uuid;
+		this.label = store.label;
 		debug(this.name + ': supports features: ' + this.store.flags?.join(', '));
 	}
 

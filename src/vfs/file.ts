@@ -69,7 +69,7 @@ export class SyncHandle {
 	}
 
 	private get _isSync(): boolean {
-		return !!(this.flag & c.O_SYNC || this.inode.flags! & InodeFlags.Sync);
+		return !!(this.flag & c.O_SYNC || this.inode.flags! & InodeFlags.Sync || this.fs.attributes.has('sync'));
 	}
 
 	public sync(): void {
@@ -112,8 +112,11 @@ export class SyncHandle {
 	}
 
 	public truncate(length: number): void {
+		if (length < 0) throw UV('EINVAL', 'truncate', this.path);
 		if (this.closed) throw UV('EBADF', 'truncate', this.path);
-		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw UV('EBADF', 'write', this.path);
+		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw UV('EBADF', 'truncate', this.path);
+		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'truncate', this.path);
+		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'truncate', this.path);
 
 		this.dirty = true;
 		this.inode.mtimeMs = Date.now();
@@ -135,6 +138,7 @@ export class SyncHandle {
 	public write(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
 		if (this.closed) throw UV('EBADF', 'write', this.path);
 		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw UV('EBADF', 'write', this.path);
+		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
 
 		this.dirty = true;
@@ -167,7 +171,7 @@ export class SyncHandle {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
 		if (this.flag & c.O_WRONLY) throw UV('EBADF', 'read', this.path);
 
-		if (!(this.inode.flags! & InodeFlags.NoAtime)) {
+		if (!(this.inode.flags! & InodeFlags.NoAtime) && !this.fs.attributes.has('no_atime')) {
 			this.dirty = true;
 			this.inode.atimeMs = Date.now();
 		}
@@ -224,6 +228,7 @@ export class SyncHandle {
 	public streamWrite(options: StreamOptions): WritableStream {
 		if (this.closed) throw UV('EBADF', 'write', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
+		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
 		return this.fs.streamWrite(this.internalPath, options);
 	}
 }

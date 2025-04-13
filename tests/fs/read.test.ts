@@ -5,6 +5,7 @@ import { fs } from '../common.js';
 
 const filepath = 'x.txt';
 const expected = 'xyz\n';
+const ellipses = '…'.repeat(10_000);
 
 suite('read', () => {
 	test('read file asynchronously', async () => {
@@ -23,10 +24,17 @@ suite('read', () => {
 		assert.equal(buffer.toString(), expected);
 	});
 
-	test('Read a file and check its binary bytes (asynchronous)', async () => {
+	test('Read a file and check its binary bytes asynchronously', async () => {
 		const buff = await fs.promises.readFile('elipses.txt');
-		const buff2 = fs.readFileSync('elipses.txt');
-		assert.equal(buff.toString(), buff2.toString());
+		assert.equal(buff.length, 30_000);
+		assert.equal(buff.toString(), ellipses);
+		assert.equal((buff[1] << 8) | buff[0], 32994);
+	});
+
+	test('Read a file and check its binary bytes synchronously', () => {
+		const buff = fs.readFileSync('elipses.txt');
+		assert.equal(buff.length, 30_000);
+		assert.equal(buff.toString(), ellipses);
 		assert.equal((buff[1] << 8) | buff[0], 32994);
 	});
 
