@@ -130,13 +130,19 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * Configurations options for the log.
 	 */
 	log: LogConfiguration;
+    
+	/**
+	 * FileSystem (for isolated trees only)
+	 */
+    fs: typeof defaultFs;
 }
 
 /**
  * Configures ZenFS with single mount point /
  * @category Backends and Configuration
  */
-export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>, fs=defaultFs): Promise<void> {
+export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>): Promise<void> {
+    const fs = configuration.fs || defaultFs;
 	if (!isBackendConfig(configuration)) {
 		throw new TypeError('Invalid single mount point configuration');
 	}
@@ -182,7 +188,8 @@ export function addDevice(driver: DeviceDriver, options?: object, ctx?: V_Contex
  * @category Backends and Configuration
  * @see Configuration
  */
-export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>, fs=defaultFs): Promise<void> {
+export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): Promise<void> {
+    const fs = configuration.fs || defaultFs;
 	const uid = 'uid' in configuration ? configuration.uid || 0 : 0;
 	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
 

@@ -4,6 +4,8 @@ import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import * as path from './path.js';
 import * as fs from './vfs/index.js';
+import { configure } from './configure.js'
+import { InMemory } from './backends/memory.js';
 
 export type { BoundContext, ContextInit, FSContext, V_Context };
 
@@ -94,4 +96,49 @@ export function bindContext(
 	boundContexts.set(ctx.id, bound);
 
 	return bound;
+}
+
+/**
+ * Creates an isolated context with its own in-memory root filesystem.
+ * This is useful for testing or creating completely isolated environments.
+ * @category Contexts
+ * @example
+ * ```ts
+ * import { configureIsolated } from '@zenfs/core';
+ * 
+ * const {fs, path} = await configureIsolated({
+ *   pwd: '/home',
+ *   credentials: { uid: 1000, gid: 1000 },
+ *   mounts: {
+ *     '/': InMemory,
+ *     '/home': InMemory,
+ *   },
+ * });
+ * 
+ * fs.writeFileSync('/home/test.txt', 'isolated');
+ * console.log(fs.readFileSync('/home/test.txt', 'utf8'));
+ * ```
+ */
+export function configureIsolated({
+    pwd = '/',
+    credentials,
+    ...configuration
+}: {
+    pwd?: string;
+    credentials?: ContextInit['credentials'];
+    [key: string]: unknown;
+} = {}): Promise<BoundContext> {
+    const ctx = bindContext({
+        root: '/',
+        pwd,
+        mounts: new Map([
+            ['/', InMemory.create({ label: 'root' })]
+        ]),
+        credentials,
+    })
+    
+    return configure({
+        fs: ctx.fs,
+        ...configuration,
+    }).then(() => ctx)
 }
