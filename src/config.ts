@@ -151,7 +151,7 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
  * This is implemented as a separate function to avoid a circular dependency between vfs/shared.ts and other vfs layer files.
  * @internal
  */
-async function mount(path: string, mount: FileSystem): Promise<void> {
+async function mountHelper(path: string, mount: FileSystem): Promise<void> {
 	if (path == '/') {
 		fs.mount(path, mount);
 		return;
@@ -201,7 +201,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 			if (point == '/') fs.umount('/');
 
-			await mount(point, await resolveMountConfig(mountConfig));
+			await mountHelper(point, await resolveMountConfig(mountConfig));
 		}
 	}
 
@@ -209,6 +209,6 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();
-		await mount('/dev', devfs);
+		await mountHelper('/dev', devfs);
 	}
 }
