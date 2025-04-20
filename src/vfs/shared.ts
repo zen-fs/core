@@ -35,12 +35,13 @@ mount('/', InMemory.create({ label: 'root' }));
  */
 export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void {
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
-
+    
+    const mts = this?.mounts || mounts
 	mountPoint = resolve.call(this, mountPoint);
-	if (mounts.has(mountPoint)) throw err(new ErrnoError(Errno.EINVAL, 'Mount point is already in use: ' + mountPoint));
+	if (mts.has(mountPoint)) throw err(new ErrnoError(Errno.EINVAL, 'Mount point is already in use: ' + mountPoint));
 
 	fs._mountPoint = mountPoint;
-	mounts.set(mountPoint, fs);
+	mts.set(mountPoint, fs);
 	info(`Mounted ${fs.name} on ${mountPoint}`);
 	debug(`${fs.name} attributes: ${[...fs.attributes].map(([k, v]) => (v !== undefined && v !== null ? k + '=' + v : k)).join(', ')}`);
 }
@@ -51,14 +52,14 @@ export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void
  */
 export function umount(this: V_Context, mountPoint: string): void {
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
-
+    const mts = this?.mounts || mounts
 	mountPoint = resolve.call(this, mountPoint);
-	if (!mounts.has(mountPoint)) {
+	if (!mts.has(mountPoint)) {
 		warn(mountPoint + ' is already unmounted');
 		return;
 	}
 
-	mounts.delete(mountPoint);
+	mts.delete(mountPoint);
 	notice('Unmounted ' + mountPoint);
 }
 
@@ -88,8 +89,9 @@ export interface ResolvedPath extends ResolvedMount {
  */
 export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 	const root = ctx?.root || defaultContext.root;
+    const mts = ctx?.mounts || mounts
 	path = normalizePath(join(root, path));
-	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
+	const sortedMounts = [...mts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
 		if (_isParentOf(mountPoint, path)) {

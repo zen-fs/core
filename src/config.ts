@@ -9,8 +9,9 @@ import { FileSystem } from './internal/filesystem.js';
 import type { LogConfiguration } from './internal/log.js';
 import { configure as configureLog, crit, err, info } from './internal/log.js';
 import { _setAccessChecks } from './vfs/config.js';
-import * as fs from './vfs/index.js';
+import * as defaultFs from './vfs/index.js';
 import { mounts } from './vfs/shared.js';
+import type { V_Context } from './internal/contexts.js';
 
 /**
  * Configuration for a specific mount point
@@ -135,7 +136,7 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
  * Configures ZenFS with single mount point /
  * @category Backends and Configuration
  */
-export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>): Promise<void> {
+export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>, fs=defaultFs): Promise<void> {
 	if (!isBackendConfig(configuration)) {
 		throw new TypeError('Invalid single mount point configuration');
 	}
@@ -151,7 +152,7 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
  * This is implemented as a separate function to avoid a circular dependency between vfs/shared.ts and other vfs layer files.
  * @internal
  */
-async function mountHelper(path: string, mountFs: FileSystem): Promise<void> {
+async function mountHelper(path: string, mountFs: FileSystem, fs=defaultFs): Promise<void> {
 	if (path == '/') {
 		fs.mount(path, mountFs);
 		return;
@@ -169,8 +170,9 @@ async function mountHelper(path: string, mountFs: FileSystem): Promise<void> {
 /**
  * @category Backends and Configuration
  */
-export function addDevice(driver: DeviceDriver, options?: object): Device {
-	const devfs = mounts.get('/dev');
+export function addDevice(driver: DeviceDriver, options?: object, ctx?: V_Context): Device {
+    const mts = ctx?.mounts || mounts;
+	const devfs = mts.get('/dev');
 	if (!(devfs instanceof DeviceFS)) throw crit(new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
@@ -180,7 +182,7 @@ export function addDevice(driver: DeviceDriver, options?: object): Device {
  * @category Backends and Configuration
  * @see Configuration
  */
-export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): Promise<void> {
+export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>, fs=defaultFs): Promise<void> {
 	const uid = 'uid' in configuration ? configuration.uid || 0 : 0;
 	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
 
@@ -201,7 +203,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 			if (point == '/') fs.umount('/');
 
-			await mountHelper(point, await resolveMountConfig(mountConfig));
+			await mountHelper(point, await resolveMountConfig(mountConfig), fs);
 		}
 	}
 
@@ -209,6 +211,6 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();
-		await mountHelper('/dev', devfs);
+		await mountHelper('/dev', devfs, fs);
 	}
 }

@@ -5,6 +5,7 @@ import type { SyncHandle } from '../vfs/file.js';
 import type * as fs from '../vfs/index.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
 import { createCredentials } from './credentials.js';
+import { FileSystem } from '../internal/filesystem.js';
 
 /**
  * A context used for FS operations
@@ -35,6 +36,9 @@ export interface FSContext {
 
 	/** The child contexts */
 	children: FSContext[];
+    
+    /** A map of mount points to file systems */
+    mounts?: Map<string, FileSystem>;
 }
 
 /**
@@ -66,6 +70,7 @@ export interface ContextInit {
 	root?: string;
 	pwd?: string;
 	credentials?: CredentialsInit;
+    mounts?: Map<string, FileSystem>;
 }
 
 /**

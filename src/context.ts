@@ -54,7 +54,12 @@ export const boundContexts = new Map<number, BoundContext>();
  */
 export function bindContext(
 	this: void | null | FSContext,
-	{ root = this?.root || '/', pwd = this?.pwd || '/', credentials = structuredClone(defaultContext.credentials) }: ContextInit = {}
+	{
+        root = this?.root || '/',
+        pwd = this?.pwd || '/',
+        credentials = structuredClone(defaultContext.credentials),
+        mounts = this?.mounts || defaultContext.mounts,
+    }: ContextInit = {}
 ): BoundContext {
 	const parent = this ?? defaultContext;
 
@@ -67,7 +72,10 @@ export function bindContext(
 		parent,
 		children: [],
 	};
-
+    
+    if (mounts) {
+        ctx.mounts = mounts;
+    }
 	const bound = {
 		...ctx,
 		fs: {
