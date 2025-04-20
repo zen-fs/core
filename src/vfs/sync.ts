@@ -5,7 +5,7 @@ import type { ResolvedPath } from './shared.js';
 import { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
 
-import { Buffer } from 'buffer';
+import { Buffer } from 'node:buffer';
 import { decodeUTF8, encodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { Errno, ErrnoError } from '../internal/error.js';

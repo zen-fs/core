@@ -5,7 +5,7 @@ import type { Dir, Dirent } from './dir.js';
 import type { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU } from './types.js';
 
-import { Buffer } from 'buffer';
+import { Buffer } from 'node:buffer';
 import { Errno, ErrnoError } from '../internal/error.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { R_OK } from './constants.js';

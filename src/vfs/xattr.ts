@@ -1,4 +1,4 @@
-import { Buffer } from 'buffer';
+import { Buffer } from 'node:buffer';
 import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
 import { pick } from 'utilium';
 import type { V_Context } from '../context.js';
