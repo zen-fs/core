@@ -66,23 +66,23 @@ suite('Directories', () => {
 		await fs.promises.mkdir('/rmdirTest');
 		await fs.promises.mkdir('/rmdirTest/rmdirTest2');
 
-		assert.rejects(fs.promises.rmdir('/rmdirTest'), { code: 'ENOTEMPTY' });
+		await assert.rejects(fs.promises.rmdir('/rmdirTest'), { code: 'ENOTEMPTY' });
 	});
 
 	test('readdirSync on file', () => {
 		assert.throws(() => fs.readdirSync('a.js'), { code: 'ENOTDIR' });
 	});
 
-	test('readdir on file', () => {
-		assert.rejects(fs.promises.readdir('a.js'), { code: 'ENOTDIR' });
+	test('readdir on file', async () => {
+		await assert.rejects(fs.promises.readdir('a.js'), { code: 'ENOTDIR' });
 	});
 
 	test('readdirSync on non-existant directory', () => {
 		assert.throws(() => fs.readdirSync('/does/not/exist'), { code: 'ENOENT' });
 	});
 
-	test('readdir on non-existant directory', () => {
-		assert.rejects(fs.promises.readdir('/does/not/exist'), { code: 'ENOENT' });
+	test('readdir on non-existant directory', async () => {
+		await assert.rejects(fs.promises.readdir('/does/not/exist'), { code: 'ENOENT' });
 	});
 
 	test('rm recursively asynchronously', async () => {
