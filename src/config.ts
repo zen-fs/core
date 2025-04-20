@@ -151,9 +151,9 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
  * This is implemented as a separate function to avoid a circular dependency between vfs/shared.ts and other vfs layer files.
  * @internal
  */
-async function mountHelper(path: string, mount: FileSystem): Promise<void> {
+async function mountHelper(path: string, mountFs: FileSystem): Promise<void> {
 	if (path == '/') {
-		fs.mount(path, mount);
+		fs.mount(path, mountFs);
 		return;
 	}
 
@@ -163,7 +163,7 @@ async function mountHelper(path: string, mount: FileSystem): Promise<void> {
 	} else if (!stats.isDirectory()) {
 		throw ErrnoError.With('ENOTDIR', path, 'configure');
 	}
-	fs.mount(path, mount);
+	fs.mount(path, mountFs);
 }
 
 /**
