@@ -167,7 +167,7 @@ if (options.common) {
 	const { pass, fail } = await status('Common tests');
 	try {
 		execSync(
-			`tsx ${options.inspect ? 'inspect' : ''} ${options.force ? '--test-force-exit' : ''} --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`,
+			`tsx ${options.inspect ? 'inspect' : ''} ${options.force ? '--test-force-exit' : ''} --test ${options.preserve ? '' : '--experimental-test-coverage'} 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`,
 			{
 				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 			}
@@ -204,7 +204,8 @@ for (const setupFile of positionals) {
 			[
 				'tsx --trace-deprecation',
 				options.inspect ? 'inspect' : '',
-				'--test --experimental-test-coverage',
+				'--test',
+				options.preserve ? '' : '--experimental-test-coverage',
 				options.force ? '--test-force-exit' : '',
 				testsGlob,
 				process.env.CMD,
