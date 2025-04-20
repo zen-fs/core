@@ -65,10 +65,10 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	}
 
 	checkOptions(backend, configuration);
-	const mount = (await backend.create(configuration)) as FilesystemOf<T>;
-	if (configuration.disableAsyncCache) mount.attributes.set('no_async');
-	await mount.ready();
-	return mount;
+	const mountFs = (await backend.create(configuration)) as FilesystemOf<T>;
+	if (configuration.disableAsyncCache) mountFs.attributes.set('no_async');
+	await mountFs.ready();
+	return mountFs;
 }
 
 /**
