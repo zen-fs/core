@@ -1,8 +1,8 @@
 import { withErrno } from 'kerium';
 import { crit, warn } from 'kerium/log';
-import { field, packed, sizeof, struct, types as t, type Struct } from 'memium';
+import { field, packed, sizeof, struct, types as t } from 'memium';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
-import { BufferView, initView } from 'utilium/buffer.js';
+import { BufferView } from 'utilium/buffer.js';
 import * as c from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { defaultContext, type V_Context } from './contexts.js';
@@ -58,17 +58,10 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<
  * @internal
  */
 @struct(packed)
-export class Attributes<T extends ArrayBufferLike = ArrayBufferLike> implements ArrayBufferView<T> {
+export class Attributes extends BufferView {
 	@t.uint32 accessor size!: number;
 
 	declare ['constructor']: typeof Attributes;
-
-	declare readonly buffer: T;
-	declare readonly byteOffset: number;
-	declare readonly byteLength: number;
-	constructor(buffer?: T | ArrayBufferView<T> | ArrayLike<number> | number, byteOffset?: number, byteLength?: number) {
-		initView(this, buffer, byteOffset, byteLength);
-	}
 
 	public get byteSize(): number {
 		let offset = this.byteOffset + sizeof(this);
@@ -275,14 +268,12 @@ export const userModifiableFlags = 0x000380ff;
  */
 @struct(packed)
 export class Inode extends BufferView implements InodeLike {
-	declare static readonly [Symbol.metadata]: { struct: Struct.Metadata };
-
 	public constructor(...args: ConstructorParameters<typeof BufferView> | [Readonly<Partial<InodeLike>>]) {
 		let data = {};
 
-		if (typeof args[0] === 'object' && args[0] !== null && !('length' in args[0])) {
+		if (typeof args[0] === 'object' && args[0] !== null && !ArrayBuffer.isView(args[0])) {
 			data = args[0];
-			args = [new ArrayBuffer(Inode[Symbol.metadata].struct.size)];
+			args = [sizeof(Inode)];
 		}
 
 		super(...(args as ConstructorParameters<typeof BufferView>));
