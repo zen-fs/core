@@ -434,7 +434,16 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		}
 	}
 
-	_fs?: StoreFS<Store> | undefined;
+	protected _fs?: StoreFS<Store> | undefined;
+
+	get fs(): StoreFS<Store> | undefined {
+		return this._fs;
+	}
+
+	set fs(fs: StoreFS<Store> | undefined) {
+		if (this.buffer instanceof SharedArrayBuffer) fs?.attributes.set('no_id_tables', true);
+		this._fs = fs;
+	}
 
 	public sync(): Promise<void> {
 		return Promise.resolve();

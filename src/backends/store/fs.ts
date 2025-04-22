@@ -98,7 +98,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public constructor(protected readonly store: T) {
 		super(store.type ?? 0x6b766673, store.name);
-		store._fs = this;
+		store.fs = this;
 		this._uuid = store.uuid ?? this.uuid;
 		this.label = store.label;
 		debug(this.name + ': supports features: ' + this.store.flags?.join(', '));
@@ -614,11 +614,50 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	/**
+	 * Find an inode without using the ID tables
+	 */
+	private async _findInode(tx: WrappedTransaction, path: string, visited: Set<string> = new Set()): Promise<Inode> {
+		if (visited.has(path)) throw crit(withErrno('EIO', 'Infinite loop detected while finding inode'));
+
+		visited.add(path);
+
+		if (path == '/') return new Inode((await tx.get(rootIno)) ?? _throw(withErrno('ENODATA')));
+
+		const { dir: parent, base: filename } = parse(path);
+		const inode = await this._findInode(tx, parent, visited);
+		const dirList = decodeDirListing((await tx.get(inode.data)) ?? _throw(withErrno('ENODATA')));
+
+		if (!(filename in dirList)) throw withErrno('ENOENT');
+
+		return new Inode((await tx.get(dirList[filename])) ?? _throw(withErrno('ENODATA')));
+	}
+
+	/**
+	 * Find an inode without using the ID tables
+	 */
+	private _findInodeSync(tx: WrappedTransaction, path: string, visited: Set<string> = new Set()): Inode {
+		if (visited.has(path)) throw crit(withErrno('EIO', 'Infinite loop detected while finding inode'));
+
+		visited.add(path);
+
+		if (path == '/') return new Inode(tx.getSync(rootIno) ?? _throw(withErrno('ENOENT')));
+
+		const { dir: parent, base: filename } = parse(path);
+		const inode = this._findInodeSync(tx, parent, visited);
+		const dir = decodeDirListing(tx.getSync(inode.data) ?? _throw(withErrno('ENODATA')));
+
+		if (!(filename in dir)) throw withErrno('ENOENT');
+
+		return new Inode(tx.getSync(dir[filename]) ?? _throw(withErrno('ENODATA')));
+	}
+
+	/**
 	 * Finds the Inode of `path`.
 	 * @param path The path to look up.
 	 * @todo memoize/cache
 	 */
 	protected async findInode(tx: WrappedTransaction, path: string): Promise<Inode> {
+		if (this.attributes.has('no_id_tables')) return await this._findInode(tx, path);
 		const ino = this._ids.get(path);
 		if (ino === undefined) throw withErrno('ENOENT');
 		return new Inode((await tx.get(ino)) ?? _throw(withErrno('ENOENT')));
@@ -631,6 +670,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo memoize/cache
 	 */
 	protected findInodeSync(tx: WrappedTransaction, path: string): Inode {
+		if (this.attributes.has('no_id_tables')) return this._findInodeSync(tx, path);
 		const ino = this._ids.get(path);
 		if (ino === undefined) throw withErrno('ENOENT');
 		return new Inode(tx.getSync(ino) ?? _throw(withErrno('ENOENT')));
