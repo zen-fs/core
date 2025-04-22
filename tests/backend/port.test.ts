@@ -13,7 +13,7 @@ const timeoutChannel = new MessageChannel();
 timeoutChannel.port2.unref();
 
 await suite('Timeout', { timeout: 1000 }, () => {
-	test('Misconfiguration', () => {
+	test('Misconfiguration', async () => {
 		const configured = configure({
 			mounts: {
 				'/tmp-timeout': { backend: InMemory, label: 'tmp' },
@@ -21,13 +21,13 @@ await suite('Timeout', { timeout: 1000 }, () => {
 			},
 		});
 
-		assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
+		await assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
 	});
 
-	test('Remote not attached', () => {
+	test('Remote not attached', async () => {
 		const configured = configureSingle({ backend: Port, port: timeoutChannel.port1, timeout: 100 });
 
-		assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
+		await assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
 	});
 });
 

@@ -11,8 +11,8 @@ suite('Extended Attributes', () => {
 	test.before(() => fs.promises.writeFile(testFile, 'test content'));
 	test.after(() => fs.promises.unlink(testFile));
 
-	test('Non-user attribute set fails', () => {
-		assert.rejects(fs.xattr.set(testFile, 'system.test', 'value'), { code: 'EPERM' });
+	test('Non-user attribute set fails', async () => {
+		await assert.rejects(fs.xattr.set(testFile, 'system.test', 'value'), { code: 'EPERM' });
 	});
 
 	test('set and get attributes', async () => {
@@ -32,7 +32,7 @@ suite('Extended Attributes', () => {
 		await fs.xattr.set(testFile, 'user.to-remove', testValue);
 		await fs.xattr.remove(testFile, 'user.to-remove');
 
-		assert.rejects(fs.xattr.get(testFile, 'user.to-remove', { encoding: 'utf8' }), { code: 'ENODATA' });
+		await assert.rejects(fs.xattr.get(testFile, 'user.to-remove', { encoding: 'utf8' }), { code: 'ENODATA' });
 	});
 
 	test('list attributes', async () => {
@@ -49,17 +49,17 @@ suite('Extended Attributes', () => {
 
 		await fs.xattr.set(testFile, flagTestName, 'original', { create: true });
 
-		assert.rejects(fs.xattr.set(testFile, flagTestName, 'new value', { create: true }), { code: 'EEXIST' });
+		await assert.rejects(fs.xattr.set(testFile, flagTestName, 'new value', { create: true }), { code: 'EEXIST' });
 
 		await fs.xattr.set(testFile, flagTestName, 'updated', { replace: true });
 		const value = await fs.xattr.get(testFile, flagTestName, { encoding: 'utf8' });
 		assert.equal(value, 'updated');
 
-		assert.rejects(fs.xattr.set(testFile, 'user.nonexistent', 'value', { replace: true }), { code: 'ENODATA' });
+		await assert.rejects(fs.xattr.set(testFile, 'user.nonexistent', 'value', { replace: true }), { code: 'ENODATA' });
 	});
 
-	test('file must exist', () => {
-		assert.rejects(fs.xattr.set('nonexistent-file.txt', testName, 'value'), { code: 'ENOENT' });
+	test('file must exist', async () => {
+		await assert.rejects(fs.xattr.set('nonexistent-file.txt', testName, 'value'), { code: 'ENOENT' });
 	});
 
 	test('synchronous operations', () => {

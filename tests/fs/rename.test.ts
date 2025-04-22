@@ -76,7 +76,7 @@ suite('Rename', () => {
 		await fs.promises.mkdir(dir);
 		await fs.promises.writeFile(file, 'file contents go here');
 
-		assert.rejects(fs.promises.rename(file, dir), { code: 'EISDIR' });
+		await assert.rejects(fs.promises.rename(file, dir), { code: 'EISDIR' });
 		assert.throws(() => fs.renameSync(file, dir), { code: 'EISDIR' });
 	});
 
@@ -86,7 +86,7 @@ suite('Rename', () => {
 
 		await fs.promises.mkdir(renDir1);
 
-		assert.rejects(fs.promises.rename(renDir1, renDir2), { code: 'EBUSY' });
+		await assert.rejects(fs.promises.rename(renDir1, renDir2), { code: 'EBUSY' });
 		assert.throws(() => fs.renameSync(renDir1, renDir2), { code: 'EBUSY' });
 	});
 });
