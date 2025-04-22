@@ -520,6 +520,7 @@ export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.
 	const dst = resolveMount(newPath, this);
 
 	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
+	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
 
 	const parent = (await stat.call(this, dirname(oldPath)).catch(rethrow($ex))) as Stats;
 	const stats = (await stat.call(this, oldPath).catch(rethrow($ex))) as Stats;
@@ -809,7 +810,7 @@ export async function mkdir(
 	};
 
 	if (!options?.recursive) {
-		await __create(path, resolved, await fs.stat(dirname(resolved)));
+		await __create(path, resolved, await fs.stat(dirname(resolved)).catch(rethrow({ path: dirname(path) })));
 		return;
 	}
 

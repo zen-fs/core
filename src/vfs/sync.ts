@@ -26,12 +26,13 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	__assertType<string>(oldPath);
 	newPath = normalizePath(newPath);
 	__assertType<string>(newPath);
-	const oldMount = resolveMount(oldPath, this);
-	const newMount = resolveMount(newPath, this);
+	const src = resolveMount(oldPath, this);
+	const dst = resolveMount(newPath, this);
 
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 
-	if (oldMount.fs !== newMount.fs) throw UV('EXDEV', $ex);
+	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
+	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
 
 	const oldStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, oldPath);
 	const oldParent = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath));
@@ -50,7 +51,7 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	if (newStats && isDirectory(oldStats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
 
 	try {
-		oldMount.fs.renameSync(oldMount.path, newMount.path);
+		src.fs.renameSync(src.path, dst.path);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, $ex));
 	}

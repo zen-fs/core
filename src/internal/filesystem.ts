@@ -100,7 +100,7 @@ export type FileSystemAttributes = {
  * @category Internals
  * @internal
  */
-export interface CreationOptions {
+export interface CreationOptions extends Partial<InodeLike> {
 	/**
 	 * The uid to create the file.
 	 * This is ignored if the FS supports setuid and the setuid bit is set
