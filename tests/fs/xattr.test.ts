@@ -12,7 +12,7 @@ suite('Extended Attributes', () => {
 	test.after(() => fs.promises.unlink(testFile));
 
 	test('Non-user attribute set fails', async () => {
-		await assert.rejects(fs.xattr.set(testFile, 'system.test', 'value'), { code: 'EPERM' });
+		await assert.rejects(fs.xattr.set(testFile, 'system.test', 'value'), { code: 'ENOTSUP' });
 	});
 
 	test('set and get attributes', async () => {

@@ -64,7 +64,7 @@ const _allowedRestrictedNames: Name[] = [];
 /**
  * Check permission for the attribute name.
  * For now, only attributes in the 'user' namespace are supported.
- * @throws EPERM for attributes in namespaces other than 'user'
+ * @throws ENOTSUP for attributes in namespaces other than 'user'
  */
 function checkName($: V_Context, name: Name, path: string, syscall: string): void {
 	if (!name.startsWith('user.') && !_allowedRestrictedNames.includes(name)) throw UV('ENOTSUP', syscall, path);

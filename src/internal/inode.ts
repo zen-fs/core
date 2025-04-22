@@ -87,7 +87,6 @@ export class Attributes extends BufferView {
 		for (let i = 0; i < this.size; i++) {
 			const entry = new Attribute(this.buffer, offset);
 			if (entry.name == name) return entry.value;
-			//if (entry.name == name) return new Uint8Array(this.buffer, offset, entry.valueSize);
 			offset += entry.size;
 		}
 	}
@@ -135,6 +134,11 @@ export class Attributes extends BufferView {
 
 		this.size--;
 		return true;
+	}
+
+	public copyFrom(other: Attributes): void {
+		const { byteSize } = other;
+		new Uint8Array(this.buffer, this.byteOffset, byteSize).set(new Uint8Array(other.buffer, other.byteOffset, byteSize));
 	}
 
 	public *keys() {
@@ -390,7 +394,7 @@ export class Inode extends BufferView implements InodeLike {
 		}
 
 		if (data.attributes) {
-			this.attributes = data.attributes;
+			this.attributes.copyFrom(data.attributes);
 			hasChanged = true;
 		}
 
