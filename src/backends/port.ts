@@ -61,7 +61,7 @@ export interface RPCMethods {
 	touch(path: string, metadata: Uint8Array): void;
 	exists(path: string): boolean;
 	link(target: string, link: string): void;
-	sync(path: string): void;
+	sync(): void;
 	read(path: string, buffer: Uint8Array, start: number, end: number): Uint8Array;
 	write(path: string, buffer: Uint8Array, offset: number): void;
 	stat(path: string): Uint8Array;
@@ -104,18 +104,36 @@ function isRPCMessage(arg: unknown): arg is RPCMessage {
 	return typeof arg == 'object' && arg != null && '_zenfs' in arg && !!arg._zenfs;
 }
 
+function disposeExecutors(id: string): void {
+	const executor = executors.get(id);
+	if (!executor) return;
+
+	if (executor.timeout) {
+		clearTimeout(executor.timeout);
+		if (typeof executor.timeout == 'object') executor.timeout.unref();
+	}
+
+	executor.fs._executors.delete(id);
+	executors.delete(id);
+}
+
 /**
  * An RPC executor
  * @internal @hidden
  */
 interface RPCExecutor extends PromiseWithResolvers<any> {
-	fs?: PortFS;
+	fs: PortFS;
+	timeout: ReturnType<typeof setTimeout>;
 }
+
+/**
+ * A map of *all* outstanding RPC requests
+ */
 const executors: Map<string, RPCExecutor> = new Map();
 
 function request<const TRequest extends RPCRequest, TValue>(
 	request: Omit<TRequest, 'id' | 'stack' | '_zenfs'>,
-	{ port, timeout = 1000, fs }: Partial<PortOptions> & { fs?: PortFS } = {}
+	{ port, timeout: ms = 1000, fs }: Partial<PortOptions> & { fs: PortFS }
 ): Promise<TValue> {
 	const stack = '\n' + new Error().stack!.slice('Error:'.length);
 	if (!port) throw err(withErrno('EINVAL', 'Can not make an RPC request without a port'));
@@ -123,14 +141,16 @@ function request<const TRequest extends RPCRequest, TValue>(
 	const { resolve, reject, promise } = Promise.withResolvers<TValue>();
 
 	const id = Math.random().toString(16).slice(10);
-	executors.set(id, { resolve, reject, promise, fs });
-	port.postMessage({ ...request, _zenfs: true, id, stack });
-	const _ = setTimeout(() => {
+	const timeout = setTimeout(() => {
 		const error = err(withErrno('EIO', 'RPC Failed'));
 		error.stack += stack;
+		disposeExecutors(id);
 		reject(error);
-		if (typeof _ == 'object') _.unref();
-	}, timeout);
+	}, ms);
+	const executor: RPCExecutor = { resolve, reject, promise, fs, timeout };
+	fs._executors.set(id, executor);
+	executors.set(id, executor);
+	port.postMessage({ ...request, _zenfs: true, id, stack });
 
 	return promise;
 }
@@ -147,7 +167,7 @@ function handleResponse<const TMethod extends RPCMethod>(response: RPCResponse<T
 	if (!isRPCMessage(response)) return;
 
 	if (!executors.has(response.id)) {
-		const error = err(withErrno('EIO', 'Invalid RPC id:' + response.id));
+		const error = err(withErrno('EIO', 'Invalid RPC id: ' + response.id));
 		error.stack += response.stack;
 		throw error;
 	}
@@ -156,14 +176,13 @@ function handleResponse<const TMethod extends RPCMethod>(response: RPCResponse<T
 	if (response.error) {
 		const e = Exception.fromJSON({ code: 'EIO', errno: Errno.EIO, ...response.error });
 		e.stack += response.stack;
+		disposeExecutors(response.id);
 		reject(e);
-		executors.delete(response.id);
 		return;
 	}
 
+	disposeExecutors(response.id);
 	resolve(__responseMethod(response, 'stat', 'createFile', 'mkdir') ? new Inode(response.value) : response.value);
-
-	executors.delete(response.id);
 	return;
 }
 
@@ -220,7 +239,13 @@ export async function waitOnline(port: RPCPort): Promise<void> {
 export class PortFS extends Async(FileSystem) {
 	public readonly port: RPCPort;
 
-	/**`
+	/**
+	 * A map of outstanding RPC requests
+	 * @internal @hidden
+	 */
+	public readonly _executors: Map<string, RPCExecutor> = new Map();
+
+	/**
 	 * @hidden
 	 */
 	_sync = InMemory.create({ label: 'tmpfs:port' });
@@ -251,7 +276,8 @@ export class PortFS extends Async(FileSystem) {
 	}
 
 	public async stat(path: string): Promise<Inode> {
-		return new Inode(await this.rpc('stat', path));
+		const result = await this.rpc('stat', path);
+		return result instanceof Inode ? result : new Inode(result);
 	}
 
 	public async touch(path: string, metadata: InodeLike | Inode): Promise<void> {
@@ -259,12 +285,17 @@ export class PortFS extends Async(FileSystem) {
 		await this.rpc('touch', path, new Uint8Array(inode.buffer, inode.byteOffset, inode.byteLength));
 	}
 
-	public sync(path: string): Promise<void> {
-		return this.rpc('sync', path);
+	public async sync(): Promise<void> {
+		await this.rpc('sync');
+		for (const executor of this._executors.values()) {
+			await executor.promise.catch(() => {});
+		}
 	}
 
 	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
-		return new Inode(await this.rpc('createFile', path, options));
+		if (options instanceof Inode) options = options.toJSON();
+		const result = await this.rpc('createFile', path, options);
+		return result instanceof Inode ? result : new Inode(result);
 	}
 
 	public unlink(path: string): Promise<void> {
@@ -276,7 +307,9 @@ export class PortFS extends Async(FileSystem) {
 	}
 
 	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
-		return new Inode(await this.rpc('mkdir', path, options));
+		if (options instanceof Inode) options = options.toJSON();
+		const result = await this.rpc('mkdir', path, options);
+		return result instanceof Inode ? result : new Inode(result);
 	}
 
 	public readdir(path: string): Promise<string[]> {

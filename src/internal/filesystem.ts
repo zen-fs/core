@@ -262,8 +262,8 @@ export abstract class FileSystem {
 	public abstract link(target: string, link: string): Promise<void>;
 	public abstract linkSync(target: string, link: string): void;
 
-	public abstract sync(path: string): Promise<void>;
-	public abstract syncSync(path: string): void;
+	public abstract sync(): Promise<void>;
+	public abstract syncSync(): void;
 
 	/**
 	 * Reads into a buffer

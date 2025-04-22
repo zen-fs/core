@@ -68,7 +68,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public async ready(): Promise<void> {
 			await super.ready();
-			await this.queueDone();
+			await this._promise;
 			if (this._isInitialized || this.attributes.has('no_async_preload')) return;
 
 			this.checkSync();
@@ -162,10 +162,15 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(this.link(srcpath, dstpath));
 		}
 
-		public syncSync(path: string): void {
+		public async sync(): Promise<void> {
 			this.checkSync();
-			this._sync.syncSync(path);
-			this._async(this.sync(path));
+			this._sync.syncSync();
+			await this._promise;
+		}
+
+		public syncSync(): void {
+			this.checkSync();
+			this._sync.syncSync();
 		}
 
 		public existsSync(path: string): boolean {

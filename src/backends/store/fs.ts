@@ -391,38 +391,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * Updated the inode and data node at `path`
 	 */
-	public async sync(path: string, data?: Uint8Array, metadata?: Readonly<InodeLike>): Promise<void> {
-		await using tx = this.transaction();
-
-		const inode = await this.findInode(tx, path);
-
-		if (data) await tx.set(inode.data, data);
-
-		if (inode.update(metadata)) {
-			this._add(inode.ino, path);
-			await tx.set(inode.ino, inode);
-		}
-
-		await tx.commit();
-	}
+	public async sync(): Promise<void> {}
 
 	/**
 	 * Updated the inode and data node at `path`
 	 */
-	public syncSync(path: string, data?: Uint8Array, metadata?: Readonly<InodeLike>): void {
-		using tx = this.transaction();
-
-		const inode = this.findInodeSync(tx, path);
-
-		if (data) tx.setSync(inode.data, data);
-
-		if (inode.update(metadata)) {
-			this._add(inode.ino, path);
-			tx.setSync(inode.ino, inode);
-		}
-
-		tx.commitSync();
-	}
+	public syncSync(): void {}
 
 	public async link(target: string, link: string): Promise<void> {
 		await using tx = this.transaction();

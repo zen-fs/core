@@ -183,7 +183,7 @@ export abstract class IndexFS extends FileSystem {
 		return Object.keys(this.index.directoryEntries(path));
 	}
 
-	public async sync(path: string): Promise<void> {}
+	public async sync(): Promise<void> {}
 
-	public syncSync(path: string): void {}
+	public syncSync(): void {}
 }

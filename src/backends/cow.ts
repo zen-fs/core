@@ -158,14 +158,12 @@ export class CopyOnWriteFS extends FileSystem {
 		return this.readable.usage();
 	}
 
-	public async sync(path: string): Promise<void> {
-		await this.copyForWrite(path);
-		await this.writable.sync(path);
+	public async sync(): Promise<void> {
+		await this.writable.sync();
 	}
 
-	public syncSync(path: string): void {
-		this.copyForWriteSync(path);
-		this.writable.syncSync(path);
+	public syncSync(): void {
+		this.writable.syncSync();
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
@@ -427,8 +425,7 @@ export class CopyOnWriteFS extends FileSystem {
 	 * PRECONDITION: File does not exist on writable storage.
 	 */
 	private copyToWritableSync(path: string): void {
-		const stats = this.statSync(path);
-		stats.mode |= 0o222;
+		const stats = this.readable.statSync(path);
 		if (isDirectory(stats)) {
 			this.writable.mkdirSync(path, stats);
 			for (const k of this.readable.readdirSync(path)) {
@@ -445,8 +442,7 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	private async copyToWritable(path: string): Promise<void> {
-		const stats = await this.stat(path);
-		stats.mode |= 0o222;
+		const stats = await this.readable.stat(path);
 		if (isDirectory(stats)) {
 			await this.writable.mkdir(path, stats);
 			for (const k of await this.readable.readdir(path)) {
