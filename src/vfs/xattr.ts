@@ -1,9 +1,8 @@
+import { Buffer } from 'buffer';
+import { rethrow, setUVMessage, UV } from 'kerium';
 import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { InodeLike } from '../internal/inode.js';
-import { Buffer } from 'buffer';
-import { rethrow, setUVMessage, UV } from 'kerium';
-import { pick } from 'utilium';
 import { Attributes, hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { checkAccess } from './config.js';
@@ -165,7 +164,7 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
 
 	inode.attributes.set(name, Buffer.from(value));
 
-	await fs.touch(resolved, pick(inode, 'attributes')).catch(rethrow('xattr.set', path));
+	await fs.touch(resolved, inode).catch(rethrow('xattr.set', path));
 }
 
 /**
@@ -202,7 +201,7 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
 	inode.attributes.set(name, Buffer.from(value));
 
 	try {
-		fs.touchSync(resolved, pick(inode, 'attributes'));
+		fs.touchSync(resolved, inode);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { path }));
 	}
@@ -230,7 +229,7 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
 
 	inode.attributes.remove(name);
 
-	await fs.touch(resolved, pick(inode, 'attributes'));
+	await fs.touch(resolved, inode);
 }
 
 /**
@@ -261,7 +260,7 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
 	inode.attributes.remove(name);
 
 	try {
-		fs.touchSync(resolved, pick(inode, 'attributes'));
+		fs.touchSync(resolved, inode);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { path }));
 	}
