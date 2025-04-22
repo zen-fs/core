@@ -100,6 +100,7 @@ export abstract class IndexFS extends FileSystem {
 		const isDir = (inode.mode & S_IFMT) == S_IFDIR;
 		if (!isDir && !isUnlink) throw withErrno('ENOTDIR');
 		if (isDir && isUnlink) throw withErrno('EISDIR');
+		if (isDir && this.readdirSync(path).length) throw withErrno('ENOTEMPTY');
 		this.index.delete(path);
 	}
 
