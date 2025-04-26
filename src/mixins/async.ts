@@ -1,9 +1,8 @@
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
-import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
+import { _asyncFSKeys, type _SyncFSKeys, type AsyncFSMethods, type Mixin } from './shared.js';
 
 import { withErrno } from 'kerium';
 import { crit, debug, err } from 'kerium/log';
-import { getAllPrototypes } from 'utilium';
 import { StoreFS } from '../backends/store/fs.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import { join } from '../path.js';
@@ -248,13 +247,9 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		 * Patch all async methods to also call their synchronous counterparts unless called from themselves (either sync or async)
 		 */
 		private _patchAsync(): void {
-			const methods = Array.from(getAllPrototypes(this))
-				.flatMap(Object.getOwnPropertyNames)
-				.filter(key => typeof this[key as keyof this] == 'function' && `${key}Sync` in this) as _AsyncFSKeys[];
+			debug(`Async: patched ${_asyncFSKeys.length} methods`);
 
-			debug('Async: patching methods: ' + methods.join(', '));
-
-			for (const key of methods) {
+			for (const key of _asyncFSKeys) {
 				// TS does not narrow the union based on the key
 				const originalMethod = this[key].bind(this) as (...args: unknown[]) => Promise<unknown>;
 
@@ -280,6 +275,13 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 						// @ts-expect-error 2556 - The type of `args` is not narrowed
 						this._sync?.[`${key}Sync`]?.(...args);
 					} catch (e: any) {
+						const stack = e.stack!.split('\n').slice(3).join('\n');
+						if (
+							stack.includes(`at <computed> [as ${key}]`)
+							|| stack.includes(`at async <computed> [as ${key}]`)
+							|| stack.includes(`${key}Sync `)
+						)
+							return result;
 						e.message += ' (Out of sync!)';
 						throw err(e);
 					}

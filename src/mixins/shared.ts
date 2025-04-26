@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-empty-object-type,@typescript-eslint/no-explicit-any */
 /*
 	Code shared by various mixins
 */
@@ -27,16 +27,32 @@ export type _AsyncFSKeys = {
 	[K in _SyncFSKeys]: K extends `${infer T}Sync` ? T : never;
 }[_SyncFSKeys];
 
+export const _asyncFSKeys = [
+	'rename',
+	'stat',
+	'touch',
+	'createFile',
+	'unlink',
+	'rmdir',
+	'mkdir',
+	'readdir',
+	'exists',
+	'link',
+	'sync',
+	'read',
+	'write',
+] as const satisfies _AsyncFSKeys[];
+
 /**
  * Asynchronous `FileSystem` methods. This is a convenience type for all of the async operations.
  * @category Internals
  * @internal
  */
-export type AsyncFSMethods = Pick<FileSystem, _AsyncFSKeys>;
+export interface AsyncFSMethods extends Pick<FileSystem, _AsyncFSKeys> {}
 
 /**
  * Concrete `FileSystem`. This is a convenience type.
  * @category Internals
  * @internal
  */
-export type ConcreteFS = ExtractProperties<FileSystem, any>;
+export interface ConcreteFS extends ExtractProperties<FileSystem, any> {}
