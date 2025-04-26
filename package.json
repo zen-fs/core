@@ -47,7 +47,7 @@
 		"./*": "./dist/*",
 		"./emulation/*": "./dist/vfs/*",
 		"./promises": "./dist/vfs/promises.js",
-		"./path": "./dist/vfs/path.js",
+		"./path": "./dist/path.js",
 		"./eslint": "./eslint.shared.js",
 		"./tests/*": "./tests/*",
 		"./types/*": "./types/*"
