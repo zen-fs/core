@@ -117,3 +117,16 @@ export function normalizeOptions(
 		mode: normalizeMode('mode' in options ? options?.mode : null, mode),
 	};
 }
+
+/**
+ * Converts a glob pattern to a regular expression
+ * @internal
+ */
+export function globToRegex(pattern: string): RegExp {
+	pattern = pattern
+		.replace(/([.?+^$(){}|[\]/])/g, '$1')
+		.replace(/\*\*/g, '.*')
+		.replace(/\*/g, '[^/]*')
+		.replace(/\?/g, '.');
+	return new RegExp(`^${pattern}$`);
+}

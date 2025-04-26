@@ -29,6 +29,7 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 import type { ParsedPath } from 'node:path';
 import type { V_Context } from './context.js';
 import { defaultContext } from './internal/contexts.js';
+import { globToRegex } from './utils.js';
 
 export type AbsolutePath = `/${string}`;
 
@@ -431,4 +432,8 @@ export function parse(path: string): ParsedPath {
 	else if (isAbsolute) ret.dir = '/';
 
 	return ret;
+}
+
+export function matchesGlob(pattern: string, str: string): boolean {
+	return globToRegex(pattern).test(str);
 }

@@ -15,10 +15,10 @@ import { Exception, rethrow, setUVMessage, UV } from 'kerium';
 import { decodeUTF8, pick } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
-import { dirname, join, parse, resolve } from '../path.js';
+import { dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import '../polyfills.js';
 import { createInterface } from '../readline.js';
-import { __assertType, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -298,7 +298,7 @@ export class FileHandle implements promises.FileHandle {
 	 * Read file data using a `ReadableStream`.
 	 * The handle will not be closed automatically.
 	 */
-	public readableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): NodeReadableStream<Uint8Array> {
+	public readableWebStream(options: StreamOptions = {}): NodeReadableStream<Uint8Array> {
 		if (this.closed) throw UV('EBADF', 'readableWebStream', this.path);
 		return this.fs.streamRead(this.internalPath, options);
 	}
@@ -310,7 +310,7 @@ export class FileHandle implements promises.FileHandle {
 	 * The handle will not be closed automatically.
 	 * @internal
 	 */
-	public writableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): WritableStream {
+	public writableWebStream(options: StreamOptions = {}): WritableStream {
 		if (this.closed) throw UV('EBADF', 'writableWebStream', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'writableWebStream', this.path);
 		return this.fs.streamWrite(this.internalPath, options);
@@ -1359,21 +1359,15 @@ export function glob(this: V_Context, pattern: string | string[], opt?: GlobOpti
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
 	// Escape special characters in pattern
-	const regexPatterns = pattern.map(p => {
-		p = p
-			.replace(/([.?+^$(){}|[\]/])/g, '$1')
-			.replace(/\*\*/g, '.*')
-			.replace(/\*/g, '[^/]*')
-			.replace(/\?/g, '.');
-		return new RegExp(`^${p}$`);
-	});
+	const regexPatterns = pattern.map(globToRegex);
 
 	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
 		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
 			const fullPath = withFileTypes ? entry.path : dir + '/' + entry;
-			if (exclude((withFileTypes ? entry : fullPath) as any)) continue;
+			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
+				continue;
 
 			/**
 			 * @todo is the pattern.source check correct?

@@ -10,8 +10,8 @@ import { decodeUTF8, encodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
-import { dirname, join, parse, resolve } from '../path.js';
-import { __assertType, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { dirname, join, matchesGlob, parse, resolve } from '../path.js';
+import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -977,14 +977,7 @@ export function globSync(pattern: string | string[], options: GlobOptionsU = {})
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
 	// Escape special characters in pattern
-	const regexPatterns = pattern.map(p => {
-		p = p
-			.replace(/([.?+^$(){}|[\]/])/g, '\\$1')
-			.replace(/\*\*/g, '.*')
-			.replace(/\*/g, '[^/]*')
-			.replace(/\?/g, '.');
-		return new RegExp(`^${p}$`);
-	});
+	const regexPatterns = pattern.map(globToRegex);
 
 	const results: string[] = [];
 	function recursiveList(dir: string) {
@@ -992,7 +985,8 @@ export function globSync(pattern: string | string[], options: GlobOptionsU = {})
 
 		for (const entry of entries as Entries) {
 			const fullPath = withFileTypes ? entry.path : dir + '/' + entry;
-			if (exclude((withFileTypes ? entry : fullPath) as any)) continue;
+			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
+				continue;
 
 			/**
 			 * @todo is the pattern.source check correct?
