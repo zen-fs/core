@@ -35,6 +35,8 @@ export interface UsageInfo {
 	freeNodes?: number;
 }
 
+export type CaseFold = 'upper' | 'lower';
+
 /**
  * Attributes that control how the file system interacts with the VFS.
  * No options are set by default.
@@ -92,6 +94,11 @@ export interface FileSystemAttributes {
 	 * @experimental
 	 */
 	sync: void;
+
+	/**
+	 * If set, the VFS layer will convert paths to lower/upper case.
+	 */
+	case_fold?: CaseFold;
 }
 
 /**
@@ -182,7 +189,7 @@ export abstract class FileSystem {
 	}
 
 	public toString(): string {
-		return `${this.name} ${this.label ?? ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
+		return `${this.name} ${this.label ? JSON.stringify(this.label) : ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
 	}
 
 	/**

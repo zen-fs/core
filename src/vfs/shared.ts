@@ -92,11 +92,14 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
-		if (_isParentOf(mountPoint, path)) {
-			path = path.slice(mountPoint.length > 1 ? mountPoint.length : 0); // Resolve the path relative to the mount point
-			if (path === '') path = root;
-			return { fs, path, mountPoint, root };
-		}
+		if (!_isParentOf(mountPoint, path)) continue;
+		path = path.slice(mountPoint.length > 1 ? mountPoint.length : 0); // Resolve the path relative to the mount point
+		if (path === '') path = root;
+		const case_fold = fs.attributes.get('case_fold');
+		if (case_fold === 'lower') path = path.toLowerCase();
+		if (case_fold === 'upper') path = path.toUpperCase();
+
+		return { fs, path, mountPoint, root };
 	}
 
 	throw alert(new Exception(Errno.EIO, 'No file system for ' + path));
