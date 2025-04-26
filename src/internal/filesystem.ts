@@ -41,7 +41,7 @@ export interface UsageInfo {
  * @category Internals
  * @internal
  */
-export type FileSystemAttributes = {
+export interface FileSystemAttributes {
 	/**
 	 * If set disables async file systems from preloading their contents.
 	 * This means *sync operations will not work* (unless the contents are cached)
@@ -92,7 +92,7 @@ export type FileSystemAttributes = {
 	 * @experimental
 	 */
 	sync: void;
-};
+}
 
 /**
  * Options used when creating files and directories.
