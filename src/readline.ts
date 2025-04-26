@@ -430,6 +430,10 @@ export class Interface extends EventEmitter<InterfaceEvents> implements readline
 		};
 	}
 
+	public [Symbol.dispose](): void {
+		this.close();
+	}
+
 	public async [Symbol.asyncDispose](): Promise<void> {
 		if (this._closed) return;
 
