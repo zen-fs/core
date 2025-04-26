@@ -21,7 +21,7 @@ suite('Directories', () => {
 	test('mkdir', async () => {
 		await fs.promises.mkdir('/one', 0o755);
 		assert(await fs.promises.exists('/one'));
-		await assert.rejects(fs.promises.mkdir('/one', 0o755), /EEXIST/);
+		await assert.rejects(fs.promises.mkdir('/one', 0o755), { code: 'EEXIST' });
 	});
 
 	test('mkdirSync', async () => await fs.promises.mkdir('/two', 0o000));

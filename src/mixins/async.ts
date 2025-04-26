@@ -25,7 +25,13 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
 	 * @internal @protected
 	 */
 	_sync?: FileSystem;
+	/**
+	 * @deprecated Use {@link sync | `sync`} instead
+	 */
 	queueDone(): Promise<void>;
+	/**
+	 * @deprecated Use {@link sync | `sync`} instead
+	 */
 	ready(): Promise<void>;
 }
 
@@ -41,17 +47,23 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
  */
 export function Async<const T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, AsyncMixin> {
 	abstract class AsyncFS extends FS implements AsyncMixin {
+		/**
+		 * @deprecated Use {@link sync | `sync`} instead
+		 */
 		async done(): Promise<void> {
-			await this._promise;
+			return this.sync();
 		}
 
+		/**
+		 * @deprecated Use {@link sync | `sync`} instead
+		 */
 		public queueDone(): Promise<void> {
-			return this.done();
+			return this.sync();
 		}
 
 		private _promise: Promise<unknown> = Promise.resolve();
 
-		private _async(promise: Promise<unknown>) {
+		protected _async(promise: Promise<unknown>) {
 			this._promise = this._promise.then(() => promise);
 		}
 
@@ -135,8 +147,8 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public unlinkSync(path: string): void {
 			this.checkSync();
-			this._sync.unlinkSync(path);
 			this._async(this.unlink(path));
+			this._sync.unlinkSync(path);
 		}
 
 		public rmdirSync(path: string): void {
@@ -163,8 +175,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		}
 
 		public async sync(): Promise<void> {
-			this.checkSync();
-			this._sync.syncSync();
+			if (!this.attributes.has('no_async_preload') && this._sync) this._sync.syncSync();
 			await this._promise;
 		}
 
@@ -245,14 +256,20 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 			for (const key of methods) {
 				// TS does not narrow the union based on the key
-				const originalMethod = this[key] as (...args: unknown[]) => Promise<unknown>;
+				const originalMethod = this[key].bind(this) as (...args: unknown[]) => Promise<unknown>;
 
 				(this as any)[key] = async (...args: unknown[]) => {
-					const result = await originalMethod.apply(this, args);
+					const result = await originalMethod(...args);
 
-					const stack = new Error().stack?.split('\n').slice(2).join('\n');
-					// !stack == From the async queue
-					if (stack?.includes(`at <computed> [as ${key}]`) || stack?.includes(`${key}Sync `) || !stack) return result;
+					const stack = new Error().stack!.split('\n').slice(2).join('\n');
+					// From the async queue
+					if (
+						!stack
+						|| stack.includes(`at <computed> [as ${key}]`)
+						|| stack.includes(`at async <computed> [as ${key}]`)
+						|| stack.includes(`${key}Sync `)
+					)
+						return result;
 
 					if (!this._isInitialized) {
 						this._skippedCacheUpdates++;
@@ -263,7 +280,8 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 						// @ts-expect-error 2556 - The type of `args` is not narrowed
 						this._sync?.[`${key}Sync`]?.(...args);
 					} catch (e: any) {
-						throw err(withErrno(e.errno, e.message + ' (Out of sync!)'));
+						e.message += ' (Out of sync!)';
+						throw err(e);
 					}
 					return result;
 				};

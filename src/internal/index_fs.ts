@@ -142,6 +142,7 @@ export abstract class IndexFS extends FileSystem {
 			size: 0,
 			uid: parent.mode & S_ISUID ? parent.uid : options.uid,
 			gid: parent.mode & S_ISGID ? parent.gid : options.gid,
+			nlink: 1,
 		});
 
 		this.index.set(path, inode);
