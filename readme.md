@@ -9,7 +9,7 @@ ZenFS can also integrate with other tools.
 ZenFS is modular and easily extended. The core includes some built-in backends:
 
 - `InMemory`: Stores files in-memory. This is cleared when the runtime ends (e.g. a user navigating away from a web page or a Node process exiting)
-- `CopyOnWrite`: Use readable and writable file systems with ([copy-on-write](https://en.wikipedia.org/wiki/Copy-on-write)).
+- `CopyOnWrite`: Use readable and writable file systems with [copy-on-write](https://en.wikipedia.org/wiki/Copy-on-write).
 - `Fetch`: Downloads files over HTTP with the `fetch` API
 - `Port`: Interacts with a remote over a `MessagePort`-like interface (e.g. a worker)
 - `Passthrough`: Use an existing `node:fs` interface with ZenFS
