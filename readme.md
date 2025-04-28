@@ -156,7 +156,7 @@ fs.umount('/mnt/zip'); // finished using the zip
 
 ### Devices and device files
 
-ZenFS includes experimental support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. You can automatically add some normal devices with the `addDevices` configuration option:
+ZenFS includes support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. You can automatically add some normal devices with the `addDevices` configuration option:
 
 ```ts
 await configure({
