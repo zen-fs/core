@@ -441,7 +441,7 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 	}
 
 	set fs(fs: StoreFS<Store> | undefined) {
-		if (this.buffer instanceof SharedArrayBuffer) fs?.attributes.set('no_id_tables', true);
+		if (this.buffer.constructor.name === 'SharedArrayBuffer') fs?.attributes.set('no_id_tables', true);
 		this._fs = fs;
 	}
 
