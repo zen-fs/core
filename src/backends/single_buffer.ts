@@ -11,6 +11,7 @@ import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
 import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 import type { Store } from './store/store.js';
+import { v4 as uuidv4 } from 'uuid';
 
 type Lock = Disposable & (() => void);
 
@@ -174,7 +175,7 @@ export class SuperBlock extends BufferView {
 				version: 1,
 				inode_format: _inode_version,
 				metadata_block_size: sizeof(MetadataBlock),
-				uuid: encodeUUID(crypto.randomUUID()),
+				uuid: encodeUUID(uuidv4() as UUID),
 			});
 			_update(this);
 			_update(md);

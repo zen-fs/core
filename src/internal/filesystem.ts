@@ -1,6 +1,7 @@
 import type { UUID } from 'node:crypto';
 import type { ConstMap } from 'utilium';
 import type { InodeLike } from './inode.js';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Usage information about a file system
@@ -160,7 +161,7 @@ export abstract class FileSystem {
 	 * @privateRemarks This is only used by `ioctl`
 	 * @internal @protected
 	 */
-	_uuid: UUID = crypto.randomUUID();
+	_uuid: UUID = uuidv4() as UUID;
 
 	public get uuid(): UUID {
 		return this._uuid;
