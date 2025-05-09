@@ -12,6 +12,7 @@ import { defaultContext } from '../internal/contexts.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
 import { size_max } from './constants.js';
+import { credentialsAllowRoot } from '../internal/credentials.js';
 
 /**
  * @internal @hidden
@@ -129,8 +130,7 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
  */
 export function chroot(this: V_Context, path: string) {
 	const $ = this ?? defaultContext;
-	if ($.credentials?.uid !== 0 && $.credentials?.gid !== 0 && $.credentials?.euid !== 0 && $.credentials?.egid !== 0)
-		throw withErrno('EPERM', 'Can not chroot() as non-root user');
+	if (!credentialsAllowRoot($.credentials)) throw withErrno('EPERM', 'Can not chroot() as non-root user');
 
 	$.root ??= '/';
 
