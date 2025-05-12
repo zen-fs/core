@@ -3,6 +3,7 @@ import { suite, test } from 'node:test';
 import { canary } from 'utilium';
 import { bindContext } from '../../dist/context.js';
 import * as fs from '../../dist/vfs/index.js';
+import { configure, InMemory } from '../../dist/index.js';
 
 fs.mkdirSync('/ctx');
 const { fs: ctx } = bindContext({ root: '/ctx' });
@@ -57,5 +58,18 @@ suite('Context', () => {
 		assert.equal(lastFile, 'xpto.txt');
 		await watcher.return!();
 		await promise;
+	});
+
+	test('Path resolution of / with context root and mount point being the same', async () => {
+		// @zenfs/core#226
+		await configure({
+			mounts: { '/bananas': InMemory },
+		});
+
+		const bananas = bindContext({ root: '/bananas' });
+
+		fs.writeFileSync('/bananas/yellow', 'true');
+
+		assert.deepEqual(bananas.fs.readdirSync('/'), ['yellow']);
 	});
 });

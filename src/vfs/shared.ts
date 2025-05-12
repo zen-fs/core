@@ -95,7 +95,7 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 		// We know path is normalized, so it would be a substring of the mount point.
 		if (!_isParentOf(mountPoint, path)) continue;
 		path = path.slice(mountPoint.length > 1 ? mountPoint.length : 0); // Resolve the path relative to the mount point
-		if (path === '') path = root;
+		if (path === '') path = '/';
 		const case_fold = fs.attributes.get('case_fold');
 		if (case_fold === 'lower') path = path.toLowerCase();
 		if (case_fold === 'upper') path = path.toUpperCase();
