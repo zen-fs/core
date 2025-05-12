@@ -2,7 +2,7 @@ import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { ResolvedPath } from './shared.js';
-import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Errno, Exception, setUVMessage, UV } from 'kerium';
@@ -219,7 +219,7 @@ export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode
  * @option flag Defaults to `'r'`.
  * @returns file contents
  */
-export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
+export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): NonSharedBuffer;
 export function readFileSync(
 	this: V_Context,
 	path: fs.PathOrFileDescriptor,
@@ -525,24 +525,33 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
-export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): string[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }
+	options?: { encoding: BufferEncoding | null; withFileTypes?: false; recursive?: boolean } | BufferEncoding | null
+): string[];
+export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer'
 ): Buffer[];
-export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): string[] | Buffer[];
-export function readdirSync(this: V_Context, path: fs.PathLike, options: ReaddirOptsI<{ withFileTypes: true }>): Dirent[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
-): string[] | Dirent[] | Buffer[];
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+): string[] | Buffer[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
-): string[] | Dirent[] | Buffer[] {
+	options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean }
+): Dirent[];
+export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
+): Dirent<Buffer>[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): string[] | Dirent<any>[] | Buffer[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): string[] | Dirent<any>[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
@@ -563,7 +572,7 @@ export function readdirSync(
 			continue;
 		}
 		if (options?.withFileTypes) {
-			values.push(new Dirent(entry, entryStat));
+			values.push(new Dirent(entry, entryStat, options.encoding));
 		} else if (options?.encoding == 'buffer') {
 			values.push(Buffer.from(entry));
 		} else {
@@ -792,7 +801,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of readdirSync.call(this, path) as string[]) {
+				for (const entry of readdirSync.call<V_Context, any, string[]>(this, path)) {
 					rmSync.call(this, join(path, entry), options);
 				}
 			}

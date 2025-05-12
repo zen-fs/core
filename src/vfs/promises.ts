@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
+import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
@@ -8,7 +9,7 @@ import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Interface as ReadlineInterface } from '../readline.js';
 import type { ResolvedPath } from './shared.js';
-import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Exception, rethrow, setUVMessage, UV } from 'kerium';
@@ -274,15 +275,10 @@ export class FileHandle implements promises.FileHandle {
 		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos);
 	}
 
-	/**
-	 * Asynchronously reads the entire contents of a file. The underlying file will _not_ be closed automatically.
-	 * The `FileHandle` must have been opened for reading.
-	 * @param _options An object that may contain an optional flag.
-	 * If a flag is not provided, it defaults to `'r'`.
-	 */
-	public async readFile(_options?: { flag?: fs.OpenMode }): Promise<Buffer>;
-	public async readFile(_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string>;
-	public async readFile(_options?: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
+	public async readFile(options?: ({ encoding?: null } & Abortable) | null): Promise<Buffer>;
+	public async readFile(options: ({ encoding: BufferEncoding } & Abortable) | BufferEncoding): Promise<string>;
+	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | Buffer>;
+	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = flags.parse(options.flag);
 		if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.path);
@@ -676,17 +672,17 @@ open satisfies typeof promises.open;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options?: { encoding?: null; flag?: fs.OpenMode } | null
+	options?: ({ encoding?: null; flag?: fs.OpenMode } & Abortable) | null
 ): Promise<Buffer>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options: { encoding: BufferEncoding; flag?: fs.OpenMode } | BufferEncoding
+	options: ({ encoding: BufferEncoding; flag?: fs.OpenMode } & Abortable) | BufferEncoding
 ): Promise<string>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
+	_options?: (fs.ObjectEncodingOptions & Abortable & { flag?: fs.OpenMode }) | BufferEncoding | null
 ): Promise<string | Buffer>;
 export async function readFile(
 	this: V_Context,
@@ -842,29 +838,35 @@ mkdir satisfies typeof promises.mkdir;
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'`.
  */
-export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): Promise<string[]>;
+
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+): Promise<string[]>;
+export async function readdir(
+	this: V_Context,
+	path: fs.PathLike,
+	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer'
 ): Promise<Buffer[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
 ): Promise<string[] | Buffer[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options: ReaddirOptsI<{ withFileTypes: true }>): Promise<Dirent[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
-): Promise<string[] | Dirent[] | Buffer[]>;
+	options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean }
+): Promise<Dirent[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
-): Promise<string[] | Dirent[] | Buffer[]> {
-	options = typeof options === 'object' ? options : { encoding: options };
+	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
+): Promise<Dirent<Buffer>[]>;
+export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]>;
+export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
+	const opt = typeof options === 'object' && options != null ? options : { encoding: options, withFileTypes: false, recursive: false };
 	path = await realpath.call(this, path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -883,7 +885,7 @@ export async function readdir(
 	const values: (string | Dirent | Buffer)[] = [];
 	const addEntry = async (entry: string) => {
 		let entryStats: InodeLike | undefined;
-		if (options?.recursive || options?.withFileTypes) {
+		if (opt.recursive || opt.withFileTypes) {
 			entryStats = await fs.stat(join(resolved, entry)).catch((e: Exception): undefined => {
 				if (e.code == 'ENOENT') return;
 				throw setUVMessage(Object.assign(e, { syscall: 'stat', path: join(path, entry) }));
@@ -891,17 +893,17 @@ export async function readdir(
 			if (!entryStats) return;
 		}
 
-		if (options?.withFileTypes) {
-			values.push(new Dirent(entry, entryStats!));
-		} else if (options?.encoding == 'buffer') {
+		if (opt.withFileTypes) {
+			values.push(new Dirent(entry, entryStats!, opt.encoding));
+		} else if (opt.encoding == 'buffer') {
 			values.push(Buffer.from(entry));
 		} else {
 			values.push(entry);
 		}
 
-		if (!options?.recursive || !isDirectory(entryStats!)) return;
+		if (!opt.recursive || !isDirectory(entryStats!)) return;
 
-		for (const subEntry of await readdir.call(this, join(path, entry), options)) {
+		for (const subEntry of await readdir.call(this, join(path, entry), opt)) {
 			if (subEntry instanceof Dirent) {
 				subEntry.path = join(entry, subEntry.path);
 				values.push(subEntry);
@@ -1202,7 +1204,7 @@ export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOpti
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of (await readdir.call(this, path)) as string[]) {
+				for (const entry of await readdir.call<V_Context, any, Promise<string[]>>(this, path)) {
 					await rm.call(this, join(path, entry), options);
 				}
 			}

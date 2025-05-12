@@ -9,14 +9,16 @@ import { basename } from '../path.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';
 
-export class Dirent implements _Dirent {
-	public get name(): string {
-		return basename(this.path);
+export class Dirent<Name extends string | Buffer = string> implements _Dirent<Name> {
+	public get name(): Name {
+		const name = Buffer.from(basename(this.path));
+		return (this.encoding == 'buffer' ? name : name.toString(this.encoding!)) as Name;
 	}
 
 	public constructor(
 		public path: string,
-		protected stats: InodeLike
+		protected stats: InodeLike,
+		protected readonly encoding?: BufferEncoding | 'buffer' | null
 	) {}
 
 	get parentPath(): string {

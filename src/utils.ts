@@ -102,7 +102,7 @@ export function normalizeOptions(
 	encoding: BufferEncoding | null = 'utf8',
 	flag: string,
 	mode: number = 0
-): { encoding?: BufferEncoding | null; flag: string; mode: number } {
+): fs.ObjectEncodingOptions & { flag: string; mode: number } {
 	if (typeof options != 'object' || options === null) {
 		return {
 			encoding: typeof options == 'string' ? options : (encoding ?? null),
