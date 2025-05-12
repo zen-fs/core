@@ -251,6 +251,7 @@ export class SuperBlock extends BufferView {
 	 * @returns the new metadata block
 	 */
 	public rotateMetadata(): MetadataBlock {
+		this.used_bytes += this.used_bytes % BigInt(4);
 		const metadata = new MetadataBlock(this.buffer, Number(this.used_bytes));
 		metadata.previous_offset = this.metadata_offset;
 
