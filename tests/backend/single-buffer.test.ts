@@ -3,6 +3,9 @@ import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
 import { fs, mount, resolveMountConfig, SingleBuffer } from '../../dist/index.js';
 import { setupLogs } from '../logs.js';
+import { Passthrough } from '../../dist/index.js';
+import nodeFS from 'node:fs';
+import path from 'node:path';
 
 setupLogs();
 
@@ -50,4 +53,34 @@ await suite('SingleBuffer', () => {
 
 		assert(fs.existsSync('/shared/worker-file.ts'));
 	});
+
+	test('should recursively copy files with with same stats', async () => {
+		const buffer = new ArrayBuffer(0x100000);
+
+		const source = await resolveMountConfig({ backend: Passthrough, fs: nodeFS, prefix: path.join(process.cwd(), 'tests/data') });
+		mount('/src', source);
+
+		const dest = await resolveMountConfig({ backend: SingleBuffer, buffer });
+		mount('/dst', dest);
+
+		fs.cpSync('/src', '/dst', { recursive: true, force: true, preserveTimestamps: true });
+
+		// recursively walk through the directory and check that files are the same
+		const files = fs.readdirSync('/src', { withFileTypes: true, recursive: true });
+		for (const file of files) {
+			const srcFile = path.join('/src', file.name);
+			const dstFile = path.join('/dst', file.name);
+			assert(fs.existsSync(dstFile));
+
+			const stats = fs.statSync(srcFile);
+			const dstStats = fs.statSync(dstFile);
+			assert.strictEqual(stats, dstStats);
+
+			if (file.isFile()) {
+				const srcContent = fs.readFileSync(srcFile, 'utf-8');
+				const dstContent = fs.readFileSync(dstFile, 'utf-8');
+				assert.strictEqual(srcContent, dstContent);
+			}
+		}
+	})
 });
