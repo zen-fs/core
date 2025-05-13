@@ -6,7 +6,8 @@
 		"noEmit": true,
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true,
-		"allowJs": true
+		"allowJs": true,
+		"rootDir": ".."
 	},
 	"include": ["**/*.ts", "*.ts", "**/*.js"]
 }
