@@ -82,5 +82,5 @@ await suite('SingleBuffer', () => {
 				assert.strictEqual(srcContent, dstContent);
 			}
 		}
-	})
+	});
 });
