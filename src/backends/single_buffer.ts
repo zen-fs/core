@@ -1,5 +1,5 @@
 import { withErrno } from 'kerium';
-import { alert, crit, err, warn } from 'kerium/log';
+import { alert, crit, debug, err, warn } from 'kerium/log';
 import { field, offsetof, packed, sizeof, struct, types as t, type StructArray } from 'memium';
 import type { UUID } from 'node:crypto';
 import { BufferView } from 'utilium/buffer.js';
@@ -153,13 +153,19 @@ export class MetadataBlock extends Int32Array<ArrayBufferLike> {
 const sb_magic = 0x62732e7a; // 'z.sb'
 
 /**
+ * Shortcut for minor perf. bump
+ * @internal
+ */
+const usedBytes = 2;
+
+/**
  * The super block structure for a single-buffer file system
  */
 @struct(packed)
-export class SuperBlock extends BufferView {
+export class SuperBlock extends BigUint64Array<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof SuperBlock;
 
-	public constructor(...args: ConstructorParameters<typeof BufferView>) {
+	public constructor(...args: ConstructorParameters<typeof BigUint64Array<ArrayBufferLike>>) {
 		super(...args);
 
 		if (this.magic != sb_magic) {
@@ -251,15 +257,17 @@ export class SuperBlock extends BufferView {
 	 * @returns the new metadata block
 	 */
 	public rotateMetadata(): MetadataBlock {
-		this.used_bytes += this.used_bytes % BigInt(4);
-		const metadata = new MetadataBlock(this.buffer, Number(this.used_bytes));
+		const padding = this.used_bytes % BigInt(4);
+
+		Atomics.add(this, usedBytes, padding);
+		const offset = Number(Atomics.add(this, usedBytes, BigInt(sizeof(MetadataBlock))));
+
+		const metadata = new MetadataBlock(this.buffer, offset);
 		metadata.previous_offset = this.metadata_offset;
 
 		this.metadata = metadata;
 		this.metadata_offset = metadata.byteOffset;
 		_update(metadata);
-
-		this.used_bytes += BigInt(sizeof(MetadataBlock));
 		_update(this);
 
 		return metadata;
@@ -389,11 +397,11 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 					return;
 				}
 
-				entry.offset = Number(this.superblock.used_bytes);
+				entry.offset = Number(Atomics.add(this.superblock, usedBytes, BigInt(data.length)));
 				entry.size = data.length;
+
 				this._u8.set(data, entry.offset);
 				_update(block);
-				this.superblock.used_bytes += BigInt(data.length);
 				_update(this.superblock);
 				return;
 			}
@@ -408,7 +416,7 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 
 		using lock = this.superblock.metadata.lock();
 
-		const offset = Number(this.superblock.used_bytes);
+		const offset = Number(Atomics.add(this.superblock, usedBytes, BigInt(data.length)));
 
 		entry.id = id;
 		entry.offset = offset;
@@ -416,7 +424,6 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 
 		this._u8.set(data, offset);
 
-		this.superblock.used_bytes += BigInt(data.length);
 		_update(this.superblock.metadata);
 		_update(this.superblock);
 	}
