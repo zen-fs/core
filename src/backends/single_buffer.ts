@@ -1,5 +1,5 @@
 import { withErrno } from 'kerium';
-import { alert, crit, debug, err, warn } from 'kerium/log';
+import { alert, crit, err, warn } from 'kerium/log';
 import { field, offsetof, packed, sizeof, struct, types as t, type StructArray } from 'memium';
 import type { UUID } from 'node:crypto';
 import { BufferView } from 'utilium/buffer.js';
