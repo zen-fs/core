@@ -11,7 +11,7 @@
 		"target": "ES2019",
 		"verbatimModuleSyntax": true
 	},
-	"include": ["src/**/*.ts"],
+	"include": ["src/**/*.ts", "types/uint8array.d.ts"],
 	"typedocOptions": {
 		"entryPoints": ["./src/index.ts"],
 		"name": "ZenFS",

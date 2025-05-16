@@ -9,5 +9,5 @@
 		"allowJs": true,
 		"rootDir": ".."
 	},
-	"include": ["**/*.ts", "*.ts", "**/*.js"]
+	"include": ["**/*.ts", "*.ts", "**/*.js", "../types/uint8array.d.ts"]
 }
