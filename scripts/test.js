@@ -89,11 +89,12 @@ if (options.ci) ci = await import('./ci.js');
 options.verbose && options.force && console.debug('Forcing tests to exit (--test-force-exit)');
 
 if (options.build) {
-	!options.quiet && console.log('Building...');
+	!options.quiet && process.stdout.write('Building... ');
 	try {
 		execSync('npm run build');
+		console.log('done.');
 	} catch {
-		console.warn('Build failed, continuing without it.');
+		console.warn('failed, continuing without it.');
 	}
 }
 
@@ -141,17 +142,19 @@ async function status(name) {
 		return color(`(${delta} ${unit})`, '2;37');
 	};
 
+	const maybeName = options.verbose ? `: ${name}` : '';
+
 	return {
 		async pass() {
-			if (!options.quiet) console.log(`${color('passed', 32)}: ${name} ${time()}`);
+			if (!options.quiet) console.log(`${color('passed', 32)}${maybeName} ${time()}`);
 			if (options.ci) await ci.completeCheck(name, 'success');
 		},
 		async skip() {
-			if (!options.quiet) console.log(`${color('skipped', 33)}: ${name} ${time()}`);
+			if (!options.quiet) console.log(`${color('skipped', 33)}${maybeName} ${time()}`);
 			if (options.ci) await ci.completeCheck(name, 'skipped');
 		},
 		async fail() {
-			console.error(`${color('failed', '1;31')}: ${name} ${time()}`);
+			console.error(`${color('failed', '1;31')}${maybeName} ${time()}`);
 			if (options.ci) await ci.completeCheck(name, 'failure');
 			process.exitCode = 1;
 			if (options['exit-on-fail']) process.exit();
@@ -163,7 +166,7 @@ if (!options.preserve) rmSync(options.coverage, { force: true, recursive: true }
 mkdirSync(options.coverage, { recursive: true });
 
 if (options.common) {
-	!options.quiet && console.log('Running common tests...');
+	!options.quiet && process.stdout.write('Running common tests...' + (options.verbose ? '\n' : ' '));
 	const { pass, fail } = await status('Common tests');
 	try {
 		execSync(
@@ -187,10 +190,14 @@ for (const setupFile of positionals) {
 	}
 
 	process.env.SETUP = setupFile;
+	process.env.VERBOSE = +options.verbose;
 
 	const name = options['file-names'] && !options.ci ? setupFile : parse(setupFile).name;
 
-	!options.quiet && console.log('Running tests:', name);
+	if (!options.quiet) {
+		if (options.verbose) console.log('Running tests:', name);
+		else process.stdout.write(`Running tests: ${name}... `);
+	}
 
 	const { pass, fail, skip } = await status(name);
 
