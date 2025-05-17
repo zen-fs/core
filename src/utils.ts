@@ -1,6 +1,6 @@
 import { withErrno, type Exception } from 'kerium';
-import type { UUID } from 'node:crypto';
 import type * as fs from 'node:fs';
+import type { Worker as NodeWorker } from 'node:worker_threads';
 import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
 import { resolve } from './path.js';
 
@@ -129,4 +129,11 @@ export function globToRegex(pattern: string): RegExp {
 		.replace(/\*/g, '[^/]*')
 		.replace(/\?/g, '.');
 	return new RegExp(`^${pattern}$`);
+}
+
+export async function waitOnline(worker: NodeWorker): Promise<void> {
+	const online = Promise.withResolvers<void>();
+	setTimeout(() => online.reject(withErrno('ETIMEDOUT')), 500);
+	worker.on('online', online.resolve);
+	await online.promise;
 }
