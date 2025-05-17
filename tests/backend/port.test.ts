@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { suite, test } from 'node:test';
+import { after, suite, test } from 'node:test';
 import { MessageChannel, Worker } from 'node:worker_threads';
 import { Port, attachFS } from '../../dist/backends/port.js';
 import type { InMemoryStore, StoreFS } from '../../dist/index.js';
@@ -29,16 +29,18 @@ await suite('Timeout', { timeout: 1000 }, () => {
 
 		await assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
 	});
-});
 
-timeoutChannel.port1.unref();
+	after(() => {
+		timeoutChannel.port1.unref();
+	});
+});
 
 // Test configuration
 
 const configPort = new Worker(import.meta.dirname + '/config.worker.js');
 await waitOnline(configPort);
 
-await suite('Remote FS with resolveRemoteMount', () => {
+suite('Remote FS with resolveRemoteMount', () => {
 	const content = 'FS is in a port';
 
 	test('Configuration', async () => {
@@ -52,10 +54,12 @@ await suite('Remote FS with resolveRemoteMount', () => {
 	test('Read', async () => {
 		assert.equal(await fs.promises.readFile('/test', 'utf8'), content);
 	});
-});
 
-await configPort.terminate();
-configPort.unref();
+	after(async () => {
+		await configPort.terminate();
+		configPort.unref();
+	});
+});
 
 // Test using a message channel
 
@@ -87,12 +91,14 @@ await suite('FS with MessageChannel', () => {
 	test('readFileSync should throw', () => {
 		assert.throws(() => fs.readFileSync('/test', 'utf8'), { code: 'ENOTSUP' });
 	});
-});
 
-channel.port1.close();
-channel.port2.close();
-channel.port1.unref();
-channel.port2.unref();
+	after(() => {
+		channel.port1.close();
+		channel.port2.close();
+		channel.port1.unref();
+		channel.port2.unref();
+	});
+});
 
 // Test using a worker
 
@@ -112,7 +118,9 @@ await suite('Remote FS', () => {
 	test('Read', async () => {
 		assert.equal(await fs.promises.readFile('/test', 'utf8'), content);
 	});
-});
 
-await remotePort.terminate();
-remotePort.unref();
+	after(async () => {
+		await remotePort.terminate();
+		remotePort.unref();
+	});
+});

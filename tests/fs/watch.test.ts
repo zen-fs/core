@@ -9,9 +9,9 @@ await fs.promises.mkdir(testDir);
 await fs.promises.writeFile(testFile, 'Initial content');
 
 /**
- * @todo convert using watcher to void discards pending ES proposal
+ * @todo convert `using watcher = ...` to void discards pending ES proposal
  */
-await suite('Watch', () => {
+suite('Watch', async () => {
 	test('Events emitted on file change', async () => {
 		const { promise, resolve } = Promise.withResolvers<[string, string]>();
 
@@ -155,6 +155,3 @@ await suite('Watch', () => {
 		await promise;
 	});
 });
-
-await fs.promises.rm(testFile);
-await fs.promises.rm(testDir, { recursive: true, force: true });
