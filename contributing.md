@@ -8,6 +8,10 @@ When opening an issue, write a short yet descriptive name for the title. For exa
 
 Please copy logs, terminal output, and code into a code block in the issue or PR. Do not include screenshots since those are very difficult to debug.
 
+### Bug Reports
+
+When submitting a bug report, you must submit a [Minimal reproducible example](https://en.wikipedia.org/wiki/Minimal_reproducible_example) that does not depend on third party code.
+
 ## Code
 
 #### Nesting
@@ -38,13 +42,11 @@ For the different functions and variables, write a short description of what it 
 
 ## NPM vs 3rd party package managers
 
-ZenFS used `npm` rather than `pnpm` or `yarn` since it makes it easier for new contributors and simplifies tooling.
+ZenFS uses `npm` rather than `pnpm` or `yarn` since it makes it easier for new contributors and simplifies tooling.
 
 ## Building
 
-You can build the project with `npm run build`, or run watch mode with `npm run dev`.
-
-ZenFS produces two builds: One using `tsc`, which is meant for almost all use cases, and `esbuild` which bundles the project into a single minified file for browsers.
+You can build the project with `npm run build` or simply `tsc`, or run watch mode with `npm run dev`. ZenFS builds using `tsc` targetting ES2020.
 
 ## Formatting
 
@@ -75,16 +77,16 @@ const someObject = {
 
 ```
 
-Other style choices are made to steamline the development process, making faster or more efficent. If you make changes to formatting, please make sure they make the development process better, not worse.
+Other style choices are made to streamline the development process, making it faster or more efficent. If you make changes to formatting, please make sure they make the development process better, not worse.
 
 ## Tests
 
 You can run tests with the `npm test` command.
 
-Tests are located in the `tests` directory. They are written in Typescript to catch type errors, and test step-by-step using Node's native testing. Suite names are focused around a set of features (directories, links, permissions, etc.) rather than specific functions or classes.
+Tests are located in the `tests` directory. They are written in Typescript to catch type errors, and test step-by-step using Node's native testing. Suite names are generally focused around a set of features (directories, links, permissions, etc.) rather than specific functions or classes.
 
 There is also a couple of _very_ important files.
 
 `assignment.ts` tests whether the exported `fs` is compatible with Node's exported `fs` module, which catches new feature additions.
 
-`common.ts` provides the framework used for testing. It copies files from `tests/fixtures` to the virtual file system. These files probably aren't needed on their own, and could be generated at test runtime, though they work fine at the time of writing. I think the time spent making those changes could be better spent on actual features. `common.ts` also exports an `fs` module used by all the tests. In the future, I plan on making it possible to test different backends, which would be handled by `common.ts`
+`common.ts` provides the framework used for testing. It copies files from `tests/data` to the virtual file system. These files probably aren't needed on their own, and could be generated at test runtime, though they work fine at the time of writing. I think the time spent making those changes could be better spent on actual features. `common.ts` also exports an `fs` module used by all the tests.
