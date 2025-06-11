@@ -8,7 +8,7 @@
 		"resolveJsonModule": true,
 		"rootDir": "src",
 		"strict": true,
-		"target": "ES2019",
+		"target": "ES2022",
 		"verbatimModuleSyntax": true
 	},
 	"include": ["src/**/*.ts", "types/uint8array.d.ts"],

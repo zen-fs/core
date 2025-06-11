@@ -58,6 +58,7 @@ const max_lock_attempts = 5;
  */
 @struct(packed)
 export class MetadataBlock extends Int32Array<ArrayBufferLike> {
+	static readonly name = 'MetadataBlock';
 	declare readonly ['constructor']: typeof MetadataBlock;
 
 	/**
@@ -163,6 +164,7 @@ const usedBytes = 2;
  */
 @struct(packed)
 export class SuperBlock extends BigUint64Array<ArrayBufferLike> {
+	static readonly name = 'SuperBlock';
 	declare readonly ['constructor']: typeof SuperBlock;
 
 	public constructor(...args: ConstructorParameters<typeof BigUint64Array<ArrayBufferLike>>) {

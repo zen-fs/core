@@ -36,6 +36,7 @@ export const enum Tag {
 
 @struct(packed)
 export class Entry extends BufferView {
+	static readonly name = 'Entry';
 	@t.uint16 accessor tag!: Tag;
 	@t.uint16 accessor perm!: number;
 	@t.uint32 accessor id!: number;
@@ -43,6 +44,7 @@ export class Entry extends BufferView {
 
 @struct(packed)
 export class ACL extends BufferView {
+	static readonly name = 'ACL';
 	@t.uint32 accessor version!: number;
 
 	public entries: Entry[] = [];
