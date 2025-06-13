@@ -56,9 +56,8 @@ const max_lock_attempts = 5;
  * This metadata maps IDs (for inodes and data) to actual offsets in the buffer.
  * This is done since IDs are not guaranteed to be sequential.
  */
-@struct(packed)
+@struct(packed, { name: 'MetadataBlock' })
 export class MetadataBlock extends Int32Array<ArrayBufferLike> {
-	static readonly name = 'MetadataBlock';
 	declare readonly ['constructor']: typeof MetadataBlock;
 
 	/**
@@ -162,9 +161,8 @@ const usedBytes = 2;
 /**
  * The super block structure for a single-buffer file system
  */
-@struct(packed)
+@struct(packed, { name: 'SuperBlock' })
 export class SuperBlock extends BigUint64Array<ArrayBufferLike> {
-	static readonly name = 'SuperBlock';
 	declare readonly ['constructor']: typeof SuperBlock;
 
 	public constructor(...args: ConstructorParameters<typeof BigUint64Array<ArrayBufferLike>>) {

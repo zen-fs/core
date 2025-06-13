@@ -57,9 +57,8 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<
  * @category Internals
  * @internal
  */
-@struct(packed)
+@struct(packed, { name: 'Attributes' })
 export class Attributes extends BufferView {
-	static readonly name = 'Attributes';
 	@t.uint32 accessor size!: number;
 
 	declare ['constructor']: typeof Attributes;
@@ -271,9 +270,8 @@ export const userModifiableFlags = 0x000380ff;
  * @category Internals
  * @internal
  */
-@struct(packed)
+@struct(packed, { name: 'Inode' })
 export class Inode extends BufferView implements InodeLike {
-	static readonly name = 'Inode';
 	public constructor(...args: ConstructorParameters<typeof BufferView> | [Readonly<Partial<InodeLike>>]) {
 		let data = {};
 
