@@ -22,6 +22,7 @@ const { values: options, positionals } = parseArgs({
 		build: { short: 'b', type: 'boolean', default: false },
 		common: { short: 'c', type: 'boolean', default: false },
 		inspect: { short: 'I', type: 'boolean', default: false },
+		skip: { short: 's', type: 'string' },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
 
 		// Coverage
@@ -213,6 +214,7 @@ for (const setupFile of positionals) {
 				options.inspect ? 'inspect' : '',
 				'--test --experimental-test-coverage',
 				options.force ? '--test-force-exit' : '',
+				options.skip ? `--test-skip-pattern=${options.skip}` : '',
 				testsGlob,
 				process.env.CMD,
 			].join(' '),
