@@ -212,7 +212,7 @@ for (const setupFile of positionals) {
 		execSync(
 			[
 				'tsx --trace-deprecation',
-				options.inspect ? 'inspect' : '',
+				options.inspect ? '--inspect' : '',
 				'--test --experimental-test-coverage',
 				options.force ? '--test-force-exit' : '',
 				options.skip ? `--test-skip-pattern=${options.skip}` : '',
