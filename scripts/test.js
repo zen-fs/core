@@ -216,7 +216,7 @@ for (const setupFile of positionals) {
 				'--test --experimental-test-coverage',
 				options.force ? '--test-force-exit' : '',
 				options.skip ? `--test-skip-pattern=${options.skip}` : '',
-				testsGlob,
+				`'${testsGlob.replaceAll("'", "\\'")}'`,
 				process.env.CMD,
 			].join(' '),
 			{
