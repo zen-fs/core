@@ -40,13 +40,14 @@ if (options.help) {
 Paths: The setup files to run tests on
 
 Behavior:
-    -a, --auto          Automatically detect setup files
-    -b, --build         Run the npm build script prior to running tests
-    -c, --common        Also run tests not specific to any backend
-    -e, --exit-on-fail  If any tests suites fail, exit immediately
-    -t, --test <glob>   Which FS test suite(s) to run
-    -f, --force         Whether to use --test-force-exit
-    -I, --inspect       Use the inspector for debugging
+    -a, --auto            Automatically detect setup files
+    -b, --build           Run the npm build script prior to running tests
+    -c, --common          Also run tests not specific to any backend
+    -e, --exit-on-fail    If any tests suites fail, exit immediately
+    -t, --test <glob>     Which FS test suite(s) to run
+    -f, --force           Whether to use --test-force-exit
+    -I, --inspect         Use the inspector for debugging
+	-s, --skip <pattern>  Skip tests with names matching the given pattern.
 
 Output:
     -h, --help          Outputs this help message

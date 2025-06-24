@@ -53,7 +53,7 @@ jobs:
               run: npx zenfs-test -pfv tests/setup/index.ts
 
             - name: 'Unit tests: Port'
-              run: npx zenfs-test -pfv tests/setup/port.ts -s "Lots of inodes/files" -s "Singular file size"
+              run: npx zenfs-test -pfv tests/setup/port.ts -t '!(scaling)'
 
             - name: 'Unit tests: SingleBuffer'
               run: npx zenfs-test -pfv tests/setup/single-buffer.ts
