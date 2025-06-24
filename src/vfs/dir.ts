@@ -4,47 +4,122 @@ import type { InodeLike } from '../internal/inode.js';
 import type { Callback } from '../utils.js';
 
 import { withErrno } from 'kerium';
-import { isBlockDevice, isCharacterDevice, isDirectory, isFIFO, isFile, isSocket, isSymbolicLink } from '../internal/inode.js';
-import { basename } from '../path.js';
+import { packed, sizeof, struct, types as t } from 'memium';
+import { warn } from 'node:console';
+import { encodeUTF8 } from 'utilium';
+import { BufferView } from 'utilium/buffer.js';
+import { basename, dirname } from '../path.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';
 
-export class Dirent<Name extends string | Buffer = string> implements _Dirent<Name> {
+/**
+ * @see `DT_*` in `dirent.h`
+ */
+export enum DirType {
+	UNKNOWN = 0,
+	FIFO = 1,
+	CHR = 2,
+	DIR = 4,
+	BLK = 6,
+	REG = 8,
+	LNK = 10,
+	SOCK = 12,
+	WHT = 14,
+}
+
+/**
+ * Converts a file mode to a directory type.
+ * @see `IFTODT` in `dirent.h`
+ */
+export function ifToDt(mode: number): DirType {
+	return ((mode & 0o170000) >> 12) as DirType;
+}
+
+/**
+ * Converts a directory type to a file mode.
+ * @see `DTTOIF` in `dirent.h`
+ */
+export function dtToIf(dt: DirType): number {
+	return dt << 12;
+}
+
+@struct(packed, { name: 'Dirent' })
+export class Dirent<Name extends string | Buffer = string, TArrayBuffer extends ArrayBufferLike = ArrayBufferLike>
+	extends BufferView<TArrayBuffer>
+	implements _Dirent<Name>
+{
+	@t.uint32 protected accessor ino!: number;
+
+	/** Reserved for 64-bit inodes */
+	@t.uint32 private accessor _ino!: number;
+
+	@t.uint8 protected accessor type!: DirType;
+
+	@t.char(256)
+	protected accessor _name!: Uint8Array;
+
 	public get name(): Name {
-		const name = Buffer.from(basename(this.path));
-		return (this.encoding == 'buffer' ? name : name.toString(this.encoding!)) as Name;
+		const end = (this._name.indexOf(0) + 1 || 256) - 1;
+		const name = Buffer.from(this._name.subarray(0, end));
+		return (this._encoding == 'buffer' ? name : name.toString(this._encoding!)) as Name;
 	}
 
-	public constructor(
-		public path: string,
-		protected stats: InodeLike,
-		protected readonly encoding?: BufferEncoding | 'buffer' | null
-	) {}
+	/**
+	 * @internal @protected
+	 */
+	_encoding?: BufferEncoding | 'buffer' | null;
+
+	/**
+	 * @internal @protected
+	 */
+	_parentPath!: string;
 
 	get parentPath(): string {
-		return this.path;
+		return this._parentPath;
+	}
+
+	/**
+	 * @deprecated Removed in Node v24, use `parentPath` instead.
+	 */
+	get path(): string {
+		warn('Dirent.path was removed in Node v24, use parentPath instead');
+		return this._parentPath;
+	}
+
+	/**
+	 * @internal
+	 */
+	static from(path: string, stats: InodeLike, encoding?: BufferEncoding | 'buffer' | null): Dirent {
+		const dirent = new Dirent(new ArrayBuffer(sizeof(Dirent) + 1));
+		console.log('Dirent.from', sizeof(Dirent), dirent.byteLength);
+		dirent._parentPath = dirname(path);
+		dirent._name = encodeUTF8(basename(path));
+		dirent.ino = stats.ino;
+		dirent.type = ifToDt(stats.mode);
+		dirent._encoding = encoding;
+		return dirent;
 	}
 
 	isFile(): boolean {
-		return isFile(this.stats);
+		return this.type === DirType.REG;
 	}
 	isDirectory(): boolean {
-		return isDirectory(this.stats);
+		return this.type === DirType.DIR;
 	}
 	isBlockDevice(): boolean {
-		return isBlockDevice(this.stats);
+		return this.type === DirType.BLK;
 	}
 	isCharacterDevice(): boolean {
-		return isCharacterDevice(this.stats);
+		return this.type === DirType.CHR;
 	}
 	isSymbolicLink(): boolean {
-		return isSymbolicLink(this.stats);
+		return this.type === DirType.LNK;
 	}
 	isFIFO(): boolean {
-		return isFIFO(this.stats);
+		return this.type === DirType.FIFO;
 	}
 	isSocket(): boolean {
-		return isSocket(this.stats);
+		return this.type === DirType.SOCK;
 	}
 }
 

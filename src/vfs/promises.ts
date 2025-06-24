@@ -871,9 +871,9 @@ export async function readdir(
 	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
 ): Promise<Dirent<Buffer>[]>;
 export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
+export async function readdir(this: V_Context, _path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
 	const opt = typeof options === 'object' && options != null ? options : { encoding: options, withFileTypes: false, recursive: false };
-	path = await realpath.call(this, path);
+	const path = await realpath.call(this, _path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'readdir', path };
@@ -900,7 +900,7 @@ export async function readdir(this: V_Context, path: fs.PathLike, options?: Read
 		}
 
 		if (opt.withFileTypes) {
-			values.push(new Dirent(entry, entryStats!, opt.encoding));
+			values.push(Dirent.from(join(_path.toString(), entry), entryStats!, opt.encoding));
 		} else if (opt.encoding == 'buffer') {
 			values.push(Buffer.from(entry));
 		} else {
@@ -909,17 +909,8 @@ export async function readdir(this: V_Context, path: fs.PathLike, options?: Read
 
 		if (!opt.recursive || !isDirectory(entryStats!)) return;
 
-		for (const subEntry of await readdir.call(this, join(path, entry), opt)) {
-			if (subEntry instanceof Dirent) {
-				subEntry.path = join(entry, subEntry.path);
-				values.push(subEntry);
-			} else if (Buffer.isBuffer(subEntry)) {
-				// Convert Buffer to string, prefix with the full path
-				values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
-			} else {
-				values.push(join(entry, subEntry));
-			}
-		}
+		const children = await fs.readdir(join(resolved, entry)).catch(rethrow({ syscall: 'readdir', path: join(path, entry) }));
+		for (const child of children) await addEntry(join(entry, child));
 	};
 	await Promise.all(entries.map(addEntry));
 
@@ -1373,7 +1364,7 @@ export function glob(this: V_Context, pattern: string | string[], opt?: GlobOpti
 		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
-			const fullPath = withFileTypes ? entry.path : dir + '/' + entry;
+			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : dir + '/' + entry;
 			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
 				continue;
 

@@ -564,33 +564,31 @@ export function readdirSync(this: V_Context, path: fs.PathLike, options?: Readdi
 
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
-	for (const entry of entries) {
+
+	const addEntry = (entry: string) => {
 		let entryStat: InodeLike;
 		try {
 			entryStat = fs.statSync(join(resolved, entry));
-		} catch {
-			continue;
+		} catch (e: any) {
+			if (e.code == 'ENOENT') return;
+			throw setUVMessage(Object.assign(e, { syscall: 'stat', path: join(path, entry) }));
 		}
+
 		if (options?.withFileTypes) {
-			values.push(new Dirent(entry, entryStat, options.encoding));
+			values.push(Dirent.from(entry, entryStat, options.encoding));
 		} else if (options?.encoding == 'buffer') {
 			values.push(Buffer.from(entry));
 		} else {
 			values.push(entry);
 		}
-		if (!isDirectory(entryStat) || !options?.recursive) continue;
 
-		for (const subEntry of readdirSync.call(this, join(path, entry), options)) {
-			if (subEntry instanceof Dirent) {
-				subEntry.path = join(entry, subEntry.path);
-				values.push(subEntry);
-			} else if (Buffer.isBuffer(subEntry)) {
-				values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
-			} else {
-				values.push(join(entry, subEntry));
-			}
-		}
-	}
+		if (!isDirectory(entryStat) || !options?.recursive) return;
+
+		const children = wrap(fs, 'readdirSync', join(path, entry))(join(resolved, entry));
+		for (const child of children) addEntry(join(entry, child));
+	};
+
+	for (const entry of entries) addEntry(entry);
 
 	return values as string[] | Dirent[] | Buffer[];
 }
@@ -988,12 +986,12 @@ export function globSync(pattern: string | string[], options: GlobOptionsU = {})
 	// Escape special characters in pattern
 	const regexPatterns = pattern.map(globToRegex);
 
-	const results: string[] = [];
+	const results: Dirent[] | string[] = [];
 	function recursiveList(dir: string) {
 		const entries = readdirSync(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
-			const fullPath = withFileTypes ? entry.path : dir + '/' + entry;
+			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : dir + '/' + entry;
 			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
 				continue;
 
@@ -1005,7 +1003,7 @@ export function globSync(pattern: string | string[], options: GlobOptionsU = {})
 			}
 
 			if (regexPatterns.some(pattern => pattern.test(fullPath.replace(/^\/+/g, '')))) {
-				results.push(withFileTypes ? entry.path : fullPath.replace(/^\/+/g, ''));
+				results.push(withFileTypes ? entry : (fullPath.replace(/^\/+/g, '') as any));
 			}
 		}
 	}

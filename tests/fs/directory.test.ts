@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { join } from 'node:path/posix';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
@@ -143,10 +144,12 @@ suite('Directories', () => {
 
 	test('readdir returns Dirent recursively', async () => {
 		const entries = await fs.promises.readdir(testDir, { recursive: true, withFileTypes: true });
-		const paths = entries.map(entry => entry.path).sort();
-		assert.equal(paths[0], 'file1.txt');
-		assert.equal(paths[4], 'subdir1/file4.txt');
-		assert.equal(paths[8], 'subdir2/file5.txt');
+		entries.sort((a, b) => join(a.parentPath, a.name).localeCompare(join(b.parentPath, b.name)));
+		const values = entries.map(entry => [entry.parentPath, entry.name]);
+
+		assert.deepEqual(values[0], [testDir, 'file1.txt']);
+		assert.deepEqual(values[4], [join(testDir, 'subdir1'), 'file4.txt']);
+		assert.deepEqual(values[8], [join(testDir, 'subdir2'), 'file5.txt']);
 	});
 
 	test('readdirSync returns files recursively', () => {
