@@ -13,7 +13,7 @@ import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './
 
 import { Buffer } from 'buffer';
 import { Exception, rethrow, setUVMessage, UV } from 'kerium';
-import { decodeUTF8, pick } from 'utilium';
+import { decodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { dirname, join, matchesGlob, parse, resolve } from '../path.js';
@@ -35,11 +35,6 @@ export class FileHandle implements promises.FileHandle {
 	protected _buffer?: Uint8Array;
 
 	/**
-	 * Current position
-	 */
-	protected _position: number = 0;
-
-	/**
 	 * Get the current file position.
 	 *
 	 * We emulate the following bug mentioned in the Node documentation:
@@ -49,11 +44,11 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The current file position.
 	 */
 	public get position(): number {
-		return this.flag & constants.O_APPEND ? this.inode.size : this._position;
+		return this._sync.position;
 	}
 
 	public set position(value: number) {
-		this._position = value;
+		this._sync.position = value;
 	}
 
 	/**
@@ -67,26 +62,37 @@ export class FileHandle implements promises.FileHandle {
 	protected closed: boolean = false;
 
 	/** The path relative to the context's root */
-	public readonly path!: string;
+	public get path(): string {
+		return this._sync.path;
+	}
 
 	/** The internal FS associated with the handle */
-	protected readonly fs!: FileSystem;
+	protected get fs(): FileSystem {
+		return this._sync.fs;
+	}
 
 	/** The path relative to the `FileSystem`'s root */
-	public readonly internalPath!: string;
+	public get internalPath(): string {
+		return this._sync.internalPath;
+	}
 
 	/** The flag the handle was opened with */
-	public readonly flag!: number;
+	public get flag(): number {
+		return this._sync.flag;
+	}
 
 	/** Stats for the handle */
-	public readonly inode!: InodeLike;
+	public get inode(): InodeLike {
+		return this._sync.inode;
+	}
+
+	protected _sync: SyncHandle;
 
 	public constructor(
 		protected context: V_Context,
 		public readonly fd: number
 	) {
-		const sync = fromFD(context, fd);
-		Object.assign(this, pick(sync, 'path', 'fs', 'internalPath', 'flag', 'inode'));
+		this._sync = fromFD(context, fd);
 	}
 
 	private get _isSync(): boolean {
@@ -224,7 +230,7 @@ export class FileHandle implements promises.FileHandle {
 		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
 			end = position + Math.max(this.inode.size - position, 0);
 		}
-		this._position = end;
+		this._sync.position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		await this.fs.read(this.internalPath, uint8.subarray(offset, offset + length), position, end);
 		if (this._isSync) await this.sync();
@@ -368,7 +374,7 @@ export class FileHandle implements promises.FileHandle {
 		this.inode.mtimeMs = Date.now();
 		this.inode.ctimeMs = Date.now();
 
-		this._position = position + slice.byteLength;
+		this._sync.position = position + slice.byteLength;
 		await this.fs.write(this.internalPath, slice, position);
 		if (this._isSync) await this.sync();
 		return slice.byteLength;
