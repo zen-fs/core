@@ -54,7 +54,7 @@ enum XFlag {
 	HasAttr = 0x80000000,
 }
 
-@struct()
+@struct({ name: 'fsxattr' })
 class fsxattr extends BufferView {
 	/** xflags field value */
 	@t.uint32 accessor xflags!: number;

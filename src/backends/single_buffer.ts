@@ -22,7 +22,7 @@ const { format } = new Intl.NumberFormat('en-US', {
 	unitDisplay: 'narrow',
 });
 
-@struct(packed)
+@struct(packed, { name: 'MetadataEntry' })
 class MetadataEntry extends BufferView {
 	/** Inode or data ID */
 	@t.uint32 accessor id!: number;

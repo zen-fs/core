@@ -16,7 +16,7 @@ export const rootIno = 0;
 /** 4 KiB minus static inode data */
 const maxDynamicData = 3968;
 
-@struct(packed)
+@struct(packed, { name: 'Attribute' })
 class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<B> {
 	@t.uint32 public accessor keySize!: number;
 	@t.uint32 public accessor valueSize!: number;
