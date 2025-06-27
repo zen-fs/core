@@ -3,6 +3,7 @@ import type { V_Context } from '../context.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Callback } from '../utils.js';
 
+import { Buffer } from 'buffer';
 import { withErrno } from 'kerium';
 import { packed, sizeof, struct, types as t } from 'memium';
 import { warn } from 'node:console';
