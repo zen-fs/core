@@ -6,11 +6,11 @@ import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './
 
 import { Buffer } from 'buffer';
 import { Errno, Exception, setUVMessage, UV } from 'kerium';
-import { decodeUTF8, encodeUTF8 } from 'utilium';
+import { encodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
-import { dirname, join, matchesGlob, parse, resolve } from '../path.js';
+import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
@@ -105,7 +105,8 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options?: { bigint
 export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const real = join(realpathSync.call(this, dirname(path)), basename(path));
+	const { fs, path: resolved } = resolveMount(real, this);
 	const stats = wrap(fs, 'statSync', path)(resolved);
 
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'lstat', path });

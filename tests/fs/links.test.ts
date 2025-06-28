@@ -18,6 +18,16 @@ suite('Links', () => {
 		assert(stats.isSymbolicLink());
 	});
 
+	test('lstat file inside symlinked directory', async () => {
+		// @zenfs/core#241
+		await fs.promises.mkdir('/a');
+		await fs.promises.writeFile('/a/hello.txt', 'hello world');
+		await fs.promises.symlink('/a', '/b');
+
+		const stat = await fs.promises.lstat('/b/hello.txt');
+		assert(stat.isFile());
+	});
+
 	test('readlink', async () => {
 		const destination = await fs.promises.readlink(symlink);
 		assert.equal(destination, target);

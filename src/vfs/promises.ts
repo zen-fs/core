@@ -13,10 +13,9 @@ import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './
 
 import { Buffer } from 'buffer';
 import { Exception, rethrow, setUVMessage, UV } from 'kerium';
-import { decodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
-import { dirname, join, matchesGlob, parse, resolve } from '../path.js';
+import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import '../polyfills.js';
 import { createInterface } from '../readline.js';
 import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
@@ -584,8 +583,9 @@ export async function lstat(this: V_Context, path: fs.PathLike, options?: { bigi
 export async function lstat(this: V_Context, path: fs.PathLike, options: { bigint: true }): Promise<BigIntStats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'lstat', path };
+	path = join(await realpath.call(this, dirname(path)), basename(path));
+	const { fs, path: resolved } = resolveMount(path, this);
 	const stats = await fs.stat(resolved).catch(rethrow($ex));
 
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);

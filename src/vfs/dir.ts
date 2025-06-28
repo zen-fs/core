@@ -92,7 +92,6 @@ export class Dirent<Name extends string | Buffer = string, TArrayBuffer extends 
 	 */
 	static from(path: string, stats: InodeLike, encoding?: BufferEncoding | 'buffer' | null): Dirent {
 		const dirent = new Dirent(new ArrayBuffer(sizeof(Dirent) + 1));
-		console.log('Dirent.from', sizeof(Dirent), dirent.byteLength);
 		dirent._parentPath = dirname(path);
 		dirent._name = encodeUTF8(basename(path));
 		dirent.ino = stats.ino;
