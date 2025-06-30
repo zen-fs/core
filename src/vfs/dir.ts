@@ -6,7 +6,6 @@ import type { Callback } from '../utils.js';
 import { Buffer } from 'buffer';
 import { withErrno } from 'kerium';
 import { packed, sizeof, struct, types as t } from 'memium';
-import { warn } from 'node:console';
 import { encodeUTF8 } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import { basename, dirname } from '../path.js';
@@ -83,7 +82,7 @@ export class Dirent<Name extends string | Buffer = string, TArrayBuffer extends 
 	 * @deprecated Removed in Node v24, use `parentPath` instead.
 	 */
 	get path(): string {
-		warn('Dirent.path was removed in Node v24, use parentPath instead');
+		console.warn('Dirent.path was removed in Node v24, use parentPath instead');
 		return this._parentPath;
 	}
 
