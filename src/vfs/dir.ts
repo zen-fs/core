@@ -6,7 +6,7 @@ import type { Callback } from '../utils.js';
 import { Buffer } from 'buffer';
 import { withErrno } from 'kerium';
 import { packed, sizeof, struct, types as t } from 'memium';
-import { warn } from 'node:console';
+import { warn } from 'kerium/log';
 import { encodeUTF8 } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import { basename, dirname } from '../path.js';
