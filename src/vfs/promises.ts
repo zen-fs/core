@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
+import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
@@ -8,17 +9,16 @@ import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Interface as ReadlineInterface } from '../readline.js';
 import type { ResolvedPath } from './shared.js';
-import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Exception, rethrow, setUVMessage, UV } from 'kerium';
-import { decodeUTF8, pick } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
-import { dirname, join, parse, resolve } from '../path.js';
+import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import '../polyfills.js';
 import { createInterface } from '../readline.js';
-import { __assertType, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -34,11 +34,6 @@ export class FileHandle implements promises.FileHandle {
 	protected _buffer?: Uint8Array;
 
 	/**
-	 * Current position
-	 */
-	protected _position: number = 0;
-
-	/**
 	 * Get the current file position.
 	 *
 	 * We emulate the following bug mentioned in the Node documentation:
@@ -48,11 +43,11 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The current file position.
 	 */
 	public get position(): number {
-		return this.flag & constants.O_APPEND ? this.inode.size : this._position;
+		return this._sync.position;
 	}
 
 	public set position(value: number) {
-		this._position = value;
+		this._sync.position = value;
 	}
 
 	/**
@@ -66,26 +61,37 @@ export class FileHandle implements promises.FileHandle {
 	protected closed: boolean = false;
 
 	/** The path relative to the context's root */
-	public readonly path!: string;
+	public get path(): string {
+		return this._sync.path;
+	}
 
 	/** The internal FS associated with the handle */
-	protected readonly fs!: FileSystem;
+	protected get fs(): FileSystem {
+		return this._sync.fs;
+	}
 
 	/** The path relative to the `FileSystem`'s root */
-	public readonly internalPath!: string;
+	public get internalPath(): string {
+		return this._sync.internalPath;
+	}
 
 	/** The flag the handle was opened with */
-	public readonly flag!: number;
+	public get flag(): number {
+		return this._sync.flag;
+	}
 
 	/** Stats for the handle */
-	public readonly inode!: InodeLike;
+	public get inode(): InodeLike {
+		return this._sync.inode;
+	}
+
+	protected _sync: SyncHandle;
 
 	public constructor(
 		protected context: V_Context,
 		public readonly fd: number
 	) {
-		const sync = fromFD(context, fd);
-		Object.assign(this, pick(sync, 'path', 'fs', 'internalPath', 'flag', 'inode'));
+		this._sync = fromFD(context, fd);
 	}
 
 	private get _isSync(): boolean {
@@ -223,7 +229,7 @@ export class FileHandle implements promises.FileHandle {
 		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
 			end = position + Math.max(this.inode.size - position, 0);
 		}
-		this._position = end;
+		this._sync.position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 		await this.fs.read(this.internalPath, uint8.subarray(offset, offset + length), position, end);
 		if (this._isSync) await this.sync();
@@ -274,15 +280,10 @@ export class FileHandle implements promises.FileHandle {
 		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos);
 	}
 
-	/**
-	 * Asynchronously reads the entire contents of a file. The underlying file will _not_ be closed automatically.
-	 * The `FileHandle` must have been opened for reading.
-	 * @param _options An object that may contain an optional flag.
-	 * If a flag is not provided, it defaults to `'r'`.
-	 */
-	public async readFile(_options?: { flag?: fs.OpenMode }): Promise<Buffer>;
-	public async readFile(_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string>;
-	public async readFile(_options?: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding): Promise<string | Buffer> {
+	public async readFile(options?: ({ encoding?: null } & Abortable) | null): Promise<Buffer>;
+	public async readFile(options: ({ encoding: BufferEncoding } & Abortable) | BufferEncoding): Promise<string>;
+	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | Buffer>;
+	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = flags.parse(options.flag);
 		if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.path);
@@ -298,7 +299,7 @@ export class FileHandle implements promises.FileHandle {
 	 * Read file data using a `ReadableStream`.
 	 * The handle will not be closed automatically.
 	 */
-	public readableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): NodeReadableStream<Uint8Array> {
+	public readableWebStream(options: StreamOptions = {}): NodeReadableStream<Uint8Array> {
 		if (this.closed) throw UV('EBADF', 'readableWebStream', this.path);
 		return this.fs.streamRead(this.internalPath, options);
 	}
@@ -310,7 +311,7 @@ export class FileHandle implements promises.FileHandle {
 	 * The handle will not be closed automatically.
 	 * @internal
 	 */
-	public writableWebStream(options: promises.ReadableWebStreamOptions & StreamOptions = {}): WritableStream {
+	public writableWebStream(options: StreamOptions = {}): WritableStream {
 		if (this.closed) throw UV('EBADF', 'writableWebStream', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'writableWebStream', this.path);
 		return this.fs.streamWrite(this.internalPath, options);
@@ -372,7 +373,7 @@ export class FileHandle implements promises.FileHandle {
 		this.inode.mtimeMs = Date.now();
 		this.inode.ctimeMs = Date.now();
 
-		this._position = position + slice.byteLength;
+		this._sync.position = position + slice.byteLength;
 		await this.fs.write(this.internalPath, slice, position);
 		if (this._isSync) await this.sync();
 		return slice.byteLength;
@@ -520,6 +521,7 @@ export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.
 	const dst = resolveMount(newPath, this);
 
 	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
+	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
 
 	const parent = (await stat.call(this, dirname(oldPath)).catch(rethrow($ex))) as Stats;
 	const stats = (await stat.call(this, oldPath).catch(rethrow($ex))) as Stats;
@@ -581,8 +583,9 @@ export async function lstat(this: V_Context, path: fs.PathLike, options?: { bigi
 export async function lstat(this: V_Context, path: fs.PathLike, options: { bigint: true }): Promise<BigIntStats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'lstat', path };
+	path = join(await realpath.call(this, dirname(path)), basename(path));
+	const { fs, path: resolved } = resolveMount(path, this);
 	const stats = await fs.stat(resolved).catch(rethrow($ex));
 
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
@@ -675,17 +678,17 @@ open satisfies typeof promises.open;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options?: { encoding?: null; flag?: fs.OpenMode } | null
+	options?: ({ encoding?: null; flag?: fs.OpenMode } & Abortable) | null
 ): Promise<Buffer>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options: { encoding: BufferEncoding; flag?: fs.OpenMode } | BufferEncoding
+	options: ({ encoding: BufferEncoding; flag?: fs.OpenMode } & Abortable) | BufferEncoding
 ): Promise<string>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
+	_options?: (fs.ObjectEncodingOptions & Abortable & { flag?: fs.OpenMode }) | BufferEncoding | null
 ): Promise<string | Buffer>;
 export async function readFile(
 	this: V_Context,
@@ -809,7 +812,7 @@ export async function mkdir(
 	};
 
 	if (!options?.recursive) {
-		await __create(path, resolved, await fs.stat(dirname(resolved)));
+		await __create(path, resolved, await fs.stat(dirname(resolved)).catch(rethrow({ path: dirname(path) })));
 		return;
 	}
 
@@ -841,30 +844,36 @@ mkdir satisfies typeof promises.mkdir;
  * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. If not provided, `'utf8'`.
  */
-export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): Promise<string[]>;
+
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+): Promise<string[]>;
+export async function readdir(
+	this: V_Context,
+	path: fs.PathLike,
+	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer'
 ): Promise<Buffer[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
 ): Promise<string[] | Buffer[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options: ReaddirOptsI<{ withFileTypes: true }>): Promise<Dirent[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
-): Promise<string[] | Dirent[] | Buffer[]>;
+	options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean }
+): Promise<Dirent[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
-): Promise<string[] | Dirent[] | Buffer[]> {
-	options = typeof options === 'object' ? options : { encoding: options };
-	path = await realpath.call(this, path);
+	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
+): Promise<Dirent<Buffer>[]>;
+export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]>;
+export async function readdir(this: V_Context, _path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
+	const opt = typeof options === 'object' && options != null ? options : { encoding: options, withFileTypes: false, recursive: false };
+	const path = await realpath.call(this, _path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'readdir', path };
@@ -882,7 +891,7 @@ export async function readdir(
 	const values: (string | Dirent | Buffer)[] = [];
 	const addEntry = async (entry: string) => {
 		let entryStats: InodeLike | undefined;
-		if (options?.recursive || options?.withFileTypes) {
+		if (opt.recursive || opt.withFileTypes) {
 			entryStats = await fs.stat(join(resolved, entry)).catch((e: Exception): undefined => {
 				if (e.code == 'ENOENT') return;
 				throw setUVMessage(Object.assign(e, { syscall: 'stat', path: join(path, entry) }));
@@ -890,27 +899,18 @@ export async function readdir(
 			if (!entryStats) return;
 		}
 
-		if (options?.withFileTypes) {
-			values.push(new Dirent(entry, entryStats!));
-		} else if (options?.encoding == 'buffer') {
+		if (opt.withFileTypes) {
+			values.push(Dirent.from(join(_path.toString(), entry), entryStats!, opt.encoding));
+		} else if (opt.encoding == 'buffer') {
 			values.push(Buffer.from(entry));
 		} else {
 			values.push(entry);
 		}
 
-		if (!options?.recursive || !isDirectory(entryStats!)) return;
+		if (!opt.recursive || !isDirectory(entryStats!)) return;
 
-		for (const subEntry of await readdir.call(this, join(path, entry), options)) {
-			if (subEntry instanceof Dirent) {
-				subEntry.path = join(entry, subEntry.path);
-				values.push(subEntry);
-			} else if (Buffer.isBuffer(subEntry)) {
-				// Convert Buffer to string, prefix with the full path
-				values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
-			} else {
-				values.push(join(entry, subEntry));
-			}
-		}
+		const children = await fs.readdir(join(resolved, entry)).catch(rethrow({ syscall: 'readdir', path: join(path, entry) }));
+		for (const child of children) await addEntry(join(entry, child));
 	};
 	await Promise.all(entries.map(addEntry));
 
@@ -1201,7 +1201,7 @@ export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOpti
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of (await readdir.call(this, path)) as string[]) {
+				for (const entry of await readdir.call<V_Context, any, Promise<string[]>>(this, path)) {
 					await rm.call(this, join(path, entry), options);
 				}
 			}
@@ -1358,21 +1358,15 @@ export function glob(this: V_Context, pattern: string | string[], opt?: GlobOpti
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
 	// Escape special characters in pattern
-	const regexPatterns = pattern.map(p => {
-		p = p
-			.replace(/([.?+^$(){}|[\]/])/g, '$1')
-			.replace(/\*\*/g, '.*')
-			.replace(/\*/g, '[^/]*')
-			.replace(/\?/g, '.');
-		return new RegExp(`^${p}$`);
-	});
+	const regexPatterns = pattern.map(globToRegex);
 
 	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
 		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
-			const fullPath = withFileTypes ? entry.path : dir + '/' + entry;
-			if (exclude((withFileTypes ? entry : fullPath) as any)) continue;
+			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : dir + '/' + entry;
+			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
+				continue;
 
 			/**
 			 * @todo is the pattern.source check correct?

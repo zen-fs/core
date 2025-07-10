@@ -34,14 +34,14 @@ export const enum Tag {
 	_None = 0x00,
 }
 
-@struct(packed)
+@struct(packed, { name: 'Entry' })
 export class Entry extends BufferView {
 	@t.uint16 accessor tag!: Tag;
 	@t.uint16 accessor perm!: number;
 	@t.uint32 accessor id!: number;
 }
 
-@struct(packed)
+@struct(packed, { name: 'ACL' })
 export class ACL extends BufferView {
 	@t.uint32 accessor version!: number;
 

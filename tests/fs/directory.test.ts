@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { join } from 'node:path/posix';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
 
@@ -21,13 +22,13 @@ suite('Directories', () => {
 	test('mkdir', async () => {
 		await fs.promises.mkdir('/one', 0o755);
 		assert(await fs.promises.exists('/one'));
-		await assert.rejects(fs.promises.mkdir('/one', 0o755), /EEXIST/);
+		await assert.rejects(fs.promises.mkdir('/one', 0o755), { code: 'EEXIST' });
 	});
 
 	test('mkdirSync', async () => await fs.promises.mkdir('/two', 0o000));
 
 	test('mkdir, nested', async () => {
-		assert.rejects(fs.promises.mkdir('/nested/dir'), { code: 'ENOENT', path: '/nested' });
+		await assert.rejects(fs.promises.mkdir('/nested/dir'), { code: 'ENOENT', path: '/nested' });
 		assert(!(await fs.promises.exists('/nested/dir')));
 	});
 
@@ -59,23 +60,23 @@ suite('Directories', () => {
 		await fs.promises.mkdir('/rmdirTest');
 		await fs.promises.mkdir('/rmdirTest/rmdirTest2');
 
-		assert.rejects(fs.promises.rmdir('/rmdirTest'), { code: 'ENOTEMPTY' });
+		await assert.rejects(fs.promises.rmdir('/rmdirTest'), { code: 'ENOTEMPTY' });
 	});
 
 	test('readdirSync on file', () => {
 		assert.throws(() => fs.readdirSync('a.js'), { code: 'ENOTDIR' });
 	});
 
-	test('readdir on file', () => {
-		assert.rejects(fs.promises.readdir('a.js'), { code: 'ENOTDIR' });
+	test('readdir on file', async () => {
+		await assert.rejects(fs.promises.readdir('a.js'), { code: 'ENOTDIR' });
 	});
 
 	test('readdirSync on non-existent directory', () => {
 		assert.throws(() => fs.readdirSync('/does/not/exist'), { code: 'ENOENT' });
 	});
 
-	test('readdir on non-existent directory', () => {
-		assert.rejects(fs.promises.readdir('/does/not/exist'), { code: 'ENOENT' });
+	test('readdir on non-existent directory', async () => {
+		await assert.rejects(fs.promises.readdir('/does/not/exist'), { code: 'ENOENT' });
 	});
 
 	test('rm recursively', async () => {
@@ -143,10 +144,12 @@ suite('Directories', () => {
 
 	test('readdir returns Dirent recursively', async () => {
 		const entries = await fs.promises.readdir(testDir, { recursive: true, withFileTypes: true });
-		const paths = entries.map(entry => entry.path).sort();
-		assert.equal(paths[0], 'file1.txt');
-		assert.equal(paths[4], 'subdir1/file4.txt');
-		assert.equal(paths[8], 'subdir2/file5.txt');
+		entries.sort((a, b) => join(a.parentPath, a.name).localeCompare(join(b.parentPath, b.name)));
+		const values = entries.map(entry => [entry.parentPath, entry.name]);
+
+		assert.deepEqual(values[0], [testDir, 'file1.txt']);
+		assert.deepEqual(values[4], [join(testDir, 'subdir1'), 'file4.txt']);
+		assert.deepEqual(values[8], [join(testDir, 'subdir2'), 'file5.txt']);
 	});
 
 	test('readdirSync returns files recursively', () => {

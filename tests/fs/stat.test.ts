@@ -7,8 +7,8 @@ import { fs } from '../common.js';
 suite('Stats', () => {
 	const existing_file = 'x.txt';
 
-	test('stat empty path', () => {
-		assert.rejects(fs.promises.stat(''));
+	test('stat empty path', async () => {
+		await assert.rejects(fs.promises.stat(''));
 	});
 
 	test('stat directory', async () => {

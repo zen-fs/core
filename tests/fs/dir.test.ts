@@ -16,15 +16,15 @@ for (const file of testFiles) {
 suite('Dirent', () => {
 	test('name and parentPath getters', async () => {
 		const stats = await fs.promises.lstat(testFile);
-		const dirent = new fs.Dirent(testFile, stats);
+		const dirent = fs.Dirent.from(testFile, stats);
 
 		assert.equal(dirent.name, testFile);
-		assert.equal(dirent.parentPath, testFile);
+		assert.equal(dirent.parentPath, '.');
 	});
 
 	test('isFile', async () => {
 		const fileStats = await fs.promises.lstat(testFile);
-		const fileDirent = new fs.Dirent(testFile, fileStats);
+		const fileDirent = fs.Dirent.from(testFile, fileStats);
 
 		assert(fileDirent.isFile());
 		assert(!fileDirent.isDirectory());
@@ -32,7 +32,7 @@ suite('Dirent', () => {
 
 	test('isDirectory', async () => {
 		const dirStats = await fs.promises.lstat('test-directory');
-		const dirDirent = new fs.Dirent('test-directory', dirStats);
+		const dirDirent = fs.Dirent.from('test-directory', dirStats);
 
 		assert(!dirDirent.isFile());
 		assert(dirDirent.isDirectory());
@@ -40,14 +40,14 @@ suite('Dirent', () => {
 
 	test('isSymbolicLink', async () => {
 		const symlinkStats = await fs.promises.lstat('test-symlink');
-		const symlinkDirent = new fs.Dirent('test-symlink', symlinkStats);
+		const symlinkDirent = fs.Dirent.from('test-symlink', symlinkStats);
 
 		assert(symlinkDirent.isSymbolicLink());
 	});
 
 	test('other methods return false', async () => {
 		const fileStats = await fs.promises.lstat(testFile);
-		const fileDirent = new fs.Dirent(testFile, fileStats);
+		const fileDirent = fs.Dirent.from(testFile, fileStats);
 
 		assert(!fileDirent.isBlockDevice());
 		assert(!fileDirent.isCharacterDevice());

@@ -100,6 +100,7 @@ export abstract class IndexFS extends FileSystem {
 		const isDir = (inode.mode & S_IFMT) == S_IFDIR;
 		if (!isDir && !isUnlink) throw withErrno('ENOTDIR');
 		if (isDir && isUnlink) throw withErrno('EISDIR');
+		if (isDir && this.readdirSync(path).length) throw withErrno('ENOTEMPTY');
 		this.index.delete(path);
 	}
 
@@ -141,6 +142,7 @@ export abstract class IndexFS extends FileSystem {
 			size: 0,
 			uid: parent.mode & S_ISUID ? parent.uid : options.uid,
 			gid: parent.mode & S_ISGID ? parent.gid : options.gid,
+			nlink: 1,
 		});
 
 		this.index.set(path, inode);
@@ -183,7 +185,7 @@ export abstract class IndexFS extends FileSystem {
 		return Object.keys(this.index.directoryEntries(path));
 	}
 
-	public async sync(path: string): Promise<void> {}
+	public async sync(): Promise<void> {}
 
-	public syncSync(path: string): void {}
+	public syncSync(): void {}
 }

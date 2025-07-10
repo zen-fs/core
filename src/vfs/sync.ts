@@ -2,16 +2,16 @@ import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { ResolvedPath } from './shared.js';
-import type { FileContents, GlobOptionsU, NullEnc, OpenOptions, ReaddirOptions, ReaddirOptsI, ReaddirOptsU } from './types.js';
+import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Errno, Exception, setUVMessage, UV } from 'kerium';
-import { decodeUTF8, encodeUTF8 } from 'utilium';
+import { encodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
-import { dirname, join, parse, resolve } from '../path.js';
-import { __assertType, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
+import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -26,12 +26,13 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	__assertType<string>(oldPath);
 	newPath = normalizePath(newPath);
 	__assertType<string>(newPath);
-	const oldMount = resolveMount(oldPath, this);
-	const newMount = resolveMount(newPath, this);
+	const src = resolveMount(oldPath, this);
+	const dst = resolveMount(newPath, this);
 
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 
-	if (oldMount.fs !== newMount.fs) throw UV('EXDEV', $ex);
+	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
+	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
 
 	const oldStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, oldPath);
 	const oldParent = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath));
@@ -50,7 +51,7 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	if (newStats && isDirectory(oldStats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
 
 	try {
-		oldMount.fs.renameSync(oldMount.path, newMount.path);
+		src.fs.renameSync(src.path, dst.path);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, $ex));
 	}
@@ -104,7 +105,8 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options?: { bigint
 export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const real = join(realpathSync.call(this, dirname(path)), basename(path));
+	const { fs, path: resolved } = resolveMount(real, this);
 	const stats = wrap(fs, 'statSync', path)(resolved);
 
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'lstat', path });
@@ -218,7 +220,7 @@ export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode
  * @option flag Defaults to `'r'`.
  * @returns file contents
  */
-export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): Buffer;
+export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): NonSharedBuffer;
 export function readFileSync(
 	this: V_Context,
 	path: fs.PathOrFileDescriptor,
@@ -524,24 +526,33 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode 
 }
 mkdirSync satisfies typeof fs.mkdirSync;
 
-export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): string[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.BufferEncodingOption & ReaddirOptions & { withFileTypes?: false }
+	options?: { encoding: BufferEncoding | null; withFileTypes?: false; recursive?: boolean } | BufferEncoding | null
+): string[];
+export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer'
 ): Buffer[];
-export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptsI<{ withFileTypes?: false }> | NullEnc): string[] | Buffer[];
-export function readdirSync(this: V_Context, path: fs.PathLike, options: ReaddirOptsI<{ withFileTypes: true }>): Dirent[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
-): string[] | Dirent[] | Buffer[];
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+): string[] | Buffer[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: ReaddirOptsU<fs.BufferEncodingOption> | NullEnc
-): string[] | Dirent[] | Buffer[] {
+	options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean }
+): Dirent[];
+export function readdirSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
+): Dirent<Buffer>[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): string[] | Dirent<any>[] | Buffer[];
+export function readdirSync(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): string[] | Dirent<any>[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
@@ -554,33 +565,31 @@ export function readdirSync(
 
 	// Iterate over entries and handle recursive case if needed
 	const values: (string | Dirent | Buffer)[] = [];
-	for (const entry of entries) {
+
+	const addEntry = (entry: string) => {
 		let entryStat: InodeLike;
 		try {
 			entryStat = fs.statSync(join(resolved, entry));
-		} catch {
-			continue;
+		} catch (e: any) {
+			if (e.code == 'ENOENT') return;
+			throw setUVMessage(Object.assign(e, { syscall: 'stat', path: join(path, entry) }));
 		}
+
 		if (options?.withFileTypes) {
-			values.push(new Dirent(entry, entryStat));
+			values.push(Dirent.from(entry, entryStat, options.encoding));
 		} else if (options?.encoding == 'buffer') {
 			values.push(Buffer.from(entry));
 		} else {
 			values.push(entry);
 		}
-		if (!isDirectory(entryStat) || !options?.recursive) continue;
 
-		for (const subEntry of readdirSync.call(this, join(path, entry), options)) {
-			if (subEntry instanceof Dirent) {
-				subEntry.path = join(entry, subEntry.path);
-				values.push(subEntry);
-			} else if (Buffer.isBuffer(subEntry)) {
-				values.push(Buffer.from(join(entry, decodeUTF8(subEntry))));
-			} else {
-				values.push(join(entry, subEntry));
-			}
-		}
-	}
+		if (!isDirectory(entryStat) || !options?.recursive) return;
+
+		const children = wrap(fs, 'readdirSync', join(path, entry))(join(resolved, entry));
+		for (const child of children) addEntry(join(entry, child));
+	};
+
+	for (const entry of entries) addEntry(entry);
 
 	return values as string[] | Dirent[] | Buffer[];
 }
@@ -791,7 +800,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
 			if (options?.recursive) {
-				for (const entry of readdirSync.call(this, path) as string[]) {
+				for (const entry of readdirSync.call<V_Context, any, string[]>(this, path)) {
 					rmSync.call(this, join(path, entry), options);
 				}
 			}
@@ -976,22 +985,16 @@ export function globSync(pattern: string | string[], options: GlobOptionsU = {})
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
 	// Escape special characters in pattern
-	const regexPatterns = pattern.map(p => {
-		p = p
-			.replace(/([.?+^$(){}|[\]/])/g, '\\$1')
-			.replace(/\*\*/g, '.*')
-			.replace(/\*/g, '[^/]*')
-			.replace(/\?/g, '.');
-		return new RegExp(`^${p}$`);
-	});
+	const regexPatterns = pattern.map(globToRegex);
 
-	const results: string[] = [];
+	const results: Dirent[] | string[] = [];
 	function recursiveList(dir: string) {
 		const entries = readdirSync(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
-			const fullPath = withFileTypes ? entry.path : dir + '/' + entry;
-			if (exclude((withFileTypes ? entry : fullPath) as any)) continue;
+			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : dir + '/' + entry;
+			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
+				continue;
 
 			/**
 			 * @todo is the pattern.source check correct?
@@ -1001,7 +1004,7 @@ export function globSync(pattern: string | string[], options: GlobOptionsU = {})
 			}
 
 			if (regexPatterns.some(pattern => pattern.test(fullPath.replace(/^\/+/g, '')))) {
-				results.push(withFileTypes ? entry.path : fullPath.replace(/^\/+/g, ''));
+				results.push(withFileTypes ? entry : (fullPath.replace(/^\/+/g, '') as any));
 			}
 		}
 	}

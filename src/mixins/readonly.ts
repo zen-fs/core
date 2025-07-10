@@ -21,8 +21,8 @@ export interface ReadonlyMixin {
 	linkSync(srcpath: string, dstpath: string): never;
 	touch(path: string, metadata: Readonly<InodeLike>): Promise<never>;
 	touchSync(path: string, metadata: Readonly<InodeLike>): never;
-	sync(path: string): Promise<never>;
-	syncSync(path: string): never;
+	sync(): Promise<never>;
+	syncSync(): never;
 	write(path: string, buffer: Uint8Array, offset: number): Promise<never>;
 	writeSync(path: string, buffer: Uint8Array, offset: number): never;
 }

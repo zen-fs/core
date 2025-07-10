@@ -1,7 +1,9 @@
 import { Buffer } from 'buffer';
 import assert from 'node:assert/strict';
+import type { OpenMode, PathLike } from 'node:fs';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { promisify } from 'node:util';
+import { fs, type Callback } from '../common.js';
 
 const filepath = 'x.txt';
 const expected = 'xyz\n';
@@ -64,5 +66,26 @@ suite('read', () => {
 
 		assert.equal(buffer.subarray(10, buffer.length).toString(), expected);
 		assert.equal(bytesRead, expected.length);
+	});
+
+	test('read using callback API', async () => {
+		// @zenfs/core#239
+		const path = '/text.txt';
+
+		fs.writeFileSync(path, 'hello world');
+		const fd: number = (await promisify<PathLike, OpenMode, number | string>(fs.open)(path, 0, 0)) as any;
+
+		const read = promisify(fs.read);
+
+		const buf = Buffer.alloc(1024);
+		const n0 = await read(fd, buf, 0, 1024, undefined);
+		assert.equal(n0, 11);
+		assert.equal(buf.subarray(0, n0).toString('utf8'), 'hello world');
+
+		const n1 = await read(fd, buf, 0, 1024, undefined);
+		assert.equal(n1, 0);
+		assert.equal(buf.subarray(0, n1).toString('utf8'), '');
+
+		await promisify(fs.close)(fd);
 	});
 });

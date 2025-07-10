@@ -2,7 +2,7 @@
 import { withErrno } from 'kerium';
 import { debug, err } from 'kerium/log';
 import type { Entries, RequiredKeys } from 'utilium';
-import type { FileSystem } from '../internal/filesystem.js';
+import type { CaseFold, FileSystem } from '../internal/filesystem.js';
 
 type OptionType =
 	| 'string'
@@ -48,6 +48,11 @@ export interface SharedConfig {
 	 * If set, disables the sync cache and sync operations on async file systems.
 	 */
 	disableAsyncCache?: boolean;
+
+	/**
+	 * If set, sets case folding for the file system(s).
+	 */
+	caseFold?: CaseFold;
 }
 
 /**

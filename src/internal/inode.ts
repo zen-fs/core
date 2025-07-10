@@ -1,8 +1,8 @@
 import { withErrno } from 'kerium';
 import { crit, warn } from 'kerium/log';
-import { field, packed, sizeof, struct, types as t, type Struct } from 'memium';
+import { field, packed, sizeof, struct, types as t } from 'memium';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
-import { BufferView, initView } from 'utilium/buffer.js';
+import { BufferView } from 'utilium/buffer.js';
 import * as c from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { defaultContext, type V_Context } from './contexts.js';
@@ -16,7 +16,7 @@ export const rootIno = 0;
 /** 4 KiB minus static inode data */
 const maxDynamicData = 3968;
 
-@struct(packed)
+@struct(packed, { name: 'Attribute' })
 class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<B> {
 	@t.uint32 public accessor keySize!: number;
 	@t.uint32 public accessor valueSize!: number;
@@ -57,18 +57,11 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<
  * @category Internals
  * @internal
  */
-@struct(packed)
-export class Attributes<T extends ArrayBufferLike = ArrayBufferLike> implements ArrayBufferView<T> {
+@struct(packed, { name: 'Attributes' })
+export class Attributes extends BufferView {
 	@t.uint32 accessor size!: number;
 
 	declare ['constructor']: typeof Attributes;
-
-	declare readonly buffer: T;
-	declare readonly byteOffset: number;
-	declare readonly byteLength: number;
-	constructor(buffer?: T | ArrayBufferView<T> | ArrayLike<number> | number, byteOffset?: number, byteLength?: number) {
-		initView(this, buffer, byteOffset, byteLength);
-	}
 
 	public get byteSize(): number {
 		let offset = this.byteOffset + sizeof(this);
@@ -94,7 +87,6 @@ export class Attributes<T extends ArrayBufferLike = ArrayBufferLike> implements 
 		for (let i = 0; i < this.size; i++) {
 			const entry = new Attribute(this.buffer, offset);
 			if (entry.name == name) return entry.value;
-			//if (entry.name == name) return new Uint8Array(this.buffer, offset, entry.valueSize);
 			offset += entry.size;
 		}
 	}
@@ -142,6 +134,11 @@ export class Attributes<T extends ArrayBufferLike = ArrayBufferLike> implements 
 
 		this.size--;
 		return true;
+	}
+
+	public copyFrom(other: Attributes): void {
+		const { byteSize } = other;
+		new Uint8Array(this.buffer, this.byteOffset, byteSize).set(new Uint8Array(other.buffer, other.byteOffset, byteSize));
 	}
 
 	public *keys() {
@@ -273,16 +270,14 @@ export const userModifiableFlags = 0x000380ff;
  * @category Internals
  * @internal
  */
-@struct(packed)
+@struct(packed, { name: 'Inode' })
 export class Inode extends BufferView implements InodeLike {
-	declare static readonly [Symbol.metadata]: { struct: Struct.Metadata };
-
 	public constructor(...args: ConstructorParameters<typeof BufferView> | [Readonly<Partial<InodeLike>>]) {
 		let data = {};
 
-		if (typeof args[0] === 'object' && args[0] !== null && !('length' in args[0])) {
+		if (typeof args[0] === 'object' && args[0] !== null && !ArrayBuffer.isView(args[0])) {
 			data = args[0];
-			args = [new ArrayBuffer(Inode[Symbol.metadata].struct.size)];
+			args = [sizeof(Inode)];
 		}
 
 		super(...(args as ConstructorParameters<typeof BufferView>));
@@ -399,7 +394,7 @@ export class Inode extends BufferView implements InodeLike {
 		}
 
 		if (data.attributes) {
-			this.attributes = data.attributes;
+			this.attributes.copyFrom(data.attributes);
 			hasChanged = true;
 		}
 

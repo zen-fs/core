@@ -6,3 +6,4 @@ tmp
 build
 tests/coverage
 .coverage
+tmp.*

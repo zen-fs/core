@@ -49,8 +49,8 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.linkSync(srcpath, dstpath);
 		}
 
-		public async sync(path: string): Promise<void> {
-			return this.syncSync(path);
+		public async sync(): Promise<void> {
+			return this.syncSync();
 		}
 
 		public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {

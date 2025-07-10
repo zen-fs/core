@@ -12,6 +12,15 @@ import * as fs from './vfs/index.js';
 import { mounts } from './vfs/shared.js';
 
 /**
+ * Update the configuration of a file system.
+ * @category Backends and Configuration
+ */
+export function configureFileSystem(fs: FileSystem, config: SharedConfig): void {
+	if (config.disableAsyncCache) fs.attributes.set('no_async_preload');
+	if (config.caseFold) fs.attributes.set('case_fold', config.caseFold);
+}
+
+/**
  * Configuration for a specific mount point
  * @category Backends and Configuration
  */
@@ -65,7 +74,7 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 
 	checkOptions(backend, configuration);
 	const mount = (await backend.create(configuration)) as FilesystemOf<T>;
-	if (configuration.disableAsyncCache) mount.attributes.set('no_async_preload');
+	configureFileSystem(mount, configuration);
 	await mount.ready();
 	return mount;
 }
@@ -180,10 +189,13 @@ export function addDevice(driver: DeviceDriver, options?: object): Device {
  * @see Configuration
  */
 export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): Promise<void> {
-	const uid = 'uid' in configuration ? configuration.uid || 0 : 0;
-	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
-
-	Object.assign(defaultContext.credentials, createCredentials({ uid, gid }));
+	Object.assign(
+		defaultContext.credentials,
+		createCredentials({
+			uid: configuration.uid || 0,
+			gid: configuration.gid || 0,
+		})
+	);
 
 	_setAccessChecks(!configuration.disableAccessChecks);
 
@@ -196,6 +208,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 			if (isBackendConfig(mountConfig)) {
 				mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;
+				mountConfig.caseFold ??= configuration.caseFold;
 			}
 
 			if (point == '/') fs.umount('/');
@@ -204,7 +217,11 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		}
 	}
 
-	if (configuration.addDevices) {
+	for (const fs of mounts.values()) {
+		configureFileSystem(fs, configuration);
+	}
+
+	if (configuration.addDevices && !mounts.has('/dev')) {
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();

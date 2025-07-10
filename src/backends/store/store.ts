@@ -63,7 +63,7 @@ export interface Store {
 	/**
 	 * @internal @hidden
 	 */
-	_fs?: StoreFS;
+	fs?: StoreFS;
 }
 
 /**

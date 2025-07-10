@@ -35,13 +35,15 @@ export interface UsageInfo {
 	freeNodes?: number;
 }
 
+export type CaseFold = 'upper' | 'lower';
+
 /**
  * Attributes that control how the file system interacts with the VFS.
  * No options are set by default.
  * @category Internals
  * @internal
  */
-export type FileSystemAttributes = {
+export interface FileSystemAttributes {
 	/**
 	 * If set disables async file systems from preloading their contents.
 	 * This means *sync operations will not work* (unless the contents are cached)
@@ -92,7 +94,12 @@ export type FileSystemAttributes = {
 	 * @experimental
 	 */
 	sync: void;
-};
+
+	/**
+	 * If set, the VFS layer will convert paths to lower/upper case.
+	 */
+	case_fold?: CaseFold;
+}
 
 /**
  * Options used when creating files and directories.
@@ -100,7 +107,7 @@ export type FileSystemAttributes = {
  * @category Internals
  * @internal
  */
-export interface CreationOptions {
+export interface CreationOptions extends Partial<InodeLike> {
 	/**
 	 * The uid to create the file.
 	 * This is ignored if the FS supports setuid and the setuid bit is set
@@ -182,7 +189,7 @@ export abstract class FileSystem {
 	}
 
 	public toString(): string {
-		return `${this.name} ${this.label ?? ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
+		return `${this.name} ${this.label ? JSON.stringify(this.label) : ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
 	}
 
 	/**
@@ -262,8 +269,8 @@ export abstract class FileSystem {
 	public abstract link(target: string, link: string): Promise<void>;
 	public abstract linkSync(target: string, link: string): void;
 
-	public abstract sync(path: string): Promise<void>;
-	public abstract syncSync(path: string): void;
+	public abstract sync(): Promise<void>;
+	public abstract syncSync(): void;
 
 	/**
 	 * Reads into a buffer

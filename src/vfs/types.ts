@@ -18,21 +18,17 @@ export interface OpenOptions {
 	allowDirectory?: boolean;
 }
 
-export interface ReaddirOptions {
-	withFileTypes?: boolean;
-	recursive?: boolean;
-}
+export type ReaddirOptions =
+	| {
+			withFileTypes?: boolean;
+			recursive?: boolean;
+			encoding?: BufferEncoding | 'buffer' | null;
+	  }
+	| BufferEncoding
+	| 'buffer'
+	| null;
 
 // Helper types to make the vfs types more readable
 
 /** Helper union @hidden */
 export type GlobOptionsU = fs.GlobOptionsWithFileTypes | fs.GlobOptionsWithoutFileTypes | fs.GlobOptions;
-
-/** Helper with union @hidden */
-export type ReaddirOptsU<T> = (ReaddirOptions & (fs.ObjectEncodingOptions | T)) | NullEnc;
-
-/** Helper with intersection @hidden */
-export type ReaddirOptsI<T> = ReaddirOptions & fs.ObjectEncodingOptions & T;
-
-/** @hidden */
-export type NullEnc = BufferEncoding | null;

@@ -167,14 +167,14 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Synchronize data to the file system.
 	 */
-	public async sync(path: string): Promise<void> {
+	public async sync(): Promise<void> {
 		warn('Sync on passthrough is unnecessary');
 	}
 
 	/**
 	 * Synchronize data to the file system synchronously.
 	 */
-	public syncSync(path: string): void {
+	public syncSync(): void {
 		warn('Sync on passthrough is unnecessary');
 	}
 

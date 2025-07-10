@@ -24,10 +24,11 @@ await suite('SingleBuffer', () => {
 		assert.deepEqual(snapshotStats, stats);
 	});
 
-	test('cross-thread SharedArrayBuffer', { todo: true }, async () => {
+	test('cross-thread SharedArrayBuffer', async () => {
 		const sharedBuffer = new SharedArrayBuffer(0x100000);
 
 		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer: sharedBuffer });
+		fs.mkdirSync('/shared');
 		mount('/shared', writable);
 
 		const worker = new Worker(import.meta.dirname + '/single-buffer.worker.js', { workerData: sharedBuffer });

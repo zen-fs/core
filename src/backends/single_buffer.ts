@@ -22,7 +22,7 @@ const { format } = new Intl.NumberFormat('en-US', {
 	unitDisplay: 'narrow',
 });
 
-@struct(packed)
+@struct(packed, { name: 'MetadataEntry' })
 class MetadataEntry extends BufferView {
 	/** Inode or data ID */
 	@t.uint32 accessor id!: number;
@@ -56,7 +56,7 @@ const max_lock_attempts = 5;
  * This metadata maps IDs (for inodes and data) to actual offsets in the buffer.
  * This is done since IDs are not guaranteed to be sequential.
  */
-@struct(packed)
+@struct(packed, { name: 'MetadataBlock' })
 export class MetadataBlock extends Int32Array<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof MetadataBlock;
 
@@ -153,13 +153,19 @@ export class MetadataBlock extends Int32Array<ArrayBufferLike> {
 const sb_magic = 0x62732e7a; // 'z.sb'
 
 /**
+ * Shortcut for minor perf. bump
+ * @internal
+ */
+const usedBytes = 2;
+
+/**
  * The super block structure for a single-buffer file system
  */
-@struct(packed)
-export class SuperBlock extends BufferView {
+@struct(packed, { name: 'SuperBlock' })
+export class SuperBlock extends BigUint64Array<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof SuperBlock;
 
-	public constructor(...args: ConstructorParameters<typeof BufferView>) {
+	public constructor(...args: ConstructorParameters<typeof BigUint64Array<ArrayBufferLike>>) {
 		super(...args);
 
 		if (this.magic != sb_magic) {
@@ -251,14 +257,17 @@ export class SuperBlock extends BufferView {
 	 * @returns the new metadata block
 	 */
 	public rotateMetadata(): MetadataBlock {
-		const metadata = new MetadataBlock(this.buffer, Number(this.used_bytes));
+		const padding = this.used_bytes % BigInt(4);
+
+		Atomics.add(this, usedBytes, padding);
+		const offset = Number(Atomics.add(this, usedBytes, BigInt(sizeof(MetadataBlock))));
+
+		const metadata = new MetadataBlock(this.buffer, offset);
 		metadata.previous_offset = this.metadata_offset;
 
 		this.metadata = metadata;
 		this.metadata_offset = metadata.byteOffset;
 		_update(metadata);
-
-		this.used_bytes += BigInt(sizeof(MetadataBlock));
 		_update(this);
 
 		return metadata;
@@ -388,11 +397,11 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 					return;
 				}
 
-				entry.offset = Number(this.superblock.used_bytes);
+				entry.offset = Number(Atomics.add(this.superblock, usedBytes, BigInt(data.length)));
 				entry.size = data.length;
+
 				this._u8.set(data, entry.offset);
 				_update(block);
-				this.superblock.used_bytes += BigInt(data.length);
 				_update(this.superblock);
 				return;
 			}
@@ -407,7 +416,7 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 
 		using lock = this.superblock.metadata.lock();
 
-		const offset = Number(this.superblock.used_bytes);
+		const offset = Number(Atomics.add(this.superblock, usedBytes, BigInt(data.length)));
 
 		entry.id = id;
 		entry.offset = offset;
@@ -415,7 +424,6 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 
 		this._u8.set(data, offset);
 
-		this.superblock.used_bytes += BigInt(data.length);
 		_update(this.superblock.metadata);
 		_update(this.superblock);
 	}
@@ -434,7 +442,16 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		}
 	}
 
-	_fs?: StoreFS<Store> | undefined;
+	protected _fs?: StoreFS<Store> | undefined;
+
+	get fs(): StoreFS<Store> | undefined {
+		return this._fs;
+	}
+
+	set fs(fs: StoreFS<Store> | undefined) {
+		if (this.buffer.constructor.name === 'SharedArrayBuffer') fs?.attributes.set('no_id_tables', true);
+		this._fs = fs;
+	}
 
 	public sync(): Promise<void> {
 		return Promise.resolve();
