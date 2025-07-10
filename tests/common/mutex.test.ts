@@ -1,16 +1,16 @@
-import { wait } from 'utilium';
-import { Mutexed } from '../../dist/mixins/mutexed.js';
-import { StoreFS } from '../../dist/backends/store/fs.js';
-import { InMemoryStore } from '../../dist/backends/memory.js';
-import { suite, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { suite, test } from 'node:test';
+import { wait } from 'utilium';
+import { InMemoryStore } from '../../dist/backends/memory.js';
+import { StoreFS } from '../../dist/backends/store/fs.js';
+import { Mutexed } from '../../dist/mixins/mutexed.js';
 
-suite('LockFS mutex', () => {
+suite('Mutexed FS', () => {
 	const fs = new (Mutexed(StoreFS))(new InMemoryStore(0x10000, 'test'));
 	fs._fs.checkRootSync();
 
 	test('lock/unlock', () => {
-		const lock = fs.lockSync('/test', 'lock');
+		const lock = fs.lockSync();
 		assert(fs.isLocked);
 		lock.unlock();
 		assert(!fs.isLocked);
@@ -20,11 +20,11 @@ suite('LockFS mutex', () => {
 		let lock1Resolved = false;
 		let lock2Resolved = false;
 
-		const lock1 = fs.lock('/queued', 'test').then(lock => {
+		const lock1 = fs.lock().then(lock => {
 			lock1Resolved = true;
 			lock.unlock();
 		});
-		const lock2 = fs.lock('/queued', 'test').then(lock => {
+		const lock2 = fs.lock().then(lock => {
 			lock2Resolved = true;
 			lock.unlock();
 		});
@@ -50,7 +50,7 @@ suite('LockFS mutex', () => {
 		let x = 1;
 
 		async function foo() {
-			const lock = await fs.lock('raceConditions', 'test');
+			const lock = await fs.lock();
 			await wait(25);
 			x++;
 			lock.unlock();

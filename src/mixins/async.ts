@@ -1,11 +1,10 @@
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
-import type { _AsyncFSKeys, _SyncFSKeys, AsyncFSMethods, Mixin } from './shared.js';
+import { _asyncFSKeys, type _SyncFSKeys, type AsyncFSMethods, type Mixin } from './shared.js';
 
-import { getAllPrototypes } from 'utilium';
+import { withErrno } from 'kerium';
+import { crit, debug, err } from 'kerium/log';
 import { StoreFS } from '../backends/store/fs.js';
-import { Errno, ErrnoError } from '../internal/error.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
-import { crit, debug, err } from '../internal/log.js';
 import { join } from '../path.js';
 
 /**
@@ -25,7 +24,13 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
 	 * @internal @protected
 	 */
 	_sync?: FileSystem;
+	/**
+	 * @deprecated Use {@link sync | `sync`} instead
+	 */
 	queueDone(): Promise<void>;
+	/**
+	 * @deprecated Use {@link sync | `sync`} instead
+	 */
 	ready(): Promise<void>;
 }
 
@@ -41,17 +46,23 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
  */
 export function Async<const T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, AsyncMixin> {
 	abstract class AsyncFS extends FS implements AsyncMixin {
+		/**
+		 * @deprecated Use {@link sync | `sync`} instead
+		 */
 		async done(): Promise<void> {
-			await this._promise;
+			return this.sync();
 		}
 
+		/**
+		 * @deprecated Use {@link sync | `sync`} instead
+		 */
 		public queueDone(): Promise<void> {
-			return this.done();
+			return this.sync();
 		}
 
 		private _promise: Promise<unknown> = Promise.resolve();
 
-		private _async(promise: Promise<unknown>) {
+		protected _async(promise: Promise<unknown>) {
 			this._promise = this._promise.then(() => promise);
 		}
 
@@ -68,8 +79,8 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public async ready(): Promise<void> {
 			await super.ready();
-			await this.queueDone();
-			if (this._isInitialized || this.attributes.has('no_async')) return;
+			await this._promise;
+			if (this._isInitialized || this.attributes.has('no_async_preload')) return;
 
 			this.checkSync();
 
@@ -97,95 +108,99 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				this._isInitialized = true;
 			} catch (e: any) {
 				this._isInitialized = false;
-				throw crit(e, { fs: this });
+				throw crit(e);
 			}
 		}
 
-		protected checkSync(path?: string, syscall?: string): asserts this is { _sync: FileSystem } {
-			if (this.attributes.has('no_async')) {
-				throw new ErrnoError(Errno.ENOTSUP, 'Sync preloading has been disabled for this async file system', path, syscall);
+		protected checkSync(): asserts this is { _sync: FileSystem } {
+			if (this.attributes.has('no_async_preload')) {
+				throw withErrno('ENOTSUP', 'Sync preloading has been disabled for this async file system');
 			}
 			if (!this._sync) {
-				throw crit(new ErrnoError(Errno.ENOTSUP, 'No sync cache is attached to this async file system', path, syscall), { fs: this });
+				throw crit(withErrno('ENOTSUP', 'No sync cache is attached to this async file system'));
 			}
 		}
 
 		public renameSync(oldPath: string, newPath: string): void {
-			this.checkSync(oldPath, 'rename');
+			this.checkSync();
 			this._sync.renameSync(oldPath, newPath);
 			this._async(this.rename(oldPath, newPath));
 		}
 
 		public statSync(path: string): InodeLike {
-			this.checkSync(path, 'stat');
+			this.checkSync();
 			return this._sync.statSync(path);
 		}
 
 		public touchSync(path: string, metadata: InodeLike): void {
-			this.checkSync(path, 'touch');
+			this.checkSync();
 			this._sync.touchSync(path, metadata);
 			this._async(this.touch(path, metadata));
 		}
 
 		public createFileSync(path: string, options: CreationOptions): InodeLike {
-			this.checkSync(path, 'createFile');
+			this.checkSync();
 			this._async(this.createFile(path, options));
 			return this._sync.createFileSync(path, options);
 		}
 
 		public unlinkSync(path: string): void {
-			this.checkSync(path, 'unlinkSync');
-			this._sync.unlinkSync(path);
+			this.checkSync();
 			this._async(this.unlink(path));
+			this._sync.unlinkSync(path);
 		}
 
 		public rmdirSync(path: string): void {
-			this.checkSync(path, 'rmdir');
+			this.checkSync();
 			this._sync.rmdirSync(path);
 			this._async(this.rmdir(path));
 		}
 
 		public mkdirSync(path: string, options: CreationOptions): InodeLike {
-			this.checkSync(path, 'mkdir');
+			this.checkSync();
 			this._async(this.mkdir(path, options));
 			return this._sync.mkdirSync(path, options);
 		}
 
 		public readdirSync(path: string): string[] {
-			this.checkSync(path, 'readdir');
+			this.checkSync();
 			return this._sync.readdirSync(path);
 		}
 
 		public linkSync(srcpath: string, dstpath: string): void {
-			this.checkSync(srcpath, 'link');
+			this.checkSync();
 			this._sync.linkSync(srcpath, dstpath);
 			this._async(this.link(srcpath, dstpath));
 		}
 
-		public syncSync(path: string): void {
-			this.checkSync(path, 'sync');
-			this._sync.syncSync(path);
-			this._async(this.sync(path));
+		public async sync(): Promise<void> {
+			if (!this.attributes.has('no_async_preload') && this._sync) this._sync.syncSync();
+			await this._promise;
+		}
+
+		public syncSync(): void {
+			this.checkSync();
+			this._sync.syncSync();
 		}
 
 		public existsSync(path: string): boolean {
-			this.checkSync(path, 'exists');
+			this.checkSync();
 			return this._sync.existsSync(path);
 		}
 
 		public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
-			this.checkSync(path, 'read');
+			this.checkSync();
 			this._sync.readSync(path, buffer, offset, end);
 		}
 
 		public writeSync(path: string, buffer: Uint8Array, offset: number): void {
-			this.checkSync(path, 'write');
+			this.checkSync();
 			this._sync.writeSync(path, buffer, offset);
 			this._async(this.write(path, buffer, offset));
 		}
 
 		public streamWrite(path: string, options: StreamOptions): WritableStream {
-			this.checkSync(path, 'streamWrite');
+			this.checkSync();
 			const sync = this._sync.streamWrite(path, options).getWriter();
 			const async = super.streamWrite(path, options).getWriter();
 
@@ -206,7 +221,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		 * @internal
 		 */
 		protected async crossCopy(path: string): Promise<void> {
-			this.checkSync(path, 'crossCopy');
+			this.checkSync();
 			const stats = await this.stat(path);
 			if (!isDirectory(stats)) {
 				this._sync.createFileSync(path, stats);
@@ -232,22 +247,24 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		 * Patch all async methods to also call their synchronous counterparts unless called from themselves (either sync or async)
 		 */
 		private _patchAsync(): void {
-			const methods = Array.from(getAllPrototypes(this))
-				.flatMap(Object.getOwnPropertyNames)
-				.filter(key => typeof this[key as keyof this] == 'function' && `${key}Sync` in this) as _AsyncFSKeys[];
+			debug(`Async: patched ${_asyncFSKeys.length} methods`);
 
-			debug('Async: patching methods: ' + methods.join(', '));
-
-			for (const key of methods) {
+			for (const key of _asyncFSKeys) {
 				// TS does not narrow the union based on the key
-				const originalMethod = this[key] as (...args: unknown[]) => Promise<unknown>;
+				const originalMethod = this[key].bind(this) as (...args: unknown[]) => Promise<unknown>;
 
 				(this as any)[key] = async (...args: unknown[]) => {
-					const result = await originalMethod.apply(this, args);
+					const result = await originalMethod(...args);
 
-					const stack = new Error().stack?.split('\n').slice(2).join('\n');
-					// !stack == From the async queue
-					if (stack?.includes(`at <computed> [as ${key}]`) || stack?.includes(`${key}Sync `) || !stack) return result;
+					const stack = new Error().stack!.split('\n').slice(2).join('\n');
+					// From the async queue
+					if (
+						!stack
+						|| stack.includes(`at <computed> [as ${key}]`)
+						|| stack.includes(`at async <computed> [as ${key}]`)
+						|| stack.includes(`${key}Sync `)
+					)
+						return result;
 
 					if (!this._isInitialized) {
 						this._skippedCacheUpdates++;
@@ -258,7 +275,15 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 						// @ts-expect-error 2556 - The type of `args` is not narrowed
 						this._sync?.[`${key}Sync`]?.(...args);
 					} catch (e: any) {
-						throw err(new ErrnoError(e.errno, e.message + ' (Out of sync!)', e.path, key), { fs: this });
+						const stack = e.stack!.split('\n').slice(3).join('\n');
+						if (
+							stack.includes(`at <computed> [as ${key}]`)
+							|| stack.includes(`at async <computed> [as ${key}]`)
+							|| stack.includes(`${key}Sync `)
+						)
+							return result;
+						e.message += ' (Out of sync!)';
+						throw err(e);
 					}
 					return result;
 				};

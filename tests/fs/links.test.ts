@@ -1,8 +1,8 @@
+import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { join } from '../../dist/path.js';
 import { fs } from '../common.js';
-import type { ErrnoError } from '../../dist/index.js';
 
 suite('Links', () => {
 	const target = '/a1.js',
@@ -18,9 +18,20 @@ suite('Links', () => {
 		assert(stats.isSymbolicLink());
 	});
 
+	test('lstat file inside symlinked directory', async () => {
+		// @zenfs/core#241
+		await fs.promises.mkdir('/a');
+		await fs.promises.writeFile('/a/hello.txt', 'hello world');
+		await fs.promises.symlink('/a', '/b');
+
+		const stat = await fs.promises.lstat('/b/hello.txt');
+		assert(stat.isFile());
+	});
+
 	test('readlink', async () => {
 		const destination = await fs.promises.readlink(symlink);
 		assert.equal(destination, target);
+		assert.throws(() => fs.readlinkSync(destination));
 	});
 
 	test('read target contents', async () => {
@@ -59,7 +70,7 @@ suite('Links', () => {
 	});
 
 	test('link', async t => {
-		const _ = await fs.promises.link(target, hardlink).catch((e: ErrnoError) => {
+		const _ = await fs.promises.link(target, hardlink).catch((e: Exception) => {
 			if (e.code == 'ENOSYS') return e;
 			throw e;
 		});

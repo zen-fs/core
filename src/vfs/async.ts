@@ -6,7 +6,7 @@ import type { Stats } from './stats.js';
 import type { FileContents, GlobOptionsU } from './types.js';
 
 import { Buffer } from 'node:buffer';
-import { Errno, ErrnoError } from '../internal/error.js';
+import { UV, withErrno, type Exception } from 'kerium';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { R_OK } from './constants.js';
 import * as promises from './promises.js';
@@ -266,9 +266,7 @@ export function ftruncate(this: V_Context, fd: number, lenOrCB?: number | Callba
 	const length = typeof lenOrCB === 'number' ? lenOrCB : 0;
 	cb = typeof lenOrCB === 'function' ? lenOrCB : cb;
 	const file = new promises.FileHandle(this, fd);
-	if (length < 0) {
-		throw new ErrnoError(Errno.EINVAL);
-	}
+	if (length < 0) throw withErrno('EINVAL');
 	file.truncate(length)
 		.then(() => cb())
 		.catch(cb);
@@ -351,7 +349,7 @@ export function write(
 				cb = (typeof cbLenEnc === 'function' ? cbLenEnc : typeof cbPosEnc === 'function' ? cbPosEnc : cb) as Callback<
 					[number, Uint8Array | string]
 				>;
-				(cb as Callback<[number, Uint8Array | string]>)(new ErrnoError(Errno.EINVAL, 'Invalid arguments'));
+				(cb as Callback<[number, Uint8Array | string]>)(withErrno('EINVAL'));
 				return;
 		}
 		buffer = Buffer.from(data);
@@ -633,9 +631,7 @@ export function watchFile(
 		listener = options;
 	}
 
-	if (!listener) {
-		throw new ErrnoError(Errno.EINVAL, 'No listener specified', path.toString(), 'watchFile');
-	}
+	if (!listener) throw UV('EINVAL', 'watch', path.toString());
 
 	if (statWatchers.has(normalizedPath)) {
 		const entry = statWatchers.get(normalizedPath);
@@ -862,7 +858,7 @@ export async function openAsBlob(this: V_Context, path: fs.PathLike, options?: f
 }
 openAsBlob satisfies typeof fs.openAsBlob;
 
-type GlobCallback<Args extends unknown[]> = (e: ErrnoError | null, ...args: Args) => unknown;
+type GlobCallback<Args extends unknown[]> = (e: Exception | null, ...args: Args) => unknown;
 
 /**
  * Retrieves the files matching the specified pattern.
@@ -886,6 +882,6 @@ export function glob(
 	);
 	collectAsyncIterator(it)
 		.then(results => callback(null, (results as any) ?? []))
-		.catch((e: ErrnoError) => callback(e));
+		.catch((e: Exception) => callback(e));
 }
 glob satisfies typeof fs.glob;

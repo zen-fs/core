@@ -24,11 +24,7 @@ The `FileSystem` class is the core of the internal API. It abstracts file storag
 
 **File Operations:** Implements core actions like creating, reading, writing, and deleting files.
 
-**Error Handling:** Standardizes file system errors through `ErrnoError`.
-
-## `File`
-
-The `File` class provides low-level mechanisms for working with files, ensuring standard behaviors across backends.
+**Error Handling:** Standardizes file system errors.
 
 ## Backends and the Internal API
 

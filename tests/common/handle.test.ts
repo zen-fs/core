@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
-import { suite, test } from 'node:test';
+import { after, suite, test } from 'node:test';
 import { wait } from 'utilium';
 import { constants, type FileHandle, open } from '../../dist/vfs/promises.js';
 
 const content = 'The cake is a lie',
 	appended = '\nAnother lie';
 
-await using handle: FileHandle = await open('./test.txt', 'ws+');
+const handle: FileHandle = await open('./test.txt', 'ws+');
 
-await suite('FileHandle', () => {
+suite('FileHandle', () => {
 	test('writeFile', async () => {
 		await handle.writeFile(content);
 		await handle.sync();
@@ -63,3 +63,5 @@ await suite('FileHandle', () => {
 		assert.deepEqual(lines, ['first line', 'second line', 'third line']);
 	});
 });
+
+after(() => handle.close());

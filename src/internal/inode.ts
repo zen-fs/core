@@ -1,10 +1,11 @@
-import { deserialize, member, pick, randomInt, sizeof, struct, types as t } from 'utilium';
+import { withErrno } from 'kerium';
+import { crit, warn } from 'kerium/log';
+import { field, packed, sizeof, struct, types as t } from 'memium';
+import { decodeUTF8, encodeUTF8, pick } from 'utilium';
+import { BufferView } from 'utilium/buffer.js';
 import * as c from '../vfs/constants.js';
-import { size_max } from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
 import { defaultContext, type V_Context } from './contexts.js';
-import { Errno, ErrnoError } from './error.js';
-import { crit } from './log.js';
 
 /**
  * Root inode
@@ -12,38 +13,42 @@ import { crit } from './log.js';
  */
 export const rootIno = 0;
 
-const maxAttributeValueSize = 1024;
+/** 4 KiB minus static inode data */
+const maxDynamicData = 3968;
 
-@struct()
-class Attribute {
-	@t.uint32 protected keySize: number = 0;
-	@t.uint32 protected valueSize: number = 0;
+@struct(packed, { name: 'Attribute' })
+class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<B> {
+	@t.uint32 public accessor keySize!: number;
+	@t.uint32 public accessor valueSize!: number;
 
-	@t.char('keySize') protected _key: string = '';
-
-	public get key(): string {
-		return this._key;
+	public get name(): string {
+		return decodeUTF8(this.subarray(8, 8 + this.keySize));
 	}
 
-	public set key(value: string) {
-		this._key = value;
-		this.keySize = value.length;
+	/**
+	 * Note that this does not handle moving the data.
+	 * Changing the name after setting the value is undefined behavior and will lead to corruption.
+	 * This should only be used when creating a new attribute.
+	 */
+	public set name(value: string) {
+		const buf = encodeUTF8(value);
+		if (8 + buf.length + this.valueSize > maxDynamicData) throw withErrno('EOVERFLOW');
+		this.set(buf, 8);
+		this.keySize = buf.length;
 	}
-
-	@t.uint8('valueSize') protected _value: Uint8Array = new Uint8Array(maxAttributeValueSize);
 
 	public get value(): Uint8Array {
-		return this._value.subarray(0, this.valueSize);
+		return this.subarray(8 + this.keySize, this.size);
 	}
 
 	public set value(value: Uint8Array) {
-		this._value = value;
+		if (8 + this.keySize + value.length > maxDynamicData) throw withErrno('EOVERFLOW');
 		this.valueSize = value.length;
+		this.set(value, 8 + this.keySize);
 	}
 
-	public constructor(key?: string, value?: Uint8Array) {
-		if (key) this.key = key;
-		if (value) this.value = value;
+	public get size(): number {
+		return 8 + this.keySize + this.valueSize;
 	}
 }
 
@@ -52,50 +57,115 @@ class Attribute {
  * @category Internals
  * @internal
  */
-@struct()
-export class Attributes {
-	@t.uint32 public size: number = 0;
+@struct(packed, { name: 'Attributes' })
+export class Attributes extends BufferView {
+	@t.uint32 accessor size!: number;
 
-	@member(Attribute, 'size') public data: Attribute[] = [];
+	declare ['constructor']: typeof Attributes;
 
-	public has(name: string): boolean {
-		return this.data.some(entry => entry.key == name);
+	public get byteSize(): number {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			offset += entry.size;
+		}
+		return offset;
 	}
 
-	public get(name: string): Attribute | undefined {
-		return this.data.find(entry => entry.key == name);
+	public has(name: string): boolean {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) return true;
+			offset += entry.size;
+		}
+		return false;
+	}
+
+	public get(name: string): Uint8Array | undefined {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) return entry.value;
+			offset += entry.size;
+		}
 	}
 
 	public set(name: string, value: Uint8Array): void {
-		const attr = this.get(name);
-
-		if (attr) {
-			attr.value = value;
-			return;
+		let offset = this.byteOffset + sizeof(this);
+		let remove;
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) remove = [offset, entry.size];
+			offset += entry.size;
 		}
 
-		this.data.push(new Attribute(name, value));
+		const buf = new Uint8Array(this.buffer);
+
+		if (remove) {
+			const [start, size] = remove;
+			offset -= size;
+			buf.copyWithin(start, start + size, offset + size);
+			buf.fill(0, offset, offset + size);
+			this.size--;
+		}
+
+		const attr = new Attribute(this.buffer, offset);
+		attr.name = name;
+		attr.value = value;
 		this.size++;
 	}
 
 	public remove(name: string): boolean {
-		const index = this.data.findIndex(entry => entry.key == name);
-		if (index === -1) return false;
-		this.data.splice(index, 1);
+		let offset = this.byteOffset + sizeof(this);
+		let remove;
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) remove = [offset, entry.size];
+			offset += entry.size;
+		}
+
+		if (!remove) return false;
+
+		const [start, size] = remove;
+		const buf = new Uint8Array(this.buffer);
+		buf.copyWithin(start, start + size, offset);
+		buf.fill(0, offset - size, offset);
+
 		this.size--;
 		return true;
 	}
 
-	public keys(): string[] {
-		return this.data.map(entry => entry.key);
+	public copyFrom(other: Attributes): void {
+		const { byteSize } = other;
+		new Uint8Array(this.buffer, this.byteOffset, byteSize).set(new Uint8Array(other.buffer, other.byteOffset, byteSize));
 	}
 
-	public values(): Uint8Array[] {
-		return this.data.map(entry => entry.value);
+	public *keys() {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			yield entry.name;
+			offset += entry.size;
+		}
 	}
 
-	public entries(): [string, Uint8Array][] {
-		return this.data.map(entry => [entry.key, entry.value]);
+	public *values() {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			yield entry.value;
+			offset += entry.size;
+		}
+	}
+
+	public *entries() {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			yield [entry.name, entry.value];
+			offset += entry.size;
+		}
 	}
 }
 
@@ -140,79 +210,54 @@ export const _inode_fields = [
  * 1. 58 bytes. The first member was called `ino` but used as the ID for data.
  * 2. 66 bytes. Renamed the first member from `ino` to `data` and added a separate `ino` field
  * 3. 72 bytes. Changed the ID fields from 64 to 32 bits and added `flags`.
- * 4. (current) Added extended attributes. At least 128 bytes.
+ * 4. >= 128 bytes. Added extended attributes.
+ * 5. (current) 4 KiB. Changed flags
  * @internal @hidden
  */
-export const _inode_version = 4;
+export const _inode_version = 5;
 
 /**
- * Inode flags (FS_IOC_GETFLAGS / FS_IOC_SETFLAGS)
- * @see `FS_*_FL` in `include/uapi/linux/fs.h` (around L250)
+ * Inode flags
+ * @see `S_*` in `include/linux/fs.h` (around L2325)
  * @experimental
  */
 export enum InodeFlags {
-	/** Secure deletion */
-	SecureRm = 0x00000001,
-	/** Undelete */
-	Undelete = 0x00000002,
-	/** Compress file */
-	Compress = 0x00000004,
-	/** Synchronous updates */
-	Sync = 0x00000008,
+	/** Writes are synced at once */
+	Sync = 1 << 0,
+	/** Do not update access times */
+	NoAtime = 1 << 1,
+	/** Append-only file */
+	Append = 1 << 2,
 	/** Immutable file */
-	Immutable = 0x00000010,
-	/** Writes to file may only append */
-	Append = 0x00000020,
-	/** do not dump file */
-	NoDump = 0x00000040,
-	/** do not update atime */
-	NoAtime = 0x00000080,
-	// Reserved for compression usage...
-	Dirty = 0x00000100,
-	/** One or more compressed clusters */
-	CompressBlk = 0x00000200,
-	/** Don't compress */
-	NoCompress = 0x00000400,
-	// End compression flags --- maybe not all used
-	/** Encrypted file */
-	Encrypt = 0x00000800,
-	/** btree format dir */
-	Btree = 0x00001000,
-	/** hash-indexed directory */
-	// eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
-	Index = 0x00001000,
-	/** AFS directory */
-	IMagic = 0x00002000,
-	/** Reserved for ext3 */
-	JournalData = 0x00004000,
-	/** file tail should not be merged */
-	NoTail = 0x00008000,
-	/** dirsync behaviour (directories only) */
-	DirSync = 0x00010000,
-	/** Top of directory hierarchies*/
-	TopDir = 0x00020000,
-	/** Reserved for ext4 */
-	HugeFile = 0x00040000,
-	/** Extents */
-	Extent = 0x00080000,
-	/** Verity protected inode */
-	Verity = 0x00100000,
-	/** Inode used for large EA */
-	EaInode = 0x00200000,
-	/** Reserved for ext4 */
-	EofBlocks = 0x00400000,
-	/** Do not cow file */
-	NoCow = 0x00800000,
-	/** Inode is DAX */
-	Dax = 0x02000000,
-	/** Reserved for ext4 */
-	InlineData = 0x10000000,
-	/** Create with parents projid */
-	ProjInherit = 0x20000000,
-	/** Folder is case insensitive */
-	CaseFold = 0x40000000,
-	/** reserved for ext2 lib */
-	Reserved = 0x80000000,
+	Immutable = 1 << 3,
+	/** removed, but still open directory */
+	Dead = 1 << 4,
+	/** Inode is not counted to quota */
+	NoQuota = 1 << 5,
+	/** Directory modifications are synchronous */
+	Dirsync = 1 << 6,
+	/** Do not update file c/mtime */
+	NoCMtime = 1 << 7,
+	/** Do not truncate: swapon got its bmaps */
+	SwapFile = 1 << 8,
+	/** Inode is fs-internal */
+	Private = 1 << 9,
+	/** Inode has an associated IMA struct */
+	IMA = 1 << 10,
+	/** Automount/referral quasi-directory */
+	AutoMount = 1 << 11,
+	/** no suid or xattr security attributes */
+	NoSec = 1 << 12,
+	/** Direct Access, avoiding the page cache */
+	DAX = 1 << 13,
+	/** Encrypted file (using fs/crypto/) */
+	Encrypted = 1 << 14,
+	/** Casefolded file */
+	CaseFold = 1 << 15,
+	/** Verity file (using fs/verity/) */
+	Verity = 1 << 16,
+	/** File is in use by the kernel (eg. fs/cachefiles) */
+	KernelFile = 1 << 17,
 }
 
 /** User visible flags */
@@ -225,58 +270,81 @@ export const userModifiableFlags = 0x000380ff;
  * @category Internals
  * @internal
  */
-@struct()
-export class Inode implements InodeLike {
-	public constructor(data?: Uint8Array | Readonly<Partial<InodeLike>>) {
-		if (!data) return;
+@struct(packed, { name: 'Inode' })
+export class Inode extends BufferView implements InodeLike {
+	public constructor(...args: ConstructorParameters<typeof BufferView> | [Readonly<Partial<InodeLike>>]) {
+		let data = {};
 
-		if (!('byteLength' in data)) {
-			Object.assign(this, data);
-			return;
+		if (typeof args[0] === 'object' && args[0] !== null && !ArrayBuffer.isView(args[0])) {
+			data = args[0];
+			args = [sizeof(Inode)];
 		}
 
-		if (data.byteLength < sizeof(Inode)) throw crit(new ErrnoError(Errno.EIO, 'Buffer is too small to create an inode'));
+		super(...(args as ConstructorParameters<typeof BufferView>));
 
-		deserialize(this, data);
+		if (this.byteLength < sizeof(Inode)) {
+			throw crit(withErrno('EIO', `Buffer is too small to create an inode (${this.byteLength} bytes)`));
+		}
+
+		Object.assign(this, data);
+
+		this.atimeMs ||= Date.now();
+		this.mtimeMs ||= Date.now();
+		this.ctimeMs ||= Date.now();
+		this.birthtimeMs ||= Date.now();
+
+		if (this.ino && !this.nlink) {
+			warn(`Inode ${this.ino} has an nlink of 0`);
+		}
 	}
 
-	@t.uint32 public data: number = randomInt(0, size_max);
+	@t.uint32 accessor data!: number;
 	/** For future use */
-	@t.uint32 public __data_old: number = 0;
-	@t.uint32 public size: number = 0;
-	@t.uint16 public mode: number = 0;
-	@t.uint32 public nlink: number = 1;
-	@t.uint32 public uid: number = 0;
-	@t.uint32 public gid: number = 0;
-	@t.float64 public atimeMs: number = Date.now();
-	@t.float64 public birthtimeMs: number = Date.now();
-	@t.float64 public mtimeMs: number = Date.now();
+	@t.uint32 accessor __data_old!: number;
+	@t.uint32 accessor size!: number;
+	@t.uint16 accessor mode!: number;
+	@t.uint32 accessor nlink!: number;
+	@t.uint32 accessor uid!: number;
+	@t.uint32 accessor gid!: number;
+	@t.float64 accessor atimeMs!: number;
+	@t.float64 accessor birthtimeMs!: number;
+	@t.float64 accessor mtimeMs!: number;
 
 	/**
 	 * The time the inode was changed.
 	 *
 	 * This is automatically updated whenever changed are made using `update()`.
 	 */
-	@t.float64 public ctimeMs: number = Date.now();
+	@t.float64 accessor ctimeMs!: number;
 
-	@t.uint32 public ino: number = randomInt(0, size_max);
+	@t.uint32 accessor ino!: number;
 	/** For future use */
-	@t.uint32 public __ino_old: number = 0;
-	@t.uint32 public flags: number = 0;
+	@t.uint32 accessor __ino_old!: number;
+	@t.uint32 accessor flags!: number;
 	/** For future use */
-	@t.uint16 protected __after_flags: number = 0;
+	@t.uint16 protected accessor __after_flags!: number;
 
 	/**
 	 * The "version" of the inode/data.
-	 *
 	 * Unrelated to the inode format!
 	 */
-	@t.uint32 public version: number = 0;
+	@t.uint32 accessor version!: number;
 
-	/** Pad to 128 bytes */
-	@t.uint8(48) protected __padding = [];
+	/**
+	 * Padding up to 128 bytes.
+	 * This ensures there is enough room for expansion without breaking the ABI.
+	 * @internal
+	 */
+	@t.uint8(48) protected accessor __padding!: Uint8Array;
 
-	@member(Attributes) public attributes = new Attributes();
+	@field(Attributes) accessor attributes!: Attributes;
+
+	/**
+	 * Since the attribute data uses dynamic arrays,
+	 * it is necessary to add this so attributes can be added.
+	 * @internal @hidden
+	 */
+	@t.uint8(maxDynamicData) protected accessor __data!: Uint8Array;
 
 	public toString(): string {
 		return `<Inode ${this.ino}>`;
@@ -326,7 +394,7 @@ export class Inode implements InodeLike {
 		}
 
 		if (data.attributes) {
-			this.attributes = data.attributes;
+			this.attributes.copyFrom(data.attributes);
 			hasChanged = true;
 		}
 

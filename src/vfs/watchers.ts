@@ -3,10 +3,10 @@ import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 
 import { EventEmitter } from 'eventemitter3';
-import { ErrnoError } from '../internal/error.js';
-import { isStatsEqual, type Stats } from './stats.js';
-import { normalizePath } from '../utils.js';
+import { UV } from 'kerium';
 import { basename, dirname, join, relative } from '../path.js';
+import { normalizePath } from '../utils.js';
+import { isStatsEqual, type Stats } from './stats.js';
 import { statSync } from './sync.js';
 
 /**
@@ -37,23 +37,23 @@ class Watcher<TEvents extends Record<string, unknown[]> = Record<string, unknown
 	}
 
 	public setMaxListeners(): never {
-		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.setMaxListeners');
+		throw UV('ENOSYS', 'Watcher.setMaxListeners');
 	}
 
 	public getMaxListeners(): never {
-		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.getMaxListeners');
+		throw UV('ENOSYS', 'Watcher.getMaxListeners');
 	}
 
 	public prependListener(): never {
-		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.prependListener');
+		throw UV('ENOSYS', 'Watcher.prependListener');
 	}
 
 	public prependOnceListener(): never {
-		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.prependOnceListener');
+		throw UV('ENOSYS', 'Watcher.prependOnceListener');
 	}
 
 	public rawListeners(): never {
-		throw ErrnoError.With('ENOSYS', this.path, 'Watcher.rawListeners');
+		throw UV('ENOSYS', 'Watcher.rawListeners');
 	}
 
 	public ref(): this {

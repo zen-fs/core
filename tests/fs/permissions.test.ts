@@ -1,7 +1,7 @@
+import { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { encodeUTF8 } from 'utilium';
-import { ErrnoError } from '../../dist/index.js';
 import { defaultContext } from '../../dist/internal/contexts.js';
 import { join } from '../../dist/path.js';
 import { R_OK, W_OK, X_OK } from '../../dist/vfs/constants.js';
@@ -48,19 +48,16 @@ suite('Permissions', () => {
 	});
 
 	async function test_item(path: string): Promise<void> {
-		const stats = await fs.promises.stat(path).catch((error: ErrnoError) => {
-			assert(error instanceof ErrnoError);
+		const stats = await fs.promises.stat(path).catch((error: Exception) => {
+			assert(error instanceof Exception);
 			assert.equal(error.code, 'EACCES');
 		});
-		if (!stats) {
-			return;
-		}
+		if (!stats) return;
 		assert(stats.hasAccess(X_OK));
 
 		function checkError(access: number) {
-			return function (error: ErrnoError) {
-				assert(error instanceof ErrnoError);
-				assert(error);
+			return function (error: Exception) {
+				assert(error instanceof Exception);
 				assert(!stats!.hasAccess(access));
 			};
 		}
@@ -80,12 +77,10 @@ suite('Permissions', () => {
 			await fs.promises.unlink(testFile).catch(checkError(W_OK));
 		} else {
 			const handle = await fs.promises.open(path, 'a').catch(checkError(W_OK));
-			if (!handle) {
-				return;
-			}
+			if (!handle) return;
 			await handle.close();
 		}
-		assert(stats.hasAccess(R_OK));
+		assert(stats.hasAccess(W_OK));
 	}
 
 	const copy = { ...defaultContext.credentials };

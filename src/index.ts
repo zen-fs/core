@@ -10,6 +10,7 @@ export * from './vfs/index.js';
 export { fs };
 import * as fs from './vfs/index.js';
 export default fs;
+import $pkg from '../package.json' with { type: 'json' };
 
 declare const globalThis: {
 	/**
@@ -19,4 +20,4 @@ declare const globalThis: {
 	__zenfs__: typeof fs;
 };
 
-globalThis.__zenfs__ = fs;
+globalThis.__zenfs__ = Object.assign(Object.create(fs), { _version: $pkg.version });

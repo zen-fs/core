@@ -4,12 +4,13 @@
 	They also are not checked for permissions yet.
 	Please use a namespace import for the best experience.
 */
-import { assignWithDefaults, deserialize, serialize, sizeof, struct, types as t } from 'utilium';
+import { withErrno } from 'kerium';
+import { err } from 'kerium/log';
+import { packed, sizeof, struct, types as t } from 'memium';
+import { BufferView } from 'utilium/buffer.js';
 import { defaultContext, type V_Context } from '../internal/contexts.js';
-import { Errno, ErrnoError } from '../internal/error.js';
 import { Attributes, type InodeLike } from '../internal/inode.js';
-import { err } from '../internal/log.js';
-import { S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK, R_OK } from './constants.js';
+import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from './constants.js';
 import * as xattr from './xattr.js';
 
 const version = 2;
@@ -33,52 +34,44 @@ export const enum Tag {
 	_None = 0x00,
 }
 
-@struct()
-export class Entry {
-	@t.uint16 public tag: Tag = 0;
-	@t.uint16 public perm: number = 0;
-	@t.uint32 public id: number = 0;
-
-	public constructor(data?: Partial<Entry> | Uint8Array) {
-		if (data instanceof Uint8Array) deserialize(this, data);
-		else if (typeof data == 'object') assignWithDefaults(this as Entry, data);
-	}
+@struct(packed, { name: 'Entry' })
+export class Entry extends BufferView {
+	@t.uint16 accessor tag!: Tag;
+	@t.uint16 accessor perm!: number;
+	@t.uint32 accessor id!: number;
 }
 
-@struct()
-export class ACL {
-	@t.uint32 public version: number = version;
+@struct(packed, { name: 'ACL' })
+export class ACL extends BufferView {
+	@t.uint32 accessor version!: number;
 
 	public entries: Entry[] = [];
 
-	public constructor(data?: Uint8Array | Entry[]) {
-		if (!data) return;
+	public constructor(...args: ConstructorParameters<typeof BufferView>) {
+		super(...args);
 
-		if (!(data instanceof Uint8Array)) {
-			this.entries.push(...data);
-			return;
-		}
+		this.version ||= version;
 
-		deserialize(this, data);
+		if (this.version != version) throw err(withErrno('EINVAL', 'Invalid ACL version'));
 
-		if (this.version != version) throw err(new ErrnoError(Errno.EINVAL, 'Invalid ACL version'));
+		for (let offset = sizeof(ACL); offset < this.byteLength; offset += sizeof(Entry)) {
+			if (offset + sizeof(Entry) > this.byteLength) throw err(withErrno('EIO', 'Invalid ACL data'));
 
-		for (let offset = sizeof(ACL); offset < data.length; offset += sizeof(Entry)) {
-			if (offset + sizeof(Entry) > data.length) throw err(new ErrnoError(Errno.EIO, 'Invalid ACL data'));
-
-			const slice = data.subarray(offset, offset + sizeof(Entry));
-
-			this.entries.push(new Entry(slice));
+			this.entries.push(new Entry(this.buffer, offset));
 		}
 	}
 }
 
 export function fromMode(mode: number): ACL {
-	return new ACL([
-		new Entry({ tag: Tag.UserObj, perm: (mode & S_IRWXU) >> 6 }),
-		new Entry({ tag: Tag.GroupObj, perm: (mode & S_IRWXG) >> 3 }),
-		new Entry({ tag: Tag.Other, perm: mode & S_IRWXO }),
-	]);
+	const acl = new ACL();
+
+	acl.entries.push(
+		Object.assign(new Entry(), { tag: Tag.UserObj, perm: (mode & S_IRWXU) >> 6 }),
+		Object.assign(new Entry(), { tag: Tag.GroupObj, perm: (mode & S_IRWXG) >> 3 }),
+		Object.assign(new Entry(), { tag: Tag.Other, perm: mode & S_IRWXO })
+	);
+
+	return acl;
 }
 
 export function toMode(acl: ACL): number {
@@ -116,11 +109,21 @@ export function getSync($: V_Context, path: string): ACL {
 }
 
 export async function set($: V_Context, path: string, acl: ACL): Promise<void> {
-	await xattr.set.call<V_Context, [string, xattr.Name, Uint8Array], Promise<void>>($, path, 'system.posix_acl_access', serialize(acl));
+	await xattr.set.call<V_Context, [string, xattr.Name, Uint8Array], Promise<void>>(
+		$,
+		path,
+		'system.posix_acl_access',
+		new Uint8Array(acl.buffer, acl.byteOffset, acl.byteLength)
+	);
 }
 
 export function setSync($: V_Context, path: string, acl: ACL): void {
-	xattr.setSync.call<V_Context, [string, xattr.Name, Uint8Array], void>($, path, 'system.posix_acl_access', serialize(acl));
+	xattr.setSync.call<V_Context, [string, xattr.Name, Uint8Array], void>(
+		$,
+		path,
+		'system.posix_acl_access',
+		new Uint8Array(acl.buffer, acl.byteOffset, acl.byteLength)
+	);
 }
 
 export let shouldCheck: boolean = true;
@@ -140,11 +143,11 @@ export function check($: V_Context, inode: InodeLike, access: number): boolean {
 
 	const { euid, egid } = $?.credentials ?? defaultContext.credentials;
 
-	const attr = inode.attributes.get('system.posix_acl_access');
+	const data = inode.attributes.get('system.posix_acl_access');
 
-	if (!attr) return true;
+	if (!data) return true;
 
-	const acl = new ACL(attr.value);
+	const acl = new ACL(data);
 
 	let mask = R_OK | W_OK | X_OK;
 

@@ -1,8 +1,6 @@
-import type { ConstMap } from 'utilium';
-import type { StatsLike } from '../vfs/stats.js';
-import type { ErrnoError } from './error.js';
-import type { InodeLike } from './inode.js';
 import type { UUID } from 'node:crypto';
+import type { ConstMap } from 'utilium';
+import type { InodeLike } from './inode.js';
 
 /**
  * Usage information about a file system
@@ -37,32 +35,33 @@ export interface UsageInfo {
 	freeNodes?: number;
 }
 
+export type CaseFold = 'upper' | 'lower';
+
 /**
  * Attributes that control how the file system interacts with the VFS.
  * No options are set by default.
  * @category Internals
  * @internal
  */
-export type FileSystemAttributes = {
-	/** If set, disables `PreloadFile` from using a resizable array buffer. */
-	no_buffer_resize: void;
-
+export interface FileSystemAttributes {
 	/**
 	 * If set disables async file systems from preloading their contents.
 	 * This means *sync operations will not work* (unless the contents are cached)
 	 * It has no affect on sync file systems.
 	 */
-	no_async: void;
+	no_async_preload: void;
 
 	/**
 	 * Currently unused. In the future, this will disable caching.
-	 * Not recommended due to performance impact.
+	 * Analogous to `S_DAX` on every file.
 	 */
 	no_cache: void;
 
 	/**
 	 * If set, the file system should not be written to.
 	 * This should be set for read-only file systems.
+	 * Note this does NOT trigger EROFS errors;
+	 * writes will silently be dropped.
 	 */
 	no_write: void;
 
@@ -77,7 +76,30 @@ export type FileSystemAttributes = {
 	 * @internal
 	 */
 	default_stream_write: void;
-};
+
+	/**
+	 * Do not update access times.
+	 */
+	no_atime: void;
+
+	/**
+	 * Ignore suid and sgid bits.
+	 * @todo Implement
+	 * @experimental
+	 */
+	no_suid: void;
+
+	/**
+	 * Writes are synced at once
+	 * @experimental
+	 */
+	sync: void;
+
+	/**
+	 * If set, the VFS layer will convert paths to lower/upper case.
+	 */
+	case_fold?: CaseFold;
+}
 
 /**
  * Options used when creating files and directories.
@@ -85,7 +107,7 @@ export type FileSystemAttributes = {
  * @category Internals
  * @internal
  */
-export interface CreationOptions {
+export interface CreationOptions extends Partial<InodeLike> {
 	/**
 	 * The uid to create the file.
 	 * This is ignored if the FS supports setuid and the setuid bit is set
@@ -167,7 +189,7 @@ export abstract class FileSystem {
 	}
 
 	public toString(): string {
-		return `${this.name} ${this.label ?? ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
+		return `${this.name} ${this.label ? JSON.stringify(this.label) : ''} (${this._mountPoint ? 'mounted on ' + this._mountPoint : 'unmounted'})`;
 	}
 
 	/**
@@ -227,8 +249,8 @@ export abstract class FileSystem {
 		try {
 			await this.stat(path);
 			return true;
-		} catch (e) {
-			return (e as ErrnoError).code != 'ENOENT';
+		} catch (e: any) {
+			return e.code != 'ENOENT';
 		}
 	}
 
@@ -239,16 +261,16 @@ export abstract class FileSystem {
 		try {
 			this.statSync(path);
 			return true;
-		} catch (e) {
-			return (e as ErrnoError).code != 'ENOENT';
+		} catch (e: any) {
+			return e.code != 'ENOENT';
 		}
 	}
 
 	public abstract link(target: string, link: string): Promise<void>;
 	public abstract linkSync(target: string, link: string): void;
 
-	public abstract sync(path: string): Promise<void>;
-	public abstract syncSync(path: string): void;
+	public abstract sync(): Promise<void>;
+	public abstract syncSync(): void;
 
 	/**
 	 * Reads into a buffer

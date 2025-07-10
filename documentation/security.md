@@ -45,6 +45,9 @@ Contexts (`FSContext`/`BoundContext`) in ZenFS define isolated execution environ
 
 - A root directory (enabling `chroot`-like isolation).
 - Bound credentials that determine access permissions.
+- A present working directory for the context
+- A map of open files and their descriptors
+- References to the parent and children contexts
 
 **Example: Using a Context**
 

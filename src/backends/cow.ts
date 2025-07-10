@@ -3,12 +3,12 @@ import type { InodeLike } from '../internal/inode.js';
 import type { Backend } from './backend.js';
 
 import { EventEmitter } from 'eventemitter3';
+import { withErrno } from 'kerium';
+import { debug, err, warn } from 'kerium/log';
 import { canary } from 'utilium';
 import { resolveMountConfig, type MountConfiguration } from '../config.js';
-import { Errno, ErrnoError } from '../internal/error.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory } from '../internal/inode.js';
-import { debug, err, warn } from '../internal/log.js';
 import { dirname, join } from '../path.js';
 
 /**
@@ -71,7 +71,7 @@ export class Journal extends EventEmitter<{
 	 * Parse a journal from a string
 	 */
 	public fromString(value: string): this {
-		if (!value.startsWith(journalMagicString)) throw err(new ErrnoError(Errno.EINVAL, 'Invalid journal contents, refusing to parse'));
+		if (!value.startsWith(journalMagicString)) throw err(withErrno('EINVAL', 'Invalid journal contents, refusing to parse'));
 
 		for (const line of value.split('\n')) {
 			if (line.startsWith('#')) continue; // ignore comments
@@ -141,7 +141,7 @@ export class CopyOnWriteFS extends FileSystem {
 		super(0x62756c6c, readable.name);
 
 		if (writable.attributes.has('no_write')) {
-			throw err(new ErrnoError(Errno.EINVAL, 'Writable file system can not be written to'));
+			throw err(withErrno('EINVAL', 'Writable file system can not be written to'));
 		}
 
 		readable.attributes.set('no_write');
@@ -158,14 +158,12 @@ export class CopyOnWriteFS extends FileSystem {
 		return this.readable.usage();
 	}
 
-	public async sync(path: string): Promise<void> {
-		await this.copyForWrite(path);
-		await this.writable.sync(path);
+	public async sync(): Promise<void> {
+		await this.writable.sync();
 	}
 
-	public syncSync(path: string): void {
-		this.copyForWriteSync(path);
-		this.writable.syncSync(path);
+	public syncSync(): void {
+		this.writable.syncSync();
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
@@ -194,9 +192,7 @@ export class CopyOnWriteFS extends FileSystem {
 		try {
 			await this.writable.rename(oldPath, newPath);
 		} catch {
-			if (this.isDeleted(oldPath)) {
-				throw ErrnoError.With('ENOENT', oldPath, 'rename');
-			}
+			if (this.isDeleted(oldPath)) throw withErrno('ENOENT');
 		}
 	}
 
@@ -206,9 +202,7 @@ export class CopyOnWriteFS extends FileSystem {
 		try {
 			this.writable.renameSync(oldPath, newPath);
 		} catch {
-			if (this.isDeleted(oldPath)) {
-				throw ErrnoError.With('ENOENT', oldPath, 'rename');
-			}
+			if (this.isDeleted(oldPath)) throw withErrno('ENOENT');
 		}
 	}
 
@@ -216,12 +210,8 @@ export class CopyOnWriteFS extends FileSystem {
 		try {
 			return await this.writable.stat(path);
 		} catch {
-			if (this.isDeleted(path)) throw ErrnoError.With('ENOENT', path, 'stat');
-
-			const oldStat = await this.readable.stat(path);
-			// Make the oldStat's mode writable.
-			oldStat.mode |= 0o222;
-			return oldStat;
+			if (this.isDeleted(path)) throw withErrno('ENOENT');
+			return await this.readable.stat(path);
 		}
 	}
 
@@ -229,12 +219,8 @@ export class CopyOnWriteFS extends FileSystem {
 		try {
 			return this.writable.statSync(path);
 		} catch {
-			if (this.isDeleted(path)) throw ErrnoError.With('ENOENT', path, 'stat');
-
-			const oldStat = this.readable.statSync(path);
-			// Make the oldStat's mode writable.
-			oldStat.mode |= 0o222;
-			return oldStat;
+			if (this.isDeleted(path)) throw withErrno('ENOENT');
+			return this.readable.statSync(path);
 		}
 	}
 
@@ -269,9 +255,7 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public async unlink(path: string): Promise<void> {
-		if (!(await this.exists(path))) {
-			throw ErrnoError.With('ENOENT', path, 'unlink');
-		}
+		if (!(await this.exists(path))) throw withErrno('ENOENT');
 
 		if (await this.writable.exists(path)) {
 			await this.writable.unlink(path);
@@ -284,7 +268,7 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public unlinkSync(path: string): void {
-		if (!this.existsSync(path)) throw ErrnoError.With('ENOENT', path, 'unlink');
+		if (!this.existsSync(path)) throw withErrno('ENOENT');
 
 		if (this.writable.existsSync(path)) {
 			this.writable.unlinkSync(path);
@@ -297,9 +281,7 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public async rmdir(path: string): Promise<void> {
-		if (!(await this.exists(path))) {
-			throw ErrnoError.With('ENOENT', path, 'rmdir');
-		}
+		if (!(await this.exists(path))) throw withErrno('ENOENT');
 		if (await this.writable.exists(path)) {
 			await this.writable.rmdir(path);
 		}
@@ -307,16 +289,12 @@ export class CopyOnWriteFS extends FileSystem {
 			return;
 		}
 		// Check if directory is empty.
-		if ((await this.readdir(path)).length) {
-			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
-		}
+		if ((await this.readdir(path)).length) throw withErrno('ENOTEMPTY');
 		this.journal.add('delete', path);
 	}
 
 	public rmdirSync(path: string): void {
-		if (!this.existsSync(path)) {
-			throw ErrnoError.With('ENOENT', path, 'rmdir');
-		}
+		if (!this.existsSync(path)) throw withErrno('ENOENT');
 		if (this.writable.existsSync(path)) {
 			this.writable.rmdirSync(path);
 		}
@@ -324,26 +302,24 @@ export class CopyOnWriteFS extends FileSystem {
 			return;
 		}
 		// Check if directory is empty.
-		if (this.readdirSync(path).length) {
-			throw ErrnoError.With('ENOTEMPTY', path, 'rmdir');
-		}
+		if (this.readdirSync(path).length) throw withErrno('ENOTEMPTY');
 		this.journal.add('delete', path);
 	}
 
 	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
-		if (await this.exists(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
+		if (await this.exists(path)) throw withErrno('EEXIST');
 		await this.createParentDirectories(path);
 		return await this.writable.mkdir(path, options);
 	}
 
 	public mkdirSync(path: string, options: CreationOptions): InodeLike {
-		if (this.existsSync(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
+		if (this.existsSync(path)) throw withErrno('EEXIST');
 		this.createParentDirectoriesSync(path);
 		return this.writable.mkdirSync(path, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
-		if (this.isDeleted(path) || !(await this.exists(path))) throw ErrnoError.With('ENOENT', path, 'readdir');
+		if (this.isDeleted(path) || !(await this.exists(path))) throw withErrno('ENOENT');
 
 		const entries: string[] = (await this.readable.exists(path)) ? await this.readable.readdir(path) : [];
 
@@ -356,7 +332,7 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public readdirSync(path: string): string[] {
-		if (this.isDeleted(path) || !this.existsSync(path)) throw ErrnoError.With('ENOENT', path, 'readdir');
+		if (this.isDeleted(path) || !this.existsSync(path)) throw withErrno('ENOENT');
 
 		const entries: string[] = this.readable.existsSync(path) ? this.readable.readdirSync(path) : [];
 
@@ -384,7 +360,7 @@ export class CopyOnWriteFS extends FileSystem {
 	private createParentDirectoriesSync(path: string): void {
 		const toCreate: string[] = [];
 
-		const silence = canary(ErrnoError.With('EDEADLK', path));
+		const silence = canary(withErrno('EDEADLK'));
 		for (let parent = dirname(path); !this.writable.existsSync(parent); parent = dirname(parent)) {
 			toCreate.push(parent);
 		}
@@ -404,7 +380,7 @@ export class CopyOnWriteFS extends FileSystem {
 	private async createParentDirectories(path: string): Promise<void> {
 		const toCreate: string[] = [];
 
-		const silence = canary(ErrnoError.With('EDEADLK', path));
+		const silence = canary(withErrno('EDEADLK', path));
 		for (let parent = dirname(path); !(await this.writable.exists(parent)); parent = dirname(parent)) {
 			toCreate.push(parent);
 		}
@@ -423,9 +399,7 @@ export class CopyOnWriteFS extends FileSystem {
 	 * - Calls f to perform operation on writable.
 	 */
 	private copyForWriteSync(path: string): void {
-		if (!this.existsSync(path)) {
-			throw ErrnoError.With('ENOENT', path, '[copyForWrite]');
-		}
+		if (!this.existsSync(path)) throw withErrno('ENOENT');
 		if (!this.writable.existsSync(dirname(path))) {
 			this.createParentDirectoriesSync(path);
 		}
@@ -435,9 +409,7 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	private async copyForWrite(path: string): Promise<void> {
-		if (!(await this.exists(path))) {
-			throw ErrnoError.With('ENOENT', path, '[copyForWrite]');
-		}
+		if (!(await this.exists(path))) throw withErrno('ENOENT');
 
 		if (!(await this.writable.exists(dirname(path)))) {
 			await this.createParentDirectories(path);
@@ -453,8 +425,7 @@ export class CopyOnWriteFS extends FileSystem {
 	 * PRECONDITION: File does not exist on writable storage.
 	 */
 	private copyToWritableSync(path: string): void {
-		const stats = this.statSync(path);
-		stats.mode |= 0o222;
+		const stats = this.readable.statSync(path);
 		if (isDirectory(stats)) {
 			this.writable.mkdirSync(path, stats);
 			for (const k of this.readable.readdirSync(path)) {
@@ -471,8 +442,7 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	private async copyToWritable(path: string): Promise<void> {
-		const stats = await this.stat(path);
-		stats.mode |= 0o222;
+		const stats = await this.readable.stat(path);
 		if (isDirectory(stats)) {
 			await this.writable.mkdir(path, stats);
 			for (const k of await this.readable.readdir(path)) {

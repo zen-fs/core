@@ -1,7 +1,7 @@
-import type { UUID } from 'node:crypto';
+import { withErrno, type Exception } from 'kerium';
 import type * as fs from 'node:fs';
+import type { Worker as NodeWorker } from 'node:worker_threads';
 import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
-import { Errno, ErrnoError } from './internal/error.js';
 import { resolve } from './path.js';
 
 declare global {
@@ -27,7 +27,7 @@ export function encodeDirListing(data: Record<string, number>): Uint8Array {
 	return encodeUTF8(JSON.stringify(data));
 }
 
-export type Callback<Args extends unknown[] = [], NoError = undefined | void> = (e: ErrnoError | NoError, ...args: OptionalTuple<Args>) => unknown;
+export type Callback<Args extends unknown[] = [], NoError = undefined | void> = (e: Exception | NoError, ...args: OptionalTuple<Args>) => unknown;
 
 /**
  * Normalizes a mode
@@ -46,7 +46,7 @@ export function normalizeMode(mode: unknown, def?: number): number {
 
 	if (typeof def == 'number') return def;
 
-	throw new ErrnoError(Errno.EINVAL, 'Invalid mode: ' + mode?.toString());
+	throw withErrno('EINVAL', 'Invalid mode: ' + mode?.toString());
 }
 
 /**
@@ -59,9 +59,16 @@ export function normalizeTime(time: string | number | Date): number {
 	try {
 		return Number(time);
 	} catch {
-		throw new ErrnoError(Errno.EINVAL, 'Invalid time.');
+		throw withErrno('EINVAL', 'Invalid time.');
 	}
 }
+
+/**
+ * TypeScript is dumb, so we need to assert the type of a value sometimes.
+ * For example, after calling `normalizePath`, TS still thinks the type is `PathLike` and not `string`.
+ * @internal @hidden
+ */
+export function __assertType<T>(value: unknown): asserts value is T {}
 
 /**
  * Normalizes a path
@@ -69,17 +76,13 @@ export function normalizeTime(time: string | number | Date): number {
  */
 export function normalizePath(p: fs.PathLike, noResolve: boolean = false): string {
 	if (p instanceof URL) {
-		if (p.protocol != 'file:') throw new ErrnoError(Errno.EINVAL, 'URLs must use the file: protocol');
+		if (p.protocol != 'file:') throw withErrno('EINVAL', 'URLs must use the file: protocol');
 		p = p.pathname;
 	}
 	p = p.toString();
 	if (p.startsWith('file://')) p = p.slice('file://'.length);
-	if (p.includes('\x00')) {
-		throw new ErrnoError(Errno.EINVAL, 'Path can not contain null character');
-	}
-	if (p.length == 0) {
-		throw new ErrnoError(Errno.EINVAL, 'Path can not be empty');
-	}
+	if (p.includes('\x00')) throw withErrno('EINVAL', 'Path can not contain null character');
+	if (p.length == 0) throw withErrno('EINVAL', 'Path can not be empty');
 	p = p.replaceAll(/[/\\]+/g, '/');
 
 	// Note: PWD is not resolved here, it is resolved later.
@@ -99,7 +102,7 @@ export function normalizeOptions(
 	encoding: BufferEncoding | null = 'utf8',
 	flag: string,
 	mode: number = 0
-): { encoding?: BufferEncoding | null; flag: string; mode: number } {
+): fs.ObjectEncodingOptions & { flag: string; mode: number } {
 	if (typeof options != 'object' || options === null) {
 		return {
 			encoding: typeof options == 'string' ? options : (encoding ?? null),
@@ -115,11 +118,22 @@ export function normalizeOptions(
 	};
 }
 
-export function stringifyUUID(uuid: bigint): UUID {
-	const hex = uuid.toString(16).padStart(32, '0');
-	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+/**
+ * Converts a glob pattern to a regular expression
+ * @internal
+ */
+export function globToRegex(pattern: string): RegExp {
+	pattern = pattern
+		.replace(/([.?+^$(){}|[\]/])/g, '$1')
+		.replace(/\*\*/g, '.*')
+		.replace(/\*/g, '[^/]*')
+		.replace(/\?/g, '.');
+	return new RegExp(`^${pattern}$`);
 }
 
-export function parseUUID(uuid: UUID): bigint {
-	return BigInt(`0x${uuid.replace(/-/g, '')}`);
+export async function waitOnline(worker: NodeWorker): Promise<void> {
+	const online = Promise.withResolvers<void>();
+	setTimeout(() => online.reject(withErrno('ETIMEDOUT')), 500);
+	worker.on('online', online.resolve);
+	await online.promise;
 }

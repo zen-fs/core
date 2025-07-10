@@ -1,23 +1,28 @@
 # ZenFS
 
-ZenFS is a cross-platform library that emulates the [NodeJS filesystem API](http://nodejs.org/api/fs.html). It works using a system of backends, which are used by ZenFS to store and retrieve data. ZenFS can also integrate with other tools.
+ZenFS is a cross-platform library that emulates the [Node.js filesystem API](http://nodejs.org/api/fs.html).
+It works using a system of backends, which are used by ZenFS to store and retrieve data.
+ZenFS can also integrate with other tools.
 
 ## Backends
 
-ZenFS is modular and extensible. The core includes some built-in backends:
+ZenFS is modular and easily extended. The core includes some built-in backends:
 
 - `InMemory`: Stores files in-memory. This is cleared when the runtime ends (e.g. a user navigating away from a web page or a Node process exiting)
-- `CopyOnWrite`: Use readable and writable file systems with ([copy-on-write](https://en.wikipedia.org/wiki/Copy-on-write)).
+- `CopyOnWrite`: Use readable and writable file systems with [copy-on-write](https://en.wikipedia.org/wiki/Copy-on-write).
 - `Fetch`: Downloads files over HTTP with the `fetch` API
 - `Port`: Interacts with a remote over a `MessagePort`-like interface (e.g. a worker)
 - `Passthrough`: Use an existing `node:fs` interface with ZenFS
 - `SingleBuffer`: A backend contained within a single buffer. Can be used for synchronous multi-threaded operations using `SharedArrayBuffer`
 
-ZenFS supports a number of other backends. Many are provided as separate packages under `@zenfs`. More backends can be defined by separate libraries by extending the `FileSystem` class and providing a `Backend` object.
+ZenFS supports a number of other backends.
+Many are provided as separate packages under `@zenfs`.
+More backends can be defined by separate libraries by extending the `FileSystem` class and providing a `Backend` object.
 
 You can find all of the packages available over on [NPM](https://www.npmjs.com/org/zenfs).
 
-As an added bonus, all ZenFS backends support synchronous operations. All of the backends included with the core are cross-platform.
+As an added bonus, all ZenFS backends support synchronous operations.
+Additionally, all of the backends included with the core are cross-platform.
 
 For more information, see the [docs](https://zenfs.dev/core).
 
@@ -27,7 +32,9 @@ For more information, see the [docs](https://zenfs.dev/core).
 npm install @zenfs/core
 ```
 
-If you're using ZenFS, especially for big projects, please consider supporting the project. Thousands of hours have been dedicated to its development. Your acknowledgment or financial support would go a long way toward improving ZenFS and its community.
+If you're using ZenFS, especially for big projects, please consider supporting the project.
+Thousands of hours have been dedicated to its development.
+Your acknowledgment or financial support would go a long way toward improving ZenFS and its community.
 
 ## Usage
 
@@ -172,7 +179,7 @@ fs.umount('/mnt/zip'); // finished using the zip
 
 ### Devices and device files
 
-ZenFS includes experimental support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. You can automatically add some normal devices with the `addDevices` configuration option:
+ZenFS includes support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. You can automatically add some normal devices with the `addDevices` configuration option:
 
 ```ts
 await configure({
@@ -231,9 +238,9 @@ A huge thank you to [![Deco.cx logo](https://avatars.githubusercontent.com/deco-
 
 ## Building
 
-- Make sure you have Node and NPM installed. You must have Node v18 or newer.
+- Make sure you have Node and NPM installed. You must have Node v22 or newer.
 - Install dependencies with `npm install`
-- Build using `npm run build`
+- Build using `npx tsc` or `npm run build`
 - You can find the built code in `dist`.
 
 ### Testing

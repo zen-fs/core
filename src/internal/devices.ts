@@ -2,15 +2,15 @@
 This is a great resource: https://www.kernel.org/doc/html/latest/admin-guide/devices.html
 */
 
+import { withErrno } from 'kerium';
+import { debug, err, info } from 'kerium/log';
 import { decodeUTF8, omit } from 'utilium';
 import { InMemoryStore } from '../backends/memory.js';
 import { StoreFS } from '../backends/store/fs.js';
 import { basename, dirname } from '../path.js';
 import { S_IFCHR } from '../vfs/constants.js';
-import { Errno, ErrnoError } from './error.js';
 import type { CreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
-import { debug, err, info } from './log.js';
 
 /**
  * A device
@@ -117,7 +117,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 
 	protected devicesWithDriver(driver: DeviceDriver<unknown> | string, forceIdentity?: boolean): Device[] {
 		if (forceIdentity && typeof driver == 'string') {
-			throw err(new ErrnoError(Errno.EINVAL, 'Can not fetch devices using only a driver name'), { fs: this });
+			throw err(withErrno('EINVAL', 'Can not fetch devices using only a driver name'));
 		}
 		const devs: Device[] = [];
 		for (const device of this.devices.values()) {
@@ -155,7 +155,7 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 
 		const path = '/' + (dev.name || driver.name) + (driver.singleton ? '' : this.devicesWithDriver(driver).length);
 
-		if (this.existsSync(path)) throw ErrnoError.With('EEXIST', path, 'mknod');
+		if (this.existsSync(path)) throw withErrno('EEXIST');
 
 		this.devices.set(path, dev);
 
@@ -183,22 +183,14 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async rename(oldPath: string, newPath: string): Promise<void> {
-		if (this.devices.has(oldPath)) {
-			throw ErrnoError.With('EPERM', oldPath, 'rename');
-		}
-		if (this.devices.has(newPath)) {
-			throw ErrnoError.With('EEXIST', newPath, 'rename');
-		}
+		if (this.devices.has(oldPath)) throw withErrno('EPERM');
+		if (this.devices.has(newPath)) throw withErrno('EEXIST');
 		return super.rename(oldPath, newPath);
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
-		if (this.devices.has(oldPath)) {
-			throw ErrnoError.With('EPERM', oldPath, 'rename');
-		}
-		if (this.devices.has(newPath)) {
-			throw ErrnoError.With('EEXIST', newPath, 'rename');
-		}
+		if (this.devices.has(oldPath)) throw withErrno('EPERM');
+		if (this.devices.has(newPath)) throw withErrno('EEXIST');
 		return super.renameSync(oldPath, newPath);
 	}
 
@@ -227,26 +219,22 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
-		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'createFile');
+		if (this.devices.has(path)) throw withErrno('EEXIST');
 		return super.createFile(path, options);
 	}
 
 	public createFileSync(path: string, options: CreationOptions): InodeLike {
-		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'createFile');
+		if (this.devices.has(path)) throw withErrno('EEXIST');
 		return super.createFileSync(path, options);
 	}
 
 	public async unlink(path: string): Promise<void> {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EPERM', path, 'unlink');
-		}
+		if (this.devices.has(path)) throw withErrno('EPERM');
 		return super.unlink(path);
 	}
 
 	public unlinkSync(path: string): void {
-		if (this.devices.has(path)) {
-			throw ErrnoError.With('EPERM', path, 'unlink');
-		}
+		if (this.devices.has(path)) throw withErrno('EPERM');
 		return super.unlinkSync(path);
 	}
 
@@ -259,12 +247,12 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
-		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
+		if (this.devices.has(path)) throw withErrno('EEXIST');
 		return super.mkdir(path, options);
 	}
 
 	public mkdirSync(path: string, options: CreationOptions): InodeLike {
-		if (this.devices.has(path)) throw ErrnoError.With('EEXIST', path, 'mkdir');
+		if (this.devices.has(path)) throw withErrno('EEXIST');
 		return super.mkdirSync(path, options);
 	}
 
@@ -289,35 +277,29 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 	}
 
 	public async link(target: string, link: string): Promise<void> {
-		if (this.devices.has(target)) {
-			throw ErrnoError.With('EPERM', target, 'rmdir');
-		}
-		if (this.devices.has(link)) {
-			throw ErrnoError.With('EEXIST', link, 'link');
-		}
+		if (this.devices.has(target)) throw withErrno('EPERM');
+		if (this.devices.has(link)) throw withErrno('EEXIST');
 		return super.link(target, link);
 	}
 
 	public linkSync(target: string, link: string): void {
-		if (this.devices.has(target)) {
-			throw ErrnoError.With('EPERM', target, 'rmdir');
-		}
-		if (this.devices.has(link)) {
-			throw ErrnoError.With('EEXIST', link, 'link');
-		}
+		if (this.devices.has(target)) throw withErrno('EPERM');
+		if (this.devices.has(link)) throw withErrno('EEXIST');
 		return super.linkSync(target, link);
 	}
 
-	public async sync(path: string): Promise<void> {
-		const device = this.devices.get(path);
-		if (device) return device.driver.sync?.(device);
-		return super.sync(path);
+	public async sync(): Promise<void> {
+		for (const device of this.devices.values()) {
+			device.driver.sync?.(device);
+		}
+		return super.sync();
 	}
 
-	public syncSync(path: string): void {
-		const device = this.devices.get(path);
-		if (device) return device.driver.sync?.(device);
-		return super.syncSync(path);
+	public syncSync(): void {
+		for (const device of this.devices.values()) {
+			device.driver.sync?.(device);
+		}
+		return super.syncSync();
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
@@ -424,7 +406,7 @@ export const fullDevice: DeviceDriver = {
 		buffer.fill(0, offset, end);
 	},
 	write() {
-		throw ErrnoError.With('ENOSPC', undefined, 'write');
+		throw withErrno('ENOSPC');
 	},
 };
 

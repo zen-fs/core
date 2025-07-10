@@ -1,9 +1,9 @@
-import { suite, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { suite, test } from 'node:test';
+import { canary } from 'utilium';
 import { bindContext } from '../../dist/context.js';
 import * as fs from '../../dist/vfs/index.js';
-import { canary } from 'utilium';
-import { InMemory } from "../../dist/backends/memory.js"
+import { configure, InMemory } from '../../dist/index.js';
 
 fs.mkdirSync('/ctx');
 const { fs: ctx } = bindContext({ root: '/ctx' });
@@ -59,8 +59,21 @@ suite('Context', () => {
 		await watcher.return!();
 		await promise;
 	});
-	
-    test('isolated tree', async () => {
+
+	test('Path resolution of / with context root and mount point being the same', async () => {
+		// @zenfs/core#226
+		await configure({
+			mounts: { '/bananas': InMemory },
+		});
+
+		const bananas = bindContext({ root: '/bananas' });
+
+		fs.writeFileSync('/bananas/yellow', 'true');
+
+		assert.deepEqual(bananas.fs.readdirSync('/'), ['yellow']);
+	});
+    
+    test('Two isolated file trees writing to same file path', async () => {
         var { fs: fs1 } = bindContext({ root: '/', mounts: new Map([['/', InMemory.create({ label: 'root' })]]) })
         var { fs: fs2 } = bindContext({ root: '/', mounts: new Map([['/', InMemory.create({ label: 'root' })]]) })
 

@@ -1,20 +1,22 @@
 {
 	"compilerOptions": {
-		"module": "NodeNext",
-		"target": "ES2019",
-		"outDir": "dist",
-		"lib": ["ESNext"],
-		"moduleResolution": "NodeNext",
 		"declaration": true,
+		"lib": ["ESNext"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "dist",
+		"resolveJsonModule": true,
+		"rootDir": "src",
 		"strict": true,
+		"target": "ES2022",
 		"verbatimModuleSyntax": true
 	},
-	"include": ["src/**/*.ts"],
+	"include": ["src/**/*.ts", "types/uint8array.d.ts"],
 	"typedocOptions": {
 		"entryPoints": ["./src/index.ts"],
-		"out": "docs",
 		"name": "ZenFS",
-		"plugin": ["./scripts/typedoc-plugin.js"],
+		"out": "docs",
+		"plugin": ["utilium/typedoc-no-ref"],
 		"projectDocuments": ["documentation/*.md", "readme.md"]
 	}
 }

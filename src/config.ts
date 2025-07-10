@@ -1,17 +1,25 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
+import type { Device, DeviceDriver } from './internal/devices.js';
+
+import { log, withErrno } from 'kerium';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
-import type { Device, DeviceDriver } from './internal/devices.js';
 import { DeviceFS } from './internal/devices.js';
-import { Errno, ErrnoError } from './internal/error.js';
 import { FileSystem } from './internal/filesystem.js';
-import type { LogConfiguration } from './internal/log.js';
-import { configure as configureLog, crit, err, info } from './internal/log.js';
 import { _setAccessChecks } from './vfs/config.js';
 import * as defaultFs from './vfs/index.js';
 import { mounts } from './vfs/shared.js';
 import type { V_Context } from './internal/contexts.js';
+
+/**
+ * Update the configuration of a file system.
+ * @category Backends and Configuration
+ */
+export function configureFileSystem(fs: FileSystem, config: SharedConfig): void {
+	if (config.disableAsyncCache) fs.attributes.set('no_async_preload');
+	if (config.caseFold) fs.attributes.set('case_fold', config.caseFold);
+}
 
 /**
  * Configuration for a specific mount point
@@ -30,11 +38,11 @@ function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfigurati
  */
 export async function resolveMountConfig<T extends Backend>(configuration: MountConfiguration<T>, _depth = 0): Promise<FilesystemOf<T>> {
 	if (typeof configuration !== 'object' || configuration == null) {
-		throw err(new ErrnoError(Errno.EINVAL, 'Invalid options on mount configuration'));
+		throw log.err(withErrno('EINVAL', 'Invalid options on mount configuration'));
 	}
 
 	if (!isMountConfig(configuration)) {
-		throw err(new ErrnoError(Errno.EINVAL, 'Invalid mount configuration'));
+		throw log.err(withErrno('EINVAL', 'Invalid mount configuration'));
 	}
 
 	if (configuration instanceof FileSystem) {
@@ -50,10 +58,10 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 		if (key == 'backend') continue;
 		if (!isMountConfig(value)) continue;
 
-		info('Resolving nested mount configuration: ' + key);
+		log.info('Resolving nested mount configuration: ' + key);
 
 		if (_depth > 10) {
-			throw err(new ErrnoError(Errno.EINVAL, 'Invalid configuration, too deep and possibly infinite'));
+			throw log.err(withErrno('EINVAL', 'Invalid configuration, too deep and possibly infinite'));
 		}
 
 		(configuration as Record<string, FileSystem>)[key] = await resolveMountConfig(value, ++_depth);
@@ -62,12 +70,12 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	const { backend } = configuration;
 
 	if (typeof backend.isAvailable == 'function' && !(await backend.isAvailable(configuration))) {
-		throw err(new ErrnoError(Errno.EPERM, 'Backend not available: ' + backend.name));
+		throw log.err(withErrno('EPERM', 'Backend not available: ' + backend.name));
 	}
 
 	checkOptions(backend, configuration);
 	const mountFs = (await backend.create(configuration)) as FilesystemOf<T>;
-	if (configuration.disableAsyncCache) mountFs.attributes.set('no_async');
+	configureFileSystem(mountFs, configuration);
 	await mountFs.ready();
 	return mountFs;
 }
@@ -168,7 +176,7 @@ async function mountHelper(path: string, mountFs: FileSystem, fs=defaultFs): Pro
 	if (!stats) {
 		await fs.promises.mkdir(path, { recursive: true });
 	} else if (!stats.isDirectory()) {
-		throw ErrnoError.With('ENOTDIR', path, 'configure');
+		throw withErrno('ENOTDIR', 'Missing directory at mount point: ' + path);
 	}
 	fs.mount(path, mountFs);
 }
@@ -178,8 +186,8 @@ async function mountHelper(path: string, mountFs: FileSystem, fs=defaultFs): Pro
  */
 export function addDevice(driver: DeviceDriver, options?: object, ctx?: V_Context): Device {
     const mts = ctx?.mounts || mounts;
-	const devfs = mts.get('/dev');
-	if (!(devfs instanceof DeviceFS)) throw crit(new ErrnoError(Errno.ENOTSUP, '/dev does not exist or is not a device file system'));
+	const devfs = mounts.get('/dev');
+	if (!(devfs instanceof DeviceFS)) throw log.crit(withErrno('ENOTSUP', '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
 
@@ -190,14 +198,17 @@ export function addDevice(driver: DeviceDriver, options?: object, ctx?: V_Contex
  */
 export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): Promise<void> {
     const fs = configuration.fs || defaultFs;
-	const uid = 'uid' in configuration ? configuration.uid || 0 : 0;
-	const gid = 'gid' in configuration ? configuration.gid || 0 : 0;
-
-	Object.assign(defaultContext.credentials, createCredentials({ uid, gid }));
+	Object.assign(
+		defaultContext.credentials,
+		createCredentials({
+			uid: configuration.uid || 0,
+			gid: configuration.gid || 0,
+		})
+	);
 
 	_setAccessChecks(!configuration.disableAccessChecks);
 
-	if (configuration.log) configureLog(configuration.log);
+	if (configuration.log) log.configure(configuration.log);
 
 	if (configuration.mounts) {
 		// sort to make sure any root replacement is done first
@@ -206,6 +217,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 			if (isBackendConfig(mountConfig)) {
 				mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;
+				mountConfig.caseFold ??= configuration.caseFold;
 			}
 
 			if (point == '/') fs.umount('/');
@@ -214,7 +226,11 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		}
 	}
 
-	if (configuration.addDevices) {
+	for (const fs of mounts.values()) {
+		configureFileSystem(fs, configuration);
+	}
+
+	if (configuration.addDevices && !mounts.has('/dev')) {
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();

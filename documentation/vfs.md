@@ -24,6 +24,10 @@ Contexts in ZenFS encapsulate file system operations within an execution scope. 
 
 ZenFS allows mounting multiple storage backends, enabling seamless access to diverse storage implementations. A mounted backend can be a local filesystem, an in-memory store, a cloud providers storage system (e.g. Google Drive), etc. The limit is your imagination. Some nice features include hot-swapping mounts and per-mount configurations.
 
+### Files and File Descriptors
+
+The VFS is also responsible for handling open files and file descriptors.
+
 ### Integration with Backends
 
 _Main article: [Backends](./backends.md)_

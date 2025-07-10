@@ -3,8 +3,8 @@ import type { Concrete } from 'utilium';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 
-import { ErrnoError } from '../internal/error.js';
-import { err } from '../internal/log.js';
+import { withErrno } from 'kerium';
+import { err } from 'kerium/log';
 import '../polyfills.js';
 
 /**
@@ -105,15 +105,15 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	 * If the path is currently locked, waits for it to be unlocked.
 	 * @internal
 	 */
-	public async lock(path: string, syscall: string): Promise<MutexLock> {
+	public async lock(): Promise<MutexLock> {
 		const previous = this.currentLock;
 		const lock = this.addLock();
 		const stack = new Error().stack;
 		setTimeout(() => {
 			if (lock.isLocked) {
-				const error = ErrnoError.With('EDEADLK', path, syscall);
+				const error = withErrno('EDEADLK');
 				error.stack += stack?.slice('Error'.length);
-				throw err(error, { fs: this });
+				throw err(error);
 			}
 		}, 5000);
 		await previous?.done();
@@ -125,9 +125,9 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	 * If the path is currently locked, an error will be thrown
 	 * @internal
 	 */
-	public lockSync(path: string, syscall: string): MutexLock {
+	public lockSync(): MutexLock {
 		if (this.currentLock?.isLocked) {
-			throw err(ErrnoError.With('EBUSY', path, syscall), { fs: this });
+			throw err(withErrno('EBUSY'));
 		}
 
 		return this.addLock();
@@ -143,142 +143,142 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 
 	/* eslint-disable @typescript-eslint/no-unused-vars */
 	public async rename(oldPath: string, newPath: string): Promise<void> {
-		using _ = await this.lock(oldPath, 'rename');
+		using _ = await this.lock();
 		await this._fs.rename(oldPath, newPath);
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
-		using _ = this.lockSync(oldPath, 'rename');
+		using _ = this.lockSync();
 		return this._fs.renameSync(oldPath, newPath);
 	}
 
 	public async stat(path: string): Promise<InodeLike> {
-		using _ = await this.lock(path, 'stat');
+		using _ = await this.lock();
 		return await this._fs.stat(path);
 	}
 
 	public statSync(path: string): InodeLike {
-		using _ = this.lockSync(path, 'stat');
+		using _ = this.lockSync();
 		return this._fs.statSync(path);
 	}
 
 	public async touch(path: string, metadata: InodeLike): Promise<void> {
-		using _ = await this.lock(path, 'touch');
+		using _ = await this.lock();
 		await this._fs.touch(path, metadata);
 	}
 
 	public touchSync(path: string, metadata: InodeLike): void {
-		using _ = this.lockSync(path, 'touch');
+		using _ = this.lockSync();
 		this._fs.touchSync(path, metadata);
 	}
 
 	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
-		using _ = await this.lock(path, 'createFile');
+		using _ = await this.lock();
 		return await this._fs.createFile(path, options);
 	}
 
 	public createFileSync(path: string, options: CreationOptions): InodeLike {
-		using _ = this.lockSync(path, 'createFile');
+		using _ = this.lockSync();
 		return this._fs.createFileSync(path, options);
 	}
 
 	public async unlink(path: string): Promise<void> {
-		using _ = await this.lock(path, 'unlink');
+		using _ = await this.lock();
 		await this._fs.unlink(path);
 	}
 
 	public unlinkSync(path: string): void {
-		using _ = this.lockSync(path, 'unlink');
+		using _ = this.lockSync();
 		return this._fs.unlinkSync(path);
 	}
 
 	public async rmdir(path: string): Promise<void> {
-		using _ = await this.lock(path, 'rmdir');
+		using _ = await this.lock();
 		await this._fs.rmdir(path);
 	}
 
 	public rmdirSync(path: string): void {
-		using _ = this.lockSync(path, 'rmdir');
+		using _ = this.lockSync();
 		return this._fs.rmdirSync(path);
 	}
 
 	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
-		using _ = await this.lock(path, 'mkdir');
+		using _ = await this.lock();
 		return await this._fs.mkdir(path, options);
 	}
 
 	public mkdirSync(path: string, options: CreationOptions): InodeLike {
-		using _ = this.lockSync(path, 'mkdir');
+		using _ = this.lockSync();
 		return this._fs.mkdirSync(path, options);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
-		using _ = await this.lock(path, 'readdir');
+		using _ = await this.lock();
 		return await this._fs.readdir(path);
 	}
 
 	public readdirSync(path: string): string[] {
-		using _ = this.lockSync(path, 'readdir');
+		using _ = this.lockSync();
 		return this._fs.readdirSync(path);
 	}
 
 	public async exists(path: string): Promise<boolean> {
-		using _ = await this.lock(path, 'exists');
+		using _ = await this.lock();
 		return await this._fs.exists(path);
 	}
 
 	public existsSync(path: string): boolean {
-		using _ = this.lockSync(path, 'exists');
+		using _ = this.lockSync();
 		return this._fs.existsSync(path);
 	}
 
 	public async link(srcpath: string, dstpath: string): Promise<void> {
-		using _ = await this.lock(srcpath, 'link');
+		using _ = await this.lock();
 		await this._fs.link(srcpath, dstpath);
 	}
 
 	public linkSync(srcpath: string, dstpath: string): void {
-		using _ = this.lockSync(srcpath, 'link');
+		using _ = this.lockSync();
 		return this._fs.linkSync(srcpath, dstpath);
 	}
 
-	public async sync(path: string): Promise<void> {
-		using _ = await this.lock(path, 'sync');
-		await this._fs.sync(path);
+	public async sync(): Promise<void> {
+		using _ = await this.lock();
+		await this._fs.sync();
 	}
 
-	public syncSync(path: string): void {
-		using _ = this.lockSync(path, 'sync');
-		return this._fs.syncSync(path);
+	public syncSync(): void {
+		using _ = this.lockSync();
+		return this._fs.syncSync();
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
-		using _ = await this.lock(path, 'read');
+		using _ = await this.lock();
 		return await this._fs.read(path, buffer, offset, end);
 	}
 
 	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
-		using _ = this.lockSync(path, 'read');
+		using _ = this.lockSync();
 		return this._fs.readSync(path, buffer, offset, end);
 	}
 
 	public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
-		using _ = await this.lock(path, 'write');
+		using _ = await this.lock();
 		return await this._fs.write(path, buffer, offset);
 	}
 
 	public writeSync(path: string, buffer: Uint8Array, offset: number): void {
-		using _ = this.lockSync(path, 'write');
+		using _ = this.lockSync();
 		return this._fs.writeSync(path, buffer, offset);
 	}
 
 	public streamRead(path: string, options: StreamOptions): ReadableStream {
-		using _ = this.lockSync(path, 'streamRead');
+		using _ = this.lockSync();
 		return this._fs.streamRead(path, options);
 	}
 
 	public streamWrite(path: string, options: StreamOptions): WritableStream {
-		using _ = this.lockSync(path, 'streamWrite');
+		using _ = this.lockSync();
 		return this._fs.streamWrite(path, options);
 	}
 

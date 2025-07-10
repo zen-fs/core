@@ -39,3 +39,13 @@ export function createCredentials(source: CredentialsInit): Credentials {
 		...source,
 	};
 }
+
+/**
+ * Returns true if the credentials can be used for an operation that requires root privileges.
+ * @internal
+ * @category Internals
+ */
+export function credentialsAllowRoot(cred?: Credentials): boolean {
+	if (!cred) return false;
+	return !cred.uid || !cred.gid || !cred.euid || !cred.egid || cred.groups.some(gid => !gid);
+}

@@ -9,10 +9,10 @@ await fs.promises.mkdir(testDir);
 await fs.promises.writeFile(testFile, 'Initial content');
 
 /**
- * @todo convert using watcher to void discards pending ES proposal
+ * @todo convert `using watcher = ...` to void discards pending ES proposal
  */
-await suite('Watch Features', () => {
-	test('fs.watch should emit events on file change', async () => {
+suite('Watch', async () => {
+	test('Events emitted on file change', async () => {
 		const { promise, resolve } = Promise.withResolvers<[string, string]>();
 
 		using watcher = fs.watch(testFile, (eventType, filename) => {
@@ -27,7 +27,7 @@ await suite('Watch Features', () => {
 		assert.equal(filename, 'test.txt');
 	});
 
-	test('fs.watch should emit events on file rename (delete)', async () => {
+	test('Events are emitted on delete', async () => {
 		using watcher = fs.watch(testFile, (eventType, filename) => {
 			assert.equal(eventType, 'rename');
 			assert.equal(filename, 'test.txt');
@@ -37,7 +37,7 @@ await suite('Watch Features', () => {
 		await fs.promises.unlink(testFile);
 	});
 
-	test('fs.watchFile should detect changes to a file', async () => {
+	test('Changes are detected with watchFile()', async () => {
 		const listener = (curr: Stats, prev: Stats) => {
 			assert(curr.mtimeMs != prev.mtimeMs);
 			fs.unwatchFile(testFile, listener);
@@ -49,7 +49,7 @@ await suite('Watch Features', () => {
 		await fs.promises.writeFile(testFile, 'Changed content');
 	});
 
-	test('fs.unwatchFile should stop watching the file', async () => {
+	test('unwatchFile() works', async () => {
 		let changeDetected = false;
 
 		const listener = () => {
@@ -66,7 +66,7 @@ await suite('Watch Features', () => {
 		assert(!changeDetected);
 	});
 
-	test('fs.watch should work with directories', async () => {
+	test('Directories can be watched', async () => {
 		using watcher = fs.watch(testDir, (eventType, filename) => {
 			assert.equal(eventType, 'change');
 			assert.equal(filename, 'newFile.txt');
@@ -75,7 +75,7 @@ await suite('Watch Features', () => {
 		await fs.promises.writeFile(testDir + '/newFile.txt', 'Content');
 	});
 
-	test('fs.watch should detect file renames', async () => {
+	test('File renames are detected', async () => {
 		const oldFileName = 'oldFile.txt';
 		const newFileName = 'newFile.txt';
 		const oldFile = testDir + '/' + oldFileName;
@@ -102,7 +102,7 @@ await suite('Watch Features', () => {
 		await Promise.all([newFileResolver.promise, oldFileResolver.promise]);
 	});
 
-	test('fs.watch should detect file deletions', async () => {
+	test('File deletions are detected', async () => {
 		const tempFile = `${testDir}/tempFile.txt`;
 
 		await fs.promises.writeFile(tempFile, 'Temporary content');
@@ -115,7 +115,7 @@ await suite('Watch Features', () => {
 		await fs.promises.unlink(tempFile);
 	});
 
-	test('fs.promises.watch should detect file deletions', async () => {
+	test('File deletions are detected by promises API', async () => {
 		const tempFile = `${testDir}/tempFile.txt`;
 
 		await fs.promises.writeFile(tempFile, 'Temporary content');
@@ -135,7 +135,7 @@ await suite('Watch Features', () => {
 		await promise;
 	});
 
-	test('fs.promises.watch should detect file creations recursively', async () => {
+	test('File creations are detected recursively', async () => {
 		const subDir = `${testDir}/sub-dir`;
 		const tempFile = `${subDir}/tempFile.txt`;
 		await fs.promises.mkdir(subDir);
@@ -155,6 +155,3 @@ await suite('Watch Features', () => {
 		await promise;
 	});
 });
-
-await fs.promises.rm(testFile);
-await fs.promises.rm(testDir, { recursive: true, force: true });
