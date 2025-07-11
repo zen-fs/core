@@ -13,7 +13,7 @@ import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './
 
 import { Buffer } from 'node:buffer';
 import { Exception, rethrow, setUVMessage, UV } from 'kerium';
-import { defaultContext } from '../internal/contexts.js';
+import { getContext } from '../internal/contexts.js';
 import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import '../polyfills.js';
@@ -635,7 +635,7 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 
 		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
 
-		const { euid: uid, egid: gid } = $?.credentials ?? defaultContext.credentials;
+		const { euid: uid, egid: gid } = getContext($).credentials;
 
 		const inode = await fs.createFile(resolved, {
 			mode,
@@ -790,7 +790,7 @@ export async function mkdir(
 	path: fs.PathLike,
 	options?: fs.Mode | fs.MakeDirectoryOptions | null
 ): Promise<string | undefined | void> {
-	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
+	const { euid: uid, egid: gid } = getContext(this).credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 

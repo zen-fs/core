@@ -7,7 +7,7 @@ import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './
 import { Buffer } from 'node:buffer';
 import { Errno, Exception, setUVMessage, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
-import { defaultContext } from '../internal/contexts.js';
+import { getContext } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
@@ -172,7 +172,7 @@ function _openSync(this: V_Context, path: fs.PathLike, opt: OpenOptions): SyncHa
 			throw UV('EACCES', 'open', path);
 		}
 
-		const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
+		const { euid: uid, egid: gid } = getContext(this).credentials;
 		const inode = fs.createFileSync(resolved, {
 			mode,
 			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
@@ -481,7 +481,7 @@ export function mkdirSync(this: V_Context, path: fs.PathLike, options: fs.MakeDi
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false }) | null): void;
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined;
 export function mkdirSync(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): string | undefined | void {
-	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
+	const { euid: uid, egid: gid } = getContext(this).credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 

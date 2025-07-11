@@ -1,16 +1,17 @@
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import type { Device, DeviceDriver } from './internal/devices.js';
+import type { V_Context } from './internal/contexts.js';
+import type { Configuration as LogConfiguration } from 'kerium/log';
+import type { CaseFold } from './internal/filesystem.js';
 
 import { log, withErrno } from 'kerium';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
-import { defaultContext } from './internal/contexts.js';
+import { getContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import { DeviceFS } from './internal/devices.js';
 import { FileSystem } from './internal/filesystem.js';
 import { _setAccessChecks } from './vfs/config.js';
 import * as defaultFs from './vfs/index.js';
-import { mounts } from './vfs/shared.js';
-import type { V_Context } from './internal/contexts.js';
 
 /**
  * Update the configuration of a file system.
@@ -125,6 +126,12 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	disableAccessChecks: boolean;
 
 	/**
+	 * If set, sets case folding for the file system(s).
+	 * @default null
+	 */
+	caseFold?: CaseFold;
+
+	/**
 	 * If true, files will only sync to the file system when closed.
 	 * This overrides `disableUpdateOnRead`
 	 *
@@ -138,11 +145,26 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * Configurations options for the log.
 	 */
 	log: LogConfiguration;
-    
+
 	/**
 	 * FileSystem (for isolated trees only)
 	 */
-    fs: typeof defaultFs;
+	fs: typeof defaultFs;
+}
+
+function partialToFullConfig<T extends ConfigMounts>(config: Partial<Configuration<T>>): Configuration<T> {
+	return {
+		...config,
+		mounts: (config.mounts || {}) as { [K in keyof T]: MountConfiguration<T[K]>; },
+		uid: config.uid || 0,
+		gid: config.gid || 0,
+		addDevices: !!config.addDevices,
+		disableAccessChecks: !!config.disableAccessChecks,
+		onlySyncOnClose: !!config.onlySyncOnClose,
+		caseFold: config.caseFold || null,
+		log: config.log || {},
+		fs: config.fs || defaultFs,
+	} as Configuration<T>;
 }
 
 /**
@@ -150,14 +172,13 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
  * @category Backends and Configuration
  */
 export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>): Promise<void> {
-    const fs = configuration.fs || defaultFs;
 	if (!isBackendConfig(configuration)) {
 		throw new TypeError('Invalid single mount point configuration');
 	}
 
 	const resolved = await resolveMountConfig(configuration);
-	fs.umount('/');
-	fs.mount('/', resolved);
+	defaultFs.umount.call(null, '/');
+	defaultFs.mount.call(null, '/', resolved);
 }
 
 /**
@@ -166,27 +187,26 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
  * This is implemented as a separate function to avoid a circular dependency between vfs/shared.ts and other vfs layer files.
  * @internal
  */
-async function mountHelper(path: string, mountFs: FileSystem, fs=defaultFs): Promise<void> {
+async function mountHelper(path: string, childFs: FileSystem, parentFs: typeof defaultFs): Promise<void> {
 	if (path == '/') {
-		fs.mount(path, mountFs);
+		parentFs.mount.call(null, path, childFs);
 		return;
 	}
 
-	const stats = await fs.promises.stat(path).catch(() => null);
+	const stats = await parentFs.promises.stat.call(null, path).catch(() => null);
 	if (!stats) {
-		await fs.promises.mkdir(path, { recursive: true });
+		await parentFs.promises.mkdir.call(null, path, { recursive: true });
 	} else if (!stats.isDirectory()) {
 		throw withErrno('ENOTDIR', 'Missing directory at mount point: ' + path);
 	}
-	fs.mount(path, mountFs);
+	parentFs.mount.call(null, path, childFs);
 }
 
 /**
  * @category Backends and Configuration
  */
-export function addDevice(driver: DeviceDriver, options?: object, ctx?: V_Context): Device {
-    const mts = ctx?.mounts || mounts;
-	const devfs = mounts.get('/dev');
+export function addDevice(driver: DeviceDriver, options?: object, $?: V_Context): Device {
+	const devfs = getContext($).mounts.get('/dev');
 	if (!(devfs instanceof DeviceFS)) throw log.crit(withErrno('ENOTSUP', '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
@@ -196,13 +216,14 @@ export function addDevice(driver: DeviceDriver, options?: object, ctx?: V_Contex
  * @category Backends and Configuration
  * @see Configuration
  */
-export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): Promise<void> {
-    const fs = configuration.fs || defaultFs;
+export async function configure<T extends ConfigMounts>(this: V_Context, partialConfiguration: Partial<Configuration<T>>): Promise<void> {
+	const configuration = partialToFullConfig(partialConfiguration);
+	const $$ = getContext(this);
 	Object.assign(
-		defaultContext.credentials,
+		$$.credentials,
 		createCredentials({
-			uid: configuration.uid || 0,
-			gid: configuration.gid || 0,
+			uid: configuration.uid,
+			gid: configuration.gid,
 		})
 	);
 
@@ -220,20 +241,20 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 				mountConfig.caseFold ??= configuration.caseFold;
 			}
 
-			if (point == '/') fs.umount('/');
+			if (point == '/') configuration.fs.umount.call(null, '/');
 
-			await mountHelper(point, await resolveMountConfig(mountConfig), fs);
+			await mountHelper(point, await resolveMountConfig(mountConfig), configuration.fs);
 		}
 	}
 
-	for (const fs of mounts.values()) {
-		configureFileSystem(fs, configuration);
+	for (const eachFs of $$.mounts.values()) {
+		configureFileSystem(eachFs, configuration);
 	}
 
-	if (configuration.addDevices && !mounts.has('/dev')) {
+	if (configuration.addDevices && !$$.mounts.has('/dev')) {
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();
-		await mountHelper('/dev', devfs, fs);
+		await mountHelper('/dev', devfs, configuration.fs);
 	}
 }

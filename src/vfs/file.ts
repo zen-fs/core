@@ -1,6 +1,6 @@
 import { UV, withErrno } from 'kerium';
 import type { V_Context } from '../context.js';
-import { defaultContext } from '../internal/contexts.js';
+import { getContext } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
@@ -239,7 +239,7 @@ export class SyncHandle {
  * @internal @hidden
  */
 export function toFD(file: SyncHandle): number {
-	const map = file.context?.descriptors ?? defaultContext.descriptors;
+    const map = getContext(file.context).descriptors;
 	const fd = Math.max(map.size ? Math.max(...map.keys()) + 1 : 0, 4);
 	map.set(fd, file);
 	return fd;
@@ -249,12 +249,12 @@ export function toFD(file: SyncHandle): number {
  * @internal @hidden
  */
 export function fromFD($: V_Context, fd: number): SyncHandle {
-	const map = $?.descriptors ?? defaultContext.descriptors;
+	const map = getContext($).descriptors;
 	const value = map.get(fd);
 	if (!value) throw withErrno('EBADF');
 	return value;
 }
 
 export function deleteFD($: V_Context, fd: number): boolean {
-	return ($?.descriptors ?? defaultContext.descriptors).delete(fd);
+	return getContext($).descriptors.delete(fd);
 }
