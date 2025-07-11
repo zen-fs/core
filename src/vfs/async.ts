@@ -624,7 +624,7 @@ export function watchFile(
 	options: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
 	listener?: (curr: Stats, prev: Stats) => void
 ): void {
-	const normalizedPath = normalizePath(path);
+	const normalizedPath = normalizePath.call(this, path);
 	const opts = typeof options != 'function' ? options : {};
 
 	if (typeof options == 'function') {
@@ -665,7 +665,7 @@ watchFile satisfies Omit<typeof fs.watchFile, '__promisify__'>;
  * @param listener Optional listener to remove.
  */
 export function unwatchFile(this: V_Context, path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void = nop): void {
-	const normalizedPath = normalizePath(path);
+	const normalizedPath = normalizePath.call(this, path);
 
 	const entry = statWatchers.get(normalizedPath);
 	if (entry) {
@@ -697,7 +697,7 @@ export function watch(
 	options?: fs.WatchOptions | ((event: string, filename: string) => any),
 	listener?: (event: string, filename: string) => any
 ): FSWatcher {
-	const watcher = new FSWatcher<string>(this, normalizePath(path), typeof options == 'object' ? options : {});
+	const watcher = new FSWatcher<string>(this, normalizePath.call(this, path), typeof options == 'object' ? options : {});
 	listener = typeof options == 'function' ? options : listener;
 	watcher.on('change', listener || nop);
 	return watcher;

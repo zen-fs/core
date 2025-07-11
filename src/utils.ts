@@ -3,6 +3,7 @@ import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';
 import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
 import { resolve } from './path.js';
+import type { V_Context } from './context.js';
 
 declare global {
 	function atob(data: string): string;
@@ -74,7 +75,7 @@ export function __assertType<T>(value: unknown): asserts value is T {}
  * Normalizes a path
  * @internal
  */
-export function normalizePath(p: fs.PathLike, noResolve: boolean = false): string {
+export function normalizePath(this: V_Context, p: fs.PathLike, noResolve: boolean = false): string {
 	if (p instanceof URL) {
 		if (p.protocol != 'file:') throw withErrno('EINVAL', 'URLs must use the file: protocol');
 		p = p.pathname;
@@ -86,7 +87,7 @@ export function normalizePath(p: fs.PathLike, noResolve: boolean = false): strin
 	p = p.replaceAll(/[/\\]+/g, '/');
 
 	// Note: PWD is not resolved here, it is resolved later.
-	return noResolve ? p : resolve(p);
+	return noResolve ? p : resolve.call(this, p);
 }
 
 /**
