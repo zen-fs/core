@@ -863,19 +863,34 @@ type GlobCallback<Args extends unknown[]> = (e: Exception | null, ...args: Args)
 /**
  * Retrieves the files matching the specified pattern.
  */
-export function glob(this: V_Context, pattern: string | string[], callback: GlobCallback<[string[]]>): void;
-export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptionsWithFileTypes, callback: GlobCallback<[Dirent[]]>): void;
-export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptionsWithoutFileTypes, callback: GlobCallback<[string[]]>): void;
-export function glob(this: V_Context, pattern: string | string[], options: fs.GlobOptions, callback: GlobCallback<[Dirent[] | string[]]>): void;
+export function glob(this: V_Context, pattern: string | readonly string[], callback: GlobCallback<[string[]]>): void;
 export function glob(
 	this: V_Context,
-	pattern: string | string[],
+	pattern: string | readonly string[],
+	options: fs.GlobOptionsWithFileTypes,
+	callback: GlobCallback<[Dirent[]]>
+): void;
+export function glob(
+	this: V_Context,
+	pattern: string | readonly string[],
+	options: fs.GlobOptionsWithoutFileTypes,
+	callback: GlobCallback<[string[]]>
+): void;
+export function glob(
+	this: V_Context,
+	pattern: string | readonly string[],
+	options: fs.GlobOptions,
+	callback: GlobCallback<[Dirent[] | string[]]>
+): void;
+export function glob(
+	this: V_Context,
+	pattern: string | readonly string[],
 	options: GlobOptionsU | GlobCallback<[string[]]>,
 	callback: GlobCallback<[Dirent[]]> | GlobCallback<[string[]]> = nop
 ): void {
 	callback = typeof options == 'function' ? options : callback;
 
-	const it = promises.glob.call<V_Context, [string | string[], GlobOptionsU?], NodeJS.AsyncIterator<Dirent | string>>(
+	const it = promises.glob.call<V_Context, [string | readonly string[], GlobOptionsU?], NodeJS.AsyncIterator<Dirent | string>>(
 		this,
 		pattern,
 		typeof options === 'function' ? undefined : options

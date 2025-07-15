@@ -384,7 +384,7 @@ export class Interface extends EventEmitter<InterfaceEvents> implements readline
 		return 10;
 	}
 
-	public [Symbol.asyncIterator](): AsyncIteratorObject<string> {
+	public [Symbol.asyncIterator](): AsyncIteratorObject<string, undefined> {
 		let done = false;
 
 		return {

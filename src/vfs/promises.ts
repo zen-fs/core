@@ -259,7 +259,7 @@ export class FileHandle implements promises.FileHandle {
 		buffer?: T | promises.FileReadOptions<T>,
 		offset?: number | null | promises.FileReadOptions<T>,
 		length?: number | null,
-		position?: number | null
+		position?: fs.ReadPosition | null
 	) {
 		if (typeof offset == 'object' && offset != null) {
 			position = offset.position;
@@ -277,7 +277,7 @@ export class FileHandle implements promises.FileHandle {
 		const pos = Number.isSafeInteger(position) ? position! : this.position;
 		buffer ||= new Uint8Array(this.inode.size) as T;
 		offset ??= 0;
-		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos);
+		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos ? Number(pos) : undefined);
 	}
 
 	public async readFile(options?: ({ encoding?: null } & Abortable) | null): Promise<Buffer>;
@@ -1347,11 +1347,11 @@ export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatF
 /**
  * Retrieves the files matching the specified pattern.
  */
-export function glob(this: V_Context, pattern: string | string[]): NodeJS.AsyncIterator<string>;
-export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithFileTypes): NodeJS.AsyncIterator<Dirent>;
-export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithoutFileTypes): NodeJS.AsyncIterator<string>;
-export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptions): NodeJS.AsyncIterator<Dirent | string>;
-export function glob(this: V_Context, pattern: string | string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
+export function glob(this: V_Context, pattern: string | readonly string[]): NodeJS.AsyncIterator<string>;
+export function glob(this: V_Context, pattern: string | readonly string[], opt: fs.GlobOptionsWithFileTypes): NodeJS.AsyncIterator<Dirent>;
+export function glob(this: V_Context, pattern: string | readonly string[], opt: fs.GlobOptionsWithoutFileTypes): NodeJS.AsyncIterator<string>;
+export function glob(this: V_Context, pattern: string | readonly string[], opt: fs.GlobOptions): NodeJS.AsyncIterator<Dirent | string>;
+export function glob(this: V_Context, pattern: string | readonly string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const { cwd = '/', withFileTypes = false, exclude = () => false } = opt || {};
 

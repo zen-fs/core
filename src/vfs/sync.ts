@@ -974,11 +974,11 @@ export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.Stat
 /**
  * Retrieves the files matching the specified pattern.
  */
-export function globSync(pattern: string | string[]): string[];
-export function globSync(pattern: string | string[], options: fs.GlobOptionsWithFileTypes): Dirent[];
-export function globSync(pattern: string | string[], options: fs.GlobOptionsWithoutFileTypes): string[];
-export function globSync(pattern: string | string[], options: fs.GlobOptions): Dirent[] | string[];
-export function globSync(pattern: string | string[], options: GlobOptionsU = {}): Dirent[] | string[] {
+export function globSync(pattern: string | readonly string[]): string[];
+export function globSync(pattern: string | readonly string[], options: fs.GlobOptionsWithFileTypes): Dirent[];
+export function globSync(pattern: string | readonly string[], options: fs.GlobOptionsWithoutFileTypes): string[];
+export function globSync(pattern: string | readonly string[], options: fs.GlobOptions): Dirent[] | string[];
+export function globSync(pattern: string | readonly string[], options: GlobOptionsU = {}): Dirent[] | string[] {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const { cwd = '/', withFileTypes = false, exclude = () => false } = options;
 
