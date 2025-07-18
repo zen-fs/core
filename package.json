@@ -26,7 +26,7 @@
 		"eslint.shared.js"
 	],
 	"type": "module",
-	"homepage": "https://github.com/zen-fs/core",
+	"homepage": "https://zenfs.dev/core",
 	"author": "James Prevett <jp@jamespre.dev> (https://jamespre.dev)",
 	"contributors": [
 		"John Vilk <jvilk@cs.umass.edu>"
