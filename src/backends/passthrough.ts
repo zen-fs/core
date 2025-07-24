@@ -1,4 +1,4 @@
-import { warn } from 'kerium/log';
+import { err, warn } from 'kerium/log';
 import type * as fs from 'node:fs';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';
@@ -66,17 +66,31 @@ export class PassthroughFS extends FileSystem {
 		return this.nodeFS.statSync(this.path(path));
 	}
 
+	/**
+	 * @privateRemarks
+	 * Timestamps should be updated by the underlying file system.
+	 */
 	public async touch(path: string, metadata: InodeLike): Promise<void> {
-		await using handle = await this.nodeFS.promises.open(this.path(path), 'w');
+		await using handle = await this.nodeFS.promises.open(this.path(path), 'r');
 		await handle.chmod(metadata.mode);
-		await handle.chown(metadata.uid, metadata.gid);
-		await handle.utimes(metadata.atimeMs, metadata.mtimeMs);
+		try {
+			await handle.chown(metadata.uid, metadata.gid);
+		} catch (error: any) {
+			err('Failed to chown passthrough file: ' + error.message);
+		}
 	}
 
+	/**
+	 * @privateRemarks
+	 * Timestamps should be updated by the underlying file system.
+	 */
 	public touchSync(path: string, metadata: InodeLike): void {
 		this.nodeFS.chmodSync(this.path(path), metadata.mode);
-		this.nodeFS.chownSync(this.path(path), metadata.uid, metadata.gid);
-		this.nodeFS.utimesSync(this.path(path), metadata.atimeMs, metadata.mtimeMs);
+		try {
+			this.nodeFS.chownSync(this.path(path), metadata.uid, metadata.gid);
+		} catch (error: any) {
+			err('Failed to chown passthrough file: ' + error.message);
+		}
 	}
 
 	/**
