@@ -91,9 +91,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		if (this._initialized) return;
 
 		if (!this.attributes.has('no_async_preload')) {
-		  this.checkRootSync();	
+			this.checkRootSync();
 		}
-		
+
 		await this.checkRoot();
 		await this._populate();
 		this._initialized = true;
