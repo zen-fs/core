@@ -90,7 +90,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async ready(): Promise<void> {
 		if (this._initialized) return;
 
-		this.checkRootSync();
+		if (!this.attributes.has('no_async_preload')) {
+			this.checkRootSync();
+		}
+
 		await this.checkRoot();
 		await this._populate();
 		this._initialized = true;
