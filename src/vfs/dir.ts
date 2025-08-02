@@ -5,8 +5,9 @@ import type { Callback } from '../utils.js';
 
 import { Buffer } from 'buffer';
 import { withErrno } from 'kerium';
-import { packed, sizeof, struct, types as t } from 'memium';
 import { warn } from 'kerium/log';
+import { packed, sizeof } from 'memium';
+import { $from, struct, types as t } from 'memium/decorators';
 import { encodeUTF8 } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import { basename, dirname } from '../path.js';
@@ -44,9 +45,9 @@ export function dtToIf(dt: DirType): number {
 	return dt << 12;
 }
 
-@struct(packed, { name: 'Dirent' })
+@struct('Dirent', packed)
 export class Dirent<Name extends string | Buffer = string, TArrayBuffer extends ArrayBufferLike = ArrayBufferLike>
-	extends BufferView<TArrayBuffer>
+	extends $from(BufferView)<TArrayBuffer>
 	implements _Dirent<Name>
 {
 	@t.uint32 protected accessor ino!: number;

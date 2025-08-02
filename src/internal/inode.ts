@@ -1,6 +1,7 @@
 import { withErrno } from 'kerium';
 import { crit, warn } from 'kerium/log';
-import { field, packed, sizeof, struct, types as t } from 'memium';
+import { packed, sizeof } from 'memium';
+import { $from, field, struct, types as t } from 'memium/decorators';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import * as c from '../vfs/constants.js';
@@ -16,8 +17,8 @@ export const rootIno = 0;
 /** 4 KiB minus static inode data */
 const maxDynamicData = 3968;
 
-@struct(packed, { name: 'Attribute' })
-class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<B> {
+@struct('Attribute', packed)
+class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends $from.typed(Uint8Array)<B> {
 	@t.uint32 public accessor keySize!: number;
 	@t.uint32 public accessor valueSize!: number;
 
@@ -57,11 +58,9 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends Uint8Array<
  * @category Internals
  * @internal
  */
-@struct(packed, { name: 'Attributes' })
-export class Attributes extends BufferView {
+@struct('Attributes', packed)
+export class Attributes extends $from(BufferView) {
 	@t.uint32 accessor size!: number;
-
-	declare ['constructor']: typeof Attributes;
 
 	public get byteSize(): number {
 		let offset = this.byteOffset + sizeof(this);
@@ -270,8 +269,8 @@ export const userModifiableFlags = 0x000380ff;
  * @category Internals
  * @internal
  */
-@struct(packed, { name: 'Inode' })
-export class Inode extends BufferView implements InodeLike {
+@struct('Inode', packed)
+export class Inode extends $from(BufferView) implements InodeLike {
 	public constructor(...args: ConstructorParameters<typeof BufferView> | [Readonly<Partial<InodeLike>>]) {
 		let data = {};
 
@@ -280,7 +279,7 @@ export class Inode extends BufferView implements InodeLike {
 			args = [sizeof(Inode)];
 		}
 
-		super(...(args as ConstructorParameters<typeof BufferView>));
+		super(...(args as any));
 
 		if (this.byteLength < sizeof(Inode)) {
 			throw crit(withErrno('EIO', `Buffer is too small to create an inode (${this.byteLength} bytes)`));
