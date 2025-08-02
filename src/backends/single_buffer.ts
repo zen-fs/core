@@ -24,7 +24,7 @@ const { format } = new Intl.NumberFormat('en-US', {
 	unitDisplay: 'narrow',
 });
 
-@struct('MetadataEntry', packed)
+@struct.packed('MetadataEntry')
 class MetadataEntry extends $from(BufferView) {
 	/** Inode or data ID */
 	@t.uint32 accessor id!: number;
@@ -58,7 +58,7 @@ const max_lock_attempts = 5;
  * This metadata maps IDs (for inodes and data) to actual offsets in the buffer.
  * This is done since IDs are not guaranteed to be sequential.
  */
-@struct('MetadataBlock', packed)
+@struct.packed('MetadataBlock')
 export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof MetadataBlock;
 
@@ -163,7 +163,7 @@ const usedBytes = 2;
 /**
  * The super block structure for a single-buffer file system
  */
-@struct('Superblock', packed)
+@struct.packed('Superblock')
 export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof SuperBlock;
 

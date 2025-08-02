@@ -45,7 +45,7 @@ export function dtToIf(dt: DirType): number {
 	return dt << 12;
 }
 
-@struct('Dirent', packed)
+@struct.packed('Dirent')
 export class Dirent<Name extends string | Buffer = string, TArrayBuffer extends ArrayBufferLike = ArrayBufferLike>
 	extends $from(BufferView)<TArrayBuffer>
 	implements _Dirent<Name>

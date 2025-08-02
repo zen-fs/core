@@ -42,7 +42,7 @@ export class Entry extends $from(BufferView) {
 	@t.uint32 accessor id!: number;
 }
 
-@struct('ACL', packed)
+@struct.packed('ACL')
 export class ACL extends $from(BufferView) {
 	@t.uint32 accessor version!: number;
 
