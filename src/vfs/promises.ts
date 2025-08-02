@@ -1360,7 +1360,7 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 	// Escape special characters in pattern
 	const regexPatterns = pattern.map(globToRegex);
 
-	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
+	async function* recursiveList(dir: string | URL): AsyncGenerator<string | Dirent> {
 		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {

@@ -988,7 +988,7 @@ export function globSync(pattern: string | readonly string[], options: GlobOptio
 	const regexPatterns = pattern.map(globToRegex);
 
 	const results: Dirent[] | string[] = [];
-	function recursiveList(dir: string) {
+	function recursiveList(dir: string | URL) {
 		const entries = readdirSync(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {

@@ -216,7 +216,11 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 		return this;
 	}
 
-	public [Symbol.asyncDispose]() {
-		return Promise.resolve();
+	[Symbol.dispose](): void {
+		this.closeSync();
+	}
+
+	public async [Symbol.asyncDispose]() {
+		await this.close();
 	}
 }

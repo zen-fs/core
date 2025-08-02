@@ -67,7 +67,7 @@
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {
-		"@types/node": "^24.0.13",
+		"@types/node": "^24.1.0",
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
 		"kerium": "^1.3.4",
