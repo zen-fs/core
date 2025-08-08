@@ -150,7 +150,12 @@ const _Port = {
 	name: 'Port',
 	options: {
 		port: {
-			type: ['Worker', 'MessagePort', 'WebSocket'],
+			type: [
+				EventTarget,
+				function EventEmitter(e) {
+					return typeof e == 'object' && 'on' in e;
+				},
+			],
 			required: true,
 		},
 		timeout: { type: 'number', required: false },
