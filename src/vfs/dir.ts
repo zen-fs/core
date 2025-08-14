@@ -152,7 +152,7 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 		if (!cb) {
 			return Promise.resolve();
 		}
-		cb();
+		cb(null);
 	}
 
 	/**
@@ -184,7 +184,7 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 			return this._read();
 		}
 
-		void this._read().then(value => cb(undefined, value));
+		void this._read().then(value => cb(null, value));
 	}
 
 	/**

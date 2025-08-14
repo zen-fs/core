@@ -27,7 +27,7 @@ export function encodeDirListing(data: Record<string, number>): Uint8Array {
 	return encodeUTF8(JSON.stringify(data));
 }
 
-export type Callback<Args extends unknown[] = [], NoError = undefined | void> = (e: Exception | NoError, ...args: OptionalTuple<Args>) => unknown;
+export type Callback<Args extends unknown[] = [], NoError = null> = (e: Exception | NoError, ...args: OptionalTuple<Args>) => unknown;
 
 /**
  * Normalizes a mode

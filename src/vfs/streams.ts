@@ -90,7 +90,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 		}
 	}
 
-	close(callback: Callback<[void], null> = () => null): void {
+	close(callback: Callback<[void]> = () => null): void {
 		try {
 			this.destroy();
 			this.emit('close');
@@ -167,7 +167,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 		}
 	}
 
-	close(callback: Callback<[void], null> = () => null): void {
+	close(callback: Callback<[void]> = () => null): void {
 		try {
 			this.destroy();
 			this.emit('close');
