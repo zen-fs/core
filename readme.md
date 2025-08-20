@@ -220,6 +220,10 @@ A huge thank you to [![Deco.cx logo](https://avatars.githubusercontent.com/deco-
 - Build using `npx tsc` or `npm run build`
 - You can find the built code in `dist`.
 
+## Contact and Support
+
+You can reach out [on Discord](https://zenfs.dev/discord) or by emailing jp@zenfs.dev
+
 ### Testing
 
 Run unit tests with:
@@ -231,7 +235,3 @@ Run unit tests with:
 ### BrowserFS Fork
 
 ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS). If you are using ZenFS in a research paper, you may want to [cite BrowserFS](https://github.com/jvilk/BrowserFS#citing).
-
-### Get in Contact
-
-Join us [on Discord](https://zenfs.dev/discord)
