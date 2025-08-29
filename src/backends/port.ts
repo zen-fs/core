@@ -91,7 +91,7 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 	public async sync(): Promise<void> {
 		await this.rpc('sync');
 		for (const executor of this._executors.values()) {
-			await executor.promise.catch(() => {});
+			await executor.promise.finally();
 		}
 	}
 
