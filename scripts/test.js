@@ -22,7 +22,7 @@ const { values: options, positionals } = parseArgs({
 		build: { short: 'b', type: 'boolean', default: false },
 		common: { short: 'c', type: 'boolean', default: false },
 		inspect: { short: 'I', type: 'boolean', default: false },
-		skip: { short: 's', type: 'string' },
+		skip: { short: 's', type: 'string', multiple: true, default: [] },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
 
 		// Coverage
@@ -47,7 +47,7 @@ Behavior:
     -t, --test <glob>     Which FS test suite(s) to run
     -f, --force           Whether to use --test-force-exit
     -I, --inspect         Use the inspector for debugging
-	-s, --skip <pattern>  Skip tests with names matching the given pattern.
+	-s, --skip <pattern>  Skip tests with names matching the given pattern. Can be specified multiple times.
 
 Output:
     -h, --help          Outputs this help message
@@ -215,7 +215,7 @@ for (const setupFile of positionals) {
 				options.inspect ? '--inspect' : '',
 				'--test --experimental-test-coverage',
 				options.force ? '--test-force-exit' : '',
-				options.skip ? `--test-skip-pattern=${options.skip}` : '',
+				options.skip.length ? `--test-skip-pattern='${options.skip.join('|').replaceAll("'", "\\'")}'` : '',
 				`'${testsGlob.replaceAll("'", "\\'")}'`,
 				process.env.CMD,
 			].join(' '),
