@@ -277,9 +277,9 @@ export function request<const TRequest extends Request, TValue>(
 
 	const { resolve, reject, promise } = Promise.withResolvers<TValue>();
 
-	const id = Math.random().toString(16).slice(10);
+	const id = Math.random().toString(16).slice(5);
 	const timeout = setTimeout(() => {
-		const error = err(withErrno('EIO', 'RPC Failed'));
+		const error = err(withErrno('ETIMEDOUT', 'RPC request timed out'));
 		error.stack += stack;
 		disposeExecutors(id);
 		reject(error);

@@ -21,13 +21,13 @@ await suite('Timeout', { timeout: 1000 }, () => {
 			},
 		});
 
-		await assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
+		await assert.rejects(configured, { code: 'ETIMEDOUT' });
 	});
 
 	test('Remote not attached', async () => {
 		const configured = configureSingle({ backend: Port, port: timeoutChannel.port1, timeout: 100 });
 
-		await assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
+		await assert.rejects(configured, { code: 'ETIMEDOUT' });
 	});
 
 	after(() => {
