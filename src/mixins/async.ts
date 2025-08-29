@@ -28,10 +28,10 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
 	 * @deprecated Use {@link sync | `sync`} instead
 	 */
 	queueDone(): Promise<void>;
-	/**
-	 * @deprecated Use {@link sync | `sync`} instead
-	 */
+
 	ready(): Promise<void>;
+
+	sync(): Promise<void>;
 }
 
 /**
@@ -62,8 +62,8 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		private _promise: Promise<unknown> = Promise.resolve();
 
-		protected _async(promise: Promise<unknown>) {
-			this._promise = this._promise.then(() => promise);
+		protected _async(thunk: () => Promise<unknown>) {
+			this._promise = this._promise.finally(() => thunk());
 		}
 
 		private _isInitialized: boolean = false;
@@ -124,7 +124,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public renameSync(oldPath: string, newPath: string): void {
 			this.checkSync();
 			this._sync.renameSync(oldPath, newPath);
-			this._async(this.rename(oldPath, newPath));
+			this._async(() => this.rename(oldPath, newPath));
 		}
 
 		public statSync(path: string): InodeLike {
@@ -135,31 +135,33 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public touchSync(path: string, metadata: InodeLike): void {
 			this.checkSync();
 			this._sync.touchSync(path, metadata);
-			this._async(this.touch(path, metadata));
+			this._async(() => this.touch(path, metadata));
 		}
 
 		public createFileSync(path: string, options: CreationOptions): InodeLike {
 			this.checkSync();
-			this._async(this.createFile(path, options));
-			return this._sync.createFileSync(path, options);
+			const result = this._sync.createFileSync(path, options);
+			this._async(() => this.createFile(path, options));
+			return result;
 		}
 
 		public unlinkSync(path: string): void {
 			this.checkSync();
-			this._async(this.unlink(path));
 			this._sync.unlinkSync(path);
+			this._async(() => this.unlink(path));
 		}
 
 		public rmdirSync(path: string): void {
 			this.checkSync();
 			this._sync.rmdirSync(path);
-			this._async(this.rmdir(path));
+			this._async(() => this.rmdir(path));
 		}
 
 		public mkdirSync(path: string, options: CreationOptions): InodeLike {
 			this.checkSync();
-			this._async(this.mkdir(path, options));
-			return this._sync.mkdirSync(path, options);
+			const result = this._sync.mkdirSync(path, options);
+			this._async(() => this.mkdir(path, options));
+			return result;
 		}
 
 		public readdirSync(path: string): string[] {
@@ -170,12 +172,12 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public linkSync(srcpath: string, dstpath: string): void {
 			this.checkSync();
 			this._sync.linkSync(srcpath, dstpath);
-			this._async(this.link(srcpath, dstpath));
+			this._async(() => this.link(srcpath, dstpath));
 		}
 
 		public async sync(): Promise<void> {
 			if (!this.attributes.has('no_async_preload') && this._sync) this._sync.syncSync();
-			await this._promise;
+			await this._promise.catch(() => {});
 		}
 
 		public syncSync(): void {
@@ -196,7 +198,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public writeSync(path: string, buffer: Uint8Array, offset: number): void {
 			this.checkSync();
 			this._sync.writeSync(path, buffer, offset);
-			this._async(this.write(path, buffer, offset));
+			this._async(() => this.write(path, buffer, offset));
 		}
 
 		public streamWrite(path: string, options: StreamOptions): WritableStream {
@@ -247,24 +249,35 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		 * Patch all async methods to also call their synchronous counterparts unless called from themselves (either sync or async)
 		 */
 		private _patchAsync(): void {
-			debug(`Async: patched ${_asyncFSKeys.length} methods`);
+			const noPatch = ['read', 'readdir', 'stat', 'exists'];
+			const toPatch = _asyncFSKeys.filter(key => !noPatch.includes(key));
 
-			for (const key of _asyncFSKeys) {
+			for (const key of toPatch) {
 				// TS does not narrow the union based on the key
 				const originalMethod = this[key].bind(this) as (...args: unknown[]) => Promise<unknown>;
+
+				function isInLoop(depth: number, error?: Error) {
+					if (!error) {
+						error = new Error();
+						Error.captureStackTrace(error, isInLoop);
+					}
+
+					if (!error.stack) return false;
+
+					const stack = error.stack.split('\n').slice(depth).join('\n');
+
+					// From the async queue
+					return (
+						stack.includes(`at <computed> [as ${key}]`)
+						|| stack.includes(`at async <computed> [as ${key}]`)
+						|| stack.includes(`${key}Sync `)
+					);
+				}
 
 				(this as any)[key] = async (...args: unknown[]) => {
 					const result = await originalMethod(...args);
 
-					const stack = new Error().stack!.split('\n').slice(2).join('\n');
-					// From the async queue
-					if (
-						!stack
-						|| stack.includes(`at <computed> [as ${key}]`)
-						|| stack.includes(`at async <computed> [as ${key}]`)
-						|| stack.includes(`${key}Sync `)
-					)
-						return result;
+					if (isInLoop(2)) return result;
 
 					if (!this._isInitialized) {
 						this._skippedCacheUpdates++;
@@ -275,19 +288,15 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 						// @ts-expect-error 2556 - The type of `args` is not narrowed
 						this._sync?.[`${key}Sync`]?.(...args);
 					} catch (e: any) {
-						const stack = e.stack!.split('\n').slice(3).join('\n');
-						if (
-							stack.includes(`at <computed> [as ${key}]`)
-							|| stack.includes(`at async <computed> [as ${key}]`)
-							|| stack.includes(`${key}Sync `)
-						)
-							return result;
+						if (isInLoop(3, e)) return result;
 						e.message += ' (Out of sync!)';
 						throw err(e);
 					}
 					return result;
 				};
 			}
+
+			debug(`Async: patched ${toPatch.length} methods`);
 		}
 	}
 
