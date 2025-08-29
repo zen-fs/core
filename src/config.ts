@@ -144,7 +144,7 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
  * @category Backends and Configuration
  */
 export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>): Promise<void> {
-	if (!isBackendConfig(configuration)) {
+	if (!isMountConfig(configuration)) {
 		throw new TypeError('Invalid single mount point configuration');
 	}
 
