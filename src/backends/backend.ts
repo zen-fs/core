@@ -122,6 +122,12 @@ export function _fnOpt<const T>(name: string | null | undefined, fn: (arg: T) =>
 	return fn;
 }
 
+function _isClass(func: Function): boolean {
+	if (!(func && func.constructor === Function) || func.prototype === undefined) return false;
+	if (Function.prototype !== Object.getPrototypeOf(func)) return true;
+	return Object.getOwnPropertyNames(func.prototype).length > 1;
+}
+
 /**
  * Checks that `options` object is valid for the file system options.
  * @category Backends and Configuration
@@ -151,7 +157,7 @@ export function checkOptions<T extends Backend>(backend: T, options: Record<stri
 
 		const isType = (type: OptionType, _ = value): _ is T =>
 			typeof type == 'function'
-				? Symbol.hasInstance in type && type.prototype
+				? _isClass(type)
 					? value instanceof type
 					: (type as (v: any) => boolean)(value)
 				: typeof value === type || value?.constructor?.name === type;
