@@ -105,7 +105,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	 * If the path is currently locked, waits for it to be unlocked.
 	 * @internal
 	 */
-	public async lock(): Promise<MutexLock> {
+	public async lock(timeout: number = 5000): Promise<MutexLock> {
 		const previous = this.currentLock;
 		const lock = this.addLock();
 		const stack = new Error().stack;
@@ -115,7 +115,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 				error.stack += stack?.slice('Error'.length);
 				throw err(error);
 			}
-		}, 5000);
+		}, timeout);
 		await previous?.done();
 		return lock;
 	}

@@ -1,6 +1,6 @@
 {
 	"name": "@zenfs/core",
-	"version": "2.3.10",
+	"version": "2.3.9",
 	"description": "A filesystem, anywhere",
 	"funding": {
 		"type": "individual",
@@ -60,7 +60,7 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint src tests",
-		"test": "npx zenfs-test --clean; npx zenfs-test -abcfp; tests/fetch/run.sh; npx zenfs-test --report",
+		"test": "npx zenfs-test --clean; npx zenfs-test -abcp; tests/fetch/run.sh; npx zenfs-test --report",
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",

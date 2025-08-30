@@ -45,25 +45,25 @@ jobs:
               run: npx zci run lint "npm run lint"
 
             - name: 'Unit tests: common'
-              run: npx zenfs-test -pfvC --common
+              run: npx zenfs-test -pvC --common
 
             - name: 'Unit tests: InMemory'
-              run: npx zenfs-test -pfvC tests/setup/memory.ts
+              run: npx zenfs-test -pvC tests/setup/memory.ts
 
             - name: 'Unit tests: Copy-On-Write'
-              run: npx zenfs-test -pfvC tests/setup/cow.ts
+              run: npx zenfs-test -pvC tests/setup/cow.ts
 
             - name: 'Unit tests: contexts'
-              run: npx zenfs-test -pfvC tests/setup/context.ts
+              run: npx zenfs-test -pvC tests/setup/context.ts
 
             - name: 'Unit tests: Index'
-              run: npx zenfs-test -pfvC tests/setup/index.ts
+              run: npx zenfs-test -pvC tests/setup/index.ts
 
             - name: 'Unit tests: Port'
-              run: npx zenfs-test -pfvC tests/setup/port.ts -t '!(scaling)'
+              run: npx zenfs-test -pvC tests/setup/port.ts -t '!(scaling)'
 
             - name: 'Unit tests: SingleBuffer'
-              run: npx zenfs-test -pfvC tests/setup/single-buffer.ts
+              run: npx zenfs-test -pvC tests/setup/single-buffer.ts
 
             - name: 'Unit tests: Fetch'
               run: tests/fetch/run.sh -vC
