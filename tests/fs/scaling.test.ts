@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
+import { sync } from '../../dist/config.js';
 import { fs } from '../common.js';
 
 const n_files = 130;
@@ -14,6 +15,7 @@ suite('Scaling', () => {
 			fs.writeFileSync('/n/' + i, i.toString(16));
 		}
 
+		await sync();
 		assert.equal(fs.readdirSync('/n').length, n_files);
 
 		const results = [];

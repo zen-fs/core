@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import type { OpenMode, PathLike } from 'node:fs';
 import { suite, test } from 'node:test';
 import { promisify } from 'node:util';
-import { fs, type Callback } from '../common.js';
+import { sync } from '../../dist/config.js';
+import { fs } from '../common.js';
 
 const filepath = 'x.txt';
 const expected = 'xyz\n';
@@ -73,6 +74,8 @@ suite('read', () => {
 		const path = '/text.txt';
 
 		fs.writeFileSync(path, 'hello world');
+		await sync();
+
 		const fd: number = (await promisify<PathLike, OpenMode, number | string>(fs.open)(path, 0, 0)) as any;
 
 		const read = promisify(fs.read);

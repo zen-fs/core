@@ -100,8 +100,7 @@ export abstract class IndexFS extends FileSystem {
 		const isDir = (inode.mode & S_IFMT) == S_IFDIR;
 		if (!isDir && !isUnlink) throw withErrno('ENOTDIR');
 		if (isDir && isUnlink) throw withErrno('EISDIR');
-		if (isDir && this.readdirSync(path).length) throw withErrno('ENOTEMPTY');
-		this.index.delete(path);
+		if (!isDir) this.index.delete(path);
 	}
 
 	protected abstract remove(path: string): Promise<void>;
@@ -119,11 +118,16 @@ export abstract class IndexFS extends FileSystem {
 
 	public async rmdir(path: string): Promise<void> {
 		this._remove(path, false);
+		const entries = await this.readdir(path);
+		if (entries.length) throw withErrno('ENOTEMPTY');
+		this.index.delete(path);
 		await this.remove(path);
 	}
 
 	public rmdirSync(path: string): void {
 		this._remove(path, false);
+		if (this.readdirSync(path).length) throw withErrno('ENOTEMPTY');
+		this.index.delete(path);
 		this.removeSync(path);
 	}
 
