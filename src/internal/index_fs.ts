@@ -45,32 +45,49 @@ export abstract class IndexFS extends FileSystem {
 			if (to.endsWith('/')) to = to.slice(0, -1);
 			toRename.push({ from, to, inode });
 		}
+		toRename.sort((a, b) => b.from.length - a.from.length);
 		return toRename;
 	}
 
 	public async rename(oldPath: string, newPath: string): Promise<void> {
 		if (oldPath == newPath) return;
-		for (const { from, to, inode } of this.pathsForRename(oldPath, newPath)) {
+		const toRename = this.pathsForRename(oldPath, newPath);
+		const contents = new Map<string, Uint8Array>();
+		for (const { from, to, inode } of toRename) {
 			const data = new Uint8Array(inode.size);
 			await this.read(from, data, 0, inode.size);
+			contents.set(to, data);
 			this.index.delete(from);
-			if (this.index.has(to)) await this.remove(to);
-			this.index.set(to, inode);
-			await this.write(to, data, 0);
 			await this.remove(from);
+			if (this.index.has(to)) await this.remove(to);
+		}
+		toRename.reverse();
+		for (const { to, inode } of toRename) {
+			const data = contents.get(to)!;
+			this.index.set(to, inode);
+			if ((inode.mode & S_IFMT) == S_IFDIR) await this._mkdir?.(to, inode);
+			else await this.write(to, data, 0);
 		}
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
 		if (oldPath == newPath) return;
-		for (const { from, to, inode } of this.pathsForRename(oldPath, newPath)) {
+		const toRename = this.pathsForRename(oldPath, newPath);
+		const contents = new Map<string, Uint8Array>();
+		for (const { from, to, inode } of toRename) {
 			const data = new Uint8Array(inode.size);
 			this.readSync(from, data, 0, inode.size);
+			contents.set(to, data);
 			this.index.delete(from);
-			this.index.set(to, inode);
-			if (this.index.has(to)) this.removeSync(to);
-			this.writeSync(to, data, 0);
 			this.removeSync(from);
+			if (this.index.has(to)) this.removeSync(to);
+		}
+		toRename.reverse();
+		for (const { to, inode } of toRename) {
+			const data = contents.get(to)!;
+			this.index.set(to, inode);
+			if ((inode.mode & S_IFMT) == S_IFDIR) this._mkdirSync?.(to, inode);
+			else this.writeSync(to, data, 0);
 		}
 	}
 
@@ -165,14 +182,21 @@ export abstract class IndexFS extends FileSystem {
 		return this.create(path, options);
 	}
 
+	protected _mkdir?(path: string, options: CreationOptions): Promise<void>;
+	protected _mkdirSync?(path: string, options: CreationOptions): void;
+
 	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		options.mode |= S_IFDIR;
-		return this.create(path, options);
+		const inode = this.create(path, options);
+		await this._mkdir?.(path, options);
+		return inode;
 	}
 
 	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		options.mode |= S_IFDIR;
-		return this.create(path, options);
+		const inode = this.create(path, options);
+		this._mkdirSync?.(path, options);
+		return inode;
 	}
 
 	public link(target: string, link: string): Promise<void> {
