@@ -44,7 +44,7 @@ suite('Remote FS with resolveRemoteMount', () => {
 	const content = 'FS is in a port';
 
 	test('Configuration', async () => {
-		await configureSingle({ backend: Port, port: configPort });
+		await configureSingle({ backend: Port, port: configPort, timeout: 500 });
 	});
 
 	test('Write', async () => {
@@ -71,7 +71,7 @@ await suite('FS with MessageChannel', () => {
 	test('configuration', async () => {
 		tmpfs = await resolveMountConfig({ backend: InMemory, label: 'tmp' });
 		attachFS(channel.port2, tmpfs);
-		await configureSingle({ backend: Port, port: channel.port1, disableAsyncCache: true });
+		await configureSingle({ backend: Port, port: channel.port1, disableAsyncCache: true, timeout: 500 });
 	});
 
 	test('write', async () => {
@@ -108,7 +108,7 @@ await suite('Remote FS', () => {
 	const content = 'FS is in a port';
 
 	test('Configuration', async () => {
-		await configureSingle({ backend: Port, port: remotePort });
+		await configureSingle({ backend: Port, port: remotePort, timeout: 500 });
 	});
 
 	test('Write', async () => {
