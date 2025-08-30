@@ -51,14 +51,18 @@ export function isPort<T extends Channel>(port: unknown): port is Port<T> {
  * Creates a new RPC port from a `Worker` or `MessagePort` that extends `EventTarget`
  */
 export function fromWeb<T extends WebMessagePort>(port: T): Port<T> {
+	const _handlers = new Map<(message: any) => any, (event: { data: any }) => any>();
+
 	return {
 		channel: port,
 		send: port.postMessage.bind(port),
 		addHandler<M extends Message>(handler: (message: M) => void): void {
-			port.addEventListener('message', (event: { data: M }) => handler(event.data));
+			const _handler = (event: { data: M }) => handler(event.data);
+			_handlers.set(handler, _handler);
+			port.addEventListener('message', _handler);
 		},
 		removeHandler<M extends Message>(handler: (message: M) => void): void {
-			port.removeEventListener('message', (event: { data: M }) => handler(event.data));
+			port.removeEventListener('message', _handlers.get(handler)!);
 		},
 	};
 }
