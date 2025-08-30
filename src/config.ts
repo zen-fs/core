@@ -230,8 +230,5 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 }
 
 export async function sync(): Promise<void> {
-	for (const fs of mounts.values()) {
-		await fs.ready();
-		await fs.sync();
-	}
+	for (const fs of mounts.values()) await fs.sync();
 }

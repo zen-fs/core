@@ -254,7 +254,6 @@ function disposeExecutors(id: string): void {
 		if (typeof executor.timeout == 'object') executor.timeout.unref();
 	}
 
-	executor.fs._executors.delete(id);
 	executors.delete(id);
 }
 
@@ -289,7 +288,6 @@ export function request<const TRequest extends Request, TValue>(
 		reject(error);
 	}, ms);
 	const executor: Executor = { resolve, reject, promise, fs, timeout };
-	fs._executors.set(id, executor);
 	executors.set(id, executor);
 	port.send({ ...request, _zenfs: true, id, stack });
 

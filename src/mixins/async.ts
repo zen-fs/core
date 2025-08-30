@@ -80,8 +80,8 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public async ready(): Promise<void> {
 			await super.ready();
-			await this._promise;
 			if (this._isInitialized || this.attributes.has('no_async_preload')) return;
+			await this._promise;
 
 			this.checkSync();
 

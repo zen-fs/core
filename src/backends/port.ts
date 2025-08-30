@@ -39,12 +39,6 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 	public readonly port: RPC.Port<T>;
 
 	/**
-	 * A map of outstanding RPC requests
-	 * @internal @hidden
-	 */
-	public readonly _executors: Map<string, RPC.Executor> = new Map();
-
-	/**
 	 * @hidden
 	 */
 	_sync = InMemory.create({ label: 'tmpfs:port' });
@@ -89,10 +83,8 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 	}
 
 	public async sync(): Promise<void> {
+		await super.sync();
 		await this.rpc('sync');
-		for (const executor of this._executors.values()) {
-			await executor.promise.finally();
-		}
 	}
 
 	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
