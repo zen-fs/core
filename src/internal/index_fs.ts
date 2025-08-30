@@ -54,10 +54,11 @@ export abstract class IndexFS extends FileSystem {
 			const data = new Uint8Array(inode.size);
 			await this.read(from, data, 0, inode.size);
 			this.index.delete(from);
+			if (this.index.has(to)) await this.remove(to);
 			this.index.set(to, inode);
 			await this.write(to, data, 0);
+			await this.remove(from);
 		}
-		await this.remove(oldPath);
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
@@ -67,9 +68,10 @@ export abstract class IndexFS extends FileSystem {
 			this.readSync(from, data, 0, inode.size);
 			this.index.delete(from);
 			this.index.set(to, inode);
+			if (this.index.has(to)) this.removeSync(to);
 			this.writeSync(to, data, 0);
+			this.removeSync(from);
 		}
-		this.removeSync(oldPath);
 	}
 
 	public async stat(path: string): Promise<Inode> {
