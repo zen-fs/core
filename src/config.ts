@@ -116,6 +116,12 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	addDevices: boolean;
 
 	/**
+	 * Whether to disable the automatic creation of some default directories (e.g. /tmp)
+	 * @default false
+	 */
+	noDefaultDirectories: boolean;
+
+	/**
 	 * If true, disables *all* permissions checking.
 	 *
 	 * This can increase performance.
@@ -183,6 +189,8 @@ export function addDevice(driver: DeviceDriver, options?: object): Device {
 	return devfs._createDevice(driver, options);
 }
 
+const _defaultDirectories = ['/tmp', '/var', '/etc'];
+
 /**
  * Configures ZenFS with `configuration`
  * @category Backends and Configuration
@@ -226,6 +234,15 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		devfs.addDefaults();
 		await devfs.ready();
 		await mount('/dev', devfs);
+	}
+
+	if (!configuration.noDefaultDirectories) {
+		for (const dir of _defaultDirectories) {
+			if (await fs.promises.exists(dir)) {
+				const stats = await fs.promises.stat(dir);
+				if (!stats.isDirectory()) log.warn('Default directory exists but is not a directory: ' + dir);
+			} else await fs.promises.mkdir(dir);
+		}
 	}
 }
 
