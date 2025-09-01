@@ -6,7 +6,7 @@ import type { Callback } from '../utils.js';
 import { Buffer } from 'buffer';
 import { withErrno } from 'kerium';
 import { warn } from 'kerium/log';
-import { packed, sizeof } from 'memium';
+import { sizeof } from 'memium';
 import { $from, struct, types as t } from 'memium/decorators';
 import { encodeUTF8 } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
@@ -217,10 +217,12 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 	}
 
 	[Symbol.dispose](): void {
+		if (this.closed) return;
 		this.closeSync();
 	}
 
 	public async [Symbol.asyncDispose]() {
+		if (this.closed) return;
 		await this.close();
 	}
 }
