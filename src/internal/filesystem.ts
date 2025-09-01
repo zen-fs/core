@@ -135,6 +135,8 @@ export interface StreamOptions {
 	start?: number;
 
 	end?: number;
+
+	autoClose?: boolean;
 }
 
 const _chunkSize = 0x1000;

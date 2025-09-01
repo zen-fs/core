@@ -1117,22 +1117,22 @@ export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | BufferEncoding
-): AsyncIteratorObject<promises.FileChangeInfo<string>>;
+): AsyncIteratorObject<promises.FileChangeInfo<string>, undefined>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | fs.BufferEncodingOption
-): AsyncIteratorObject<promises.FileChangeInfo<Buffer>>;
+): AsyncIteratorObject<promises.FileChangeInfo<Buffer>, undefined>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | string
-): AsyncIteratorObject<promises.FileChangeInfo<string>> | AsyncIteratorObject<promises.FileChangeInfo<Buffer>>;
+): AsyncIteratorObject<promises.FileChangeInfo<string>, undefined> | AsyncIteratorObject<promises.FileChangeInfo<Buffer>, undefined>;
 export function watch<T extends string | Buffer>(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | string = {}
-): AsyncIteratorObject<promises.FileChangeInfo<T>> {
+): AsyncIteratorObject<promises.FileChangeInfo<T>, undefined> {
 	const watcher = new FSWatcher<T>(
 		this,
 		filename.toString(),
@@ -1148,19 +1148,19 @@ export function watch<T extends string | Buffer>(
 		eventQueue.shift()?.({ value: { eventType, filename }, done: false });
 	});
 
-	function cleanup() {
+	function cleanup(): Promise<IteratorReturnResult<undefined>> {
 		done = true;
 		watcher.close();
 		for (const resolve of eventQueue) {
 			resolve({ value: null, done });
 		}
 		eventQueue.length = 0; // Clear the queue
-		return Promise.resolve({ value: null, done: true as const });
+		return Promise.resolve({ value: undefined, done: true as const });
 	}
 
 	return {
 		async next() {
-			if (done) return Promise.resolve({ value: null, done });
+			if (done) return Promise.resolve({ value: undefined, done });
 			const { promise, resolve } = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
 			eventQueue.push(resolve);
 			return promise;
@@ -1170,7 +1170,7 @@ export function watch<T extends string | Buffer>(
 		async [Symbol.asyncDispose]() {
 			await cleanup();
 		},
-		[Symbol.asyncIterator](): AsyncIteratorObject<promises.FileChangeInfo<T>> {
+		[Symbol.asyncIterator](): AsyncIteratorObject<promises.FileChangeInfo<T>, undefined> {
 			return this;
 		},
 	};
