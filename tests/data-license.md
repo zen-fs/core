@@ -1,5 +1,3 @@
-Copyright (c) James Prevett and other ZenFS contributors.
-Copyright (c) 2013-2023 John Vilk and other BrowserFS contributors.
 Copyright (c) Joyent, Inc. and other Node contributors for `test/data`.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
