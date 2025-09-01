@@ -116,10 +116,10 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	addDevices: boolean;
 
 	/**
-	 * Whether to disable the automatic creation of some default directories (e.g. /tmp)
+	 * Whether to automatically create some directories (e.g. /tmp)
 	 * @default false
 	 */
-	noDefaultDirectories: boolean;
+	defaultDirectories: boolean;
 
 	/**
 	 * If true, disables *all* permissions checking.
@@ -236,7 +236,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		await mount('/dev', devfs);
 	}
 
-	if (!configuration.noDefaultDirectories) {
+	if (configuration.defaultDirectories) {
 		for (const dir of _defaultDirectories) {
 			if (await fs.promises.exists(dir)) {
 				const stats = await fs.promises.stat(dir);
