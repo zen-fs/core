@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { Exception, setUVMessage, type ExceptionJSON } from 'kerium';
 
 /**

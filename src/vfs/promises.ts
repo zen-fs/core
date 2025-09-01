@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';

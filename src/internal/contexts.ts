@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // This needs to be in a separate file to avoid circular dependencies
 import type { Bound } from 'utilium';
 import type * as path from '../path.js';

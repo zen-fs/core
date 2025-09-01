@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/triple-slash-reference, @typescript-eslint/no-misused-promises */
 /// <reference path="../../types/readable-stream.d.ts" preserve="true" />
 import type { Abortable } from 'node:events';

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { UV, withErrno } from 'kerium';
 import type { V_Context } from '../context.js';
 import { defaultContext } from '../internal/contexts.js';

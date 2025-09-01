@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ExceptionJSON } from 'kerium';
 import type { TransferListItem } from 'node:worker_threads';

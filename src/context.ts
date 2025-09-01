@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { bindFunctions } from 'utilium';
 import type { BoundContext, ContextInit, FSContext, V_Context } from './internal/contexts.js';
 import { defaultContext } from './internal/contexts.js';

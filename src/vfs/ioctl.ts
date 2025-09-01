@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /*
 	ioctl stuff. The majority of the code here is ported from Linux
 	See:

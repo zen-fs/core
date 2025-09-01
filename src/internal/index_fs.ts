@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/require-await */
 import { withErrno } from 'kerium';
 import { _throw } from 'utilium';

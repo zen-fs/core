@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 export { log } from 'kerium'; // DO NOT USE
 export * from './credentials.js';
 export * from './devices.js';

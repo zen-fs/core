@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { suite, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { configure } from '../../dist/config.js';

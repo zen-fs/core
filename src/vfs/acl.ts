@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /*
 	Access Control Lists.
 	At the moment, they are only intended for internal use.

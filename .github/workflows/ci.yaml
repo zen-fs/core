@@ -41,6 +41,9 @@ jobs:
             - name: Build
               run: npx zci run build "npm run build"
 
+            - name: License Check
+              run: npx zci run license "npm run spdx:check"
+
             - name: Linting
               run: npx zci run lint "npm run lint"
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { err, warn } from 'kerium/log';
 import type * as fs from 'node:fs';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';

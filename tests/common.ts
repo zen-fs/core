@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { join, resolve } from 'node:path';
 import { fs as defaultFS } from '../dist/index.js';
 import { setupLogs } from './logs.js';

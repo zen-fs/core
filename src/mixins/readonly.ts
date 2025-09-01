@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
 import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';

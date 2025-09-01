@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno, type Exception } from 'kerium';
 import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';

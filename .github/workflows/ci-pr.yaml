@@ -37,6 +37,9 @@ jobs:
             - name: Linting
               run: npm run lint
 
+            - name: SPDX License Check
+              run: npm run spdx:check
+
             - name: 'Unit tests: common'
               run: npx zenfs-test -pv --common
 

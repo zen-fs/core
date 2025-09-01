@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* node:coverage disable */
 /* eslint-disable @typescript-eslint/unbound-method */
 

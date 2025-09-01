@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { AsyncFSMethods, Mixin } from './shared.js';

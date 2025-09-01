@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { join } from 'node:path/posix';
 import { suite, test } from 'node:test';
