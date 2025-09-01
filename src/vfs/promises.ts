@@ -18,7 +18,7 @@ import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, i
 import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import '../polyfills.js';
 import { createInterface } from '../readline.js';
-import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { __assertType, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -1232,14 +1232,34 @@ export async function mkdtemp(this: V_Context, prefix: string, options?: fs.Enco
 export async function mkdtemp(this: V_Context, prefix: string, options?: fs.BufferEncodingOption): Promise<Buffer>;
 export async function mkdtemp(this: V_Context, prefix: string, options?: fs.EncodingOption | fs.BufferEncodingOption): Promise<string | Buffer> {
 	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
-	const fsName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}`;
-	const resolvedPath = '/tmp/' + fsName;
+	const path = _tempDirName(prefix);
 
-	await mkdir.call(this, resolvedPath);
+	await mkdir.call(this, path);
 
-	return encoding == 'buffer' ? Buffer.from(resolvedPath) : resolvedPath;
+	return encoding == 'buffer' ? Buffer.from(path) : path;
 }
 mkdtemp satisfies typeof promises.mkdtemp;
+
+/**
+ * The resulting Promise holds an async-disposable object whose `path` property holds the created directory path.
+ * When the object is disposed, the directory and its contents will be removed asynchronously if it still exists.
+ * If the directory cannot be deleted, disposal will throw an error.
+ * The object has an async `remove()` method which will perform the same task.
+ * @todo Add `satisfies` and maybe change return type once @types/node adds this.
+ */
+export async function mkdtempDisposable(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options?: fs.EncodingOption | fs.BufferEncodingOption
+): Promise<{ path: string; remove(): Promise<void>; [Symbol.asyncDispose](): Promise<void> }> {
+	const path = _tempDirName(prefix);
+
+	await mkdir.call(this, path);
+
+	const remove = () => rm(path, { recursive: true, force: true });
+
+	return { path, remove, [Symbol.asyncDispose]: remove };
+}
 
 /**
  * Asynchronous `copyFile`. Copies a file.

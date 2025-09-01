@@ -137,3 +137,10 @@ export async function waitOnline(worker: NodeWorker): Promise<void> {
 	worker.on('online', online.resolve);
 	await online.promise;
 }
+
+/**
+ * @internal @hidden
+ */
+export function _tempDirName(prefix: fs.PathLike) {
+	return `/tmp/${normalizePath(prefix, true)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}

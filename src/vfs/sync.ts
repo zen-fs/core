@@ -11,7 +11,7 @@ import { defaultContext } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
-import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { __assertType, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -827,18 +827,42 @@ rmSync satisfies typeof fs.rmSync;
  * @param options The encoding (or an object including `encoding`).
  * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
-export function mkdtempSync(this: V_Context, prefix: string, options: fs.BufferEncodingOption): Buffer;
-export function mkdtempSync(this: V_Context, prefix: string, options?: fs.EncodingOption): string;
-export function mkdtempSync(this: V_Context, prefix: string, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
+export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
+export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption): string;
+export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
-	const fsName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}`;
-	const resolvedPath = '/tmp/' + fsName;
+	const path = _tempDirName(prefix);
 
-	mkdirSync.call(this, resolvedPath);
+	mkdirSync.call(this, path);
 
-	return encoding == 'buffer' ? Buffer.from(resolvedPath) : resolvedPath;
+	return encoding == 'buffer' ? Buffer.from(path) : path;
 }
 mkdtempSync satisfies typeof fs.mkdtempSync;
+
+/**
+ * Returns a disposable object whose `path` property holds the created directory path.
+ * When the object is disposed, the directory and its contents will be removed if it still exists.
+ * If the directory cannot be deleted, disposal will throw an error.
+ * The object has a `remove()` method which will perform the same task.
+ * @todo Add `satisfies` and maybe change return type once @types/node adds this.
+ */
+export function mkdtempDisposableSync(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options?: fs.EncodingOption | fs.BufferEncodingOption
+): {
+	path: string;
+	remove(): void;
+	[Symbol.dispose](): void;
+} {
+	const path = _tempDirName(prefix);
+
+	mkdirSync.call(this, path);
+
+	const remove = () => rmSync(path, { recursive: true, force: true });
+
+	return { path, remove, [Symbol.dispose]: remove };
+}
 
 /**
  * Synchronous `copyFile`. Copies a file.
