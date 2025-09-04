@@ -27,6 +27,7 @@
                 inputPackages = [
                     pkgs.nodejs
                     pkgs.esbuild
+                    pkgs.graphviz
                     pkgs.nodePackages.typescript
                     pkgs.nodePackages.prettier
                 ];
