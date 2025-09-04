@@ -4,7 +4,7 @@ import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Interface as ReadlineInterface } from '../readline.js';

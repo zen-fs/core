@@ -1,6 +1,6 @@
 import type { EventEmitter as NodeEventEmitter } from 'node:events';
 import type * as fs from 'node:fs';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 
 import { EventEmitter } from 'eventemitter3';
 import { UV } from 'kerium';

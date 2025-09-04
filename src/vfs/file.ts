@@ -1,5 +1,5 @@
 import { UV, withErrno } from 'kerium';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import { getContext } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';

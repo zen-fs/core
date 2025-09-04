@@ -2,7 +2,7 @@ import { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { encodeUTF8 } from 'utilium';
-import { defaultContext } from '../../dist/internal/contexts.js';
+import { context } from '../../dist/context.js';
 import { join } from '../../dist/path.js';
 import { R_OK, W_OK, X_OK } from '../../dist/vfs/constants.js';
 import { fs } from '../common.js';
@@ -83,8 +83,8 @@ suite('Permissions', () => {
 		assert(stats.hasAccess(W_OK));
 	}
 
-	const copy = { ...defaultContext.credentials };
-	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
+	const copy = { ...context.credentials };
+	Object.assign(context.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));
-	Object.assign(defaultContext.credentials, copy);
+	Object.assign(context.credentials, copy);
 });

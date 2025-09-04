@@ -6,3 +6,4 @@ export * from './file_index.js';
 export * from './filesystem.js';
 export * from './index_fs.js';
 export * from './inode.js';
+import './init_context.js';

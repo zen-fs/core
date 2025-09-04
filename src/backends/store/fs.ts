@@ -8,7 +8,7 @@ import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { Inode, isDirectory, rootIno, type InodeLike } from '../../internal/inode.js';
 import { basename, dirname, join, parse, relative } from '../../path.js';
-import { decodeDirListing, encodeDirListing } from '../../utils.js';
+import { decodeDirListing, encodeDirListing } from '../../utils_base.js';
 import { S_IFDIR, S_IFREG, size_max } from '../../vfs/constants.js';
 import { WrappedTransaction, type Store } from './store.js';
 

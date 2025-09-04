@@ -3,7 +3,8 @@ import type { Credentials, CredentialsInit } from './internal/credentials.js';
 import type { FSContext, V_Context } from './internal/contexts.js';
 
 import { bindFunctions } from 'utilium';
-import { defaultContext, _createUnboundRootContext, _createUnboundChildContext, rootContexts } from './internal/contexts.js';
+import { getContext, allContexts, rootContexts } from './internal/contexts.js';
+import { _createUnboundRootContext, _createUnboundChildContext } from './internal/init_context.js';
 import { createCredentials } from './internal/credentials.js';
 import * as unboundPath from './path.js';
 import * as unboundFs from './vfs/index.js';
@@ -146,6 +147,7 @@ function upgradeToBoundContext(context: FSContext) {
 }
 
 // convert the default context from merely FSContext to BoundContext
-upgradeToBoundContext(defaultContext);
+const defaultContextLink = getContext(null);
+upgradeToBoundContext(defaultContextLink);
 
-export { defaultContext as context, rootContexts };
+export { defaultContextLink as context, rootContexts };

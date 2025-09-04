@@ -1,6 +1,6 @@
 import { rethrow, setUVMessage, UV } from 'kerium';
 import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import type { InodeLike } from '../internal/inode.js';
 import { Attributes, hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';

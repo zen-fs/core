@@ -1,5 +1,5 @@
 import type * as fs from 'node:fs';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import type { Callback } from '../utils.js';
 import type { Dir, Dirent } from './dir.js';
 import type { Stats } from './stats.js';

@@ -1,11 +1,15 @@
-// This needs to be in a separate file to avoid circular dependencies
-import type * as path from '../path.js';
 import type { SyncHandle } from '../vfs/file.js';
-import type * as fs from '../vfs/index.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
+import type { FileSystem } from './filesystem.js';
 import { createCredentials } from './credentials.js';
-import { FileSystem } from '../internal/filesystem.js';
-import { InMemory } from '../backends/memory.js';
+
+// NOTE1: this file is separate from init_context.ts because of circular dependencies
+// for example, previously:
+//     context.ts->memory.ts->fs.ts->file_index.ts->path.ts->context.ts
+//     context.ts->memory.ts->fs.ts->file_index.ts->inode.ts->context.ts
+//     context.ts->memory.ts->fs.ts->utils.ts->inode.ts->context.ts
+// NOTE2: import { SyncHandle } is still a circular dependency but 
+// because it is only a type import, typescript is able to figure it out
 
 /**
  * All contexts
@@ -60,63 +64,28 @@ export type V_Context = void | null | FSContext;
  */
 export const rootContexts: FSContext[] = [];
 
-/**
- * safe creation of an additional root context
- * @internal
- * @category Contexts
- */
-export function _createUnboundRootContext(options: Record<string, unknown>): FSContext {
-	const id = `${rootContexts.length}`;
-    const rootMemory = InMemory.create({ label: 'root' })
-    const ctx = {
-        id,
-        root: options.root || '/',
-        pwd: options.pwd || '/',
-        credentials: createCredentials({ uid: 0, gid: 0, ...options.credentials||{} }),
-        descriptors: new Map() as Map<number, SyncHandle>,
-        parent: null,
-        children: [] as FSContext[],
-        mounts: options.mounts || new Map([ ['/', rootMemory] ]) as Map<string, FileSystem>,
-    } as FSContext;
-    rootMemory._mountPoint = "/";
-    if (allContexts[id]) throw new Error('Do no construct FSContexts directly. Context with id ' + id + ' already exists.');
-    allContexts[id] = ctx;
-	rootContexts.push(ctx);
-	return ctx;
-}
+let defaultContext : V_Context = null;
 
 /**
- * safe creation of a child context
- * @internal
- * @category Contexts
- */
-export function _createUnboundChildContext(parent: FSContext, options: Record<string, unknown>): FSContext {
-	const id = `${parent.id}-${parent.children.length}`;
-	const ctx = {
-        id,
-        root: (options.root || parent.root) as string,
-        pwd: (options.pwd || parent.pwd) as string,
-        credentials: createCredentials({ gid: 0, uid: 0, ...options.credentials||structuredClone(parent.credentials) }),
-        descriptors: new Map() as Map<number, SyncHandle>,
-        parent,
-        children: [] as FSContext[],
-        mounts: (options.mounts || parent.mounts) as Map<string, FileSystem>,
-    } as FSContext;
-	ctx.parent = parent;
-	parent.children.push(ctx);
-	return ctx;
-}
-
-/**
- * The default/global context.
+ * Only internal/context.ts should ever call this function
  * @internal @hidden
  * @category Contexts
  */
-export const defaultContext = _createUnboundRootContext({});
+export function _initDefaultContext(context : FSContext) {
+    if (defaultContext != null) {
+        throw new Error("This shouldn't be possible, but _initDefaultContext() was called after the defaultContext was already initialized. Only internal/context.ts should ever call this function");
+    }
+    defaultContext = context;
+}
 
+Error.stackTraceLimit = 100
 export function getContext($: V_Context): FSContext {
+    if (defaultContext == null) {
+        console.log(`new Error().stack is:`,new Error().stack)
+        throw new Error("This shouldn't be possible, but somehow getContext was called before the default context was set");
+    }
     if (!$) {
-        return defaultContext;
+        return defaultContext as FSContext;
     }
     if (($ as any)[Symbol.toStringTag] == 'Module') {
         return defaultContext;

@@ -9,7 +9,7 @@ import { Errno, Exception, setUVMessage, UV } from 'kerium';
 import { sizeof, struct, types as t } from 'memium';
 import { _throw } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import { Inode, InodeFlags } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { resolveMount } from './shared.js';

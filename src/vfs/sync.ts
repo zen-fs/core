@@ -1,5 +1,5 @@
 import type * as fs from 'node:fs';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { ResolvedPath } from './shared.js';
 import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './types.js';

@@ -27,9 +27,9 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 */
 
 import type { ParsedPath } from 'node:path';
-import type { V_Context } from './context.js';
+import type { V_Context } from './internal/contexts.js';
 import { getContext } from './internal/contexts.js';
-import { globToRegex } from './utils.js';
+import { globToRegex } from './utils_base.js';
 
 export type AbsolutePath = `/${string}`;
 

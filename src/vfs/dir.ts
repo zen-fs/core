@@ -1,5 +1,5 @@
 import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Callback } from '../utils.js';
 
