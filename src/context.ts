@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type { Bound } from 'utilium';
 import type { Credentials, CredentialsInit } from './internal/credentials.js';
 import type { FSContext, V_Context } from './internal/contexts.js';

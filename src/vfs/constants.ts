@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /*
 FS Constants
 See https://nodejs.org/api/fs.html#file-access-constants

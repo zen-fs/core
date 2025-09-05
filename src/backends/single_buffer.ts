@@ -1,6 +1,9 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
 import { alert, crit, err, warn } from 'kerium/log';
-import { field, offsetof, packed, sizeof, struct, types as t, type StructArray } from 'memium';
+import type { ArrayOf } from 'memium';
+import { array, offsetof, packed, sizeof } from 'memium';
+import { $from, field, struct, types as t } from 'memium/decorators';
 import type { UUID } from 'node:crypto';
 import { BufferView } from 'utilium/buffer.js';
 import { crc32c } from 'utilium/checksum.js';
@@ -22,8 +25,8 @@ const { format } = new Intl.NumberFormat('en-US', {
 	unitDisplay: 'narrow',
 });
 
-@struct(packed, { name: 'MetadataEntry' })
-class MetadataEntry extends BufferView {
+@struct.packed('MetadataEntry')
+class MetadataEntry extends $from(BufferView) {
 	/** Inode or data ID */
 	@t.uint32 accessor id!: number;
 
@@ -56,8 +59,8 @@ const max_lock_attempts = 5;
  * This metadata maps IDs (for inodes and data) to actual offsets in the buffer.
  * This is done since IDs are not guaranteed to be sequential.
  */
-@struct(packed, { name: 'MetadataBlock' })
-export class MetadataBlock extends Int32Array<ArrayBufferLike> {
+@struct.packed('MetadataBlock')
+export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof MetadataBlock;
 
 	/**
@@ -85,7 +88,7 @@ export class MetadataBlock extends Int32Array<ArrayBufferLike> {
 	}
 
 	/** Metadata entries. */
-	@field(MetadataEntry, { length: entries_per_block }) accessor items!: StructArray<MetadataEntry>;
+	@field(array(MetadataEntry, entries_per_block)) accessor items!: ArrayOf<MetadataEntry>;
 
 	public toString(long: boolean = false): string {
 		if (!long) return `<MetadataBlock @ ${this.offsetHex}>`;
@@ -161,8 +164,8 @@ const usedBytes = 2;
 /**
  * The super block structure for a single-buffer file system
  */
-@struct(packed, { name: 'SuperBlock' })
-export class SuperBlock extends BigUint64Array<ArrayBufferLike> {
+@struct.packed('Superblock')
+export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof SuperBlock;
 
 	public constructor(...args: ConstructorParameters<typeof BigUint64Array<ArrayBufferLike>>) {

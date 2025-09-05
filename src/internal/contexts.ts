@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type { SyncHandle } from '../vfs/file.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
 import type { FileSystem } from './filesystem.js';

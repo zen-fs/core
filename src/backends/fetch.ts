@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
 import { err, warn } from 'kerium/log';
 import { decodeUTF8 } from 'utilium';

@@ -243,6 +243,10 @@ A huge thank you to [![Deco.cx logo](https://avatars.githubusercontent.com/deco-
 - Build using `npx tsc` or `npm run build`
 - You can find the built code in `dist`.
 
+## Contact and Support
+
+You can reach out [on Discord](https://zenfs.dev/discord) or by emailing jp@zenfs.dev
+
 ### Testing
 
 Run unit tests with:

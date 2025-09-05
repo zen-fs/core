@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { after, suite, test } from 'node:test';
 import { MessageChannel, Worker } from 'node:worker_threads';
@@ -12,7 +13,7 @@ setupLogs();
 const timeoutChannel = new MessageChannel();
 timeoutChannel.port2.unref();
 
-await suite('Timeout', { timeout: 1000 }, () => {
+await suite('Timeout', () => {
 	test('Misconfiguration', async () => {
 		const configured = configure({
 			mounts: {
@@ -21,13 +22,13 @@ await suite('Timeout', { timeout: 1000 }, () => {
 			},
 		});
 
-		await assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
+		await assert.rejects(configured, { code: 'ETIMEDOUT' });
 	});
 
 	test('Remote not attached', async () => {
 		const configured = configureSingle({ backend: Port, port: timeoutChannel.port1, timeout: 100 });
 
-		await assert.rejects(configured, { code: 'EIO', message: /RPC Failed/ });
+		await assert.rejects(configured, { code: 'ETIMEDOUT' });
 	});
 
 	after(() => {

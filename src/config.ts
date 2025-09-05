@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import type { Device, DeviceDriver } from './internal/devices.js';
 import type { V_Context } from './internal/contexts.js';
@@ -118,6 +119,12 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	addDevices: boolean;
 
 	/**
+	 * Whether to automatically create some directories (e.g. /tmp)
+	 * @default false
+	 */
+	defaultDirectories: boolean;
+
+	/**
 	 * If true, disables *all* permissions checking.
 	 *
 	 * This can increase performance.
@@ -172,7 +179,7 @@ function partialToFullConfig<T extends ConfigMounts>(config: Partial<Configurati
  * @category Backends and Configuration
  */
 export async function configureSingle<T extends Backend>(configuration: MountConfiguration<T>): Promise<void> {
-	if (!isBackendConfig(configuration)) {
+	if (!isMountConfig(configuration)) {
 		throw new TypeError('Invalid single mount point configuration');
 	}
 
@@ -210,6 +217,8 @@ export function addDevice(driver: DeviceDriver, options?: object, $?: V_Context)
 	if (!(devfs instanceof DeviceFS)) throw log.crit(withErrno('ENOTSUP', '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
+
+const _defaultDirectories = ['/tmp', '/var', '/etc'];
 
 /**
  * Configures ZenFS with `configuration`
@@ -257,4 +266,17 @@ export async function configure<T extends ConfigMounts>(this: V_Context, partial
 		await devfs.ready();
 		await mountHelper('/dev', devfs, configuration.fs);
 	}
+
+	if (configuration.defaultDirectories) {
+		for (const dir of _defaultDirectories) {
+			if (await fs.promises.exists(dir)) {
+				const stats = await fs.promises.stat(dir);
+				if (!stats.isDirectory()) log.warn('Default directory exists but is not a directory: ' + dir);
+			} else await fs.promises.mkdir(dir);
+		}
+	}
+}
+
+export async function sync(): Promise<void> {
+	for (const fs of mounts.values()) await fs.sync();
 }

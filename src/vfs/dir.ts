@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
 import type { V_Context } from '../internal/contexts.js';
 import type { InodeLike } from '../internal/inode.js';
@@ -5,8 +6,9 @@ import type { Callback } from '../utils.js';
 
 import { Buffer } from 'buffer';
 import { withErrno } from 'kerium';
-import { packed, sizeof, struct, types as t } from 'memium';
 import { warn } from 'kerium/log';
+import { sizeof } from 'memium';
+import { $from, struct, types as t } from 'memium/decorators';
 import { encodeUTF8 } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import { basename, dirname } from '../path.js';
@@ -44,9 +46,9 @@ export function dtToIf(dt: DirType): number {
 	return dt << 12;
 }
 
-@struct(packed, { name: 'Dirent' })
+@struct.packed('Dirent')
 export class Dirent<Name extends string | Buffer = string, TArrayBuffer extends ArrayBufferLike = ArrayBufferLike>
-	extends BufferView<TArrayBuffer>
+	extends $from(BufferView)<TArrayBuffer>
 	implements _Dirent<Name>
 {
 	@t.uint32 protected accessor ino!: number;
@@ -151,7 +153,7 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 		if (!cb) {
 			return Promise.resolve();
 		}
-		cb();
+		cb(null);
 	}
 
 	/**
@@ -183,7 +185,7 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 			return this._read();
 		}
 
-		void this._read().then(value => cb(undefined, value));
+		void this._read().then(value => cb(null, value));
 	}
 
 	/**
@@ -215,7 +217,13 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 		return this;
 	}
 
-	public [Symbol.asyncDispose]() {
-		return Promise.resolve();
+	[Symbol.dispose](): void {
+		if (this.closed) return;
+		this.closeSync();
+	}
+
+	public async [Symbol.asyncDispose]() {
+		if (this.closed) return;
+		await this.close();
 	}
 }

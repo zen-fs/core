@@ -47,7 +47,7 @@ Behavior:
     -t, --test <glob>     Which FS test suite(s) to run
     -f, --force           Whether to use --test-force-exit
     -I, --inspect         Use the inspector for debugging
-	-s, --skip <pattern>  Skip tests with names matching the given pattern.
+	-s, --skip <pattern>  Skip tests with names matching the given pattern. Can be specified multiple times.
 
 Output:
     -h, --help          Outputs this help message

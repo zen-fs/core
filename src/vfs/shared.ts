@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 // Utilities and shared data
 
 import type * as fs from 'node:fs';

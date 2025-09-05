@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import assert, { rejects } from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs, type Dirent } from '../common.js';

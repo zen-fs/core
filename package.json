@@ -1,6 +1,6 @@
 {
 	"name": "@zenfs/core",
-	"version": "2.3.3",
+	"version": "2.4.0",
 	"description": "A filesystem, anywhere",
 	"funding": {
 		"type": "individual",
@@ -26,12 +26,12 @@
 		"eslint.shared.js"
 	],
 	"type": "module",
-	"homepage": "https://github.com/zen-fs/core",
+	"homepage": "https://zenfs.dev/core",
 	"author": "James Prevett <jp@jamespre.dev> (https://jamespre.dev)",
 	"contributors": [
 		"John Vilk <jvilk@cs.umass.edu>"
 	],
-	"license": "MIT",
+	"license": "LGPL-3.0-or-later",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/zen-fs/core.git"
@@ -59,21 +59,23 @@
 	"scripts": {
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
+		"spdx:check": "npx lice -a src tests/*.ts tests/**/*.test.ts",
+		"spdx:fix": "npx lice -aw src tests/*.ts tests/**/*.test.ts",
 		"lint": "eslint src tests",
-		"test": "npx zenfs-test --clean; npx zenfs-test -abcfp; tests/fetch/run.sh; npx zenfs-test --report",
+		"test": "npx zenfs-test --clean; npx zenfs-test -abcp; tests/fetch/run.sh; npx zenfs-test --report",
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "npm run build -- --watch",
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {
-		"@types/node": "^22.15.2",
+		"@types/node": "^24.1.0",
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
 		"kerium": "^1.3.4",
-		"memium": "^0.2.3",
+		"memium": "^0.3.7",
 		"readable-stream": "^4.5.2",
-		"utilium": "^2.3.3"
+		"utilium": "^2.5.0"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.8.0",

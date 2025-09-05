@@ -9,7 +9,8 @@
 		"rootDir": "src",
 		"strict": true,
 		"target": "ES2022",
-		"verbatimModuleSyntax": true
+		"verbatimModuleSyntax": true,
+		"useDefineForClassFields": true
 	},
 	"include": ["src/**/*.ts", "types/uint8array.d.ts"],
 	"typedocOptions": {

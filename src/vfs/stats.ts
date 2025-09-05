@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type * as Node from 'node:fs';
 import { pick } from 'utilium';
 import type { V_Context } from '../internal/contexts.js';

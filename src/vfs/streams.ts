@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/triple-slash-reference, @typescript-eslint/no-misused-promises */
 /// <reference path="../../types/readable-stream.d.ts" preserve="true" />
 import type { Abortable } from 'node:events';
@@ -90,7 +91,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 		}
 	}
 
-	close(callback: Callback<[void], null> = () => null): void {
+	close(callback: Callback<[void]> = () => null): void {
 		try {
 			this.destroy();
 			this.emit('close');
@@ -167,7 +168,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 		}
 	}
 
-	close(callback: Callback<[void], null> = () => null): void {
+	close(callback: Callback<[void]> = () => null): void {
 		try {
 			this.destroy();
 			this.emit('close');

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
@@ -18,7 +19,7 @@ import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, i
 import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import '../polyfills.js';
 import { createInterface } from '../readline.js';
-import { __assertType, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { __assertType, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -259,7 +260,7 @@ export class FileHandle implements promises.FileHandle {
 		buffer?: T | promises.FileReadOptions<T>,
 		offset?: number | null | promises.FileReadOptions<T>,
 		length?: number | null,
-		position?: number | null
+		position?: fs.ReadPosition | null
 	) {
 		if (typeof offset == 'object' && offset != null) {
 			position = offset.position;
@@ -277,7 +278,7 @@ export class FileHandle implements promises.FileHandle {
 		const pos = Number.isSafeInteger(position) ? position! : this.position;
 		buffer ||= new Uint8Array(this.inode.size) as T;
 		offset ??= 0;
-		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos);
+		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos ? Number(pos) : undefined);
 	}
 
 	public async readFile(options?: ({ encoding?: null } & Abortable) | null): Promise<Buffer>;
@@ -1117,22 +1118,22 @@ export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | BufferEncoding
-): AsyncIteratorObject<promises.FileChangeInfo<string>>;
+): AsyncIteratorObject<promises.FileChangeInfo<string>, undefined>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | fs.BufferEncodingOption
-): AsyncIteratorObject<promises.FileChangeInfo<Buffer>>;
+): AsyncIteratorObject<promises.FileChangeInfo<Buffer>, undefined>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | string
-): AsyncIteratorObject<promises.FileChangeInfo<string>> | AsyncIteratorObject<promises.FileChangeInfo<Buffer>>;
+): AsyncIteratorObject<promises.FileChangeInfo<string>, undefined> | AsyncIteratorObject<promises.FileChangeInfo<Buffer>, undefined>;
 export function watch<T extends string | Buffer>(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | string = {}
-): AsyncIteratorObject<promises.FileChangeInfo<T>> {
+): AsyncIteratorObject<promises.FileChangeInfo<T>, undefined> {
 	const watcher = new FSWatcher<T>(
 		this,
 		filename.toString(),
@@ -1148,19 +1149,19 @@ export function watch<T extends string | Buffer>(
 		eventQueue.shift()?.({ value: { eventType, filename }, done: false });
 	});
 
-	function cleanup() {
+	function cleanup(): Promise<IteratorReturnResult<undefined>> {
 		done = true;
 		watcher.close();
 		for (const resolve of eventQueue) {
 			resolve({ value: null, done });
 		}
 		eventQueue.length = 0; // Clear the queue
-		return Promise.resolve({ value: null, done: true as const });
+		return Promise.resolve({ value: undefined, done: true as const });
 	}
 
 	return {
 		async next() {
-			if (done) return Promise.resolve({ value: null, done });
+			if (done) return Promise.resolve({ value: undefined, done });
 			const { promise, resolve } = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
 			eventQueue.push(resolve);
 			return promise;
@@ -1170,7 +1171,7 @@ export function watch<T extends string | Buffer>(
 		async [Symbol.asyncDispose]() {
 			await cleanup();
 		},
-		[Symbol.asyncIterator](): AsyncIteratorObject<promises.FileChangeInfo<T>> {
+		[Symbol.asyncIterator](): AsyncIteratorObject<promises.FileChangeInfo<T>, undefined> {
 			return this;
 		},
 	};
@@ -1232,14 +1233,34 @@ export async function mkdtemp(this: V_Context, prefix: string, options?: fs.Enco
 export async function mkdtemp(this: V_Context, prefix: string, options?: fs.BufferEncodingOption): Promise<Buffer>;
 export async function mkdtemp(this: V_Context, prefix: string, options?: fs.EncodingOption | fs.BufferEncodingOption): Promise<string | Buffer> {
 	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
-	const fsName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}`;
-	const resolvedPath = '/tmp/' + fsName;
+	const path = _tempDirName(prefix);
 
-	await mkdir.call(this, resolvedPath);
+	await mkdir.call(this, path);
 
-	return encoding == 'buffer' ? Buffer.from(resolvedPath) : resolvedPath;
+	return encoding == 'buffer' ? Buffer.from(path) : path;
 }
 mkdtemp satisfies typeof promises.mkdtemp;
+
+/**
+ * The resulting Promise holds an async-disposable object whose `path` property holds the created directory path.
+ * When the object is disposed, the directory and its contents will be removed asynchronously if it still exists.
+ * If the directory cannot be deleted, disposal will throw an error.
+ * The object has an async `remove()` method which will perform the same task.
+ * @todo Add `satisfies` and maybe change return type once @types/node adds this.
+ */
+export async function mkdtempDisposable(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options?: fs.EncodingOption | fs.BufferEncodingOption
+): Promise<{ path: string; remove(): Promise<void>; [Symbol.asyncDispose](): Promise<void> }> {
+	const path = _tempDirName(prefix);
+
+	await mkdir.call(this, path);
+
+	const remove = () => rm(path, { recursive: true, force: true });
+
+	return { path, remove, [Symbol.asyncDispose]: remove };
+}
 
 /**
  * Asynchronous `copyFile`. Copies a file.
@@ -1347,11 +1368,11 @@ export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatF
 /**
  * Retrieves the files matching the specified pattern.
  */
-export function glob(this: V_Context, pattern: string | string[]): NodeJS.AsyncIterator<string>;
-export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithFileTypes): NodeJS.AsyncIterator<Dirent>;
-export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptionsWithoutFileTypes): NodeJS.AsyncIterator<string>;
-export function glob(this: V_Context, pattern: string | string[], opt: fs.GlobOptions): NodeJS.AsyncIterator<Dirent | string>;
-export function glob(this: V_Context, pattern: string | string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
+export function glob(this: V_Context, pattern: string | readonly string[]): NodeJS.AsyncIterator<string>;
+export function glob(this: V_Context, pattern: string | readonly string[], opt: fs.GlobOptionsWithFileTypes): NodeJS.AsyncIterator<Dirent>;
+export function glob(this: V_Context, pattern: string | readonly string[], opt: fs.GlobOptionsWithoutFileTypes): NodeJS.AsyncIterator<string>;
+export function glob(this: V_Context, pattern: string | readonly string[], opt: fs.GlobOptions): NodeJS.AsyncIterator<Dirent | string>;
+export function glob(this: V_Context, pattern: string | readonly string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const { cwd = '/', withFileTypes = false, exclude = () => false } = opt || {};
 
@@ -1360,7 +1381,7 @@ export function glob(this: V_Context, pattern: string | string[], opt?: GlobOpti
 	// Escape special characters in pattern
 	const regexPatterns = pattern.map(globToRegex);
 
-	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
+	async function* recursiveList(dir: string | URL): AsyncGenerator<string | Dirent> {
 		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {

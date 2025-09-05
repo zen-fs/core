@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type { MountConfiguration } from '../config.js';
 import type { CreationOptions } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
@@ -37,12 +38,6 @@ export interface PortOptions {
  */
 export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSystem) {
 	public readonly port: RPC.Port<T>;
-
-	/**
-	 * A map of outstanding RPC requests
-	 * @internal @hidden
-	 */
-	public readonly _executors: Map<string, RPC.Executor> = new Map();
 
 	/**
 	 * @hidden
@@ -89,10 +84,8 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 	}
 
 	public async sync(): Promise<void> {
+		await super.sync();
 		await this.rpc('sync');
-		for (const executor of this._executors.values()) {
-			await executor.promise.catch(() => {});
-		}
 	}
 
 	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
@@ -150,7 +143,12 @@ const _Port = {
 	name: 'Port',
 	options: {
 		port: {
-			type: ['Worker', 'MessagePort', 'WebSocket'],
+			type: [
+				EventTarget,
+				function EventEmitter(e) {
+					return typeof e == 'object' && 'on' in e;
+				},
+			],
 			required: true,
 		},
 		timeout: { type: 'number', required: false },

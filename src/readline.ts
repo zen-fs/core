@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // A cross-platform node:readline implementation
 import { EventEmitter } from 'eventemitter3';
@@ -384,7 +385,7 @@ export class Interface extends EventEmitter<InterfaceEvents> implements readline
 		return 10;
 	}
 
-	public [Symbol.asyncIterator](): AsyncIteratorObject<string> {
+	public [Symbol.asyncIterator](): AsyncIteratorObject<string, undefined> {
 		let done = false;
 
 		return {

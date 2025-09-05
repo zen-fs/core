@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /*
 	Access Control Lists.
 	At the moment, they are only intended for internal use.
@@ -6,7 +7,8 @@
 */
 import { withErrno } from 'kerium';
 import { err } from 'kerium/log';
-import { packed, sizeof, struct, types as t } from 'memium';
+import { packed, sizeof } from 'memium';
+import { $from, struct, types as t } from 'memium/decorators';
 import { BufferView } from 'utilium/buffer.js';
 import { type V_Context, getContext } from '../internal/contexts.js';
 import { Attributes, type InodeLike } from '../internal/inode.js';
@@ -34,21 +36,21 @@ export const enum Tag {
 	_None = 0x00,
 }
 
-@struct(packed, { name: 'Entry' })
-export class Entry extends BufferView {
+@struct('ACL.Entry', packed)
+export class Entry extends $from(BufferView) {
 	@t.uint16 accessor tag!: Tag;
 	@t.uint16 accessor perm!: number;
 	@t.uint32 accessor id!: number;
 }
 
-@struct(packed, { name: 'ACL' })
-export class ACL extends BufferView {
+@struct.packed('ACL')
+export class ACL extends $from(BufferView) {
 	@t.uint32 accessor version!: number;
 
 	public entries: Entry[] = [];
 
 	public constructor(...args: ConstructorParameters<typeof BufferView>) {
-		super(...args);
+		super(...(args as any));
 
 		this.version ||= version;
 

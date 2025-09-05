@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+import { Buffer } from 'buffer';
 import { rethrow, setUVMessage, UV } from 'kerium';
 import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
 import type { V_Context } from '../internal/contexts.js';

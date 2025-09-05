@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /*
 	ioctl stuff. The majority of the code here is ported from Linux
 	See:
@@ -6,7 +7,8 @@
 */
 
 import { Errno, Exception, setUVMessage, UV } from 'kerium';
-import { sizeof, struct, types as t } from 'memium';
+import { sizeof } from 'memium';
+import { $from, struct, types as t } from 'memium/decorators';
 import { _throw } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import type { V_Context } from '../internal/contexts.js';
@@ -54,8 +56,8 @@ enum XFlag {
 	HasAttr = 0x80000000,
 }
 
-@struct({ name: 'fsxattr' })
-class fsxattr extends BufferView {
+@struct('fsxattr')
+class fsxattr extends $from(BufferView) {
 	/** xflags field value */
 	@t.uint32 accessor xflags!: number;
 	/** extsize field value */

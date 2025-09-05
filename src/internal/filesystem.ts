@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type { UUID } from 'node:crypto';
 import type { ConstMap } from 'utilium';
 import type { InodeLike } from './inode.js';
@@ -135,6 +136,8 @@ export interface StreamOptions {
 	start?: number;
 
 	end?: number;
+
+	autoClose?: boolean;
 }
 
 const _chunkSize = 0x1000;

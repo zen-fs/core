@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
 import { crit, debug, err, notice, warn } from 'kerium/log';
 import { sizeof } from 'memium';
@@ -90,7 +91,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async ready(): Promise<void> {
 		if (this._initialized) return;
 
-		this.checkRootSync();
+		if (!this.attributes.has('no_async_preload')) {
+			this.checkRootSync();
+		}
+
 		await this.checkRoot();
 		await this._populate();
 		this._initialized = true;

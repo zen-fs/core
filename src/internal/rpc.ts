@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ExceptionJSON } from 'kerium';
 import type { TransferListItem } from 'node:worker_threads';
@@ -51,14 +52,18 @@ export function isPort<T extends Channel>(port: unknown): port is Port<T> {
  * Creates a new RPC port from a `Worker` or `MessagePort` that extends `EventTarget`
  */
 export function fromWeb<T extends WebMessagePort>(port: T): Port<T> {
+	const _handlers = new Map<(message: any) => any, (event: { data: any }) => any>();
+
 	return {
 		channel: port,
 		send: port.postMessage.bind(port),
 		addHandler<M extends Message>(handler: (message: M) => void): void {
-			port.addEventListener('message', (event: { data: M }) => handler(event.data));
+			const _handler = (event: { data: M }) => handler(event.data);
+			_handlers.set(handler, _handler);
+			port.addEventListener('message', _handler);
 		},
 		removeHandler<M extends Message>(handler: (message: M) => void): void {
-			port.removeEventListener('message', (event: { data: M }) => handler(event.data));
+			port.removeEventListener('message', _handlers.get(handler)!);
 		},
 	};
 }
@@ -250,7 +255,6 @@ function disposeExecutors(id: string): void {
 		if (typeof executor.timeout == 'object') executor.timeout.unref();
 	}
 
-	executor.fs._executors.delete(id);
 	executors.delete(id);
 }
 
@@ -277,15 +281,14 @@ export function request<const TRequest extends Request, TValue>(
 
 	const { resolve, reject, promise } = Promise.withResolvers<TValue>();
 
-	const id = Math.random().toString(16).slice(10);
+	const id = Math.random().toString(16).slice(5);
 	const timeout = setTimeout(() => {
-		const error = err(withErrno('EIO', 'RPC Failed'));
+		const error = err(withErrno('ETIMEDOUT', 'RPC request timed out'));
 		error.stack += stack;
 		disposeExecutors(id);
 		reject(error);
 	}, ms);
 	const executor: Executor = { resolve, reject, promise, fs, timeout };
-	fs._executors.set(id, executor);
 	executors.set(id, executor);
 	port.send({ ...request, _zenfs: true, id, stack });
 

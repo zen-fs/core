@@ -18,6 +18,7 @@ export const checkNames = {
 	format: 'Formatting',
 	lint: 'Linting',
 	build: 'Build',
+	license: 'SDPX License Check',
 	// Tests
 	'Common tests': 'Unit tests: common',
 	memory: 'Unit tests: InMemory',

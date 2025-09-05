@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
@@ -20,11 +21,11 @@ suite('Mutexed FS', () => {
 		let lock1Resolved = false;
 		let lock2Resolved = false;
 
-		const lock1 = fs.lock().then(lock => {
+		const lock1 = fs.lock(100).then(lock => {
 			lock1Resolved = true;
 			lock.unlock();
 		});
-		const lock2 = fs.lock().then(lock => {
+		const lock2 = fs.lock(100).then(lock => {
 			lock2Resolved = true;
 			lock.unlock();
 		});
@@ -50,7 +51,7 @@ suite('Mutexed FS', () => {
 		let x = 1;
 
 		async function foo() {
-			const lock = await fs.lock();
+			const lock = await fs.lock(100);
 			await wait(25);
 			x++;
 			lock.unlock();

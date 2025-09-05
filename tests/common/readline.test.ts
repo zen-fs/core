@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { suite, test } from 'node:test';

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
 import type * as fs from 'node:fs';
 import { resolve } from './path.js';
@@ -6,6 +7,7 @@ import "./internal/init_context.js";
 
 // NOTE: without utils_base.ts, there is a circular dependency with path.ts
 export * from './utils_base.js';
+
 
 /**
  * Normalizes a path
@@ -24,4 +26,11 @@ export function normalizePath(this: V_Context, p: fs.PathLike, noResolve: boolea
 
 	// Note: PWD is not resolved here, it is resolved later.
 	return noResolve ? p : resolve.call(this, p);
+}
+
+/**
+ * @internal @hidden
+ */
+export function _tempDirName(prefix: fs.PathLike) {
+	return `/tmp/${normalizePath(prefix, true)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

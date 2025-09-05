@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type * as fs from 'node:fs';
 
 export type FileContents = ArrayBufferView | string;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
 import { warn } from 'kerium/log';
 import type { UUID } from 'node:crypto';
