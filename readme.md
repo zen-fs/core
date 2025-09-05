@@ -98,7 +98,7 @@ const contents = fs.readFileSync('/test.txt', 'utf-8');
 console.log(contents);
 ```
 
-#### Multiple Isolated FileSystems
+#### Mount Namespaces
 
 If making middleware, and the downstream consumer isn't providing a file system, you can make an isolated file system. This prevents accidental conflict if multiple middlewares use ZenFS.
 
