@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
 import type { Device, DeviceDriver } from './internal/devices.js';
+import type { V_Context } from './internal/contexts.js';
+import type { Configuration as LogConfiguration } from 'kerium/log';
+import type { CaseFold } from './internal/filesystem.js';
 
 import { log, withErrno } from 'kerium';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
-import { defaultContext } from './internal/contexts.js';
+import { getContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import { DeviceFS } from './internal/devices.js';
 import { FileSystem } from './internal/filesystem.js';
 import { _setAccessChecks } from './vfs/config.js';
-import * as fs from './vfs/index.js';
-import { mounts } from './vfs/shared.js';
+import * as defaultFs from './vfs/index.js';
 
 /**
  * Update the configuration of a file system.
@@ -74,10 +76,10 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	}
 
 	checkOptions(backend, configuration);
-	const mount = (await backend.create(configuration)) as FilesystemOf<T>;
-	configureFileSystem(mount, configuration);
-	await mount.ready();
-	return mount;
+	const mountFs = (await backend.create(configuration)) as FilesystemOf<T>;
+	configureFileSystem(mountFs, configuration);
+	await mountFs.ready();
+	return mountFs;
 }
 
 /**
@@ -131,6 +133,12 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	disableAccessChecks: boolean;
 
 	/**
+	 * If set, sets case folding for the file system(s).
+	 * @default null
+	 */
+	caseFold?: CaseFold;
+
+	/**
 	 * If true, files will only sync to the file system when closed.
 	 * This overrides `disableUpdateOnRead`
 	 *
@@ -143,7 +151,27 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	/**
 	 * Configurations options for the log.
 	 */
-	log: log.Configuration;
+	log: LogConfiguration;
+
+	/**
+	 * FileSystem (for isolated trees only)
+	 */
+	fs: typeof defaultFs;
+}
+
+function partialToFullConfig<T extends ConfigMounts>(config: Partial<Configuration<T>>): Configuration<T> {
+	return {
+		...config,
+		mounts: (config.mounts || {}) as { [K in keyof T]: MountConfiguration<T[K]>; },
+		uid: config.uid || 0,
+		gid: config.gid || 0,
+		addDevices: !!config.addDevices,
+		disableAccessChecks: !!config.disableAccessChecks,
+		onlySyncOnClose: !!config.onlySyncOnClose,
+		caseFold: config.caseFold || null,
+		log: config.log || {},
+		fs: config.fs || defaultFs,
+	} as Configuration<T>;
 }
 
 /**
@@ -156,8 +184,8 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
 	}
 
 	const resolved = await resolveMountConfig(configuration);
-	fs.umount('/');
-	fs.mount('/', resolved);
+	defaultFs.umount.call(null, '/');
+	defaultFs.mount.call(null, '/', resolved);
 }
 
 /**
@@ -166,26 +194,26 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
  * This is implemented as a separate function to avoid a circular dependency between vfs/shared.ts and other vfs layer files.
  * @internal
  */
-async function mount(path: string, mount: FileSystem): Promise<void> {
+async function mountHelper(path: string, childFs: FileSystem, parentFs: typeof defaultFs): Promise<void> {
 	if (path == '/') {
-		fs.mount(path, mount);
+		parentFs.mount.call(null, path, childFs);
 		return;
 	}
 
-	const stats = await fs.promises.stat(path).catch(() => null);
+	const stats = await parentFs.promises.stat.call(null, path).catch(() => null);
 	if (!stats) {
-		await fs.promises.mkdir(path, { recursive: true });
+		await parentFs.promises.mkdir.call(null, path, { recursive: true });
 	} else if (!stats.isDirectory()) {
 		throw withErrno('ENOTDIR', 'Missing directory at mount point: ' + path);
 	}
-	fs.mount(path, mount);
+	parentFs.mount.call(null, path, childFs);
 }
 
 /**
  * @category Backends and Configuration
  */
-export function addDevice(driver: DeviceDriver, options?: object): Device {
-	const devfs = mounts.get('/dev');
+export function addDevice(driver: DeviceDriver, options?: object, $?: V_Context): Device {
+	const devfs = getContext($).mounts.get('/dev');
 	if (!(devfs instanceof DeviceFS)) throw log.crit(withErrno('ENOTSUP', '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
@@ -197,12 +225,14 @@ const _defaultDirectories = ['/tmp', '/var', '/etc'];
  * @category Backends and Configuration
  * @see Configuration
  */
-export async function configure<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): Promise<void> {
+export async function configure<T extends ConfigMounts>(this: V_Context, partialConfiguration: Partial<Configuration<T>>): Promise<void> {
+	const configuration = partialToFullConfig(partialConfiguration);
+	const $$ = getContext(this);
 	Object.assign(
-		defaultContext.credentials,
+		$$.credentials,
 		createCredentials({
-			uid: configuration.uid || 0,
-			gid: configuration.gid || 0,
+			uid: configuration.uid,
+			gid: configuration.gid,
 		})
 	);
 
@@ -220,33 +250,34 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 				mountConfig.caseFold ??= configuration.caseFold;
 			}
 
-			if (point == '/') fs.umount('/');
+			if (point == '/') configuration.fs.umount.call(null, '/');
 
-			await mount(point, await resolveMountConfig(mountConfig));
+			await mountHelper(point, await resolveMountConfig(mountConfig), configuration.fs);
 		}
 	}
 
-	for (const fs of mounts.values()) {
-		configureFileSystem(fs, configuration);
+	for (const eachFs of $$.mounts.values()) {
+		configureFileSystem(eachFs, configuration);
 	}
 
-	if (configuration.addDevices && !mounts.has('/dev')) {
+	if (configuration.addDevices && !$$.mounts.has('/dev')) {
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();
-		await mount('/dev', devfs);
+		await mountHelper('/dev', devfs, configuration.fs);
 	}
 
 	if (configuration.defaultDirectories) {
 		for (const dir of _defaultDirectories) {
-			if (await fs.promises.exists(dir)) {
-				const stats = await fs.promises.stat(dir);
+			if (await configuration.fs.promises.exists(dir)) {
+				const stats = await configuration.fs.promises.stat(dir);
 				if (!stats.isDirectory()) log.warn('Default directory exists but is not a directory: ' + dir);
-			} else await fs.promises.mkdir(dir);
+			} else await configuration.fs.promises.mkdir(dir);
 		}
 	}
 }
 
-export async function sync(): Promise<void> {
+export async function sync(this: V_Context): Promise<void> {
+    const {mounts, fs} = getContext(this);
 	for (const fs of mounts.values()) await fs.sync();
 }

@@ -1,11 +1,23 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// This needs to be in a separate file to avoid circular dependencies
-import type { Bound } from 'utilium';
-import type * as path from '../path.js';
 import type { SyncHandle } from '../vfs/file.js';
-import type * as fs from '../vfs/index.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
+import type { FileSystem } from './filesystem.js';
 import { createCredentials } from './credentials.js';
+
+// NOTE1: this file is separate from init_context.ts because of circular dependencies
+// for example, previously:
+//     context.ts->memory.ts->fs.ts->file_index.ts->path.ts->context.ts
+//     context.ts->memory.ts->fs.ts->file_index.ts->inode.ts->context.ts
+//     context.ts->memory.ts->fs.ts->utils.ts->inode.ts->context.ts
+// NOTE2: import { SyncHandle } is still a circular dependency but 
+// because it is only a type import, typescript is able to figure it out
+
+/**
+ * All contexts
+ * @internal
+ * @category Contexts
+ */
+export const allContexts: Record<string, FSContext> = {};
 
 /**
  * A context used for FS operations
@@ -13,7 +25,7 @@ import { createCredentials } from './credentials.js';
  */
 export interface FSContext {
 	/** The unique ID of the context */
-	readonly id: number;
+	readonly id: string;
 
 	/**
 	 * The absolute root path of the context
@@ -31,55 +43,51 @@ export interface FSContext {
 	/** A map of open file descriptors to their handles */
 	descriptors: Map<number, SyncHandle>;
 
-	/** The parent context, if any. */
-	parent: V_Context;
-
 	/** The child contexts */
 	children: FSContext[];
-}
 
-/**
- * maybe an FS context
- */
-export type V_Context = void | null | (Partial<FSContext> & object);
-
-/**
- * Allows you to restrict operations to a specific root path and set of credentials.
- * @category Contexts
- */
-export interface BoundContext extends FSContext {
-	fs: Bound<typeof fs, FSContext> & { promises: Bound<typeof fs.promises, FSContext>; xattr: Bound<typeof fs.xattr, FSContext> };
-
-	/** Path functions, bound to the context */
-	path: Bound<typeof path, FSContext>;
-
-	/** Creates a new child context with this context as the parent */
-	bind(init: ContextInit): BoundContext;
+	/** A map of mount points to file systems */
+	mounts: Map<string, FileSystem>;
 
 	/** The parent context, if any. */
-	parent: FSContext;
+	parent: null | FSContext;
 }
 
 /**
+ * maybe FSContext or StrongFSContext
+ */
+export type V_Context = void | null | FSContext;
+
+/**
+ * A map of all top level contexts (no parents)
+ * @internal
  * @category Contexts
  */
-export interface ContextInit {
-	root?: string;
-	pwd?: string;
-	credentials?: CredentialsInit;
-}
+export const rootContexts: FSContext[] = [];
+
+let defaultContext : V_Context = null;
 
 /**
- * The default/global context.
+ * Only internal/context.ts should ever call this function
  * @internal @hidden
  * @category Contexts
  */
-export const defaultContext: FSContext = {
-	id: 0,
-	root: '/',
-	pwd: '/',
-	credentials: createCredentials({ uid: 0, gid: 0 }),
-	descriptors: new Map(),
-	parent: null,
-	children: [],
-};
+export function _initDefaultContext(context : FSContext) {
+    if (defaultContext != null) {
+        throw new Error("This shouldn't be possible, but _initDefaultContext() was called after the defaultContext was already initialized. Only internal/context.ts should ever call this function");
+    }
+    defaultContext = context;
+}
+
+export function getContext($: V_Context): FSContext {
+    if (defaultContext == null) {
+        throw new Error("This shouldn't be possible, but somehow getContext was called before the default context was set");
+    }
+    if (!$) {
+        return defaultContext as FSContext;
+    }
+    if (($ as any)[Symbol.toStringTag] == 'Module' || $.mounts == null) {
+        return defaultContext;
+    }
+    return $;
+}

@@ -98,6 +98,29 @@ const contents = fs.readFileSync('/test.txt', 'utf-8');
 console.log(contents);
 ```
 
+#### Mount Namespaces
+
+If making middleware, and the downstream consumer isn't providing a file system, you can make an isolated file system. This prevents accidental conflict if multiple middlewares use ZenFS.
+
+```js
+import { configureIsolated, fs as globalThisFs } from '@zenfs/core';
+
+// create a local fs
+const {fs, path} = await configureIsolated({
+  pwd: '/home',
+  credentials: { uid: 1000, gid: 1000 },
+  mounts: {
+    '/': InMemory,
+    '/home': InMemory,
+  },
+});
+
+fs.writeFileSync('/home/test.txt', 'isolated');
+globalThisFs.writeFileSync('/home/test.txt', 'global');
+// still says "isolated"
+console.log(fs.readFileSync('/home/test.txt', 'utf8'));
+```
+
 #### FS Promises
 
 The FS promises API is exposed as `promises`.

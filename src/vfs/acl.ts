@@ -10,7 +10,7 @@ import { err } from 'kerium/log';
 import { packed, sizeof } from 'memium';
 import { $from, struct, types as t } from 'memium/decorators';
 import { BufferView } from 'utilium/buffer.js';
-import { defaultContext, type V_Context } from '../internal/contexts.js';
+import { type V_Context, getContext } from '../internal/contexts.js';
 import { Attributes, type InodeLike } from '../internal/inode.js';
 import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from './constants.js';
 import * as xattr from './xattr.js';
@@ -143,7 +143,7 @@ export function check($: V_Context, inode: InodeLike, access: number): boolean {
 
 	inode.attributes ??= new Attributes();
 
-	const { euid, egid } = $?.credentials ?? defaultContext.credentials;
+	const { euid, egid } = getContext($).credentials;
 
 	const data = inode.attributes.get('system.posix_acl_access');
 

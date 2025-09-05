@@ -2,7 +2,7 @@
 import { Buffer } from 'buffer';
 import { rethrow, setUVMessage, UV } from 'kerium';
 import type { BufferEncodingOption, ObjectEncodingOptions } from 'node:fs';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import type { InodeLike } from '../internal/inode.js';
 import { Attributes, hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
@@ -86,7 +86,7 @@ export async function get(
 ): Promise<Uint8Array>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): Promise<string>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options = {}): Promise<string | Uint8Array> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.get');
 
@@ -115,7 +115,7 @@ export async function get(this: V_Context, path: string, name: Name, opt: Option
 export function getSync(this: V_Context, path: string, name: Name, opt?: Options & (BufferEncodingOption | { encoding?: null })): Uint8Array;
 export function getSync(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): string;
 export function getSync(this: V_Context, path: string, name: Name, opt: Options = {}): string | Uint8Array {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	checkName(this, name, path, 'xattr.get');
 	const { fs, path: resolved } = resolveMount(path, this);
 
@@ -147,7 +147,7 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
  * @param opt Options for the operation
  */
 export async function set(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): Promise<void> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	checkName(this, name, path, 'xattr.set');
@@ -177,7 +177,7 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
  * @param opt Options for the operation
  */
 export function setSync(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): void {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	checkName(this, name, path, 'xattr.set');
@@ -215,7 +215,7 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
  * @param name Name of the attribute to remove
  */
 export async function remove(this: V_Context, path: string, name: Name): Promise<void> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.remove');
 
@@ -240,7 +240,7 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
  * @param name Name of the attribute to remove
  */
 export function removeSync(this: V_Context, path: string, name: Name): void {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.remove');
 
@@ -274,7 +274,7 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
  * @returns Array of attribute names
  */
 export async function list(this: V_Context, path: string): Promise<Name[]> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	const inode = await fs.stat(resolved).catch(rethrow('xattr.list', path));
@@ -291,7 +291,7 @@ export async function list(this: V_Context, path: string): Promise<Name[]> {
  * @returns Array of attribute names
  */
 export function listSync(this: V_Context, path: string): Name[] {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 
 	let inode: InodeLike;

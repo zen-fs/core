@@ -11,7 +11,7 @@ import { sizeof } from 'memium';
 import { $from, struct, types as t } from 'memium/decorators';
 import { _throw } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import { Inode, InodeFlags } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { resolveMount } from './shared.js';
@@ -225,7 +225,7 @@ export async function ioctl<const Command extends number, const Args extends __i
 	/** The arguments to pass to the command */
 	...args: Args
 ): Promise<Return> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 
@@ -290,7 +290,7 @@ export function ioctlSync<const Command extends number, const Args extends __ioc
 	/** The arguments to pass to the command */
 	...args: Args
 ): Return {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { EventEmitter as NodeEventEmitter } from 'node:events';
 import type * as fs from 'node:fs';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 
 import { EventEmitter } from 'eventemitter3';
 import { UV } from 'kerium';
@@ -89,13 +89,12 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 		super(context, path);
 
 		this.realpath = context?.root ? join(context.root, path) : path;
-
-		addWatcher(this.realpath, this);
+		addWatcher.call(context, this.realpath, this);
 	}
 
 	public close(): void {
 		super.emit('close');
-		removeWatcher(this.realpath, this);
+		removeWatcher.call(this._context, this.realpath, this);
 	}
 
 	public [Symbol.dispose](): void {
@@ -168,16 +167,16 @@ export class StatWatcher
 
 const watchers: Map<string, Set<FSWatcher>> = new Map();
 
-export function addWatcher(path: string, watcher: FSWatcher) {
-	const normalizedPath = normalizePath(path);
+export function addWatcher(this: V_Context, path: string, watcher: FSWatcher) {
+	const normalizedPath = normalizePath.call(this, path);
 	if (!watchers.has(normalizedPath)) {
 		watchers.set(normalizedPath, new Set());
 	}
 	watchers.get(normalizedPath)!.add(watcher);
 }
 
-export function removeWatcher(path: string, watcher: FSWatcher) {
-	const normalizedPath = normalizePath(path);
+export function removeWatcher(this: V_Context, path: string, watcher: FSWatcher) {
+	const normalizedPath = normalizePath.call(this, path);
 	if (watchers.has(normalizedPath)) {
 		watchers.get(normalizedPath)!.delete(watcher);
 		if (watchers.get(normalizedPath)!.size === 0) {
@@ -191,7 +190,7 @@ export function removeWatcher(path: string, watcher: FSWatcher) {
  */
 export function emitChange($: V_Context, eventType: fs.WatchEventType, filename: string) {
 	if ($) filename = join($.root ?? '/', filename);
-	filename = normalizePath(filename);
+	filename = normalizePath.call($, filename);
 
 	// Notify watchers, including ones on parent directories if they are watching recursively
 	for (let path = filename; path != '/'; path = dirname(path)) {

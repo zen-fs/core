@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type * as Node from 'node:fs';
 import { pick } from 'utilium';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import type { InodeFields } from '../internal/inode.js';
 import { _inode_fields, hasAccess } from '../internal/inode.js';
 import * as c from './constants.js';

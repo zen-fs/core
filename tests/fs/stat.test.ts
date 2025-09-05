@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { defaultContext } from '../../dist/internal/contexts.js';
+import { context } from '../../dist/context.js';
 import { Stats } from '../../dist/vfs/stats.js';
 import { fs } from '../common.js';
 
@@ -41,7 +41,7 @@ suite('Stats', () => {
 
 		fs.writeFileSync(newFile, 'hello', { mode: 0o640 });
 
-		const prevCredentials = { ...defaultContext.credentials };
+		const prevCredentials = { ...context.credentials };
 		const uid = 33;
 		const nonRootCredentials = {
 			uid,
@@ -54,7 +54,7 @@ suite('Stats', () => {
 
 		fs.chownSync(newFile, 0, nonRootCredentials.gid); // creating with root-user so that non-root user can access
 
-		Object.assign(defaultContext.credentials, nonRootCredentials);
+		Object.assign(context.credentials, nonRootCredentials);
 		const stat = fs.statSync(newFile);
 
 		assert.equal(stat.gid, nonRootCredentials.gid);
@@ -64,13 +64,13 @@ suite('Stats', () => {
 		assert.equal(stat.hasAccess(fs.constants.X_OK), false);
 		// changing group
 
-		Object.assign(defaultContext.credentials, { ...nonRootCredentials, gid: 44 });
+		Object.assign(context.credentials, { ...nonRootCredentials, gid: 44 });
 
 		assert.equal(stat.hasAccess(fs.constants.R_OK), false);
 		assert.equal(stat.hasAccess(fs.constants.W_OK), false);
 		assert.equal(stat.hasAccess(fs.constants.X_OK), false);
 
-		Object.assign(defaultContext.credentials, prevCredentials);
+		Object.assign(context.credentials, prevCredentials);
 	});
 
 	test('stat file', async () => {

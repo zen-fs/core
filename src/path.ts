@@ -28,9 +28,9 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 */
 
 import type { ParsedPath } from 'node:path';
-import type { V_Context } from './context.js';
-import { defaultContext } from './internal/contexts.js';
-import { globToRegex } from './utils.js';
+import type { V_Context } from './internal/contexts.js';
+import { getContext } from './internal/contexts.js';
+import { globToRegex } from './utils_base.js';
 
 export type AbsolutePath = `/${string}`;
 
@@ -110,7 +110,7 @@ export function formatExt(ext: string): string {
 export function resolve(this: V_Context, ...parts: (string | undefined)[]): AbsolutePath {
 	let resolved = '';
 
-	for (const part of [...parts.reverse(), this?.pwd ?? defaultContext.pwd]) {
+	for (const part of [...parts.reverse(), getContext(this).pwd]) {
 		if (!part?.length) continue;
 
 		resolved = `${part}/${resolved}`;

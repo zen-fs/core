@@ -7,7 +7,7 @@ import { decodeUTF8, encodeUTF8, pick } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
 import * as c from '../vfs/constants.js';
 import { Stats, type StatsLike } from '../vfs/stats.js';
-import { defaultContext, type V_Context } from './contexts.js';
+import { type V_Context, getContext } from './contexts.js';
 
 /**
  * Root inode
@@ -438,7 +438,7 @@ export function isFIFO(metadata: { mode: number }): boolean {
  * @internal
  */
 export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 'gid'>, access: number): boolean {
-	const credentials = $?.credentials || defaultContext.credentials;
+	const credentials = getContext($).credentials;
 
 	if (isSymbolicLink(inode) || credentials.euid === 0 || credentials.egid === 0) return true;
 

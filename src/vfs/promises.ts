@@ -5,16 +5,16 @@ import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import type { V_Context } from '../context.js';
+import type { V_Context } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { Interface as ReadlineInterface } from '../readline.js';
 import type { ResolvedPath } from './shared.js';
 import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './types.js';
 
-import { Buffer } from 'buffer';
+import { Buffer } from 'node:buffer';
 import { Exception, rethrow, setUVMessage, UV } from 'kerium';
-import { defaultContext } from '../internal/contexts.js';
+import { getContext } from '../internal/contexts.js';
 import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import '../polyfills.js';
@@ -513,9 +513,9 @@ export class FileHandle implements promises.FileHandle {
 }
 
 export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): Promise<void> {
-	oldPath = normalizePath(oldPath);
+	oldPath = normalizePath.call(this, oldPath);
 	__assertType<string>(oldPath);
-	newPath = normalizePath(newPath);
+	newPath = normalizePath.call(this, newPath);
 	__assertType<string>(newPath);
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 	const src = resolveMount(oldPath, this);
@@ -564,7 +564,7 @@ export async function stat(this: V_Context, path: fs.PathLike, options: fs.BigIn
 export async function stat(this: V_Context, path: fs.PathLike, options?: { bigint?: false }): Promise<Stats>;
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(await realpath.call(this, path), this);
 	const $ex = { syscall: 'stat', path };
 
@@ -583,7 +583,7 @@ stat satisfies typeof promises.stat;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Promise<Stats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options: { bigint: true }): Promise<BigIntStats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const $ex = { syscall: 'lstat', path };
 	path = join(await realpath.call(this, dirname(path)), basename(path));
 	const { fs, path: resolved } = resolveMount(path, this);
@@ -601,7 +601,7 @@ export async function truncate(this: V_Context, path: fs.PathLike, len: number =
 truncate satisfies typeof promises.truncate;
 
 export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'unlink', path };
 
@@ -618,7 +618,7 @@ unlink satisfies typeof promises.unlink;
  * @internal
  */
 async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise<FileHandle> {
-	path = normalizePath(path);
+	path = normalizePath.call($, path);
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = flags.parse(opt.flag);
 
@@ -636,7 +636,7 @@ async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise
 
 		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
 
-		const { euid: uid, egid: gid } = $?.credentials ?? defaultContext.credentials;
+		const { euid: uid, egid: gid } = getContext($).credentials;
 
 		const inode = await fs.createFile(resolved, {
 			mode,
@@ -791,7 +791,7 @@ export async function mkdir(
 	path: fs.PathLike,
 	options?: fs.Mode | fs.MakeDirectoryOptions | null
 ): Promise<string | undefined | void> {
-	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
+	const { euid: uid, egid: gid } = getContext(this).credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
@@ -920,8 +920,8 @@ export async function readdir(this: V_Context, _path: fs.PathLike, options?: Rea
 readdir satisfies typeof promises.readdir;
 
 export async function link(this: V_Context, path: fs.PathLike, dest: fs.PathLike): Promise<void> {
-	path = normalizePath(path);
-	dest = normalizePath(dest);
+	path = normalizePath.call(this, path);
+	dest = normalizePath.call(this, dest);
 
 	const { fs, path: resolved } = resolveMount(path, this);
 	const dst = resolveMount(dest, this);
@@ -951,7 +951,7 @@ link satisfies typeof promises.link;
 export async function symlink(this: V_Context, dest: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | string | null = 'file'): Promise<void> {
 	if (!['file', 'dir', 'junction'].includes(type!)) throw new TypeError('Invalid symlink type: ' + type);
 
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	if (await exists.call(this, path)) throw UV('EEXIST', 'symlink', path);
 
@@ -973,7 +973,7 @@ export async function readlink(
 	path: fs.PathLike,
 	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
 ): Promise<string | Buffer> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	__assertType<string>(path);
 	await using handle = await _open(this, path, { flag: 'r', mode: 0o644, preserveSymlinks: true });
 	if (!isSymbolicLink(handle.inode)) throw UV('EINVAL', 'readlink', path);
@@ -1104,7 +1104,7 @@ export async function realpath(
 	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
 ): Promise<string | Buffer> {
 	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	const { fullPath } = await _resolve(this, path);
 	if (encoding == 'utf8' || encoding == 'utf-8') return fullPath;
@@ -1190,7 +1190,7 @@ access satisfies typeof promises.access;
  * @param path The path to the file or directory to remove.
  */
 export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOptions) {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	const stats = await lstat.call<V_Context, [string], Promise<Stats>>(this, path).catch((error: Exception) => {
 		if (error.code == 'ENOENT' && options?.force) return undefined;
@@ -1270,8 +1270,8 @@ export async function mkdtempDisposable(
  *    * `fs.constants.COPYFILE_EXCL`: If the destination file already exists, the operation fails.
  */
 export async function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathLike, mode?: number): Promise<void> {
-	src = normalizePath(src);
-	dest = normalizePath(dest);
+	src = normalizePath.call(this, src);
+	dest = normalizePath.call(this, dest);
 
 	if (mode && mode & constants.COPYFILE_EXCL && (await exists.call(this, dest))) throw UV('EEXIST', 'copyFile', dest);
 
@@ -1288,7 +1288,7 @@ copyFile satisfies typeof promises.copyFile;
  * @todo Use options
  */
 export function opendir(this: V_Context, path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	return Promise.resolve(new Dir(path, this));
 }
 opendir satisfies typeof promises.opendir;
@@ -1306,8 +1306,8 @@ opendir satisfies typeof promises.opendir;
  *   * `recursive`: If `true`, copies directories recursively.
  */
 export async function cp(this: V_Context, source: fs.PathLike, destination: fs.PathLike, opts?: fs.CopyOptions): Promise<void> {
-	source = normalizePath(source);
-	destination = normalizePath(destination);
+	source = normalizePath.call(this, source);
+	destination = normalizePath.call(this, destination);
 
 	const srcStats = await lstat.call<V_Context, [string], Promise<Stats>>(this, source); // Use lstat to follow symlinks if not dereferencing
 
@@ -1360,7 +1360,7 @@ export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatF
 export async function statfs(this: V_Context, path: fs.PathLike, opts: fs.StatFsOptions & { bigint: true }): Promise<fs.BigIntStatsFs>;
 export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs>;
 export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 	const { fs } = resolveMount(path, this);
 	return Promise.resolve(_statfs(fs, opts?.bigint));
 }
