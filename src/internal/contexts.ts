@@ -86,7 +86,7 @@ export function getContext($: V_Context): FSContext {
     if (!$) {
         return defaultContext as FSContext;
     }
-    if (($ as any)[Symbol.toStringTag] == 'Module') {
+    if (($ as any)[Symbol.toStringTag] == 'Module' || $.mounts == null) {
         return defaultContext;
     }
     return $;
