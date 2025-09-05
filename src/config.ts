@@ -269,14 +269,15 @@ export async function configure<T extends ConfigMounts>(this: V_Context, partial
 
 	if (configuration.defaultDirectories) {
 		for (const dir of _defaultDirectories) {
-			if (await fs.promises.exists(dir)) {
-				const stats = await fs.promises.stat(dir);
+			if (await configuration.fs.promises.exists(dir)) {
+				const stats = await configuration.fs.promises.stat(dir);
 				if (!stats.isDirectory()) log.warn('Default directory exists but is not a directory: ' + dir);
-			} else await fs.promises.mkdir(dir);
+			} else await configuration.fs.promises.mkdir(dir);
 		}
 	}
 }
 
-export async function sync(): Promise<void> {
+export async function sync(this: V_Context): Promise<void> {
+    const {mounts, fs} = getContext(this);
 	for (const fs of mounts.values()) await fs.sync();
 }
