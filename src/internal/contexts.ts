@@ -79,10 +79,8 @@ export function _initDefaultContext(context : FSContext) {
     defaultContext = context;
 }
 
-Error.stackTraceLimit = 100
 export function getContext($: V_Context): FSContext {
     if (defaultContext == null) {
-        console.log(`new Error().stack is:`,new Error().stack)
         throw new Error("This shouldn't be possible, but somehow getContext was called before the default context was set");
     }
     if (!$) {
