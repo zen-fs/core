@@ -7,10 +7,10 @@ export * from './mixins/index.js';
 export * from './vfs/stats.js';
 export * from './utils.js';
 export { mounts } from './vfs/shared.js';
-export * from './vfs/index.js';
 export { fs };
 import * as fs from './vfs/index.js';
 export default fs;
+export * from './vfs/index.js';
 import $pkg from '../package.json' with { type: 'json' };
 
 declare const globalThis: {
