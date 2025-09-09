@@ -39,15 +39,37 @@ const _shift_type = _shift_nr + _bits_nr;
 const _shift_size = _shift_type + _bits_type;
 const _shift_dir = _shift_size + _bits_size;
 
+const parts = [
+	{
+		name: 'nr',
+		bits: _bits_nr,
+		mask: _mask_nr,
+		shift: _shift_nr,
+	},
+	{
+		name: 'type',
+		bits: _bits_type,
+		mask: _mask_type,
+		shift: _shift_type,
+	},
+	{
+		name: 'size',
+		bits: _bits_size,
+		mask: _mask_size,
+		shift: _shift_size,
+	},
+	{
+		name: 'dir',
+		bits: _bits_dir,
+		mask: _mask_dir,
+		shift: _shift_dir,
+	},
+];
+
 if (opts.verbose) {
 	console.log('name | bits | mask | shift |           mask (computed)         ');
 
-	for (const [name, bits, mask, shift] of [
-		['nr', _bits_nr, _mask_nr, _shift_nr],
-		['type', _bits_type, _mask_type, _shift_type],
-		['size', _bits_size, _mask_size, _shift_size],
-		['dir', _bits_dir, _mask_dir, _shift_dir],
-	]) {
+	for (const { name, bits, mask, shift } of parts) {
 		console.log(
 			`${name.padEnd(4)} | ${bits.toString().padStart(4)} | ${mask.toString(16).padStart(4, '0')} | ${shift.toString().padStart(5)} | ${((mask << shift) >>> 0).toString(2).padStart(32, '0')}`
 		);

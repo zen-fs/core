@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-
 import { execSync } from 'node:child_process';
 import { existsSync, globSync, mkdirSync, rmSync } from 'node:fs';
 import { join, parse, basename } from 'node:path';
-import { parseArgs } from 'node:util';
+import { parseArgs, styleText } from 'node:util';
 
 const { values: options, positionals } = parseArgs({
 	options: {
@@ -117,16 +116,6 @@ if (options.auto) {
 	!options.quiet && console.log(`Auto-detected ${sum} test setup files`);
 }
 
-/**
- * Colorizes some text
- * @param {string} text Text to color
- * @param {string | number} code ANSI escape code
- * @returns
- */
-function color(text, code) {
-	return `\x1b[${code}m${text}\x1b[0m`;
-}
-
 async function status(name) {
 	const start = performance.now();
 
@@ -141,22 +130,22 @@ async function status(name) {
 			unit = 's';
 		}
 
-		return color(`(${delta} ${unit})`, '2;37');
+		return styleText('dim', `(${delta} ${unit})`);
 	};
 
 	const maybeName = options.verbose ? `: ${name}` : '';
 
 	return {
 		async pass() {
-			if (!options.quiet) console.log(`${color('passed', 32)}${maybeName} ${time()}`);
+			if (!options.quiet) console.log(`${styleText('green', 'passed')}${maybeName} ${time()}`);
 			if (options.ci) await ci.completeCheck(name, 'success');
 		},
 		async skip() {
-			if (!options.quiet) console.log(`${color('skipped', 33)}${maybeName} ${time()}`);
+			if (!options.quiet) console.log(`${styleText('yellow', 'skipped')}${maybeName} ${time()}`);
 			if (options.ci) await ci.completeCheck(name, 'skipped');
 		},
 		async fail() {
-			console.error(`${color('failed', '1;31')}${maybeName} ${time()}`);
+			console.error(`${styleText(['red', 'bold'], 'failed')}${maybeName} ${time()}`);
 			if (options.ci) await ci.completeCheck(name, 'failure');
 			process.exitCode = 1;
 			if (options['exit-on-fail']) process.exit();
@@ -192,7 +181,7 @@ for (const setupFile of positionals) {
 	}
 
 	process.env.SETUP = setupFile;
-	process.env.VERBOSE = +options.verbose;
+	if (options.verbose) process.env.VERBOSE = '1';
 
 	const name = options['file-names'] && !options.ci ? setupFile : parse(setupFile).name;
 

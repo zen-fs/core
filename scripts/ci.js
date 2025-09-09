@@ -10,7 +10,10 @@ const head_sha = process.env.GITHUB_SHA;
 
 mkdirSync(join(import.meta.dirname, '../tmp'), { recursive: true });
 
-const checks = new JSONFileMap(join(import.meta.dirname, '../tmp/checks.json'));
+/**
+ * @type {JSONFileMap<{id: number, completed: boolean}>}
+ */
+const checks = new JSONFileMap(join(import.meta.dirname, '../tmp/checks.json'), { overwrite_invalid: true });
 
 /** Maps test names and shortcuts to full check names */
 export const checkNames = {

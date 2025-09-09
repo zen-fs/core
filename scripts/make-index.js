@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readdirSync, statSync, writeFileSync } from 'node:fs';
 import { matchesGlob, relative, join, resolve } from 'node:path/posix';
-import { parseArgs } from 'node:util';
+import { parseArgs, styleText } from 'node:util';
 
 const { values: options, positionals } = parseArgs({
 	options: {
@@ -42,36 +42,12 @@ function fixSlash(path) {
 
 const resolvedRoot = root || '.';
 
-const colors = {
-	reset: 0,
-	black: 30,
-	red: 31,
-	green: 32,
-	yellow: 33,
-	blue: 34,
-	magenta: 35,
-	cyan: 36,
-	white: 37,
-	bright_black: 90,
-	bright_red: 91,
-	bright_green: 92,
-	bright_yellow: 93,
-	bright_blue: 94,
-	bright_magenta: 95,
-	bright_cyan: 96,
-	bright_white: 97,
-};
-
-function color(color, text) {
-	return `\x1b[${colors[color]}m${text}\x1b[0m`;
-}
-
 const entries = new Map();
 
 function computeEntries(path) {
 	try {
 		if (options.ignore.some(pattern => matchesGlob(path, pattern))) {
-			if (!options.quiet) console.log(`${color('yellow', 'skip')} ${path}`);
+			if (!options.quiet) console.log(`${styleText('yellow', 'skip')} ${path}`);
 			return;
 		}
 
@@ -80,7 +56,7 @@ function computeEntries(path) {
 		if (stats.isFile()) {
 			entries.set('/' + relative(resolvedRoot, path), stats);
 			if (options.verbose) {
-				console.log(`${color('green', 'file')} ${path}`);
+				console.log(`${styleText('green', 'file')} ${path}`);
 			}
 			return;
 		}
@@ -90,11 +66,11 @@ function computeEntries(path) {
 		}
 		entries.set('/' + relative(resolvedRoot, path), stats);
 		if (options.verbose) {
-			console.log(`${color('bright_green', ' dir')} ${path}`);
+			console.log(`${styleText('greenBright', ' dir')} ${path}`);
 		}
 	} catch (e) {
 		if (!options.quiet) {
-			console.log(`${color('red', 'fail')} ${path}: ${e.message}`);
+			console.log(`${styleText('red', 'fail')} ${path}: ${e.message}`);
 		}
 	}
 }
