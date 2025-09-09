@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { basename, dirname, extname, join, normalize, resolve } from '../../dist/path.js';
-import * as fs from '../../dist/vfs/index.js';
+import { basename, dirname, extname, join, normalize, resolve } from '@zenfs/core/path';
+import { fs } from '@zenfs/core';
 
 suite('Path emulation', () => {
 	test('resolve', () => {

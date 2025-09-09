@@ -8,9 +8,9 @@ import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import { DeviceFS } from './internal/devices.js';
 import { FileSystem } from './internal/filesystem.js';
+import { exists, mkdir, stat } from './node/promises.js';
 import { _setAccessChecks } from './vfs/config.js';
-import * as fs from './node/index.js';
-import { mounts } from './vfs/shared.js';
+import { mount, mounts, umount } from './vfs/shared.js';
 
 /**
  * Update the configuration of a file system.
@@ -156,8 +156,8 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
 	}
 
 	const resolved = await resolveMountConfig(configuration);
-	fs.umount('/');
-	fs.mount('/', resolved);
+	umount('/');
+	mount('/', resolved);
 }
 
 /**
@@ -166,19 +166,19 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
  * This is implemented as a separate function to avoid a circular dependency between vfs/shared.ts and other vfs layer files.
  * @internal
  */
-async function mount(path: string, mount: FileSystem): Promise<void> {
+async function mountWithMkdir(path: string, fs: FileSystem): Promise<void> {
 	if (path == '/') {
-		fs.mount(path, mount);
+		mount(path, fs);
 		return;
 	}
 
-	const stats = await fs.promises.stat(path).catch(() => null);
+	const stats = await stat(path).catch(() => null);
 	if (!stats) {
-		await fs.promises.mkdir(path, { recursive: true });
+		await mkdir(path, { recursive: true });
 	} else if (!stats.isDirectory()) {
 		throw withErrno('ENOTDIR', 'Missing directory at mount point: ' + path);
 	}
-	fs.mount(path, mount);
+	mount(path, fs);
 }
 
 /**
@@ -220,9 +220,9 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 				mountConfig.caseFold ??= configuration.caseFold;
 			}
 
-			if (point == '/') fs.umount('/');
+			if (point == '/') umount('/');
 
-			await mount(point, await resolveMountConfig(mountConfig));
+			await mountWithMkdir(point, await resolveMountConfig(mountConfig));
 		}
 	}
 
@@ -234,15 +234,15 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();
-		await mount('/dev', devfs);
+		await mountWithMkdir('/dev', devfs);
 	}
 
 	if (configuration.defaultDirectories) {
 		for (const dir of _defaultDirectories) {
-			if (await fs.promises.exists(dir)) {
-				const stats = await fs.promises.stat(dir);
+			if (await exists(dir)) {
+				const stats = await stat(dir);
 				if (!stats.isDirectory()) log.warn('Default directory exists but is not a directory: ' + dir);
-			} else await fs.promises.mkdir(dir);
+			} else await mkdir(dir);
 		}
 	}
 }

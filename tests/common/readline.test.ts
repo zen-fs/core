@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { createInterface, Interface } from '@zenfs/core/readline';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { createInterface, Interface } from '../../dist/readline.js';
 
 suite('Readline interface', { skip: true }, () => {
 	test('creates interface with readable stream', async () => {

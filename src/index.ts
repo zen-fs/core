@@ -8,7 +8,7 @@ export * from './utils.js';
 export { mounts } from './vfs/shared.js';
 export { fs };
 export * from './node/index.js';
-import * as fs from './node/index.js';
+import * as fs from './node/compat.js';
 export default fs;
 export * from './vfs/index.js';
 import $pkg from '../package.json' with { type: 'json' };

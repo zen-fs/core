@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { constants, promises } from '@zenfs/core';
 import assert from 'node:assert/strict';
+import type { FileHandle } from 'node:fs/promises';
 import { after, suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { constants, type FileHandle, open } from '../../dist/vfs/promises.js';
 
 const content = 'The cake is a lie',
 	appended = '\nAnother lie';
 
-const handle: FileHandle = await open('./test.txt', 'ws+');
+const handle: FileHandle = await promises.open('./test.txt', 'ws+');
 
 suite('FileHandle', () => {
 	test('writeFile', async () => {
@@ -54,7 +55,7 @@ suite('FileHandle', () => {
 	test('readLines', async () => {
 		await handle.writeFile('first line\nsecond line\nthird line');
 
-		await using rl = handle.readLines();
+		using rl = handle.readLines();
 
 		const lines: string[] = [];
 		rl.on('line', (line: string) => lines.push(line));

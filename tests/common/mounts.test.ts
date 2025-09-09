@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { configure, fs, InMemory, mounts } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { configure } from '../../dist/config.js';
-import * as fs from '../../dist/vfs/index.js';
-import { InMemory, mounts } from '../../dist/index.js';
 
 suite('Mounts', () => {
 	test('Mount in nested directory', async () => {

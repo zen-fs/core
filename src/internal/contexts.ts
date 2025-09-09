@@ -4,6 +4,7 @@ import type { Bound } from 'utilium';
 import type * as path from '../path.js';
 import type { SyncHandle } from '../vfs/file.js';
 import type * as fs from '../node/index.js';
+import type * as xattr from '../vfs/xattr.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
 import { createCredentials } from './credentials.js';
 
@@ -48,7 +49,7 @@ export type V_Context = void | null | (Partial<FSContext> & object);
  * @category Contexts
  */
 export interface BoundContext extends FSContext {
-	fs: Bound<typeof fs, FSContext> & { promises: Bound<typeof fs.promises, FSContext>; xattr: Bound<typeof fs.xattr, FSContext> };
+	fs: Bound<typeof fs, FSContext> & { promises: Bound<typeof fs.promises, FSContext>; xattr: Bound<typeof xattr, FSContext> };
 
 	/** Path functions, bound to the context */
 	path: Bound<typeof path, FSContext>;

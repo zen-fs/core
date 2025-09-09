@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { InMemoryStore, Mutexed, StoreFS } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { InMemoryStore } from '../../dist/backends/memory.js';
-import { StoreFS } from '../../dist/backends/store/fs.js';
-import { Mutexed } from '../../dist/mixins/mutexed.js';
 
 suite('Mutexed FS', () => {
 	const fs = new (Mutexed(StoreFS))(new InMemoryStore(0x10000, 'test'));

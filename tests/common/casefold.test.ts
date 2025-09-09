@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { configure, fs, mounts } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { mounts, configure, fs } from '../../dist/index.js';
 
 suite('Case folding', () => {
 	test('Configuration', async () => {

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { suite, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { configure } from '../../dist/config.js';
-import * as fs from '../../dist/vfs/index.js';
-import { S_IFCHR, S_IFMT } from '../../dist/vfs/constants.js';
+import { configure } from '@zenfs/core';
+import { fs } from '@zenfs/core';
+import { S_IFCHR, S_IFMT } from '@zenfs/core/constants';
 
 await configure({
 	addDevices: true,

@@ -5,6 +5,7 @@ import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import * as path from './path.js';
 import * as fs from './node/index.js';
+import * as xattr from './vfs/xattr.js';
 
 export type { BoundContext, ContextInit, FSContext, V_Context };
 
@@ -44,7 +45,7 @@ export function bindContext(
 		fs: {
 			...bindFunctions(fs, ctx),
 			promises: bindFunctions(fs.promises, ctx),
-			xattr: bindFunctions(fs.xattr, ctx),
+			xattr: bindFunctions(xattr, ctx),
 		},
 		path: bindFunctions(path, ctx),
 		bind: (init: ContextInit) => {
