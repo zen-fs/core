@@ -10,10 +10,10 @@ import { Errno, Exception, UV, withErrno } from 'kerium';
 import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
 import { defaultContext } from '../internal/contexts.js';
-import { join, resolve, type AbsolutePath } from '../path.js';
-import { normalizePath } from '../utils.js';
-import { size_max } from './constants.js';
 import { credentialsAllowRoot } from '../internal/credentials.js';
+import { join, resolve, type AbsolutePath } from '../path.js';
+import { size_max } from './constants.js';
+import { normalizePath } from '../utils.js';
 
 /**
  * @internal @hidden
@@ -86,11 +86,12 @@ export interface ResolvedPath extends ResolvedMount {
 
 /**
  * Gets the internal `FileSystem` for the path, then returns it along with the path relative to the FS' root
+ * Expects a normalized absolute path
  * @internal @hidden
  */
-export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
+export function resolveMount(path: fs.PathLike, ctx: V_Context): ResolvedMount {
 	const root = ctx?.root || defaultContext.root;
-	path = normalizePath(join(root, path));
+	path = resolve.call(ctx, join(root, normalizePath(path)));
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.

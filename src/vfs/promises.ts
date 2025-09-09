@@ -19,7 +19,7 @@ import { hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, i
 import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import '../polyfills.js';
 import { createInterface } from '../readline.js';
-import { __assertType, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -514,9 +514,7 @@ export class FileHandle implements promises.FileHandle {
 
 export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): Promise<void> {
 	oldPath = normalizePath(oldPath);
-	__assertType<string>(oldPath);
 	newPath = normalizePath(newPath);
-	__assertType<string>(newPath);
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 	const src = resolveMount(oldPath, this);
 	const dst = resolveMount(newPath, this);
@@ -956,7 +954,7 @@ export async function symlink(this: V_Context, dest: fs.PathLike, path: fs.PathL
 	if (await exists.call(this, path)) throw UV('EEXIST', 'symlink', path);
 
 	await using handle = await _open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
-	await handle.writeFile(normalizePath(dest, true));
+	await handle.writeFile(normalizePath(dest));
 	await handle.chmod(constants.S_IFLNK);
 }
 symlink satisfies typeof promises.symlink;
@@ -974,7 +972,6 @@ export async function readlink(
 	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
 ): Promise<string | Buffer> {
 	path = normalizePath(path);
-	__assertType<string>(path);
 	await using handle = await _open(this, path, { flag: 'r', mode: 0o644, preserveSymlinks: true });
 	if (!isSymbolicLink(handle.inode)) throw UV('EINVAL', 'readlink', path);
 	const value = await handle.readFile();

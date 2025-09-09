@@ -11,8 +11,8 @@ import { encodeUTF8 } from 'utilium';
 import { defaultContext } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
-import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
-import { __assertType, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { dirname, join, matchesGlob, parse, resolve } from '../path.js';
+import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from './config.js';
 import * as constants from './constants.js';
 import { Dir, Dirent } from './dir.js';
@@ -24,9 +24,7 @@ import { emitChange } from './watchers.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);
-	__assertType<string>(oldPath);
 	newPath = normalizePath(newPath);
-	__assertType<string>(newPath);
 	const src = resolveMount(oldPath, this);
 	const dst = resolveMount(newPath, this);
 
@@ -35,18 +33,18 @@ export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.Pa
 	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
 	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
 
-	const oldStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, oldPath);
-	const oldParent = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(oldPath));
-	const newParent = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, dirname(newPath));
-	let newStats: Stats | undefined;
+	const oldStats = wrap(src.fs, 'statSync', oldPath)(src.path);
+	const oldParent = wrap(src.fs, 'statSync', dirname(newPath))(dirname(src.path));
+	const newParent = wrap(dst.fs, 'statSync', dirname(newPath))(dirname(dst.path));
+	let newStats: InodeLike | undefined;
 	try {
-		newStats = statSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, newPath);
+		newStats = src.fs.statSync(dst.path);
 	} catch (e: any) {
 		setUVMessage(Object.assign(e, $ex));
 		if (e.code != 'ENOENT') throw e;
 	}
 
-	if (checkAccess && (!oldParent.hasAccess(constants.R_OK, this) || !newParent.hasAccess(constants.W_OK, this))) throw UV('EACCES', $ex);
+	if (checkAccess && (!hasAccess(this, oldParent, constants.R_OK) || !hasAccess(this, newParent, constants.W_OK))) throw UV('EACCES', $ex);
 
 	if (newStats && !isDirectory(oldStats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(oldStats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
@@ -68,7 +66,7 @@ renameSync satisfies typeof fs.renameSync;
 export function existsSync(this: V_Context, path: fs.PathLike): boolean {
 	path = normalizePath(path);
 	try {
-		const { fs, path: resolvedPath } = resolveMount(realpathSync.call(this, path), this);
+		const { fs, path: resolvedPath } = _resolveSync(this, path);
 		return fs.existsSync(resolvedPath);
 	} catch (e: any) {
 		if (e.errno == Errno.ENOENT) return false;
@@ -82,14 +80,8 @@ export function statSync(this: V_Context, path: fs.PathLike, options?: { bigint?
 export function statSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
-
-	let stats: InodeLike;
-	try {
-		stats = fs.statSync(resolved);
-	} catch (e: any) {
-		throw setUVMessage(Object.assign(e, { path }));
-	}
+	const { stats } = _resolveSync(this, path);
+	if (!stats) throw UV('ENOENT', { syscall: 'stat', path });
 
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'stat', path });
 
@@ -106,8 +98,7 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options?: { bigint
 export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const real = join(realpathSync.call(this, dirname(path)), basename(path));
-	const { fs, path: resolved } = resolveMount(real, this);
+	const { fs, path: resolved } = _resolveSync(this, path, true);
 	const stats = wrap(fs, 'statSync', path)(resolved);
 
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'lstat', path });
@@ -598,22 +589,28 @@ readdirSync satisfies typeof fs.readdirSync;
 
 export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.PathLike): void {
 	targetPath = normalizePath(targetPath);
-	if (checkAccess && !statSync(dirname(targetPath)).hasAccess(constants.R_OK, this)) {
-		throw UV('EACCES', 'link', dirname(targetPath));
-	}
 	linkPath = normalizePath(linkPath);
-	if (checkAccess && !statSync(dirname(linkPath)).hasAccess(constants.W_OK, this)) {
-		throw UV('EACCES', 'link', dirname(linkPath));
+
+	const { fs, path: target } = resolveMount(targetPath, this);
+	const link = resolveMount(linkPath, this);
+
+	const $ex = { syscall: 'rename', path: link.path, dest: target };
+
+	if (fs !== link.fs) throw UV('EXDEV', $ex);
+	if (link.path.startsWith(target + '/')) throw UV('EBUSY', $ex);
+
+	if (checkAccess) {
+		const linkParent = wrap(fs, 'statSync', dirname(linkPath))(dirname(link.path));
+		if (!hasAccess(this, linkParent, constants.W_OK)) throw UV('EACCES', 'link', dirname(linkPath));
+		if (dirname(link.path) != dirname(target)) {
+			const targetParent = wrap(fs, 'statSync', dirname(targetPath))(dirname(target));
+			if (!hasAccess(this, targetParent, constants.R_OK)) throw UV('EACCES', 'link', dirname(targetPath));
+		}
 	}
 
-	const { fs, path } = resolveMount(targetPath, this);
-	const link = resolveMount(linkPath, this);
-	if (fs != link.fs) {
-		throw UV('EXDEV', 'link', linkPath);
-	}
-	const stats = wrap(fs, 'statSync', targetPath)(path);
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'link', path);
-	return wrap(fs, 'linkSync', targetPath, linkPath)(path, link.path);
+	const stats = wrap(fs, 'statSync', targetPath)(target);
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'link', target);
+	return wrap(fs, 'linkSync', targetPath, linkPath)(target, link.path);
 }
 linkSync satisfies typeof fs.linkSync;
 
@@ -629,7 +626,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 	path = normalizePath(path);
 
 	using file = _openSync.call(this, path, { flag: 'wx', mode: 0o644 });
-	file.write(encodeUTF8(normalizePath(target, true)));
+	file.write(encodeUTF8(normalizePath(target)));
 	file.chmod(constants.S_IFLNK);
 }
 symlinkSync satisfies typeof fs.symlinkSync;

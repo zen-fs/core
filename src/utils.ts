@@ -3,7 +3,6 @@ import { withErrno, type Exception } from 'kerium';
 import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';
 import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
-import { resolve } from './path.js';
 
 declare global {
 	function atob(data: string): string;
@@ -65,17 +64,10 @@ export function normalizeTime(time: string | number | Date): number {
 }
 
 /**
- * TypeScript is dumb, so we need to assert the type of a value sometimes.
- * For example, after calling `normalizePath`, TS still thinks the type is `PathLike` and not `string`.
- * @internal @hidden
- */
-export function __assertType<T>(value: unknown): asserts value is T {}
-
-/**
  * Normalizes a path
  * @internal
  */
-export function normalizePath(p: fs.PathLike, noResolve: boolean = false): string {
+export function normalizePath(p: fs.PathLike): string {
 	if (p instanceof URL) {
 		if (p.protocol != 'file:') throw withErrno('EINVAL', 'URLs must use the file: protocol');
 		p = p.pathname;
@@ -87,7 +79,7 @@ export function normalizePath(p: fs.PathLike, noResolve: boolean = false): strin
 	p = p.replaceAll(/[/\\]+/g, '/');
 
 	// Note: PWD is not resolved here, it is resolved later.
-	return noResolve ? p : resolve(p);
+	return p;
 }
 
 /**
@@ -143,5 +135,5 @@ export async function waitOnline(worker: NodeWorker): Promise<void> {
  * @internal @hidden
  */
 export function _tempDirName(prefix: fs.PathLike) {
-	return `/tmp/${normalizePath(prefix, true)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	return `/tmp/${normalizePath(prefix)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
