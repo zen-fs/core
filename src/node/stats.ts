@@ -4,7 +4,7 @@ import { pick } from 'utilium';
 import type { V_Context } from '../context.js';
 import type { InodeFields } from '../internal/inode.js';
 import { _inode_fields, hasAccess } from '../internal/inode.js';
-import * as c from './constants.js';
+import * as c from '../constants.js';
 
 const n1000 = BigInt(1000) as 1000n;
 
@@ -260,21 +260,6 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public get birthtimeNs(): bigint {
 		return BigInt(this.birthtimeMs) * n1000;
 	}
-}
-
-/**
- * @hidden @internal
- */
-export function _chown(stats: Partial<StatsLike<number>>, uid: number, gid: number): boolean {
-	let valid = true;
-
-	if (!isNaN(uid) && uid >= 0 && uid < c.size_max) stats.uid = uid;
-	else valid = false;
-
-	if (!isNaN(gid) && gid >= 0 && gid < c.size_max) stats.gid = gid;
-	else valid = false;
-
-	return valid;
 }
 
 /**

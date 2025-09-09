@@ -12,7 +12,7 @@ import { $from, struct, types as t } from 'memium/decorators';
 import { BufferView } from 'utilium/buffer.js';
 import { defaultContext, type V_Context } from '../internal/contexts.js';
 import { Attributes, type InodeLike } from '../internal/inode.js';
-import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from './constants.js';
+import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from '../constants.js';
 import * as xattr from './xattr.js';
 
 const version = 2;

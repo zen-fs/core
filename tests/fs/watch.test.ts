@@ -12,7 +12,7 @@ await fs.promises.writeFile(testFile, 'Initial content');
 /**
  * @todo convert `using watcher = ...` to void discards pending ES proposal
  */
-suite('Watch', async () => {
+suite('Watch', () => {
 	test('Events emitted on file change', async () => {
 		const { promise, resolve } = Promise.withResolvers<[string, string]>();
 

@@ -4,7 +4,7 @@ import type { BoundContext, ContextInit, FSContext, V_Context } from './internal
 import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import * as path from './path.js';
-import * as fs from './vfs/index.js';
+import * as fs from './node/index.js';
 
 export type { BoundContext, ContextInit, FSContext, V_Context };
 

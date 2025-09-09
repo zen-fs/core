@@ -7,10 +7,10 @@ import { extendBuffer } from 'utilium/buffer.js';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
-import { Inode, isDirectory, rootIno, type InodeLike } from '../../internal/inode.js';
+import { Inode, isDirectory, isFile, rootIno, type InodeLike } from '../../internal/inode.js';
 import { basename, dirname, join, parse, relative } from '../../path.js';
 import { decodeDirListing, encodeDirListing } from '../../utils.js';
-import { S_IFDIR, S_IFREG, size_max } from '../../vfs/constants.js';
+import { S_IFDIR, S_IFREG, size_max } from '../../constants.js';
 import { WrappedTransaction, type Store } from './store.js';
 
 /**
@@ -248,7 +248,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (newDirList[_new.base]) {
 			const existing = new Inode((await tx.get(newDirList[_new.base])) ?? _throw(withErrno('ENOENT')));
-			if (!existing.toStats().isFile()) throw withErrno('EISDIR');
+			if (!isFile(existing)) throw withErrno('EISDIR');
 
 			await tx.remove(existing.data);
 			await tx.remove(newDirList[_new.base]);
@@ -293,7 +293,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (newDirList[_new.base]) {
 			const existing = new Inode(tx.getSync(newDirList[_new.base]) ?? _throw(withErrno('ENOENT')));
-			if (!existing.toStats().isFile()) throw withErrno('EISDIR');
+			if (!isFile(existing)) throw withErrno('EISDIR');
 
 			tx.removeSync(existing.data);
 			tx.removeSync(newDirList[_new.base]);

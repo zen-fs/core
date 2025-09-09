@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fs as defaultFS } from '../dist/index.js';
 import { setupLogs } from './logs.js';
 import { styleText } from 'node:util';
-export type * from '../dist/index.js';
+export * from '../dist/index.js';
 
 setupLogs();
 

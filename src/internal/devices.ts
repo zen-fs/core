@@ -9,7 +9,7 @@ import { decodeUTF8, omit } from 'utilium';
 import { InMemoryStore } from '../backends/memory.js';
 import { StoreFS } from '../backends/store/fs.js';
 import { basename, dirname } from '../path.js';
-import { S_IFCHR } from '../vfs/constants.js';
+import { S_IFCHR } from '../constants.js';
 import type { CreationOptions } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
 

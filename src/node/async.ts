@@ -9,11 +9,11 @@ import type { FileContents, GlobOptionsU } from './types.js';
 import { Buffer } from 'buffer';
 import { UV, withErrno, type Exception } from 'kerium';
 import { normalizeMode, normalizePath } from '../utils.js';
-import { R_OK } from './constants.js';
+import { R_OK } from '../constants.js';
 import * as promises from './promises.js';
 import { BigIntStats } from './stats.js';
 import { ReadStream, WriteStream, type ReadStreamOptions, type WriteStreamOptions } from './streams.js';
-import { FSWatcher, StatWatcher } from './watchers.js';
+import { FSWatcher, StatWatcher } from '../vfs/watchers.js';
 
 const nop = () => {};
 

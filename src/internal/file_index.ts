@@ -5,7 +5,7 @@ import { withErrno } from 'kerium';
 import { sizeof } from 'memium';
 import { isJSON, randomInt } from 'utilium';
 import { basename, dirname } from '../path.js';
-import { S_IFDIR, S_IFMT, size_max } from '../vfs/constants.js';
+import { S_IFDIR, S_IFMT, size_max } from '../constants.js';
 import type { UsageInfo } from './filesystem.js';
 import type { InodeLike } from './inode.js';
 import { Inode } from './inode.js';

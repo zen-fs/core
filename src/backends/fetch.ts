@@ -7,7 +7,7 @@ import type { IndexData } from '../internal/file_index.js';
 import { Index } from '../internal/file_index.js';
 import { IndexFS } from '../internal/index_fs.js';
 import { normalizePath } from '../utils.js';
-import { S_IFREG } from '../vfs/constants.js';
+import { S_IFREG } from '../constants.js';
 import type { Backend, SharedConfig } from './backend.js';
 
 /** Parse and throw */

@@ -3,10 +3,9 @@ import { UV, withErrno } from 'kerium';
 import type { V_Context } from '../context.js';
 import { defaultContext } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
+import { _chown, InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
-import * as c from './constants.js';
-import { _chown } from './stats.js';
+import * as c from '../constants.js';
 
 /** @hidden */
 export interface FileReadResult<T extends ArrayBufferView> {

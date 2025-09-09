@@ -5,8 +5,8 @@ import { sizeof } from 'memium';
 import { $from, field, struct, types as t } from 'memium/decorators';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
-import * as c from '../vfs/constants.js';
-import { Stats, type StatsLike } from '../vfs/stats.js';
+import { Stats } from '../node/stats.js';
+import * as c from '../constants.js';
 import { defaultContext, type V_Context } from './contexts.js';
 
 /**
@@ -182,7 +182,51 @@ export interface InodeFields {
  * @category Internals
  * @internal
  */
-export interface InodeLike extends StatsLike<number>, InodeFields {
+export interface InodeLike<T extends number | bigint = number> extends InodeFields {
+	/**
+	 * Size of the item in bytes.
+	 * For directories/symlinks, this is normally the size of the struct that represents the item.
+	 */
+	size: T;
+	/**
+	 * Unix-style file mode (e.g. 0o644) that includes the item type
+	 */
+	mode: T;
+	/**
+	 * Time of last access, since epoch
+	 */
+	atimeMs: T;
+	/**
+	 * Time of last modification, since epoch
+	 */
+	mtimeMs: T;
+	/**
+	 * Time of last time file status was changed, since epoch
+	 */
+	ctimeMs: T;
+	/**
+	 * Time of file creation, since epoch
+	 */
+	birthtimeMs: T;
+	/**
+	 * The id of the user that owns the file
+	 */
+	uid: T;
+	/**
+	 * The id of the group that owns the file
+	 */
+	gid: T;
+	/**
+	 * Inode number
+	 */
+	ino: T;
+	/**
+	 * Number of hard links
+	 */
+	nlink: T;
+	/**
+	 * Extended attributes
+	 */
 	attributes?: Attributes;
 }
 
@@ -359,6 +403,7 @@ export class Inode extends $from(BufferView) implements InodeLike {
 
 	/**
 	 * Handy function that converts the Inode to a Node Stats object.
+	 * @deprecated Use `new Stats(inode)` instead.
 	 */
 	public toStats(): Stats {
 		return new Stats(this);
@@ -461,4 +506,19 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 	if (inode.mode & c.S_IXOTH) perm |= c.X_OK;
 
 	return (perm & access) === access;
+}
+
+/**
+ * @hidden @internal
+ */
+export function _chown(stats: Partial<InodeLike>, uid: number, gid: number): boolean {
+	let valid = true;
+
+	if (!isNaN(uid) && uid >= 0 && uid < c.size_max) stats.uid = uid;
+	else valid = false;
+
+	if (!isNaN(gid) && gid >= 0 && gid < c.size_max) stats.gid = gid;
+	else valid = false;
+
+	return valid;
 }

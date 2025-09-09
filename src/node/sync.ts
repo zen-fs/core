@@ -2,7 +2,7 @@
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { InodeLike } from '../internal/inode.js';
-import type { ResolvedPath } from './shared.js';
+import type { ResolvedPath } from '../vfs/shared.js';
 import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './types.js';
 
 import { Buffer } from 'buffer';
@@ -13,14 +13,14 @@ import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
 import { __assertType, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
-import { checkAccess } from './config.js';
-import * as constants from './constants.js';
+import { checkAccess } from '../vfs/config.js';
+import * as constants from '../constants.js';
 import { Dir, Dirent } from './dir.js';
-import { deleteFD, fromFD, SyncHandle, toFD } from './file.js';
-import * as flags from './flags.js';
-import { _statfs, resolveMount } from './shared.js';
+import { deleteFD, fromFD, SyncHandle, toFD } from '../vfs/file.js';
+import * as flags from '../vfs/flags.js';
+import { _statfs, resolveMount } from '../vfs/shared.js';
 import { BigIntStats, Stats } from './stats.js';
-import { emitChange } from './watchers.js';
+import { emitChange } from '../vfs/watchers.js';
 
 export function renameSync(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): void {
 	oldPath = normalizePath(oldPath);

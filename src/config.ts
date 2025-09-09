@@ -9,7 +9,7 @@ import { createCredentials } from './internal/credentials.js';
 import { DeviceFS } from './internal/devices.js';
 import { FileSystem } from './internal/filesystem.js';
 import { _setAccessChecks } from './vfs/config.js';
-import * as fs from './vfs/index.js';
+import * as fs from './node/index.js';
 import { mounts } from './vfs/shared.js';
 
 /**

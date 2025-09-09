@@ -3,7 +3,7 @@
 import type { Bound } from 'utilium';
 import type * as path from '../path.js';
 import type { SyncHandle } from '../vfs/file.js';
-import type * as fs from '../vfs/index.js';
+import type * as fs from '../node/index.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
 import { createCredentials } from './credentials.js';
 

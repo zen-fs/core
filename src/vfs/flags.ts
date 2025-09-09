@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
-import * as c from './constants.js';
+import * as c from '../constants.js';
 
 export const pattern = /[rwasx]{1,2}\+?/;
 

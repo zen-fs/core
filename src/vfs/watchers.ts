@@ -7,8 +7,8 @@ import { EventEmitter } from 'eventemitter3';
 import { UV } from 'kerium';
 import { basename, dirname, join, relative } from '../path.js';
 import { normalizePath } from '../utils.js';
-import { isStatsEqual, type Stats } from './stats.js';
-import { statSync } from './sync.js';
+import { isStatsEqual, type Stats } from '../node/stats.js';
+import { statSync } from '../node/sync.js';
 
 /**
  * Base class for file system watchers.

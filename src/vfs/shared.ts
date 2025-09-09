@@ -12,7 +12,7 @@ import { InMemory } from '../backends/memory.js';
 import { defaultContext } from '../internal/contexts.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
-import { size_max } from './constants.js';
+import { size_max } from '../constants.js';
 import { credentialsAllowRoot } from '../internal/credentials.js';
 
 /**

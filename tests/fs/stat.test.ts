@@ -2,8 +2,7 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { defaultContext } from '../../dist/internal/contexts.js';
-import { Stats } from '../../dist/vfs/stats.js';
-import { fs } from '../common.js';
+import { fs, Stats } from '../common.js';
 
 suite('Stats', () => {
 	const existing_file = 'x.txt';

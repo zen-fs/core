@@ -7,7 +7,7 @@ import type { InodeLike } from '../internal/inode.js';
 import { Attributes, hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { checkAccess } from './config.js';
-import { R_OK, W_OK } from './constants.js';
+import { R_OK, W_OK } from '../constants.js';
 import { resolveMount } from './shared.js';
 
 /**

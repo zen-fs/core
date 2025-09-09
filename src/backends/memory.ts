@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { UsageInfo } from '../internal/filesystem.js';
-import { size_max } from '../vfs/constants.js';
+import { size_max } from '../constants.js';
 import type { Backend } from './backend.js';
 import { StoreFS } from './store/fs.js';
 import { SyncMapTransaction, type SyncMapStore } from './store/map.js';

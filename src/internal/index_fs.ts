@@ -3,7 +3,7 @@
 import { withErrno } from 'kerium';
 import { _throw } from 'utilium';
 import { dirname, join, relative } from '../path.js';
-import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../vfs/constants.js';
+import { S_IFDIR, S_IFMT, S_IFREG, S_ISGID, S_ISUID } from '../constants.js';
 import { Index } from './file_index.js';
 import { FileSystem, type CreationOptions, type UsageInfo } from './filesystem.js';
 import { Inode, type InodeLike } from './inode.js';
