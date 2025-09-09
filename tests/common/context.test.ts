@@ -5,7 +5,8 @@ import { suite, test } from 'node:test';
 import { canary } from 'utilium';
 
 fs.mkdirSync('/ctx');
-const { fs: ctx } = bindContext({ root: '/ctx' });
+const context = bindContext({ root: '/ctx' });
+const ctx = context.fs;
 
 suite('Context', () => {
 	test('create a file', () => {
@@ -70,5 +71,13 @@ suite('Context', () => {
 		fs.writeFileSync('/bananas/yellow', 'true');
 
 		assert.deepEqual(bananas.fs.readdirSync('/'), ['yellow']);
+	});
+
+	test('Different working directory', () => {
+		// @zenfs/core#263
+		ctx.mkdirSync('/test');
+		context.pwd = '/test';
+
+		assert.equal(ctx.realpathSync('.'), '/test');
 	});
 });
