@@ -70,7 +70,7 @@ type _InMemory = typeof _InMemory;
  * A backend that uses an in-memory store for storing data
  * @category Backends and Configuration
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+ 
 export interface InMemory extends _InMemory {}
 
 /**

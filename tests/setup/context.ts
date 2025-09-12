@@ -1,5 +1,4 @@
-import { bindContext } from '../../dist/context.js';
-import { fs as _fs } from '../../dist/index.js';
+import { fs as _fs, bindContext } from '@zenfs/core';
 import { copySync, data } from '../setup.js';
 
 _fs.mkdirSync('/new_root');

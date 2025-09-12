@@ -157,3 +157,30 @@ function _isParentOf(parent: string, child: string): boolean {
 
 	return child.startsWith(parent);
 }
+
+export type FileContents = ArrayBufferView | string;
+
+/**
+ * @internal @hidden Used for the internal `_open` functions
+ */
+export interface OpenOptions {
+	flag: fs.OpenMode;
+	mode?: fs.Mode | null;
+	/**
+	 * If true, do not resolve symlinks
+	 */
+	preserveSymlinks?: boolean;
+	/**
+	 * If true, allows opening directories
+	 */
+	allowDirectory?: boolean;
+}
+
+export interface MkdirOptions {
+	mode?: number;
+	recursive?: boolean;
+}
+
+export interface ReaddirOptions {
+	recursive?: boolean;
+}

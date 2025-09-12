@@ -6,11 +6,11 @@ export * from './internal/index.js';
 export * from './mixins/index.js';
 export * from './utils.js';
 export { mounts } from './vfs/shared.js';
-export { fs };
-export * from './node/index.js';
 import * as fs from './node/compat.js';
+export { fs };
 export default fs;
-export * from './vfs/index.js';
+export * from './node/compat.js';
+export * as vfs from './vfs/index.js';
 import $pkg from '../package.json' with { type: 'json' };
 
 declare const globalThis: {

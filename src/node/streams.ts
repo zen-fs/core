@@ -63,7 +63,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 
 		this.ready = Promise.resolve(handleOrPromise)
 			.then(handle => {
-				this._path = handle.path;
+				this._path = handle['vfs'].path;
 
 				const internal = handle.readableWebStream({ start: opts.start, end: opts.end });
 				this.reader = internal.getReader();
@@ -130,7 +130,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 
 		this.ready = Promise.resolve(handleOrPromise)
 			.then(handle => {
-				this._path = handle.path;
+				this._path = handle['vfs'].path;
 				const internal = handle.writableWebStream({ start: opts.start });
 				this.writer = internal.getWriter();
 				this.pending = false;

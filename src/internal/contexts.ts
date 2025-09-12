@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // This needs to be in a separate file to avoid circular dependencies
 import type { Bound } from 'utilium';
-import type * as path from '../path.js';
-import type { SyncHandle } from '../vfs/file.js';
 import type * as fs from '../node/index.js';
+import type * as path from '../path.js';
+import type { Handle } from '../vfs/file.js';
 import type * as xattr from '../vfs/xattr.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
 import { createCredentials } from './credentials.js';
@@ -30,7 +30,7 @@ export interface FSContext {
 	readonly credentials: Credentials;
 
 	/** A map of open file descriptors to their handles */
-	descriptors: Map<number, SyncHandle>;
+	descriptors: Map<number, Handle>;
 
 	/** The parent context, if any. */
 	parent: V_Context;

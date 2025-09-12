@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { fs as defaultFS } from '@zenfs/core';
+import type { NodeFS } from '@zenfs/core/node/types.js';
 import { join, resolve } from 'node:path';
-import { fs as defaultFS } from '../dist/index.js';
-import { setupLogs } from './logs.js';
 import { styleText } from 'node:util';
-export * from '../dist/index.js';
+import { setupLogs } from './logs.js';
+export * from '@zenfs/core';
 
 setupLogs();
 
@@ -18,4 +19,5 @@ const setup = await import(setupPath).catch(error => {
 	throw error;
 });
 
-export const fs = (setup.fs || defaultFS) as typeof defaultFS;
+// Satisfies is used to make sure that ZenFS is fully type compatible with Node.js
+export const fs = (setup.fs || defaultFS) as typeof defaultFS satisfies NodeFS;

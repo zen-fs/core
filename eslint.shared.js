@@ -46,6 +46,7 @@ export default [
 			'@typescript-eslint/restrict-plus-operands': 'off',
 			'@typescript-eslint/no-base-to-string': 'off',
 			'@typescript-eslint/no-unused-expressions': 'warn',
+			'@typescript-eslint/no-empty-object-type': 'off',
 		},
 	},
 	{

@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { err, warn } from 'kerium/log';
-import type * as fs from 'node:fs';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
+import type { NodeFS } from '../node/types.js';
 import { resolve } from '../path.js';
 import type { Backend } from './backend.js';
-
-// Type for Node.js fs module
-export type NodeFS = typeof fs;
 
 /**
  * Passthrough backend options
@@ -253,7 +250,7 @@ type _Passthrough = typeof _Passthrough;
  * A file system that passes through to another FS
  * @category Backends and Configuration
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+ 
 export interface Passthrough extends _Passthrough {}
 
 /**

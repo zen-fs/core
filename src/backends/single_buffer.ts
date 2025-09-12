@@ -500,7 +500,7 @@ type _SingleBuffer = typeof _SingleBuffer;
  * A backend that uses a single buffer for storing data
  * @category Backends and Configuration
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+ 
 export interface SingleBuffer extends _SingleBuffer {}
 
 /**

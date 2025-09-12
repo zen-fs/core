@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert, { rejects } from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs, type Dirent } from '../common.js';
+import { fs, sync, type Dirent } from '../common.js';
 
 const testFile = 'test-file.txt';
 fs.writeFileSync(testFile, 'Sample content');
@@ -13,48 +13,7 @@ fs.mkdirSync(testDirPath);
 for (const file of testFiles) {
 	fs.writeFileSync(`${testDirPath}/${file}`, 'Sample content');
 }
-
-suite('Dirent', () => {
-	test('name and parentPath getters', async () => {
-		const stats = await fs.promises.lstat(testFile);
-		const dirent = fs.Dirent.from(testFile, stats);
-
-		assert.equal(dirent.name, testFile);
-		assert.equal(dirent.parentPath, '.');
-	});
-
-	test('isFile', async () => {
-		const fileStats = await fs.promises.lstat(testFile);
-		const fileDirent = fs.Dirent.from(testFile, fileStats);
-
-		assert(fileDirent.isFile());
-		assert(!fileDirent.isDirectory());
-	});
-
-	test('isDirectory', async () => {
-		const dirStats = await fs.promises.lstat('test-directory');
-		const dirDirent = fs.Dirent.from('test-directory', dirStats);
-
-		assert(!dirDirent.isFile());
-		assert(dirDirent.isDirectory());
-	});
-
-	test('isSymbolicLink', async () => {
-		const symlinkStats = await fs.promises.lstat('test-symlink');
-		const symlinkDirent = fs.Dirent.from('test-symlink', symlinkStats);
-
-		assert(symlinkDirent.isSymbolicLink());
-	});
-
-	test('other methods return false', async () => {
-		const fileStats = await fs.promises.lstat(testFile);
-		const fileDirent = fs.Dirent.from(testFile, fileStats);
-
-		assert(!fileDirent.isBlockDevice());
-		assert(!fileDirent.isCharacterDevice());
-		assert(!fileDirent.isSocket());
-	});
-});
+await sync();
 
 suite('Dir', () => {
 	test('read()', async () => {

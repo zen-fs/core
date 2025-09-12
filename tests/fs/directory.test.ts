@@ -148,9 +148,9 @@ suite('Directories', () => {
 		entries.sort((a, b) => join(a.parentPath, a.name).localeCompare(join(b.parentPath, b.name)));
 		const values = entries.map(entry => [entry.parentPath, entry.name]);
 
-		assert.deepEqual(values[0], [testDir, 'file1.txt']);
-		assert.deepEqual(values[4], [join(testDir, 'subdir1'), 'file4.txt']);
-		assert.deepEqual(values[8], [join(testDir, 'subdir2'), 'file5.txt']);
+		assert.deepEqual(values[0], ['.', 'file1.txt']);
+		assert.deepEqual(values[4], ['subdir1', 'file4.txt']);
+		assert.deepEqual(values[8], ['subdir2', 'file5.txt']);
 	});
 
 	test('readdirSync returns files recursively', () => {

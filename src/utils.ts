@@ -54,7 +54,7 @@ export function normalizeMode(mode: unknown, def?: number): number {
  * Normalizes a time
  * @internal
  */
-export function normalizeTime(time: string | number | Date): number {
+export function normalizeTime(time: fs.TimeLike): number {
 	if (time instanceof Date) return time.getTime();
 
 	try {
@@ -63,13 +63,6 @@ export function normalizeTime(time: string | number | Date): number {
 		throw withErrno('EINVAL', 'Invalid time.');
 	}
 }
-
-/**
- * TypeScript is dumb, so we need to assert the type of a value sometimes.
- * For example, after calling `normalizePath`, TS still thinks the type is `PathLike` and not `string`.
- * @internal @hidden
- */
-export function __assertType<T>(value: unknown): asserts value is T {}
 
 /**
  * Normalizes a path

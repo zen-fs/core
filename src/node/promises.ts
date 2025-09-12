@@ -6,111 +6,51 @@ import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { V_Context } from '../context.js';
-import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
+import type { StreamOptions } from '../internal/filesystem.js';
+import type { FileContents } from '../vfs/shared.js';
 import type { Interface as ReadlineInterface } from './readline.js';
-import type { ResolvedPath } from '../vfs/shared.js';
-import type { FileContents, GlobOptionsU, OpenOptions, ReaddirOptions } from './types.js';
+import type { GlobOptionsU, NodeReaddirOptions } from './types.js';
 
 import { Buffer } from 'buffer';
-import { Exception, rethrow, setUVMessage, UV } from 'kerium';
-import { defaultContext } from '../internal/contexts.js';
-import { _chown, hasAccess, InodeFlags, isBlockDevice, isCharacterDevice, isDirectory, isSymbolicLink } from '../internal/inode.js';
-import { basename, dirname, join, matchesGlob, parse, resolve } from '../path.js';
-import '../polyfills.js';
-import { createInterface } from './readline.js';
-import { __assertType, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
-import { checkAccess } from '../vfs/config.js';
+import { Exception, rethrow, UV } from 'kerium';
+import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
-import { Dir, Dirent } from './dir.js';
-import { deleteFD, fromFD, SyncHandle, toFD } from '../vfs/file.js';
+import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
+import { basename, dirname, join, matchesGlob } from '../path.js';
+import '../polyfills.js';
+import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import * as _async from '../vfs/async.js';
+import { checkAccess } from '../vfs/config.js';
+import type { Handle } from '../vfs/file.js';
+import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
 import { _statfs, resolveMount } from '../vfs/shared.js';
+import { emitChange, FSWatcher } from '../vfs/watchers.js';
+import { Dir, Dirent } from './dir.js';
+import { createInterface } from './readline.js';
 import { BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';
-import { emitChange, FSWatcher } from '../vfs/watchers.js';
 export * as constants from '../constants.js';
 
 export class FileHandle implements promises.FileHandle {
-	protected _buffer?: Uint8Array;
-
-	/**
-	 * Get the current file position.
-	 *
-	 * We emulate the following bug mentioned in the Node documentation:
-	 *
-	 * On Linux, positional writes don't work when the file is opened in append mode.
-	 * The kernel ignores the position argument and always appends the data to the end of the file.
-	 * @returns The current file position.
-	 */
-	public get position(): number {
-		return this._sync.position;
-	}
-
-	public set position(value: number) {
-		this._sync.position = value;
-	}
-
-	/**
-	 * Whether the file has changes which have not been written to the FS
-	 */
-	protected dirty: boolean = false;
-
-	/**
-	 * Whether the file is open or closed
-	 */
-	protected closed: boolean = false;
-
-	/** The path relative to the context's root */
-	public get path(): string {
-		return this._sync.path;
-	}
-
-	/** The internal FS associated with the handle */
-	protected get fs(): FileSystem {
-		return this._sync.fs;
-	}
-
-	/** The path relative to the `FileSystem`'s root */
-	public get internalPath(): string {
-		return this._sync.internalPath;
-	}
-
-	/** The flag the handle was opened with */
-	public get flag(): number {
-		return this._sync.flag;
-	}
-
-	/** Stats for the handle */
-	public get inode(): InodeLike {
-		return this._sync.inode;
-	}
-
-	protected _sync: SyncHandle;
+	protected vfs: Handle;
 
 	public constructor(
 		protected context: V_Context,
 		public readonly fd: number
 	) {
-		this._sync = fromFD(context, fd);
-	}
-
-	private get _isSync(): boolean {
-		return !!(this.flag & constants.O_SYNC || this.inode.flags! & InodeFlags.Sync);
+		this.vfs = fromFD(context, fd);
 	}
 
 	private _emitChange() {
-		emitChange(this.context, 'change', this.path);
+		emitChange(this.context, 'change', this.vfs.path);
 	}
 
 	/**
 	 * Asynchronous fchown(2) - Change ownership of a file.
 	 */
 	public async chown(uid: number, gid: number): Promise<void> {
-		if (this.closed) throw UV('EBADF', 'chown', this.path);
-		this.dirty = true;
-		_chown(this.inode, uid, gid);
-		if (this._isSync) await this.sync();
+		await this.vfs.chown(uid, gid);
 		this._emitChange();
 	}
 
@@ -120,11 +60,8 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async chmod(mode: fs.Mode): Promise<void> {
 		const numMode = normalizeMode(mode, -1);
-		if (numMode < 0) throw UV('EINVAL', 'chmod', this.path);
-		if (this.closed) throw UV('EBADF', 'chmod', this.path);
-		this.dirty = true;
-		this.inode.mode = (this.inode.mode & (numMode > constants.S_IFMT ? ~constants.S_IFMT : constants.S_IFMT)) | numMode;
-		if (this._isSync || numMode > constants.S_IFMT) await this.sync();
+		if (numMode < 0) throw UV('EINVAL', 'chmod', this.vfs.path);
+		await this.vfs.chmod(numMode);
 		this._emitChange();
 	}
 
@@ -139,12 +76,7 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronous fsync(2) - synchronize a file's in-core state with the underlying storage device.
 	 */
 	public async sync(): Promise<void> {
-		if (this.closed) throw UV('EBADF', 'sync', this.path);
-
-		if (!this.dirty) return;
-
-		if (!this.fs.attributes.has('no_write')) await this.fs.touch(this.internalPath, this.inode);
-		this.dirty = false;
+		await this.vfs.sync();
 	}
 
 	/**
@@ -152,17 +84,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param length If not specified, defaults to `0`.
 	 */
 	public async truncate(length: number = 0): Promise<void> {
-		if (this.closed) throw UV('EBADF', 'truncate', this.path);
-		if (length < 0) throw UV('EINVAL', 'truncate', this.path);
-		if (!(this.flag & constants.O_WRONLY || this.flag & constants.O_RDWR)) throw UV('EBADF', 'truncate', this.path);
-		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'truncate', this.path);
-		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'truncate', this.path);
-
-		this.dirty = true;
-		if (!(this.flag & constants.O_WRONLY || this.flag & constants.O_RDWR)) throw UV('EBADF', 'truncate', this.path);
-		this.inode.mtimeMs = Date.now();
-		this.inode.size = length;
-		if (this._isSync) await this.sync();
+		await this.vfs.truncate(length);
 		this._emitChange();
 	}
 
@@ -171,14 +93,10 @@ export class FileHandle implements promises.FileHandle {
 	 * @param atime The last access time. If a string is provided, it will be coerced to number.
 	 * @param mtime The last modified time. If a string is provided, it will be coerced to number.
 	 */
-	public async utimes(atime: string | number | Date, mtime: string | number | Date): Promise<void> {
-		if (this.closed) throw UV('EBADF', 'utimes', this.path);
-
-		this.dirty = true;
-		this.inode.atimeMs = normalizeTime(atime);
-		this.inode.mtimeMs = normalizeTime(mtime);
-		if (this._isSync) await this.sync();
-
+	public async utimes(atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
+		atime = normalizeTime(atime);
+		mtime = normalizeTime(mtime);
+		await this.vfs.utimes(atime, mtime);
 		this._emitChange();
 	}
 
@@ -197,44 +115,11 @@ export class FileHandle implements promises.FileHandle {
 	): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = flags.parse(options.flag);
-		if (!(flag & constants.O_APPEND)) throw UV('EBADF', 'write', this.path);
+		if (!(flag & constants.O_APPEND)) throw UV('EBADF', 'write', this.vfs.path);
 
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
-		await this._write(encodedData, 0, encodedData.length);
+		await this.vfs.write(encodedData, 0, encodedData.length);
 		this._emitChange();
-	}
-
-	/**
-	 * Read data from the file.
-	 * @param buffer The buffer that the data will be written to.
-	 * @param offset The offset within the buffer where writing will start.
-	 * @param length An integer specifying the number of bytes to read.
-	 * @param position An integer specifying where to begin reading from in the file.
-	 * If position is unset, data will be read from the current file position.
-	 */
-	protected async _read<TBuffer extends ArrayBufferView>(
-		buffer: TBuffer,
-		offset: number = 0,
-		length: number = buffer.byteLength - offset,
-		position: number = this.position
-	): Promise<{ bytesRead: number; buffer: TBuffer }> {
-		if (this.closed) throw UV('EBADF', 'read', this.path);
-		if (this.flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.path);
-
-		if (!(this.inode.flags! & InodeFlags.NoAtime) && !this.fs.attributes.has('no_atime')) {
-			this.dirty = true;
-			this.inode.atimeMs = Date.now();
-		}
-
-		let end = position + length;
-		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
-			end = position + Math.max(this.inode.size - position, 0);
-		}
-		this._sync.position = end;
-		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		await this.fs.read(this.internalPath, uint8.subarray(offset, offset + length), position, end);
-		if (this._isSync) await this.sync();
-		return { bytesRead: end - position, buffer };
 	}
 
 	/**
@@ -261,7 +146,7 @@ export class FileHandle implements promises.FileHandle {
 		offset?: number | null | promises.FileReadOptions<T>,
 		length?: number | null,
 		position?: fs.ReadPosition | null
-	) {
+	): Promise<promises.FileReadResult<T>> {
 		if (typeof offset == 'object' && offset != null) {
 			position = offset.position;
 			length = offset.length;
@@ -275,10 +160,11 @@ export class FileHandle implements promises.FileHandle {
 			buffer = buffer.buffer;
 		}
 
-		const pos = Number.isSafeInteger(position) ? position! : this.position;
-		buffer ||= new Uint8Array(this.inode.size) as T;
+		const pos = Number.isSafeInteger(position) ? position! : this.vfs.position;
+		buffer ||= new Uint8Array(this.vfs.inode.size) as T;
 		offset ??= 0;
-		return this._read(buffer, offset, length ?? buffer.byteLength - offset, pos ? Number(pos) : undefined);
+		const bytesRead = await this.vfs.read(buffer, offset, length ?? buffer.byteLength - offset, pos ? Number(pos) : undefined);
+		return { bytesRead, buffer };
 	}
 
 	public async readFile(options?: ({ encoding?: null } & Abortable) | null): Promise<Buffer>;
@@ -287,11 +173,11 @@ export class FileHandle implements promises.FileHandle {
 	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = flags.parse(options.flag);
-		if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.path);
+		if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.vfs.path);
 
 		const { size } = await this.stat();
 		const data = new Uint8Array(size);
-		await this._read(data, 0, size, 0);
+		await this.vfs.read(data, 0, size, 0);
 		const buffer = Buffer.from(data);
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}
@@ -301,8 +187,8 @@ export class FileHandle implements promises.FileHandle {
 	 * The handle will not be closed automatically.
 	 */
 	public readableWebStream(options: StreamOptions = {}): NodeReadableStream<Uint8Array> {
-		if (this.closed) throw UV('EBADF', 'readableWebStream', this.path);
-		return this.fs.streamRead(this.internalPath, options);
+		if (this.vfs.isClosed) throw UV('EBADF', 'readableWebStream', this.vfs.path);
+		return this.vfs.fs.streamRead(this.vfs.internalPath, options);
 	}
 
 	/**
@@ -313,9 +199,9 @@ export class FileHandle implements promises.FileHandle {
 	 * @internal
 	 */
 	public writableWebStream(options: StreamOptions = {}): WritableStream {
-		if (this.closed) throw UV('EBADF', 'writableWebStream', this.path);
-		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'writableWebStream', this.path);
-		return this.fs.streamWrite(this.internalPath, options);
+		if (this.vfs.isClosed) throw UV('EBADF', 'writableWebStream', this.vfs.path);
+		if (this.vfs.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'writableWebStream', this.vfs.path);
+		return this.vfs.fs.streamWrite(this.vfs.internalPath, options);
 	}
 
 	/**
@@ -324,7 +210,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns A readline interface for reading the file line by line
 	 */
 	public readLines(options?: promises.CreateReadStreamOptions): ReadlineInterface {
-		if (this.closed || this.flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.path);
+		if (this.vfs.isClosed || this.vfs.flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.vfs.path);
 
 		return createInterface({ input: this.createReadStream(options), crlfDelay: Infinity });
 	}
@@ -339,45 +225,11 @@ export class FileHandle implements promises.FileHandle {
 	public async stat(opts: fs.BigIntOptions): Promise<BigIntStats>;
 	public async stat(opts?: fs.StatOptions & { bigint?: false }): Promise<Stats>;
 	public async stat(opts?: fs.StatOptions): Promise<Stats | BigIntStats> {
-		if (this.closed) throw UV('EBADF', 'stat', this.path);
+		if (this.vfs.isClosed) throw UV('EBADF', 'stat', this.vfs.path);
 
-		if (checkAccess && !hasAccess(this.context, this.inode, constants.R_OK)) throw UV('EACCES', 'stat', this.path);
+		if (checkAccess && !hasAccess(this.context, this.vfs.inode, constants.R_OK)) throw UV('EACCES', 'stat', this.vfs.path);
 
-		return opts?.bigint ? new BigIntStats(this.inode) : new Stats(this.inode);
-	}
-
-	/**
-	 * Write buffer to the file.
-	 * @param buffer Uint8Array containing the data to write to the file.
-	 * @param offset Offset in the buffer to start reading data from.
-	 * @param length The amount of bytes to write to the file.
-	 * @param position Offset from the beginning of the file where this data should be written.
-	 * If position is null, the data will be written at  the current position.
-	 */
-	protected async _write(
-		buffer: Uint8Array,
-		offset: number = 0,
-		length: number = buffer.byteLength - offset,
-		position: number = this.position
-	): Promise<number> {
-		if (this.closed) throw UV('EBADF', 'write', this.path);
-		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
-		if (!(this.flag & constants.O_WRONLY || this.flag & constants.O_RDWR)) throw UV('EBADF', 'write', this.path);
-		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
-
-		this.dirty = true;
-		const end = position + length;
-		const slice = buffer.subarray(offset, offset + length);
-
-		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) this.inode.size = end;
-
-		this.inode.mtimeMs = Date.now();
-		this.inode.ctimeMs = Date.now();
-
-		this._sync.position = position + slice.byteLength;
-		await this.fs.write(this.internalPath, slice, position);
-		if (this._isSync) await this.sync();
-		return slice.byteLength;
+		return opts?.bigint ? new BigIntStats(this.vfs.inode) : new Stats(this.vfs.inode);
 	}
 
 	/**
@@ -409,8 +261,8 @@ export class FileHandle implements promises.FileHandle {
 			length = typeof lenOrEnc == 'number' ? lenOrEnc : buffer.byteLength;
 			position = typeof position === 'number' ? position : null;
 		}
-		position ??= this.position;
-		const bytesWritten = await this._write(buffer, offset, length, position);
+		position ??= this.vfs.position;
+		const bytesWritten = await this.vfs.write(buffer, offset, length, position);
 		this._emitChange();
 		return { buffer: data, bytesWritten };
 	}
@@ -428,9 +280,9 @@ export class FileHandle implements promises.FileHandle {
 	public async writeFile(data: string | Uint8Array, _options: fs.WriteFileOptions = {}): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
 		const flag = flags.parse(options.flag);
-		if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) throw UV('EBADF', 'writeFile', this.path);
+		if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) throw UV('EBADF', 'writeFile', this.vfs.path);
 		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
-		await this._write(encodedData, 0, encodedData.length, 0);
+		await this.vfs.write(encodedData, 0, encodedData.length, 0);
 		this._emitChange();
 	}
 
@@ -438,21 +290,8 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronous close(2) - close a `FileHandle`.
 	 */
 	public async close(): Promise<void> {
-		if (this.closed) throw UV('EBADF', 'close', this.path);
-		await this.sync();
-		this.dispose();
+		await this.vfs.close();
 		deleteFD(this.context, this.fd);
-	}
-
-	/**
-	 * Cleans up. This will *not* sync the file data to the FS
-	 */
-	protected dispose(force?: boolean): void {
-		if (this.closed) throw UV('EBADF', 'close', this.path);
-
-		if (this.dirty && !force) throw UV('EBUSY', 'close', this.path);
-
-		this.closed = true;
 	}
 
 	/**
@@ -462,7 +301,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The number of bytes written.
 	 */
 	public async writev(buffers: Uint8Array[], position?: number): Promise<fs.WriteVResult> {
-		if (typeof position == 'number') this.position = position;
+		if (typeof position == 'number') this.vfs.position = position;
 
 		let bytesWritten = 0;
 
@@ -480,7 +319,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The number of bytes read.
 	 */
 	public async readv(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<fs.ReadVResult> {
-		if (typeof position == 'number') this.position = position;
+		if (typeof position == 'number') this.vfs.position = position;
 
 		let bytesRead = 0;
 
@@ -496,7 +335,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the readable stream
 	 */
 	public createReadStream(options: promises.CreateReadStreamOptions = {}): ReadStream {
-		if (this.closed || this.flag & constants.O_WRONLY) throw UV('EBADF', 'createReadStream', this.path);
+		if (this.vfs.isClosed || this.vfs.flag & constants.O_WRONLY) throw UV('EBADF', 'createReadStream', this.vfs.path);
 		return new ReadStream(options, this);
 	}
 
@@ -505,42 +344,15 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the writeable stream.
 	 */
 	public createWriteStream(options: promises.CreateWriteStreamOptions = {}): WriteStream {
-		if (this.closed) throw UV('EBADF', 'createWriteStream', this.path);
-		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'createWriteStream', this.path);
-		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'createWriteStream', this.path);
+		if (this.vfs.isClosed) throw UV('EBADF', 'createWriteStream', this.vfs.path);
+		if (this.vfs.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'createWriteStream', this.vfs.path);
+		if (this.vfs.fs.attributes.has('readonly')) throw UV('EROFS', 'createWriteStream', this.vfs.path);
 		return new WriteStream(options, this);
 	}
 }
 
 export async function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike): Promise<void> {
-	oldPath = normalizePath(oldPath);
-	__assertType<string>(oldPath);
-	newPath = normalizePath(newPath);
-	__assertType<string>(newPath);
-	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
-	const src = resolveMount(oldPath, this);
-	const dst = resolveMount(newPath, this);
-
-	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
-	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
-
-	const parent = (await stat.call(this, dirname(oldPath)).catch(rethrow($ex))) as Stats;
-	const stats = (await stat.call(this, oldPath).catch(rethrow($ex))) as Stats;
-	const newParent = (await stat.call(this, dirname(newPath)).catch(rethrow($ex))) as Stats;
-	const newStats = (await stat.call(this, newPath).catch((e: Exception) => {
-		if (e.code == 'ENOENT') return null;
-		throw setUVMessage(Object.assign(e, $ex));
-	})) as Stats;
-
-	if (checkAccess && (!parent.hasAccess(constants.R_OK, this) || !newParent.hasAccess(constants.W_OK, this))) throw UV('EACCES', $ex);
-
-	if (newStats && !isDirectory(stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
-	if (newStats && isDirectory(stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
-
-	await src.fs.rename(src.path, dst.path).catch(rethrow($ex));
-
-	emitChange(this, 'rename', oldPath);
-	emitChange(this, 'change', newPath);
+	await _async.rename.call(this, oldPath, newPath);
 }
 rename satisfies typeof promises.rename;
 
@@ -614,59 +426,14 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 unlink satisfies typeof promises.unlink;
 
 /**
- * Opens a file. This helper handles the complexity of file flags.
- * @internal
- */
-async function _open($: V_Context, path: fs.PathLike, opt: OpenOptions): Promise<FileHandle> {
-	path = normalizePath(path);
-	const mode = normalizeMode(opt.mode, 0o644),
-		flag = flags.parse(opt.flag);
-
-	const $ex = { syscall: 'open', path };
-	const { fs, path: resolved, stats } = await _resolve($, path.toString(), opt.preserveSymlinks);
-
-	if (!stats) {
-		if (!(flag & constants.O_CREAT)) throw UV('ENOENT', $ex);
-
-		// Create the file
-		const parentStats = await fs.stat(dirname(resolved));
-		if (checkAccess && !hasAccess($, parentStats, constants.W_OK)) throw UV('EACCES', 'open', dirname(path));
-
-		if (!isDirectory(parentStats)) throw UV('ENOTDIR', 'open', dirname(path));
-
-		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
-
-		const { euid: uid, egid: gid } = $?.credentials ?? defaultContext.credentials;
-
-		const inode = await fs.createFile(resolved, {
-			mode,
-			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
-			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
-		});
-
-		return new FileHandle($, toFD(new SyncHandle($, path, fs, resolved, flag, inode)));
-	}
-
-	if (checkAccess && !hasAccess($, stats, flags.toMode(flag))) throw UV('EACCES', $ex);
-	if (flag & constants.O_EXCL) throw UV('EEXIST', $ex);
-
-	const handle = new FileHandle($, toFD(new SyncHandle($, path, fs, resolved, flag, stats)));
-
-	if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
-
-	if (flag & constants.O_TRUNC) await handle.truncate(0);
-
-	return handle;
-}
-
-/**
  * Asynchronous file open.
  * @see https://nodejs.org/api/fs.html#fspromisesopenpath-flags-mode
  * @param flag {@link https://nodejs.org/api/fs.html#file-system-flags}
  * @param mode Mode to use to open the file. Can be ignored if the filesystem doesn't support permissions.
  */
 export async function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode = 'r', mode: fs.Mode = 0o644): Promise<FileHandle> {
-	return await _open(this, path, { flag, mode });
+	const handle = await _async.open(this, path, { flag, mode });
+	return new FileHandle(this, toFD(handle));
 }
 open satisfies typeof promises.open;
 
@@ -742,7 +509,7 @@ export async function appendFile(
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 	const flag = flags.parse(options.flag);
-	const $ex = { syscall: 'write', path: path instanceof FileHandle ? path.path : path.toString() };
+	const $ex = { syscall: 'write', path: path instanceof FileHandle ? path['vfs'].path : path.toString() };
 
 	if (!(flag & constants.O_APPEND)) throw UV('EBADF', $ex);
 
@@ -791,50 +558,10 @@ export async function mkdir(
 	path: fs.PathLike,
 	options?: fs.Mode | fs.MakeDirectoryOptions | null
 ): Promise<string | undefined | void> {
-	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
 
-	path = await realpath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
-
-	const __create = async (path: string, resolved: string, parent: InodeLike) => {
-		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', dirname(path));
-
-		const inode = await fs
-			.mkdir(resolved, {
-				mode,
-				uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
-				gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
-			})
-			.catch(rethrow({ syscall: 'mkdir', path }));
-		emitChange(this, 'rename', path);
-		return inode;
-	};
-
-	if (!options?.recursive) {
-		await __create(path, resolved, await fs.stat(dirname(resolved)).catch(rethrow({ path: dirname(path) })));
-		return;
-	}
-
-	const dirs: [path: string, resolved: string][] = [];
-	let origDir = path;
-	for (
-		let dir = resolved;
-		!(await fs.exists(dir).catch(rethrow({ syscall: 'exists', path: origDir })));
-		dir = dirname(dir), origDir = dirname(origDir)
-	) {
-		dirs.unshift([origDir, dir]);
-	}
-
-	if (!dirs.length) return;
-
-	const stats: InodeLike[] = [await fs.stat(dirname(dirs[0][1])).catch(rethrow({ syscall: 'stat', path: dirname(dirs[0][0]) }))];
-
-	for (const [i, [path, resolved]] of dirs.entries()) {
-		stats.push(await __create(path, resolved, stats[i]));
-	}
-	return dirs[0][0];
+	return await _async.mkdir.call(this, path, { ...options, mode });
 }
 mkdir satisfies typeof promises.mkdir;
 
@@ -871,49 +598,23 @@ export async function readdir(
 	path: fs.PathLike,
 	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
 ): Promise<Dirent<Buffer>[]>;
-export async function readdir(this: V_Context, path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]>;
-export async function readdir(this: V_Context, _path: fs.PathLike, options?: ReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
+export async function readdir(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]>;
+export async function readdir(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
+	path = normalizePath(path);
 	const opt = typeof options === 'object' && options != null ? options : { encoding: options, withFileTypes: false, recursive: false };
-	const path = await realpath.call(this, _path);
 
-	const { fs, path: resolved } = resolveMount(path, this);
-	const $ex = { syscall: 'readdir', path };
+	const rawEntries = await _async.readdir.call(this, path, opt);
+	const values: (string | Buffer | Dirent<any>)[] = [];
 
-	const stats = await fs.stat(resolved).catch(rethrow({ syscall: 'stat', path }));
-
-	if (!stats) throw UV('ENOENT', $ex);
-
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
-
-	if (!isDirectory(stats)) throw UV('ENOTDIR', $ex);
-
-	const entries = await fs.readdir(resolved).catch(rethrow($ex));
-
-	const values: (string | Dirent | Buffer)[] = [];
-	const addEntry = async (entry: string) => {
-		let entryStats: InodeLike | undefined;
-		if (opt.recursive || opt.withFileTypes) {
-			entryStats = await fs.stat(join(resolved, entry)).catch((e: Exception): undefined => {
-				if (e.code == 'ENOENT') return;
-				throw setUVMessage(Object.assign(e, { syscall: 'stat', path: join(path, entry) }));
-			});
-			if (!entryStats) return;
-		}
-
+	for (const entry of rawEntries) {
 		if (opt.withFileTypes) {
-			values.push(Dirent.from(join(_path.toString(), entry), entryStats!, opt.encoding));
+			values.push(Dirent.from(entry, opt.encoding));
 		} else if (opt.encoding == 'buffer') {
-			values.push(Buffer.from(entry));
+			values.push(Buffer.from(entry.path));
 		} else {
-			values.push(entry);
+			values.push(entry.path);
 		}
-
-		if (!opt.recursive || !isDirectory(entryStats!)) return;
-
-		const children = await fs.readdir(join(resolved, entry)).catch(rethrow({ syscall: 'readdir', path: join(path, entry) }));
-		for (const child of children) await addEntry(join(entry, child));
-	};
-	await Promise.all(entries.map(addEntry));
+	}
 
 	return values as string[] | Dirent[];
 }
@@ -955,8 +656,9 @@ export async function symlink(this: V_Context, dest: fs.PathLike, path: fs.PathL
 
 	if (await exists.call(this, path)) throw UV('EEXIST', 'symlink', path);
 
-	await using handle = await _open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
-	await handle.writeFile(normalizePath(dest, true));
+	await using handle = await _async.open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
+	const encoded = encodeUTF8(normalizePath(dest, true));
+	await handle.write(encoded, 0, encoded.length, 0);
 	await handle.chmod(constants.S_IFLNK);
 }
 symlink satisfies typeof promises.symlink;
@@ -974,13 +676,12 @@ export async function readlink(
 	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
 ): Promise<string | Buffer> {
 	path = normalizePath(path);
-	__assertType<string>(path);
-	await using handle = await _open(this, path, { flag: 'r', mode: 0o644, preserveSymlinks: true });
-	if (!isSymbolicLink(handle.inode)) throw UV('EINVAL', 'readlink', path);
-	const value = await handle.readFile();
+
+	const buf = Buffer.from(await _async.readlink.call(this, path), 'utf-8');
+
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	// always defaults to utf-8 to avoid wrangler (cloudflare) worker "unknown encoding" exception
-	return encoding == 'buffer' ? value : value.toString((encoding ?? 'utf-8') as BufferEncoding);
+	return encoding == 'buffer' ? buf : buf.toString((encoding ?? 'utf-8') as BufferEncoding);
 }
 readlink satisfies typeof promises.readlink;
 
@@ -991,7 +692,7 @@ export async function chown(this: V_Context, path: fs.PathLike, uid: number, gid
 chown satisfies typeof promises.chown;
 
 export async function lchown(this: V_Context, path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	await using handle: FileHandle = await _open(this, path, {
+	await using handle = await _async.open(this, path, {
 		flag: 'r+',
 		mode: 0o644,
 		preserveSymlinks: true,
@@ -1008,7 +709,8 @@ export async function chmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): 
 chmod satisfies typeof promises.chmod;
 
 export async function lchmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	await using handle: FileHandle = await _open(this, path, {
+	mode = normalizeMode(mode);
+	await using handle = await _async.open(this, path, {
 		flag: 'r+',
 		mode: 0o644,
 		preserveSymlinks: true,
@@ -1021,9 +723,12 @@ lchmod satisfies typeof promises.lchmod;
 /**
  * Change file timestamps of the file referenced by the supplied path.
  */
-export async function utimes(this: V_Context, path: fs.PathLike, atime: string | number | Date, mtime: string | number | Date): Promise<void> {
-	await using handle = await open.call(this, path, 'r+');
-	await handle.utimes(atime, mtime);
+export async function utimes(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
+	await using handle = await _async.open(this, path, {
+		flag: 'r+',
+		allowDirectory: true,
+	});
+	await handle.utimes(normalizeTime(atime), normalizeTime(mtime));
 }
 utimes satisfies typeof promises.utimes;
 
@@ -1031,64 +736,15 @@ utimes satisfies typeof promises.utimes;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export async function lutimes(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
-	await using handle: FileHandle = await _open(this, path, {
+	await using handle = await _async.open(this, path, {
 		flag: 'r+',
 		mode: 0o644,
 		preserveSymlinks: true,
 		allowDirectory: true,
 	});
-	await handle.utimes(new Date(atime), new Date(mtime));
+	await handle.utimes(normalizeTime(atime), normalizeTime(mtime));
 }
 lutimes satisfies typeof promises.lutimes;
-
-/**
- * Resolves the mount and real path for a path.
- * Additionally, any stats fetched will be returned for de-duplication
- * @internal @hidden
- */
-async function _resolve($: V_Context, path: string, preserveSymlinks?: boolean): Promise<ResolvedPath> {
-	if (preserveSymlinks) {
-		const resolved = resolveMount(path, $);
-		const stats = await resolved.fs.stat(resolved.path).catch(() => undefined);
-		return { ...resolved, fullPath: path, stats };
-	}
-
-	/* Try to resolve it directly. If this works,
-	that means we don't need to perform any resolution for parent directories. */
-	try {
-		const resolved = resolveMount(path, $);
-
-		// Stat it to make sure it exists
-		const stats = await resolved.fs.stat(resolved.path);
-
-		if (!isSymbolicLink(stats)) {
-			return { ...resolved, fullPath: path, stats };
-		}
-
-		const target = resolve.call($, dirname(path), (await readlink.call($, path)).toString());
-		return await _resolve($, target);
-	} catch {
-		// Go the long way
-	}
-
-	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : await realpath.call($, dir);
-	const maybePath = join(realDir, base);
-	const resolved = resolveMount(maybePath, $);
-
-	const stats = await resolved.fs.stat(resolved.path).catch((e: Exception) => {
-		if (e.code == 'ENOENT') return;
-		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath }));
-	});
-
-	if (!stats) return { ...resolved, fullPath: path };
-	if (!isSymbolicLink(stats)) {
-		return { ...resolved, fullPath: maybePath, stats };
-	}
-
-	const target = resolve.call($, realDir, (await readlink.call($, maybePath)).toString());
-	return await _resolve($, target);
-}
 
 /**
  * Asynchronous realpath(3) - return the canonicalized absolute pathname.
@@ -1106,7 +762,7 @@ export async function realpath(
 	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
 	path = normalizePath(path);
 
-	const { fullPath } = await _resolve(this, path);
+	const { fullPath } = await _async.resolve(this, path);
 	if (encoding == 'utf8' || encoding == 'utf-8') return fullPath;
 	const buf = Buffer.from(fullPath, 'utf-8');
 	if (encoding == 'buffer') return buf;

@@ -1,69 +1,23 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
 import type { V_Context } from '../context.js';
-import type { InodeLike } from '../internal/inode.js';
 import type { Callback } from '../utils.js';
 
 import { Buffer } from 'buffer';
 import { withErrno } from 'kerium';
 import { warn } from 'kerium/log';
-import { sizeof } from 'memium';
-import { $from, struct, types as t } from 'memium/decorators';
-import { encodeUTF8 } from 'utilium';
-import { BufferView } from 'utilium/buffer.js';
-import { basename, dirname } from '../path.js';
+import { parse } from '../path.js';
+import { DirType, type Dirent as VFSDirent } from '../vfs/dir.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';
 
-/**
- * @see `DT_*` in `dirent.h`
- */
-export enum DirType {
-	UNKNOWN = 0,
-	FIFO = 1,
-	CHR = 2,
-	DIR = 4,
-	BLK = 6,
-	REG = 8,
-	LNK = 10,
-	SOCK = 12,
-	WHT = 14,
-}
-
-/**
- * Converts a file mode to a directory type.
- * @see `IFTODT` in `dirent.h`
- */
-export function ifToDt(mode: number): DirType {
-	return ((mode & 0o170000) >> 12) as DirType;
-}
-
-/**
- * Converts a directory type to a file mode.
- * @see `DTTOIF` in `dirent.h`
- */
-export function dtToIf(dt: DirType): number {
-	return dt << 12;
-}
-
-@struct.packed('Dirent')
-export class Dirent<Name extends string | Buffer = string, TArrayBuffer extends ArrayBufferLike = ArrayBufferLike>
-	extends $from(BufferView)<TArrayBuffer>
-	implements _Dirent<Name>
-{
-	@t.uint32 protected accessor ino!: number;
-
-	/** Reserved for 64-bit inodes */
-	@t.uint32 private accessor _ino!: number;
-
-	@t.uint8 protected accessor type!: DirType;
-
-	@t.char(256)
-	protected accessor _name!: Uint8Array;
+export class Dirent<Name extends string | Buffer = string> implements _Dirent<Name> {
+	ino!: number;
+	type!: DirType;
+	protected _name!: string;
 
 	public get name(): Name {
-		const end = (this._name.indexOf(0) + 1 || 256) - 1;
-		const name = Buffer.from(this._name.subarray(0, end));
+		const name = Buffer.from(this._name);
 		return (this._encoding == 'buffer' ? name : name.toString(this._encoding!)) as Name;
 	}
 
@@ -92,12 +46,13 @@ export class Dirent<Name extends string | Buffer = string, TArrayBuffer extends 
 	/**
 	 * @internal
 	 */
-	static from(path: string, stats: InodeLike, encoding?: BufferEncoding | 'buffer' | null): Dirent {
-		const dirent = new Dirent(new ArrayBuffer(sizeof(Dirent) + 1));
-		dirent._parentPath = dirname(path);
-		dirent._name = encodeUTF8(basename(path));
-		dirent.ino = stats.ino;
-		dirent.type = ifToDt(stats.mode);
+	static from(vfs: VFSDirent, encoding?: BufferEncoding | 'buffer' | null) {
+		const dirent = new Dirent();
+		const { base, dir } = parse(vfs.path);
+		dirent._parentPath = dir || '.';
+		dirent._name = base;
+		dirent.ino = vfs.ino;
+		dirent.type = vfs.type;
 		dirent._encoding = encoding;
 		return dirent;
 	}

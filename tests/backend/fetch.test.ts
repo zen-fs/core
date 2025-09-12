@@ -42,7 +42,7 @@ suite('Fetch with `disableAsyncCache`', () => {
 		assert.deepEqual(entries, [...defaultEntries, 'example', 'duck']);
 	});
 
-	test('Uncached synchronous operations throw', async () => {
+	test('Uncached synchronous operations throw', () => {
 		assert.throws(() => fs.readFileSync('/x.txt', 'utf8'), { code: 'EAGAIN' });
 	});
 });
