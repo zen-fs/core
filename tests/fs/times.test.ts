@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import type { StatsLike } from '@zenfs/core';
 import { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import type { StatsLike } from '../../dist/vfs/stats.js';
 import { fs } from '../common.js';
 
 const path = 'x.txt';

@@ -2,7 +2,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
-import { fs, mount, resolveMountConfig, SingleBuffer } from '../../dist/index.js';
+import { fs, mount, resolveMountConfig, SingleBuffer } from '@zenfs/core';
 import { setupLogs } from '../logs.js';
 
 setupLogs();

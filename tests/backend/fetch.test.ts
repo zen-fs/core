@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { Fetch, configureSingle, fs, mounts, type FetchFS } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { after, suite, test } from 'node:test';
 import { Worker } from 'node:worker_threads';
-import { Fetch, configureSingle, fs, mounts, type FetchFS } from '../../dist/index.js';
 import { baseUrl, defaultEntries, indexPath, whenServerReady } from '../fetch/config.js';
 import { setupLogs } from '../logs.js';
 

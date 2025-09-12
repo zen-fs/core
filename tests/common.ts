@@ -4,7 +4,6 @@ import type { NodeFS } from '@zenfs/core/node/types.js';
 import { join, resolve } from 'node:path';
 import { styleText } from 'node:util';
 import { setupLogs } from './logs.js';
-export * from '@zenfs/core';
 
 setupLogs();
 

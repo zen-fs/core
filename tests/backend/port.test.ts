@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import type { InMemoryStore, StoreFS } from '@zenfs/core';
+import { InMemory, Port, attachFS, configure, configureSingle, fs, resolveMountConfig, waitOnline } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { after, suite, test } from 'node:test';
 import { MessageChannel, Worker } from 'node:worker_threads';
-import { Port, attachFS } from '../../dist/backends/port.js';
-import type { InMemoryStore, StoreFS } from '../../dist/index.js';
-import { InMemory, configure, configureSingle, fs, resolveMountConfig, waitOnline } from '../../dist/index.js';
 import { setupLogs } from '../logs.js';
 setupLogs();
 

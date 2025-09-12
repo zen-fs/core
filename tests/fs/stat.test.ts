@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { defaultContext, Stats } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { defaultContext } from '../../dist/internal/contexts.js';
-import { fs, Stats } from '../common.js';
+import { fs } from '../common.js';
 
 suite('Stats', () => {
 	const existing_file = 'x.txt';

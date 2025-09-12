@@ -1,4 +1,4 @@
-import { SingleBuffer, configureSingle } from '../../dist/index.js';
+import { SingleBuffer, configureSingle } from '@zenfs/core';
 import { copySync, data } from '../setup.js';
 
 await configureSingle({

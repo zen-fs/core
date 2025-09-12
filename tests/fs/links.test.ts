@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { join } from '@zenfs/core/path';
 import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { join } from '../../dist/path.js';
 import { fs } from '../common.js';
 
 suite('Links', () => {

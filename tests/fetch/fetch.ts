@@ -1,5 +1,5 @@
+import { configure, Fetch } from '@zenfs/core';
 import { log } from 'kerium';
-import { configure, Fetch } from '../../dist/index.js';
 import { baseUrl } from './config.js';
 
 await configure({

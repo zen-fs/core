@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { sync } from '@zenfs/core';
 import { Buffer } from 'buffer';
 import assert from 'node:assert/strict';
 import type { OpenMode, PathLike } from 'node:fs';
 import { suite, test } from 'node:test';
 import { promisify } from 'node:util';
-import { sync } from '../../dist/config.js';
 import { fs } from '../common.js';
 
 const filepath = 'x.txt';

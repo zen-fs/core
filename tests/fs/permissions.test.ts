@@ -3,9 +3,9 @@ import { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { encodeUTF8 } from 'utilium';
-import { defaultContext } from '../../dist/internal/contexts.js';
-import { join } from '../../dist/path.js';
-import { R_OK, W_OK, X_OK } from '../../dist/vfs/constants.js';
+import { defaultContext } from '@zenfs/core/internal/contexts.js';
+import { join } from '@zenfs/core/path';
+import { R_OK, W_OK, X_OK } from '@zenfs/core/constants';
 import { fs } from '../common.js';
 
 const asyncMode = 0o777;

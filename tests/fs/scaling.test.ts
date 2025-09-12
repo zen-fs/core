@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { sync } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { sync } from '../../dist/config.js';
 import { fs } from '../common.js';
 
 const n_files = 130;

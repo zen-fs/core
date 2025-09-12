@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { sync, type Dirent } from '@zenfs/core';
 import assert, { rejects } from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs, sync, type Dirent } from '../common.js';
+import { fs } from '../common.js';
 
 const testFile = 'test-file.txt';
 fs.writeFileSync(testFile, 'Sample content');
