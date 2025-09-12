@@ -69,8 +69,8 @@ await configure({
 		'/mnt/zip': { backend: Zip, data: await res.arrayBuffer() },
 		'/tmp': InMemory,
 		'/home': IndexedDB,
-	}
-};
+	},
+});
 ```
 
 Note that while you aren't required to use absolute paths for the keys of `mounts`, it is a good practice to do so.
