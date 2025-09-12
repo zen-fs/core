@@ -13,6 +13,7 @@ const { values: options, positionals } = parseArgs({
 		log: { short: 'l', type: 'string', default: '' },
 		'file-names': { short: 'N', type: 'boolean', default: false },
 		ci: { short: 'C', type: 'boolean', default: false },
+		debug: { short: 'd', type: 'boolean', default: false },
 
 		// Test behavior
 		test: { short: 't', type: 'string' },
@@ -33,6 +34,10 @@ const { values: options, positionals } = parseArgs({
 	allowPositionals: true,
 });
 
+function debug(...args) {
+	if (options.debug) console.debug(styleText('dim', '[debug]'), ...args.map(a => (typeof a === 'string' ? styleText('dim', a) : a)));
+}
+
 if (options.help) {
 	console.log(`zenfs-test [...options] <...paths> 
 
@@ -46,22 +51,23 @@ Behavior:
     -t, --test <glob>     Which FS test suite(s) to run
     -f, --force           Whether to use --test-force-exit
     -I, --inspect         Use the inspector for debugging
-	-s, --skip <pattern>  Skip tests with names matching the given pattern. Can be specified multiple times.
+    -s, --skip <pattern>  Skip tests with names matching the given pattern. Can be specified multiple times.
+    -d, --debug           Output debug messages from the test runner
 
 Output:
-    -h, --help          Outputs this help message
-    -v, --verbose       Output verbose messages
-    -q, --quiet         Don't output normal messages
-    -l, --logs <level>  Change the default log level for test output. Level can be a number or string
-    -N, --file-names    Use full file paths for tests from setup files instead of the base name
-    -C, --ci            Continuous integration (CI) mode. This interacts with the Github
-                        Checks API for better test status. Requires @octokit/action
+    -h, --help            Outputs this help message
+    -v, --verbose         Output verbose messages
+    -q, --quiet           Don't output normal messages
+    -l, --logs <level>    Change the default log level for test output. Level can be a number or string
+    -N, --file-names      Use full file paths for tests from setup files instead of the base name
+    -C, --ci              Continuous integration (CI) mode. This interacts with the Github
+                          Checks API for better test status. Requires @octokit/action
 
 Coverage:
-    --coverage <dir>    Override the default coverage data directory
-    -p, --preserve      Do not delete or report coverage data
-    --report            ONLY report coverage
-    --clean             ONLY clean up coverage directory`);
+    --coverage <dir>      Override the default coverage data directory
+    -p, --preserve        Do not delete or report coverage data
+    --report              ONLY report coverage
+    --clean               ONLY clean up coverage directory`);
 	process.exit();
 }
 
@@ -157,15 +163,17 @@ if (!options.preserve) rmSync(options.coverage, { force: true, recursive: true }
 mkdirSync(options.coverage, { recursive: true });
 
 if (options.common) {
-	!options.quiet && process.stdout.write('Running common tests...' + (options.verbose ? '\n' : ' '));
+	const command = `tsx ${options.inspect ? 'inspect' : ''} ${options.force ? '--test-force-exit' : ''} --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`;
+
+	if (!options.quiet) {
+		debug('command:', command);
+		process.stdout.write('Running common tests...' + (options.verbose ? '\n' : ' '));
+	}
 	const { pass, fail } = await status('Common tests');
 	try {
-		execSync(
-			`tsx ${options.inspect ? 'inspect' : ''} ${options.force ? '--test-force-exit' : ''} --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`,
-			{
-				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
-			}
-		);
+		execSync(command, {
+			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
+		});
 		await pass();
 	} catch {
 		await fail();
@@ -185,7 +193,18 @@ for (const setupFile of positionals) {
 
 	const name = options['file-names'] && !options.ci ? setupFile : parse(setupFile).name;
 
+	const command = [
+		'tsx --trace-deprecation',
+		options.inspect ? '--inspect' : '',
+		'--test --experimental-test-coverage',
+		options.force ? '--test-force-exit' : '',
+		options.skip.length ? `--test-skip-pattern='${options.skip.join('|').replaceAll("'", "\\'")}'` : '',
+		`'${testsGlob.replaceAll("'", "\\'")}'`,
+		process.env.CMD,
+	].join(' ');
+
 	if (!options.quiet) {
+		debug('command:', command);
 		if (options.verbose) console.log('Running tests:', name);
 		else process.stdout.write(`Running tests: ${name}... `);
 	}
@@ -198,20 +217,9 @@ for (const setupFile of positionals) {
 	}
 
 	try {
-		execSync(
-			[
-				'tsx --trace-deprecation',
-				options.inspect ? '--inspect' : '',
-				'--test --experimental-test-coverage',
-				options.force ? '--test-force-exit' : '',
-				options.skip.length ? `--test-skip-pattern='${options.skip.join('|').replaceAll("'", "\\'")}'` : '',
-				`'${testsGlob.replaceAll("'", "\\'")}'`,
-				process.env.CMD,
-			].join(' '),
-			{
-				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
-			}
-		);
+		execSync(command, {
+			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
+		});
 		await pass();
 	} catch {
 		await fail();

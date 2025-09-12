@@ -16,7 +16,7 @@ import { Exception, rethrow, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
-import { basename, dirname, join, matchesGlob } from '../path.js';
+import { dirname, join, matchesGlob, parse } from '../path.js';
 import '../polyfills.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as _async from '../vfs/async.js';
@@ -360,8 +360,9 @@ rename satisfies typeof promises.rename;
  * Test whether or not `path` exists by checking with the file system.
  */
 export async function exists(this: V_Context, path: fs.PathLike): Promise<boolean> {
+	path = normalizePath(path);
 	try {
-		const { fs, path: resolved } = resolveMount(await realpath.call(this, path), this);
+		const { fs, path: resolved } = await _async.resolve(this, path);
 		return await fs.exists(resolved);
 	} catch (e) {
 		if (e instanceof Exception && e.code == 'ENOENT') {
@@ -377,7 +378,7 @@ export async function stat(this: V_Context, path: fs.PathLike, options?: { bigin
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(await realpath.call(this, path), this);
+	const { fs, path: resolved } = await _async.resolve(this, path);
 	const $ex = { syscall: 'stat', path };
 
 	const stats = await fs.stat(resolved).catch(rethrow($ex));
@@ -397,10 +398,9 @@ export async function lstat(this: V_Context, path: fs.PathLike, options: { bigin
 export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
 	path = normalizePath(path);
 	const $ex = { syscall: 'lstat', path };
-	path = join(await realpath.call(this, dirname(path)), basename(path));
-	const { fs, path: resolved } = resolveMount(path, this);
-	const stats = await fs.stat(resolved).catch(rethrow($ex));
-
+	const { base, dir } = parse(path);
+	const { fs, path: parent } = await _async.resolve(this, dir);
+	const stats = await fs.stat(base ? join(parent, base) : parent).catch(rethrow($ex));
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
@@ -523,8 +523,9 @@ export async function appendFile(
 appendFile satisfies typeof promises.appendFile;
 
 export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
-	path = await realpath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	path = normalizePath(path);
+
+	const { fs, path: resolved } = await _async.resolve(this, path);
 	const $ex = { syscall: 'rmdir', path };
 
 	const stats = await fs.stat(resolved).catch(rethrow($ex));

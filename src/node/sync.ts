@@ -11,7 +11,7 @@ import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory } from '../internal/inode.js';
-import { basename, dirname, join, matchesGlob } from '../path.js';
+import { dirname, join, matchesGlob, parse } from '../path.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
@@ -33,7 +33,7 @@ renameSync satisfies typeof fs.renameSync;
 export function existsSync(this: V_Context, path: fs.PathLike): boolean {
 	path = normalizePath(path);
 	try {
-		const { fs, path: resolvedPath } = resolveMount(realpathSync.call(this, path), this);
+		const { fs, path: resolvedPath } = _sync.resolve(this, path);
 		return fs.existsSync(resolvedPath);
 	} catch (e: any) {
 		if (e.errno == Errno.ENOENT) return false;
@@ -47,7 +47,7 @@ export function statSync(this: V_Context, path: fs.PathLike, options?: { bigint?
 export function statSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
+	const { fs, path: resolved } = _sync.resolve(this, path);
 
 	let stats: InodeLike;
 	try {
@@ -71,9 +71,9 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options?: { bigint
 export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
 	path = normalizePath(path);
-	const real = join(realpathSync.call(this, dirname(path)), basename(path));
-	const { fs, path: resolved } = resolveMount(real, this);
-	const stats = wrap(fs, 'statSync', path)(resolved);
+	const { base, dir } = parse(path);
+	const { fs, path: parent } = _sync.resolve(this, dir);
+	const stats = wrap(fs, 'statSync', path)(base ? join(parent, base) : parent);
 
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'lstat', path });
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
@@ -375,7 +375,7 @@ futimesSync satisfies typeof fs.futimesSync;
 
 export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
-	const { fs, path: resolved } = resolveMount(realpathSync.call(this, path), this);
+	const { fs, path: resolved } = _sync.resolve(this, path);
 
 	const stats = wrap(fs, 'statSync', path)(resolved);
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
