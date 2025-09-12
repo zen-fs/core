@@ -162,7 +162,6 @@ type _Port = typeof _Port;
 /**
  * @category Backends and Configuration
  */
- 
 export interface Port extends _Port {}
 
 /**

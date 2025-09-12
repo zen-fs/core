@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 import type { PathLike } from 'node:fs';
 import type { V_Context } from '../internal/contexts.js';
 import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './shared.js';

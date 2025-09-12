@@ -2,7 +2,7 @@
 import { withErrno } from 'kerium';
 import { alert, crit, err, warn } from 'kerium/log';
 import type { ArrayOf } from 'memium';
-import { array, offsetof, packed, sizeof } from 'memium';
+import { array, offsetof, sizeof } from 'memium';
 import { $from, field, struct, types as t } from 'memium/decorators';
 import type { UUID } from 'node:crypto';
 import { BufferView } from 'utilium/buffer.js';
@@ -500,7 +500,6 @@ type _SingleBuffer = typeof _SingleBuffer;
  * A backend that uses a single buffer for storing data
  * @category Backends and Configuration
  */
- 
 export interface SingleBuffer extends _SingleBuffer {}
 
 /**

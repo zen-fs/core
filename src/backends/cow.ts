@@ -480,7 +480,7 @@ type _CopyOnWrite = typeof _CopyOnWrite;
  * Deletes are persisted via metadata stored on the writable file system.
  * @category Backends and Configuration
  */
- 
+
 export interface CopyOnWrite extends _CopyOnWrite {}
 /**
  * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.

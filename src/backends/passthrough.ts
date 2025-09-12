@@ -250,7 +250,6 @@ type _Passthrough = typeof _Passthrough;
  * A file system that passes through to another FS
  * @category Backends and Configuration
  */
- 
 export interface Passthrough extends _Passthrough {}
 
 /**

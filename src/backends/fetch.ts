@@ -185,7 +185,6 @@ const _Fetch = {
 	},
 } as const satisfies Backend<FetchFS, FetchOptions>;
 type _Fetch = typeof _Fetch;
- 
 export interface Fetch extends _Fetch {}
 /**
  * @category Backends and Configuration

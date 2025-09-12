@@ -70,7 +70,6 @@ type _InMemory = typeof _InMemory;
  * A backend that uses an in-memory store for storing data
  * @category Backends and Configuration
  */
- 
 export interface InMemory extends _InMemory {}
 
 /**
