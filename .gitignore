@@ -5,5 +5,12 @@ docs
 tmp
 build
 tests/coverage
-.coverage
 tmp.*
+
+.*
+!.gitignore
+!.gitattributes
+!.prettierrc.json
+!.prettierignore
+!.vscode
+!.github

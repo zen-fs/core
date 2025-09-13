@@ -25,11 +25,12 @@ const { values: options, positionals } = parseArgs({
 		skip: { short: 's', type: 'string', multiple: true, default: [] },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
 
-		// Coverage
+		// Coverage and performance
 		coverage: { type: 'string', default: 'tests/.coverage' },
 		preserve: { short: 'p', type: 'boolean' },
 		report: { type: 'boolean', default: false },
 		clean: { type: 'boolean', default: false },
+		profile: { type: 'boolean', default: false },
 	},
 	allowPositionals: true,
 });
@@ -67,7 +68,8 @@ Coverage:
     --coverage <dir>      Override the default coverage data directory
     -p, --preserve        Do not delete or report coverage data
     --report              ONLY report coverage
-    --clean               ONLY clean up coverage directory`);
+    --clean               ONLY clean up coverage directory
+	--profile             Record performance profiles`);
 	process.exit();
 }
 
@@ -78,6 +80,7 @@ if (options.quiet && options.verbose) {
 
 process.env.NODE_V8_COVERAGE = options.coverage;
 process.env.ZENFS_LOG_LEVEL = options.log;
+if (options.verbose) process.env.VERBOSE = '1';
 
 if (options.clean) {
 	rmSync(options.coverage, { recursive: true, force: true });
@@ -162,13 +165,31 @@ async function status(name) {
 if (!options.preserve) rmSync(options.coverage, { force: true, recursive: true });
 mkdirSync(options.coverage, { recursive: true });
 
-if (options.common) {
-	const command = `tsx ${options.inspect ? 'inspect' : ''} ${options.force ? '--test-force-exit' : ''} --test --experimental-test-coverage 'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`;
+/**
+ * Generate the command used to run the tests
+ */
+function makeCommand(profileName, ...rest) {
+	const command = [
+		'tsx --trace-deprecation',
+		options.inspect ? '--inspect' : '',
+		'--test --experimental-test-coverage',
+		options.force ? '--test-force-exit' : '',
+		options.skip.length ? `--test-skip-pattern='${options.skip.join('|').replaceAll("'", "\\'")}'` : '',
+		!options.profile ? '' : `--cpu-prof --cpu-prof-dir=.profiles --cpu-prof-name=${profileName}.cpuprofile --cpu-prof-interval=500`,
+		...rest,
+	]
+		.filter(v => v)
+		.join(' ');
 
-	if (!options.quiet) {
-		debug('command:', command);
-		process.stdout.write('Running common tests...' + (options.verbose ? '\n' : ' '));
-	}
+	if (!options.quiet) debug('command:', command);
+
+	return command;
+}
+
+if (options.common) {
+	const command = makeCommand('common', `'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`);
+
+	if (!options.quiet) process.stdout.write('Running common tests...' + (options.verbose ? '\n' : ' '));
 	const { pass, fail } = await status('Common tests');
 	try {
 		execSync(command, {
@@ -189,22 +210,12 @@ for (const setupFile of positionals) {
 	}
 
 	process.env.SETUP = setupFile;
-	if (options.verbose) process.env.VERBOSE = '1';
 
 	const name = options['file-names'] && !options.ci ? setupFile : parse(setupFile).name;
 
-	const command = [
-		'tsx --trace-deprecation',
-		options.inspect ? '--inspect' : '',
-		'--test --experimental-test-coverage',
-		options.force ? '--test-force-exit' : '',
-		options.skip.length ? `--test-skip-pattern='${options.skip.join('|').replaceAll("'", "\\'")}'` : '',
-		`'${testsGlob.replaceAll("'", "\\'")}'`,
-		process.env.CMD,
-	].join(' ');
+	const command = makeCommand(name, `'${testsGlob.replaceAll("'", "\\'")}'`, process.env.CMD);
 
 	if (!options.quiet) {
-		debug('command:', command);
 		if (options.verbose) console.log('Running tests:', name);
 		else process.stdout.write(`Running tests: ${name}... `);
 	}
