@@ -67,7 +67,7 @@
 		"test": "npx zenfs-test --clean; npx zenfs-test -abcp; tests/fetch/run.sh; npx zenfs-test --report",
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
-		"dev": "npm run build -- --watch",
+		"dev": "tsc -p tsconfig.json --watch",
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {

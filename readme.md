@@ -34,7 +34,7 @@ npm install @zenfs/core
 
 If you're using ZenFS, especially for big projects, please consider supporting the project.
 Thousands of hours have been dedicated to its development.
-Your acknowledgment or financial support would go a long way toward improving ZenFS and its community.
+Your financial support would go a long way toward improving ZenFS and its community.
 
 ## Usage
 
@@ -140,7 +140,7 @@ await configure({
 	},
 });
 
-fs.mkdirSync('/mnt');
+fs.mkdirSync('/mnt/zip', { recursive: true });
 
 const res = await fetch('mydata.zip');
 const zipfs = await resolveMountConfig({ backend: Zip, data: await res.arrayBuffer() });
@@ -156,82 +156,19 @@ fs.umount('/mnt/zip'); // finished using the zip
 
 ### Devices and device files
 
-ZenFS includes support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. You can automatically add some normal devices with the `addDevices` configuration option:
+ZenFS includes support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. Check out the [Devices and Device Drivers](https://zenfs.dev/core/documents/Devices_and_Device_Drivers) documentation for more information.
 
-```ts
-await configure({
-	mounts: {
-		/* ... */
-	},
-	addDevices: true,
-});
+## Bundling
 
-fs.writeFileSync('/dev/null', 'Some data to be discarded');
+ZenFS exports a drop-in for Node's `fs` module, so you can use it for your bundler of preference using the default export.
 
-const randomData = new Uint8Array(100);
-
-const random = fs.openSync('/dev/random', 'r');
-fs.readSync(random, randomData);
-fs.closeSync(random);
-```
-
-You can create your own devices by implementing a `DeviceDriver`. For example, the null device looks similar to this:
-
-```ts
-const customNullDevice = {
-	name: 'custom_null',
-	// only 1 can exist per DeviceFS
-	singleton: true,
-	// optional if false
-	isBuffered: false,
-	read() {
-		return 0;
-	},
-	write() {
-		return 0;
-	},
-};
-```
-
-Note the actual implementation's write is slightly more complicated since it adds to the file position. You can find more information on the docs.
-
-Finally, if you'd like to use your custom device with the file system:
-
-```ts
-import { addDevice, fs } from '@zenfs/core';
-
-addDevice(customNullDevice);
-
-fs.writeFileSync('/dev/custom', 'This gets discarded.');
-```
-
-## Using with bundlers
-
-ZenFS exports a drop-in for Node's `fs` module (up to the version of `@types/node` in package.json), so you can use it for your bundler of preference using the default export.
+> [!IMPORTANT]
+> If you convey bundles including ZenFS, you **must** meet the requirements of sections 4 and 5 of the LGPL.
 
 ## Sponsors
 
 A huge thank you to [![Deco.cx logo](https://avatars.githubusercontent.com/deco-cx?size=20) Deco.cx](https://github.com/deco-cx) for sponsoring ZenFS and helping to make this possible.
 
-## Building
-
-- Make sure you have Node and NPM installed. You must have Node v22 or newer.
-- Install dependencies with `npm install`
-- Build using `npx tsc` or `npm run build`
-- You can find the built code in `dist`.
-
 ## Contact and Support
 
 You can reach out [on Discord](https://zenfs.dev/discord) or by emailing jp@zenfs.dev
-
-### Testing
-
-Run unit tests with:
-
-- `npm test` to run all tests using the default configuration
-- `npx zenfs-test -abc` to run the common tests and run the full FS suite against all included backends
-    - You can also run this command to test your own backends, the `--auto` (`-a`) flag will automatically detect any setup scripts matching `tests/setup/*` or `tests/setup-*.ts`. If you do, you'll need to include the `c8` dependency for coverage.
-
-### BrowserFS Fork
-
-ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS). If you are using ZenFS in a research paper, you may want to [cite BrowserFS](https://github.com/jvilk/BrowserFS#citing).
