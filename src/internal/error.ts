@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { Exception, setUVMessage, type ExceptionExtra, type ExceptionJSON } from 'kerium';
-import type { FileSystem } from './filesystem.js';
 
 /**
  * @deprecated Use {@link ExceptionJSON} instead
@@ -36,8 +35,4 @@ export function wrap<const FS, const Prop extends keyof FS & string>(fs: FS, pro
 			throw setUVMessage(Object.assign(e, extra));
 		}
 	} as FS[Prop];
-}
-
-export function withExceptionContext<const FS extends FileSystem>(fs: FS, context: ExceptionExtra): FS {
-	return 0;
 }
