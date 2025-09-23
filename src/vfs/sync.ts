@@ -268,3 +268,28 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 	emitChange(this, 'rename', oldPath);
 	emitChange(this, 'change', newPath);
 }
+
+export function link(this: V_Context, target: PathLike, link: PathLike): void {
+	target = normalizePath(target);
+	link = normalizePath(link);
+
+	const { fs, path: resolved } = resolveMount(target, this);
+	const dst = resolveMount(link, this);
+	const $ex = { syscall: 'link', path: link, dest: target };
+
+	if (fs != dst.fs) throw UV('EXDEV', $ex);
+
+	const stats = wrap(fs, 'statSync', $ex)(resolved);
+
+	if (checkAccess) {
+		if (!hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
+
+		const dirStats = wrap(fs, 'statSync', $ex)(dirname(resolved));
+		if (!hasAccess(this, dirStats, constants.R_OK)) throw UV('EACCES', $ex);
+
+		const destStats = wrap(fs, 'statSync', $ex)(dirname(dst.path));
+		if (!hasAccess(this, destStats, constants.W_OK)) throw UV('EACCES', $ex);
+	}
+
+	return wrap(fs, 'linkSync', $ex)(resolved, dst.path);
+}

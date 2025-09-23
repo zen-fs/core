@@ -190,7 +190,7 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 	const addEntry = async (entry: string) => {
 		const entryStats = await fs.stat(join(resolved, entry)).catch((e: Exception): undefined => {
 			if (e.code == 'ENOENT') return;
-			throw setUVMessage(Object.assign(e, { syscall: 'stat', path: join(path, entry) }));
+			throw setUVMessage(Object.assign(e, $ex));
 		});
 
 		if (!entryStats) return;
@@ -204,7 +204,7 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 
 		if (!options.recursive || !isDirectory(entryStats)) return;
 
-		const children = await fs.readdir(join(resolved, entry)).catch(rethrow({ syscall: 'readdir', path: join(path, entry) }));
+		const children = await fs.readdir(join(resolved, entry)).catch(rethrow($ex));
 		for (const child of children) await addEntry(join(entry, child));
 	};
 	await Promise.all(entries.map(addEntry));
@@ -240,4 +240,29 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 
 	emitChange(this, 'rename', oldPath);
 	emitChange(this, 'change', newPath);
+}
+
+export async function link(this: V_Context, target: PathLike, link: PathLike): Promise<void> {
+	target = normalizePath(target);
+	link = normalizePath(link);
+
+	const { fs, path: resolved } = resolveMount(target, this);
+	const dst = resolveMount(link, this);
+	const $ex = { syscall: 'link', path: link, dest: target };
+
+	if (fs != dst.fs) throw UV('EXDEV', $ex);
+
+	const stats = await fs.stat(resolved).catch(rethrow($ex));
+
+	if (checkAccess) {
+		if (!hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
+
+		const dirStats = await fs.stat(dirname(resolved)).catch(rethrow($ex));
+		if (!hasAccess(this, dirStats, constants.R_OK)) throw UV('EACCES', $ex);
+
+		const destStats = await fs.stat(dirname(dst.path)).catch(rethrow($ex));
+		if (!hasAccess(this, destStats, constants.W_OK)) throw UV('EACCES', $ex);
+	}
+
+	return await fs.link(resolved, dst.path).catch(rethrow($ex));
 }

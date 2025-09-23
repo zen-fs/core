@@ -622,25 +622,7 @@ export async function readdir(this: V_Context, path: fs.PathLike, options?: Node
 readdir satisfies typeof promises.readdir;
 
 export async function link(this: V_Context, path: fs.PathLike, dest: fs.PathLike): Promise<void> {
-	path = normalizePath(path);
-	dest = normalizePath(dest);
-
-	const { fs, path: resolved } = resolveMount(path, this);
-	const dst = resolveMount(dest, this);
-	const $ex = { syscall: 'link', path };
-
-	if (fs != dst.fs) throw UV('EXDEV', $ex);
-
-	const stats = await fs.stat(dirname(resolved)).catch(rethrow({ syscall: 'stat', path: dirname(path) }));
-
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'link', dirname(path));
-
-	// We need to use the VFS here since the link path may be a mount point
-	if (checkAccess && !(await stat.call(this, dirname(dest))).hasAccess(constants.W_OK, this)) throw UV('EACCES', 'link', dirname(dest));
-
-	if (checkAccess && !hasAccess(this, await fs.stat(resolved).catch(rethrow($ex)), constants.R_OK)) throw UV('EACCES', $ex);
-
-	return await fs.link(resolved, dst.path).catch(rethrow($ex));
+	return await _async.link.call(this, path, dest);
 }
 link satisfies typeof promises.link;
 

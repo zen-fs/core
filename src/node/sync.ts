@@ -447,23 +447,7 @@ export function readdirSync(this: V_Context, path: fs.PathLike, options?: NodeRe
 readdirSync satisfies typeof fs.readdirSync;
 
 export function linkSync(this: V_Context, targetPath: fs.PathLike, linkPath: fs.PathLike): void {
-	targetPath = normalizePath(targetPath);
-	if (checkAccess && !statSync(dirname(targetPath)).hasAccess(constants.R_OK, this)) {
-		throw UV('EACCES', 'link', dirname(targetPath));
-	}
-	linkPath = normalizePath(linkPath);
-	if (checkAccess && !statSync(dirname(linkPath)).hasAccess(constants.W_OK, this)) {
-		throw UV('EACCES', 'link', dirname(linkPath));
-	}
-
-	const { fs, path } = resolveMount(targetPath, this);
-	const link = resolveMount(linkPath, this);
-	if (fs != link.fs) {
-		throw UV('EXDEV', 'link', linkPath);
-	}
-	const stats = wrap(fs, 'statSync', targetPath)(path);
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'link', path);
-	return wrap(fs, 'linkSync', targetPath, linkPath)(path, link.path);
+	return _sync.link.call(this, targetPath, linkPath);
 }
 linkSync satisfies typeof fs.linkSync;
 
