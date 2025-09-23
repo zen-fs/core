@@ -20,7 +20,7 @@ suite('Error messages', () => {
 	test('open', async () => await assert.rejects(() => fs.promises.open(path, 'r'), missing));
 	test('readdir', async () => await assert.rejects(() => fs.promises.readdir(path), missing));
 	test('unlink', async () => await assert.rejects(() => fs.promises.unlink(path), missing));
-	test('link', async () => await assert.rejects(() => fs.promises.link(path, 'foo'), missing));
+	test('link', async () => await assert.rejects(() => fs.promises.link(path, 'foo'), { code: 'ENOENT', path: '/foo' }));
 	test('chmod', async () => await assert.rejects(() => fs.promises.chmod(path, 0o666), missing));
 	test('lstat', async () => await assert.rejects(() => fs.promises.lstat(path), missing));
 	test('readlink', async () => await assert.rejects(() => fs.promises.readlink(path), missing));
@@ -32,7 +32,7 @@ suite('Error messages', () => {
 	test('openSync', () => assert.throws(() => fs.openSync(path, 'r'), missing));
 	test('readdirSync', () => assert.throws(() => fs.readdirSync(path), missing));
 	test('unlinkSync', () => assert.throws(() => fs.unlinkSync(path), missing));
-	test('linkSync', () => assert.throws(() => fs.linkSync(path, 'foo'), missing));
+	test('linkSync', () => assert.throws(() => fs.linkSync(path, 'foo'), { code: 'ENOENT', path: '/foo' }));
 	test('chmodSync', () => assert.throws(() => fs.chmodSync(path, 0o666), missing));
 	test('lstatSync', () => assert.throws(() => fs.lstatSync(path), missing));
 	test('readlinkSync', () => assert.throws(() => fs.readlinkSync(path), missing));
