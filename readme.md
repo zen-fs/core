@@ -167,7 +167,7 @@ ZenFS exports a drop-in for Node's `fs` module, so you can use it for your bundl
 
 ## Sponsors
 
-A huge thank you to [![Deco.cx logo](https://avatars.githubusercontent.com/deco-cx?size=20) Deco.cx](https://github.com/deco-cx) for sponsoring ZenFS and helping to make this possible.
+A huge thank you to [Deco.cx](https://github.com/deco-cx) for sponsoring ZenFS and helping to make this possible.
 
 ## Contact and Support
 
