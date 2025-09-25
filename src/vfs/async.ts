@@ -213,7 +213,7 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	const src = await resolve(this, oldPath, true, $ex);
 	const dst = resolveMount(newPath, this, $ex);
 
-	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
+	if (src.fs.uuid !== dst.fs.uuid) throw UV('EXDEV', $ex);
 	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
 	if (!src.stats) throw UV('ENOENT', $ex);
 
@@ -245,7 +245,7 @@ export async function link(this: V_Context, target: PathLike, link: PathLike): P
 	const { fs, path: resolved } = resolveMount(target, this, $ex);
 	const dst = resolveMount(link, this, $ex);
 
-	if (fs != dst.fs) throw UV('EXDEV', $ex);
+	if (fs.uuid != dst.fs.uuid) throw UV('EXDEV', $ex);
 
 	const stats = await fs.stat(resolved);
 

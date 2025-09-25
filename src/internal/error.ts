@@ -47,13 +47,13 @@ export function wrap<const FS, const Prop extends keyof FS & string>(fs: FS, pro
  */
 export function withExceptionContext<const FS extends FileSystem>(fs: FS, context: ExceptionExtra): FS {
 	return new Proxy(fs, {
-		get(target, prop: keyof FS & string, receiver) {
-			const value = Reflect.get(target, prop, receiver);
+		get(target, prop: keyof FS & string) {
+			const value = Reflect.get(target, prop);
 			if (typeof value != 'function') return value;
 
 			return function __withContext(...args: any[]) {
 				try {
-					const result = value.apply(receiver, args);
+					const result = value.apply(target, args);
 					if (!(result instanceof Promise)) return result;
 					return result.catch((e: any) => {
 						if ('code' in e) throw setUVMessage(Object.assign(e, context));

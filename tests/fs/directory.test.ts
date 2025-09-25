@@ -29,7 +29,7 @@ suite('Directories', () => {
 	test('mkdirSync', async () => await fs.promises.mkdir('/two', 0o000));
 
 	test('mkdir, nested', async () => {
-		await assert.rejects(fs.promises.mkdir('/nested/dir'), { code: 'ENOENT', path: '/nested' });
+		await assert.rejects(fs.promises.mkdir('/nested/dir'), { code: 'ENOENT', path: '/nested/dir' });
 		assert(!(await fs.promises.exists('/nested/dir')));
 	});
 
