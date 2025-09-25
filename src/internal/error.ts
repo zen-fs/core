@@ -53,7 +53,7 @@ export function withExceptionContext<const FS extends FileSystem>(fs: FS, contex
 
 			return function __withContext(...args: any[]) {
 				try {
-					const result = value(...args);
+					const result = value.apply(receiver, args);
 					if (!(result instanceof Promise)) return result;
 					return result.catch((e: any) => {
 						if ('code' in e) throw setUVMessage(Object.assign(e, context));
