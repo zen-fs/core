@@ -100,7 +100,3 @@ It copies files from `tests/data` to the virtual file system.
 These files probably aren't needed on their own, and could be generated at test runtime, though they work fine at the time of writing.
 I think the time spent making those changes could be better spent on actual features.
 `common.ts` also exports an `fs` module used by all the tests.
-
-### BrowserFS Fork
-
-ZenFS is a fork of [BrowserFS](https://github.com/jvilk/BrowserFS). If you are using ZenFS in a research paper, you may want to [cite BrowserFS](https://github.com/jvilk/BrowserFS#citing).

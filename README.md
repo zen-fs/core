@@ -163,11 +163,11 @@ ZenFS includes support for device files. These are designed to follow Linux's de
 ZenFS exports a drop-in for Node's `fs` module, so you can use it for your bundler of preference using the default export.
 
 > [!IMPORTANT]
-> If you convey bundles including ZenFS, you **must** meet the requirements of sections 4 and 5 of the LGPL.
+> See [COPYING.md](./COPYING.md)
 
 ## Sponsors
 
-A huge thank you to [Deco.cx](https://github.com/deco-cx) for sponsoring ZenFS and helping to make this possible.
+A huge thank you to [deco.cx](https://github.com/deco-cx) for sponsoring ZenFS and helping to make this possible.
 
 ## Contact and Support
 
