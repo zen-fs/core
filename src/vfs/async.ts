@@ -3,7 +3,8 @@ import type { PathLike } from 'node:fs';
 import type { V_Context } from '../internal/contexts.js';
 import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './shared.js';
 
-import { rethrow, setUVMessage, UV, type Exception } from 'kerium';
+import { setUVMessage, UV, type Exception, type ExceptionExtra } from 'kerium';
+import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { defaultContext } from '../internal/contexts.js';
 import { hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
@@ -15,16 +16,15 @@ import { Handle } from './file.js';
 import * as flags from './flags.js';
 import { resolveMount } from './shared.js';
 import { emitChange } from './watchers.js';
-import { decodeUTF8 } from 'utilium';
 
 /**
  * Resolves the mount and real path for a path.
  * Additionally, any stats fetched will be returned for de-duplication
  * @internal @hidden
  */
-export async function resolve($: V_Context, path: string, preserveSymlinks?: boolean): Promise<ResolvedPath> {
+export async function resolve($: V_Context, path: string, preserveSymlinks?: boolean, extra?: ExceptionExtra): Promise<ResolvedPath> {
 	if (preserveSymlinks) {
-		const resolved = resolveMount(path, $);
+		const resolved = resolveMount(path, $, extra);
 		const stats = await resolved.fs.stat(resolved.path).catch(() => undefined);
 		return { ...resolved, fullPath: path, stats };
 	}
@@ -41,14 +41,14 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 			return { ...resolved, fullPath: path, stats };
 		}
 
-		const target = resolvePath.call($, dirname(path), (await readlink.call($, path)).toString());
-		return await resolve($, target);
+		const target = resolvePath.call($, dirname(path), await readlink.call($, path));
+		return await resolve($, target, preserveSymlinks, extra);
 	} catch {
 		// Go the long way
 	}
 
 	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : (await resolve($, dir)).fullPath;
+	const realDir = dir == '/' ? '/' : (await resolve($, dir, false, extra)).fullPath;
 	const maybePath = join(realDir, base);
 	const resolved = resolveMount(maybePath, $);
 
@@ -62,8 +62,8 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 		return { ...resolved, fullPath: maybePath, stats };
 	}
 
-	const target = resolvePath.call($, realDir, (await readlink.call($, maybePath)).toString());
-	return await resolve($, target);
+	const target = resolvePath.call($, realDir, await readlink.call($, maybePath));
+	return await resolve($, target, false, extra);
 }
 
 /**
@@ -76,7 +76,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 		flag = flags.parse(opt.flag);
 
 	const $ex = { syscall: 'open', path };
-	const { fs, path: resolved, stats } = await resolve($, path.toString(), opt.preserveSymlinks);
+	const { fs, path: resolved, stats } = await resolve($, path, opt.preserveSymlinks, $ex);
 
 	if (!stats) {
 		if (!(flag & constants.O_CREAT)) throw UV('ENOENT', $ex);
@@ -115,11 +115,12 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 export async function readlink(this: V_Context, path: PathLike): Promise<string> {
 	path = normalizePath(path);
 
-	const { fs, stats, path: resolved } = await resolve(this, path, true);
+	const $ex = { syscall: 'readlink', path };
+	const { fs, stats, path: resolved } = await resolve(this, path, true, $ex);
 
-	if (!stats) throw UV('ENOENT', 'readlink', path);
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'readlink', path);
-	if (!isSymbolicLink(stats)) throw UV('EINVAL', 'readlink', path);
+	if (!stats) throw UV('ENOENT', $ex);
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
+	if (!isSymbolicLink(stats)) throw UV('EINVAL', $ex);
 	const size = stats.size;
 	const data = new Uint8Array(size);
 	await fs.read(resolved, data, 0, size);
@@ -131,40 +132,34 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
 	const { mode = 0o777, recursive } = options;
 
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, path: resolved } = resolveMount(path, this, { syscall: 'mkdir' });
 
 	const __create = async (path: string, resolved: string, parent: InodeLike) => {
-		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', dirname(path));
+		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', path);
 
-		const inode = await fs
-			.mkdir(resolved, {
-				mode,
-				uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
-				gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
-			})
-			.catch(rethrow({ syscall: 'mkdir', path }));
+		const inode = await fs.mkdir(resolved, {
+			mode,
+			uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
+			gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
+		});
 		emitChange(this, 'rename', path);
 		return inode;
 	};
 
 	if (!recursive) {
-		await __create(path, resolved, await fs.stat(dirname(resolved)).catch(rethrow({ path: dirname(path) })));
+		await __create(path, resolved, await fs.stat(dirname(resolved)));
 		return;
 	}
 
 	const dirs: [path: string, resolved: string][] = [];
 	let origDir = path;
-	for (
-		let dir = resolved;
-		!(await fs.exists(dir).catch(rethrow({ syscall: 'exists', path: origDir })));
-		dir = dirname(dir), origDir = dirname(origDir)
-	) {
+	for (let dir = resolved; !(await fs.exists(dir)); dir = dirname(dir), origDir = dirname(origDir)) {
 		dirs.unshift([origDir, dir]);
 	}
 
 	if (!dirs.length) return;
 
-	const stats: InodeLike[] = [await fs.stat(dirname(dirs[0][1])).catch(rethrow({ syscall: 'stat', path: dirname(dirs[0][0]) }))];
+	const stats: InodeLike[] = [await fs.stat(dirname(dirs[0][1]))];
 
 	for (const [i, [path, resolved]] of dirs.entries()) {
 		stats.push(await __create(path, resolved, stats[i]));
@@ -175,8 +170,8 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 export async function readdir(this: V_Context, path: PathLike, options: ReaddirOptions = {}): Promise<Dirent[]> {
 	path = normalizePath(path);
 
-	const { fs, path: resolved, stats } = await resolve(this, path);
 	const $ex = { syscall: 'readdir', path };
+	const { fs, path: resolved, stats } = await resolve(this, path, false, $ex);
 
 	if (!stats) throw UV('ENOENT', $ex);
 
@@ -184,13 +179,13 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 
 	if (!isDirectory(stats)) throw UV('ENOTDIR', $ex);
 
-	const entries = await fs.readdir(resolved).catch(rethrow($ex));
+	const entries = await fs.readdir(resolved);
 
 	const values: Dirent[] = [];
 	const addEntry = async (entry: string) => {
-		const entryStats = await fs.stat(join(resolved, entry)).catch((e: Exception): undefined => {
+		const entryStats = await fs.stat(join(resolved, entry)).catch((e: Exception) => {
 			if (e.code == 'ENOENT') return;
-			throw setUVMessage(Object.assign(e, $ex));
+			throw e;
 		});
 
 		if (!entryStats) return;
@@ -204,7 +199,7 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 
 		if (!options.recursive || !isDirectory(entryStats)) return;
 
-		const children = await fs.readdir(join(resolved, entry)).catch(rethrow($ex));
+		const children = await fs.readdir(join(resolved, entry));
 		for (const child of children) await addEntry(join(entry, child));
 	};
 	await Promise.all(entries.map(addEntry));
@@ -215,8 +210,8 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	oldPath = normalizePath(oldPath);
 	newPath = normalizePath(newPath);
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
-	const src = await resolve(this, oldPath, true);
-	const dst = resolveMount(newPath, this);
+	const src = await resolve(this, oldPath, true, $ex);
+	const dst = resolveMount(newPath, this, $ex);
 
 	if (src.fs !== dst.fs) throw UV('EXDEV', $ex);
 	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
@@ -224,11 +219,11 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 
 	const fs = src.fs;
 
-	const oldParent = await fs.stat(dirname(src.path)).catch(rethrow($ex));
-	const newParent = await fs.stat(dirname(dst.path)).catch(rethrow($ex));
+	const oldParent = await fs.stat(dirname(src.path));
+	const newParent = await fs.stat(dirname(dst.path));
 	const newStats = await fs.stat(dst.path).catch((e: Exception) => {
 		if (e.code == 'ENOENT') return null;
-		throw setUVMessage(Object.assign(e, $ex));
+		throw e;
 	});
 
 	if (checkAccess && (!hasAccess(this, oldParent, constants.R_OK) || !hasAccess(this, newParent, constants.W_OK))) throw UV('EACCES', $ex);
@@ -236,7 +231,7 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	if (newStats && !isDirectory(src.stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(src.stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
 
-	await src.fs.rename(src.path, dst.path).catch(rethrow($ex));
+	await src.fs.rename(src.path, dst.path);
 
 	emitChange(this, 'rename', oldPath);
 	emitChange(this, 'change', newPath);
@@ -246,23 +241,23 @@ export async function link(this: V_Context, target: PathLike, link: PathLike): P
 	target = normalizePath(target);
 	link = normalizePath(link);
 
-	const { fs, path: resolved } = resolveMount(target, this);
-	const dst = resolveMount(link, this);
 	const $ex = { syscall: 'link', path: link, dest: target };
+	const { fs, path: resolved } = resolveMount(target, this, $ex);
+	const dst = resolveMount(link, this, $ex);
 
 	if (fs != dst.fs) throw UV('EXDEV', $ex);
 
-	const stats = await fs.stat(resolved).catch(rethrow($ex));
+	const stats = await fs.stat(resolved);
 
 	if (checkAccess) {
 		if (!hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
 
-		const dirStats = await fs.stat(dirname(resolved)).catch(rethrow($ex));
+		const dirStats = await fs.stat(dirname(resolved));
 		if (!hasAccess(this, dirStats, constants.R_OK)) throw UV('EACCES', $ex);
 
-		const destStats = await fs.stat(dirname(dst.path)).catch(rethrow($ex));
+		const destStats = await fs.stat(dirname(dst.path));
 		if (!hasAccess(this, destStats, constants.W_OK)) throw UV('EACCES', $ex);
 	}
 
-	return await fs.link(resolved, dst.path).catch(rethrow($ex));
+	return await fs.link(resolved, dst.path);
 }

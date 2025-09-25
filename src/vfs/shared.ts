@@ -6,14 +6,15 @@ import type { V_Context } from '../context.js';
 import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 
-import { Errno, Exception, UV, withErrno } from 'kerium';
+import { Errno, Exception, UV, withErrno, type ExceptionExtra } from 'kerium';
 import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
+import { size_max } from '../constants.js';
 import { defaultContext } from '../internal/contexts.js';
+import { credentialsAllowRoot } from '../internal/credentials.js';
+import { withExceptionContext } from '../internal/error.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
-import { size_max } from '../constants.js';
-import { credentialsAllowRoot } from '../internal/credentials.js';
 
 /**
  * @internal @hidden
@@ -88,8 +89,9 @@ export interface ResolvedPath extends ResolvedMount {
  * Gets the internal `FileSystem` for the path, then returns it along with the path relative to the FS' root
  * @internal @hidden
  */
-export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
+export function resolveMount(path: string, ctx: V_Context, extra?: ExceptionExtra): ResolvedMount {
 	const root = ctx?.root || defaultContext.root;
+	const _exceptionContext = { path, ...extra };
 	path = normalizePath(join(root, path));
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
@@ -101,7 +103,7 @@ export function resolveMount(path: string, ctx: V_Context): ResolvedMount {
 		if (case_fold === 'lower') path = path.toLowerCase();
 		if (case_fold === 'upper') path = path.toUpperCase();
 
-		return { fs, path, mountPoint, root };
+		return { fs: withExceptionContext(fs, _exceptionContext), path, mountPoint, root };
 	}
 
 	throw alert(new Exception(Errno.EIO, 'No file system for ' + path));
