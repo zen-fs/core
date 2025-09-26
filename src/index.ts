@@ -1,4 +1,8 @@
-// SPDX-License-Identifier: LGPL-3.0-or-later
+/*!
+ * @zenfs/core — https://npmjs.com/package/@zenfs/core
+ * Copyright © James Prevett and other ZenFS contributors.
+ * SPDX-License-Identifier: LGPL-3.0-or-later
+ */
 export * from './backends/index.js';
 export * from './config.js';
 export * from './context.js';
