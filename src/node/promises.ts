@@ -160,10 +160,12 @@ export class FileHandle implements promises.FileHandle {
 			buffer = buffer.buffer;
 		}
 
-		const pos = Number.isSafeInteger(position) ? position! : this.vfs.position;
+		if (position && position > Number.MAX_SAFE_INTEGER) throw UV('EINVAL');
+		if (typeof position == 'bigint') position = Number(position);
+		position = Number.isSafeInteger(position) ? position! : this.vfs.position;
 		buffer ||= new Uint8Array(this.vfs.inode.size) as T;
 		offset ??= 0;
-		const bytesRead = await this.vfs.read(buffer, offset, length ?? buffer.byteLength - offset, pos ? Number(pos) : undefined);
+		const bytesRead = await this.vfs.read(buffer, offset, length ?? buffer.byteLength - offset, position);
 		return { bytesRead, buffer };
 	}
 

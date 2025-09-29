@@ -342,11 +342,9 @@ export function readSync(
 		position = options.position;
 	}
 
-	position = Number(position);
-	if (isNaN(position)) {
-		position = file.position!;
-	}
-
+	if (position && position > Number.MAX_SAFE_INTEGER) throw UV('EINVAL');
+	if (typeof position == 'bigint') position = Number(position);
+	position = Number.isSafeInteger(position) ? position! : file.position;
 	return file.readSync(buffer, offset, length, position);
 }
 readSync satisfies typeof fs.readSync;
