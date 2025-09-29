@@ -16,7 +16,7 @@ import { Exception, rethrow, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
-import { dirname, join, matchesGlob, parse } from '../path.js';
+import { join, matchesGlob, parse } from '../path.js';
 import '../polyfills.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as _async from '../vfs/async.js';

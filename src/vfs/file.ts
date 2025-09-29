@@ -190,7 +190,7 @@ export class Handle {
 		return end - position;
 	}
 
-	public Sync(mode: number): void {
+	public chmodSync(mode: number): void {
 		if (this.closed) throw UV('EBADF', 'chmod', this.path);
 		this.dirty = true;
 		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;

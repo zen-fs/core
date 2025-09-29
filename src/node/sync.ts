@@ -11,7 +11,7 @@ import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory } from '../internal/inode.js';
-import { dirname, join, matchesGlob, parse } from '../path.js';
+import { join, matchesGlob, parse } from '../path.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
@@ -359,7 +359,7 @@ export function fchmodSync(this: V_Context, fd: number, mode: number | string): 
 	if (numMode < 0) {
 		throw new Exception(Errno.EINVAL, `Invalid mode.`);
 	}
-	fromFD(this, fd).Sync(numMode);
+	fromFD(this, fd).chmodSync(numMode);
 }
 fchmodSync satisfies typeof fs.fchmodSync;
 
@@ -462,7 +462,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 
 	using file = _sync.open.call(this, path, { flag: 'wx', mode: 0o644 });
 	file.writeSync(encodeUTF8(normalizePath(target, true)));
-	file.Sync(constants.S_IFLNK);
+	file.chmodSync(constants.S_IFLNK);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
