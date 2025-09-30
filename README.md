@@ -19,7 +19,12 @@ ZenFS supports a number of other backends.
 Many are provided as separate packages under `@zenfs`.
 More backends can be defined by separate libraries by extending the `FileSystem` class and providing a `Backend` object.
 
-You can find all of the packages available over on [NPM](https://www.npmjs.com/org/zenfs).
+You can find all of the packages available over on [NPM](https://www.npmjs.com/org/zenfs). Below is a list of the backends included with some of them:
+
+- @zenfs/archives: `Zip`, `Iso`
+- @zenfs/cloud: `Dropbox`, `GoogleDrive`, `S3Bucket`
+- @zenfs/dom: `WebAccess` (Web [File System API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API)/OPFS), `IndexedDB`, `WebStorage` (`localStorage`/`sessionStorage`), `XML` (DOM elements)
+- @zenfs/emscripten: `Emscripten` and a plugin for Emscripten's file system API
 
 As an added bonus, all ZenFS backends support synchronous operations.
 Additionally, all of the backends included with the core are cross-platform.
