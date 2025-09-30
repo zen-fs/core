@@ -23,7 +23,7 @@ You can find all of the packages available over on [NPM](https://www.npmjs.com/o
 
 - @zenfs/archives: `Zip`, `Iso`
 - @zenfs/cloud: `Dropbox`, `GoogleDrive`, `S3Bucket`
-- @zenfs/dom: `WebAccess` (Web [File System API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API)/OPFS), `IndexedDB`, `WebStorage` (`localStorage`/`sessionStorage`), `XML` (DOM elements)
+- @zenfs/dom: `WebAccess` (Web [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API)/OPFS), `IndexedDB`, `WebStorage` (`localStorage`/`sessionStorage`), `XML` (DOM elements)
 - @zenfs/emscripten: `Emscripten` and a plugin for Emscripten's file system API
 
 As an added bonus, all ZenFS backends support synchronous operations.
