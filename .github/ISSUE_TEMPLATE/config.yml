@@ -1,0 +1,17 @@
+blank_issues_enabled: true
+contact_links:
+    - name: Request a new backend
+      url: https://github.com/orgs/zen-fs/discussions/new?category=ideas
+      about: Suggest a new backend for ZenFS
+
+    - name: I have a Question
+      url: https://github.com/orgs/zen-fs/discussions/new?category=q-a
+      about: Ask a question about ZenFS
+
+    - name: Something else
+      url: https://github.com/orgs/zen-fs/discussions/new?category=general
+      about: Create a discussion for something else
+
+    - name: Discord
+      url: https://zenfs.dev/discord
+      about: Join the Discord server for real-time chat

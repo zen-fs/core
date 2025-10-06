@@ -1,0 +1,24 @@
+name: Feature Request
+description: Request a new feature (or any other enhancement)
+type: Feature
+body:
+    # Maybe later
+    # - type: dropdown
+    #   label: API Scope
+    #   options:
+    #       - Breaking change to existing
+    #       - Non-breaking change to an existing
+    #       - New
+    #       - Change to internal
+    #       - Other
+
+    - type: textarea
+      label: Rationale
+      description: Why is this feature or enhancement *needed*?
+      required: true
+
+    - type: textarea
+      label: API Proposal
+
+    - type: textarea
+      label: Additional context

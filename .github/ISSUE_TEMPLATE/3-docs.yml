@@ -1,0 +1,23 @@
+name: Documentation Problem
+description: Report a problem with the documentation
+labels: ['documentation']
+body:
+    - type: input
+      label: Affected APIs
+      description: What API(s) are affected.
+      placeholder: Backend, Configuration.log, FileHandle.read, etc.
+      required: true
+
+    - type: dropdown
+      label: Reason
+      description: Why is there a problem with the documentation?
+      required: true
+      options:
+          - Completely missing
+          - Conflict with implementation
+          - Grammatical or spelling error
+          - Outdated (e.g. using a removed API)
+          - Other (explain below)
+
+    - type: textarea
+      label: Additional context
