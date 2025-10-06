@@ -2,11 +2,15 @@
 
 This document covers how you can contribute to ZenFS and how to work with the project's tooling.
 
-## Issues and pull requests
+## Discussions, issues and pull requests
 
-When opening an issue, write a short descriptive name for the title. For example, putting the first line of an error stack trace is _not_ a descriptive title. You do not need to triage the issue or PR, a maintainer will give it the applicable tags.
+When opening an issue or discussion, write a short descriptive name for the title. For example, putting the first line of an error stack trace is _not_ a descriptive title. You do not need to triage the issue or PR, a maintainer will give it the applicable tags.
 
 Please copy logs, terminal output, and code into a code block in the issue or PR. Do not include screenshots since those are very difficult to debug.
+
+### Issues vs Discussions
+
+Issues are used to track bugs and features. For anything else you probably want to open a discussion.
 
 ### Bug Reports
 
