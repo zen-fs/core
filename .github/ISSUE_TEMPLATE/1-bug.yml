@@ -20,9 +20,9 @@ body:
 
     - type: textarea
       attributes:
-      label: Minimal reproduction
-      description: 'A [minimal reproducible example](https://en.wikipedia.org/wiki/Minimal_reproducible_example)'
-      render: typescript
+          label: Minimal reproduction
+          description: 'A [minimal reproducible example](https://en.wikipedia.org/wiki/Minimal_reproducible_example)'
+          render: typescript
 
     - type: textarea
       attributes:
