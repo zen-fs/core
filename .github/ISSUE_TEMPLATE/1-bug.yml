@@ -28,7 +28,6 @@ body:
       attributes:
           label: Logs
           description: 'Including logs can be very helpful. [tests/logs.js](https://github.com/zen-fs/core/blob/v2.4.1/tests/logs.js) has a good configuration. See [log.Configuration](https://zenfs.dev/core/interfaces/index.log.Configuration.html) for more info.'
-          render: shell
 
     - type: textarea
       attributes:
