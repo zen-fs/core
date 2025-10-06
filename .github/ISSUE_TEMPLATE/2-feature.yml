@@ -16,7 +16,7 @@ body:
       attributes:
           label: Rationale
           description: Why is this feature or enhancement *needed*?
-      validations::
+      validations:
           required: true
 
     - type: textarea
