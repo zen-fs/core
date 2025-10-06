@@ -13,12 +13,16 @@ body:
     #       - Other
 
     - type: textarea
-      label: Rationale
-      description: Why is this feature or enhancement *needed*?
-      required: true
+      attributes:
+          label: Rationale
+          description: Why is this feature or enhancement *needed*?
+      validations::
+          required: true
 
     - type: textarea
-      label: API Proposal
+      attributes:
+          label: API Proposal
 
     - type: textarea
-      label: Additional context
+      attributes:
+          label: Additional context

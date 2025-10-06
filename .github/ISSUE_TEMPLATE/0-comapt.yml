@@ -3,27 +3,35 @@ description: Report an incompatibility with the Node.js API
 labels: ['compatibility']
 body:
     - type: input
-      label: ZenFS Version
-      description: The latest version the issue occurs on
-      placeholder: 1.2.3
-      required: true
+      attributes:
+          label: ZenFS Version
+          description: The latest version the issue occurs on
+          placeholder: 1.2.3
+      validations:
+          required: true
 
     - type: input
-      label: Node.js Version
-      description: What version of Node.js the incompatibility is with
-      placeholder: 22.0.0
-      required: true
+      attributes:
+          label: Node.js Version
+          description: What version of Node.js the incompatibility is with
+          placeholder: 22.0.0
+      validations:
+          required: true
 
     - type: textarea
-      label: Minimal reproduction
-      description: 'A [minimal reproducible example](https://en.wikipedia.org/wiki/Minimal_reproducible_example)'
-      render: typescript
+      attributes:
+          label: Minimal reproduction
+          description: 'A [minimal reproducible example](https://en.wikipedia.org/wiki/Minimal_reproducible_example)'
+          render: typescript
 
     - type: textarea
-      label: Node.js' behavior
+      attributes:
+          label: Node.js' behavior
 
     - type: textarea
-      label: ZenFS' behavior
+      attributes:
+          label: ZenFS' behavior
 
     - type: textarea
-      label: Additional context
+      attributes:
+          label: Additional context

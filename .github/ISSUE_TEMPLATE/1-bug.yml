@@ -3,32 +3,41 @@ description: Report a bug
 type: Bug
 body:
     - type: input
-      label: '@zenfs/core version'
-      description: The latest version of @zenfs/core the issue occurs on. You can also put a commit hash here for bugs with unreleased code.
-      placeholder: 1.2.3
-      required: true
+      attributes:
+          label: '@zenfs/core version'
+          description: The latest version of @zenfs/core the issue occurs on. You can also put a commit hash here for bugs with unreleased code.
+          placeholder: 1.2.3
+      validations:
+          required: true
 
     - type: input
-      label: Host
-      description: What [host(s)](https://262.ecma-international.org/#host) the issue occurs on
-      placeholder: Node.js 22.0.0, Chrome 121, etc.
-      required: true
+      attributes:
+          label: Host
+          description: What [host(s)](https://262.ecma-international.org/#host) the issue occurs on
+          placeholder: Node.js 22.0.0, Chrome 121, etc.
+      validations:
+          required: true
 
     - type: textarea
+      attributes:
       label: Minimal reproduction
       description: 'A [minimal reproducible example](https://en.wikipedia.org/wiki/Minimal_reproducible_example)'
       render: typescript
 
     - type: textarea
-      label: Logs
-      description: 'Including logs can be very helpful. [tests/logs.js](https://github.com/zen-fs/core/blob/v2.4.1/tests/logs.js) has a good configuration. See [log.Configuration](https://zenfs.dev/core/interfaces/index.log.Configuration.html) for more info.'
-      render: shell
+      attributes:
+          label: Logs
+          description: 'Including logs can be very helpful. [tests/logs.js](https://github.com/zen-fs/core/blob/v2.4.1/tests/logs.js) has a good configuration. See [log.Configuration](https://zenfs.dev/core/interfaces/index.log.Configuration.html) for more info.'
+          render: shell
 
     - type: textarea
-      label: Expected behavior
+      attributes:
+          label: Expected behavior
 
     - type: textarea
-      label: Actual behavior
+      attributes:
+          label: Actual behavior
 
     - type: textarea
-      label: Additional context
+      attributes:
+          label: Additional context
