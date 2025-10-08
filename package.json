@@ -75,7 +75,7 @@
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
 		"kerium": "^1.3.4",
-		"memium": "^0.3.7",
+		"memium": "^0.3.10",
 		"readable-stream": "^4.5.2",
 		"utilium": "^2.5.0"
 	},
