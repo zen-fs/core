@@ -11,6 +11,7 @@ export * from './mixins/index.js';
 export * from './utils.js';
 export { mounts } from './vfs/shared.js';
 import * as fs from './node/compat.js';
+/** @primaryExport */
 export { fs };
 export default fs;
 export * from './node/compat.js';
