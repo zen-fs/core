@@ -18,7 +18,8 @@
 		"entryPoints": ["./src/index.ts"],
 		"name": "ZenFS",
 		"out": "docs",
-		"plugin": ["utilium/typedoc-no-ref"],
-		"projectDocuments": ["documentation/*.md", "readme.md"]
+		"plugin": [],
+		"projectDocuments": ["documentation/*.md", "readme.md"],
+		"excludeReferences": true
 	}
 }
