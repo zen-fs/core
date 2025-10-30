@@ -92,6 +92,8 @@
                                         ln -s "$(which dash)" "$HOME/.local/bin/sh" 2>/dev/null
                                         
                                         # without this npm (from nix) will not keep a reliable cache (it'll be outside of the xome home)
+                                        export npm_config_cache="$HOME/.cache/npm"
+                                        
                                         if ! [ -d "node_modules" ]
                                         then
                                             printf "\n\nI don't see node modules, want me to install them (default=yes)? [y/n]\n";answer=""
@@ -110,10 +112,7 @@
                                                 echo "skipping"
                                             fi
                                         fi
-                                        export npm_config_cache="$HOME/.cache/npm"
                                         
-                                        # this enables some impure stuff like sudo, comment it out to get FULL purity
-                                        # export PATH="$PATH:/usr/bin/"
                                         echo
                                         echo "NOTE: if you want to use sudo/git/vim/etc (anything impure) do: sys <that command>"
                                     '';
