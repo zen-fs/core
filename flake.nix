@@ -27,10 +27,6 @@
                 inputPackages = [
                     pkgs.nodejs
                     pkgs.cacert # needed for installing npm packages
-                    pkgs.corepack
-                    pkgs.yarn
-                    pkgs.esbuild
-                    pkgs.graphviz # used for visualizing circular dependencies (e.g. debugging only)
                     pkgs.nodePackages.typescript
                     pkgs.nodePackages.prettier
                 ];
@@ -107,7 +103,7 @@
                                             done
                                             
                                             if [ "$answer" = 'yes' ]; then
-                                                yarn install
+                                                npm install
                                             else
                                                 echo "skipping"
                                             fi
