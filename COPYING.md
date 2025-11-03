@@ -6,8 +6,7 @@ Regarding section 4(b) of version 3 of the LGPL, you are permitted to link to a 
 
 #### Exception for web applications
 
-You are permitted to convey the Combined Work without meeting the requirements of section 4(d) of version 3 of the LGPL,
-if
+You are permitted to convey the Combined Work without meeting the requirements of section 4(d) of version 3 of the LGPL if
 
 - a) the Combined Work is only accessed by users from other computers over a network (i.e. a web application or website), and
 - b) you also provide the [Corresponding Source](https://www.gnu.org/licenses/gpl-3.0.html#:~:text=“Corresponding%20Source”) of The Library or an offer thereof.
