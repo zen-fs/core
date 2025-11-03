@@ -14,5 +14,3 @@ jobs:
         name: Release
         uses: ./.github/workflows/release-common.yaml
         needs: ci
-        secrets:
-            npm_token: ${{ secrets.npm_token }}

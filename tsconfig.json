@@ -18,7 +18,6 @@
 		"entryPoints": ["./src/index.ts"],
 		"name": "ZenFS",
 		"out": "docs",
-		"plugin": [],
 		"projectDocuments": ["documentation/*.md", "readme.md"],
 		"excludeReferences": true
 	}

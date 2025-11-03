@@ -1,9 +1,7 @@
 name: Release
 on:
     workflow_call:
-        secrets:
-            npm_token:
-                required: true
+
 jobs:
     release:
         name: Publish
@@ -12,12 +10,12 @@ jobs:
             id-token: write
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
             - name: Setup npm authentication
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
-                  node-version: 22
+                  node-version: latest
                   registry-url: https://registry.npmjs.org/
 
             - name: Install dependencies
@@ -28,5 +26,3 @@ jobs:
 
             - name: Publish
               run: npm publish --access=public --provenance
-              env:
-                  NODE_AUTH_TOKEN: ${{secrets.npm_token}}
