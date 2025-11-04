@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
-import { alert, crit, err, warn } from 'kerium/log';
+import { alert, crit, debug, err, warn } from 'kerium/log';
 import type { ArrayOf } from 'memium';
 import { array, offsetof, sizeof } from 'memium';
 import { $from, field, struct, types as t } from 'memium/decorators';
@@ -16,6 +16,8 @@ import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 import type { Store } from './store/store.js';
 
 type Lock = Disposable & (() => void);
+
+const hex = (value: number): string => '0x' + value.toString(16).padStart(8, '0');
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const { format } = new Intl.NumberFormat('en-US', {
@@ -40,7 +42,7 @@ class MetadataEntry extends $from(BufferView) {
 	@t.uint32 accessor size!: number;
 
 	public toString() {
-		return `<MetadataEntry @ 0x${this.byteOffset.toString(16).padStart(8, '0')}>`;
+		return `<MetadataEntry @ ${hex(this.byteOffset)}>`;
 	}
 }
 
@@ -83,27 +85,23 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 		return this._previous;
 	}
 
-	protected get offsetHex(): string {
-		return '0x' + this.byteOffset.toString(16).padStart(8, '0');
-	}
-
 	/** Metadata entries. */
 	@field(array(MetadataEntry, entries_per_block)) accessor items!: ArrayOf<MetadataEntry>;
 
 	public toString(long: boolean = false): string {
-		if (!long) return `<MetadataBlock @ ${this.offsetHex}>`;
+		if (!long) return `<MetadataBlock @ ${hex(this.byteOffset)}>`;
 
 		let text = [
-			`---- Metadata block at ${this.offsetHex} ----`,
-			`Checksum: 0x${this.checksum.toString(16).padStart(8, '0')}`,
+			`---- Metadata block at ${hex(this.byteOffset)} ----`,
+			`Checksum: ${hex(this.checksum)}`,
 			`Last updated: ${new Date(Number(this.timestamp)).toLocaleString()}`,
-			`Previous block: 0x${this.previous_offset.toString(16).padStart(8, '0')}`,
+			`Previous block: ${hex(this.previous_offset)}`,
 			'Entries:',
 		].join('\n');
 
 		for (const entry of this.items) {
 			if (!entry.offset) continue;
-			text += `\n\t0x${entry.id.toString(16).padStart(8, '0')}: ${format(entry.size).padStart(5)} at 0x${entry.offset.toString(16).padStart(8, '0')}`;
+			text += `\n\t${hex(entry.id)}: ${format(entry.size).padStart(5)} at ${hex(entry.offset)}`;
 		}
 
 		return text;
@@ -120,7 +118,7 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 	 */
 	public waitUnlocked(depth: number = 0): void {
 		if (depth > max_lock_attempts)
-			throw crit(withErrno('EBUSY', `sbfs: exceeded max attempts waiting for metadata block at ${this.offsetHex} to be unlocked`));
+			throw crit(withErrno('EBUSY', `sbfs: exceeded max attempts waiting for metadata block at ${hex(this.byteOffset)} to be unlocked`));
 
 		const i = this.length - 1;
 		if (!Atomics.load(this, i)) return;
@@ -129,10 +127,10 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 				break;
 			case 'not-equal':
 				depth++;
-				err(`sbfs: waiting for metadata block at ${this.offsetHex} to be unlocked (${depth}/${max_lock_attempts})`);
+				err(`sbfs: waiting for metadata block at ${hex(this.byteOffset)} to be unlocked (${depth}/${max_lock_attempts})`);
 				return this.waitUnlocked(depth);
 			case 'timed-out':
-				throw crit(withErrno('EBUSY', `sbfs: timed out waiting for metadata block at ${this.offsetHex} to be unlocked`));
+				throw crit(withErrno('EBUSY', `sbfs: timed out waiting for metadata block at ${hex(this.byteOffset)} to be unlocked`));
 		}
 	}
 
@@ -198,7 +196,7 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 			throw crit(
 				withErrno(
 					'EIO',
-					`sbfs: checksum mismatch for metadata block (saved ${this.metadata.checksum.toString(16).padStart(8, '0')}, computed ${checksum(this.metadata).toString(16).padStart(8, '0')})`
+					`sbfs: checksum mismatch for metadata block (saved ${hex(this.metadata.checksum)}, computed ${hex(checksum(this.metadata))})`
 				)
 			);
 
@@ -272,6 +270,8 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 		this.metadata_offset = metadata.byteOffset;
 		_update(metadata);
 		_update(this);
+
+		debug(`sbfs: rotated metadata block at ${hex(metadata.previous_offset)} with new block at ${hex(offset)}`);
 
 		return metadata;
 	}
