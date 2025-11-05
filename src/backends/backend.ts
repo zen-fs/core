@@ -23,7 +23,7 @@ type OptionType =
  * @category Backends and Configuration
  */
 export type OptionsConfig<T> = {
-	[K in keyof T]: {
+	[K in Exclude<keyof T, keyof SharedConfig>]: {
 		/**
 		 * The type of the option. Can be a:
 		 * - string given by `typeof`
