@@ -78,7 +78,7 @@ await suite('SingleBuffer', () => {
 
 		try {
 			for (const size of growthSizes) {
-				const payload = size ? randomBytes(size) : Buffer.alloc(0);
+				const payload = size ? randomBytes(size) : new Uint8Array();
 				fs.writeFileSync(filePath, payload);
 				const direct = fs.readFileSync(filePath);
 				assert.strictEqual(direct.byteLength, size, `direct size mismatch for ${size} bytes`);
@@ -87,7 +87,7 @@ await suite('SingleBuffer', () => {
 			}
 
 			for (const size of shrinkSizes) {
-				const payload = size ? randomBytes(size) : Buffer.alloc(0);
+				const payload = size ? randomBytes(size) : new Uint8Array();
 				fs.writeFileSync(filePath, payload);
 				const direct = fs.readFileSync(filePath);
 				assert.strictEqual(direct.byteLength, size, `direct size mismatch after shrink to ${size} bytes`);
