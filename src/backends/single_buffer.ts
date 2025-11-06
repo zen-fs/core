@@ -65,6 +65,8 @@ const max_lock_attempts = 5;
 export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof MetadataBlock;
 
+	private static readonly lockIndex = offsetof(MetadataBlock, 'locked') / Int32Array.BYTES_PER_ELEMENT;
+
 	/**
 	 * The crc32c checksum for the metadata block.
 	 * @privateRemarks Keep this first!
@@ -120,9 +122,8 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 		if (depth > max_lock_attempts)
 			throw crit(withErrno('EBUSY', `sbfs: exceeded max attempts waiting for metadata block at ${hex(this.byteOffset)} to be unlocked`));
 
-		const i = this.length - 1;
-		if (!Atomics.load(this, i)) return;
-		switch (Atomics.wait(this, i, 1)) {
+		if (!Atomics.load(this, MetadataBlock.lockIndex)) return;
+		switch (Atomics.wait(this, MetadataBlock.lockIndex, 1)) {
 			case 'ok':
 				break;
 			case 'not-equal':
@@ -137,12 +138,11 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 	public lock(): Lock {
 		this.waitUnlocked();
 
-		const i = offsetof(this, 'locked');
-		Atomics.store(this, i, 1);
+		Atomics.store(this, MetadataBlock.lockIndex, 1);
 
 		const release = () => {
-			Atomics.store(this, i, 0);
-			Atomics.notify(this, i, 1);
+			Atomics.store(this, MetadataBlock.lockIndex, 0);
+			Atomics.notify(this, MetadataBlock.lockIndex, 1);
 		};
 
 		release[Symbol.dispose] = release;
@@ -310,7 +310,9 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
  * Note we don't include the checksum when computing a new one.
  */
 function checksum(value: SuperBlock | MetadataBlock): number {
-	return crc32c(new Uint8Array(value.buffer, value.byteOffset + 4, sizeof(value) - 4));
+	let length = sizeof(value) - 4;
+	if (value instanceof MetadataBlock) length -= Int32Array.BYTES_PER_ELEMENT;
+	return crc32c(new Uint8Array(value.buffer, value.byteOffset + 4, length));
 }
 
 /**
