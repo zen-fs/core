@@ -65,7 +65,7 @@ const max_lock_attempts = 5;
 export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 	declare readonly ['constructor']: typeof MetadataBlock;
 
-	private static readonly lockIndex = Math.floor(offsetof(MetadataBlock, 'locked') / Int32Array.BYTES_PER_ELEMENT);
+	private static readonly lockIndex = offsetof(MetadataBlock, 'locked') / Int32Array.BYTES_PER_ELEMENT;
 
 	/**
 	 * The crc32c checksum for the metadata block.
