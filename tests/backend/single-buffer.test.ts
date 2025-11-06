@@ -65,8 +65,7 @@ await suite('SingleBuffer', () => {
 		const shrinkSizes = [262144, 4096, 128, 0];
 
 		const verifySnapshot = async (expected: Buffer, size: number) => {
-			const snapshotFs = await resolveMountConfig({ backend: SingleBuffer, buffer });
-			mount(verifyMountPoint, snapshotFs);
+			mount(verifyMountPoint, writable);
 			try {
 				const reopened = fs.readFileSync(`${verifyMountPoint}/payload.bin`);
 				assert.strictEqual(reopened.byteLength, size, `snapshot size mismatch for ${size} bytes`);
@@ -78,7 +77,7 @@ await suite('SingleBuffer', () => {
 
 		try {
 			for (const size of growthSizes) {
-				const payload = size ? randomBytes(size) : new Uint8Array();
+				const payload = size ? randomBytes(size) : Buffer.alloc(0);
 				fs.writeFileSync(filePath, payload);
 				const direct = fs.readFileSync(filePath);
 				assert.strictEqual(direct.byteLength, size, `direct size mismatch for ${size} bytes`);
@@ -87,7 +86,7 @@ await suite('SingleBuffer', () => {
 			}
 
 			for (const size of shrinkSizes) {
-				const payload = size ? randomBytes(size) : new Uint8Array();
+				const payload = size ? randomBytes(size) : Buffer.alloc(0);
 				fs.writeFileSync(filePath, payload);
 				const direct = fs.readFileSync(filePath);
 				assert.strictEqual(direct.byteLength, size, `direct size mismatch after shrink to ${size} bytes`);
