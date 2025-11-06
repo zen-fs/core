@@ -122,9 +122,8 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 		if (depth > max_lock_attempts)
 			throw crit(withErrno('EBUSY', `sbfs: exceeded max attempts waiting for metadata block at ${hex(this.byteOffset)} to be unlocked`));
 
-		const index = MetadataBlock.lockIndex;
-		if (!Atomics.load(this, index)) return;
-		switch (Atomics.wait(this, index, 1)) {
+		if (!Atomics.load(this, MetadataBlock.lockIndex)) return;
+		switch (Atomics.wait(this, MetadataBlock.lockIndex, 1)) {
 			case 'ok':
 				break;
 			case 'not-equal':
@@ -139,12 +138,11 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 	public lock(): Lock {
 		this.waitUnlocked();
 
-		const index = MetadataBlock.lockIndex;
-		Atomics.store(this, index, 1);
+		Atomics.store(this, MetadataBlock.lockIndex, 1);
 
 		const release = () => {
-			Atomics.store(this, index, 0);
-			Atomics.notify(this, index, 1);
+			Atomics.store(this, MetadataBlock.lockIndex, 0);
+			Atomics.notify(this, MetadataBlock.lockIndex, 1);
 		};
 
 		release[Symbol.dispose] = release;
