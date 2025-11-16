@@ -6,6 +6,7 @@ import { createCredentials } from './internal/credentials.js';
 import * as path from './path.js';
 import * as fs from './node/index.js';
 import * as xattr from './vfs/xattr.js';
+import { UV, withErrno } from 'kerium';
 
 export type { BoundContext, ContextInit, FSContext, V_Context };
 
@@ -29,6 +30,8 @@ export function bindContext(
 	{ root = this?.root || '/', pwd = this?.pwd || '/', credentials = structuredClone(defaultContext.credentials) }: ContextInit = {}
 ): BoundContext {
 	const parent = this ?? defaultContext;
+
+	if (!fs.statSync.call<typeof this, [string], fs.Stats>(this, root).isDirectory()) throw UV('ENOTDIR', { syscall: 'chroot', path: root });
 
 	const ctx: FSContext & { parent: FSContext } = {
 		id: _nextId++,
