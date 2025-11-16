@@ -54,7 +54,7 @@ Contexts (`FSContext`/`BoundContext`) in ZenFS define isolated execution environ
 ```ts
 import { bindContext, fs } from '@zenfs/core';
 
-const ctx = bindContext('/secure', { uid: 333, gid: 333 });
+const ctx = bindContext({ root: '/secure', uid: 333, gid: 333 });
 
 ctx.writeFileSync('/data.txt', 'Restricted Access');
 
