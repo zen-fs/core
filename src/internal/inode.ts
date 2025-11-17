@@ -5,9 +5,9 @@ import { sizeof } from 'memium';
 import { $from, field, struct, types as t } from 'memium/decorators';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
 import { BufferView } from 'utilium/buffer.js';
-import { Stats } from '../node/stats.js';
 import * as c from '../constants.js';
-import { defaultContext, type V_Context } from './contexts.js';
+import { Stats } from '../node/stats.js';
+import { contextOf, type V_Context } from './contexts.js';
 
 /**
  * Root inode
@@ -483,7 +483,7 @@ export function isFIFO(metadata: { mode: number }): boolean {
  * @internal
  */
 export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 'gid'>, access: number): boolean {
-	const credentials = $?.credentials || defaultContext.credentials;
+	const { credentials } = contextOf($);
 
 	if (isSymbolicLink(inode) || credentials.euid === 0 || credentials.egid === 0) return true;
 

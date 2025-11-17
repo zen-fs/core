@@ -6,7 +6,7 @@ import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './
 import { setUVMessage, UV, type Exception, type ExceptionExtra } from 'kerium';
 import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
-import { defaultContext } from '../internal/contexts.js';
+import { contextOf } from '../internal/contexts.js';
 import { hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
@@ -89,7 +89,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 
 		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
 
-		const { euid: uid, egid: gid } = $?.credentials ?? defaultContext.credentials;
+		const { euid: uid, egid: gid } = contextOf($).credentials;
 
 		const inode = await fs.createFile(resolved, {
 			mode,
@@ -129,7 +129,7 @@ export async function readlink(this: V_Context, path: PathLike): Promise<string>
 
 export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {}): Promise<string | void> {
 	path = normalizePath(path);
-	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
+	const { euid: uid, egid: gid } = contextOf(this).credentials;
 	const { mode = 0o777, recursive } = options;
 
 	const { fs, path: resolved } = resolveMount(path, this, { syscall: 'mkdir' });
