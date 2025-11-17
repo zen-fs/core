@@ -60,8 +60,7 @@ suite('Context', () => {
 		await promise;
 	});
 
-	test('Path resolution of / with context root and mount point being the same', async () => {
-		// @zenfs/core#226
+	test('Path resolution of / with context root and mount point being the same #226', async () => {
 		await configure({
 			mounts: { '/bananas': InMemory },
 		});
@@ -73,8 +72,7 @@ suite('Context', () => {
 		assert.deepEqual(bananas.fs.readdirSync('/'), ['yellow']);
 	});
 
-	test('Different working directory', { todo: true }, () => {
-		// @zenfs/core#263
+	test('Different working directory #263', () => {
 		ctx.mkdirSync('/test');
 		context.pwd = '/test';
 

@@ -70,8 +70,7 @@ suite('read', () => {
 		assert.equal(bytesRead, expected.length);
 	});
 
-	test('read using callback API', async () => {
-		// @zenfs/core#239
+	test('read using callback API #239', async () => {
 		const path = '/text.txt';
 
 		fs.writeFileSync(path, 'hello world');

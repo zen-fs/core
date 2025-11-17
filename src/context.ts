@@ -28,8 +28,7 @@ export function bindContext(this: V_Context, init: ContextInit = {}): BoundConte
 
 	const ctx = createChildContext($, init);
 
-	const bound = {
-		...ctx,
+	const bound = Object.assign(ctx, {
 		fs: {
 			...bindFunctions(fs, ctx),
 			promises: bindFunctions(fs.promises, ctx),
@@ -41,7 +40,7 @@ export function bindContext(this: V_Context, init: ContextInit = {}): BoundConte
 			ctx.children.push(child);
 			return child;
 		},
-	} satisfies BoundContext;
+	}) satisfies BoundContext;
 
 	boundContexts.set(ctx.id, bound);
 

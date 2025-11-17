@@ -347,7 +347,8 @@ export function format(pathObject: ParsedPath): string {
 }
 
 export function parse(path: string): ParsedPath {
-	const isAbsolute = path.startsWith('/');
+	const isAbsolute = path[0] === '/';
+
 	const ret = { root: isAbsolute ? '/' : '', dir: '', base: '', ext: '', name: '' };
 	if (path.length === 0) return ret;
 

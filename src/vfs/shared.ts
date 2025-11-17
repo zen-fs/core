@@ -92,7 +92,8 @@ export interface ResolvedPath extends ResolvedMount {
 export function resolveMount(path: string, ctx: V_Context, extra?: ExceptionExtra): ResolvedMount {
 	const { root } = contextOf(ctx);
 	const _exceptionContext = { path, ...extra };
-	path = normalizePath(join(root, path));
+	path = normalizePath(join(root, path), true);
+	path = resolve.call(ctx, path);
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.

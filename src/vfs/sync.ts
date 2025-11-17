@@ -25,6 +25,7 @@ import { emitChange } from './watchers.js';
  * @internal @hidden
  */
 export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, extra?: ExceptionExtra): ResolvedPath {
+	path = resolvePath.call($, path);
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
 	try {

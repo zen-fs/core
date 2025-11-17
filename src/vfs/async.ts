@@ -23,6 +23,8 @@ import { emitChange } from './watchers.js';
  * @internal @hidden
  */
 export async function resolve($: V_Context, path: string, preserveSymlinks?: boolean, extra?: ExceptionExtra): Promise<ResolvedPath> {
+	path = resolvePath.call($, path);
+
 	if (preserveSymlinks) {
 		const resolved = resolveMount(path, $, extra);
 		const stats = await resolved.fs.stat(resolved.path).catch(() => undefined);
