@@ -163,6 +163,19 @@ fs.umount('/mnt/zip'); // finished using the zip
 
 ZenFS includes support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. Check out the [Devices and Device Drivers](https://zenfs.dev/core/documents/Devices_and_Device_Drivers) documentation for more information.
 
+## `node:*` emulation
+
+ZenFS also includes emulation of some other `node:` modules for various reasons, importable from `@zenfs/core/<name>`:
+
+- `node:path`
+- `node:readline`
+
+For example:
+
+```ts
+import * as path from '@zenfs/core/path';
+```
+
 ## Bundling
 
 ZenFS exports a drop-in for Node's `fs` module, so you can use it for your bundler of preference using the default export.
