@@ -7,8 +7,9 @@ import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js'
 import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import { DeviceFS } from './internal/devices.js';
-import { FileSystem } from './internal/filesystem.js';
+import { FileSystem, ensureReadySync } from './internal/filesystem.js';
 import { exists, mkdir, stat } from './node/promises.js';
+import { existsSync, mkdirSync, statSync } from './node/sync.js';
 import { _setAccessChecks } from './vfs/config.js';
 import { mount, mounts, umount } from './vfs/shared.js';
 
@@ -29,6 +30,10 @@ export type MountConfiguration<T extends Backend> = FilesystemOf<T> | BackendCon
 
 function isMountConfig<T extends Backend>(arg: unknown): arg is MountConfiguration<T> {
 	return isBackendConfig(arg) || isBackend(arg) || arg instanceof FileSystem;
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+	return typeof (value as PromiseLike<unknown>)?.then == 'function';
 }
 
 /**
@@ -78,6 +83,60 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	configureFileSystem(mount, configuration);
 	await mount.ready();
 	return mount;
+}
+
+export function resolveMountConfigSync<T extends Backend>(configuration: MountConfiguration<T>, _depth = 0): FilesystemOf<T> {
+	if (typeof configuration !== 'object' || configuration == null) {
+		throw log.err(withErrno('EINVAL', 'Invalid options on mount configuration'));
+	}
+
+	if (!isMountConfig(configuration)) {
+		throw log.err(withErrno('EINVAL', 'Invalid mount configuration'));
+	}
+
+	if (configuration instanceof FileSystem) {
+		ensureReadySync(configuration);
+		return configuration as FilesystemOf<T>;
+	}
+
+	if (isBackend(configuration)) {
+		configuration = { backend: configuration } as BackendConfiguration<T>;
+	}
+
+	for (const [key, value] of Object.entries(configuration)) {
+		if (key == 'backend') continue;
+		if (!isMountConfig(value)) continue;
+
+		log.info('Resolving nested mount configuration: ' + key);
+
+		if (_depth > 10) {
+			throw log.err(withErrno('EINVAL', 'Invalid configuration, too deep and possibly infinite'));
+		}
+
+		(configuration as Record<string, FileSystem>)[key] = resolveMountConfigSync(value, ++_depth);
+	}
+
+	const { backend } = configuration;
+
+	if (typeof backend.isAvailable == 'function') {
+		const available = backend.isAvailable(configuration as any);
+		if (isThenable(available)) {
+			throw log.err(withErrno('ENOTSUP', 'Backend availability check is asynchronous: ' + backend.name));
+		}
+		if (!available) {
+			throw log.err(withErrno('EPERM', 'Backend not available: ' + backend.name));
+		}
+	}
+
+	checkOptions(backend, configuration);
+	const mountFs = backend.create(configuration);
+	if (isThenable(mountFs)) {
+		throw log.err(withErrno('ENOTSUP', 'Backend requires asynchronous initialization: ' + backend.name));
+	}
+	const resolved = mountFs as FilesystemOf<T>;
+	configureFileSystem(resolved, configuration);
+	ensureReadySync(resolved);
+	return resolved;
 }
 
 /**
@@ -160,6 +219,16 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
 	mount('/', resolved);
 }
 
+export function configureSingleSync<T extends Backend>(configuration: MountConfiguration<T>): void {
+	if (!isMountConfig(configuration)) {
+		throw new TypeError('Invalid single mount point configuration');
+	}
+
+	const resolved = resolveMountConfigSync(configuration);
+	umount('/');
+	mount('/', resolved);
+}
+
 /**
  * Like `fs.mount`, but it also creates missing directories.
  * @privateRemarks
@@ -175,6 +244,27 @@ async function mountWithMkdir(path: string, fs: FileSystem): Promise<void> {
 	const stats = await stat(path).catch(() => null);
 	if (!stats) {
 		await mkdir(path, { recursive: true });
+	} else if (!stats.isDirectory()) {
+		throw withErrno('ENOTDIR', 'Missing directory at mount point: ' + path);
+	}
+	mount(path, fs);
+}
+
+function mountWithMkdirSync(path: string, fs: FileSystem): void {
+	if (path == '/') {
+		mount(path, fs);
+		return;
+	}
+
+	let stats: { isDirectory(): boolean } | null = null;
+	try {
+		stats = statSync(path);
+	} catch (error: any) {
+		if (error?.code != 'ENOENT') throw error;
+	}
+
+	if (!stats) {
+		mkdirSync(path, { recursive: true });
 	} else if (!stats.isDirectory()) {
 		throw withErrno('ENOTDIR', 'Missing directory at mount point: ' + path);
 	}
@@ -243,6 +333,57 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 				const stats = await stat(dir);
 				if (!stats.isDirectory()) log.warn('Default directory exists but is not a directory: ' + dir);
 			} else await mkdir(dir);
+		}
+	}
+}
+
+export function configureSync<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): void {
+	Object.assign(
+		defaultContext.credentials,
+		createCredentials({
+			uid: configuration.uid || 0,
+			gid: configuration.gid || 0,
+		})
+	);
+
+	_setAccessChecks(!configuration.disableAccessChecks);
+
+	if (configuration.log) log.configure(configuration.log);
+
+	if (configuration.mounts) {
+		for (const [_point, mountConfig] of Object.entries(configuration.mounts).sort(([a], [b]) => (a.length > b.length ? 1 : -1))) {
+			const point = _point.startsWith('/') ? _point : '/' + _point;
+
+			if (isBackendConfig(mountConfig)) {
+				mountConfig.disableAsyncCache ??= configuration.disableAsyncCache || false;
+				mountConfig.caseFold ??= configuration.caseFold;
+			}
+
+			if (point == '/') umount('/');
+
+			mountWithMkdirSync(point, resolveMountConfigSync(mountConfig));
+		}
+	}
+
+	for (const fs of mounts.values()) {
+		configureFileSystem(fs, configuration);
+	}
+
+	if (configuration.addDevices && !mounts.has('/dev')) {
+		const devfs = new DeviceFS();
+		devfs.addDefaults();
+		ensureReadySync(devfs);
+		mountWithMkdirSync('/dev', devfs);
+	}
+
+	if (configuration.defaultDirectories) {
+		for (const dir of _defaultDirectories) {
+			if (existsSync(dir)) {
+				const stats = statSync(dir);
+				if (!stats.isDirectory()) log.warn('Default directory exists but is not a directory: ' + dir);
+				continue;
+			}
+			mkdirSync(dir);
 		}
 	}
 }

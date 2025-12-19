@@ -22,6 +22,22 @@ await configure({
 });
 ```
 
+If your application runs entirely synchronously (for example, during early Node.js bootstrap), you can use `configureSync` instead. It follows the same shape as `configure`, but it throws if any backend requires asynchronous initialization.
+
+```ts
+import { configureSync, InMemory } from '@zenfs/core';
+
+configureSync({
+	mounts: {
+		'/tmp': { backend: InMemory, label: 'temp-storage' },
+	},
+});
+```
+
+Backends that do all their work eagerly, such as `InMemory` and `SingleBuffer`, are designed to work with these synchronous configuration helpers.
+
+For single-mount scenarios there are matching helpers: use `configureSingle` (or `configureSingleSync`) to replace the root mount without providing a full configuration object.
+
 ## Mounting File Systems and `resolveMountConfig`
 
 Mounting file systems in ZenFS is handled dynamically. When a mount configuration is provided, it is processed using `resolveMountConfig`, which determines how the backend should be initialized and mounted.
@@ -38,6 +54,8 @@ const tmpfs = await resolveMountConfig({
 
 mount('/mnt/tmp', tmpfs);
 ```
+
+When dealing exclusively with synchronous backends, you can call `resolveMountConfigSync`. It performs the same validation, but it throws if a backend performs any asynchronous work during creation or readiness.
 
 ### Dynamic Mounting
 
