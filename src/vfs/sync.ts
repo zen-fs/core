@@ -7,7 +7,7 @@ import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './
 import { setUVMessage, UV, type ExceptionExtra } from 'kerium';
 import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
-import { defaultContext } from '../internal/contexts.js';
+import { contextOf } from '../internal/contexts.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
@@ -25,6 +25,7 @@ import { emitChange } from './watchers.js';
  * @internal @hidden
  */
 export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, extra?: ExceptionExtra): ResolvedPath {
+	path = resolvePath.call($, path);
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
 	try {
@@ -104,7 +105,7 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 			throw UV('EACCES', 'open', path);
 		}
 
-		const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
+		const { euid: uid, egid: gid } = contextOf(this).credentials;
 		const inode = fs.createFileSync(resolved, {
 			mode,
 			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
@@ -146,7 +147,7 @@ export function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {
 	path = normalizePath(path);
 	const { fs, path: resolved } = resolve(this, path);
 
-	const { euid: uid, egid: gid } = this?.credentials ?? defaultContext.credentials;
+	const { euid: uid, egid: gid } = contextOf(this).credentials;
 
 	const { mode = 0o777, recursive } = options;
 

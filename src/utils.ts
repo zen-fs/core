@@ -4,6 +4,7 @@ import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';
 import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
 import { resolve } from './path.js';
+import type { V_Context } from './internal/contexts.js';
 
 declare global {
 	function atob(data: string): string;
@@ -67,8 +68,9 @@ export function normalizeTime(time: fs.TimeLike): number {
 /**
  * Normalizes a path
  * @internal
+ * @todo clean this up and make it so `path.resolve` is only called when an explicit context is passed (i.e. `normalizePath(..., $)` to use `path.resolve`)
  */
-export function normalizePath(p: fs.PathLike, noResolve: boolean = false): string {
+export function normalizePath(this: V_Context, p: fs.PathLike, noResolve: boolean = false): string {
 	if (p instanceof URL) {
 		if (p.protocol != 'file:') throw withErrno('EINVAL', 'URLs must use the file: protocol');
 		p = p.pathname;
@@ -80,7 +82,7 @@ export function normalizePath(p: fs.PathLike, noResolve: boolean = false): strin
 	p = p.replaceAll(/[/\\]+/g, '/');
 
 	// Note: PWD is not resolved here, it is resolved later.
-	return noResolve ? p : resolve(p);
+	return noResolve ? p : resolve.call(this, p);
 }
 
 /**

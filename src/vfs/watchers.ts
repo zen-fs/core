@@ -5,10 +5,11 @@ import type { V_Context } from '../context.js';
 
 import { EventEmitter } from 'eventemitter3';
 import { UV } from 'kerium';
-import { basename, dirname, join, relative } from '../path.js';
-import { normalizePath } from '../utils.js';
+import { contextOf } from '../internal/contexts.js';
 import { isStatsEqual, type Stats } from '../node/stats.js';
 import { statSync } from '../node/sync.js';
+import { basename, dirname, join, relative } from '../path.js';
+import { normalizePath } from '../utils.js';
 
 /**
  * Base class for file system watchers.
@@ -86,9 +87,11 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 		path: string,
 		public readonly options: fs.WatchOptions
 	) {
-		super(context, path);
+		const $ = contextOf(context);
 
-		this.realpath = context?.root ? join(context.root, path) : path;
+		super($, path);
+
+		this.realpath = join($.root, path);
 
 		addWatcher(this.realpath, this);
 	}
@@ -189,7 +192,9 @@ export function removeWatcher(path: string, watcher: FSWatcher) {
 /**
  * @internal @hidden
  */
-export function emitChange($: V_Context, eventType: fs.WatchEventType, filename: string) {
+export function emitChange(context: V_Context, eventType: fs.WatchEventType, filename: string) {
+	const $ = contextOf(context);
+
 	if ($) filename = join($.root ?? '/', filename);
 	filename = normalizePath(filename);
 

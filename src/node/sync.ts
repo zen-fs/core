@@ -540,7 +540,7 @@ export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.Buf
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
-	path = normalizePath(path);
+	path = normalizePath(path, true);
 
 	const { fullPath } = _sync.resolve(this, path);
 	if (encoding == 'utf8' || encoding == 'utf-8') return fullPath;

@@ -2,7 +2,7 @@
 import { UV, withErrno } from 'kerium';
 import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
-import { defaultContext } from '../internal/contexts.js';
+import { contextOf } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { _chown, InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
@@ -397,7 +397,7 @@ export class Handle {
  * @internal @hidden
  */
 export function toFD(file: Handle): number {
-	const map = file.context?.descriptors ?? defaultContext.descriptors;
+	const map = contextOf(file.context).descriptors;
 	const fd = Math.max(map.size ? Math.max(...map.keys()) + 1 : 0, 4);
 	map.set(fd, file);
 	return fd;
@@ -407,12 +407,12 @@ export function toFD(file: Handle): number {
  * @internal @hidden
  */
 export function fromFD($: V_Context, fd: number): Handle {
-	const map = $?.descriptors ?? defaultContext.descriptors;
+	const map = contextOf($).descriptors;
 	const value = map.get(fd);
 	if (!value) throw withErrno('EBADF');
 	return value;
 }
 
 export function deleteFD($: V_Context, fd: number): boolean {
-	return ($?.descriptors ?? defaultContext.descriptors).delete(fd);
+	return contextOf($).descriptors.delete(fd);
 }

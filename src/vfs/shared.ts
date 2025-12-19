@@ -10,7 +10,7 @@ import { Errno, Exception, UV, withErrno, type ExceptionExtra } from 'kerium';
 import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
 import { size_max } from '../constants.js';
-import { defaultContext } from '../internal/contexts.js';
+import { contextOf } from '../internal/contexts.js';
 import { credentialsAllowRoot } from '../internal/credentials.js';
 import { withExceptionContext } from '../internal/error.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
@@ -90,9 +90,10 @@ export interface ResolvedPath extends ResolvedMount {
  * @internal @hidden
  */
 export function resolveMount(path: string, ctx: V_Context, extra?: ExceptionExtra): ResolvedMount {
-	const root = ctx?.root || defaultContext.root;
+	const { root } = contextOf(ctx);
 	const _exceptionContext = { path, ...extra };
-	path = normalizePath(join(root, path));
+	path = normalizePath(join(root, path), true);
+	path = resolve.call(ctx, path);
 	const sortedMounts = [...mounts].sort((a, b) => (a[0].length > b[0].length ? -1 : 1)); // descending order of the string length
 	for (const [mountPoint, fs] of sortedMounts) {
 		// We know path is normalized, so it would be a substring of the mount point.
@@ -132,7 +133,7 @@ export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T 
  * @category Backends and Configuration
  */
 export function chroot(this: V_Context, path: string) {
-	const $ = this ?? defaultContext;
+	const $ = contextOf(this);
 	if (!credentialsAllowRoot($.credentials)) throw withErrno('EPERM', 'Can not chroot() as non-root user');
 
 	$.root ??= '/';
