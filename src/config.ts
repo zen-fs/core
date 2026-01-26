@@ -96,7 +96,7 @@ export function resolveMountConfigSync<T extends Backend>(configuration: MountCo
 
 	if (configuration instanceof FileSystem) {
 		configuration.readySync();
-		return configuration as FilesystemOf<T>;
+		return configuration;
 	}
 
 	if (isBackend(configuration)) {
@@ -116,11 +116,10 @@ export function resolveMountConfigSync<T extends Backend>(configuration: MountCo
 		(configuration as Record<string, FileSystem>)[key] = resolveMountConfigSync(value, ++_depth);
 	}
 
-	const backendConfig = configuration as BackendConfiguration<T>;
-	const { backend } = backendConfig;
+	const { backend } = configuration;
 
 	if (typeof backend.isAvailable == 'function') {
-		const available = backend.isAvailable(backendConfig);
+		const available = backend.isAvailable(configuration);
 		if (isThenable(available)) {
 			throw log.err(withErrno('ENOTSUP', 'Backend availability check is asynchronous: ' + backend.name));
 		}
@@ -129,13 +128,13 @@ export function resolveMountConfigSync<T extends Backend>(configuration: MountCo
 		}
 	}
 
-	checkOptions(backend, backendConfig);
-	const mountFs = backend.create(backendConfig);
+	checkOptions(backend, configuration);
+	const mountFs = backend.create(configuration);
 	if (isThenable(mountFs)) {
 		throw log.err(withErrno('ENOTSUP', 'Backend requires asynchronous initialization: ' + backend.name));
 	}
 	const resolved = mountFs as FilesystemOf<T>;
-	configureFileSystem(resolved, backendConfig);
+	configureFileSystem(resolved, configuration);
 	resolved.readySync();
 	return resolved;
 }
