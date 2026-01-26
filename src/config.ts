@@ -7,7 +7,7 @@ import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js'
 import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
 import { DeviceFS } from './internal/devices.js';
-import { FileSystem, ensureReadySync } from './internal/filesystem.js';
+import { FileSystem } from './internal/filesystem.js';
 import { exists, mkdir, stat } from './node/promises.js';
 import { existsSync, mkdirSync, statSync } from './node/sync.js';
 import { _setAccessChecks } from './vfs/config.js';
@@ -95,7 +95,7 @@ export function resolveMountConfigSync<T extends Backend>(configuration: MountCo
 	}
 
 	if (configuration instanceof FileSystem) {
-		ensureReadySync(configuration);
+		configuration.readySync();
 		return configuration as FilesystemOf<T>;
 	}
 
@@ -136,7 +136,7 @@ export function resolveMountConfigSync<T extends Backend>(configuration: MountCo
 	}
 	const resolved = mountFs as FilesystemOf<T>;
 	configureFileSystem(resolved, backendConfig);
-	ensureReadySync(resolved);
+	resolved.readySync();
 	return resolved;
 }
 
@@ -373,7 +373,7 @@ export function configureSync<T extends ConfigMounts>(configuration: Partial<Con
 	if (configuration.addDevices && !mounts.has('/dev')) {
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
-		ensureReadySync(devfs);
+		devfs.readySync();
 		mountWithMkdirSync('/dev', devfs);
 	}
 

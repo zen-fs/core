@@ -2,7 +2,6 @@
 import type { UUID } from 'node:crypto';
 import type { Concrete } from 'utilium';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
-import { ensureReadySync } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 
 import { withErrno } from 'kerium';
@@ -85,7 +84,7 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	}
 
 	public readySync(): void {
-		ensureReadySync(this._fs);
+		return this._fs.readySync();
 	}
 
 	public usage(): UsageInfo {

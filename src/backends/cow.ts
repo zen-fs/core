@@ -8,7 +8,7 @@ import { withErrno } from 'kerium';
 import { debug, err, warn } from 'kerium/log';
 import { canary } from 'utilium';
 import { resolveMountConfig, type MountConfiguration } from '../config.js';
-import { FileSystem, ensureReadySync } from '../internal/filesystem.js';
+import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory } from '../internal/inode.js';
 import { dirname, join } from '../path.js';
 
@@ -130,8 +130,8 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public readySync(): void {
-		ensureReadySync(this.readable);
-		ensureReadySync(this.writable);
+		this.readable.readySync();
+		this.writable.readySync();
 	}
 
 	public constructor(

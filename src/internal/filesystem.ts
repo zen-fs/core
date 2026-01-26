@@ -2,7 +2,6 @@
 import type { UUID } from 'node:crypto';
 import type { ConstMap } from 'utilium';
 import type { InodeLike } from './inode.js';
-
 import { withErrno } from 'kerium';
 
 /**
@@ -210,6 +209,9 @@ export abstract class FileSystem {
 	}
 
 	public async ready(): Promise<void> {}
+	public readySync(): void {
+		if (this.ready !== FileSystem.prototype.ready) throw withErrno('EAGAIN');
+	}
 
 	public abstract rename(oldPath: string, newPath: string): Promise<void>;
 	public abstract renameSync(oldPath: string, newPath: string): void;
@@ -350,16 +352,4 @@ export abstract class FileSystem {
 			},
 		});
 	}
-}
-
-export function ensureReadySync(fs: FileSystem): void {
-	const readySync = (fs as FileSystem & { readySync?: () => void }).readySync;
-	if (typeof readySync == 'function') {
-		readySync.call(fs);
-		return;
-	}
-
-	if (fs.ready === FileSystem.prototype.ready) return;
-
-	throw withErrno('ENOTSUP', 'Synchronous initialization is not supported by ' + fs.name);
 }
