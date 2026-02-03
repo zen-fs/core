@@ -85,6 +85,12 @@ export async function resolveMountConfig<T extends Backend>(configuration: Mount
 	return mount;
 }
 
+/**
+ * @experimental
+ * Retrieve a file system with `configuration`.
+ * @category Backends and Configuration
+ * @see MountConfiguration
+ */
 export function resolveMountConfigSync<T extends Backend>(configuration: MountConfiguration<T>, _depth = 0): FilesystemOf<T> {
 	if (typeof configuration !== 'object' || configuration == null) {
 		throw log.err(withErrno('EINVAL', 'Invalid options on mount configuration'));
@@ -219,6 +225,11 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
 	mount('/', resolved);
 }
 
+/**
+ * @experimental
+ * Configures ZenFS with single mount point /
+ * @category Backends and Configuration
+ */
 export function configureSingleSync<T extends Backend>(configuration: MountConfiguration<T>): void {
 	if (!isMountConfig(configuration)) {
 		throw new TypeError('Invalid single mount point configuration');
@@ -250,6 +261,12 @@ async function mountWithMkdir(path: string, fs: FileSystem): Promise<void> {
 	mount(path, fs);
 }
 
+/**
+ * Like `fs.mount`, but it also creates missing directories.
+ * @privateRemarks
+ * This is implemented as a separate function to avoid a circular dependency between vfs/shared.ts and other vfs layer files.
+ * @internal
+ */
 function mountWithMkdirSync(path: string, fs: FileSystem): void {
 	if (path == '/') {
 		mount(path, fs);
@@ -337,6 +354,12 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 	}
 }
 
+/**
+ * @experimental
+ * Configures ZenFS with `configuration`
+ * @category Backends and Configuration
+ * @see Configuration
+ */
 export function configureSync<T extends ConfigMounts>(configuration: Partial<Configuration<T>>): void {
 	Object.assign(
 		defaultContext.credentials,
