@@ -121,7 +121,7 @@ export function resolveMountConfigSync<T extends Backend>(configuration: MountCo
 	if (typeof backend.isAvailable == 'function') {
 		const available = backend.isAvailable(configuration);
 		if (isThenable(available)) {
-			throw log.err(withErrno('ENOTSUP', 'Backend availability check is asynchronous: ' + backend.name));
+			throw log.err(withErrno('EAGAIN', 'Backend availability check would block: ' + backend.name));
 		}
 		if (!available) {
 			throw log.err(withErrno('EPERM', 'Backend not available: ' + backend.name));
@@ -131,7 +131,7 @@ export function resolveMountConfigSync<T extends Backend>(configuration: MountCo
 	checkOptions(backend, configuration);
 	const mountFs = backend.create(configuration);
 	if (isThenable(mountFs)) {
-		throw log.err(withErrno('ENOTSUP', 'Backend requires asynchronous initialization: ' + backend.name));
+		throw log.err(withErrno('EAGAIN', 'Backend initialization would block: ' + backend.name));
 	}
 	const resolved = mountFs as FilesystemOf<T>;
 	configureFileSystem(resolved, configuration);
