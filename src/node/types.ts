@@ -23,7 +23,7 @@ export type NodeReaddirOptions =
 export type NodeFS = {
 	[K in keyof typeof fs]: (typeof fs)[K] extends (...args: any[]) => any
 		? // Some kind of wizardry: by using a union with a regular function, overloads are preserved but the properties disappear.
-			(typeof fs)[K] | ((...args: any[]) => any)
+				(typeof fs)[K] | ((...args: any[]) => any)
 		: (typeof fs)[K] extends object
 			? Omit<(typeof fs)[K], '__promisify__' | 'native'>
 			: (typeof fs)[K];
