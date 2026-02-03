@@ -22,7 +22,9 @@ await configure({
 });
 ```
 
-If your application runs entirely synchronously (for example, during early Node.js bootstrap), you can use `configureSync` instead. It follows the same shape as `configure`, but it throws if any backend requires asynchronous initialization.
+## Synchronous configuration
+
+If you require configuration to be done synchronously, you can use `configureSync`. Note that will throw `EWOULDBLOCK`/`EAGAIN` when asynchronous backends are encountered.
 
 ```ts
 import { configureSync, InMemory } from '@zenfs/core';
