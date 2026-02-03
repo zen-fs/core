@@ -27,20 +27,20 @@ export interface CopyOnWriteOptions {
 	journal?: Journal;
 }
 
-const journalOperations = ['delete'] as const;
+const journalOperations = new Set(['delete']);
 
 /**
  * @category Internals
  * @internal
  */
-export type JournalOperation = (typeof journalOperations)[number];
+export type JournalOperation = 'delete';
 
 /** Because TS doesn't work right w/o it */
 function isJournalOp(op: string): op is JournalOperation {
-	return journalOperations.some(operation => operation === op);
+	return journalOperations.has(op);
 }
 
-const maxOpLength = Math.max(...journalOperations.map(op => op.length));
+const maxOpLength = Math.max(...journalOperations.values().map(op => op.length));
 
 /**
  * @category Internals
