@@ -4,7 +4,6 @@ import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import type { NodeFS } from '../node/types.js';
-import { resolve } from '../path.js';
 import type { Backend } from './backend.js';
 
 /**
@@ -240,7 +239,7 @@ const _Passthrough = {
 		prefix: { type: 'string', required: true },
 	},
 	create({ fs, prefix }: PassthroughOptions) {
-		return new PassthroughFS(fs, resolve(prefix));
+		return new PassthroughFS(fs, prefix);
 	},
 } as const satisfies Backend<PassthroughFS, PassthroughOptions>;
 
