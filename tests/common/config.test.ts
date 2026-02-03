@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { configure, configureSingle, configureSingleSync, configureSync, fs, InMemory, mounts, SingleBuffer, type Backend } from '@zenfs/core';
+import { configureSingleSync, configureSync, fs, InMemory, mounts, SingleBuffer, type Backend } from '@zenfs/core';
+import { Errno } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 
@@ -13,22 +14,19 @@ const AsyncBackend = {
 } satisfies Backend;
 
 suite('Sync configuration', () => {
-	test('configureSingleSync mounts root synchronously', async () => {
+	test('configureSingleSync mounts root synchronously', () => {
 		configureSingleSync({ backend: InMemory, label: 'sync-root' });
 		assert.equal(mounts.get('/')?.label, 'sync-root');
 
 		fs.writeFileSync('/sync-file', 'sync');
 		assert.equal(fs.readFileSync('/sync-file', 'utf8'), 'sync');
-
-		await configureSingle({ backend: InMemory });
 	});
 
-	test('configureSync mounts additional directories', async () => {
+	test('configureSync mounts additional directories', () => {
 		configureSync({
 			mounts: {
 				tmp: { backend: InMemory, label: 'sync-tmp' },
 			},
-			defaultDirectories: true,
 		});
 
 		assert.ok(mounts.has('/tmp'));
@@ -37,30 +35,23 @@ suite('Sync configuration', () => {
 
 		fs.umount('/tmp');
 		fs.rmSync('/tmp', { recursive: true, force: true });
-		await configureSingle({ backend: InMemory });
 	});
 
-	test('configureSync rejects asynchronous backends', async () => {
-		await configure({ mounts: { '/': InMemory } });
-		assert.throws(() => {
-			configureSync({
-				mounts: {
-					'/': { backend: AsyncBackend },
-				},
-			});
-		}, /asynchronous initialization/i);
+	test('configureSync rejects asynchronous backends', () => {
+		assert.throws(
+			() =>
+				configureSync({
+					mounts: { '/': { backend: AsyncBackend } },
+				}),
+			{ errno: Errno.EAGAIN }
+		);
 	});
 
-	test('configureSingleSync works with SingleBuffer', async () => {
+	test('configureSingleSync works with SingleBuffer', () => {
 		const buffer = new ArrayBuffer(0x20000);
-		configureSingleSync({
-			backend: SingleBuffer,
-			buffer,
-		});
+		configureSingleSync({ backend: SingleBuffer, buffer });
 
 		fs.writeFileSync('/sb.txt', 'single-buffer');
 		assert.equal(fs.readFileSync('/sb.txt', 'utf8'), 'single-buffer');
-
-		await configureSingle({ backend: InMemory });
 	});
 });
