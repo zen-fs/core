@@ -169,9 +169,9 @@ export class FileHandle implements promises.FileHandle {
 		return { bytesRead, buffer };
 	}
 
-	public async readFile(options?: ({ encoding?: null } & Abortable) | null): Promise<Buffer>;
+	public async readFile(options?: ({ encoding?: null } & Abortable) | null): Promise<NonSharedBuffer>;
 	public async readFile(options: ({ encoding: BufferEncoding } & Abortable) | BufferEncoding): Promise<string>;
-	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | Buffer>;
+	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | NonSharedBuffer>;
 	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = flags.parse(options.flag);
@@ -302,7 +302,10 @@ export class FileHandle implements promises.FileHandle {
 	 * @param position The position in the file where to begin writing.
 	 * @returns The number of bytes written.
 	 */
-	public async writev(buffers: Uint8Array[], position?: number): Promise<fs.WriteVResult> {
+	public async writev<TBuffers extends readonly NodeJS.ArrayBufferView[]>(
+		buffers: TBuffers,
+		position?: number
+	): Promise<fs.WriteVResult<TBuffers>> {
 		if (typeof position == 'number') this.vfs.position = position;
 
 		let bytesWritten = 0;
@@ -320,7 +323,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param position The position in the file where to begin reading.
 	 * @returns The number of bytes read.
 	 */
-	public async readv(buffers: NodeJS.ArrayBufferView[], position?: number): Promise<fs.ReadVResult> {
+	public async readv<TBuffers extends readonly NodeJS.ArrayBufferView[]>(buffers: TBuffers, position?: number): Promise<fs.ReadVResult<TBuffers>> {
 		if (typeof position == 'number') this.vfs.position = position;
 
 		let bytesRead = 0;
@@ -449,7 +452,7 @@ export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
 	options?: ({ encoding?: null; flag?: fs.OpenMode } & Abortable) | null
-): Promise<Buffer>;
+): Promise<NonSharedBuffer>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
@@ -459,7 +462,7 @@ export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
 	_options?: (fs.ObjectEncodingOptions & Abortable & { flag?: fs.OpenMode }) | BufferEncoding | null
-): Promise<string | Buffer>;
+): Promise<string | NonSharedBuffer>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
@@ -585,12 +588,12 @@ export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer'
-): Promise<Buffer[]>;
+): Promise<NonSharedBuffer[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
 	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
-): Promise<string[] | Buffer[]>;
+): Promise<string[] | NonSharedBuffer[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
@@ -600,7 +603,7 @@ export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
-): Promise<Dirent<Buffer>[]>;
+): Promise<Dirent<NonSharedBuffer>[]>;
 export async function readdir(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]>;
 export async function readdir(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
 	path = normalizePath(path);
@@ -648,13 +651,13 @@ export async function symlink(this: V_Context, dest: fs.PathLike, path: fs.PathL
 }
 symlink satisfies typeof promises.symlink;
 
-export async function readlink(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
+export async function readlink(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Promise<NonSharedBuffer>;
 export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | null): Promise<string>;
 export async function readlink(
 	this: V_Context,
 	path: fs.PathLike,
 	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
-): Promise<string | Buffer>;
+): Promise<string | NonSharedBuffer>;
 export async function readlink(
 	this: V_Context,
 	path: fs.PathLike,
@@ -737,7 +740,7 @@ lutimes satisfies typeof promises.lutimes;
  * @param options The encoding (or an object specifying the encoding), used as the encoding of the result. Defaults to `'utf8'`.
  * @todo handle options
  */
-export async function realpath(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Promise<Buffer>;
+export async function realpath(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Promise<NonSharedBuffer>;
 export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | BufferEncoding): Promise<string>;
 export async function realpath(
 	this: V_Context,
@@ -764,12 +767,12 @@ export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: fs.WatchOptions | fs.BufferEncodingOption
-): AsyncIteratorObject<promises.FileChangeInfo<Buffer>, undefined>;
+): AsyncIteratorObject<promises.FileChangeInfo<NonSharedBuffer>, undefined>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WatchOptions | string
-): AsyncIteratorObject<promises.FileChangeInfo<string>, undefined> | AsyncIteratorObject<promises.FileChangeInfo<Buffer>, undefined>;
+): AsyncIteratorObject<promises.FileChangeInfo<string>, undefined> | AsyncIteratorObject<promises.FileChangeInfo<NonSharedBuffer>, undefined>;
 export function watch<T extends string | Buffer>(
 	this: V_Context,
 	filename: fs.PathLike,
@@ -871,7 +874,7 @@ rm satisfies typeof promises.rm;
  * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
 export async function mkdtemp(this: V_Context, prefix: string, options?: fs.EncodingOption): Promise<string>;
-export async function mkdtemp(this: V_Context, prefix: string, options?: fs.BufferEncodingOption): Promise<Buffer>;
+export async function mkdtemp(this: V_Context, prefix: string, options?: fs.BufferEncodingOption): Promise<NonSharedBuffer>;
 export async function mkdtemp(this: V_Context, prefix: string, options?: fs.EncodingOption | fs.BufferEncodingOption): Promise<string | Buffer> {
 	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
 	const path = _tempDirName(prefix);

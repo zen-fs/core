@@ -406,12 +406,12 @@ export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer'
-): Buffer[];
+): NonSharedBuffer[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
 	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
-): string[] | Buffer[];
+): string[] | NonSharedBuffer[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
@@ -421,7 +421,7 @@ export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
-): Dirent<Buffer>[];
+): Dirent<NonSharedBuffer>[];
 export function readdirSync(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): string[] | Dirent<any>[] | Buffer[];
 export function readdirSync(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): string[] | Dirent<any>[] | Buffer[] {
 	options = typeof options === 'object' ? options : { encoding: options };
@@ -466,13 +466,13 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
-export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption): Buffer;
+export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption): NonSharedBuffer;
 export function readlinkSync(this: V_Context, path: fs.PathLike, options: fs.EncodingOption | BufferEncoding): string;
 export function readlinkSync(
 	this: V_Context,
 	path: fs.PathLike,
 	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
-): Buffer | string;
+): NonSharedBuffer | string;
 export function readlinkSync(
 	this: V_Context,
 	path: fs.PathLike,
@@ -604,7 +604,7 @@ rmSync satisfies typeof fs.rmSync;
  * @param options The encoding (or an object including `encoding`).
  * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
-export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
+export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options: fs.BufferEncodingOption): NonSharedBuffer;
 export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption): string;
 export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
 	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
