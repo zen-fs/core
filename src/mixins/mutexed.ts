@@ -83,6 +83,10 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return await this._fs.ready();
 	}
 
+	public readySync(): void {
+		return this._fs.readySync();
+	}
+
 	public usage(): UsageInfo {
 		return this._fs.usage();
 	}

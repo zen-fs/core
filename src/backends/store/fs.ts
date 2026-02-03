@@ -100,6 +100,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._initialized = true;
 	}
 
+	public readySync(): void {
+		if (this._initialized) return;
+
+		if (!this.attributes.has('no_async_preload')) {
+			this.checkRootSync();
+		}
+
+		this.checkRootSync();
+		this._populateSync();
+		this._initialized = true;
+	}
+
 	public constructor(protected readonly store: T) {
 		super(store.type ?? 0x6b766673, store.name);
 		store.fs = this;
@@ -603,6 +615,74 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 			// Grab the directory listing from the store
 			const dirData = await tx.get(inode.data);
+			if (!dirData) {
+				warn('Store is missing directory data: ' + inode.data);
+				continue;
+			}
+			const dirListing = decodeDirListing(dirData);
+
+			for (const [entryName, childIno] of Object.entries(dirListing)) {
+				queue.push([join(path, entryName), childIno]);
+			}
+		}
+
+		debug(`Added ${i} existing inode(s) from store`);
+	}
+
+	private _populateSync(): void {
+		if (this._initialized) {
+			warn('Attempted to populate tables after initialization');
+			return;
+		}
+		debug('Populating tables with existing store metadata');
+		using tx = this.transaction();
+
+		const rootData = tx.getSync(rootIno);
+		if (!rootData) {
+			notice('Store does not have a root inode');
+			const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
+			tx.setSync(inode.data, encodeUTF8('{}'));
+			this._add(rootIno, '/');
+			tx.setSync(rootIno, inode);
+			tx.commitSync();
+			return;
+		}
+
+		if (rootData.length < sizeof(Inode)) {
+			crit('Store contains an invalid root inode. Refusing to populate tables');
+			return;
+		}
+
+		const visitedDirectories = new Set<number>();
+		let i = 0;
+		const queue: Array<[path: string, ino: number]> = [['/', rootIno]];
+
+		while (queue.length > 0) {
+			i++;
+			const [path, ino] = queue.shift()!;
+
+			this._add(ino, path);
+
+			const inodeData = tx.getSync(ino);
+			if (!inodeData) {
+				warn('Store is missing data for inode: ' + ino);
+				continue;
+			}
+
+			if (inodeData.length < sizeof(Inode)) {
+				warn(`Invalid inode size for ino ${ino}: ${inodeData.length}`);
+				continue;
+			}
+
+			const inode = new Inode(inodeData);
+
+			if ((inode.mode & S_IFDIR) != S_IFDIR || visitedDirectories.has(ino)) {
+				continue;
+			}
+
+			visitedDirectories.add(ino);
+
+			const dirData = tx.getSync(inode.data);
 			if (!dirData) {
 				warn('Store is missing directory data: ' + inode.data);
 				continue;

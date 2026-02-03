@@ -2,6 +2,7 @@
 import type { UUID } from 'node:crypto';
 import type { ConstMap } from 'utilium';
 import type { InodeLike } from './inode.js';
+import { withErrno } from 'kerium';
 
 /**
  * Usage information about a file system
@@ -208,6 +209,9 @@ export abstract class FileSystem {
 	}
 
 	public async ready(): Promise<void> {}
+	public readySync(): void {
+		if (this.ready !== FileSystem.prototype.ready) throw withErrno('EAGAIN');
+	}
 
 	public abstract rename(oldPath: string, newPath: string): Promise<void>;
 	public abstract renameSync(oldPath: string, newPath: string): void;

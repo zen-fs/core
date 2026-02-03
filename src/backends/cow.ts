@@ -18,10 +18,10 @@ import { dirname, join } from '../path.js';
  */
 export interface CopyOnWriteOptions {
 	/** The file system that initially populates this file system. */
-	readable: MountConfiguration<any>;
+	readable: MountConfiguration<Backend>;
 
 	/** The file system to write modified files to. */
-	writable: MountConfiguration<any>;
+	writable: MountConfiguration<Backend>;
 
 	/** @see {@link Journal} */
 	journal?: Journal;
@@ -37,7 +37,7 @@ export type JournalOperation = (typeof journalOperations)[number];
 
 /** Because TS doesn't work right w/o it */
 function isJournalOp(op: string): op is JournalOperation {
-	return journalOperations.includes(op as any);
+	return journalOperations.some(operation => operation === op);
 }
 
 const maxOpLength = Math.max(...journalOperations.map(op => op.length));
@@ -127,6 +127,11 @@ export class CopyOnWriteFS extends FileSystem {
 	async ready(): Promise<void> {
 		await this.readable.ready();
 		await this.writable.ready();
+	}
+
+	public readySync(): void {
+		this.readable.readySync();
+		this.writable.readySync();
 	}
 
 	public constructor(
