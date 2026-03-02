@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
- 
+
 // A cross-platform node:readline implementation
 import { EventEmitter } from 'eventemitter3';
 import { warn } from 'kerium/log';

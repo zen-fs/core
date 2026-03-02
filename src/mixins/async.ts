@@ -64,7 +64,6 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		private _promise: Promise<unknown> = Promise.resolve();
 
 		protected _async(thunk: () => Promise<unknown>) {
-			 
 			this._promise = this._promise.finally(() => thunk());
 		}
 

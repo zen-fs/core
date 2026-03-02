@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
- 
+
 import type { ExceptionJSON } from 'kerium';
 import type { TransferListItem } from 'node:worker_threads';
 import type { WithOptional } from 'utilium';
