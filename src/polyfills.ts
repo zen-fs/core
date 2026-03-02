@@ -9,7 +9,7 @@ Promise.withResolvers ??=
 	(warn('Using a polyfill of Promise.withResolvers'),
 	function <T>(): PromiseWithResolvers<T> {
 		let _resolve: ((value: T | PromiseLike<T>) => void) | undefined,
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			 
 			_reject: ((reason?: any) => void) | undefined;
 		const promise = new Promise<T>((resolve, reject) => {
 			_resolve = resolve;
