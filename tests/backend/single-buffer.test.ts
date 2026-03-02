@@ -64,7 +64,7 @@ await suite('SingleBuffer', () => {
 		const growthSizes = [0, 1, 17, 512, 8192, 65535, 262144, 524288];
 		const shrinkSizes = [262144, 4096, 128, 0];
 
-		const verifySnapshot = async (expected: Buffer, size: number) => {
+		const verifySnapshot = (expected: Buffer, size: number) => {
 			mount(verifyMountPoint, writable);
 			try {
 				const reopened = fs.readFileSync(`${verifyMountPoint}/payload.bin`);
@@ -82,7 +82,7 @@ await suite('SingleBuffer', () => {
 				const direct = fs.readFileSync(filePath);
 				assert.strictEqual(direct.byteLength, size, `direct size mismatch for ${size} bytes`);
 				assert.deepStrictEqual(direct, payload, `direct content mismatch for ${size} bytes`);
-				await verifySnapshot(direct, size);
+				verifySnapshot(direct, size);
 			}
 
 			for (const size of shrinkSizes) {
@@ -91,7 +91,7 @@ await suite('SingleBuffer', () => {
 				const direct = fs.readFileSync(filePath);
 				assert.strictEqual(direct.byteLength, size, `direct size mismatch after shrink to ${size} bytes`);
 				assert.deepStrictEqual(direct, payload, `direct content mismatch after shrink to ${size} bytes`);
-				await verifySnapshot(direct, size);
+				verifySnapshot(direct, size);
 			}
 		} finally {
 			if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
