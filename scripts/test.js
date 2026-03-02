@@ -238,6 +238,12 @@ for (const setupFile of positionals) {
 }
 
 if (!options.preserve) {
-	execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
-	rmSync(options.coverage, { recursive: true });
+	try {
+		execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
+	} catch (e) {
+		console.error('Failed to generate coverage report!');
+		console.error(e);
+	} finally {
+		rmSync(options.coverage, { recursive: true });
+	}
 }
