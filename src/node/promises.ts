@@ -1025,11 +1025,11 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 	// Escape special characters in pattern
 	const regexPatterns = pattern.map(globToRegex);
 
-	async function* recursiveList(dir: string | URL): AsyncGenerator<string | Dirent> {
+	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
 		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
-			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : dir + '/' + entry;
+			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : join(dir, entry.name);
 			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
 				continue;
 
@@ -1046,6 +1046,6 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 		}
 	}
 
-	return recursiveList(cwd);
+	return recursiveList(cwd instanceof URL ? cwd.pathname : cwd);
 }
 glob satisfies typeof promises.glob;

@@ -789,11 +789,11 @@ export function globSync(pattern: string | readonly string[], options: GlobOptio
 	const regexPatterns = pattern.map(globToRegex);
 
 	const results: Dirent[] | string[] = [];
-	function recursiveList(dir: string | URL) {
+	function recursiveList(dir: string) {
 		const entries = readdirSync(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
-			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : dir + '/' + entry;
+			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : join(dir, entry.name);
 			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
 				continue;
 
@@ -810,7 +810,7 @@ export function globSync(pattern: string | readonly string[], options: GlobOptio
 		}
 	}
 
-	recursiveList(cwd);
+	recursiveList(cwd instanceof URL ? cwd.pathname : cwd);
 	return results;
 }
 globSync satisfies typeof fs.globSync;
