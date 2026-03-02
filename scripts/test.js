@@ -87,9 +87,19 @@ if (options.clean) {
 	process.exit();
 }
 
+function report() {
+	try {
+		execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
+	} catch (e) {
+		console.error('Failed to generate coverage report!');
+		console.error(e);
+	} finally {
+		rmSync(options.coverage, { recursive: true });
+	}
+}
+
 if (options.report) {
-	execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
-	rmSync(options.coverage, { recursive: true, force: true });
+	report();
 	process.exit();
 }
 
@@ -237,13 +247,4 @@ for (const setupFile of positionals) {
 	}
 }
 
-if (!options.preserve) {
-	try {
-		execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
-	} catch (e) {
-		console.error('Failed to generate coverage report!');
-		console.error(e);
-	} finally {
-		rmSync(options.coverage, { recursive: true });
-	}
-}
+if (!options.preserve) report();
