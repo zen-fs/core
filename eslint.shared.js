@@ -1,12 +1,12 @@
 /* Shared eslint rules */
 import eslint from '@eslint/js';
 import globals from 'globals';
-import tseslint from 'typescript-eslint';
+import { configs } from 'typescript-eslint';
 
 export default [
 	{
 		name: 'ZenFS',
-		extends: [eslint.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
+		extends: [eslint.configs.recommended, ...configs.recommendedTypeChecked],
 		files: ['src/**/*.ts', 'tests/**/*.ts'],
 		languageOptions: {
 			globals: { ...globals.browser, ...globals.node },

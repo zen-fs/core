@@ -1,7 +1,7 @@
-import tseslint from 'typescript-eslint';
+import { defineConfig } from 'eslint/config';
 import shared from './eslint.shared.js';
 
-export default tseslint.config(
+export default defineConfig(
 	...shared,
 	{
 		files: ['src/**/*.ts', 'tests/**/*.ts'],
@@ -12,10 +12,6 @@ export default tseslint.config(
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},
-	},
-	{
-		name: 'Allow explicit any in primary vfs layer files',
-		files: ['src/vfs/{sync,async,promises}.ts'],
 		rules: {
 			'@typescript-eslint/no-explicit-any': 'off',
 		},
