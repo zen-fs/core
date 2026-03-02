@@ -1020,28 +1020,39 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const { cwd = '/', withFileTypes = false, exclude = () => false } = opt || {};
 
+	const normalizedPatterns = pattern.map(p => p.replace(/^\/+/g, ''));
+
+	const hasGlobStar = normalizedPatterns.some(p => p.includes('**'));
+
+	const patternBases = normalizedPatterns.map(p => {
+		const firstGlob = p.search(/[*?[\]{]/);
+		if (firstGlob === -1) return p;
+		const lastSlash = p.lastIndexOf('/', firstGlob);
+		return lastSlash === -1 ? '' : p.slice(0, lastSlash);
+	});
+
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
-	// Escape special characters in pattern
-	const regexPatterns = pattern.map(globToRegex);
+	const regexPatterns = normalizedPatterns.map(globToRegex);
 
 	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
 		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
-			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : join(dir, entry.name);
+			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));
 			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
 				continue;
 
-			/**
-			 * @todo is the pattern.source check correct?
-			 */
-			if ((await stat(fullPath)).isDirectory() && regexPatterns.some(pattern => pattern.source.includes('.*'))) {
-				yield* recursiveList(fullPath);
+			const relativePath = fullPath.replace(/^\/+/g, '');
+
+			if ((await stat(fullPath)).isDirectory()) {
+				if (hasGlobStar || patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'))) {
+					yield* recursiveList(fullPath);
+				}
 			}
 
-			if (regexPatterns.some(pattern => pattern.test(fullPath.replace(/^\/+/g, '')))) {
-				yield withFileTypes ? entry : fullPath.replace(/^\/+/g, '');
+			if (regexPatterns.some(rx => rx.test(relativePath))) {
+				yield withFileTypes ? entry : relativePath;
 			}
 		}
 	}

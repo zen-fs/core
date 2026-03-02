@@ -119,11 +119,16 @@ export function normalizeOptions(
  * @internal
  */
 export function globToRegex(pattern: string): RegExp {
+	const GLOBSTAR = '\0GS\0';
+	const STAR = '\0S\0';
 	pattern = pattern
-		.replace(/([.?+^$(){}|[\]/])/g, '$1')
-		.replace(/\*\*/g, '.*')
-		.replace(/\*/g, '[^/]*')
-		.replace(/\?/g, '.');
+		.replace(/\*\*/g, GLOBSTAR)
+		.replace(/\*/g, STAR)
+		.replace(/[.+^$(){}|[\]\\]/g, '\\$&')
+		.replace(/\?/g, '.')
+		.replaceAll('/' + GLOBSTAR + '/', '(?:/.*)?/')
+		.replaceAll(GLOBSTAR, '.*')
+		.replaceAll(STAR, '[^/]*');
 	return new RegExp(`^${pattern}$`);
 }
 

@@ -783,29 +783,40 @@ export function globSync(pattern: string | readonly string[], options: GlobOptio
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const { cwd = '/', withFileTypes = false, exclude = () => false } = options;
 
+	const normalizedPatterns = pattern.map(p => p.replace(/^\/+/g, ''));
+
+	const hasGlobStar = normalizedPatterns.some(p => p.includes('**'));
+
+	const patternBases = normalizedPatterns.map(p => {
+		const firstGlob = p.search(/[*?[\]{]/);
+		if (firstGlob === -1) return p;
+		const lastSlash = p.lastIndexOf('/', firstGlob);
+		return lastSlash === -1 ? '' : p.slice(0, lastSlash);
+	});
+
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
-	// Escape special characters in pattern
-	const regexPatterns = pattern.map(globToRegex);
+	const regexPatterns = normalizedPatterns.map(globToRegex);
 
 	const results: Dirent[] | string[] = [];
 	function recursiveList(dir: string) {
 		const entries = readdirSync(dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
-			const fullPath = withFileTypes ? join(entry.parentPath, entry.name) : join(dir, entry.name);
+			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));
 			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
 				continue;
 
-			/**
-			 * @todo is the pattern.source check correct?
-			 */
-			if (statSync(fullPath).isDirectory() && regexPatterns.some(pattern => pattern.source.includes('.*'))) {
-				recursiveList(fullPath);
+			const relativePath = fullPath.replace(/^\/+/g, '');
+
+			if (statSync(fullPath).isDirectory()) {
+				if (hasGlobStar || patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'))) {
+					recursiveList(fullPath);
+				}
 			}
 
-			if (regexPatterns.some(pattern => pattern.test(fullPath.replace(/^\/+/g, '')))) {
-				results.push(withFileTypes ? entry : (fullPath.replace(/^\/+/g, '') as any));
+			if (regexPatterns.some(rx => rx.test(relativePath))) {
+				results.push(withFileTypes ? entry : (relativePath as any));
 			}
 		}
 	}
