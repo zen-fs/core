@@ -41,7 +41,7 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 		const target = resolvePath.call($, dirname(path), readlink.call($, path));
 		return resolve($, target, preserveSymlinks, extra);
 	} catch (e: any) {
-		setUVMessage(Object.assign(e, { syscall: 'stat', path }));
+		setUVMessage(Object.assign(e, { syscall: 'stat', path, ...extra }));
 		if (preserveSymlinks) throw e;
 	}
 
@@ -55,7 +55,7 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 		stats = resolved.fs.statSync(resolved.path);
 	} catch (e: any) {
 		if (e.code === 'ENOENT') return { ...resolved, fullPath: path };
-		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath }));
+		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
 	}
 
 	if (!isSymbolicLink(stats)) {
@@ -282,4 +282,29 @@ export function link(this: V_Context, target: PathLike, link: PathLike): void {
 	}
 
 	return fs.linkSync(resolved, dst.path);
+}
+
+export function stat(this: V_Context, path: PathLike, lstat: boolean): InodeLike {
+	path = normalizePath.call(this, path);
+
+	const extra = { syscall: lstat ? 'lstat' : 'stat', path };
+
+	let stats: InodeLike | undefined;
+	if (!lstat) stats = resolve(this, path, false, extra).stats;
+	else {
+		const { base, dir } = parse(path);
+		const { fs, path: parent } = resolve(this, dir, false, extra);
+		try {
+			stats = fs.statSync(base ? join(parent, base) : parent);
+		} catch (e: any) {
+			setUVMessage(Object.assign(e, extra));
+			throw e;
+		}
+	}
+
+	if (!stats) throw UV('ENOENT', extra);
+
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', extra);
+
+	return stats;
 }

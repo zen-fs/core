@@ -11,7 +11,7 @@ import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory } from '../internal/inode.js';
-import { join, matchesGlob, parse } from '../path.js';
+import { join, matchesGlob } from '../path.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
@@ -46,18 +46,7 @@ existsSync satisfies typeof fs.existsSync;
 export function statSync(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function statSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	path = normalizePath(path);
-	const { fs, path: resolved } = _sync.resolve(this, path);
-
-	let stats: InodeLike;
-	try {
-		stats = fs.statSync(resolved);
-	} catch (e: any) {
-		throw setUVMessage(Object.assign(e, { path }));
-	}
-
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'stat', path });
-
+	const stats = _sync.stat.call(this, path, false);
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 statSync satisfies fs.StatSyncFn;
@@ -70,12 +59,7 @@ statSync satisfies fs.StatSyncFn;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Stats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	path = normalizePath(path);
-	const { base, dir } = parse(path);
-	const { fs, path: parent } = _sync.resolve(this, dir);
-	const stats = wrap(fs, 'statSync', path)(base ? join(parent, base) : parent);
-
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', { syscall: 'lstat', path });
+	const stats = _sync.stat.call(this, path, true);
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 lstatSync satisfies typeof fs.lstatSync;

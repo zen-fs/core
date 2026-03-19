@@ -16,7 +16,7 @@ import { Exception, rethrow, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
-import { join, matchesGlob, parse } from '../path.js';
+import { join, matchesGlob } from '../path.js';
 import '../polyfills.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as _async from '../vfs/async.js';
@@ -382,13 +382,7 @@ export async function stat(this: V_Context, path: fs.PathLike, options: fs.BigIn
 export async function stat(this: V_Context, path: fs.PathLike, options?: { bigint?: false }): Promise<Stats>;
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	path = normalizePath(path);
-	const { fs, path: resolved } = await _async.resolve(this, path);
-	const $ex = { syscall: 'stat', path };
-
-	const stats = await fs.stat(resolved).catch(rethrow($ex));
-
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
+	const stats = await _async.stat.call(this, path, false);
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 stat satisfies typeof promises.stat;
@@ -401,12 +395,7 @@ stat satisfies typeof promises.stat;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Promise<Stats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options: { bigint: true }): Promise<BigIntStats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	path = normalizePath(path);
-	const $ex = { syscall: 'lstat', path };
-	const { base, dir } = parse(path);
-	const { fs, path: parent } = await _async.resolve(this, dir);
-	const stats = await fs.stat(base ? join(parent, base) : parent).catch(rethrow($ex));
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
+	const stats = await _async.stat.call(this, path, true);
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 lstat satisfies typeof promises.lstat;

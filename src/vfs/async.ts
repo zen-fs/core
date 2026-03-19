@@ -3,7 +3,7 @@ import type { PathLike } from 'node:fs';
 import type { V_Context } from '../internal/contexts.js';
 import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './shared.js';
 
-import { setUVMessage, UV, type Exception, type ExceptionExtra } from 'kerium';
+import { rethrow, setUVMessage, UV, type Exception, type ExceptionExtra } from 'kerium';
 import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
@@ -56,7 +56,7 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 
 	const stats = await resolved.fs.stat(resolved.path).catch((e: Exception) => {
 		if (e.code == 'ENOENT') return;
-		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath }));
+		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
 	});
 
 	if (!stats) return { ...resolved, fullPath: path };
@@ -262,4 +262,24 @@ export async function link(this: V_Context, target: PathLike, link: PathLike): P
 	}
 
 	return await fs.link(resolved, dst.path);
+}
+
+export async function stat(this: V_Context, path: PathLike, lstat: boolean): Promise<InodeLike> {
+	path = normalizePath.call(this, path);
+
+	const extra = { syscall: lstat ? 'lstat' : 'stat', path };
+
+	let stats: InodeLike | undefined;
+	if (!lstat) stats = (await resolve(this, path, false, extra)).stats;
+	else {
+		const { base, dir } = parse(path);
+		const { fs, path: parent } = await resolve(this, dir, false, extra);
+		stats = await fs.stat(base ? join(parent, base) : parent).catch(rethrow(extra));
+	}
+
+	if (!stats) throw UV('ENOENT', extra);
+
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', extra);
+
+	return stats;
 }
