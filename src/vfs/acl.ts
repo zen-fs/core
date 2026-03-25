@@ -7,7 +7,7 @@
 */
 import { withErrno } from 'kerium';
 import { err } from 'kerium/log';
-import { packed, sizeof } from 'memium';
+import { sizeof } from 'memium';
 import { $from, struct, types as t } from 'memium/decorators';
 import { BufferView } from 'utilium/buffer.js';
 import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from '../constants.js';
@@ -36,15 +36,19 @@ export const enum Tag {
 	_None = 0x00,
 }
 
-@struct('ACL.Entry', packed)
+@struct.packed()
 export class Entry extends $from(BufferView) {
+	static name = 'ACL.Entry';
+
 	@t.uint16 accessor tag!: Tag;
 	@t.uint16 accessor perm!: number;
 	@t.uint32 accessor id!: number;
 }
 
-@struct.packed('ACL')
+@struct.packed()
 export class ACL extends $from(BufferView) {
+	static name = 'ACL';
+
 	@t.uint32 accessor version!: number;
 
 	public entries: Entry[] = [];

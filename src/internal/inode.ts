@@ -18,8 +18,10 @@ export const rootIno = 0;
 /** 4 KiB minus static inode data */
 const maxDynamicData = 3968;
 
-@struct.packed('Attribute')
+@struct.packed()
 class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends $from.typed(Uint8Array)<B> {
+	static name = 'Attribute';
+
 	@t.uint32 public accessor keySize!: number;
 	@t.uint32 public accessor valueSize!: number;
 
@@ -59,8 +61,10 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends $from.typed
  * @category Internals
  * @internal
  */
-@struct.packed('Attributes')
+@struct.packed()
 export class Attributes extends $from(BufferView) {
+	static name = 'Attributes';
+
 	@t.uint32 accessor size!: number;
 
 	public get byteSize(): number {
@@ -314,8 +318,10 @@ export const userModifiableFlags = 0x000380ff;
  * @category Internals
  * @internal
  */
-@struct.packed('Inode')
+@struct.packed()
 export class Inode extends $from(BufferView) implements InodeLike {
+	static name = 'Inode';
+
 	public constructor(...args: ConstructorParameters<typeof BufferView> | [Readonly<Partial<InodeLike>>]) {
 		let data = {};
 
