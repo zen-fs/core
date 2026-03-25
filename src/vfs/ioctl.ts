@@ -56,8 +56,10 @@ enum XFlag {
 	HasAttr = 0x80000000,
 }
 
-@struct('fsxattr')
+@struct()
 class fsxattr extends $from(BufferView) {
+	static name = 'fsxattr';
+
 	/** xflags field value */
 	@t.uint32 accessor xflags!: number;
 	/** extsize field value */
