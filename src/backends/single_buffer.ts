@@ -69,7 +69,7 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 
 	declare readonly ['constructor']: typeof MetadataBlock;
 
-	private static readonly lockIndex = offsetof(MetadataBlock, 'locked') / Int32Array.BYTES_PER_ELEMENT;
+	private static readonly lockIndex: number;
 
 	/**
 	 * The crc32c checksum for the metadata block.
@@ -154,6 +154,9 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 		return release;
 	}
 }
+
+// workaround for https://github.com/microsoft/TypeScript/issues/61862
+Object.assign(MetadataBlock, { lockIndex: offsetof(MetadataBlock, 'locked') / Int32Array.BYTES_PER_ELEMENT });
 
 const sb_magic = 0x62732e7a; // 'z.sb'
 
