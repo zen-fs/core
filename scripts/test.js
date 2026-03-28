@@ -149,8 +149,11 @@ mkdirSync(options.coverage, { recursive: true });
 
 /**
  * Generate the command used to run the tests
+ * @param {string} profileName
+ * @param {...string} rest
+ * @returns {string}
  */
-function makeCommand(profileName: string, ...rest: string[]): string {
+function makeCommand(profileName, ...rest) {
 	const command = [
 		'tsx --trace-deprecation',
 		options.inspect ? '--inspect' : '',
@@ -168,7 +171,10 @@ function makeCommand(profileName: string, ...rest: string[]): string {
 	return command;
 }
 
-function duration(ms: number) {
+/**
+ * @param {number} ms
+ */
+function duration(ms) {
 	ms = Math.round(ms);
 	let unit = 'ms';
 
@@ -182,14 +188,18 @@ function duration(ms: number) {
 
 const nRuns = Number.isSafeInteger(parseInt(options.runs)) ? parseInt(options.runs) : 1;
 
-interface RunTestOptions {
-	name: string;
-	args: string[];
-	statusName?: string;
-	shouldSkip?(): boolean;
-}
+/**
+ * @typedef {object} RunTestOptions
+ * @property {string} name
+ * @property {string[]} args
+ * @property {string} [statusName]
+ * @property {() => boolean} [shouldSkip]
+ */
 
-async function runTests(config: RunTestOptions) {
+/**
+ * @param {RunTestOptions} config
+ */
+async function runTests(config) {
 	const statusName = config.statusName || config.name;
 
 	const command = makeCommand(config.name, ...config.args);
