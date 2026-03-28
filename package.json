@@ -15,7 +15,7 @@
 	],
 	"bin": {
 		"make-index": "scripts/make-index.js",
-		"zenfs-test": "scripts/test.js",
+		"zenfs-test": "scripts/test.ts",
 		"zci": "scripts/ci-cli.js"
 	},
 	"files": [

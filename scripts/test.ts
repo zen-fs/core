@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// NOTE: Not compiled, use erasable TS only
 import { execSync } from 'node:child_process';
 import { existsSync, globSync, mkdirSync, rmSync } from 'node:fs';
 import { join, parse, basename } from 'node:path';
@@ -24,6 +25,7 @@ const { values: options, positionals } = parseArgs({
 		inspect: { short: 'I', type: 'boolean', default: false },
 		skip: { short: 's', type: 'string', multiple: true, default: [] },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
+		runs: { short: 'r', type: 'string' },
 
 		// Coverage and performance
 		coverage: { type: 'string', default: 'tests/.coverage' },
@@ -49,6 +51,7 @@ Behavior:
     -b, --build           Run the npm build script prior to running tests
     -c, --common          Also run tests not specific to any backend
     -e, --exit-on-fail    If any tests suites fail, exit immediately
+    -r, --runs <n>        Run tests n times and print average result
     -t, --test <glob>     Which FS test suite(s) to run
     -f, --force           Whether to use --test-force-exit
     -I, --inspect         Use the inspector for debugging
@@ -104,7 +107,13 @@ if (options.report) {
 }
 
 let ci;
-if (options.ci) ci = await import('./ci.js');
+if (options.ci) {
+	if (options.runs) {
+		console.error('Cannot use --ci with --runs');
+		process.exit(1);
+	}
+	ci = await import('./ci.js');
+}
 
 options.verbose && options.force && console.debug('Forcing tests to exit (--test-force-exit)');
 
@@ -135,50 +144,13 @@ if (options.auto) {
 	!options.quiet && console.log(`Auto-detected ${sum} test setup files`);
 }
 
-async function status(name) {
-	const start = performance.now();
-
-	if (options.ci) await ci.startCheck(name);
-
-	const time = () => {
-		let delta = Math.round(performance.now() - start),
-			unit = 'ms';
-
-		if (delta > 5000) {
-			delta /= 1000;
-			unit = 's';
-		}
-
-		return styleText('dim', `(${delta} ${unit})`);
-	};
-
-	const maybeName = options.verbose ? `: ${name}` : '';
-
-	return {
-		async pass() {
-			if (!options.quiet) console.log(`${styleText('green', 'passed')}${maybeName} ${time()}`);
-			if (options.ci) await ci.completeCheck(name, 'success');
-		},
-		async skip() {
-			if (!options.quiet) console.log(`${styleText('yellow', 'skipped')}${maybeName} ${time()}`);
-			if (options.ci) await ci.completeCheck(name, 'skipped');
-		},
-		async fail() {
-			console.error(`${styleText(['red', 'bold'], 'failed')}${maybeName} ${time()}`);
-			if (options.ci) await ci.completeCheck(name, 'failure');
-			process.exitCode = 1;
-			if (options['exit-on-fail']) process.exit();
-		},
-	};
-}
-
 if (!options.preserve) rmSync(options.coverage, { force: true, recursive: true });
 mkdirSync(options.coverage, { recursive: true });
 
 /**
  * Generate the command used to run the tests
  */
-function makeCommand(profileName, ...rest) {
+function makeCommand(profileName: string, ...rest: string[]): string {
 	const command = [
 		'tsx --trace-deprecation',
 		options.inspect ? '--inspect' : '',
@@ -196,19 +168,81 @@ function makeCommand(profileName, ...rest) {
 	return command;
 }
 
-if (options.common) {
-	const command = makeCommand('common', `'tests/*.test.ts' 'tests/**/!(fs)/*.test.ts'`);
+function duration(ms: number) {
+	ms = Math.round(ms);
+	let unit = 'ms';
 
-	if (!options.quiet) process.stdout.write('Running common tests...' + (options.verbose ? '\n' : ' '));
-	const { pass, fail } = await status('Common tests');
-	try {
-		execSync(command, {
-			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
-		});
-		await pass();
-	} catch {
-		await fail();
+	if (ms > 5000) {
+		ms /= 1000;
+		unit = 's';
 	}
+
+	return ms + ' ' + unit;
+}
+
+const nRuns = Number.isSafeInteger(parseInt(options.runs)) ? parseInt(options.runs) : 1;
+
+interface RunTestOptions {
+	name: string;
+	args: string[];
+	statusName?: string;
+	shouldSkip?(): boolean;
+}
+
+async function runTests(config: RunTestOptions) {
+	const statusName = config.statusName || config.name;
+
+	const command = makeCommand(config.name, ...config.args);
+
+	let totalTime = 0;
+	for (let i = 0; i < nRuns; i++) {
+		const start = performance.now();
+
+		if (options.ci) await ci.startCheck(statusName);
+
+		const time = () => styleText('dim', `(${duration(Math.round(performance.now() - start))})`);
+
+		let identText = options.verbose ? `: ${statusName}` : '';
+
+		if (nRuns != 1) identText += ` [${i + 1}/${nRuns}]`;
+
+		if (!options.quiet) {
+			if (options.verbose) console.log('Running tests:', config.name);
+			else process.stdout.write(`Running tests: ${config.name}... `);
+		}
+
+		if (config.shouldSkip?.()) {
+			if (!options.quiet) console.log(`${styleText('yellow', 'skipped')}${identText} ${time()}`);
+			if (options.ci) await ci.completeCheck(statusName, 'skipped');
+			return;
+		}
+
+		try {
+			execSync(command, {
+				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
+			});
+			if (!options.quiet) console.log(`${styleText('green', 'passed')}${identText} ${time()}`);
+			if (options.ci) await ci.completeCheck(statusName, 'success');
+			totalTime += performance.now() - start;
+		} catch {
+			console.error(`${styleText(['red', 'bold'], 'failed')}${identText} ${time()}`);
+			if (options.ci) await ci.completeCheck(statusName, 'failure');
+			process.exitCode = 1;
+			if (options['exit-on-fail']) process.exit();
+			return;
+		}
+	}
+	if (nRuns != 1) {
+		console.log('Average', config.name, 'time:', styleText('blueBright', duration(totalTime / nRuns)));
+	}
+}
+
+if (options.common) {
+	await runTests({
+		name: 'common',
+		args: [`'tests/*.test.ts'`, `'tests/**/!(fs)/*.test.ts'`],
+		statusName: 'Common tests',
+	});
 }
 
 const testsGlob = join(import.meta.dirname, `../tests/fs/${options.test || '*'}.test.ts`);
@@ -223,28 +257,13 @@ for (const setupFile of positionals) {
 
 	const name = options['file-names'] && !options.ci ? setupFile : parse(setupFile).name;
 
-	const command = makeCommand(name, `'${testsGlob.replaceAll("'", "\\'")}'`, process.env.CMD);
-
-	if (!options.quiet) {
-		if (options.verbose) console.log('Running tests:', name);
-		else process.stdout.write(`Running tests: ${name}... `);
-	}
-
-	const { pass, fail, skip } = await status(name);
-
-	if (basename(setupFile).startsWith('_')) {
-		await skip();
-		continue;
-	}
-
-	try {
-		execSync(command, {
-			stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
-		});
-		await pass();
-	} catch {
-		await fail();
-	}
+	await runTests({
+		name,
+		args: [`'${testsGlob.replaceAll("'", "\\'")}'`, process.env.CMD],
+		shouldSkip() {
+			return basename(setupFile).startsWith('_');
+		},
+	});
 }
 
 if (!options.preserve) report();
