@@ -39,7 +39,7 @@ Uint8Array.prototype.toBase64 ??=
 
 Uint8Array.fromBase64 ??=
 	(warn('Using a polyfill of Uint8Array.fromBase64'),
-	function fromBase64(this: Uint8Array, base64: string): Uint8Array {
+	function fromBase64(base64: string): Uint8Array<ArrayBuffer> {
 		const binaryString = atob(base64);
 		const bytes = new Uint8Array(binaryString.length);
 		for (let i = 0; i < binaryString.length; i++) {
@@ -56,7 +56,7 @@ Uint8Array.prototype.toHex ??=
 
 Uint8Array.fromHex ??=
 	(warn('Using a polyfill of Uint8Array.fromHex'),
-	function fromHex(this: Uint8Array, hex: string): Uint8Array {
+	function fromHex(hex: string): Uint8Array<ArrayBuffer> {
 		const bytes = new Uint8Array(hex.length / 2);
 		for (let i = 0; i < hex.length; i += 2) {
 			bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);

@@ -13,7 +13,7 @@
 		"useDefineForClassFields": true,
 		"types": []
 	},
-	"include": ["src/**/*.ts", "types/uint8array.d.ts"],
+	"include": ["src/**/*.ts"],
 	"typedocOptions": {
 		"entryPoints": ["./src/index.ts"],
 		"name": "ZenFS",
