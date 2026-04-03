@@ -1,7 +1,7 @@
 import { Octokit } from '@octokit/action';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path/posix';
-import { JSONFileMap } from 'utilium/fs.js';
+import { JSONFileMap } from 'utilium/fs';
 
 const octokit = new Octokit();
 
