@@ -11,7 +11,7 @@
 		"target": "ES2022",
 		"verbatimModuleSyntax": true,
 		"useDefineForClassFields": true,
-		"types": []
+		"types": ["node"]
 	},
 	"include": ["src/**/*.ts"],
 	"typedocOptions": {

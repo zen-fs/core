@@ -9,7 +9,7 @@ import { withErrno } from 'kerium';
 import { err } from 'kerium/log';
 import { sizeof } from 'memium';
 import { $from, struct, types as t } from 'memium/decorators';
-import { BufferView } from 'utilium/buffer.js';
+import { BufferView } from 'utilium/buffer';
 import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from '../constants.js';
 import { contextOf, type V_Context } from '../internal/contexts.js';
 import { Attributes, type InodeLike } from '../internal/inode.js';

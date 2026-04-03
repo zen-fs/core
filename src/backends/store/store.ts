@@ -2,7 +2,7 @@
 import { withErrno } from 'kerium';
 import { warn } from 'kerium/log';
 import type { UUID } from 'node:crypto';
-import { Resource } from 'utilium/cache.js';
+import { Resource } from 'utilium/cache';
 import type { UsageInfo } from '../../internal/filesystem.js';
 import '../../polyfills.js';
 import type { StoreFS } from './fs.js';

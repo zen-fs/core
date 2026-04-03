@@ -2,7 +2,7 @@
 import { withErrno } from 'kerium';
 import { err, warn } from 'kerium/log';
 import { decodeUTF8 } from 'utilium';
-import * as requests from 'utilium/requests.js';
+import * as requests from 'utilium/requests';
 import type { IndexData } from '../internal/file_index.js';
 import { Index } from '../internal/file_index.js';
 import { IndexFS } from '../internal/index_fs.js';

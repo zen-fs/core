@@ -4,7 +4,7 @@ import { crit, warn } from 'kerium/log';
 import { sizeof } from 'memium';
 import { $from, field, struct, types as t } from 'memium/decorators';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
-import { BufferView } from 'utilium/buffer.js';
+import { BufferView } from 'utilium/buffer';
 import * as c from '../constants.js';
 import { Stats } from '../node/stats.js';
 import { contextOf, type V_Context } from './contexts.js';

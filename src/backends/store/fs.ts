@@ -3,7 +3,7 @@ import { withErrno } from 'kerium';
 import { crit, debug, err, notice, warn } from 'kerium/log';
 import { sizeof } from 'memium';
 import { _throw, canary, encodeUTF8 } from 'utilium';
-import { extendBuffer } from 'utilium/buffer.js';
+import { extendBuffer } from 'utilium/buffer';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
