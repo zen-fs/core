@@ -18,6 +18,7 @@ export * from './node/compat.js';
 export * as vfs from './vfs/index.js';
 import $pkg from '../package.json' with { type: 'json' };
 
+// eslint-disable-next-line no-shadow-restricted-names
 declare const globalThis: {
 	/**
 	 * Global VFS. Do not use unless absolutely needed.
