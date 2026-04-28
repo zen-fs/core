@@ -737,7 +737,7 @@ function _parseKey(sequence: string): readline.Key {
  *
  * This is automatically called by any readline instance on its `input` if the `input` is a terminal. Closing the `readline` instance does not stop the `input` from emitting `'keypress'` events.
  */
-export function emitKeypressEvents(stream: NodeJS.ReadableStream, readlineInterface?: Interface | readline.Interface): void {
+export function emitKeypressEvents(stream: NodeJS.ReadableStream, readlineInterface?: readline.Interface): void {
 	stream.on('data', (buffer: Buffer) => {
 		const str = buffer.toString('utf8');
 		stream.emit('keypress', str, _parseKey(str));
