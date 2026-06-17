@@ -4,6 +4,7 @@ import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
+import type { ByteReadableStream, Transform, Writer } from 'node:stream/iter';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { V_Context } from '../context.js';
 import type { StreamOptions } from '../internal/filesystem.js';
@@ -31,6 +32,65 @@ import { createInterface } from './readline.js';
 import { BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from '../constants.js';
+
+/** Coerce a `stream/iter` transform result into a flat array of `Uint8Array` chunks. */
+async function* normalizeTransformResult(result: unknown): AsyncGenerator<Uint8Array> {
+	if (result == null) return;
+	if (typeof result == 'string') {
+		yield encodeUTF8(result);
+		return;
+	}
+	if (result instanceof Uint8Array) {
+		yield result;
+		return;
+	}
+	if (ArrayBuffer.isView(result)) {
+		yield new Uint8Array(result.buffer, result.byteOffset, result.byteLength);
+		return;
+	}
+	if (result instanceof ArrayBuffer || (typeof SharedArrayBuffer != 'undefined' && result instanceof SharedArrayBuffer)) {
+		yield new Uint8Array(result);
+		return;
+	}
+	if (
+		typeof (result as AsyncIterable<unknown>)[Symbol.asyncIterator] == 'function'
+		|| typeof (result as Iterable<unknown>)[Symbol.iterator] == 'function'
+	) {
+		for await (const part of result as AsyncIterable<unknown>) yield* normalizeTransformResult(part);
+		return;
+	}
+	throw new TypeError('Invalid transform result');
+}
+
+/** Ponyfill for `node:stream/iter`'s `pull()` transform application */
+async function* applyTransform(source: ByteReadableStream, transform: Transform, signal?: AbortSignal): ByteReadableStream {
+	const options = { signal: signal! };
+
+	if (typeof transform == 'function') {
+		for await (const chunks of source) {
+			signal?.throwIfAborted();
+			const out: Uint8Array[] = [];
+			for await (const chunk of normalizeTransformResult(await transform(chunks, options))) out.push(chunk);
+			if (out.length) yield out;
+		}
+		const out: Uint8Array[] = [];
+		for await (const chunk of normalizeTransformResult(await transform(null, options))) out.push(chunk);
+		if (out.length) yield out;
+		return;
+	}
+
+	// Stateful transform: feed it the source (with a trailing `null` to signal EOF).
+	async function* withFlush(): AsyncGenerator<Uint8Array[] | null> {
+		for await (const chunks of source) yield chunks;
+		yield null;
+	}
+	for await (const result of transform.transform(withFlush(), options)) {
+		signal?.throwIfAborted();
+		const out: Uint8Array[] = [];
+		for await (const chunk of normalizeTransformResult(result)) out.push(chunk);
+		if (out.length) yield out;
+	}
+}
 
 export class FileHandle implements promises.FileHandle {
 	protected vfs: Handle;
@@ -353,6 +413,132 @@ export class FileHandle implements promises.FileHandle {
 		if (this.vfs.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'createWriteStream', this.vfs.path);
 		if (this.vfs.fs.attributes.has('readonly')) throw UV('EROFS', 'createWriteStream', this.vfs.path);
 		return new WriteStream(options, this);
+	}
+
+	/**
+	 * Return the file contents as an async iterable using the `node:stream/iter` pull model.
+	 * Reads are performed in `chunkSize`-byte chunks (default 128 KiB).
+	 * If transforms are provided, they are applied via `stream/iter`'s `pull()`.
+	 * The handle is closed when iteration completes if `autoClose` is set.
+	 * @experimental
+	 */
+	public pull(...transforms: Transform[]): ByteReadableStream;
+	public pull(...args: [...transforms: Transform[], options: promises.PullOptions]): ByteReadableStream;
+	public pull(...args: Array<Transform | promises.PullOptions>): ByteReadableStream {
+		if (this.vfs.isClosed || this.vfs.flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.vfs.path);
+
+		// A trailing plain object that is neither a transform function nor a stateful transform is the options bag.
+		const last = args.at(-1);
+		const hasOptions = last != null && typeof last == 'object' && typeof (last as { transform?: unknown }).transform != 'function';
+		const options: promises.PullOptions = hasOptions ? (args.pop() as promises.PullOptions) : {};
+		const transforms = args as Transform[];
+
+		const { autoClose, start, limit, chunkSize = 131072, signal } = options;
+
+		const handle = this;
+		async function* source(): ByteReadableStream {
+			let position = typeof start == 'number' ? start : 0;
+			let remaining = typeof limit == 'number' ? limit : Infinity;
+			try {
+				while (remaining > 0) {
+					signal?.throwIfAborted();
+					const size = Math.min(chunkSize, remaining);
+					const buffer = new Uint8Array(size);
+					const bytesRead = await handle.vfs.read(buffer, 0, size, position);
+					if (bytesRead <= 0) break;
+					position += bytesRead;
+					remaining -= bytesRead;
+					yield [buffer.subarray(0, bytesRead)];
+				}
+			} finally {
+				if (autoClose) await handle.close();
+			}
+		}
+
+		let stream = source();
+		for (const transform of transforms) stream = applyTransform(stream, transform, signal);
+		return stream;
+	}
+
+	/**
+	 * Return a `node:stream/iter` writer backed by this file handle.
+	 * @experimental
+	 */
+	public writer(options: promises.WriterOptions = {}): Writer {
+		if (this.vfs.isClosed) throw UV('EBADF', 'write', this.vfs.path);
+		if (this.vfs.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.vfs.path);
+		if (this.vfs.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.vfs.path);
+
+		const { autoClose, start, limit, chunkSize = 131072 } = options;
+
+		const handle = this;
+		let position = typeof start == 'number' ? start : handle.vfs.position;
+		let written = 0;
+		let failed = false;
+		// Tracks whether the writer has been ended or failed, so disposal and `autoClose` don't double-close.
+		let done = false;
+
+		async function finish(): Promise<void> {
+			if (done) return;
+			done = true;
+			if (autoClose) await handle.close();
+		}
+
+		const toBuffer = (chunk: Uint8Array | string): Uint8Array =>
+			typeof chunk == 'string' ? Buffer.from(chunk, 'utf8') : new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+
+		async function writeChunk(chunk: Uint8Array | string): Promise<void> {
+			const buffer = toBuffer(chunk);
+			if (typeof limit == 'number' && written + buffer.byteLength > limit) {
+				throw new RangeError(`Writer limit of ${limit} bytes exceeded`);
+			}
+			const bytesWritten = await handle.vfs.write(buffer, 0, buffer.byteLength, position);
+			position += bytesWritten;
+			written += bytesWritten;
+			handle._emitChange();
+		}
+
+		return {
+			get desiredSize() {
+				if (failed) return null;
+				return typeof limit == 'number' ? Math.max(0, limit - written) : chunkSize;
+			},
+			async write(chunk, opts) {
+				opts?.signal?.throwIfAborted();
+				await writeChunk(chunk);
+			},
+			async writev(chunks, opts) {
+				opts?.signal?.throwIfAborted();
+				for (const chunk of chunks) await writeChunk(chunk);
+			},
+			writeSync() {
+				// Synchronous writes are not supported by the async handle.
+				throw UV('ENOSYS', 'writeSync', handle.vfs.path);
+			},
+			writevSync() {
+				throw UV('ENOSYS', 'writevSync', handle.vfs.path);
+			},
+			async end() {
+				await finish();
+				return written;
+			},
+			endSync() {
+				throw UV('ENOSYS', 'endSync', handle.vfs.path);
+			},
+			fail() {
+				failed = true;
+				void finish();
+			},
+			[Symbol.dispose]() {
+				// `using w = fh.writer()` fails the writer unconditionally.
+				failed = true;
+				void finish();
+			},
+			async [Symbol.asyncDispose]() {
+				// `await using w = fh.writer()` only finishes if still open.
+				await finish();
+			},
+		};
 	}
 }
 
