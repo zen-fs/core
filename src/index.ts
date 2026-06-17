@@ -17,6 +17,7 @@ export default fs;
 export * from './node/compat.js';
 export * as vfs from './vfs/index.js';
 
+// eslint-disable-next-line no-shadow-restricted-names
 declare const globalThis: {
 	/**
 	 * Global VFS. Do not use unless absolutely needed.
