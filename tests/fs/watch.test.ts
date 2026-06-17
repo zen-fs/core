@@ -156,4 +156,23 @@ suite('Watch', () => {
 		await watcher.return!();
 		await promise;
 	});
+
+	test('watch("/") receives events for files under root', async () => {
+		// Regression: emitChange previously exited its parent-walk before
+		// checking watchers.get('/'), so a watcher registered on '/' never fired.
+		const { promise, resolve } = Promise.withResolvers<[string, string]>();
+
+		using watcher = fs.watch('/', (eventType, filename) => {
+			resolve([eventType, filename]);
+		});
+
+		await fs.promises.writeFile('/watch-root-file.txt', 'x');
+
+		const [eventType, filename] = await Promise.race([
+			promise,
+			new Promise<[string, string]>((_, reject) => setTimeout(() => reject(new Error('watch("/") timed out')), 1000)),
+		]);
+		assert.equal(eventType, 'change');
+		assert.equal(filename, 'watch-root-file.txt');
+	});
 });

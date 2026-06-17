@@ -196,14 +196,17 @@ export function emitChange(context: V_Context, eventType: fs.WatchEventType, fil
 	if ($) filename = join($.root ?? '/', filename);
 	filename = normalizePath(filename);
 
-	// Notify watchers, including ones on parent directories if they are watching recursively
-	for (let path = filename; path != '/'; path = dirname(path)) {
+	// Notify watchers, including ones on parent directories if they are watching recursively.
+	// The walk includes '/' so a watcher on the root also fires (previously `path != '/'` skipped it).
+	for (let path = filename; ; path = dirname(path)) {
 		const watchersForPath = watchers.get(path);
 
-		if (!watchersForPath) continue;
-
-		for (const watcher of watchersForPath) {
-			watcher.emit('change', eventType, relative.call(watcher._context, path, filename) || basename(filename));
+		if (watchersForPath) {
+			for (const watcher of watchersForPath) {
+				watcher.emit('change', eventType, relative.call(watcher._context, path, filename) || basename(filename));
+			}
 		}
+
+		if (path === '/') break;
 	}
 }
