@@ -157,7 +157,7 @@ suite('Watch', () => {
 		await promise;
 	});
 
-	test('watch("/") receives events for files under root', async () => {
+	test('watch("/") receives events for files under root #293', async () => {
 		// Regression: emitChange previously exited its parent-walk before
 		// checking watchers.get('/'), so a watcher registered on '/' never fired.
 		const { promise, resolve } = Promise.withResolvers<[string, string]>();
