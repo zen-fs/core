@@ -16,9 +16,7 @@ export { fs };
 export default fs;
 export * from './node/compat.js';
 export * as vfs from './vfs/index.js';
-import $pkg from '../package.json' with { type: 'json' };
 
-// eslint-disable-next-line no-shadow-restricted-names
 declare const globalThis: {
 	/**
 	 * Global VFS. Do not use unless absolutely needed.
@@ -27,4 +25,4 @@ declare const globalThis: {
 	__zenfs__: typeof fs;
 };
 
-globalThis.__zenfs__ = Object.assign(Object.create(fs), { _version: $pkg.version });
+globalThis.__zenfs__ = Object.create(fs);
