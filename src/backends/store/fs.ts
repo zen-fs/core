@@ -355,13 +355,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
-		options.mode |= S_IFREG;
-		return await this.commitNew(path, options, new Uint8Array());
+		return await this.commitNew(path, { ...options, mode: options.mode | S_IFREG }, new Uint8Array());
 	}
 
 	public createFileSync(path: string, options: CreationOptions): InodeLike {
-		options.mode |= S_IFREG;
-		return this.commitNewSync(path, options, new Uint8Array());
+		return this.commitNewSync(path, { ...options, mode: options.mode | S_IFREG }, new Uint8Array());
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -383,13 +381,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
-		options.mode |= S_IFDIR;
-		return await this.commitNew(path, options, encodeUTF8('{}'));
+		return await this.commitNew(path, { ...options, mode: options.mode | S_IFDIR }, encodeUTF8('{}'));
 	}
 
 	public mkdirSync(path: string, options: CreationOptions): InodeLike {
-		options.mode |= S_IFDIR;
-		return this.commitNewSync(path, options, encodeUTF8('{}'));
+		return this.commitNewSync(path, { ...options, mode: options.mode | S_IFDIR }, encodeUTF8('{}'));
 	}
 
 	public async readdir(path: string): Promise<string[]> {
