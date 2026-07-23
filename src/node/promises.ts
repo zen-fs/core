@@ -684,7 +684,7 @@ writeFile satisfies typeof promises.writeFile;
 export async function appendFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	data: FileContents,
+	data: FileContents | Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView>,
 	_options?: BufferEncoding | (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | null
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
@@ -692,6 +692,9 @@ export async function appendFile(
 	const $ex = { syscall: 'write', path: path instanceof FileHandle ? path['vfs'].path : path.toString() };
 
 	if (!(flag & constants.O_APPEND)) throw UV('EBADF', $ex);
+
+	if (typeof data != 'string' && !ArrayBuffer.isView(data))
+		throw new TypeError('The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received ' + typeof data);
 
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
