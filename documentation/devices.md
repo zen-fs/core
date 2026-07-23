@@ -10,9 +10,7 @@ ZenFS includes support for device files. These are designed to follow Linux's de
 
 ```ts
 await configure({
-	mounts: {
-		/* ... */
-	},
+	mounts: {/* ... */},
 	addDevices: true,
 });
 
