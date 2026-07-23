@@ -17,4 +17,12 @@ suite('Inode manipulation', () => {
 		const newInode = Object.assign(new Inode(), inode);
 		assert.equal(newInode.mode, inode.mode);
 	});
+
+	test('Copy to new Inode using the constructor does not alias', () => {
+		const newInode = new Inode(inode);
+		assert.equal(newInode.mode, inode.mode);
+
+		newInode.mode = 0o40700;
+		assert.equal(inode.mode, 0o40755);
+	});
 });
