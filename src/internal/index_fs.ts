@@ -95,13 +95,13 @@ export abstract class IndexFS extends FileSystem {
 	public async stat(path: string): Promise<Inode> {
 		const inode = this.index.get(path);
 		if (!inode) throw withErrno('ENOENT');
-		return inode;
+		return new Inode(inode);
 	}
 
 	public statSync(path: string): Inode {
 		const inode = this.index.get(path);
 		if (!inode) throw withErrno('ENOENT');
-		return inode;
+		return new Inode(inode);
 	}
 
 	public async touch(path: string, metadata: InodeLike): Promise<void> {
