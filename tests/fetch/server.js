@@ -1,15 +1,15 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
-import { data, port, tmp, indexPath } from './config.js';
+import { data, indexPath, port, tmp } from './config.js';
 
 const statusCodes = {
 	ENOENT: 404,
 };
 
 try {
-	execSync(`npm exec make-index -- ${data} --output ${tmp}/index.json --quiet`, { stdio: 'inherit' });
+	execFileSync('npm', ['exec', '--silent', 'make-index', '--', data, '--output', `${tmp}/index.json`, '--quiet'], { stdio: 'inherit' });
 } catch (e) {
 	if (e.signal == 'SIGINT') {
 		console.log('Aborted whilst creating index');
