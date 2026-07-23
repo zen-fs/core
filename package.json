@@ -64,7 +64,7 @@
 		"spdx:check": "npx lice -a src tests/*.ts tests/**/*.test.ts",
 		"spdx:fix": "npx lice -aw src tests/*.ts tests/**/*.test.ts",
 		"lint": "eslint src tests",
-		"test": "npx zenfs-test --clean; npx zenfs-test -abcp; tests/fetch/run.sh; npx zenfs-test --report",
+		"test": "npx --silent zenfs-test --clean; npx --silent zenfs-test -abcp; tests/fetch/run.sh; npx --silent zenfs-test --report",
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "tsc -p tsconfig.json --watch",

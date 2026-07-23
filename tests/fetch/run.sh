@@ -6,12 +6,12 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 node $SCRIPT_DIR/server.js &
 PID=$!
 
-echo -n "Waiting for server to start..."
+echo -en "Waiting for server to start...\r"
 if [ -n "$VERBOSE" ]; then echo; fi
 until nc -z localhost 26514; do
   sleep 0.25
 done
 
-npx zenfs-test $SCRIPT_DIR/fetch.ts --preserve --force "$@"
+npx --silent zenfs-test $SCRIPT_DIR/fetch.ts --preserve --force "$@"
 
 kill $PID

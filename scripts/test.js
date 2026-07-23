@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // NOTE: Not compiled, use erasable TS only
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, globSync, mkdirSync, rmSync } from 'node:fs';
 import { join, parse, basename } from 'node:path';
 import { parseArgs, styleText } from 'node:util';
@@ -25,7 +25,7 @@ const { values: options, positionals } = parseArgs({
 		inspect: { short: 'I', type: 'boolean', default: false },
 		skip: { short: 's', type: 'string', multiple: true, default: [] },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
-		runs: { short: 'r', type: 'string' },
+		runs: { short: 'r', type: 'string', default: '1' },
 
 		// Coverage and performance
 		coverage: { type: 'string', default: 'tests/.coverage' },
@@ -34,9 +34,13 @@ const { values: options, positionals } = parseArgs({
 		clean: { type: 'boolean', default: false },
 		profile: { type: 'boolean', default: false },
 	},
+	strict: true,
 	allowPositionals: true,
 });
 
+/**
+ * @param  {...any} args
+ */
 function debug(...args) {
 	if (options.debug) console.debug(styleText('dim', '[debug]'), ...args.map(a => (typeof a === 'string' ? styleText('dim', a) : a)));
 }
@@ -92,7 +96,7 @@ if (options.clean) {
 
 function report() {
 	try {
-		execSync('npx c8 report --reporter=text', { stdio: 'inherit' });
+		execFileSync('npx', ['--silent', 'c8', 'report', '--reporter=text'], { stdio: 'inherit' });
 	} catch (e) {
 		console.error('Failed to generate coverage report!');
 		console.error(e);
@@ -106,6 +110,7 @@ if (options.report) {
 	process.exit();
 }
 
+/** @type {typeof import('./ci.js')} */
 let ci;
 if (options.ci) {
 	if (options.runs) {
@@ -120,7 +125,7 @@ options.verbose && options.force && console.debug('Forcing tests to exit (--test
 if (options.build) {
 	!options.quiet && process.stdout.write('Building... ');
 	try {
-		execSync('npm run build');
+		execFileSync('npm', ['run', 'build', '--silent'], { stdio: 'inherit' });
 		console.log('done.');
 	} catch {
 		console.warn('failed, continuing without it.');
@@ -151,22 +156,24 @@ mkdirSync(options.coverage, { recursive: true });
  * Generate the command used to run the tests
  * @param {string} profileName
  * @param {...string} rest
- * @returns {string}
+ * @returns {string[]}
  */
 function makeCommand(profileName, ...rest) {
 	const command = [
-		'tsx --trace-deprecation',
-		options.inspect ? '--inspect' : '',
-		'--test --experimental-test-coverage',
-		options.force ? '--test-force-exit' : '',
-		options.skip.length ? `--test-skip-pattern='${options.skip.join('|').replaceAll("'", "\\'")}'` : '',
-		!options.profile ? '' : `--cpu-prof --cpu-prof-dir=.profiles --cpu-prof-name=${profileName}.cpuprofile --cpu-prof-interval=500`,
+		'--trace-deprecation',
+		options.inspect && '--inspect',
+		'--test',
+		'--experimental-test-coverage',
+		options.force && '--test-force-exit',
+		options.skip.length && `--test-skip-pattern='${options.skip.join('|').replaceAll("'", "\\'")}'`,
+		...(!options.profile
+			? []
+			: ['--cpu-prof', '--cpu-prof-dir=.profiles', `--cpu-prof-name=${profileName}.cpuprofile`, '--cpu-prof-interval=500']),
 		...rest,
 	]
 		.filter(v => v)
-		.join(' ');
-
-	if (!options.quiet) debug('command:', command);
+		.filter(v => typeof v == 'string');
+	if (!options.quiet) debug('command: tsx', command.join(' '));
 
 	return command;
 }
@@ -228,7 +235,7 @@ async function runTests(config) {
 		}
 
 		try {
-			execSync(command, {
+			execFileSync('tsx', command, {
 				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 			});
 			if (!options.quiet) console.log(`${styleText('green', 'passed')}${identText} ${time()}`);
@@ -250,7 +257,7 @@ async function runTests(config) {
 if (options.common) {
 	await runTests({
 		name: 'common',
-		args: [`'tests/*.test.ts'`, `'tests/**/!(fs)/*.test.ts'`],
+		args: ['tests/*.test.ts', `tests/**/!(fs)/*.test.ts`],
 		statusName: 'Common tests',
 	});
 }
@@ -269,7 +276,7 @@ for (const setupFile of positionals) {
 
 	await runTests({
 		name,
-		args: [`'${testsGlob.replaceAll("'", "\\'")}'`, process.env.CMD],
+		args: [`${testsGlob.replaceAll("'", "\\'")}`, process.env.CMD || ''],
 		shouldSkip() {
 			return basename(setupFile).startsWith('_');
 		},

@@ -1,12 +1,13 @@
 import { Octokit } from '@octokit/action';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path/posix';
+import { _throw } from 'utilium';
 import { JSONFileMap } from 'utilium/fs';
 
 const octokit = new Octokit();
 
-const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-const head_sha = process.env.GITHUB_SHA;
+const [owner, repo] = process.env.GITHUB_REPOSITORY?.split('/') || _throw('GITHUB_REPOSITORY is not set');
+const head_sha = process.env.GITHUB_SHA || _throw('GITHUB_SHA is not set');
 
 mkdirSync(join(import.meta.dirname, '../tmp'), { recursive: true });
 
@@ -33,7 +34,11 @@ export const checkNames = {
 	'single-buffer': 'Unit tests: SingleBuffer',
 };
 
-/** Create a new GitHub check run */
+/**
+ * Create a new GitHub check run
+ * @param {string} id
+ * @param {string} name
+ */
 export async function createCheck(id, name) {
 	const response = await octokit.request('POST /repos/{owner}/{repo}/check-runs', {
 		owner,
@@ -49,6 +54,7 @@ export async function createCheck(id, name) {
 
 /**
  * Move an existing check run from "queued" to "in_progress".
+ * @param {string} id
  */
 export async function startCheck(id) {
 	const check = checks.get(id);
@@ -62,7 +68,13 @@ export async function startCheck(id) {
 	});
 }
 
-/** Complete a check run */
+/**
+ * Complete a check run
+ * @param {string} id
+ * @param {'success' | 'failure' | 'neutral' | 'cancelled' | 'timed_out' | 'action_required' | 'skipped'} conclusion
+ * @param {string} title
+ * @param {string} summary
+ */
 export async function completeCheck(id, conclusion, title = '', summary = '') {
 	const check = checks.get(id);
 	if (check.completed) return;

@@ -9,7 +9,7 @@ const statusCodes = {
 };
 
 try {
-	execFileSync('npm', ['exec', '--silent', 'make-index', '--', data, '--output', `${tmp}/index.json`, '--quiet'], { stdio: 'inherit' });
+	execFileSync('npx', ['--silent', 'make-index', '--', data, '--output', `${tmp}/index.json`, '--quiet'], { stdio: 'inherit' });
 } catch (e) {
 	if (e.signal == 'SIGINT') {
 		console.log('Aborted whilst creating index');

@@ -36,6 +36,9 @@ if (options.quiet && options.verbose) {
 	process.exit();
 }
 
+/**
+ * @param {string} path
+ */
 function fixSlash(path) {
 	return path.replaceAll('\\', '/');
 }
@@ -44,6 +47,9 @@ const resolvedRoot = root || '.';
 
 const entries = new Map();
 
+/**
+ * @param {string} path
+ */
 function computeEntries(path) {
 	try {
 		if (options.ignore.some(pattern => matchesGlob(path, pattern))) {
@@ -68,7 +74,7 @@ function computeEntries(path) {
 		if (options.verbose) {
 			console.log(`${styleText('greenBright', ' dir')} ${path}`);
 		}
-	} catch (e) {
+	} catch (/** @type {any} */ e) {
 		if (!options.quiet) {
 			console.log(`${styleText('red', 'fail')} ${path}: ${e.message}`);
 		}

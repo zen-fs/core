@@ -82,11 +82,22 @@ const _iow = 1;
 const _ior = 2;
 const _iorw = _iow | _ior;
 
+/**
+ *
+ * @param {*} dir
+ * @param {*} type
+ * @param {*} nr
+ * @param {*} size
+ */
 function _encode(dir, type, nr, size) {
 	const value = (dir << _shift_dir) | (type << _shift_type) | (nr << _shift_nr) | (size << _shift_size);
 	return value >>> 0; // Why doesn't JS have unsigned left shift?!
 }
 
+/**
+ *
+ * @param {*} value
+ */
 function _decode(value) {
 	return [
 		(value >>> _shift_dir) & _mask_dir,
