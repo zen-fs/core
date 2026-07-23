@@ -110,10 +110,12 @@ if (options.report) {
 	process.exit();
 }
 
+const nRuns = Number.isSafeInteger(parseInt(options.runs)) ? parseInt(options.runs) : 1;
+
 /** @type {typeof import('./ci.js')} */
 let ci;
 if (options.ci) {
-	if (options.runs) {
+	if (options.runs && nRuns !== 1) {
 		console.error('Cannot use --ci with --runs');
 		process.exit(1);
 	}
@@ -192,8 +194,6 @@ function duration(ms) {
 
 	return ms + ' ' + unit;
 }
-
-const nRuns = Number.isSafeInteger(parseInt(options.runs)) ? parseInt(options.runs) : 1;
 
 /**
  * @typedef {object} RunTestOptions
