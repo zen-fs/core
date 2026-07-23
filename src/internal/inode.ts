@@ -330,6 +330,10 @@ export class Inode extends $from(BufferView) implements InodeLike {
 			args = [sizeof(Inode)];
 		}
 
+		if (args[0] instanceof Inode) {
+			args = [new Uint8Array(args[0].buffer, args[0].byteOffset, args[0].byteLength)];
+		}
+
 		super(...(args as any));
 
 		if (this.byteLength < sizeof(Inode)) {
