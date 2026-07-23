@@ -109,23 +109,23 @@ export interface FileSystemAttributes {
  * @category Internals
  * @internal
  */
-export interface CreationOptions extends Partial<InodeLike> {
+export interface CreationOptions extends Readonly<Partial<InodeLike>> {
 	/**
 	 * The uid to create the file.
 	 * This is ignored if the FS supports setuid and the setuid bit is set
 	 */
-	uid: number;
+	readonly uid: number;
 
 	/**
 	 * The gid to create the file.
 	 * This is ignored if the FS supports setgid and the setgid bit is set
 	 */
-	gid: number;
+	readonly gid: number;
 
 	/**
 	 * The mode to create the file with.
 	 */
-	mode: number;
+	readonly mode: number;
 }
 
 /**
