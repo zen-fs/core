@@ -173,25 +173,25 @@ export abstract class IndexFS extends FileSystem {
 		return inode;
 	}
 
-	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
 		return this.create(path, { ...options, mode: options.mode | S_IFREG });
 	}
 
-	public createFileSync(path: string, options: CreationOptions): InodeLike {
+	public createFileSync(path: string, options: CreationOptions): Inode {
 		return this.create(path, { ...options, mode: options.mode | S_IFREG });
 	}
 
 	protected _mkdir?(path: string, options: CreationOptions): Promise<void>;
 	protected _mkdirSync?(path: string, options: CreationOptions): void;
 
-	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
 		options = { ...options, mode: options.mode | S_IFDIR };
 		const inode = this.create(path, options);
 		await this._mkdir?.(path, options);
 		return inode;
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+	public mkdirSync(path: string, options: CreationOptions): Inode {
 		options = { ...options, mode: options.mode | S_IFDIR };
 		const inode = this.create(path, options);
 		this._mkdirSync?.(path, options);

@@ -195,13 +195,13 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.renameSync(oldPath, newPath);
 	}
 
-	public async stat(path: string): Promise<InodeLike> {
+	public async stat(path: string): Promise<Inode> {
 		const dev = this.devices.get(path);
 		if (dev) return dev.inode;
 		return super.stat(path);
 	}
 
-	public statSync(path: string): InodeLike {
+	public statSync(path: string): Inode {
 		const dev = this.devices.get(path);
 		if (dev) return dev.inode;
 		return super.statSync(path);
@@ -219,12 +219,12 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		else super.touchSync(path, metadata);
 	}
 
-	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
 		if (this.devices.has(path)) throw withErrno('EEXIST');
 		return super.createFile(path, options);
 	}
 
-	public createFileSync(path: string, options: CreationOptions): InodeLike {
+	public createFileSync(path: string, options: CreationOptions): Inode {
 		if (this.devices.has(path)) throw withErrno('EEXIST');
 		return super.createFileSync(path, options);
 	}
@@ -247,12 +247,12 @@ export class DeviceFS extends StoreFS<InMemoryStore> {
 		return super.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
 		if (this.devices.has(path)) throw withErrno('EEXIST');
 		return super.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+	public mkdirSync(path: string, options: CreationOptions): Inode {
 		if (this.devices.has(path)) throw withErrno('EEXIST');
 		return super.mkdirSync(path, options);
 	}

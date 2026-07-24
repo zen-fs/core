@@ -319,12 +319,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._move(oldPath, newPath);
 	}
 
-	public async stat(path: string): Promise<InodeLike> {
+	public async stat(path: string): Promise<Inode> {
 		await using tx = this.transaction();
 		return await this.findInode(tx, path);
 	}
 
-	public statSync(path: string): InodeLike {
+	public statSync(path: string): Inode {
 		using tx = this.transaction();
 		return this.findInodeSync(tx, path);
 	}
@@ -354,11 +354,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
 		return await this.commitNew(path, { ...options, mode: options.mode | S_IFREG }, new Uint8Array());
 	}
 
-	public createFileSync(path: string, options: CreationOptions): InodeLike {
+	public createFileSync(path: string, options: CreationOptions): Inode {
 		return this.commitNewSync(path, { ...options, mode: options.mode | S_IFREG }, new Uint8Array());
 	}
 
@@ -380,11 +380,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this.removeSync(path, true);
 	}
 
-	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
 		return await this.commitNew(path, { ...options, mode: options.mode | S_IFDIR }, encodeUTF8('{}'));
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+	public mkdirSync(path: string, options: CreationOptions): Inode {
 		return this.commitNewSync(path, { ...options, mode: options.mode | S_IFDIR }, encodeUTF8('{}'));
 	}
 
