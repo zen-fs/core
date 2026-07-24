@@ -17,7 +17,7 @@ import { Exception, rethrow, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
-import { join, matchesGlob } from '../path.js';
+import { dirname, join, matchesGlob } from '../path.js';
 import '../polyfills.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import * as _async from '../vfs/async.js';
@@ -26,6 +26,7 @@ import type { Handle } from '../vfs/file.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
 import { _statfs, resolveMount } from '../vfs/shared.js';
+import { cacheOf, lockPath } from '../vfs/vcache.js';
 import { emitChange, FSWatcher } from '../vfs/watchers.js';
 import { Dir, Dirent } from './dir.js';
 import { createInterface } from './readline.js';
@@ -250,7 +251,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public readableWebStream(options: StreamOptions = {}): NodeReadableStream<Uint8Array> {
 		if (this.vfs.isClosed) throw UV('EBADF', 'readableWebStream', this.vfs.path);
-		return this.vfs.fs.streamRead(this.vfs.internalPath, options);
+		return this.vfs.streamRead(options);
 	}
 
 	/**
@@ -263,7 +264,7 @@ export class FileHandle implements promises.FileHandle {
 	public writableWebStream(options: StreamOptions = {}): WritableStream {
 		if (this.vfs.isClosed) throw UV('EBADF', 'writableWebStream', this.vfs.path);
 		if (this.vfs.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'writableWebStream', this.vfs.path);
-		return this.vfs.fs.streamWrite(this.vfs.internalPath, options);
+		return this.vfs.streamWrite(options);
 	}
 
 	/**
@@ -600,7 +601,9 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 	const stats = await fs.stat(resolved).catch(rethrow($ex));
 	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', $ex);
 
+	using _ = await lockPath(fs, dirname(resolved), 'rw');
 	await fs.unlink(resolved).catch(rethrow($ex));
+	cacheOf(fs).remove(resolved);
 	emitChange(this, 'rename', path.toString());
 }
 unlink satisfies typeof promises.unlink;
@@ -719,7 +722,9 @@ export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 
 	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', $ex);
 
+	using _ = await lockPath(fs, dirname(resolved), 'rw');
 	await fs.rmdir(resolved).catch(rethrow($ex));
+	cacheOf(fs).remove(resolved);
 	emitChange(this, 'rename', path.toString());
 }
 rmdir satisfies typeof promises.rmdir;

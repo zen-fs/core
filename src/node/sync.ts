@@ -11,13 +11,14 @@ import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory } from '../internal/inode.js';
-import { join, matchesGlob } from '../path.js';
+import { dirname, join, matchesGlob } from '../path.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
 import { _statfs, resolveMount } from '../vfs/shared.js';
 import * as _sync from '../vfs/sync.js';
+import { cacheOf, lockPathSync } from '../vfs/vcache.js';
 import { emitChange } from '../vfs/watchers.js';
 import { Dir, Dirent } from './dir.js';
 import { BigIntStats, Stats } from './stats.js';
@@ -79,7 +80,9 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 		if (checkAccess && !hasAccess(this, fs.statSync(resolved), constants.W_OK)) {
 			throw UV('EACCES', 'unlink');
 		}
+		using _ = lockPathSync(fs, dirname(resolved), 'rw');
 		fs.unlinkSync(resolved);
+		cacheOf(fs).remove(resolved);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { path }));
 	}
@@ -363,7 +366,9 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
 	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', 'rmdir', path);
 
+	using _ = lockPathSync(fs, dirname(resolved), 'rw');
 	wrap(fs, 'rmdirSync', path)(resolved);
+	cacheOf(fs).remove(resolved);
 	emitChange(this, 'rename', path.toString());
 }
 rmdirSync satisfies typeof fs.rmdirSync;

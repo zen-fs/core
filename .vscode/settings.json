@@ -6,5 +6,19 @@
 	},
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
 	"editor.formatOnSave": true,
-	"cSpell.words": ["canonicalized", "mknod"]
+	"cSpell.words": [
+		"canonicalized",
+		"dcache",
+		"EAGAIN",
+		"EDEADLK",
+		"fdatasync",
+		"inodes",
+		"mknod",
+		"nondirectories",
+		"rwsem",
+		"unref",
+		"vcache",
+		"vnode",
+		"vnodes"
+	]
 }

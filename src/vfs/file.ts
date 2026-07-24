@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { UV, withErrno } from 'kerium';
+import { memoize } from 'utilium';
 import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
 import { contextOf } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { _chown, InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
+import { cacheOf } from './vcache.js';
+import type { VNode } from './vnode.js';
 
 /** @hidden */
 export interface FileReadResult<T extends ArrayBufferView> {
@@ -13,12 +16,13 @@ export interface FileReadResult<T extends ArrayBufferView> {
 	buffer: T;
 }
 
+/** The chunk size used when streaming reads and writes */
+const streamChunkSize = 0x1000;
+
 /**
  * @internal
  */
 export class Handle {
-	protected _buffer?: Uint8Array;
-
 	/**
 	 * Current position
 	 */
@@ -42,9 +46,24 @@ export class Handle {
 	}
 
 	/**
+	 * The inode for the file. This is shared between all handles for the file via the vnode.
+	 */
+	@memoize
+	public get inode(): InodeLike {
+		return this.vnode.inode;
+	}
+
+	@memoize
+	public get fs(): FileSystem {
+		return this.vnode.fs;
+	}
+
+	/**
 	 * Whether the file has changes which have not been written to the FS
 	 */
-	protected dirty: boolean = false;
+	protected get dirty(): boolean {
+		return this.vnode.dirty;
+	}
 
 	/**
 	 * Whether the file is open or closed
@@ -56,16 +75,14 @@ export class Handle {
 	}
 
 	/**
-	 * Creates a file with `path` and, optionally, the given contents.
-	 * Note that, if contents is specified, it will be mutated by the file.
+	 * Creates a file handle for the vnode.
 	 */
 	public constructor(
 		public readonly context: V_Context,
 		public readonly path: string,
-		public readonly fs: FileSystem,
 		public readonly internalPath: string,
 		public readonly flag: number,
-		public readonly inode: InodeLike
+		public readonly vnode: VNode
 	) {}
 
 	protected get _isSync(): boolean {
@@ -81,9 +98,8 @@ export class Handle {
 
 		if (!this.dirty) return;
 
-		if (!this.fs.attributes.has('no_write')) this.fs.touchSync(this.internalPath, this.inode);
-
-		this.dirty = false;
+		using _ = this.vnode.lockSync('ro');
+		this.vnode.syncSync();
 	}
 
 	/**
@@ -107,6 +123,7 @@ export class Handle {
 		if (this.dirty && !force) throw UV('EBUSY', 'close', this.path);
 
 		this.closed = true;
+		cacheOf(this.fs).unref(this.vnode);
 	}
 
 	public truncateSync(length: number): void {
@@ -116,12 +133,10 @@ export class Handle {
 		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'truncate', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'truncate', this.path);
 
-		this.dirty = true;
-		this.inode.mtimeMs = Date.now();
-		this.inode.size = length;
-		this.inode.ctimeMs = Date.now();
+		using _ = this.vnode.lockSync('rw');
+		this.vnode.truncate(length);
 
-		if (this._isSync) this.syncSync();
+		if (this._isSync) this.vnode.syncSync();
 	}
 
 	/**
@@ -139,20 +154,14 @@ export class Handle {
 		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
 
-		this.dirty = true;
-		const end = position + length;
+		using _ = this.vnode.lockSync('rw');
+
 		const slice = buffer.subarray(offset, offset + length);
 
-		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) this.inode.size = end;
-
-		this.inode.mtimeMs = Date.now();
-		this.inode.ctimeMs = Date.now();
-
+		this.vnode.writeSync(slice, position);
 		this._position = position + slice.byteLength;
 
-		this.fs.writeSync(this.internalPath, slice, position);
-
-		if (this._isSync) this.syncSync();
+		if (this._isSync) this.vnode.syncSync();
 		return slice.byteLength;
 	}
 
@@ -174,8 +183,10 @@ export class Handle {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
 		if (this.flag & c.O_WRONLY) throw UV('EBADF', 'read', this.path);
 
+		using _ = this.vnode.lockSync('ro');
+
 		if (!(this.inode.flags! & InodeFlags.NoAtime) && !this.fs.attributes.has('no_atime')) {
-			this.dirty = true;
+			this.vnode.metadataDirty = true;
 			this.inode.atimeMs = Date.now();
 		}
 
@@ -185,23 +196,25 @@ export class Handle {
 		}
 		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		this.fs.readSync(this.internalPath, uint8.subarray(offset, offset + length), position, end);
-		if (this._isSync) this.syncSync();
+		this.vnode.readSync(uint8.subarray(offset, offset + length), position, end);
+		if (this._isSync) this.vnode.syncSync();
 		return end - position;
 	}
 
 	public chmodSync(mode: number): void {
 		if (this.closed) throw UV('EBADF', 'chmod', this.path);
-		this.dirty = true;
+		using _ = this.vnode.lockSync('rw');
+		this.vnode.metadataDirty = true;
 		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
-		if (this._isSync || mode > c.S_IFMT) this.syncSync();
+		if (this._isSync || mode > c.S_IFMT) this.vnode.syncSync();
 	}
 
 	public chownSync(uid: number, gid: number): void {
 		if (this.closed) throw UV('EBADF', 'chmod', this.path);
-		this.dirty = true;
+		using _ = this.vnode.lockSync('rw');
+		this.vnode.metadataDirty = true;
 		_chown(this.inode, uid, gid);
-		if (this._isSync) this.syncSync();
+		if (this._isSync) this.vnode.syncSync();
 	}
 
 	/**
@@ -210,10 +223,11 @@ export class Handle {
 	public utimesSync(atime: number, mtime: number): void {
 		if (this.closed) throw UV('EBADF', 'utimes', this.path);
 
-		this.dirty = true;
+		using _ = this.vnode.lockSync('rw');
+		this.vnode.metadataDirty = true;
 		this.inode.atimeMs = atime;
 		this.inode.mtimeMs = mtime;
-		if (this._isSync) this.syncSync();
+		if (this._isSync) this.vnode.syncSync();
 	}
 
 	public async [Symbol.asyncDispose](): Promise<void> {
@@ -225,9 +239,8 @@ export class Handle {
 
 		if (!this.dirty) return;
 
-		if (!this.fs.attributes.has('no_write')) await this.fs.touch(this.internalPath, this.inode);
-
-		this.dirty = false;
+		using _ = await this.vnode.lock('ro');
+		await this.vnode.sync();
 	}
 
 	/**
@@ -251,6 +264,7 @@ export class Handle {
 		if (this.dirty && !force) throw UV('EBUSY', 'close', this.path);
 
 		this.closed = true;
+		cacheOf(this.fs).unref(this.vnode);
 	}
 
 	public stat(): InodeLike {
@@ -266,12 +280,10 @@ export class Handle {
 		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'truncate', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'truncate', this.path);
 
-		this.dirty = true;
-		this.inode.mtimeMs = Date.now();
-		this.inode.size = length;
-		this.inode.ctimeMs = Date.now();
+		using _ = await this.vnode.lock('rw');
+		this.vnode.truncate(length);
 
-		if (this._isSync) await this.sync();
+		if (this._isSync) await this.vnode.sync();
 	}
 
 	/**
@@ -294,20 +306,14 @@ export class Handle {
 		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
 
-		this.dirty = true;
-		const end = position + length;
+		using _ = await this.vnode.lock('rw');
+
 		const slice = buffer.subarray(offset, offset + length);
 
-		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) this.inode.size = end;
-
-		this.inode.mtimeMs = Date.now();
-		this.inode.ctimeMs = Date.now();
-
+		await this.vnode.write(slice, position);
 		this._position = position + slice.byteLength;
 
-		await this.fs.write(this.internalPath, slice, position);
-
-		if (this._isSync) await this.sync();
+		if (this._isSync) await this.vnode.sync();
 		return slice.byteLength;
 	}
 
@@ -329,8 +335,10 @@ export class Handle {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
 		if (this.flag & c.O_WRONLY) throw UV('EBADF', 'read', this.path);
 
+		using _ = await this.vnode.lock('ro');
+
 		if (!(this.inode.flags! & InodeFlags.NoAtime) && !this.fs.attributes.has('no_atime')) {
-			this.dirty = true;
+			this.vnode.metadataDirty = true;
 			this.inode.atimeMs = Date.now();
 		}
 
@@ -340,23 +348,25 @@ export class Handle {
 		}
 		this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		await this.fs.read(this.internalPath, uint8.subarray(offset, offset + length), position, end);
-		if (this._isSync) await this.sync();
+		await this.vnode.read(uint8.subarray(offset, offset + length), position, end);
+		if (this._isSync) await this.vnode.sync();
 		return end - position;
 	}
 
 	public async chmod(mode: number): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'chmod', this.path);
-		this.dirty = true;
+		using _ = await this.vnode.lock('rw');
+		this.vnode.metadataDirty = true;
 		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
-		if (this._isSync || mode > c.S_IFMT) await this.sync();
+		if (this._isSync || mode > c.S_IFMT) await this.vnode.sync();
 	}
 
 	public async chown(uid: number, gid: number): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'chown', this.path);
-		this.dirty = true;
+		using _ = await this.vnode.lock('rw');
+		this.vnode.metadataDirty = true;
 		_chown(this.inode, uid, gid);
-		if (this._isSync) await this.sync();
+		if (this._isSync) await this.vnode.sync();
 	}
 
 	/**
@@ -365,29 +375,62 @@ export class Handle {
 	public async utimes(atime: number, mtime: number): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'utimes', this.path);
 
-		this.dirty = true;
+		using _ = await this.vnode.lock('rw');
+		this.vnode.metadataDirty = true;
 		this.inode.atimeMs = atime;
 		this.inode.mtimeMs = mtime;
-		if (this._isSync) await this.sync();
+		if (this._isSync) await this.vnode.sync();
 	}
 
 	/**
 	 * Create a stream for reading the file.
+	 * @todo Don't repeat ourselves with the implementation in `FileSystem`
 	 */
 	public streamRead(options: StreamOptions): ReadableStream {
 		if (this.closed) throw UV('EBADF', 'streamRead', this.path);
 
-		return this.fs.streamRead(this.internalPath, options);
+		const { vnode } = this;
+		return new ReadableStream({
+			async start(controller) {
+				using _ = await vnode.lock('ro');
+				const { start = 0, end = vnode.inode.size } = options;
+
+				for (let offset = start; offset < end; offset += streamChunkSize) {
+					const bytesRead = offset + streamChunkSize > end ? end - offset : streamChunkSize;
+					const buffer = new Uint8Array(bytesRead);
+					await vnode.read(buffer, offset, offset + bytesRead).catch(controller.error.bind(controller));
+					controller.enqueue(buffer);
+				}
+
+				controller.close();
+			},
+			type: 'bytes',
+		});
 	}
 
 	/**
 	 * Create a stream for writing the file.
+	 * Chunks are written to the vnode's cache, then synced when the stream is closed.
+	 * @todo Don't repeat ourselves with the implementation in `FileSystem`
 	 */
 	public streamWrite(options: StreamOptions): WritableStream {
 		if (this.closed) throw UV('EBADF', 'write', this.path);
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
 		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
-		return this.fs.streamWrite(this.internalPath, options);
+
+		const { vnode } = this;
+		let position = options.start ?? 0;
+		return new WritableStream<Uint8Array>({
+			async write(chunk, controller) {
+				using _ = await vnode.lock('rw');
+				await vnode.write(chunk, position).catch(controller.error.bind(controller));
+				position += chunk.byteLength;
+			},
+			async close() {
+				using _ = await vnode.lock('ro');
+				await vnode.sync();
+			},
+		});
 	}
 }
 

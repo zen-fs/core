@@ -15,6 +15,7 @@ import { credentialsAllowRoot } from '../internal/credentials.js';
 import { withExceptionContext } from '../internal/error.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
+import { caches, VCache } from './vcache.js';
 
 /**
  * @internal @hidden
@@ -44,6 +45,7 @@ export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void
 
 	fs._mountPoint = mountPoint;
 	mounts.set(mountPoint, fs);
+	if (!caches.has(fs.uuid)) caches.set(fs.uuid, new VCache(fs));
 	info(`Mounted ${fs.name} on ${mountPoint}`);
 	debug(`${fs.name} attributes: ${[...fs.attributes].map(([k, v]) => (v !== undefined && v !== null ? k + '=' + v : k)).join(', ')}`);
 }
@@ -51,18 +53,31 @@ export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void
 /**
  * Unmounts the file system at `mountPoint`.
  * @category Backends and Configuration
+ * @todo [BREAKING] make this `async` and `await` vcache sync
  */
 export function umount(this: V_Context, mountPoint: string): void {
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
 
 	mountPoint = resolve.call(this, mountPoint);
-	if (!mounts.has(mountPoint)) {
+	const fs = mounts.get(mountPoint);
+	if (!fs) {
 		warn(mountPoint + ' is already unmounted');
 		return;
 	}
 
-	mounts.delete(mountPoint);
-	notice('Unmounted ' + mountPoint);
+	const _done = () => {
+		caches.delete(fs.uuid);
+		mounts.delete(mountPoint);
+		notice('Unmounted ' + mountPoint);
+	};
+
+	try {
+		caches.get(fs.uuid)?.syncSync();
+		_done();
+	} catch {
+		warn(`Could not flush to ${mountPoint} synchronously. Unmount is being deferred.`);
+		void caches.get(fs.uuid)?.sync().then(_done);
+	}
 }
 
 /**

@@ -74,7 +74,7 @@
 		"@types/node": "^25.2.0",
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
-		"kerium": "^1.4.0",
+		"kerium": "^1.4.1",
 		"memium": "^0.4.0",
 		"readable-stream": "^4.5.2",
 		"utilium": "^3.0.0"

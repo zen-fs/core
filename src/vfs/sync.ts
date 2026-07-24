@@ -11,6 +11,7 @@ import { contextOf } from '../internal/contexts.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
+import { cacheOf, lockPathSync } from './vcache.js';
 import { checkAccess } from './config.js';
 import { Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
@@ -31,8 +32,8 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 	try {
 		const resolved = resolveMount(path, $);
 
-		// Stat it to make sure it exists
-		const stats = resolved.fs.statSync(resolved.path);
+		// Stat it to make sure it exists. The vnode cache takes precedence since it may have unsynced changes
+		const stats = cacheOf(resolved.fs).get(resolved.path)?.inode ?? resolved.fs.statSync(resolved.path);
 
 		if (!isSymbolicLink(stats) || preserveSymlinks) {
 			return { ...resolved, fullPath: path, stats };
@@ -52,7 +53,7 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 
 	let stats: InodeLike | undefined;
 	try {
-		stats = resolved.fs.statSync(resolved.path);
+		stats = cacheOf(resolved.fs).get(resolved.path)?.inode ?? resolved.fs.statSync(resolved.path);
 	} catch (e: any) {
 		if (e.code === 'ENOENT') return { ...resolved, fullPath: path };
 		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
@@ -90,7 +91,8 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 			throw UV('ENOENT', 'open', path);
 		}
 		// Create the file
-		const parentStats = fs.statSync(dirname(resolved));
+		const parentPath = dirname(resolved);
+		const parentStats = fs.statSync(parentPath);
 		if (checkAccess && !hasAccess(this, parentStats, constants.W_OK)) {
 			throw UV('EACCES', 'open', path);
 		}
@@ -101,9 +103,8 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 
 		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
 
-		if (checkAccess && !hasAccess(this, parentStats, constants.W_OK)) {
-			throw UV('EACCES', 'open', path);
-		}
+		// Serialize entry creation with other operations on the parent directory
+		using _ = lockPathSync(fs, parentPath, 'rw', parentStats);
 
 		const { euid: uid, egid: gid } = contextOf(this).credentials;
 		const inode = fs.createFileSync(resolved, {
@@ -111,7 +112,7 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
 			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
 		});
-		return new Handle(this, path, fs, resolved, flag, inode);
+		return new Handle(this, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
 	}
 
 	if (checkAccess && (!hasAccess(this, stats, mode) || !hasAccess(this, stats, flags.toMode(flag)))) {
@@ -119,10 +120,9 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 	}
 
 	if (flag & constants.O_EXCL) throw UV('EEXIST', 'open', path);
-
-	const file = new Handle(this, path, fs, resolved, flag, stats);
-
 	if (!opt.allowDirectory && stats.mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+
+	const file = new Handle(this, path, resolved, flag, cacheOf(fs).ref(resolved, stats));
 
 	if (flag & constants.O_TRUNC) file.truncateSync(0);
 
@@ -153,6 +153,8 @@ export function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {
 
 	const __create = (path: string, resolved: string, parent: InodeLike) => {
 		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', dirname(path));
+
+		using _ = lockPathSync(fs, dirname(resolved), 'rw', parent);
 
 		const inode = fs.mkdirSync(resolved, {
 			mode,
@@ -189,11 +191,16 @@ export function readdir(this: V_Context, path: PathLike, options: ReaddirOptions
 
 	const { fs, path: resolved } = resolve(this, path);
 
-	const stats = fs.statSync(resolved);
+	const stats = cacheOf(fs).get(resolved)?.inode ?? fs.statSync(resolved);
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'readdir', path);
 
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'readdir', path);
-	const entries = fs.readdirSync(resolved);
+
+	let entries: string[];
+	{
+		using _ = lockPathSync(fs, resolved, 'ro', stats);
+		entries = fs.readdirSync(resolved);
+	}
 
 	// Iterate over entries and handle recursive case if needed
 	const values: Dirent[] = [];
@@ -253,7 +260,21 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 	if (newStats && !isDirectory(src.stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(src.stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
 
+	const srcDir = dirname(src.path);
+	const dstDir = dirname(dst.path);
+
+	// Lock both parent directories, ordered by inode number to avoid ABBA deadlocks (like Linux's `lock_two_nondirectories`)
+	const parents: [string, InodeLike][] = [
+		[srcDir, oldParent],
+		[dstDir, newParent],
+	];
+	if (oldParent.ino > newParent.ino) parents.reverse();
+
+	using _first = lockPathSync(fs, parents[0][0], 'rw', parents[0][1]);
+	using _second = oldParent.ino == newParent.ino ? null : lockPathSync(fs, parents[1][0], 'rw', parents[1][1]);
+
 	src.fs.renameSync(src.path, dst.path);
+	cacheOf(fs).rename(src.path, dst.path);
 
 	emitChange(this, 'rename', oldPath);
 	emitChange(this, 'change', newPath);
@@ -281,7 +302,9 @@ export function link(this: V_Context, target: PathLike, link: PathLike): void {
 		if (!hasAccess(this, destStats, constants.W_OK)) throw UV('EACCES', $ex);
 	}
 
-	return fs.linkSync(resolved, dst.path);
+	using _ = lockPathSync(fs, dirname(dst.path), 'rw');
+	fs.linkSync(resolved, dst.path);
+	cacheOf(fs).link(resolved, dst.path);
 }
 
 export function stat(this: V_Context, path: PathLike, lstat: boolean): InodeLike {
@@ -295,7 +318,8 @@ export function stat(this: V_Context, path: PathLike, lstat: boolean): InodeLike
 		const { base, dir } = parse(path);
 		const { fs, path: parent } = resolve(this, dir, false, extra);
 		try {
-			stats = fs.statSync(base ? join(parent, base) : parent);
+			const target = base ? join(parent, base) : parent;
+			stats = cacheOf(fs).get(target)?.inode ?? fs.statSync(target);
 		} catch (e: any) {
 			setUVMessage(Object.assign(e, extra));
 			throw e;

@@ -23,7 +23,7 @@ export default [
 			'prefer-rest-params': 'warn',
 			'prefer-spread': 'warn',
 			'no-unused-vars': 'off',
-			'@typescript-eslint/no-unused-vars': 'warn',
+			'@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
 			'@typescript-eslint/no-inferrable-types': 'off',
 			'@typescript-eslint/no-this-alias': 'off',
 			'@typescript-eslint/no-unsafe-function-type': 'warn',

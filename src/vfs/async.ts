@@ -15,6 +15,7 @@ import { Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
 import * as flags from './flags.js';
 import { resolveMount } from './shared.js';
+import { cacheOf, lockPath } from './vcache.js';
 import { emitChange } from './watchers.js';
 
 /**
@@ -27,7 +28,7 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 
 	if (preserveSymlinks) {
 		const resolved = resolveMount(path, $, extra);
-		const stats = await resolved.fs.stat(resolved.path).catch(() => undefined);
+		const stats = cacheOf(resolved.fs).get(resolved.path)?.inode ?? (await resolved.fs.stat(resolved.path).catch(() => undefined));
 		return { ...resolved, fullPath: path, stats };
 	}
 
@@ -36,8 +37,8 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 	try {
 		const resolved = resolveMount(path, $);
 
-		// Stat it to make sure it exists
-		const stats = await resolved.fs.stat(resolved.path);
+		// Stat it to make sure it exists. The vnode cache takes precedence since it may have unsynced changes
+		const stats = cacheOf(resolved.fs).get(resolved.path)?.inode ?? (await resolved.fs.stat(resolved.path));
 
 		if (!isSymbolicLink(stats)) {
 			return { ...resolved, fullPath: path, stats };
@@ -54,10 +55,12 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 	const maybePath = join(realDir, base);
 	const resolved = resolveMount(maybePath, $);
 
-	const stats = await resolved.fs.stat(resolved.path).catch((e: Exception) => {
-		if (e.code == 'ENOENT') return;
-		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
-	});
+	const stats =
+		cacheOf(resolved.fs).get(resolved.path)?.inode
+		?? (await resolved.fs.stat(resolved.path).catch((e: Exception) => {
+			if (e.code == 'ENOENT') return;
+			throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
+		}));
 
 	if (!stats) return { ...resolved, fullPath: path };
 	if (!isSymbolicLink(stats)) {
@@ -78,36 +81,45 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 		flag = flags.parse(opt.flag);
 
 	const $ex = { syscall: 'open', path };
-	const { fs, path: resolved, stats } = await resolve($, path, opt.preserveSymlinks, $ex);
+	// eslint-disable-next-line prefer-const
+	let { fs, path: resolved, stats } = await resolve($, path, opt.preserveSymlinks, $ex);
 
 	if (!stats) {
 		if (!(flag & constants.O_CREAT)) throw UV('ENOENT', $ex);
 
 		// Create the file
-		const parentStats = await fs.stat(dirname(resolved));
+		const parentPath = dirname(resolved);
+		const parentStats = await fs.stat(parentPath);
 		if (checkAccess && !hasAccess($, parentStats, constants.W_OK)) throw UV('EACCES', 'open', dirname(path));
 
 		if (!isDirectory(parentStats)) throw UV('ENOTDIR', 'open', dirname(path));
 
 		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
 
-		const { euid: uid, egid: gid } = contextOf($).credentials;
+		// Serialize entry creation with other operations on the parent directory
+		using _ = await lockPath(fs, parentPath, 'rw', parentStats);
 
-		const inode = await fs.createFile(resolved, {
-			mode,
-			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
-			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
-		});
+		// Another task may have created the file while we waited for the lock
+		stats = cacheOf(fs).get(resolved)?.inode ?? (await fs.stat(resolved).catch(() => undefined));
 
-		return new Handle($, path, fs, resolved, flag, inode);
+		if (!stats) {
+			const { euid: uid, egid: gid } = contextOf($).credentials;
+
+			const inode = await fs.createFile(resolved, {
+				mode,
+				uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
+				gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
+			});
+
+			return new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
+		}
 	}
 
 	if (checkAccess && !hasAccess($, stats, flags.toMode(flag))) throw UV('EACCES', $ex);
 	if (flag & constants.O_EXCL) throw UV('EEXIST', $ex);
-
-	const handle = new Handle($, path, fs, resolved, flag, stats);
-
 	if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+
+	const handle = new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, stats));
 
 	if (flag & constants.O_TRUNC) await handle.truncate(0);
 
@@ -138,6 +150,8 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 
 	const __create = async (path: string, resolved: string, parent: InodeLike) => {
 		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', path);
+
+		using _ = await lockPath(fs, dirname(resolved), 'rw', parent);
 
 		const inode = await fs.mkdir(resolved, {
 			mode,
@@ -181,7 +195,11 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 
 	if (!isDirectory(stats)) throw UV('ENOTDIR', $ex);
 
-	const entries = await fs.readdir(resolved);
+	let entries: string[];
+	{
+		using _ = await lockPath(fs, resolved, 'ro', stats);
+		entries = await fs.readdir(resolved);
+	}
 
 	const values: Dirent[] = [];
 	const addEntry = async (entry: string) => {
@@ -233,7 +251,21 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	if (newStats && !isDirectory(src.stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(src.stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
 
+	const srcDir = dirname(src.path);
+	const dstDir = dirname(dst.path);
+
+	// Lock both parent directories, ordered by inode number to avoid ABBA deadlocks (like Linux's `lock_two_nondirectories`)
+	const parents: [string, InodeLike][] = [
+		[srcDir, oldParent],
+		[dstDir, newParent],
+	];
+	if (oldParent.ino > newParent.ino) parents.reverse();
+
+	using _first = await lockPath(fs, parents[0][0], 'rw', parents[0][1]);
+	using _second = oldParent.ino == newParent.ino ? null : await lockPath(fs, parents[1][0], 'rw', parents[1][1]);
+
 	await src.fs.rename(src.path, dst.path);
+	cacheOf(fs).rename(src.path, dst.path);
 
 	emitChange(this, 'rename', oldPath);
 	emitChange(this, 'change', newPath);
@@ -261,7 +293,9 @@ export async function link(this: V_Context, target: PathLike, link: PathLike): P
 		if (!hasAccess(this, destStats, constants.W_OK)) throw UV('EACCES', $ex);
 	}
 
-	return await fs.link(resolved, dst.path);
+	using _ = await lockPath(fs, dirname(dst.path), 'rw');
+	await fs.link(resolved, dst.path);
+	cacheOf(fs).link(resolved, dst.path);
 }
 
 export async function stat(this: V_Context, path: PathLike, lstat: boolean): Promise<InodeLike> {
@@ -274,7 +308,8 @@ export async function stat(this: V_Context, path: PathLike, lstat: boolean): Pro
 	else {
 		const { base, dir } = parse(path);
 		const { fs, path: parent } = await resolve(this, dir, false, extra);
-		stats = await fs.stat(base ? join(parent, base) : parent).catch(rethrow(extra));
+		const target = base ? join(parent, base) : parent;
+		stats = cacheOf(fs).get(target)?.inode ?? (await fs.stat(target).catch(rethrow(extra)));
 	}
 
 	if (!stats) throw UV('ENOENT', extra);
