@@ -5,7 +5,7 @@ import { _asyncFSKeys, type _SyncFSKeys, type AsyncFSMethods, type Mixin } from 
 import { withErrno } from 'kerium';
 import { crit, debug, err } from 'kerium/log';
 import { StoreFS } from '../backends/store/fs.js';
-import { isDirectory, type InodeLike } from '../internal/inode.js';
+import { isDirectory, type Inode, type InodeLike } from '../internal/inode.js';
 import { join } from '../path.js';
 
 /**
@@ -128,7 +128,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(() => this.rename(oldPath, newPath));
 		}
 
-		public statSync(path: string): InodeLike {
+		public statSync(path: string): Inode {
 			this.checkSync();
 			return this._sync.statSync(path);
 		}
@@ -139,7 +139,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(() => this.touch(path, metadata));
 		}
 
-		public createFileSync(path: string, options: CreationOptions): InodeLike {
+		public createFileSync(path: string, options: CreationOptions): Inode {
 			this.checkSync();
 			const result = this._sync.createFileSync(path, options);
 			this._async(() => this.createFile(path, options));
@@ -158,7 +158,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this._async(() => this.rmdir(path));
 		}
 
-		public mkdirSync(path: string, options: CreationOptions): InodeLike {
+		public mkdirSync(path: string, options: CreationOptions): Inode {
 			this.checkSync();
 			const result = this._sync.mkdirSync(path, options);
 			this._async(() => this.mkdir(path, options));

@@ -2,7 +2,7 @@
 import { err, warn } from 'kerium/log';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';
-import { isDirectory, type InodeLike } from '../internal/inode.js';
+import { Inode, isDirectory, type InodeLike } from '../internal/inode.js';
 import type { NodeFS } from '../node/types.js';
 import type { Backend } from './backend.js';
 
@@ -52,15 +52,15 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Get file statistics.
 	 */
-	public async stat(path: string): Promise<InodeLike> {
-		return await this.nodeFS.promises.stat(this.path(path));
+	public async stat(path: string): Promise<Inode> {
+		return new Inode(await this.nodeFS.promises.stat(this.path(path)));
 	}
 
 	/**
 	 * Get file statistics synchronously.
 	 */
-	public statSync(path: string): InodeLike {
-		return this.nodeFS.statSync(this.path(path));
+	public statSync(path: string): Inode {
+		return new Inode(this.nodeFS.statSync(this.path(path)));
 	}
 
 	/**
@@ -107,17 +107,17 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a directory.
 	 */
-	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
 		await this.nodeFS.promises.mkdir(this.path(path), options);
-		return await this.nodeFS.promises.stat(this.path(path));
+		return new Inode(await this.nodeFS.promises.stat(this.path(path)));
 	}
 
 	/**
 	 * Create a directory synchronously.
 	 */
-	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+	public mkdirSync(path: string, options: CreationOptions): Inode {
 		this.nodeFS.mkdirSync(this.path(path), options);
-		return this.nodeFS.statSync(this.path(path));
+		return new Inode(this.nodeFS.statSync(this.path(path)));
 	}
 
 	/**
@@ -137,7 +137,7 @@ export class PassthroughFS extends FileSystem {
 	/**
 	 * Create a file.
 	 */
-	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
 		if (isDirectory(options)) {
 			await this.nodeFS.promises.mkdir(this.path(path), { mode: options.mode });
 		} else {
@@ -145,13 +145,13 @@ export class PassthroughFS extends FileSystem {
 			await handle.close();
 		}
 
-		return await this.nodeFS.promises.stat(this.path(path));
+		return new Inode(await this.nodeFS.promises.stat(this.path(path)));
 	}
 
 	/**
 	 * Create a file synchronously.
 	 */
-	public createFileSync(path: string, options: CreationOptions): InodeLike {
+	public createFileSync(path: string, options: CreationOptions): Inode {
 		if (isDirectory(options)) {
 			this.nodeFS.mkdirSync(this.path(path), { mode: options.mode });
 		} else {

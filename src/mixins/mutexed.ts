@@ -2,7 +2,7 @@
 import type { UUID } from 'node:crypto';
 import type { Concrete } from 'utilium';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
+import type { Inode, InodeLike } from '../internal/inode.js';
 
 import { withErrno } from 'kerium';
 import { err } from 'kerium/log';
@@ -157,12 +157,12 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.renameSync(oldPath, newPath);
 	}
 
-	public async stat(path: string): Promise<InodeLike> {
+	public async stat(path: string): Promise<Inode> {
 		using _ = await this.lock();
 		return await this._fs.stat(path);
 	}
 
-	public statSync(path: string): InodeLike {
+	public statSync(path: string): Inode {
 		using _ = this.lockSync();
 		return this._fs.statSync(path);
 	}
@@ -177,12 +177,12 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		this._fs.touchSync(path, metadata);
 	}
 
-	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
 		using _ = await this.lock();
 		return await this._fs.createFile(path, options);
 	}
 
-	public createFileSync(path: string, options: CreationOptions): InodeLike {
+	public createFileSync(path: string, options: CreationOptions): Inode {
 		using _ = this.lockSync();
 		return this._fs.createFileSync(path, options);
 	}
@@ -207,12 +207,12 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.rmdirSync(path);
 	}
 
-	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
 		using _ = await this.lock();
 		return await this._fs.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+	public mkdirSync(path: string, options: CreationOptions): Inode {
 		using _ = this.lockSync();
 		return this._fs.mkdirSync(path, options);
 	}

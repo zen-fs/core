@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { CreationOptions, StreamOptions, UsageInfo } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
+import type { Inode, InodeLike } from '../internal/inode.js';
 import type { Backend } from './backend.js';
 
 import { EventEmitter } from 'eventemitter3';
@@ -212,7 +212,7 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 	}
 
-	public async stat(path: string): Promise<InodeLike> {
+	public async stat(path: string): Promise<Inode> {
 		try {
 			return await this.writable.stat(path);
 		} catch {
@@ -221,7 +221,7 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 	}
 
-	public statSync(path: string): InodeLike {
+	public statSync(path: string): Inode {
 		try {
 			return this.writable.statSync(path);
 		} catch {
@@ -240,12 +240,12 @@ export class CopyOnWriteFS extends FileSystem {
 		this.writable.touchSync(path, metadata);
 	}
 
-	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
 		await this.createParentDirectories(path);
 		return await this.writable.createFile(path, options);
 	}
 
-	public createFileSync(path: string, options: CreationOptions): InodeLike {
+	public createFileSync(path: string, options: CreationOptions): Inode {
 		this.createParentDirectoriesSync(path);
 		return this.writable.createFileSync(path, options);
 	}
@@ -312,13 +312,13 @@ export class CopyOnWriteFS extends FileSystem {
 		this.journal.add('delete', path);
 	}
 
-	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
 		if (await this.exists(path)) throw withErrno('EEXIST');
 		await this.createParentDirectories(path);
 		return await this.writable.mkdir(path, options);
 	}
 
-	public mkdirSync(path: string, options: CreationOptions): InodeLike {
+	public mkdirSync(path: string, options: CreationOptions): Inode {
 		if (this.existsSync(path)) throw withErrno('EEXIST');
 		this.createParentDirectoriesSync(path);
 		return this.writable.mkdirSync(path, options);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
-import type { InodeLike } from '../internal/inode.js';
+import type { Inode, InodeLike } from '../internal/inode.js';
 import type { AsyncFSMethods, Mixin } from './shared.js';
 
 /**
@@ -18,7 +18,7 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.renameSync(oldPath, newPath);
 		}
 
-		public async stat(path: string): Promise<InodeLike> {
+		public async stat(path: string): Promise<Inode> {
 			return this.statSync(path);
 		}
 
@@ -26,7 +26,7 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.touchSync(path, metadata);
 		}
 
-		public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
+		public async createFile(path: string, options: CreationOptions): Promise<Inode> {
 			return this.createFileSync(path, options);
 		}
 
@@ -38,7 +38,7 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.rmdirSync(path);
 		}
 
-		public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
+		public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
 			return this.mkdirSync(path, options);
 		}
 

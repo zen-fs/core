@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { UUID } from 'node:crypto';
 import type { ConstMap } from 'utilium';
-import type { InodeLike } from './inode.js';
+import type { Inode, InodeLike } from './inode.js';
 import { withErrno } from 'kerium';
 
 /**
@@ -216,8 +216,8 @@ export abstract class FileSystem {
 	public abstract rename(oldPath: string, newPath: string): Promise<void>;
 	public abstract renameSync(oldPath: string, newPath: string): void;
 
-	public abstract stat(path: string): Promise<InodeLike>;
-	public abstract statSync(path: string): InodeLike;
+	public abstract stat(path: string): Promise<Inode>;
+	public abstract statSync(path: string): Inode;
 
 	/** Modify metadata. */
 	public abstract touch(path: string, metadata: Partial<InodeLike>): Promise<void>;
@@ -228,12 +228,12 @@ export abstract class FileSystem {
 	/**
 	 * Create the file at `path` with the given options.
 	 */
-	public abstract createFile(path: string, options: CreationOptions): Promise<InodeLike>;
+	public abstract createFile(path: string, options: CreationOptions): Promise<Inode>;
 
 	/**
 	 * Create the file at `path` with the given options.
 	 */
-	public abstract createFileSync(path: string, options: CreationOptions): InodeLike;
+	public abstract createFileSync(path: string, options: CreationOptions): Inode;
 
 	public abstract unlink(path: string): Promise<void>;
 	public abstract unlinkSync(path: string): void;
@@ -243,8 +243,8 @@ export abstract class FileSystem {
 	public abstract rmdir(path: string): Promise<void>;
 	public abstract rmdirSync(path: string): void;
 
-	public abstract mkdir(path: string, options: CreationOptions): Promise<InodeLike>;
-	public abstract mkdirSync(path: string, options: CreationOptions): InodeLike;
+	public abstract mkdir(path: string, options: CreationOptions): Promise<Inode>;
+	public abstract mkdirSync(path: string, options: CreationOptions): Inode;
 
 	public abstract readdir(path: string): Promise<string[]>;
 	public abstract readdirSync(path: string): string[];
