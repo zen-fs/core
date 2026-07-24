@@ -15,7 +15,7 @@ import { StoreFS } from './store/fs.js';
 import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 import type { Store } from './store/store.js';
 
-type Lock = Disposable & (() => void);
+type SBLock = Disposable & (() => void);
 
 const hex = (value: number): string => '0x' + value.toString(16).padStart(8, '0');
 
@@ -139,7 +139,7 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 		}
 	}
 
-	public lock(): Lock {
+	public lock(): SBLock {
 		this.waitUnlocked();
 
 		Atomics.store(this, MetadataBlock.lockIndex, 1);
