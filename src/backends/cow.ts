@@ -40,7 +40,7 @@ function isJournalOp(op: string): op is JournalOperation {
 	return journalOperations.has(op);
 }
 
-const maxOpLength = Math.max(...journalOperations.values().map(op => op.length));
+const maxOpLength = Math.max(...[...journalOperations.values()].map(op => op.length));
 
 /**
  * @category Internals

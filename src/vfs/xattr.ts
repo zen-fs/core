@@ -281,7 +281,7 @@ export async function list(this: V_Context, path: string): Promise<Name[]> {
 
 	if (!inode.attributes) return [];
 
-	return inode.attributes.keys().toArray() as Name[];
+	return [...inode.attributes.keys()] as Name[];
 }
 
 /**
@@ -303,5 +303,5 @@ export function listSync(this: V_Context, path: string): Name[] {
 
 	if (!inode.attributes) return [];
 
-	return inode.attributes.keys().toArray() as Name[];
+	return [...inode.attributes.keys()] as Name[];
 }
