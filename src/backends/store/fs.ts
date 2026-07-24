@@ -86,6 +86,30 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 	}
 
+	/**
+	 * Tail of the chain of in-flight directory-mutating operations.
+	 * @internal @hidden
+	 */
+	#mutation: Promise<void> = Promise.resolve();
+
+	/**
+	 * Serializes directory-mutating operations. `commitNew`/`remove`/`rename`/`link`
+	 * read-modify-write a parent directory's listing across `await` points; without
+	 * this, concurrent operations in the same directory read the same listing and the
+	 * last writer clobbers the others' entries — the files' inodes exist but are
+	 * missing from `readdir` (e.g. when a tree is written with `Promise.all`).
+	 *
+	 * Acquire at the top of a mutating op and release on scope exit:
+	 * `using _ = await this._mutate();`
+	 */
+	protected async _mutate(): Promise<Disposable> {
+		const previous = this.#mutation;
+		let release!: () => void;
+		this.#mutation = new Promise<void>(resolve => (release = resolve));
+		await previous;
+		return { [Symbol.dispose]: release };
+	}
+
 	protected _initialized: boolean = false;
 
 	public async ready(): Promise<void> {
@@ -228,6 +252,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @todo Make rename compatible with the cache.
 	 */
 	public async rename(oldPath: string, newPath: string): Promise<void> {
+		using _ = await this._mutate();
 		await using tx = this.transaction();
 		const _old = parse(oldPath),
 			_new = parse(newPath),
@@ -411,6 +436,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public syncSync(): void {}
 
 	public async link(target: string, link: string): Promise<void> {
+		using _ = await this._mutate();
 		await using tx = this.transaction();
 
 		const newDir: string = dirname(link),
@@ -783,6 +809,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		*/
 		if (path == '/') throw withErrno('EEXIST');
 
+		using _ = await this._mutate();
 		await using tx = this.transaction();
 
 		const { dir: parentPath, base: fname } = parse(path);
@@ -863,6 +890,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param isDir Does the path belong to a directory, or a file?
 	 */
 	protected async remove(path: string, isDir: boolean): Promise<void> {
+		using _ = await this._mutate();
 		await using tx = this.transaction();
 
 		const { dir: parent, base: fileName } = parse(path),
