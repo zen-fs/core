@@ -88,19 +88,13 @@ function computeEntries(path) {
 		const stats = lstatSync(path);
 
 		const type = getTypeText(stats);
-		const typeText = styleText(typeMap[type] || 'white', type);
 
-		if (!stats.isDirectory()) {
-			entries.set('/' + relative(resolvedRoot, path), stats);
-			if (options.verbose) console.log(`${typeText} ${path}`);
-			return;
-		}
-
-		for (const file of readdirSync(path)) {
-			computeEntries(join(path, file));
-		}
 		entries.set('/' + relative(resolvedRoot, path), stats);
-		if (options.verbose) console.log(`${typeText} ${path}`);
+		if (options.verbose) console.log(`${styleText(typeMap[type] || 'white', type)} ${path}`);
+
+		if (stats.isDirectory()) {
+			for (const file of readdirSync(path)) computeEntries(join(path, file));
+		}
 	} catch (/** @type {any} */ e) {
 		if (!options.quiet) {
 			console.log(`${styleText('red', 'fail')} ${path}: ${e.message}`);
