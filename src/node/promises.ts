@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises */
 // SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import type { Abortable } from 'node:events';
@@ -961,11 +962,9 @@ export function watch<T extends string | Buffer>(
 	filename: fs.PathLike,
 	options: fs.WatchOptions | string = {}
 ): AsyncIteratorObject<promises.FileChangeInfo<T>, undefined> {
-	const watcher = new FSWatcher<T>(
-		this,
-		filename.toString(),
-		typeof options !== 'string' ? options : { encoding: options as BufferEncoding | 'buffer' }
-	);
+	const opts = typeof options !== 'string' ? options : ({ encoding: options as BufferEncoding | 'buffer' } satisfies fs.WatchOptions);
+
+	const watcher = new FSWatcher<T>(this, filename.toString(), opts);
 
 	// A queue to hold change events, since we need to resolve them in the async iterator
 	const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];
@@ -979,12 +978,16 @@ export function watch<T extends string | Buffer>(
 	function cleanup(): Promise<IteratorReturnResult<undefined>> {
 		done = true;
 		watcher.close();
+		opts.signal?.removeEventListener('abort', cleanup);
 		for (const resolve of eventQueue) {
 			resolve({ value: null, done });
 		}
 		eventQueue.length = 0; // Clear the queue
 		return Promise.resolve({ value: undefined, done: true as const });
 	}
+
+	if (opts.signal?.aborted) void cleanup();
+	else opts.signal?.addEventListener('abort', cleanup, { once: true });
 
 	return {
 		async next() {
