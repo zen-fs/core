@@ -190,8 +190,7 @@ suite('Watch', () => {
 		const ac = new AbortController();
 		const watcher = fs.promises.watch('/', { recursive: true, signal: ac.signal });
 
-		/* Create the file before consuming the iterator, so the first observed event is the unlink.
-		@todo Also check the creation event once ZenFS emits 'rename' for it, like Node does */
+		// Create the file before consuming the iterator, so the first observed event is the unlink
 		await fs.promises.writeFile(tempFile, 'Temporary content');
 
 		const promise = (async () => {

@@ -16,5 +16,5 @@ export default defineConfig(
 			'@typescript-eslint/no-explicit-any': 'off',
 		},
 	},
-	{ name: 'Ignores', ignores: ['tests/{fixtures,coverage}'] }
+	{ name: 'Ignores', ignores: ['tests/{fixtures,coverage,tmp}'] }
 );
