@@ -92,14 +92,12 @@ suite('Dir', () => {
 	test('close multiple times', async () => {
 		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
-		await dir.close(); // Should not throw an error
-		assert(dir['closed']);
+		await assert.rejects(dir.close(), { code: 'ERR_DIR_CLOSED' });
 	});
 
 	test('closeSync multiple times', () => {
 		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
-		dir.closeSync(); // Should not throw an error
-		assert(dir['closed']);
+		assert.throws(() => dir.closeSync(), { code: 'ERR_DIR_CLOSED' });
 	});
 });

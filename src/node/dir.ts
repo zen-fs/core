@@ -4,7 +4,7 @@ import type { V_Context } from '../context.js';
 import type { Callback } from '../utils.js';
 
 import { Buffer } from 'buffer';
-import { withErrno } from 'kerium';
+import type { Exception } from 'kerium';
 import { warn } from 'kerium/log';
 import { parse } from '../path.js';
 import { DirType, type Dirent as VFSDirent } from '../vfs/dir.js';
@@ -81,13 +81,22 @@ export class Dirent<Name extends string | Buffer = string> implements _Dirent<Na
 }
 
 /**
+ * Thrown when a `Dir` is used after it has been closed.
+ * Note this is a plain `Error` with a Node error code, not an `Exception`.
+ * @internal @hidden
+ */
+function dirClosed(): Error {
+	return Object.assign(new Error('Directory handle was closed'), { code: 'ERR_DIR_CLOSED' });
+}
+
+/**
  * A class representing a directory stream.
  */
 export class Dir implements _Dir, AsyncIterator<Dirent> {
 	protected closed = false;
 
 	protected checkClosed(): void {
-		if (this.closed) throw withErrno('EBADF', 'Can not use closed Dir');
+		if (this.closed) throw dirClosed();
 	}
 
 	protected _entries?: Dirent[];
@@ -104,6 +113,13 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 	public close(): Promise<void>;
 	public close(cb: Callback): void;
 	public close(cb?: Callback): void | Promise<void> {
+		if (this.closed) {
+			const error = dirClosed();
+			if (!cb) return Promise.reject(error);
+			cb(error as Exception);
+			return;
+		}
+
 		this.closed = true;
 		if (!cb) {
 			return Promise.resolve();
@@ -116,6 +132,7 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 	 * Subsequent reads will result in errors.
 	 */
 	public closeSync(): void {
+		if (this.closed) throw dirClosed();
 		this.closed = true;
 	}
 
