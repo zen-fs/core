@@ -887,7 +887,7 @@ export async function lchown(this: V_Context, path: fs.PathLike, uid: number, gi
 lchown satisfies typeof promises.lchown;
 
 export async function chmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	await using handle = await open.call(this, path, 'r+');
+	await using handle = await open.call(this, path, 'r+').catch(rethrow({ syscall: 'chmod', path: normalizePath(path) }));
 	await handle.chmod(mode);
 }
 chmod satisfies typeof promises.chmod;

@@ -84,7 +84,7 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 		fs.unlinkSync(resolved);
 		cacheOf(fs).remove(resolved);
 	} catch (e: any) {
-		throw setUVMessage(Object.assign(e, { path }));
+		throw setUVMessage(Object.assign(e, { syscall: 'unlink', path }));
 	}
 	emitChange(this, 'rename', path.toString());
 }
@@ -362,7 +362,7 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath(path);
 	const { fs, path: resolved } = _sync.resolve(this, path);
 
-	const stats = wrap(fs, 'statSync', path)(resolved);
+	const stats = wrap(fs, 'statSync', { path, syscall: 'rmdir' })(resolved);
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
 	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', 'rmdir', path);
 
@@ -492,7 +492,12 @@ export function lchownSync(this: V_Context, path: fs.PathLike, uid: number, gid:
 lchownSync satisfies typeof fs.lchownSync;
 
 export function chmodSync(this: V_Context, path: fs.PathLike, mode: fs.Mode): void {
-	const fd = openSync.call(this, path, 'r+');
+	let fd: number;
+	try {
+		fd = openSync.call(this, path, 'r+');
+	} catch (e: any) {
+		throw setUVMessage(Object.assign(e, { syscall: 'chmod', path: normalizePath(path) }));
+	}
 	fchmodSync.call(this, fd, mode);
 	closeSync.call(this, fd);
 }

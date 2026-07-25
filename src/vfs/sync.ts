@@ -8,6 +8,7 @@ import { setUVMessage, UV, type ExceptionExtra } from 'kerium';
 import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
+import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
@@ -136,7 +137,7 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 export function readlink(this: V_Context, path: PathLike): string {
 	path = normalizePath(path);
 
-	const { fs, stats, path: resolved } = resolve(this, path, true);
+	const { fs, stats, path: resolved } = resolve(this, path, true, { syscall: 'readlink' });
 
 	if (!stats) throw UV('ENOENT', 'readlink', path);
 	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'readlink', path);
@@ -160,7 +161,7 @@ export function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {
 
 		using _ = lockPathSync(fs, dirname(resolved), 'rw', parent);
 
-		const inode = fs.mkdirSync(resolved, {
+		const inode = wrap(fs, 'mkdirSync', { path, syscall: 'mkdir' })(resolved, {
 			mode,
 			uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
 			gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
@@ -195,10 +196,11 @@ export function readdir(this: V_Context, path: PathLike, options: ReaddirOptions
 
 	const { fs, path: resolved } = resolve(this, path);
 
-	const stats = cacheOf(fs).get(resolved)?.inode ?? fs.statSync(resolved);
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'readdir', path);
+	// Node reports `readdir` failures as `scandir`
+	const stats = cacheOf(fs).get(resolved)?.inode ?? wrap(fs, 'statSync', { path, syscall: 'scandir' })(resolved);
+	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', 'scandir', path);
 
-	if (!isDirectory(stats)) throw UV('ENOTDIR', 'readdir', path);
+	if (!isDirectory(stats)) throw UV('ENOTDIR', 'scandir', path);
 
 	let entries: string[];
 	{

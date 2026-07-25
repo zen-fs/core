@@ -156,11 +156,13 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 
 		using _ = await lockPath(fs, dirname(resolved), 'rw', parent);
 
-		const inode = await fs.mkdir(resolved, {
-			mode,
-			uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
-			gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
-		});
+		const inode = await fs
+			.mkdir(resolved, {
+				mode,
+				uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
+				gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
+			})
+			.catch(rethrow({ syscall: 'mkdir', path }));
 		emitChange(this, 'rename', path);
 		return inode;
 	};
@@ -189,7 +191,8 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 export async function readdir(this: V_Context, path: PathLike, options: ReaddirOptions = {}): Promise<Dirent[]> {
 	path = normalizePath(path);
 
-	const $ex = { syscall: 'readdir', path };
+	// Node reports `readdir` failures as `scandir`
+	const $ex = { syscall: 'scandir', path };
 	const { fs, path: resolved, stats } = await resolve(this, path, false, $ex);
 
 	if (!stats) throw UV('ENOENT', $ex);
