@@ -87,7 +87,7 @@ suite('Rename', () => {
 
 		await fs.promises.mkdir(renDir1);
 
-		await assert.rejects(fs.promises.rename(renDir1, renDir2), { code: 'EBUSY' });
-		assert.throws(() => fs.renameSync(renDir1, renDir2), { code: 'EBUSY' });
+		await assert.rejects(fs.promises.rename(renDir1, renDir2), { code: 'EINVAL' });
+		assert.throws(() => fs.renameSync(renDir1, renDir2), { code: 'EINVAL' });
 	});
 });

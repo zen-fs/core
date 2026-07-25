@@ -244,7 +244,8 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 	const dst = resolveMount(newPath, this, $ex);
 
 	if (src.fs.uuid !== dst.fs.uuid) throw UV('EXDEV', $ex);
-	if (dst.path.startsWith(src.path + '/')) throw UV('EBUSY', $ex);
+	// A directory can not be moved inside itself
+	if (dst.path.startsWith(src.path + '/')) throw UV('EINVAL', $ex);
 	if (!src.stats) throw UV('ENOENT', $ex);
 
 	const fs = src.fs;
