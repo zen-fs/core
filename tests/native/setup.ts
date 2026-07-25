@@ -110,7 +110,16 @@ function mapArgs(base: string, args: unknown[]): unknown[] {
 }
 
 function mapResult(base: string, result: unknown): unknown {
-	return returnsPath.has(base) && typeof result == 'string' ? fromNative(result) : result;
+	if (returnsPath.has(base) && typeof result == 'string') return fromNative(result);
+
+	// `Dirent.parentPath` is a real path, so it needs to be mapped back too
+	if (base == 'readdir' && Array.isArray(result)) {
+		for (const entry of result) {
+			if (typeof entry?.parentPath == 'string') entry.parentPath = fromNative(entry.parentPath);
+		}
+	}
+
+	return result;
 }
 
 /**

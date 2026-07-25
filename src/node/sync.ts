@@ -421,7 +421,7 @@ export function readdirSync(this: V_Context, path: fs.PathLike, options?: NodeRe
 
 	for (const raw of rawEntries) {
 		if (options?.withFileTypes) {
-			entries.push(Dirent.from(raw, options.encoding));
+			entries.push(Dirent.from(raw, options.encoding, path));
 		} else if (options?.encoding == 'buffer') {
 			entries.push(Buffer.from(raw.path));
 		} else {

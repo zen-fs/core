@@ -6,7 +6,7 @@ import type { Callback } from '../utils.js';
 import { Buffer } from 'buffer';
 import type { Exception } from 'kerium';
 import { warn } from 'kerium/log';
-import { parse } from '../path.js';
+import { join, parse } from '../path.js';
 import { DirType, type Dirent as VFSDirent } from '../vfs/dir.js';
 import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';
@@ -44,12 +44,14 @@ export class Dirent<Name extends string | Buffer = string> implements _Dirent<Na
 	}
 
 	/**
+	 * `vfs.path` is relative to the directory that was read,
+	 * so `parentPath` is resolved against it— like Node does.
 	 * @internal
 	 */
-	static from(vfs: VFSDirent, encoding?: BufferEncoding | 'buffer' | null) {
+	static from(vfs: VFSDirent, encoding?: BufferEncoding | 'buffer' | null, parentPath: string = '.') {
 		const dirent = new Dirent();
 		const { base, dir } = parse(vfs.path);
-		dirent._parentPath = dir || '.';
+		dirent._parentPath = join(parentPath, dir);
 		dirent._name = base;
 		dirent.ino = vfs.ino;
 		dirent.type = vfs.type;
