@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { defaultContext, Stats } from '@zenfs/core';
+import { defaultContext, hasAccess } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { fs } from '../common.js';
@@ -13,25 +13,25 @@ suite('Stats', () => {
 
 	test('stat directory', async () => {
 		const stats = await fs.promises.stat('/');
-		assert(stats instanceof Stats);
+		assert(stats instanceof fs.Stats);
 	});
 
 	test('lstat directory', async () => {
 		const stats = await fs.promises.lstat('/');
-		assert(stats instanceof Stats);
+		assert(stats instanceof fs.Stats);
 	});
 
 	test('FileHandle.stat', async () => {
 		const handle = await fs.promises.open(existing_file, 'r');
 		const stats = await handle.stat();
-		assert(stats instanceof Stats);
+		assert(stats instanceof fs.Stats);
 		await handle.close();
 	});
 
 	test('fstatSync file', () => {
 		const fd = fs.openSync(existing_file, 'r');
 		const stats = fs.fstatSync(fd);
-		assert(stats instanceof Stats);
+		assert(stats instanceof fs.Stats);
 		fs.close(fd);
 	});
 
@@ -58,16 +58,16 @@ suite('Stats', () => {
 
 		assert.equal(stat.gid, nonRootCredentials.gid);
 		assert.equal(stat.uid, 0);
-		assert.equal(stat.hasAccess(fs.constants.R_OK), true);
-		assert.equal(stat.hasAccess(fs.constants.W_OK), false);
-		assert.equal(stat.hasAccess(fs.constants.X_OK), false);
+		assert.equal(hasAccess(defaultContext, stat, fs.constants.R_OK), true);
+		assert.equal(hasAccess(defaultContext, stat, fs.constants.W_OK), false);
+		assert.equal(hasAccess(defaultContext, stat, fs.constants.X_OK), false);
 		// changing group
 
 		Object.assign(defaultContext.credentials, { ...nonRootCredentials, gid: 44 });
 
-		assert.equal(stat.hasAccess(fs.constants.R_OK), false);
-		assert.equal(stat.hasAccess(fs.constants.W_OK), false);
-		assert.equal(stat.hasAccess(fs.constants.X_OK), false);
+		assert.equal(hasAccess(defaultContext, stat, fs.constants.R_OK), false);
+		assert.equal(hasAccess(defaultContext, stat, fs.constants.W_OK), false);
+		assert.equal(hasAccess(defaultContext, stat, fs.constants.X_OK), false);
 
 		Object.assign(defaultContext.credentials, prevCredentials);
 	});
@@ -81,6 +81,6 @@ suite('Stats', () => {
 		assert(!stats.isCharacterDevice());
 		assert(!stats.isFIFO());
 		assert(!stats.isSymbolicLink());
-		assert(stats instanceof Stats);
+		assert(stats instanceof fs.Stats);
 	});
 });

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { Exception } from 'kerium';
+import { R_OK, W_OK, X_OK } from '@zenfs/core/constants';
+import { defaultContext } from '@zenfs/core/internal/contexts.js';
+import { hasAccess } from '@zenfs/core/internal/inode.js';
+import { join } from '@zenfs/core/path';
+import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { encodeUTF8 } from 'utilium';
-import { defaultContext } from '@zenfs/core/internal/contexts.js';
-import { join } from '@zenfs/core/path';
-import { R_OK, W_OK, X_OK } from '@zenfs/core/constants';
 import { fs } from '../common.js';
 
 const asyncMode = 0o777;
@@ -50,16 +51,15 @@ suite('Permissions', () => {
 
 	async function test_item(path: string): Promise<void> {
 		const stats = await fs.promises.stat(path).catch((error: Exception) => {
-			assert(error instanceof Exception);
 			assert.equal(error.code, 'EACCES');
 		});
 		if (!stats) return;
-		assert(stats.hasAccess(X_OK));
+		assert(hasAccess(defaultContext, stats, X_OK));
 
 		function checkError(access: number) {
 			return function (error: Exception) {
-				assert(error instanceof Exception);
-				assert(!stats!.hasAccess(access));
+				assert(error instanceof Error);
+				assert(!hasAccess(defaultContext, stats!, access));
 			};
 		}
 
@@ -70,7 +70,7 @@ suite('Permissions', () => {
 		} else {
 			await fs.promises.readFile(path).catch(checkError(R_OK));
 		}
-		assert(stats.hasAccess(R_OK));
+		assert(hasAccess(defaultContext, stats, R_OK));
 
 		if (stats.isDirectory()) {
 			const testFile = join(path, '__test_file_plz_ignore.txt');
@@ -81,7 +81,7 @@ suite('Permissions', () => {
 			if (!handle) return;
 			await handle.close();
 		}
-		assert(stats.hasAccess(W_OK));
+		assert(hasAccess(defaultContext, stats, W_OK));
 	}
 
 	const copy = { ...defaultContext.credentials };

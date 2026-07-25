@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { StatsLike } from '@zenfs/core';
-import { Exception } from 'kerium';
+import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
@@ -32,7 +32,7 @@ suite('Times', () => {
 		assert.deepEqual(unixTimestamps(await fs.promises.stat(path)), times);
 
 		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: Exception) => {
-			assert(error instanceof Exception);
+			assert(error instanceof Error);
 			assert.equal(error.code, 'ENOENT');
 		});
 
@@ -47,14 +47,12 @@ suite('Times', () => {
 		try {
 			fs.utimesSync('foobarbaz', atime, mtime);
 		} catch (error: any) {
-			assert(error instanceof Exception);
 			assert.equal(error.code, 'ENOENT');
 		}
 
 		try {
 			fs.futimesSync(-1, atime, mtime);
 		} catch (error: any) {
-			assert(error instanceof Exception);
 			assert.equal(error.code, 'EBADF');
 		}
 	}

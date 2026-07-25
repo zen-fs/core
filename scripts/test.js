@@ -167,7 +167,7 @@ function makeCommand(profileName, ...rest) {
 		'--test',
 		'--experimental-test-coverage',
 		options.force && '--test-force-exit',
-		options.skip.length && `--test-skip-pattern='${options.skip.join('|').replaceAll("'", "\\'")}'`,
+		options.skip.length && `--test-skip-pattern=${options.skip.join('|')}`,
 		...(!options.profile
 			? []
 			: ['--cpu-prof', '--cpu-prof-dir=.profiles', `--cpu-prof-name=${profileName}.cpuprofile`, '--cpu-prof-interval=500']),
