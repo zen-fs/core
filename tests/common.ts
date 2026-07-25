@@ -21,8 +21,6 @@ const setup = await import(setupPath).catch(error => {
 // Satisfies is used to make sure that ZenFS is fully type compatible with Node.js
 export const fs = (setup.fs || defaultFS) as typeof defaultFS satisfies NodeFS;
 
-export const Stats = (setup.Stats || defaultFS.Stats) as typeof defaultFS.Stats;
-
 /**
  * A feature or function a backend may not support.
  * Tests that need one are skipped when the backend under test does not have it.
