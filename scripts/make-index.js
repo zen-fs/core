@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { readdirSync, statSync, writeFileSync } from 'node:fs';
-import { matchesGlob, relative, join, resolve } from 'node:path/posix';
+import { lstatSync, readdirSync, writeFileSync, constants as c } from 'node:fs';
+import { join, matchesGlob, relative, resolve } from 'node:path/posix';
 import { parseArgs, styleText } from 'node:util';
 
 const { values: options, positionals } = parseArgs({
@@ -47,6 +47,34 @@ const resolvedRoot = root || '.';
 
 const entries = new Map();
 
+/** @type {Record<string, import('node:util').InspectColor>} */
+const typeMap = {
+	file: 'green',
+	' dir': 'blue',
+	' sym': 'cyan',
+	' dev': 'yellow',
+	sock: 'magenta',
+	fifo: 'blue',
+};
+
+function getTypeText(/** @type {{ mode: number }} */ stats) {
+	switch (stats.mode & c.S_IFMT) {
+		case c.S_IFBLK:
+		case c.S_IFCHR:
+			return ' dev';
+		case c.S_IFIFO:
+			return 'fifo';
+		case c.S_IFSOCK:
+			return 'sock';
+		case c.S_IFREG:
+			return 'file';
+		case c.S_IFDIR:
+			return ' dir';
+		default:
+			throw `Unknown file type: 0o${(stats.mode & c.S_IFMT).toString(8)}`;
+	}
+}
+
 /**
  * @param {string} path
  */
@@ -57,13 +85,14 @@ function computeEntries(path) {
 			return;
 		}
 
-		const stats = statSync(path);
+		const stats = lstatSync(path);
 
-		if (stats.isFile()) {
+		const type = getTypeText(stats);
+		const typeText = styleText(typeMap[type] || 'white', type);
+
+		if (!stats.isDirectory()) {
 			entries.set('/' + relative(resolvedRoot, path), stats);
-			if (options.verbose) {
-				console.log(`${styleText('green', 'file')} ${path}`);
-			}
+			if (options.verbose) console.log(`${typeText} ${path}`);
 			return;
 		}
 
@@ -71,9 +100,7 @@ function computeEntries(path) {
 			computeEntries(join(path, file));
 		}
 		entries.set('/' + relative(resolvedRoot, path), stats);
-		if (options.verbose) {
-			console.log(`${styleText('greenBright', ' dir')} ${path}`);
-		}
+		if (options.verbose) console.log(`${typeText} ${path}`);
 	} catch (/** @type {any} */ e) {
 		if (!options.quiet) {
 			console.log(`${styleText('red', 'fail')} ${path}: ${e.message}`);
