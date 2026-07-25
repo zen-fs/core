@@ -5,6 +5,7 @@ import * as native from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copySync, data, tmp } from '../setup.js';
+import { styleText } from 'node:util';
 
 // The tests assume modes are used as-is, but native fs applies the process umask
 process.umask(0);
@@ -196,6 +197,6 @@ copySync(data, fs);
 
 // Kill genuinely hung processes without keeping finished ones alive
 setTimeout(() => {
-	console.error('Process took longer than 10s and was killed.');
+	console.error(styleText(['yellow', 'bold'], 'Process took longer than 5s and was killed.'));
 	process.exit(255);
-}, 10_000).unref();
+}, 5_000).unref();
