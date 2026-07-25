@@ -651,7 +651,7 @@ export function watchFile(
 			listener(curr, prev);
 		}
 	});
-	statWatchers.set(normalizedPath, { watcher, listeners: new Set() });
+	statWatchers.set(normalizedPath, { watcher, listeners: new Set([listener]) });
 }
 watchFile satisfies Omit<typeof fs.watchFile, '__promisify__'>;
 

@@ -11,6 +11,9 @@ import { statSync } from '../node/sync.js';
 import { basename, dirname, join, relative } from '../path.js';
 import { normalizePath } from '../utils.js';
 
+/** Alias so `.call` resolves to the non-bigint overload */
+const _statSync: (this: V_Context, path: string) => Stats = statSync;
+
 /**
  * Base class for file system watchers.
  * Provides event handling capabilities for watching file system changes.
@@ -131,7 +134,7 @@ export class StatWatcher
 
 	protected onInterval() {
 		try {
-			const current = statSync(this.path);
+			const current = _statSync.call(this._context, this.path);
 			if (!isStatsEqual(this.previous!, current)) {
 				this.emit('change', current, this.previous!);
 				this.previous = current;
@@ -144,7 +147,7 @@ export class StatWatcher
 	protected start() {
 		const interval = this.options.interval || 5000;
 		try {
-			this.previous = statSync(this.path);
+			this.previous = _statSync.call(this._context, this.path);
 		} catch (e) {
 			this.emit('error', e as Error);
 			return;
