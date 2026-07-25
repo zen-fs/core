@@ -130,12 +130,14 @@ suite('Streams', () => {
 	test('FileHandle.createReadStream after close should give an error', async () => {
 		const fileHandle = await fs.promises.open(testFilePath, 'r');
 		await fileHandle.close();
-		assert.throws(() => fileHandle.createReadStream(), { code: 'EBADF' });
+		// Closing invalidates the descriptor, so it fails range validation
+		assert.throws(() => fileHandle.createReadStream(), { code: 'ERR_OUT_OF_RANGE' });
 	});
 
 	test('FileHandle.createWriteStream after close should give an error', async () => {
 		const fileHandle = await fs.promises.open(testFilePathWrite, 'w');
 		await fileHandle.close();
-		assert.throws(() => fileHandle.createWriteStream(), { code: 'EBADF' });
+		// Closing invalidates the descriptor, so it fails range validation
+		assert.throws(() => fileHandle.createWriteStream(), { code: 'ERR_OUT_OF_RANGE' });
 	});
 });

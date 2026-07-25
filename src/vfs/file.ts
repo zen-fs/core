@@ -7,6 +7,7 @@ import { contextOf } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { _chown, InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
+import { validateFD } from '../utils.js';
 import { cacheOf } from './vcache.js';
 import type { VNode } from './vnode.js';
 
@@ -450,6 +451,7 @@ export function toFD(file: Handle): number {
  * @internal @hidden
  */
 export function fromFD($: V_Context, fd: number): Handle {
+	validateFD(fd);
 	const map = contextOf($).descriptors;
 	const value = map.get(fd);
 	if (!value) throw withErrno('EBADF');

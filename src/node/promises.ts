@@ -20,7 +20,7 @@ import * as constants from '../constants.js';
 import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob } from '../path.js';
 import '../polyfills.js';
-import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
 import * as _async from '../vfs/async.js';
 import { checkAccess } from '../vfs/config.js';
 import type { Handle } from '../vfs/file.js';
@@ -97,10 +97,18 @@ async function* applyTransform(source: ByteReadableStream, transform: Transform,
 export class FileHandle implements promises.FileHandle {
 	protected vfs: Handle;
 
+	protected _fd: number;
+
+	/** The file descriptor, or -1 once the handle has been closed */
+	public get fd(): number {
+		return this._fd;
+	}
+
 	public constructor(
 		protected context: V_Context,
-		public readonly fd: number
+		fd: number
 	) {
+		this._fd = fd;
 		this.vfs = fromFD(context, fd);
 	}
 
@@ -355,7 +363,9 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async close(): Promise<void> {
 		await this.vfs.close();
-		deleteFD(this.context, this.fd);
+		deleteFD(this.context, this._fd);
+		// Like Node, the descriptor is invalidated so later use fails validation
+		this._fd = -1;
 	}
 
 	/**
@@ -402,6 +412,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the readable stream
 	 */
 	public createReadStream(options: promises.CreateReadStreamOptions = {}): ReadStream {
+		validateFD(this._fd);
 		if (this.vfs.isClosed || this.vfs.flag & constants.O_WRONLY) throw UV('EBADF', 'createReadStream', this.vfs.path);
 		return new ReadStream(options, this);
 	}
@@ -411,6 +422,7 @@ export class FileHandle implements promises.FileHandle {
 	 * @param options Options for the writeable stream.
 	 */
 	public createWriteStream(options: promises.CreateWriteStreamOptions = {}): WriteStream {
+		validateFD(this._fd);
 		if (this.vfs.isClosed) throw UV('EBADF', 'createWriteStream', this.vfs.path);
 		if (this.vfs.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'createWriteStream', this.vfs.path);
 		if (this.vfs.fs.attributes.has('readonly')) throw UV('EROFS', 'createWriteStream', this.vfs.path);
@@ -798,7 +810,7 @@ export async function readdir(this: V_Context, path: fs.PathLike, options?: Node
 
 	for (const entry of rawEntries) {
 		if (opt.withFileTypes) {
-			values.push(Dirent.from(entry, opt.encoding));
+			values.push(Dirent.from(entry, opt.encoding, path));
 		} else if (opt.encoding == 'buffer') {
 			values.push(Buffer.from(entry.path));
 		} else {

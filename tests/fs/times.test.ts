@@ -22,9 +22,10 @@ export function unixTimestamps(stats: StatsLike<number>): Record<'atime' | 'mtim
 
 suite('Times', () => {
 	async function runTest(atime: Date | number, mtime: Date | number): Promise<void> {
+		// Numbers are seconds since the epoch, while `Date`s and stats are in milliseconds
 		const times = {
-			atime: typeof atime == 'number' ? Math.floor(atime) : atime.getTime(),
-			mtime: typeof mtime == 'number' ? Math.floor(mtime) : mtime.getTime(),
+			atime: typeof atime == 'number' ? Math.floor(atime * 1000) : atime.getTime(),
+			mtime: typeof mtime == 'number' ? Math.floor(mtime * 1000) : mtime.getTime(),
 		};
 
 		await fs.promises.utimes(path, atime, mtime);
@@ -53,7 +54,8 @@ suite('Times', () => {
 		try {
 			fs.futimesSync(-1, atime, mtime);
 		} catch (error: any) {
-			assert.equal(error.code, 'EBADF');
+			// A negative descriptor fails range validation before it is looked up
+			assert.equal(error.code, 'ERR_OUT_OF_RANGE');
 		}
 	}
 

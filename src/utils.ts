@@ -52,17 +52,39 @@ export function normalizeMode(mode: unknown, def?: number): number {
 }
 
 /**
- * Normalizes a time
+ * The largest valid file descriptor, since Node validates them as 32-bit signed integers
+ * @internal @hidden
+ */
+const fd_max = 0x7fffffff;
+
+/**
+ * Checks that `fd` is in the range Node accepts for a file descriptor.
+ * Note this throws a `RangeError` rather than an `Exception`, since that is what Node does.
+ * @internal
+ */
+export function validateFD(fd: number): void {
+	if (Number.isInteger(fd) && fd >= 0 && fd <= fd_max) return;
+
+	throw Object.assign(new RangeError(`The value of "fd" is out of range. It must be >= 0 && <= ${fd_max}. Received ${fd}`), {
+		code: 'ERR_OUT_OF_RANGE',
+	});
+}
+
+/**
+ * Normalizes a time to milliseconds since the epoch.
+ * Note numbers and numeric strings are seconds, like Node's `toUnixTimestamp`.
  * @internal
  */
 export function normalizeTime(time: fs.TimeLike): number {
+	// Dates are already in milliseconds
 	if (time instanceof Date) return time.getTime();
 
-	try {
-		return Number(time);
-	} catch {
-		throw withErrno('EINVAL', 'Invalid time.');
-	}
+	const seconds = Number(time);
+
+	if (!Number.isFinite(seconds)) throw withErrno('EINVAL', 'Invalid time.');
+
+	// Negative times mean "now"
+	return seconds < 0 ? Date.now() : seconds * 1000;
 }
 
 /**
@@ -143,5 +165,6 @@ export async function waitOnline(worker: NodeWorker): Promise<void> {
  * @internal @hidden
  */
 export function _tempDirName(prefix: fs.PathLike) {
-	return `/tmp/${normalizePath(prefix, true)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	// Like Node, the prefix is a path. A relative one is resolved against the working directory, not `/tmp`.
+	return `${normalizePath(prefix, true)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
