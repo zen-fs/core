@@ -9,7 +9,7 @@ import type { FileHandle } from './promises.js';
 
 import { Errno, Exception, UV } from 'kerium';
 import { warn } from 'kerium/log';
-import { Readable, Writable } from 'readable-stream';
+import { finished, Readable, Writable } from 'readable-stream';
 
 interface FSImplementation {
 	open?: (...args: unknown[]) => unknown;
@@ -65,7 +65,8 @@ export class ReadStream extends Readable implements fs.ReadStream {
 			.then(handle => {
 				this._path = handle['vfs'].path;
 
-				const internal = handle.readableWebStream({ start: opts.start, end: opts.end });
+				// `end` is inclusive for streams, but the internal range is not
+				const internal = handle.readableWebStream({ start: opts.start, end: opts.end === undefined ? undefined : opts.end + 1 });
 				this.reader = internal.getReader();
 				this.pending = false;
 			})
@@ -91,14 +92,13 @@ export class ReadStream extends Readable implements fs.ReadStream {
 		}
 	}
 
+	/**
+	 * Like Node, the callback is invoked once the stream is closed.
+	 * Closing before the stream has finished reports `ERR_STREAM_PREMATURE_CLOSE`.
+	 */
 	close(callback: Callback<[void]> = () => null): void {
-		try {
-			this.destroy();
-			this.emit('close');
-			callback(null);
-		} catch (err: any) {
-			callback(new Exception(Errno.EIO, err.toString()));
-		}
+		finished(this, error => callback((error as Exception) ?? null));
+		this.destroy();
 	}
 
 	public get path(): string {
@@ -110,7 +110,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 	}
 
 	wrap(oldStream: NodeJS.ReadableStream): this {
-		super.wrap(oldStream as any);
+		super.wrap(oldStream);
 		return this;
 	}
 }

@@ -36,8 +36,9 @@ suite('Streams', () => {
 			closed = true;
 		});
 
+		// Closing before the stream has finished reading is a premature close
 		readStream.close(err => {
-			assert.ifError(err);
+			assert.equal((err as NodeJS.ErrnoException | null)?.code, 'ERR_STREAM_PREMATURE_CLOSE');
 			assert(closed);
 			done();
 		});
@@ -81,7 +82,7 @@ suite('Streams', () => {
 	test('createReadStream with end', async () => {
 		await fs.promises.writeFile('hello.txt', 'Hello world');
 
-		const stream = fs.createReadStream('hello.txt', { end: 5, encoding: 'utf-8' });
+		const stream = fs.createReadStream('hello.txt', { end: 4, encoding: 'utf-8' });
 
 		const data = (await stream.toArray()).join('');
 
