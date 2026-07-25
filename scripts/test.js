@@ -278,7 +278,7 @@ for (const setupFile of positionals) {
 		name,
 		args: [`${testsGlob.replaceAll("'", "\\'")}`, process.env.CMD || ''],
 		shouldSkip() {
-			return basename(setupFile).startsWith('_');
+			return basename(setupFile).startsWith('_') && options.auto;
 		},
 	});
 }
