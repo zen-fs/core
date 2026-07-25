@@ -112,6 +112,10 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
 			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
 		});
+
+		// A new entry in the parent directory, which is a 'rename' event
+		emitChange(this, 'rename', path);
+
 		return new Handle(this, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
 	}
 
@@ -276,8 +280,9 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 	src.fs.renameSync(src.path, dst.path);
 	cacheOf(fs).rename(src.path, dst.path);
 
+	// Both names change which entries exist, so both are 'rename' events
 	emitChange(this, 'rename', oldPath);
-	emitChange(this, 'change', newPath);
+	emitChange(this, 'rename', newPath);
 }
 
 export function link(this: V_Context, target: PathLike, link: PathLike): void {

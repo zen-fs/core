@@ -111,6 +111,9 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 				gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
 			});
 
+			// A new entry in the parent directory, which is a 'rename' event
+			emitChange($, 'rename', path);
+
 			return new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
 		}
 	}
@@ -267,8 +270,9 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	await src.fs.rename(src.path, dst.path);
 	cacheOf(fs).rename(src.path, dst.path);
 
+	// Both names change which entries exist, so both are 'rename' events
 	emitChange(this, 'rename', oldPath);
-	emitChange(this, 'change', newPath);
+	emitChange(this, 'rename', newPath);
 }
 
 export async function link(this: V_Context, target: PathLike, link: PathLike): Promise<void> {

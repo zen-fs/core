@@ -42,23 +42,26 @@ suite('Watch', () => {
 	});
 
 	test('Events are emitted on delete', async () => {
-		const { promise, resolve } = Promise.withResolvers<[string, string]>();
+		const { promise, resolve } = Promise.withResolvers<string>();
 
+		/* Only wait for the 'rename'. Deleting a watched file changes its link count,
+		which some implementations report as a 'change' event first. */
 		using watcher = fs.watch(testFile, (eventType, filename) => {
-			resolve([eventType, filename]);
+			if (eventType == 'rename') resolve(filename);
 		});
 
 		// Delete the file to trigger the event
 		await fs.promises.unlink(testFile);
 
-		const [eventType, filename] = await withTimeout(promise);
-		assert.equal(eventType, 'rename');
-		assert.equal(filename, 'test.txt');
+		assert.equal(await withTimeout(promise), 'test.txt');
 	});
 
 	test('Changes are detected with watchFile()', async () => {
 		// The previous test deleted the file, and watching a non-existent file is its own can of worms
 		await fs.promises.writeFile(testFile, 'Restored');
+
+		// Timestamps have millisecond resolution, so make sure the two writes can not share one
+		await new Promise(resolve => setImmediate(resolve));
 
 		const { promise, resolve } = Promise.withResolvers<[Stats, Stats]>();
 		const listener = (curr: Stats, prev: Stats) => resolve([curr, prev]);
@@ -103,7 +106,8 @@ suite('Watch', () => {
 		await fs.promises.writeFile(testDir + '/newFile.txt', 'Content');
 
 		const [eventType, filename] = await withTimeout(promise);
-		assert.equal(eventType, 'change');
+		// Creating the file adds an entry to the directory, which is a 'rename' event
+		assert.equal(eventType, 'rename');
 		assert.equal(filename, 'newFile.txt');
 	});
 
@@ -127,8 +131,9 @@ suite('Watch', () => {
 		await fs.promises.rename(oldFile, newFile);
 
 		await withTimeout(promise);
+		// Both names are 'rename': one entry disappears and another appears
 		assert.equal(events[oldFileName], 'rename');
-		assert.equal(events[newFileName], 'change');
+		assert.equal(events[newFileName], 'rename');
 	});
 
 	test('File deletions are detected', async () => {
@@ -136,17 +141,16 @@ suite('Watch', () => {
 
 		await fs.promises.writeFile(tempFile, 'Temporary content');
 
-		const { promise, resolve } = Promise.withResolvers<[string, string]>();
+		const { promise, resolve } = Promise.withResolvers<string>();
 
+		// Only wait for the 'rename', see 'Events are emitted on delete'
 		using watcher = fs.watch(tempFile, (eventType, filename) => {
-			resolve([eventType, filename]);
+			if (eventType == 'rename') resolve(filename);
 		});
 
 		await fs.promises.unlink(tempFile);
 
-		const [eventType, filename] = await withTimeout(promise);
-		assert.equal(eventType, 'rename');
-		assert.equal(filename, 'tempFile.txt');
+		assert.equal(await withTimeout(promise), 'tempFile.txt');
 	});
 
 	test('File deletions are detected by promises API', async () => {
@@ -157,8 +161,9 @@ suite('Watch', () => {
 		const ac = new AbortController();
 		const watcher = fs.promises.watch(tempFile, { signal: ac.signal });
 
+		// Only wait for the 'rename', see 'Events are emitted on delete'
 		const promise = (async () => {
-			for await (const event of watcher) return event;
+			for await (const event of watcher) if (event.eventType == 'rename') return event;
 		})().catch((e: Error) => {
 			if (e.name != 'AbortError') throw e;
 		});
@@ -170,9 +175,10 @@ suite('Watch', () => {
 			assert.equal(event?.eventType, 'rename');
 			assert.equal(event?.filename, 'tempFile.txt');
 		} finally {
-			// Close the watcher both ways, since ZenFS exposes return() and native fs uses the signal
-			await watcher.return?.();
+			/* Abort before return(): a native iterator suspended awaiting an event
+			queues return() behind that await, which never resolves */
 			ac.abort();
+			await watcher.return?.();
 		}
 	});
 
@@ -182,9 +188,10 @@ suite('Watch', () => {
 		await fs.promises.mkdir(subDir);
 
 		const ac = new AbortController();
-		const watcher = fs.promises.watch('/', { signal: ac.signal });
+		const watcher = fs.promises.watch('/', { recursive: true, signal: ac.signal });
 
-		// Write before consuming the iterator, so the first received event is for the unlink
+		/* Create the file before consuming the iterator, so the first observed event is the unlink.
+		@todo Also check the creation event once ZenFS emits 'rename' for it, like Node does */
 		await fs.promises.writeFile(tempFile, 'Temporary content');
 
 		const promise = (async () => {
@@ -200,9 +207,10 @@ suite('Watch', () => {
 			assert.equal(event?.eventType, 'rename');
 			assert.equal(event?.filename, tempFile.slice(1));
 		} finally {
-			// Close the watcher both ways, since ZenFS exposes return() and native fs uses the signal
-			await watcher.return?.();
+			/* Abort before return(): a native iterator suspended awaiting an event
+			queues return() behind that await, which never resolves */
 			ac.abort();
+			await watcher.return?.();
 		}
 	});
 
@@ -218,7 +226,8 @@ suite('Watch', () => {
 		await fs.promises.writeFile('/watch-root-file.txt', 'x');
 
 		const [eventType, filename] = await withTimeout(promise);
-		assert.equal(eventType, 'change');
+		// Creating the file adds an entry to the root directory, which is a 'rename' event
+		assert.equal(eventType, 'rename');
 		assert.equal(filename, 'watch-root-file.txt');
 	});
 });

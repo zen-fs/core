@@ -113,6 +113,12 @@ function mapResult(base: string, result: unknown): unknown {
 	return returnsPath.has(base) && typeof result == 'string' ? fromNative(result) : result;
 }
 
+/**
+ * Functions whose last argument is an event listener, not a `(err, result)` callback.
+ * Wrapping those would change the listener's identity, so `unwatchFile` could not remove it.
+ */
+const listenerAPIs = new Set(['watch', 'watchFile', 'unwatchFile']);
+
 /** Translate native paths in errors back into test paths */
 function mapError(error: unknown): unknown {
 	if (!error || typeof error != 'object') return error;
@@ -145,7 +151,7 @@ function wrap(name: string, fn: Function, promise: boolean): Function {
 
 		// Map paths in callback errors and results (e.g. realpath(path, cb))
 		const cb = mapped.at(-1);
-		if (typeof cb == 'function') {
+		if (typeof cb == 'function' && !listenerAPIs.has(base)) {
 			mapped[mapped.length - 1] = (err: unknown, result: unknown, ...rest: unknown[]) => cb(mapError(err), mapResult(base, result), ...rest);
 		}
 
