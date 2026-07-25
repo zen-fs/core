@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import test, { suite } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
 const existingFile = '/exit.js';
 const path = '/non-existent';
@@ -142,14 +142,14 @@ function check(error: unknown, c: Case): void {
 
 suite('Error messages', () => {
 	for (const c of cases) {
-		test(c.name, async () => {
+		test(c.name, config('async'), async () => {
 			await assert.rejects(c.async, (error: unknown) => {
 				check(error, c);
 				return true;
 			});
 		});
 
-		test(c.name + 'Sync', () => {
+		test(c.name + 'Sync', config('sync'), () => {
 			assert.throws(c.sync, (error: unknown) => {
 				check(error, c);
 				return true;

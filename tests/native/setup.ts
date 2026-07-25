@@ -2,6 +2,7 @@
 /* Run the FS test suite against native node:fs.
 Since the tests use absolute paths, everything is contained to a scratch directory using chroot-style path mapping. */
 import * as native from 'node:fs';
+import type { TestFlag, TestFlagState } from '../common.js';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copySync, data, tmp } from '../setup.js';
@@ -212,6 +213,13 @@ export const fs = wrapped as unknown as typeof native;
 
 /** So tests can check `stats instanceof Stats` against the correct class */
 export const Stats = native.Stats;
+
+export const flags: Partial<Record<TestFlag, TestFlagState>> = {
+	// Node only implements `lchmod` on macOS
+	lchmod: process.platform == 'darwin',
+	// The suite uses ZenFS' own extended attribute API, which `node:fs` does not have
+	xattr: false,
+};
 
 copySync(data, fs);
 

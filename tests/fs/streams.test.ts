@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
 // Top-level initialization
 const testFilePath = 'test-file.txt';
@@ -11,7 +11,7 @@ await fs.promises.writeFile(testFilePath, testData);
 const testFilePathWrite = 'test-file-write.txt';
 await fs.promises.writeFile(testFilePathWrite, ''); // Ensure the file exists
 
-suite('Streams', () => {
+suite('Streams', config('streams'), () => {
 	test('ReadStream reads data correctly', (_, done) => {
 		const readStream = fs.createReadStream(testFilePath);
 

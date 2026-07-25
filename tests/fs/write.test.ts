@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path/posix';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 import { data as dataPath } from '../setup.js';
 
 const fileName = 'write.txt';
 const utf8example = readFileSync(join(dataPath, 'utf8.txt'), 'utf8');
 
-suite('Writes', () => {
-	test('Using FileHandle and UTF-8', async () => {
+suite('Writes', config('write'), () => {
+	test('Using FileHandle and UTF-8', config('async'), async () => {
 		const expected = 'ümlaut.';
 
 		const handle = await fs.promises.open(fileName, 'w', 0o644);
@@ -25,7 +25,7 @@ suite('Writes', () => {
 		await fs.promises.unlink(fileName);
 	});
 
-	test('Using FileHandle with buffer', async () => {
+	test('Using FileHandle with buffer', config('async'), async () => {
 		const expected = Buffer.from('hello');
 
 		const handle = await fs.promises.open(fileName, 'w', 0o644);
@@ -41,7 +41,7 @@ suite('Writes', () => {
 		await fs.promises.unlink(fileName);
 	});
 
-	test('Using sync path functions', () => {
+	test('Using sync path functions', config('sync'), () => {
 		const fd = fs.openSync(fileName, 'w');
 
 		let written = fs.writeSync(fd, '');
@@ -58,7 +58,7 @@ suite('Writes', () => {
 		assert.equal(fs.readFileSync(fileName, 'utf8'), 'foobár');
 	});
 
-	test('Using promises API', async () => {
+	test('Using promises API', config('async'), async () => {
 		const filename = 'test.txt';
 		await fs.promises.writeFile(filename, utf8example);
 		const data = await fs.promises.readFile(filename);
@@ -66,7 +66,7 @@ suite('Writes', () => {
 		await fs.promises.unlink(filename);
 	});
 
-	test('Using promises API with buffer', async () => {
+	test('Using promises API with buffer', config('async'), async () => {
 		const filename = 'test2.txt';
 		const expected = Buffer.from(utf8example, 'utf8');
 
@@ -77,7 +77,7 @@ suite('Writes', () => {
 		await fs.promises.unlink(filename);
 	});
 
-	test('Promises API with base64 data', async () => {
+	test('Promises API with base64 data', config('async'), async () => {
 		const data = readFileSync(join(dataPath, 'image.jpg'), 'base64');
 
 		const buffer = Buffer.from(data, 'base64');
@@ -89,7 +89,7 @@ suite('Writes', () => {
 		assert.equal(read, data);
 	});
 
-	test('Using sync path functions with custom mode', () => {
+	test('Using sync path functions with custom mode', config('sync', 'permissions'), () => {
 		const file = 'testWriteFileSync.txt';
 		const mode = 0o755;
 
@@ -102,7 +102,7 @@ suite('Writes', () => {
 		fs.unlinkSync(file);
 	});
 
-	test('Appending to a file synchronously with custom mode', () => {
+	test('Appending to a file synchronously with custom mode', config('sync', 'appends', 'permissions'), () => {
 		const file = 'testAppendFileSync.txt';
 		const mode = 0o755;
 

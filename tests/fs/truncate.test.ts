@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
 const path: string = 'truncate-file.txt',
 	size = 1024 * 16,
 	data = new Uint8Array(size).fill('x'.charCodeAt(0));
 
-suite('Truncating', () => {
-	test('Sync path functions', () => {
+suite('Truncating', config('truncate'), () => {
+	test('Sync path functions', config('sync'), () => {
 		fs.writeFileSync(path, data);
 		assert.equal(fs.statSync(path).size, size);
 
@@ -22,7 +22,7 @@ suite('Truncating', () => {
 		assert.equal(fs.statSync(path).size, size);
 	});
 
-	test('FD functions', () => {
+	test('FD functions', config('sync'), () => {
 		const fd = fs.openSync(path, 'r+');
 
 		fs.ftruncateSync(fd, 1024);
@@ -36,7 +36,7 @@ suite('Truncating', () => {
 
 	const statSize = async (path: string) => (await fs.promises.stat(path)).size;
 
-	test('Async path functions', async () => {
+	test('Async path functions', config('async'), async () => {
 		await fs.promises.writeFile(path, data);
 
 		assert.equal(await statSize(path), 1024 * 16);
@@ -51,7 +51,7 @@ suite('Truncating', () => {
 		assert.equal(await statSize(path), size);
 	});
 
-	test('FileHandle', async () => {
+	test('FileHandle', config('async'), async () => {
 		const handle = await fs.promises.open(path, 'w');
 
 		await handle.truncate(1024);

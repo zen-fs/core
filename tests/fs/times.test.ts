@@ -4,7 +4,7 @@ import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
 const path = 'x.txt';
 
@@ -20,7 +20,7 @@ export function unixTimestamps(stats: StatsLike<number>): Record<'atime' | 'mtim
 	};
 }
 
-suite('Times', () => {
+suite('Times', config('times'), () => {
 	async function runTest(atime: Date | number, mtime: Date | number): Promise<void> {
 		// Numbers are seconds since the epoch, while `Date`s and stats are in milliseconds
 		const times = {
@@ -67,7 +67,7 @@ suite('Times', () => {
 		await test('from stats', () => runTest(stats.atime, stats.mtime));
 	});
 
-	test('read changes atime', async () => {
+	test('read changes atime', config('sync'), async () => {
 		const before = fs.statSync(path).atimeMs;
 		fs.readFileSync(path);
 		await wait(25);
@@ -75,7 +75,7 @@ suite('Times', () => {
 		assert(before < after);
 	});
 
-	test('write changes mtime', async () => {
+	test('write changes mtime', config('sync', 'write'), async () => {
 		const before = fs.statSync(path).mtimeMs;
 		fs.writeFileSync(path, 'cool');
 		await wait(25);

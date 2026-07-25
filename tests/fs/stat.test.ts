@@ -2,40 +2,40 @@
 import { defaultContext, hasAccess } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
 suite('Stats', () => {
 	const existing_file = 'x.txt';
 
-	test('stat empty path', async () => {
+	test('stat empty path', config('async'), async () => {
 		await assert.rejects(fs.promises.stat(''));
 	});
 
-	test('stat directory', async () => {
+	test('stat directory', config('async'), async () => {
 		const stats = await fs.promises.stat('/');
 		assert(stats instanceof fs.Stats);
 	});
 
-	test('lstat directory', async () => {
+	test('lstat directory', config('async'), async () => {
 		const stats = await fs.promises.lstat('/');
 		assert(stats instanceof fs.Stats);
 	});
 
-	test('FileHandle.stat', async () => {
+	test('FileHandle.stat', config('async'), async () => {
 		const handle = await fs.promises.open(existing_file, 'r');
 		const stats = await handle.stat();
 		assert(stats instanceof fs.Stats);
 		await handle.close();
 	});
 
-	test('fstatSync file', () => {
+	test('fstatSync file', config('sync'), () => {
 		const fd = fs.openSync(existing_file, 'r');
 		const stats = fs.fstatSync(fd);
 		assert(stats instanceof fs.Stats);
 		fs.close(fd);
 	});
 
-	test('hasAccess for non-root access', () => {
+	test('hasAccess for non-root access', config('sync', 'permissions'), () => {
 		const newFile = 'new.txt';
 
 		fs.writeFileSync(newFile, 'hello', { mode: 0o640 });
@@ -72,7 +72,7 @@ suite('Stats', () => {
 		Object.assign(defaultContext.credentials, prevCredentials);
 	});
 
-	test('stat file', async () => {
+	test('stat file', config('async'), async () => {
 		const stats = await fs.promises.stat(existing_file);
 		assert(!stats.isDirectory());
 		assert(stats.isFile());

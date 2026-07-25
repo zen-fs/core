@@ -7,14 +7,14 @@ import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { encodeUTF8 } from 'utilium';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
 const asyncMode = 0o777;
 const syncMode = 0o644;
 const file = 'a.js';
 
-suite('Permissions', () => {
-	test('chmod', async () => {
+suite('Permissions', config('permissions'), () => {
+	test('chmod', config('sync', 'async'), async () => {
 		await fs.promises.chmod(file, asyncMode.toString(8));
 
 		const stats = await fs.promises.stat(file);
@@ -24,7 +24,7 @@ suite('Permissions', () => {
 		assert.equal(fs.statSync(file).mode & 0o777, syncMode);
 	});
 
-	test('fchmod', async () => {
+	test('fchmod', config('sync', 'async'), async () => {
 		const handle = await fs.promises.open(file, 'a', 0o644);
 
 		await handle.chmod(asyncMode);
@@ -36,7 +36,7 @@ suite('Permissions', () => {
 		assert.equal(fs.statSync(file).mode & 0o777, syncMode);
 	});
 
-	test('lchmod', async () => {
+	test('lchmod', config('lchmod', 'async'), async () => {
 		const link = 'symbolic-link';
 
 		await fs.promises.symlink(file, link);

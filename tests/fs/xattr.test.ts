@@ -2,9 +2,9 @@
 import { Buffer } from 'buffer';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
-suite('Extended Attributes', () => {
+suite('Extended Attributes', config('xattr'), () => {
 	const testFile = 'xattr-test.txt';
 	const testValue = 'test value';
 	const testName = 'user.test';
@@ -63,7 +63,7 @@ suite('Extended Attributes', () => {
 		await assert.rejects(fs.xattr.set('nonexistent-file.txt', testName, 'value'), { code: 'ENOENT' });
 	});
 
-	test('synchronous operations', () => {
+	test('synchronous operations', config('sync'), () => {
 		const syncAttrName = 'user.sync-test';
 
 		fs.xattr.setSync(testFile, syncAttrName, testValue);

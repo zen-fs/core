@@ -2,7 +2,7 @@
 import type { Stats } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
 const testDir = '/test-watch-dir';
 const testFile = testDir + '/test.txt';
@@ -25,7 +25,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number = 1000): Promise<T
 /**
  * @todo convert `using watcher = ...` to void discards pending ES proposal
  */
-suite('Watch', () => {
+suite('Watch', config('watch'), () => {
 	test('Events emitted on file change', async () => {
 		const { promise, resolve } = Promise.withResolvers<[string, string]>();
 

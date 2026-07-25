@@ -1,5 +1,6 @@
 import { configure, Fetch } from '@zenfs/core';
 import { log } from 'kerium';
+import type { TestFlag, TestFlagState } from '../common.js';
 import { baseUrl } from './config.js';
 
 await configure({
@@ -18,3 +19,8 @@ await configure({
 		dumpBacklog: true,
 	},
 });
+
+export const flags: Partial<Record<TestFlag, TestFlagState>> = {
+	// `IndexFS` does not implement hard links
+	links: false,
+};

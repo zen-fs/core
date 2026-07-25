@@ -2,7 +2,7 @@
 import { sync, type Dirent } from '@zenfs/core';
 import assert, { rejects } from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
 const testFile = 'test-file.txt';
 fs.writeFileSync(testFile, 'Sample content');
@@ -16,8 +16,8 @@ for (const file of testFiles) {
 }
 await sync();
 
-suite('Dir', () => {
-	test('read()', async () => {
+suite('Dir', config('directories'), () => {
+	test('read()', config('async'), async () => {
 		const dir = fs.opendirSync(testDirPath);
 
 		const dirent1 = await dir.read();
@@ -34,7 +34,7 @@ suite('Dir', () => {
 		await dir.close();
 	});
 
-	test('readSync()', () => {
+	test('readSync()', config('sync'), () => {
 		const dir = fs.opendirSync(testDirPath);
 
 		const dirent1 = dir.readSync();
@@ -51,19 +51,19 @@ suite('Dir', () => {
 		dir.closeSync();
 	});
 
-	test('close()', async () => {
+	test('close()', config('async'), async () => {
 		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
 		rejects(dir.read());
 	});
 
-	test('closeSync()', () => {
+	test('closeSync()', config('sync'), () => {
 		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
 		assert.throws(() => dir.readSync());
 	});
 
-	test('asynchronous iteration', async () => {
+	test('asynchronous iteration', config('async'), async () => {
 		const dir = fs.opendirSync(testDirPath);
 		const dirents: Dirent[] = [];
 
@@ -77,25 +77,25 @@ suite('Dir', () => {
 		assert(testFiles.includes(dirents[1].name));
 	});
 
-	test('read after directory is closed', async () => {
+	test('read after directory is closed', config('async'), async () => {
 		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
 		await assert.rejects(dir.read());
 	});
 
-	test('readSync after directory is closed', () => {
+	test('readSync after directory is closed', config('sync'), () => {
 		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
 		assert.throws(() => dir.readSync());
 	});
 
-	test('close multiple times', async () => {
+	test('close multiple times', config('async'), async () => {
 		const dir = fs.opendirSync(testDirPath);
 		await dir.close();
 		await assert.rejects(dir.close(), { code: 'ERR_DIR_CLOSED' });
 	});
 
-	test('closeSync multiple times', () => {
+	test('closeSync multiple times', config('sync'), () => {
 		const dir = fs.opendirSync(testDirPath);
 		dir.closeSync();
 		assert.throws(() => dir.closeSync(), { code: 'ERR_DIR_CLOSED' });

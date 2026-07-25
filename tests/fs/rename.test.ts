@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
-suite('Rename', () => {
+suite('Rename', config('rename'), () => {
 	/**
 	 * Creates the following directory structure within `dir`:
 	 * - _rename_me
@@ -30,7 +30,7 @@ suite('Rename', () => {
 		assert(await fs.promises.exists(dir + '/_rename_me/lol.txt'));
 	}
 
-	test('rename directory', async () => {
+	test('rename directory', config('async'), async () => {
 		const oldDir = '/rename_test';
 		const newDir = '/rename_test2';
 
@@ -53,7 +53,7 @@ suite('Rename', () => {
 		await fs.promises.rename(oldDir, newDir + '/newDir');
 	});
 
-	test('rename file', async () => {
+	test('rename file', config('async'), async () => {
 		const dir = '/rename_file_test';
 		const one = dir + '/fun.js';
 		const two = dir + '/fun2.js';
@@ -70,7 +70,7 @@ suite('Rename', () => {
 		assert(!(await fs.promises.exists(one)));
 	});
 
-	test('File to Directory and Directory to File Rename', async () => {
+	test('File to Directory and Directory to File Rename', config('sync', 'async'), async () => {
 		const dir = '/rename_file_dir_test';
 		const file = '/rename_file_dir_test.txt';
 
@@ -81,7 +81,7 @@ suite('Rename', () => {
 		assert.throws(() => fs.renameSync(file, dir), { code: 'EISDIR' });
 	});
 
-	test('rename directory inside itself', async () => {
+	test('rename directory inside itself', config('sync', 'async'), async () => {
 		const renDir1 = '/rename_dir_1';
 		const renDir2 = '/rename_dir_1/lol';
 

@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { join } from '@zenfs/core/path';
-import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { config, fs } from '../common.js';
 
-suite('Links', () => {
+suite('Links', config('symlinks'), () => {
 	const target = '/a1.js',
 		symlink = 'symlink1.js',
 		hardlink = 'link1.js';
@@ -69,14 +68,8 @@ suite('Links', () => {
 		assert(await fs.promises.exists(target));
 	});
 
-	test('link', async t => {
-		const _ = await fs.promises.link(target, hardlink).catch((e: Exception) => {
-			if (e.code == 'ENOSYS') return e;
-			throw e;
-		});
-		if (_) {
-			return t.skip('Backend does not support hard links');
-		}
+	test('link', config('links'), async () => {
+		await fs.promises.link(target, hardlink);
 		const targetContent = await fs.promises.readFile(target, 'utf8');
 		const linkContent = await fs.promises.readFile(hardlink, 'utf8');
 		assert.equal(targetContent, linkContent);
