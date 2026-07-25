@@ -6,10 +6,10 @@ import type { Backend } from './backend.js';
 import { EventEmitter } from 'eventemitter3';
 import { withErrno } from 'kerium';
 import { debug, err, warn } from 'kerium/log';
-import { canary } from 'utilium';
+import { canary, pick } from 'utilium';
 import { resolveMountConfig, type MountConfiguration } from '../config.js';
 import { FileSystem } from '../internal/filesystem.js';
-import { isDirectory } from '../internal/inode.js';
+import { _inode_fields, isDirectory } from '../internal/inode.js';
 import { dirname, join } from '../path.js';
 
 /**
@@ -158,6 +158,40 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	/**
+	 * Inode numbers presented to the VFS for each path.
+	 *
+	 * The readable and writable layers allocate inode numbers independently, so they can collide.
+	 * They can not be used as-is, since the VFS uses `ino` to tell files apart.
+	 * This also keeps a file's inode number stable when it is copied up to the writable layer.
+	 */
+	protected inos: Map<string, number> = new Map();
+	private _nextIno: number = 1;
+
+	/** Moves the public inode numbers for a rename, including a directory's descendants */
+	protected renameInos(oldPath: string, newPath: string): void {
+		for (const [path, ino] of [...this.inos]) {
+			if (path != oldPath && !path.startsWith(oldPath + '/')) continue;
+
+			this.inos.delete(path);
+			this.inos.set(newPath + path.slice(oldPath.length), ino);
+		}
+	}
+
+	/** Replaces the layer's inode number with the public one for `path` */
+	protected remapIno(path: string, inode: InodeLike): InodeLike {
+		let ino = this.inos.get(path);
+
+		if (ino === undefined) {
+			ino = this._nextIno++;
+			this.inos.set(path, ino);
+		}
+
+		/* Note the layer's inode is not mutated, since it may be a persistent object.
+		`Inode` fields are accessors, so a copy must be explicit rather than a spread. */
+		return { ...pick(inode, _inode_fields), attributes: inode.attributes, ino };
+	}
+
+	/**
 	 * @todo Consider trying to track information on the writable as well
 	 */
 	public usage(): UsageInfo {
@@ -200,6 +234,8 @@ export class CopyOnWriteFS extends FileSystem {
 		} catch {
 			if (this.isDeleted(oldPath)) throw withErrno('ENOENT');
 		}
+
+		this.renameInos(oldPath, newPath);
 	}
 
 	public renameSync(oldPath: string, newPath: string): void {
@@ -210,23 +246,25 @@ export class CopyOnWriteFS extends FileSystem {
 		} catch {
 			if (this.isDeleted(oldPath)) throw withErrno('ENOENT');
 		}
+
+		this.renameInos(oldPath, newPath);
 	}
 
 	public async stat(path: string): Promise<InodeLike> {
 		try {
-			return await this.writable.stat(path);
+			return this.remapIno(path, await this.writable.stat(path));
 		} catch {
 			if (this.isDeleted(path)) throw withErrno('ENOENT');
-			return await this.readable.stat(path);
+			return this.remapIno(path, await this.readable.stat(path));
 		}
 	}
 
 	public statSync(path: string): InodeLike {
 		try {
-			return this.writable.statSync(path);
+			return this.remapIno(path, this.writable.statSync(path));
 		} catch {
 			if (this.isDeleted(path)) throw withErrno('ENOENT');
-			return this.readable.statSync(path);
+			return this.remapIno(path, this.readable.statSync(path));
 		}
 	}
 
@@ -242,12 +280,12 @@ export class CopyOnWriteFS extends FileSystem {
 
 	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
 		await this.createParentDirectories(path);
-		return await this.writable.createFile(path, options);
+		return this.remapIno(path, await this.writable.createFile(path, options));
 	}
 
 	public createFileSync(path: string, options: CreationOptions): InodeLike {
 		this.createParentDirectoriesSync(path);
-		return this.writable.createFileSync(path, options);
+		return this.remapIno(path, this.writable.createFileSync(path, options));
 	}
 
 	public async link(srcpath: string, dstpath: string): Promise<void> {
@@ -271,6 +309,8 @@ export class CopyOnWriteFS extends FileSystem {
 		if (await this.exists(path)) {
 			this.journal.add('delete', path);
 		}
+
+		this.inos.delete(path);
 	}
 
 	public unlinkSync(path: string): void {
@@ -284,6 +324,8 @@ export class CopyOnWriteFS extends FileSystem {
 		if (this.existsSync(path)) {
 			this.journal.add('delete', path);
 		}
+
+		this.inos.delete(path);
 	}
 
 	public async rmdir(path: string): Promise<void> {
@@ -292,11 +334,13 @@ export class CopyOnWriteFS extends FileSystem {
 			await this.writable.rmdir(path);
 		}
 		if (!(await this.exists(path))) {
+			this.inos.delete(path);
 			return;
 		}
 		// Check if directory is empty.
 		if ((await this.readdir(path)).length) throw withErrno('ENOTEMPTY');
 		this.journal.add('delete', path);
+		this.inos.delete(path);
 	}
 
 	public rmdirSync(path: string): void {
@@ -305,23 +349,25 @@ export class CopyOnWriteFS extends FileSystem {
 			this.writable.rmdirSync(path);
 		}
 		if (!this.existsSync(path)) {
+			this.inos.delete(path);
 			return;
 		}
 		// Check if directory is empty.
 		if (this.readdirSync(path).length) throw withErrno('ENOTEMPTY');
 		this.journal.add('delete', path);
+		this.inos.delete(path);
 	}
 
 	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		if (await this.exists(path)) throw withErrno('EEXIST');
 		await this.createParentDirectories(path);
-		return await this.writable.mkdir(path, options);
+		return this.remapIno(path, await this.writable.mkdir(path, options));
 	}
 
 	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		if (this.existsSync(path)) throw withErrno('EEXIST');
 		this.createParentDirectoriesSync(path);
-		return this.writable.mkdirSync(path, options);
+		return this.remapIno(path, this.writable.mkdirSync(path, options));
 	}
 
 	public async readdir(path: string): Promise<string[]> {
