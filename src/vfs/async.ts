@@ -280,7 +280,7 @@ export async function link(this: V_Context, target: PathLike, link: PathLike): P
 	target = normalizePath(target);
 	link = normalizePath(link);
 
-	const $ex = { syscall: 'link', path: link, dest: target };
+	const $ex = { syscall: 'link', path: target, dest: link };
 	const { fs, path: resolved } = resolveMount(target, this, $ex);
 	const dst = resolveMount(link, this, $ex);
 
