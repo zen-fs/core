@@ -68,6 +68,7 @@ const pathArgs: Record<string, number> = {
 	lutimes: 1,
 	mkdir: 1,
 	mkdtemp: 1,
+	mkdtempDisposable: 1,
 	open: 1,
 	opendir: 1,
 	readFile: 1,
@@ -118,6 +119,10 @@ function mapResult(base: string, result: unknown): unknown {
 			if (typeof entry?.parentPath == 'string') entry.parentPath = fromNative(entry.parentPath);
 		}
 	}
+
+	// `mkdtempDisposable` returns the path on an object. Disposal uses the path it captured, so this is safe to change.
+	const disposable = result as { path?: unknown };
+	if (base == 'mkdtempDisposable' && typeof disposable?.path == 'string') disposable.path = fromNative(disposable.path);
 
 	return result;
 }
