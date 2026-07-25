@@ -67,17 +67,19 @@ export function umount(this: V_Context, mountPoint: string): void {
 
 	const _done = () => {
 		caches.delete(fs.uuid);
-		mounts.delete(mountPoint);
-		notice('Unmounted ' + mountPoint);
+		info('Synced all changes to ' + mountPoint);
 	};
 
 	try {
 		caches.get(fs.uuid)?.syncSync();
 		_done();
 	} catch {
-		warn(`Could not flush to ${mountPoint} synchronously. Unmount is being deferred.`);
+		warn(`Could not flush to ${mountPoint} synchronously.`);
 		void caches.get(fs.uuid)?.sync().then(_done);
 	}
+
+	mounts.delete(mountPoint);
+	notice('Unmounted ' + mountPoint);
 }
 
 /**
