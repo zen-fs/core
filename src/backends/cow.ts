@@ -269,12 +269,12 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public async touch(path: string, metadata: InodeLike): Promise<void> {
-		await this.copyForWrite(path);
+		await this.copyForWrite(path, metadata.size);
 		await this.writable.touch(path, metadata);
 	}
 
 	public touchSync(path: string, metadata: InodeLike): void {
-		this.copyForWriteSync(path);
+		this.copyForWriteSync(path, metadata.size);
 		this.writable.touchSync(path, metadata);
 	}
 
@@ -449,18 +449,21 @@ export class CopyOnWriteFS extends FileSystem {
 	 * Helper function:
 	 * - Ensures p is on writable before proceeding. Throws an error if it doesn't exist.
 	 * - Calls f to perform operation on writable.
+	 *
+	 * `keep` is the size the file is about to be truncated to, when the caller knows it.
+	 * Bytes past it are discarded by the operation that follows, so they are not worth copying up.
 	 */
-	private copyForWriteSync(path: string): void {
+	private copyForWriteSync(path: string, keep?: number): void {
 		if (!this.existsSync(path)) throw withErrno('ENOENT');
 		if (!this.writable.existsSync(dirname(path))) {
 			this.createParentDirectoriesSync(path);
 		}
 		if (!this.writable.existsSync(path)) {
-			this.copyToWritableSync(path);
+			this.copyToWritableSync(path, keep);
 		}
 	}
 
-	private async copyForWrite(path: string): Promise<void> {
+	private async copyForWrite(path: string, keep?: number): Promise<void> {
 		if (!(await this.exists(path))) throw withErrno('ENOENT');
 
 		if (!(await this.writable.exists(dirname(path)))) {
@@ -468,15 +471,16 @@ export class CopyOnWriteFS extends FileSystem {
 		}
 
 		if (!(await this.writable.exists(path))) {
-			return this.copyToWritable(path);
+			return this.copyToWritable(path, keep);
 		}
 	}
 
 	/**
 	 * Copy from readable to writable storage.
+	 * Only `[0, keep)` is copied; the caller is responsible for setting the final size.
 	 * PRECONDITION: File does not exist on writable storage.
 	 */
-	private copyToWritableSync(path: string): void {
+	private copyToWritableSync(path: string, keep?: number): void {
 		const stats = this.readable.statSync(path);
 		if (isDirectory(stats)) {
 			this.writable.mkdirSync(path, stats);
@@ -486,14 +490,15 @@ export class CopyOnWriteFS extends FileSystem {
 			return;
 		}
 
-		const data = new Uint8Array(stats.size);
-		this.readable.readSync(path, data, 0, data.byteLength);
+		const size = Math.min(stats.size, keep ?? stats.size);
+		const data = new Uint8Array(size);
+		if (size) this.readable.readSync(path, data, 0, size);
 		this.writable.createFileSync(path, stats);
 		this.writable.touchSync(path, stats);
-		this.writable.writeSync(path, data, 0);
+		if (size) this.writable.writeSync(path, data, 0);
 	}
 
-	private async copyToWritable(path: string): Promise<void> {
+	private async copyToWritable(path: string, keep?: number): Promise<void> {
 		const stats = await this.readable.stat(path);
 		if (isDirectory(stats)) {
 			await this.writable.mkdir(path, stats);
@@ -503,11 +508,12 @@ export class CopyOnWriteFS extends FileSystem {
 			return;
 		}
 
-		const data = new Uint8Array(stats.size);
-		await this.readable.read(path, data, 0, stats.size);
+		const size = Math.min(stats.size, keep ?? stats.size);
+		const data = new Uint8Array(size);
+		if (size) await this.readable.read(path, data, 0, size);
 		await this.writable.createFile(path, stats);
 		await this.writable.touch(path, stats);
-		await this.writable.write(path, data, 0);
+		if (size) await this.writable.write(path, data, 0);
 	}
 }
 

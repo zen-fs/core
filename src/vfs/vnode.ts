@@ -21,6 +21,9 @@ export class VNode extends RwLockable {
 	/** Ranges of `data` that have been written but not yet synced to the backend */
 	protected dirtyRanges: Range[] = [];
 
+	/** The smallest size this vnode has been truncated to since the last sync, if it has been truncated */
+	protected truncatedTo?: number;
+
 	/** Whether `inode` has changes that have not been synced to the backend */
 	public metadataDirty: boolean = false;
 
@@ -166,6 +169,7 @@ export class VNode extends RwLockable {
 	 * Note an extending truncate creates a hole, which reads as zeroes.
 	 */
 	public truncate(length: number): void {
+		this.truncatedTo = Math.min(this.truncatedTo ?? length, length);
 		this.data.size = length;
 
 		this.dirtyRanges = this.dirtyRanges
@@ -178,8 +182,18 @@ export class VNode extends RwLockable {
 		this.metadataDirty = true;
 	}
 
+	/**
+	 * Whether the backend has to be told about a truncation before the dirty data is written.
+	 */
+	protected get needsPreTruncate(): boolean {
+		return !this.bypassCache && this.truncatedTo !== undefined && this.truncatedTo < this.inode.size && !this.fs.attributes.has('no_write');
+	}
+
 	/** Write all unsynced data to the backend, then metadata */
 	public async sync(): Promise<void> {
+		if (this.needsPreTruncate) await this.fs.touch(this.path, { size: this.truncatedTo });
+		this.truncatedTo = undefined;
+
 		for (const range of this.dirtyRanges) {
 			for (let pos = range.start; pos < range.end;) {
 				const region = this.data.regionAt(pos);
@@ -197,6 +211,9 @@ export class VNode extends RwLockable {
 	}
 
 	public syncSync(): void {
+		if (this.needsPreTruncate) this.fs.touchSync(this.path, { size: this.truncatedTo });
+		this.truncatedTo = undefined;
+
 		for (const range of this.dirtyRanges) {
 			for (let pos = range.start; pos < range.end;) {
 				const region = this.data.regionAt(pos);

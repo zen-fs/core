@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
-import { err, warn } from 'kerium/log';
+import { debug, err, warn } from 'kerium/log';
 import { decodeUTF8 } from 'utilium';
 import * as requests from 'utilium/requests';
 import type { IndexData } from '../internal/file_index.js';
@@ -65,8 +65,12 @@ export class FetchFS extends IndexFS {
 	 */
 	_asyncDone: Promise<unknown> = Promise.resolve();
 
+	/**
+	 * Queue an async operation started from a sync method.
+	 * Failures aren't rethrown to prevent further async ops from failing
+	 */
 	protected _async(p: Promise<unknown>) {
-		this._asyncDone = this._asyncDone.then(() => p);
+		this._asyncDone = this._asyncDone.then(() => p).catch(e => debug('Async operation failed: ' + (e.message ?? e)));
 	}
 
 	public constructor(
@@ -113,7 +117,7 @@ export class FetchFS extends IndexFS {
 		if (!data) throw withErrno('ENODATA');
 
 		if (missing.length) {
-			this._async(requests.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }));
+			this._async(requests.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }, this.requestInit));
 			throw withErrno('EAGAIN');
 		}
 
