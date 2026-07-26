@@ -93,7 +93,7 @@ export class VCache {
 	public async sync(): Promise<void> {
 		for (const node of this.byIno.values()) {
 			if (!node.dirty) continue;
-			using _ = await node.lock('ro');
+			using _ = await node.lock('rw');
 			await node.sync();
 			if (!node.refs) this.evict(node);
 		}
@@ -103,7 +103,7 @@ export class VCache {
 	public syncSync(): void {
 		for (const node of this.byIno.values()) {
 			if (!node.dirty) continue;
-			using _ = node.lockSync('ro');
+			using _ = node.lockSync('rw');
 			node.syncSync();
 			if (!node.refs) this.evict(node);
 		}

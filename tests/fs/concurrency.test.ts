@@ -49,4 +49,42 @@ suite('Concurrency', config('write', 'async'), () => {
 		await a.close();
 		await b.close();
 	});
+
+	test('reads concurrent with an overwrite of the same file do not fail #303', async () => {
+		await fs.promises.writeFile('/issue-303.txt', 'original contents');
+
+		/* Every handle for a file shares one vnode, so closing any of these flushes whatever is dirty.
+		Syncing took a shared lock, letting several of these run at once and corrupt each other. */
+		for (let round = 0; round < 20; round++) {
+			const contents = `rewritten contents for round ${round}`;
+
+			const results = await Promise.allSettled([
+				...Array.from({ length: 4 }, () => fs.promises.readFile('/issue-303.txt', 'utf8')),
+				fs.promises.writeFile('/issue-303.txt', contents),
+				...Array.from({ length: 4 }, () => fs.promises.readFile('/issue-303.txt', 'utf8')),
+			]);
+
+			const rejected = results.filter(r => r.status === 'rejected');
+			assert.deepEqual(
+				rejected.map(r => r.reason.code ?? r.reason.message),
+				[]
+			);
+
+			assert.equal(await fs.promises.readFile('/issue-303.txt', 'utf8'), contents);
+		}
+	});
+
+	test('closing a handle does not fail because another handle has unsynced writes #303', async () => {
+		await fs.promises.writeFile('/issue-303-close.txt', 'original');
+
+		const reader = await fs.promises.open('/issue-303-close.txt', 'r');
+		const writer = await fs.promises.open('/issue-303-close.txt', 'r+');
+
+		// The reader wrote nothing, so its close must not report the writer's dirty data as EBUSY
+		const [closed] = await Promise.allSettled([reader.close(), writer.write(new TextEncoder().encode('DIRTY'), 0, 5, 0)]);
+		assert.equal(closed.status, 'fulfilled');
+
+		await writer.close();
+		assert.equal(await fs.promises.readFile('/issue-303-close.txt', 'utf8'), 'DIRTYnal');
+	});
 });

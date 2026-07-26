@@ -99,7 +99,7 @@ export class Handle {
 
 		if (!this.dirty) return;
 
-		using _ = this.vnode.lockSync('ro');
+		using _ = this.vnode.lockSync('rw');
 		this.vnode.syncSync();
 	}
 
@@ -113,7 +113,7 @@ export class Handle {
 	public closeSync(): void {
 		if (this.closed) throw UV('EBADF', 'close', this.path);
 		this.syncSync();
-		this.disposeSync();
+		this.disposeSync(true);
 	}
 
 	/**
@@ -240,7 +240,7 @@ export class Handle {
 
 		if (!this.dirty) return;
 
-		using _ = await this.vnode.lock('ro');
+		using _ = await this.vnode.lock('rw');
 		await this.vnode.sync();
 	}
 
@@ -254,7 +254,7 @@ export class Handle {
 	public async close(): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'close', this.path);
 		await this.sync();
-		this.dispose();
+		this.dispose(true);
 	}
 
 	/**
@@ -428,7 +428,7 @@ export class Handle {
 				position += chunk.byteLength;
 			},
 			async close() {
-				using _ = await vnode.lock('ro');
+				using _ = await vnode.lock('rw');
 				await vnode.sync();
 			},
 		});
