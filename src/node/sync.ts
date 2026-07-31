@@ -733,8 +733,14 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 				cpSync.call(this, join(source, dirent.name), join(destination, dirent.name), opts);
 			}
 			break;
-		case constants.S_IFREG:
 		case constants.S_IFLNK:
+			if (opts?.dereference) {
+				copyFileSync.call(this, source, destination);
+			} else {
+				symlinkSync.call(this, readlinkSync.call<V_Context, [string, BufferEncoding], string>(this, source, 'utf8'), destination);
+			}
+			break;
+		case constants.S_IFREG:
 			copyFileSync.call(this, source, destination);
 			break;
 		case constants.S_IFBLK:

@@ -83,4 +83,34 @@ suite('Links', config('symlinks'), () => {
 		const linkContent = await fs.promises.readFile(link, 'utf8');
 		assert.equal(targetContent, linkContent);
 	});
+
+	test('cp preserves a symlink by default #304', async () => {
+		await fs.promises.mkdir('/cp-src');
+		await fs.promises.writeFile('/cp-src/real.txt', 'contents');
+		await fs.promises.symlink('real.txt', '/cp-src/link.txt');
+
+		await fs.promises.cp('/cp-src', '/cp-dst', { recursive: true });
+
+		const stats = await fs.promises.lstat('/cp-dst/link.txt');
+		assert(stats.isSymbolicLink());
+		assert.equal(await fs.promises.readlink('/cp-dst/link.txt'), 'real.txt');
+	});
+
+	test('cp with dereference copies the symlink target contents #304', async () => {
+		await fs.promises.cp('/cp-src', '/cp-deref', { recursive: true, dereference: true });
+
+		const stats = await fs.promises.lstat('/cp-deref/link.txt');
+		assert(!stats.isSymbolicLink());
+		assert.equal(await fs.promises.readFile('/cp-deref/link.txt', 'utf8'), 'contents');
+	});
+
+	test('cpSync preserves a symlink #304', () => {
+		fs.symlinkSync('cp-sync-target.txt', '/cp-sync-link');
+
+		fs.cpSync('/cp-sync-link', '/cp-sync-link-copy');
+
+		const stats = fs.lstatSync('/cp-sync-link-copy');
+		assert(stats.isSymbolicLink());
+		assert.equal(fs.readlinkSync('/cp-sync-link-copy'), 'cp-sync-target.txt');
+	});
 });
