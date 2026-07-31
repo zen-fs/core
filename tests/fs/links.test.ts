@@ -83,4 +83,24 @@ suite('Links', config('symlinks'), () => {
 		const linkContent = await fs.promises.readFile(link, 'utf8');
 		assert.equal(targetContent, linkContent);
 	});
+
+	test('cp preserves a symlink by default', async () => {
+		await fs.promises.mkdir('/cp-src');
+		await fs.promises.writeFile('/cp-src/real.txt', 'contents');
+		await fs.promises.symlink('real.txt', '/cp-src/link.txt');
+
+		await fs.promises.cp('/cp-src', '/cp-dst', { recursive: true });
+
+		const stats = await fs.promises.lstat('/cp-dst/link.txt');
+		assert(stats.isSymbolicLink());
+		assert.equal(await fs.promises.readlink('/cp-dst/link.txt'), 'real.txt');
+	});
+
+	test('cp with dereference copies the symlink target contents', async () => {
+		await fs.promises.cp('/cp-src', '/cp-deref', { recursive: true, dereference: true });
+
+		const stats = await fs.promises.lstat('/cp-deref/link.txt');
+		assert(!stats.isSymbolicLink());
+		assert.equal(await fs.promises.readFile('/cp-deref/link.txt', 'utf8'), 'contents');
+	});
 });
