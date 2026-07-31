@@ -102,6 +102,10 @@ export class Journal extends EventEmitter<{
 		return false;
 	}
 
+	public delete(op: JournalOperation, path: string) {
+		this.entries = this.entries.filter(entry => entry.op != op || entry.path != path);
+	}
+
 	public isDeleted(path: string): boolean {
 		let deleted = false;
 
@@ -235,6 +239,9 @@ export class CopyOnWriteFS extends FileSystem {
 			if (this.isDeleted(oldPath)) throw withErrno('ENOENT');
 		}
 
+		if (await this.readable.exists(oldPath)) this.journal.add('delete', oldPath);
+		this.journal.delete('delete', newPath);
+
 		this.renameInos(oldPath, newPath);
 	}
 
@@ -246,6 +253,9 @@ export class CopyOnWriteFS extends FileSystem {
 		} catch {
 			if (this.isDeleted(oldPath)) throw withErrno('ENOENT');
 		}
+
+		if (this.readable.existsSync(oldPath)) this.journal.add('delete', oldPath);
+		this.journal.delete('delete', newPath);
 
 		this.renameInos(oldPath, newPath);
 	}
@@ -280,22 +290,28 @@ export class CopyOnWriteFS extends FileSystem {
 
 	public async createFile(path: string, options: CreationOptions): Promise<InodeLike> {
 		await this.createParentDirectories(path);
-		return this.remapIno(path, await this.writable.createFile(path, options));
+		const inode = await this.writable.createFile(path, options);
+		this.journal.delete('delete', path);
+		return this.remapIno(path, inode);
 	}
 
 	public createFileSync(path: string, options: CreationOptions): InodeLike {
 		this.createParentDirectoriesSync(path);
-		return this.remapIno(path, this.writable.createFileSync(path, options));
+		const inode = this.writable.createFileSync(path, options);
+		this.journal.delete('delete', path);
+		return this.remapIno(path, inode);
 	}
 
 	public async link(srcpath: string, dstpath: string): Promise<void> {
 		await this.copyForWrite(srcpath);
 		await this.writable.link(srcpath, dstpath);
+		this.journal.delete('delete', dstpath);
 	}
 
 	public linkSync(srcpath: string, dstpath: string): void {
 		this.copyForWriteSync(srcpath);
 		this.writable.linkSync(srcpath, dstpath);
+		this.journal.delete('delete', dstpath);
 	}
 
 	public async unlink(path: string): Promise<void> {
@@ -361,21 +377,30 @@ export class CopyOnWriteFS extends FileSystem {
 	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		if (await this.exists(path)) throw withErrno('EEXIST');
 		await this.createParentDirectories(path);
-		return this.remapIno(path, await this.writable.mkdir(path, options));
+		const inode = await this.writable.mkdir(path, options);
+		this.journal.delete('delete', path);
+		return this.remapIno(path, inode);
 	}
 
 	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		if (this.existsSync(path)) throw withErrno('EEXIST');
 		this.createParentDirectoriesSync(path);
-		return this.remapIno(path, this.writable.mkdirSync(path, options));
+		const inode = this.writable.mkdirSync(path, options);
+		this.journal.delete('delete', path);
+		return this.remapIno(path, inode);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
-		if (this.isDeleted(path) || !(await this.exists(path))) throw withErrno('ENOENT');
+		if (this.isDeleted(path)) throw withErrno('ENOENT');
 
-		const entries: string[] = (await this.readable.exists(path)) ? await this.readable.readdir(path) : [];
+		const readable = await this.readable.stat(path).catch(() => null);
+		const writable = await this.writable.stat(path).catch(() => null);
 
-		if (await this.writable.exists(path))
+		if (!readable && !writable) throw withErrno('ENOENT');
+
+		const entries: string[] = readable && isDirectory(readable) ? await this.readable.readdir(path) : [];
+
+		if (writable && isDirectory(writable))
 			for (const entry of await this.writable.readdir(path)) {
 				if (!entries.includes(entry)) entries.push(entry);
 			}
@@ -384,11 +409,28 @@ export class CopyOnWriteFS extends FileSystem {
 	}
 
 	public readdirSync(path: string): string[] {
-		if (this.isDeleted(path) || !this.existsSync(path)) throw withErrno('ENOENT');
+		if (this.isDeleted(path)) throw withErrno('ENOENT');
 
-		const entries: string[] = this.readable.existsSync(path) ? this.readable.readdirSync(path) : [];
+		let readable: InodeLike | null = null;
+		let writable: InodeLike | null = null;
 
-		if (this.writable.existsSync(path))
+		try {
+			readable = this.readable.statSync(path);
+		} catch {
+			// Not on the readable layer
+		}
+
+		try {
+			writable = this.writable.statSync(path);
+		} catch {
+			// Not on the writable layer
+		}
+
+		if (!readable && !writable) throw withErrno('ENOENT');
+
+		const entries: string[] = readable && isDirectory(readable) ? this.readable.readdirSync(path) : [];
+
+		if (writable && isDirectory(writable))
 			for (const entry of this.writable.readdirSync(path)) {
 				if (!entries.includes(entry)) entries.push(entry);
 			}

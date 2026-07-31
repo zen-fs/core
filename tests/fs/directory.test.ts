@@ -165,4 +165,11 @@ suite('Directories', config('directories'), () => {
 		fs.writeFileSync('/мой-файл.txt', 'HELLO!', 'utf-8');
 		assert(fs.readdirSync('/').includes('мой-файл.txt'));
 	});
+
+	test('re-creating a deleted path still shows up in readdir #305', config('sync'), () => {
+		fs.unlinkSync('/elipses.txt');
+		fs.writeFileSync('/elipses.txt', '...');
+
+		assert(fs.readdirSync('/').includes('elipses.txt'));
+	});
 });
