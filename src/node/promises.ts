@@ -1176,8 +1176,6 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 			break;
 		}
 		case constants.S_IFLNK:
-			// Preserve the symlink itself unless dereferencing is requested. Copying
-			// the link's contents (via `copyFile`) would turn it into a regular file.
 			if (opts?.dereference) {
 				await copyFile.call(this, source, destination);
 			} else {
