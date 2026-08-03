@@ -62,7 +62,7 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 			throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
 		}));
 
-	if (!stats) return { ...resolved, fullPath: path };
+	if (!stats) return { ...resolved, fullPath: maybePath };
 	if (!isSymbolicLink(stats)) {
 		return { ...resolved, fullPath: maybePath, stats };
 	}
@@ -145,16 +145,41 @@ export async function readlink(this: V_Context, path: PathLike): Promise<string>
 }
 
 export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {}): Promise<string | void> {
-	path = normalizePath(path);
+	const original = normalizePath(path);
 	const { euid: uid, egid: gid } = contextOf(this).credentials;
 	const { mode = 0o777, recursive } = options;
 
-	const { fs, path: resolved } = resolveMount(path, this, { syscall: 'mkdir' });
+	const $ex = { syscall: 'mkdir', path: original };
 
-	const __create = async (path: string, resolved: string, parent: InodeLike) => {
+	const { fullPath: realParent } = await resolve(this, dirname(original), false, $ex);
+	const { fs, path: target } = resolveMount(join(realParent, basename(original)), this, $ex);
+
+	const followed = realParent != dirname(original);
+
+	let firstCreated: string | undefined;
+
+	const __create = async (path: string, resolved: string): Promise<InodeLike> => {
+		const parentPath = dirname(resolved);
+
+		const parent = recursive && parentPath != '/' ? await __create(dirname(path), parentPath) : await fs.stat(parentPath);
+
+		using _ = await lockPath(fs, parentPath, 'rw', parent);
+
+		if (recursive) {
+			const existing = cacheOf(fs).get(resolved)?.inode ?? (await fs.stat(resolved).catch(() => null));
+
+			if (existing) {
+				const stats = isSymbolicLink(existing) ? (await resolve(this, path, false, $ex)).stats : existing;
+
+				if (!stats) throw UV('ENOENT', $ex);
+				if (!isDirectory(stats)) throw UV(resolved == target ? 'EEXIST' : 'ENOTDIR', $ex);
+				return existing;
+			}
+
+			if (followed && (await fs.exists(join(parentPath, basename(path))))) throw UV('ENOENT', $ex);
+		}
+
 		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', path);
-
-		using _ = await lockPath(fs, dirname(resolved), 'rw', parent);
 
 		const inode = await fs
 			.mkdir(resolved, {
@@ -163,29 +188,14 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 				gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
 			})
 			.catch(rethrow({ syscall: 'mkdir', path }));
+
+		if (recursive) firstCreated ??= path;
 		emitChange(this, 'rename', path);
 		return inode;
 	};
 
-	if (!recursive) {
-		await __create(path, resolved, await fs.stat(dirname(resolved)));
-		return;
-	}
-
-	const dirs: [path: string, resolved: string][] = [];
-	let origDir = path;
-	for (let dir = resolved; !(await fs.exists(dir)); dir = dirname(dir), origDir = dirname(origDir)) {
-		dirs.unshift([origDir, dir]);
-	}
-
-	if (!dirs.length) return;
-
-	const stats: InodeLike[] = [await fs.stat(dirname(dirs[0][1]))];
-
-	for (const [i, [path, resolved]] of dirs.entries()) {
-		stats.push(await __create(path, resolved, stats[i]));
-	}
-	return dirs[0][0];
+	await __create(original, target);
+	return firstCreated;
 }
 
 export async function readdir(this: V_Context, path: PathLike, options: ReaddirOptions = {}): Promise<Dirent[]> {

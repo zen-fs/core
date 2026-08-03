@@ -87,4 +87,27 @@ suite('Concurrency', config('write', 'async'), () => {
 		await writer.close();
 		assert.equal(await fs.promises.readFile('/issue-303-close.txt', 'utf8'), 'DIRTYnal');
 	});
+
+	test('concurrent recursive mkdir of overlapping trees does not fail #308', async () => {
+		const paths = ['/308/a', '/308/a', '/308/a/b', '/308/a/b', '/308/c', '/308/c', '/308-2', '/308-2'];
+
+		const results = await Promise.allSettled(paths.map(path => fs.promises.mkdir(path, { recursive: true })));
+
+		const rejected = results.filter(r => r.status == 'rejected');
+		assert.deepEqual(
+			rejected.map(r => r.reason.code ?? r.reason.message),
+			[]
+		);
+
+		for (const path of paths) assert((await fs.promises.stat(path)).isDirectory());
+	});
+
+	test('parallel recursive mkdir of the same path creates it once #308', async () => {
+		const results = await Promise.all(Array.from({ length: 8 }, () => fs.promises.mkdir('/308-same/nested', { recursive: true })));
+
+		assert.deepEqual(
+			results.filter(result => result !== undefined),
+			['/308-same']
+		);
+	});
 });

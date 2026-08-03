@@ -45,6 +45,13 @@ suite('Directories', config('directories'), () => {
 		assert.equal((await fs.promises.stat('/recursiveP/A/B/C/D')).mode, fs.constants.S_IFDIR | 0o777);
 	});
 
+	test('mkdir, recursive with a file in the way', config('async'), async () => {
+		await fs.promises.writeFile('/recursiveF', 'Sample content');
+
+		await assert.rejects(fs.promises.mkdir('/recursiveF', { recursive: true }), { code: 'EEXIST', path: '/recursiveF' });
+		await assert.rejects(fs.promises.mkdir('/recursiveF/A/B', { recursive: true }), { code: 'ENOTDIR', path: '/recursiveF/A/B' });
+	});
+
 	test('mkdirSync, recursive', config('sync'), () => {
 		assert.equal(fs.mkdirSync('/recursiveS/A/B', { recursive: true, mode: 0o755 }), '/recursiveS');
 		assert.equal(fs.mkdirSync('/recursiveS/A/B/C/D', { recursive: true, mode: 0o777 }), '/recursiveS/A/B/C');
@@ -55,6 +62,13 @@ suite('Directories', config('directories'), () => {
 		assert.equal(fs.statSync('/recursiveS/A/B').mode, fs.constants.S_IFDIR | 0o755);
 		assert.equal(fs.statSync('/recursiveS/A/B/C').mode, fs.constants.S_IFDIR | 0o777);
 		assert.equal(fs.statSync('/recursiveS/A/B/C/D').mode, fs.constants.S_IFDIR | 0o777);
+	});
+
+	test('mkdirSync, recursive with a file in the way', config('sync'), () => {
+		fs.writeFileSync('/recursiveSF', 'Sample content');
+
+		assert.throws(() => fs.mkdirSync('/recursiveSF', { recursive: true }), { code: 'EEXIST', path: '/recursiveSF' });
+		assert.throws(() => fs.mkdirSync('/recursiveSF/A/B', { recursive: true }), { code: 'ENOTDIR', path: '/recursiveSF/A/B' });
 	});
 
 	test('rmdir (non-empty)', config('async'), async () => {

@@ -84,6 +84,65 @@ suite('Links', config('symlinks'), () => {
 		assert.equal(targetContent, linkContent);
 	});
 
+	test('mkdir does not follow a symlink at the final component', config('async'), async () => {
+		await fs.promises.mkdir('/mkdir-real');
+		await fs.promises.symlink('/mkdir-real', '/mkdir-link');
+		await fs.promises.writeFile('/mkdir-file', 'contents');
+		await fs.promises.symlink('/mkdir-file', '/mkdir-flink');
+		await fs.promises.symlink('/mkdir-missing', '/mkdir-dangling');
+
+		await assert.rejects(fs.promises.mkdir('/mkdir-link'), { code: 'EEXIST' });
+		await assert.rejects(fs.promises.mkdir('/mkdir-dangling'), { code: 'EEXIST' });
+		await assert.rejects(fs.promises.mkdir('/mkdir-flink', { recursive: true }), { code: 'EEXIST' });
+		await assert.rejects(fs.promises.mkdir('/mkdir-dangling', { recursive: true }), { code: 'ENOENT' });
+
+		// A link pointing at a directory satisfies a recursive mkdir and is left as a link
+		assert.equal(await fs.promises.mkdir('/mkdir-link', { recursive: true }), undefined);
+		assert((await fs.promises.lstat('/mkdir-link')).isSymbolicLink());
+		assert(!(await fs.promises.exists('/mkdir-missing')));
+	});
+
+	test('mkdir follows symlinks for intermediate components', config('async'), async () => {
+		assert.equal(await fs.promises.mkdir('/mkdir-link/direct'), undefined);
+		assert.equal(await fs.promises.mkdir('/mkdir-link/nested/deep', { recursive: true }), '/mkdir-link/nested');
+
+		assert.deepEqual((await fs.promises.readdir('/mkdir-real')).sort(), ['direct', 'nested']);
+		assert((await fs.promises.stat('/mkdir-real/nested/deep')).isDirectory());
+
+		await assert.rejects(fs.promises.mkdir('/mkdir-flink/x', { recursive: true }), { code: 'ENOTDIR' });
+		await assert.rejects(fs.promises.mkdir('/mkdir-dangling/x', { recursive: true }), { code: 'ENOENT' });
+		assert(!(await fs.promises.exists('/mkdir-missing')));
+	});
+
+	test('mkdirSync does not follow a symlink at the final component', config('sync'), () => {
+		fs.mkdirSync('/mkdirS-real');
+		fs.symlinkSync('/mkdirS-real', '/mkdirS-link');
+		fs.writeFileSync('/mkdirS-file', 'contents');
+		fs.symlinkSync('/mkdirS-file', '/mkdirS-flink');
+		fs.symlinkSync('/mkdirS-missing', '/mkdirS-dangling');
+
+		assert.throws(() => fs.mkdirSync('/mkdirS-link'), { code: 'EEXIST' });
+		assert.throws(() => fs.mkdirSync('/mkdirS-dangling'), { code: 'EEXIST' });
+		assert.throws(() => fs.mkdirSync('/mkdirS-flink', { recursive: true }), { code: 'EEXIST' });
+		assert.throws(() => fs.mkdirSync('/mkdirS-dangling', { recursive: true }), { code: 'ENOENT' });
+
+		assert.equal(fs.mkdirSync('/mkdirS-link', { recursive: true }), undefined);
+		assert(fs.lstatSync('/mkdirS-link').isSymbolicLink());
+		assert(!fs.existsSync('/mkdirS-missing'));
+	});
+
+	test('mkdirSync follows symlinks for intermediate components', config('sync'), () => {
+		assert.equal(fs.mkdirSync('/mkdirS-link/direct'), undefined);
+		assert.equal(fs.mkdirSync('/mkdirS-link/nested/deep', { recursive: true }), '/mkdirS-link/nested');
+
+		assert.deepEqual(fs.readdirSync('/mkdirS-real').sort(), ['direct', 'nested']);
+		assert(fs.statSync('/mkdirS-real/nested/deep').isDirectory());
+
+		assert.throws(() => fs.mkdirSync('/mkdirS-flink/x', { recursive: true }), { code: 'ENOTDIR' });
+		assert.throws(() => fs.mkdirSync('/mkdirS-dangling/x', { recursive: true }), { code: 'ENOENT' });
+		assert(!fs.existsSync('/mkdirS-missing'));
+	});
+
 	test('cp preserves a symlink by default #304', async () => {
 		await fs.promises.mkdir('/cp-src');
 		await fs.promises.writeFile('/cp-src/real.txt', 'contents');
