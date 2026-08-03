@@ -176,7 +176,8 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 				return existing;
 			}
 
-			if (followed && (await fs.exists(join(parentPath, basename(path))))) throw UV('ENOENT', $ex);
+			// Node reports the link itself with ENOTDIR here, while `mkdirSync` reports the requested path with ENOENT
+			if (followed && (await fs.exists(join(parentPath, basename(path))))) throw UV('ENOTDIR', 'mkdir', path);
 		}
 
 		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', path);

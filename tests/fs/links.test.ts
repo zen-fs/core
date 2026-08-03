@@ -110,7 +110,9 @@ suite('Links', config('symlinks'), () => {
 		assert((await fs.promises.stat('/mkdir-real/nested/deep')).isDirectory());
 
 		await assert.rejects(fs.promises.mkdir('/mkdir-flink/x', { recursive: true }), { code: 'ENOTDIR' });
-		await assert.rejects(fs.promises.mkdir('/mkdir-dangling/x', { recursive: true }), { code: 'ENOENT' });
+
+		// Node reports the link itself here, unlike `mkdirSync` which reports the requested path with ENOENT
+		await assert.rejects(fs.promises.mkdir('/mkdir-dangling/x', { recursive: true }), { code: 'ENOTDIR', path: '/mkdir-dangling' });
 		assert(!(await fs.promises.exists('/mkdir-missing')));
 	});
 
@@ -139,7 +141,7 @@ suite('Links', config('symlinks'), () => {
 		assert(fs.statSync('/mkdirS-real/nested/deep').isDirectory());
 
 		assert.throws(() => fs.mkdirSync('/mkdirS-flink/x', { recursive: true }), { code: 'ENOTDIR' });
-		assert.throws(() => fs.mkdirSync('/mkdirS-dangling/x', { recursive: true }), { code: 'ENOENT' });
+		assert.throws(() => fs.mkdirSync('/mkdirS-dangling/x', { recursive: true }), { code: 'ENOENT', path: '/mkdirS-dangling/x' });
 		assert(!fs.existsSync('/mkdirS-missing'));
 	});
 
