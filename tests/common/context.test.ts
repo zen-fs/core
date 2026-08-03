@@ -78,4 +78,12 @@ suite('Context', () => {
 
 		assert.equal(ctx.realpathSync('.'), '/test');
 	});
+
+	test('copyFileSync should keep the context #307', () => {
+		ctx.writeFileSync('/source.txt', 'not in real root!');
+		ctx.copyFileSync('/source.txt', '/copy.txt');
+
+		assert.equal(ctx.readFileSync('/copy.txt', 'utf-8'), 'not in real root!');
+		assert(fs.readdirSync('/ctx').includes('copy.txt'));
+	});
 });

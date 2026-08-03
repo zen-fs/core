@@ -644,9 +644,9 @@ export function copyFileSync(this: V_Context, source: fs.PathLike, destination: 
 	source = normalizePath(source);
 	destination = normalizePath(destination);
 
-	if (flags && flags & constants.COPYFILE_EXCL && existsSync(destination)) throw UV('EEXIST', 'copyFile', destination);
+	if (flags && flags & constants.COPYFILE_EXCL && existsSync.call(this, destination)) throw UV('EEXIST', 'copyFile', destination);
 
-	writeFileSync.call(this, destination, readFileSync(source));
+	writeFileSync.call(this, destination, readFileSync.call(this, source));
 	emitChange(this, 'rename', destination.toString());
 }
 copyFileSync satisfies typeof fs.copyFileSync;
