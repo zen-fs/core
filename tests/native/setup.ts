@@ -47,6 +47,7 @@ function toNative(path: PathLike): string {
 
 /** Translate a native path back into a test path */
 function fromNative(path: string): string {
+	if (!isAbsolute(path)) return path;
 	return resolve('/', relative(root, path));
 }
 
