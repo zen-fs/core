@@ -145,6 +145,48 @@ suite('Links', config('symlinks'), () => {
 		assert(!fs.existsSync('/mkdirS-missing'));
 	});
 
+	test('writeFile and appendFile follow symlinks', config('async'), async () => {
+		await fs.promises.mkdir('/wf-real');
+		await fs.promises.symlink('/wf-real', '/wf-link');
+		await fs.promises.writeFile('/wf-real/f.txt', 'original');
+		await fs.promises.symlink('/wf-real/f.txt', '/wf-flink');
+		await fs.promises.symlink('/wf-missing.txt', '/wf-dangling');
+
+		await fs.promises.writeFile('/wf-link/new.txt', 'hi');
+		assert.equal(await fs.promises.readFile('/wf-real/new.txt', 'utf8'), 'hi');
+
+		// A link to a file is written through, not replaced
+		await fs.promises.writeFile('/wf-flink', 'replaced');
+		await fs.promises.appendFile('/wf-flink', '+');
+		assert.equal(await fs.promises.readFile('/wf-real/f.txt', 'utf8'), 'replaced+');
+		assert((await fs.promises.lstat('/wf-flink')).isSymbolicLink());
+
+		// Writing through a dangling link creates its target
+		await fs.promises.writeFile('/wf-dangling', 'made');
+		assert.equal(await fs.promises.readFile('/wf-missing.txt', 'utf8'), 'made');
+		assert((await fs.promises.lstat('/wf-dangling')).isSymbolicLink());
+	});
+
+	test('writeFileSync and appendFileSync follow symlinks', config('sync'), () => {
+		fs.mkdirSync('/wfS-real');
+		fs.symlinkSync('/wfS-real', '/wfS-link');
+		fs.writeFileSync('/wfS-real/f.txt', 'original');
+		fs.symlinkSync('/wfS-real/f.txt', '/wfS-flink');
+		fs.symlinkSync('/wfS-missing.txt', '/wfS-dangling');
+
+		fs.writeFileSync('/wfS-link/new.txt', 'hi');
+		assert.equal(fs.readFileSync('/wfS-real/new.txt', 'utf8'), 'hi');
+
+		fs.writeFileSync('/wfS-flink', 'replaced');
+		fs.appendFileSync('/wfS-flink', '+');
+		assert.equal(fs.readFileSync('/wfS-real/f.txt', 'utf8'), 'replaced+');
+		assert(fs.lstatSync('/wfS-flink').isSymbolicLink());
+
+		fs.writeFileSync('/wfS-dangling', 'made');
+		assert.equal(fs.readFileSync('/wfS-missing.txt', 'utf8'), 'made');
+		assert(fs.lstatSync('/wfS-dangling').isSymbolicLink());
+	});
+
 	test('cp preserves a symlink by default #304', async () => {
 		await fs.promises.mkdir('/cp-src');
 		await fs.promises.writeFile('/cp-src/real.txt', 'contents');

@@ -172,7 +172,6 @@ export function writeFileSync(
 			: _sync.open.call(this, path.toString(), {
 					flag,
 					mode: options.mode,
-					preserveSymlinks: true,
 				});
 	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
 	emitChange(this, 'change', path.toString());
@@ -203,7 +202,6 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 			: _sync.open.call(this, normalizePath(filename), {
 					flag,
 					mode: options.mode,
-					preserveSymlinks: true,
 				});
 	file.writeSync(encodedData, 0, encodedData.byteLength);
 	if (typeof file != 'number') file.closeSync();
