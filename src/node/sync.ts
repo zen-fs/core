@@ -11,7 +11,7 @@ import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory } from '../internal/inode.js';
-import { dirname, join, matchesGlob } from '../path.js';
+import { dirname, join, matchesGlob, resolve } from '../path.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
@@ -735,7 +735,8 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 			if (opts?.dereference) {
 				copyFileSync.call(this, source, destination);
 			} else {
-				symlinkSync.call(this, readlinkSync.call<V_Context, [string, BufferEncoding], string>(this, source, 'utf8'), destination);
+				const link = readlinkSync.call<V_Context, [string, BufferEncoding], string>(this, source, 'utf8');
+				symlinkSync.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			}
 			break;
 		case constants.S_IFREG:

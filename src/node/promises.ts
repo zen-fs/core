@@ -18,7 +18,7 @@ import { Exception, rethrow, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
-import { dirname, join, matchesGlob } from '../path.js';
+import { dirname, join, matchesGlob, resolve } from '../path.js';
 import '../polyfills.js';
 import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
 import * as _async from '../vfs/async.js';
@@ -1179,7 +1179,8 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 			if (opts?.dereference) {
 				await copyFile.call(this, source, destination);
 			} else {
-				await symlink.call(this, await readlink.call<V_Context, [string], Promise<string>>(this, source), destination);
+				const link = await readlink.call<V_Context, [string], Promise<string>>(this, source);
+				await symlink.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			}
 			break;
 		case constants.S_IFREG:

@@ -196,7 +196,16 @@ suite('Links', config('symlinks'), () => {
 
 		const stats = await fs.promises.lstat('/cp-dst/link.txt');
 		assert(stats.isSymbolicLink());
-		assert.equal(await fs.promises.readlink('/cp-dst/link.txt'), 'real.txt');
+
+		// A relative target is resolved against the link's directory, so the copy points at the original file
+		assert.equal(await fs.promises.readlink('/cp-dst/link.txt'), '/cp-src/real.txt');
+	});
+
+	test('cp with verbatimSymlinks keeps the target unresolved', async () => {
+		await fs.promises.cp('/cp-src', '/cp-verbatim', { recursive: true, verbatimSymlinks: true });
+
+		assert((await fs.promises.lstat('/cp-verbatim/link.txt')).isSymbolicLink());
+		assert.equal(await fs.promises.readlink('/cp-verbatim/link.txt'), 'real.txt');
 	});
 
 	test('cp with dereference copies the symlink target contents #304', async () => {
@@ -208,12 +217,16 @@ suite('Links', config('symlinks'), () => {
 	});
 
 	test('cpSync preserves a symlink #304', () => {
+		fs.writeFileSync('/cp-sync-target.txt', 'contents');
 		fs.symlinkSync('cp-sync-target.txt', '/cp-sync-link');
 
 		fs.cpSync('/cp-sync-link', '/cp-sync-link-copy');
 
 		const stats = fs.lstatSync('/cp-sync-link-copy');
 		assert(stats.isSymbolicLink());
-		assert.equal(fs.readlinkSync('/cp-sync-link-copy'), 'cp-sync-target.txt');
+		assert.equal(fs.readlinkSync('/cp-sync-link-copy'), '/cp-sync-target.txt');
+
+		fs.cpSync('/cp-sync-link', '/cp-sync-link-verbatim', { verbatimSymlinks: true });
+		assert.equal(fs.readlinkSync('/cp-sync-link-verbatim'), 'cp-sync-target.txt');
 	});
 });
