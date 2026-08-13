@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
 import { fs, mount, resolveMountConfig, SingleBuffer, vfs } from '@zenfs/core';
+import { SuperBlock } from '@zenfs/core/backends/single_buffer.js';
 import { setupLogs } from '../logs.js';
 
 setupLogs();
@@ -53,6 +54,65 @@ await suite('SingleBuffer', () => {
 		assert(fs.existsSync('/shared/worker-file.ts'));
 	});
 
+	test('aligns metadata after another thread reserves space', async () => {
+		const buffer = new SharedArrayBuffer(0x100000);
+		const gate = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+		const superblock = new SuperBlock(buffer);
+		const usedBytes = 2;
+		superblock.used_bytes = 8193n;
+
+		const worker = new Worker(
+			`const { parentPort, workerData } = require('node:worker_threads');
+			const superblock = new BigUint64Array(workerData.buffer);
+			parentPort.postMessage('ready');
+			Atomics.wait(workerData.gate, 0, 0);
+			Atomics.add(superblock, workerData.usedBytes, 5n);
+			Atomics.store(workerData.gate, 0, 2);
+			Atomics.notify(workerData.gate, 0);`,
+			{ eval: true, workerData: { buffer, gate, usedBytes } }
+		);
+		const add = Atomics.add;
+		const compareExchange = Atomics.compareExchange;
+		let injected = false;
+
+		// Let the worker claim space just before this thread updates used_bytes.
+		const injectConcurrentAllocation = (view: BigUint64Array, index: number) => {
+			if (injected || view !== superblock || index !== usedBytes) return;
+			injected = true;
+			Atomics.store(gate, 0, 1);
+			Atomics.notify(gate, 0);
+			const wait = Atomics.wait(gate, 0, 1, 1000);
+			assert.notStrictEqual(wait, 'timed-out', 'worker did not reserve data in time');
+			assert.strictEqual(Atomics.load(gate, 0), 2);
+		};
+
+		try {
+			await new Promise<void>((resolve, reject) => {
+				worker.once('message', message => (message === 'ready' ? resolve() : reject(new Error(`Unexpected worker message: ${message}`))));
+				worker.once('error', reject);
+			});
+
+			Atomics.add = ((view: BigUint64Array, index: number, value: bigint) => {
+				injectConcurrentAllocation(view, index);
+				return add(view, index, value);
+			}) as typeof Atomics.add;
+			Atomics.compareExchange = ((view: BigUint64Array, index: number, expected: bigint, replacement: bigint) => {
+				injectConcurrentAllocation(view, index);
+				return compareExchange(view, index, expected, replacement);
+			}) as typeof Atomics.compareExchange;
+
+			const metadata = superblock.rotateMetadata();
+			assert.strictEqual(metadata.byteOffset, 8200);
+			assert.strictEqual(metadata.byteOffset % Int32Array.BYTES_PER_ELEMENT, 0);
+			assert(injected, 'test did not inject a concurrent allocation');
+		} finally {
+			Atomics.add = add;
+			Atomics.compareExchange = compareExchange;
+			await worker.terminate();
+			worker.unref();
+		}
+	});
+
 	test('reliability across varied file sizes', async () => {
 		const mountPoint = '/sbfs-reliability';
 		const verifyMountPoint = '/sbfs-verify';
@@ -95,6 +155,29 @@ await suite('SingleBuffer', () => {
 			}
 		} finally {
 			if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+			vfs.umount(mountPoint);
+		}
+	});
+
+	test('keeps metadata aligned when files have uneven sizes', async () => {
+		const mountPoint = '/sbfs-rotation';
+		const buffer = new ArrayBuffer(0x400000);
+		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, label: 'rotation' });
+		mount(mountPoint, writable);
+
+		// Uneven writes leave used_bytes between alignment boundaries when the
+		// metadata block fills up.
+		const sizes = [1, 17, 257, 3, 5, 13, 1023, 4095, 7, 9];
+		try {
+			for (let i = 0; i < 400; i++) {
+				const content = Buffer.alloc(sizes[i % sizes.length], i & 0xff);
+				fs.writeFileSync(`${mountPoint}/f${i}.txt`, content);
+			}
+			for (let i = 0; i < 400; i += 37) {
+				const expected = Buffer.alloc(sizes[i % sizes.length], i & 0xff);
+				assert.deepStrictEqual(fs.readFileSync(`${mountPoint}/f${i}.txt`), expected, `content mismatch at f${i}.txt`);
+			}
+		} finally {
 			vfs.umount(mountPoint);
 		}
 	});
