@@ -133,15 +133,17 @@ export function resolveMount(path: string, ctx: V_Context, extra?: ExceptionExtr
 export function _statfs<const T extends boolean>(fs: FileSystem, bigint?: T): T extends true ? fs.BigIntStatsFs : fs.StatsFs {
 	const md = fs.usage();
 	const bs = md.blockSize || 4096;
+	const type = bigint ? BigInt : Number;
 
 	return {
-		type: (bigint ? BigInt : Number)(fs.type),
-		bsize: (bigint ? BigInt : Number)(bs),
-		ffree: (bigint ? BigInt : Number)(md.freeNodes || size_max),
-		files: (bigint ? BigInt : Number)(md.totalNodes || size_max),
-		bavail: (bigint ? BigInt : Number)(md.freeSpace / bs),
-		bfree: (bigint ? BigInt : Number)(md.freeSpace / bs),
-		blocks: (bigint ? BigInt : Number)(md.totalSpace / bs),
+		type: type(fs.type),
+		bsize: type(bs),
+		frsize: type(bs),
+		ffree: type(md.freeNodes || size_max),
+		files: type(md.totalNodes || size_max),
+		bavail: type(md.freeSpace / bs),
+		bfree: type(md.freeSpace / bs),
+		blocks: type(md.totalSpace / bs),
 	} as T extends true ? fs.BigIntStatsFs : fs.StatsFs;
 }
 

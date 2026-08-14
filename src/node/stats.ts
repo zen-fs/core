@@ -351,6 +351,8 @@ export class StatsFs implements Node.StatsFsBase<number> {
 	public bavail: number = 0;
 	/** Total file nodes in file system. */
 	public files: number = c.size_max;
+	/** Fundamental file system block size. */
+	public frsize: number = 4096;
 	/** Free file nodes in file system. */
 	public ffree: number = c.size_max;
 }
@@ -371,6 +373,8 @@ export class BigIntStatsFs implements Node.StatsFsBase<bigint> {
 	public bavail: bigint = BigInt(0);
 	/** Total file nodes in file system. */
 	public files: bigint = BigInt(c.size_max);
+	/** Fundamental file system block size. */
+	public frsize: bigint = BigInt(4096);
 	/** Free file nodes in file system. */
 	public ffree: bigint = BigInt(c.size_max);
 }

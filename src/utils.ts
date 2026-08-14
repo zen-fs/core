@@ -168,3 +168,12 @@ export function _tempDirName(prefix: fs.PathLike) {
 	// Like Node, the prefix is a path. A relative one is resolved against the working directory, not `/tmp`.
 	return `${normalizePath(prefix, true)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
+
+/**
+ * Resolves the global `Temporal`, which is not implemented by all runtimes.
+ * @internal @hidden
+ */
+export function _temporal(): typeof Temporal {
+	if ('Temporal' in globalThis && typeof globalThis.Temporal !== 'undefined') return globalThis.Temporal;
+	throw withErrno('ENOTSUP', 'Temporal is not supported by this runtime');
+}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 import type { ExceptionJSON } from 'kerium';
-import type { TransferListItem } from 'node:worker_threads';
+import type { Transferable } from 'node:worker_threads';
 import type { WithOptional } from 'utilium';
 import type { Backend, FilesystemOf } from '../backends/backend.js';
 import type { PortFS } from '../backends/port.js';
@@ -14,13 +14,13 @@ import { Inode } from '../internal/inode.js';
 import '../polyfills.js';
 
 export interface WebMessagePort {
-	postMessage(value: unknown, transfer?: TransferListItem[]): void;
+	postMessage(value: unknown, transfer?: Transferable[]): void;
 	addEventListener(type: 'message', listener: (ev: { data: any }) => void): void;
 	removeEventListener(type: 'message', listener: (ev: { data: any }) => void): void;
 }
 
 export interface NodeMessagePort {
-	postMessage(value: unknown, transfer?: TransferListItem[]): void;
+	postMessage(value: unknown, transfer?: Transferable[]): void;
 	on(type: 'message', listener: (ev: any) => void): void;
 	off(type: 'message', listener: (ev: any) => void): void;
 }
@@ -32,7 +32,7 @@ export interface Port<T extends Channel = Channel> {
 	readonly channel: T;
 
 	/** Send a request */
-	send<M extends Message>(message: M, transfer?: TransferListItem[]): void;
+	send<M extends Message>(message: M, transfer?: Transferable[]): void;
 
 	/** Add a response handler */
 	addHandler<M extends Message>(handler: (message: M) => void): void;
@@ -356,7 +356,7 @@ export async function handleRequest(port: Port, fs: FileSystem & { _descriptors?
 	if (!isMessage(request)) return;
 
 	let value, error: ExceptionJSON | Pick<Error, 'message' | 'stack'> | undefined;
-	const transferList: TransferListItem[] = [];
+	const transferList: Transferable[] = [];
 
 	try {
 		switch (request.method) {

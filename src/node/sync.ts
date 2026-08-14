@@ -295,7 +295,7 @@ export function writeSync(
 }
 writeSync satisfies typeof fs.writeSync;
 
-export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, options?: fs.ReadSyncOptions): number;
+export function readSync(this: V_Context, fd: number, buffer: ArrayBufferView, options?: fs.ReadOptions): number;
 export function readSync(
 	this: V_Context,
 	fd: number,
@@ -316,7 +316,7 @@ export function readSync(
 	this: V_Context,
 	fd: number,
 	buffer: ArrayBufferView,
-	options?: fs.ReadSyncOptions | number,
+	options?: fs.ReadOptions | number,
 	length?: number,
 	position?: fs.ReadPosition | null
 ): number {
