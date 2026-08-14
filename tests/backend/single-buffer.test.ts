@@ -69,6 +69,22 @@ await suite('SingleBuffer', () => {
 		}
 	});
 
+	test('refuses to rotate metadata past the end of the filesystem', () => {
+		const exhausted = new SuperBlock(new ArrayBuffer(sizeof(SuperBlock) + sizeof(MetadataBlock) + 4));
+		const exhaustedUsed = exhausted.used_bytes;
+
+		assert.throws(() => exhausted.rotateMetadata(), { code: 'ENOSPC' }, 'rotating without room should fail with ENOSPC');
+		assert.strictEqual(exhausted.used_bytes, exhaustedUsed, 'a failed rotation must not consume space');
+
+		const constrained = new SuperBlock(new ArrayBuffer(0x100000));
+		constrained.total_bytes = BigInt(sizeof(SuperBlock) + sizeof(MetadataBlock) + 4);
+		const constrainedUsed = constrained.used_bytes;
+
+		assert.throws(() => constrained.rotateMetadata(), { code: 'ENOSPC' }, 'rotating past total_bytes should fail with ENOSPC');
+		assert.strictEqual(constrained.used_bytes, constrainedUsed, 'a failed rotation must not consume space');
+		assert(constrained.used_bytes <= constrained.total_bytes, 'used_bytes must never exceed total_bytes');
+	});
+
 	test('reliability across varied file sizes', async () => {
 		const mountPoint = '/sbfs-reliability';
 		const verifyMountPoint = '/sbfs-verify';

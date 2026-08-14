@@ -164,7 +164,7 @@ const sb_magic = 0x62732e7a; // 'z.sb'
  * Shortcut for minor perf. bump
  * @internal
  */
-const usedBytes = 2;
+const kUsedBytes = 2;
 
 /**
  * The super block structure for a single-buffer file system
@@ -269,7 +269,7 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 	public rotateMetadata(): MetadataBlock {
 		const alignment = BigInt(Int32Array.BYTES_PER_ELEMENT),
 			blockSize = BigInt(sizeof(MetadataBlock));
-		let used = Atomics.load(this, usedBytes),
+		let used = Atomics.load(this, kUsedBytes),
 			offset: bigint;
 
 		// Padding and block space must be reserved together because other writers can advance used_bytes at any time.
@@ -277,7 +277,8 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 			const padding = (alignment - (used % alignment)) % alignment;
 			offset = used + padding;
 			const next = offset + blockSize;
-			const observed = Atomics.compareExchange(this, usedBytes, used, next);
+			if (next > this.total_bytes) throw err(withErrno('ENOSPC', 'sbfs: not enough space for a new metadata block'));
+			const observed = Atomics.compareExchange(this, kUsedBytes, used, next);
 			if (observed === used) break;
 			used = observed;
 		}
@@ -421,7 +422,7 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 					return;
 				}
 
-				entry.offset = Number(Atomics.add(this.superblock, usedBytes, BigInt(data.length)));
+				entry.offset = Number(Atomics.add(this.superblock, kUsedBytes, BigInt(data.length)));
 				entry.size = data.length;
 
 				this._u8.set(data, entry.offset);
@@ -440,7 +441,7 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 
 		using lock = this.superblock.metadata.lock();
 
-		const offset = Number(Atomics.add(this.superblock, usedBytes, BigInt(data.length)));
+		const offset = Number(Atomics.add(this.superblock, kUsedBytes, BigInt(data.length)));
 
 		entry.id = id;
 		entry.offset = offset;
