@@ -267,13 +267,12 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 	 * @returns the new metadata block
 	 */
 	public rotateMetadata(): MetadataBlock {
-		const alignment = BigInt(Int32Array.BYTES_PER_ELEMENT);
-		const blockSize = BigInt(sizeof(MetadataBlock));
-		let used = Atomics.load(this, usedBytes);
-		let offset: bigint;
+		const alignment = BigInt(Int32Array.BYTES_PER_ELEMENT),
+			blockSize = BigInt(sizeof(MetadataBlock));
+		let used = Atomics.load(this, usedBytes),
+			offset: bigint;
 
-		// Padding and block space must be reserved together because other writers
-		// can advance used_bytes at any time.
+		// Padding and block space must be reserved together because other writers can advance used_bytes at any time.
 		for (;;) {
 			const padding = (alignment - (used % alignment)) % alignment;
 			offset = used + padding;

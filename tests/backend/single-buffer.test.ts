@@ -54,7 +54,7 @@ await suite('SingleBuffer', () => {
 		assert(fs.existsSync('/shared/worker-file.ts'));
 	});
 
-	test('aligns metadata after another thread reserves space', async () => {
+	test('aligns metadata after another thread reserves space #309', async () => {
 		const buffer = new SharedArrayBuffer(0x100000);
 		const gate = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 		const superblock = new SuperBlock(buffer);
@@ -159,7 +159,7 @@ await suite('SingleBuffer', () => {
 		}
 	});
 
-	test('keeps metadata aligned when files have uneven sizes', async () => {
+	test('keeps metadata aligned when files have uneven sizes #309', async () => {
 		const mountPoint = '/sbfs-rotation';
 		const buffer = new ArrayBuffer(0x400000);
 		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, label: 'rotation' });
