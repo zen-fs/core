@@ -17,7 +17,7 @@ import type { Store } from './store/store.js';
 
 type SBLock = Disposable & (() => void);
 
-const hex = (value: number): string => '0x' + value.toString(16).padStart(8, '0');
+const hex = (value: number | bigint): string => '0x' + value.toString(16).padStart(8, '0');
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const { format } = new Intl.NumberFormat('en-US', {
