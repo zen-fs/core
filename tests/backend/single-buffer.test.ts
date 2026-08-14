@@ -3,7 +3,9 @@ import assert from 'node:assert';
 import { randomBytes } from 'node:crypto';
 import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
+import { sizeof } from 'memium';
 import { fs, mount, resolveMountConfig, SingleBuffer, vfs } from '@zenfs/core';
+import { MetadataBlock, SuperBlock } from '@zenfs/core/backends/single_buffer.js';
 import { setupLogs } from '../logs.js';
 
 setupLogs();
@@ -53,6 +55,20 @@ await suite('SingleBuffer', () => {
 		assert(fs.existsSync('/shared/worker-file.ts'));
 	});
 
+	test('aligns metadata when used_bytes is unaligned #309', () => {
+		// Writers reserve data of any length, so used_bytes can sit at any remainder when the metadata block is rotated.
+		for (const used of [8192n, 8193n, 8194n, 8195n]) {
+			const superblock = new SuperBlock(new ArrayBuffer(0x100000));
+			superblock.used_bytes = used;
+
+			const metadata = superblock.rotateMetadata();
+			const expected = Number((used + 3n) & ~3n);
+
+			assert.strictEqual(metadata.byteOffset, expected, `metadata offset for used_bytes ${used}`);
+			assert.strictEqual(superblock.used_bytes, BigInt(expected + sizeof(MetadataBlock)), `used_bytes after rotating from ${used}`);
+		}
+	});
+
 	test('reliability across varied file sizes', async () => {
 		const mountPoint = '/sbfs-reliability';
 		const verifyMountPoint = '/sbfs-verify';
@@ -95,6 +111,28 @@ await suite('SingleBuffer', () => {
 			}
 		} finally {
 			if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+			vfs.umount(mountPoint);
+		}
+	});
+
+	test('keeps metadata aligned when files have uneven sizes #309', async () => {
+		const mountPoint = '/sbfs-rotation';
+		const buffer = new ArrayBuffer(0x400000);
+		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, label: 'rotation' });
+		mount(mountPoint, writable);
+
+		// Uneven writes leave used_bytes between alignment boundaries when the metadata block fills up.
+		const sizes = [1, 17, 257, 3, 5, 13, 1023, 4095, 7, 9];
+		try {
+			for (let i = 0; i < 400; i++) {
+				const content = Buffer.alloc(sizes[i % sizes.length], i & 0xff);
+				fs.writeFileSync(`${mountPoint}/f${i}.txt`, content);
+			}
+			for (let i = 0; i < 400; i += 37) {
+				const expected = Buffer.alloc(sizes[i % sizes.length], i & 0xff);
+				assert.deepStrictEqual(fs.readFileSync(`${mountPoint}/f${i}.txt`), expected, `content mismatch at f${i}.txt`);
+			}
+		} finally {
 			vfs.umount(mountPoint);
 		}
 	});

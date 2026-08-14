@@ -267,12 +267,22 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 	 * @returns the new metadata block
 	 */
 	public rotateMetadata(): MetadataBlock {
-		const padding = this.used_bytes % BigInt(4);
+		const alignment = BigInt(Int32Array.BYTES_PER_ELEMENT),
+			blockSize = BigInt(sizeof(MetadataBlock));
+		let used = Atomics.load(this, usedBytes),
+			offset: bigint;
 
-		Atomics.add(this, usedBytes, padding);
-		const offset = Number(Atomics.add(this, usedBytes, BigInt(sizeof(MetadataBlock))));
+		// Padding and block space must be reserved together because other writers can advance used_bytes at any time.
+		for (;;) {
+			const padding = (alignment - (used % alignment)) % alignment;
+			offset = used + padding;
+			const next = offset + blockSize;
+			const observed = Atomics.compareExchange(this, usedBytes, used, next);
+			if (observed === used) break;
+			used = observed;
+		}
 
-		const metadata = new MetadataBlock(this.buffer, offset);
+		const metadata = new MetadataBlock(this.buffer, Number(offset));
 		metadata.previous_offset = this.metadata_offset;
 
 		this.metadata = metadata;
@@ -280,7 +290,7 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 		_update(metadata);
 		_update(this);
 
-		debug(`sbfs: rotated metadata block at ${hex(metadata.previous_offset)} with new block at ${hex(offset)}`);
+		debug(`sbfs: rotated metadata block at ${hex(metadata.previous_offset)} with new block at ${hex(metadata.byteOffset)}`);
 
 		return metadata;
 	}
