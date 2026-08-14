@@ -284,11 +284,19 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 		}
 
 		const metadata = new MetadataBlock(this.buffer, Number(offset));
-		metadata.previous_offset = this.metadata_offset;
+
+		const offsets = new Uint32Array(this.buffer, this.byteOffset, sizeof(SuperBlock) / Uint32Array.BYTES_PER_ELEMENT);
+		let previous = Atomics.load(offsets, kMetadataOffset);
+
+		for (;;) {
+			metadata.previous_offset = previous;
+			_update(metadata);
+			const observed = Atomics.compareExchange(offsets, kMetadataOffset, previous, metadata.byteOffset);
+			if (observed === previous) break;
+			previous = observed;
+		}
 
 		this.metadata = metadata;
-		this.metadata_offset = metadata.byteOffset;
-		_update(metadata);
 		_update(this);
 
 		debug(`sbfs: rotated metadata block at ${hex(metadata.previous_offset)} with new block at ${hex(metadata.byteOffset)}`);
@@ -324,6 +332,12 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 		return true;
 	}
 }
+
+/**
+ * Index of `SuperBlock.metadata_offset` in a `Uint32Array` view of the super block.
+ * @internal
+ */
+const kMetadataOffset = offsetof(SuperBlock, 'metadata_offset') / Uint32Array.BYTES_PER_ELEMENT;
 
 /**
  * Compute the checksum for a super block or metadata block.

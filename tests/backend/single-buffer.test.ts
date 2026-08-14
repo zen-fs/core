@@ -85,6 +85,58 @@ await suite('SingleBuffer', () => {
 		assert(constrained.used_bytes <= constrained.total_bytes, 'used_bytes must never exceed total_bytes');
 	});
 
+	test('concurrent rotation keeps every metadata block reachable', async () => {
+		const rotations = 100;
+		const buffer = new SharedArrayBuffer(0x200000);
+		const gate = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+
+		const superblock = new SuperBlock(buffer);
+		const original = superblock.metadata_offset;
+
+		const worker = new Worker(import.meta.dirname + '/single-buffer-rotate.worker.js', { workerData: { buffer, gate, rotations } });
+
+		const ready = Promise.withResolvers<void>();
+		const finished = Promise.withResolvers<number[]>();
+		const expired = setTimeout(() => {
+			const error = new Error('the worker did not finish rotating');
+			ready.reject(error);
+			finished.reject(error);
+		}, 1000);
+
+		worker.on('error', error => {
+			ready.reject(error);
+			finished.reject(error);
+		});
+		worker.on('message', message => (message === 'ready' ? ready.resolve() : finished.resolve(message as number[])));
+
+		try {
+			await ready.promise;
+
+			Atomics.store(gate, 0, 1);
+			Atomics.notify(gate, 0);
+
+			const mine: number[] = [];
+			for (let i = 0; i < rotations; i++) mine.push(superblock.rotateMetadata().byteOffset);
+
+			const theirs = await finished.promise;
+
+			const chain = new Set<number>();
+			for (let block: MetadataBlock | undefined = new SuperBlock(buffer).metadata; block; block = block.previous) {
+				if (chain.has(block.byteOffset)) break;
+				chain.add(block.byteOffset);
+			}
+
+			assert.strictEqual(new Set([...mine, ...theirs]).size, rotations * 2, 'two rotations reserved the same offset');
+			assert.strictEqual(chain.size, rotations * 2 + 1, 'blocks are missing from the chain');
+
+			for (const offset of [original, ...mine, ...theirs]) assert(chain.has(offset), `the block at ${offset} is not in the chain`);
+		} finally {
+			clearTimeout(expired);
+			await worker.terminate();
+			worker.unref();
+		}
+	});
+
 	test('reliability across varied file sizes', async () => {
 		const mountPoint = '/sbfs-reliability';
 		const verifyMountPoint = '/sbfs-verify';
