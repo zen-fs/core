@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type * as Node from 'node:fs';
 import { pick } from 'utilium';
+import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
 import type { InodeFields } from '../internal/inode.js';
 import { _inode_fields, hasAccess } from '../internal/inode.js';
-import * as c from '../constants.js';
+import { _temporal } from '../utils.js';
 
-const n1000 = BigInt(1000) as 1000n;
+const _nsMultiplier = BigInt(1_000_000) as 1_000_000n;
 
 export interface StatsLike<T extends number | bigint = number | bigint> {
 	/**
@@ -122,6 +123,14 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.atimeMs = this._convert(value.getTime());
 	}
 
+	public get atimeInstant(): Temporal.Instant {
+		return _temporal().Instant.fromEpochMilliseconds(Number(this.atimeMs));
+	}
+
+	public set atimeInstant(value: Temporal.Instant) {
+		this.atimeMs = this._convert(value.epochMilliseconds);
+	}
+
 	/**
 	 * Time of last modification, since epoch
 	 */
@@ -133,6 +142,14 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	public set mtime(value: Date) {
 		this.mtimeMs = this._convert(value.getTime());
+	}
+
+	public get mtimeInstant(): Temporal.Instant {
+		return _temporal().Instant.fromEpochMilliseconds(Number(this.mtimeMs));
+	}
+
+	public set mtimeInstant(value: Temporal.Instant) {
+		this.mtimeMs = this._convert(value.epochMilliseconds);
 	}
 
 	/**
@@ -148,6 +165,14 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.ctimeMs = this._convert(value.getTime());
 	}
 
+	public get ctimeInstant(): Temporal.Instant {
+		return _temporal().Instant.fromEpochMilliseconds(Number(this.ctimeMs));
+	}
+
+	public set ctimeInstant(value: Temporal.Instant) {
+		this.ctimeMs = this._convert(value.epochMilliseconds);
+	}
+
 	/**
 	 * Time of file creation, since epoch
 	 */
@@ -159,6 +184,14 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	public set birthtime(value: Date) {
 		this.birthtimeMs = this._convert(value.getTime());
+	}
+
+	public get birthtimeInstant(): Temporal.Instant {
+		return _temporal().Instant.fromEpochMilliseconds(Number(this.birthtimeMs));
+	}
+
+	public set birthtimeInstant(value: Temporal.Instant) {
+		this.birthtimeMs = this._convert(value.epochMilliseconds);
 	}
 
 	/**
@@ -246,19 +279,19 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	public get atimeNs(): bigint {
-		return BigInt(this.atimeMs) * n1000;
+		return BigInt(this.atimeMs) * _nsMultiplier;
 	}
 
 	public get mtimeNs(): bigint {
-		return BigInt(this.mtimeMs) * n1000;
+		return BigInt(this.mtimeMs) * _nsMultiplier;
 	}
 
 	public get ctimeNs(): bigint {
-		return BigInt(this.ctimeMs) * n1000;
+		return BigInt(this.ctimeMs) * _nsMultiplier;
 	}
 
 	public get birthtimeNs(): bigint {
-		return BigInt(this.birthtimeMs) * n1000;
+		return BigInt(this.birthtimeMs) * _nsMultiplier;
 	}
 }
 
