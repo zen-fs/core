@@ -31,6 +31,7 @@ export function bindContext(this: V_Context, init: ContextInit = {}): BoundConte
 	const bound = Object.assign(ctx, {
 		fs: {
 			...bindFunctions(fs, ctx),
+			Utf8Stream: fs.Utf8Stream._withContext(ctx),
 			promises: bindFunctions(fs.promises, ctx),
 			xattr: bindFunctions(xattr, ctx),
 		},

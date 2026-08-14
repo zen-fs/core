@@ -7,6 +7,8 @@ import type { Handle } from '../vfs/file.js';
 import type * as xattr from '../vfs/xattr.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
 import { createCredentials } from './credentials.js';
+import { warn } from 'kerium/log';
+import { withErrno } from 'kerium';
 
 /**
  * Symbol used for context branding
@@ -19,7 +21,7 @@ const kIsContext = Symbol('ZenFSContext');
  * @category Contexts
  */
 export interface FSContext {
-	/** The unique ID of the context */
+	/** Brand */
 	readonly [kIsContext]: boolean;
 
 	/** The unique ID of the context */
@@ -46,6 +48,14 @@ export interface FSContext {
 
 	/** The child contexts */
 	readonly children: FSContext[];
+}
+
+export function isContext(obj: unknown): obj is FSContext {
+	return typeof obj === 'object' && obj !== null && kIsContext in obj;
+}
+
+export function assertContext(ctx: unknown): asserts ctx is FSContext {
+	if (!isContext(ctx)) throw warn(withErrno('EINVAL', 'Invalid context provided'));
 }
 
 /**
@@ -96,7 +106,7 @@ export const defaultContext: FSContext = {
 };
 
 export function contextOf($: unknown): FSContext {
-	return typeof $ === 'object' && $ !== null && kIsContext in $ ? ($ as FSContext) : defaultContext;
+	return isContext($) ? $ : defaultContext;
 }
 
 // 0 is reserved for the global/default context
@@ -111,6 +121,8 @@ let _nextId = 1;
  * This exists so that `kIsContext` is not exported and to make sure the context is "secure".
  */
 export function createChildContext(parent: FSContext, init: ContextInit = {}): FSContext & { parent: FSContext } {
+	assertContext(parent);
+
 	const { root = parent.root, pwd = parent.pwd, credentials = structuredClone(parent.credentials) } = init;
 
 	const ctx: FSContext & { parent: FSContext } = {

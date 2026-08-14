@@ -328,52 +328,30 @@ export function write(
 	cbPosEnc?: number | BufferEncoding | Callback<[number, Uint8Array]> | Callback<[number, string]>,
 	cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop
 ): void {
-	let buffer: Buffer, offset: number | undefined, length: number | undefined, position: number | undefined | null, encoding: BufferEncoding;
+	let buffer: Buffer, offset: number, length: number, position: number | null, encoding: BufferEncoding;
 	const handle = new promises.FileHandle(this, fd);
+
+	const _cb = ([cbPosOff, cbLenEnc, cbPosEnc].find(arg => typeof arg === 'function') ?? cb) as Callback<[number, Uint8Array | string]>;
+
 	if (typeof data === 'string') {
-		// Signature 1: (fd, string, [position?, [encoding?]], cb?)
-		encoding = 'utf8';
-		switch (typeof cbPosOff) {
-			case 'function':
-				// (fd, string, cb)
-				cb = cbPosOff;
-				break;
-			case 'number':
-				// (fd, string, position, encoding?, cb?)
-				position = cbPosOff;
-				encoding = typeof cbLenEnc === 'string' ? cbLenEnc : 'utf8';
-				cb = typeof cbPosEnc === 'function' ? cbPosEnc : cb;
-				break;
-			default:
-				// ...try to find the callback and get out of here!
-				cb = (typeof cbLenEnc === 'function' ? cbLenEnc : typeof cbPosEnc === 'function' ? cbPosEnc : cb) as Callback<
-					[number, Uint8Array | string]
-				>;
-				(cb as Callback<[number, Uint8Array | string]>)(withErrno('EINVAL'));
-				return;
-		}
-		buffer = Buffer.from(data);
+		// (fd, string, [position?, [encoding?]], cb?)
+		position = typeof cbPosOff === 'number' ? cbPosOff : null;
+		encoding = typeof cbLenEnc === 'string' ? cbLenEnc : 'utf8';
+		buffer = Buffer.from(data, encoding);
 		offset = 0;
-		length = buffer.length;
-
-		const _cb = cb as Callback<[number, string]>;
-
-		handle
-			.write(buffer, offset, length, position)
-			.then(({ bytesWritten }) => _cb(null, bytesWritten, buffer.toString(encoding)))
-			.catch(_cb);
+		length = buffer.byteLength;
 	} else {
-		// Signature 2: (fd, buffer, offset, length, position?, cb?)
-		buffer = Buffer.from(data.buffer);
-		offset = cbPosOff as number;
-		length = cbLenEnc as number;
+		// (fd, buffer, [offset?, [length?, [position?]]], cb?)
+		buffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+		offset = typeof cbPosOff === 'number' ? cbPosOff : 0;
+		length = typeof cbLenEnc === 'number' ? cbLenEnc : buffer.byteLength - offset;
 		position = typeof cbPosEnc === 'number' ? cbPosEnc : null;
-		const _cb = (typeof cbPosEnc === 'function' ? cbPosEnc : cb) as Callback<[number, Uint8Array]>;
-		void handle
-			.write(buffer, offset, length, position)
-			.then(({ bytesWritten }) => _cb(null, bytesWritten, buffer))
-			.catch(_cb);
 	}
+
+	handle
+		.write(buffer, offset, length, position)
+		.then(({ bytesWritten }) => _cb(null, bytesWritten, typeof data === 'string' ? data : buffer))
+		.catch(_cb);
 }
 write satisfies Omit<typeof fs.write, '__promisify__'>;
 

@@ -7,3 +7,4 @@ export { BigIntStatsFs, Stats, StatsFs } from './stats.js';
 export type { StatsLike } from './stats.js';
 export * from './streams.js';
 export * from './sync.js';
+export { Utf8Stream } from './utf8stream.js';
