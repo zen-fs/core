@@ -1241,7 +1241,7 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt: 
 export function glob(this: V_Context, pattern: string | readonly string[], opt: fs.GlobOptions): NodeJS.AsyncIterator<Dirent | string>;
 export function glob(this: V_Context, pattern: string | readonly string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
-	const { cwd = '/', withFileTypes = false, exclude = () => false } = opt || {};
+	const { cwd = '/', withFileTypes = false, exclude = () => false, followSymlinks = false } = opt || {};
 
 	const normalizedPatterns = pattern.map(p => p.replace(/^\/+/g, ''));
 
@@ -1258,6 +1258,14 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 
 	const regexPatterns = normalizedPatterns.map(globToRegex);
 
+	async function shouldDescend(path: string, relativePath: string): Promise<boolean> {
+		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
+		const inScope = hasGlobStar || isNamed;
+		const stats = await lstat(path);
+		if (!stats.isSymbolicLink()) return inScope && stats.isDirectory();
+		return inScope && (followSymlinks || isNamed) && !!(await stat(path, { throwIfNoEntry: false }))?.isDirectory();
+	}
+
 	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
 		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
 
@@ -1268,11 +1276,7 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 
 			const relativePath = fullPath.replace(/^\/+/g, '');
 
-			if ((await stat(fullPath)).isDirectory()) {
-				if (hasGlobStar || patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'))) {
-					yield* recursiveList(fullPath);
-				}
-			}
+			if (await shouldDescend(fullPath, relativePath)) yield* recursiveList(fullPath);
 
 			if (regexPatterns.some(rx => rx.test(relativePath))) {
 				yield withFileTypes ? entry : relativePath;

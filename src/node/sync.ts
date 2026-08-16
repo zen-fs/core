@@ -808,7 +808,7 @@ export function globSync(pattern: string | readonly string[], options: fs.GlobOp
 export function globSync(pattern: string | readonly string[], options: fs.GlobOptions): Dirent[] | string[];
 export function globSync(pattern: string | readonly string[], options: GlobOptionsU = {}): Dirent[] | string[] {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
-	const { cwd = '/', withFileTypes = false, exclude = () => false } = options;
+	const { cwd = '/', withFileTypes = false, exclude = () => false, followSymlinks = false } = options;
 
 	const normalizedPatterns = pattern.map(p => p.replace(/^\/+/g, ''));
 
@@ -825,6 +825,14 @@ export function globSync(pattern: string | readonly string[], options: GlobOptio
 
 	const regexPatterns = normalizedPatterns.map(globToRegex);
 
+	function shouldDescend(path: string, relativePath: string): boolean {
+		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
+		const inScope = hasGlobStar || isNamed;
+		const stats = lstatSync(path);
+		if (!stats.isSymbolicLink()) return inScope && stats.isDirectory();
+		return inScope && (followSymlinks || isNamed) && !!statSync(path, { throwIfNoEntry: false })?.isDirectory();
+	}
+
 	const results: Dirent[] | string[] = [];
 	function recursiveList(dir: string) {
 		const entries = readdirSync(dir, { withFileTypes, encoding: 'utf8' });
@@ -836,11 +844,7 @@ export function globSync(pattern: string | readonly string[], options: GlobOptio
 
 			const relativePath = fullPath.replace(/^\/+/g, '');
 
-			if (statSync(fullPath).isDirectory()) {
-				if (hasGlobStar || patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'))) {
-					recursiveList(fullPath);
-				}
-			}
+			if (shouldDescend(fullPath, relativePath)) recursiveList(fullPath);
 
 			if (regexPatterns.some(rx => rx.test(relativePath))) {
 				results.push(withFileTypes ? entry : (relativePath as any));

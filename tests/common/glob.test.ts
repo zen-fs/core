@@ -13,6 +13,8 @@ fs.writeFileSync('/glob/c.js', 'c');
 fs.writeFileSync('/glob/sub/d.txt', 'd');
 fs.writeFileSync('/glob/sub/e.js', 'e');
 fs.writeFileSync('/glob/sub/deep/f.txt', 'f');
+fs.symlinkSync('sub', '/glob/link');
+fs.symlinkSync('/glob/nowhere', '/glob/dangling');
 
 suite('globSync', () => {
 	test('wildcard in root', () => {
@@ -82,6 +84,36 @@ suite('globSync', () => {
 		assert(!results.includes('glob/c.js'), 'should exclude .js files');
 		assert(results.includes('glob/a.txt'), 'should still include .txt files');
 	});
+
+	test('globstar does not follow symlinks by default', () => {
+		const results = fs.globSync('/glob/**/*.txt');
+		assert(results.includes('glob/sub/d.txt'), 'should include the real directory');
+		assert(!results.includes('glob/link/d.txt'), 'should not descend into a symlinked directory');
+	});
+
+	test('followSymlinks option', () => {
+		const results = fs.globSync('/glob/**/*.txt', { followSymlinks: true });
+		assert(results.includes('glob/link/d.txt'), 'should descend into a symlinked directory');
+		assert(results.includes('glob/link/deep/f.txt'), 'should descend recursively');
+		assert(results.includes('glob/sub/d.txt'), 'should still include the real directory');
+	});
+
+	test('a symlink named by the pattern is always descended into', () => {
+		const results = fs.globSync('/glob/link/*.txt');
+		assert(results.includes('glob/link/d.txt'), 'should not need followSymlinks when the pattern names the link');
+	});
+
+	test('the symlink itself is still matched', () => {
+		for (const followSymlinks of [false, true]) {
+			const results = fs.globSync('/glob/*', { followSymlinks });
+			assert(results.includes('glob/link'), `should match the link itself (followSymlinks: ${followSymlinks})`);
+		}
+	});
+
+	test('dangling symlinks do not throw', () => {
+		const results = fs.globSync('/glob/**', { followSymlinks: true });
+		assert(results.includes('glob/dangling'), 'should match a dangling link without following it');
+	});
 });
 
 await suite('promises.glob', () => {
@@ -131,5 +163,28 @@ await suite('promises.glob', () => {
 	test('no matches returns empty', async () => {
 		const results = await Array.fromAsync(fs.promises.glob('/glob/*.xyz'));
 		assert.equal(results.length, 0);
+	});
+
+	test('globstar does not follow symlinks by default', async () => {
+		const results = await Array.fromAsync(fs.promises.glob('/glob/**/*.txt'));
+		assert(results.includes('glob/sub/d.txt'));
+		assert(!results.includes('glob/link/d.txt'), 'should not descend into a symlinked directory');
+	});
+
+	test('followSymlinks option', async () => {
+		const results = await Array.fromAsync(fs.promises.glob('/glob/**/*.txt', { followSymlinks: true }));
+		assert(results.includes('glob/link/d.txt'));
+		assert(results.includes('glob/link/deep/f.txt'));
+		assert(results.includes('glob/sub/d.txt'));
+	});
+
+	test('a symlink named by the pattern is always descended into', async () => {
+		const results = await Array.fromAsync(fs.promises.glob('/glob/link/*.txt'));
+		assert(results.includes('glob/link/d.txt'));
+	});
+
+	test('dangling symlinks do not throw', async () => {
+		const results = await Array.fromAsync(fs.promises.glob('/glob/**', { followSymlinks: true }));
+		assert(results.includes('glob/dangling'));
 	});
 });
