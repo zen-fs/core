@@ -1242,6 +1242,7 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt: 
 export function glob(this: V_Context, pattern: string | readonly string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const { cwd = '/', withFileTypes = false, exclude = () => false, followSymlinks = false } = opt || {};
+	const $ = this;
 
 	const normalizedPatterns = pattern.map(p => p.replace(/^\/+/g, ''));
 
@@ -1261,13 +1262,13 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 	async function shouldDescend(path: string, relativePath: string): Promise<boolean> {
 		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
 		const inScope = hasGlobStar || isNamed;
-		const stats = await lstat(path);
+		const stats = await lstat.call<V_Context, [string], Promise<Stats>>($, path);
 		if (!stats.isSymbolicLink()) return inScope && stats.isDirectory();
-		return inScope && (followSymlinks || isNamed) && !!(await stat(path, { throwIfNoEntry: false }))?.isDirectory();
+		return inScope && (followSymlinks || isNamed) && !!(await stat.call($, path, { throwIfNoEntry: false }))?.isDirectory();
 	}
 
 	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
-		const entries = await readdir(dir, { withFileTypes, encoding: 'utf8' });
+		const entries = await readdir.call($, dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
 			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));
@@ -1284,6 +1285,6 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 		}
 	}
 
-	return recursiveList(cwd instanceof URL ? cwd.pathname : cwd);
+	return recursiveList(resolve.call($, cwd instanceof URL ? cwd.pathname : cwd));
 }
 glob satisfies typeof promises.glob;

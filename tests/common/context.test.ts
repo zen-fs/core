@@ -79,6 +79,35 @@ suite('Context', () => {
 		assert.equal(ctx.realpathSync('.'), '/test');
 	});
 
+	test('globSync should keep the context', () => {
+		ctx.mkdirSync('/globbed');
+		ctx.writeFileSync('/globbed/inside.txt', 'in the context');
+
+		fs.mkdirSync('/globbed');
+		fs.writeFileSync('/globbed/outside.txt', 'not in the context');
+
+		const results = ctx.globSync('**/*.txt');
+
+		assert(results.includes('globbed/inside.txt'), 'should match files in the context root');
+		assert(!results.includes('globbed/outside.txt'), 'should not match files outside the context root');
+	});
+
+	test('glob should keep the context', async () => {
+		const results = await Array.fromAsync(ctx.promises.glob('**/*.txt'));
+
+		assert(results.includes('globbed/inside.txt'));
+		assert(!results.includes('globbed/outside.txt'), 'should not match files outside the context root');
+	});
+
+	test('glob resolves a relative cwd against the context', () => {
+		const pwd = context.pwd;
+		context.pwd = '/globbed';
+
+		assert.deepEqual(ctx.globSync('globbed/*', { cwd: '.' }), ['globbed/inside.txt']);
+
+		context.pwd = pwd;
+	});
+
 	test('copyFileSync should keep the context #307', () => {
 		ctx.writeFileSync('/source.txt', 'not in real root!');
 		ctx.copyFileSync('/source.txt', '/copy.txt');

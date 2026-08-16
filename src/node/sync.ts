@@ -802,13 +802,14 @@ export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.Stat
 /**
  * Retrieves the files matching the specified pattern.
  */
-export function globSync(pattern: string | readonly string[]): string[];
-export function globSync(pattern: string | readonly string[], options: fs.GlobOptionsWithFileTypes): Dirent[];
-export function globSync(pattern: string | readonly string[], options: fs.GlobOptionsWithoutFileTypes): string[];
-export function globSync(pattern: string | readonly string[], options: fs.GlobOptions): Dirent[] | string[];
-export function globSync(pattern: string | readonly string[], options: GlobOptionsU = {}): Dirent[] | string[] {
+export function globSync(this: V_Context, pattern: string | readonly string[]): string[];
+export function globSync(this: V_Context, pattern: string | readonly string[], options: fs.GlobOptionsWithFileTypes): Dirent[];
+export function globSync(this: V_Context, pattern: string | readonly string[], options: fs.GlobOptionsWithoutFileTypes): string[];
+export function globSync(this: V_Context, pattern: string | readonly string[], options: fs.GlobOptions): Dirent[] | string[];
+export function globSync(this: V_Context, pattern: string | readonly string[], options: GlobOptionsU = {}): Dirent[] | string[] {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const { cwd = '/', withFileTypes = false, exclude = () => false, followSymlinks = false } = options;
+	const $ = this;
 
 	const normalizedPatterns = pattern.map(p => p.replace(/^\/+/g, ''));
 
@@ -828,14 +829,14 @@ export function globSync(pattern: string | readonly string[], options: GlobOptio
 	function shouldDescend(path: string, relativePath: string): boolean {
 		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
 		const inScope = hasGlobStar || isNamed;
-		const stats = lstatSync(path);
+		const stats = lstatSync.call<V_Context, [string], Stats>($, path);
 		if (!stats.isSymbolicLink()) return inScope && stats.isDirectory();
-		return inScope && (followSymlinks || isNamed) && !!statSync(path, { throwIfNoEntry: false })?.isDirectory();
+		return inScope && (followSymlinks || isNamed) && !!statSync.call($, path, { throwIfNoEntry: false })?.isDirectory();
 	}
 
 	const results: Dirent[] | string[] = [];
 	function recursiveList(dir: string) {
-		const entries = readdirSync(dir, { withFileTypes, encoding: 'utf8' });
+		const entries = readdirSync.call($, dir, { withFileTypes, encoding: 'utf8' });
 
 		for (const entry of entries as Entries) {
 			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));
@@ -852,7 +853,7 @@ export function globSync(pattern: string | readonly string[], options: GlobOptio
 		}
 	}
 
-	recursiveList(cwd instanceof URL ? cwd.pathname : cwd);
+	recursiveList(resolve.call($, cwd instanceof URL ? cwd.pathname : cwd));
 	return results;
 }
 globSync satisfies typeof fs.globSync;
