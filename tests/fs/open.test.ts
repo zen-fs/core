@@ -12,12 +12,12 @@ suite('Opening files', () => {
 	});
 
 	test('open file with mode "r"', config('async'), async () => {
-		const { fd } = await fs.promises.open(filename, 'r');
-		assert(fd >= -Infinity);
+		await using handle = await fs.promises.open(filename, 'r');
+		assert(handle.fd >= -Infinity);
 	});
 
 	test('open file with mode "rs"', config('async'), async () => {
-		const { fd } = await fs.promises.open(filename, 'rs');
-		assert(fd >= -Infinity);
+		await using handle = await fs.promises.open(filename, 'rs');
+		assert(handle.fd >= -Infinity);
 	});
 });

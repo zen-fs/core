@@ -13,7 +13,7 @@ const ellipses = '…'.repeat(10_000);
 
 suite('read', () => {
 	test('read file asynchronously', config('async'), async () => {
-		const handle = await fs.promises.open(filepath, 'r');
+		await using handle = await fs.promises.open(filepath, 'r');
 		const { bytesRead, buffer } = await handle.read(Buffer.alloc(expected.length), 0, expected.length, 0);
 		assert.equal(bytesRead, expected.length);
 		assert.equal(buffer.toString(), expected);
@@ -46,7 +46,7 @@ suite('read', () => {
 	const bufferSync = Buffer.alloc(expected.length);
 
 	test('read file from handle asynchronously', config('async'), async () => {
-		const handle = await fs.promises.open(filepath, 'r');
+		await using handle = await fs.promises.open(filepath, 'r');
 		const { bytesRead } = await handle.read(bufferAsync, 0, expected.length, 0);
 
 		assert.equal(bytesRead, expected.length);

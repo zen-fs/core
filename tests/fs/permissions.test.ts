@@ -25,7 +25,7 @@ suite('Permissions', config('permissions'), () => {
 	});
 
 	test('fchmod', config('sync', 'async'), async () => {
-		const handle = await fs.promises.open(file, 'a', 0o644);
+		await using handle = await fs.promises.open(file, 'a', 0o644);
 
 		await handle.chmod(asyncMode);
 		const stats = await handle.stat();
