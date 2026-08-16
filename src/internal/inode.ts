@@ -520,6 +520,8 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 
 /**
  * @hidden @internal
+ *
+ * @todo https://github.com/nodejs/node/pull/58836 support -1 for `*chown`
  */
 export function _chown(stats: Partial<InodeLike>, uid: number, gid: number): boolean {
 	let valid = true;
