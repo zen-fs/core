@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { fs as _fs } from '@zenfs/core';
+import type { NodeFS } from '@zenfs/core/node/types';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import type { NodeFS } from '@zenfs/core/node/types.js';
 
 export const data = join(import.meta.dirname, 'data');
 

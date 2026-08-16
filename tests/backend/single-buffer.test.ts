@@ -5,7 +5,7 @@ import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
 import { sizeof } from 'memium';
 import { fs, mount, resolveMountConfig, SingleBuffer, vfs } from '@zenfs/core';
-import { MetadataBlock, SuperBlock } from '@zenfs/core/backends/single_buffer.js';
+import { MetadataBlock, SuperBlock } from '@zenfs/core/backends/single_buffer';
 import { setupLogs } from '../logs.js';
 
 setupLogs();

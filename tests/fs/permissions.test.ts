@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { R_OK, W_OK, X_OK } from '@zenfs/core/constants';
-import { defaultContext } from '@zenfs/core/internal/contexts.js';
-import { hasAccess } from '@zenfs/core/internal/inode.js';
+import { defaultContext } from '@zenfs/core/internal/contexts';
+import { hasAccess } from '@zenfs/core/internal/inode';
 import { join } from '@zenfs/core/path';
 import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';

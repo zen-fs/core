@@ -46,14 +46,14 @@
 	},
 	"exports": {
 		".": "./dist/index.js",
-		"./*": "./dist/*",
+		"./*.js": "./dist/*.js",
+		"./*": "./dist/*.js",
 		"./emulation/*": "./dist/node/*",
 		"./promises": "./dist/node/promises.js",
 		"./readline": "./dist/node/readline.js",
-		"./constants": "./dist/constants.js",
-		"./path": "./dist/path.js",
 		"./eslint": "./eslint.shared.js",
-		"./tests/*": "./tests/*",
+		"./tests/*.js": "./tests/*.js",
+		"./tests/*": "./tests/*.js",
 		"./types/*": "./types/*"
 	},
 	"publishConfig": {
