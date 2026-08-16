@@ -6,12 +6,12 @@ import { config, fs } from '../common.js';
 suite('exists', () => {
 	const f = 'x.txt';
 
-	test('return true for an existing file', config('async'), async () => {
+	test('return true for an existing file', config('async', 'promises.exists'), async () => {
 		const exists = await fs.promises.exists(f);
 		assert(exists);
 	});
 
-	test('return false for a non-existent file', config('async'), async () => {
+	test('return false for a non-existent file', config('async', 'promises.exists'), async () => {
 		const exists = await fs.promises.exists(f + '-NO');
 		assert(!exists);
 	});

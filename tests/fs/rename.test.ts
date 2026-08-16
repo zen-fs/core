@@ -26,8 +26,8 @@ suite('Rename', config('rename'), () => {
 		const subContents = await fs.promises.readdir(dir + '/_rename_me');
 		assert.equal(subContents.length, 1);
 
-		assert(await fs.promises.exists(dir + '/file.dat'));
-		assert(await fs.promises.exists(dir + '/_rename_me/lol.txt'));
+		assert(await fs.promises.stat(dir + '/file.dat', { throwIfNoEntry: false }));
+		assert(await fs.promises.stat(dir + '/_rename_me/lol.txt', { throwIfNoEntry: false }));
 	}
 
 	test('rename directory', config('async'), async () => {
@@ -46,7 +46,7 @@ suite('Rename', config('rename'), () => {
 
 		await check_directory(newDir);
 
-		assert(!(await fs.promises.exists(oldDir)));
+		assert(!(await fs.promises.stat(oldDir, { throwIfNoEntry: false })));
 
 		await fs.promises.mkdir(oldDir);
 		await populate(oldDir);
@@ -67,7 +67,7 @@ suite('Rename', config('rename'), () => {
 		await fs.promises.rename(one, two);
 
 		assert.equal(await fs.promises.readFile(two, 'utf8'), 'hey');
-		assert(!(await fs.promises.exists(one)));
+		assert(!(await fs.promises.stat(one, { throwIfNoEntry: false })));
 	});
 
 	test('File to Directory and Directory to File Rename', config('sync', 'async'), async () => {

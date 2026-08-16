@@ -64,8 +64,8 @@ suite('Links', config('symlinks'), () => {
 
 	test('unlink', async () => {
 		await fs.promises.unlink(symlink);
-		assert(!(await fs.promises.exists(symlink)));
-		assert(await fs.promises.exists(target));
+		assert(!(await fs.promises.stat(symlink, { throwIfNoEntry: false })));
+		assert(await fs.promises.stat(target, { throwIfNoEntry: false }));
 	});
 
 	test('link', config('links'), async () => {
@@ -99,7 +99,7 @@ suite('Links', config('symlinks'), () => {
 		// A link pointing at a directory satisfies a recursive mkdir and is left as a link
 		assert.equal(await fs.promises.mkdir('/mkdir-link', { recursive: true }), undefined);
 		assert((await fs.promises.lstat('/mkdir-link')).isSymbolicLink());
-		assert(!(await fs.promises.exists('/mkdir-missing')));
+		assert(!(await fs.promises.stat('/mkdir-missing', { throwIfNoEntry: false })));
 	});
 
 	test('mkdir follows symlinks for intermediate components', config('async'), async () => {
@@ -113,7 +113,7 @@ suite('Links', config('symlinks'), () => {
 
 		// Node reports the link itself here, unlike `mkdirSync` which reports the requested path with ENOENT
 		await assert.rejects(fs.promises.mkdir('/mkdir-dangling/x', { recursive: true }), { code: 'ENOTDIR', path: '/mkdir-dangling' });
-		assert(!(await fs.promises.exists('/mkdir-missing')));
+		assert(!(await fs.promises.stat('/mkdir-missing', { throwIfNoEntry: false })));
 	});
 
 	test('mkdirSync does not follow a symlink at the final component', config('sync'), () => {

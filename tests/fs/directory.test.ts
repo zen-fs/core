@@ -22,7 +22,7 @@ for (const dir of testDirectories) {
 suite('Directories', config('directories'), () => {
 	test('mkdir', config('async'), async () => {
 		await fs.promises.mkdir('/one', 0o755);
-		assert(await fs.promises.exists('/one'));
+		assert(await fs.promises.stat('/one', { throwIfNoEntry: false }));
 		await assert.rejects(fs.promises.mkdir('/one', 0o755), { code: 'EEXIST' });
 	});
 
@@ -30,7 +30,7 @@ suite('Directories', config('directories'), () => {
 
 	test('mkdir, nested', config('async'), async () => {
 		await assert.rejects(fs.promises.mkdir('/nested/dir'), { code: 'ENOENT', path: '/nested/dir' });
-		assert(!(await fs.promises.exists('/nested/dir')));
+		assert(!(await fs.promises.stat('/nested/dir', { throwIfNoEntry: false })));
 	});
 
 	test('mkdir, recursive', config('async'), async () => {

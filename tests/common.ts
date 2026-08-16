@@ -41,7 +41,8 @@ export type TestFlag =
 	| 'xattr'
 	| 'times'
 	| 'tempdir'
-	| 'lchmod';
+	| 'lchmod'
+	| 'promises.exists';
 
 /**
  * Whether a backend supports a flag.

@@ -205,9 +205,6 @@ for (const [key, value] of Object.entries(native.promises)) {
 promises.watch = (...args: Parameters<typeof native.promises.watch>) =>
 	native.promises.watch(...(mapArgs('watch', args) as Parameters<typeof native.promises.watch>));
 
-// ZenFS API extension
-promises.exists = (path: PathLike) => Promise.resolve(native.existsSync(toNative(path)));
-
 wrapped.promises = promises;
 
 export const fs = wrapped as unknown as typeof native;
@@ -220,6 +217,7 @@ export const flags: Partial<Record<TestFlag, TestFlagState>> = {
 	lchmod: process.platform == 'darwin',
 	// The suite uses ZenFS' own extended attribute API, which `node:fs` does not have
 	xattr: false,
+	'promises.exists': false,
 };
 
 copySync(data, fs);
