@@ -85,6 +85,36 @@ suite('globSync', () => {
 		assert(results.includes('glob/a.txt'), 'should still include .txt files');
 	});
 
+	test('cwd option', () => {
+		const results = fs.globSync('*', { cwd: '/glob' });
+		assert(results.includes('a.txt'), 'results should be relative to cwd');
+		assert(results.includes('sub'));
+		assert(!results.includes('glob/a.txt'), 'results should not be relative to the root');
+	});
+
+	test('patterns are relative to cwd', () => {
+		assert.deepEqual(fs.globSync('*.txt', { cwd: '/glob/sub' }), ['d.txt']);
+		assert.deepEqual(fs.globSync('deep/*.txt', { cwd: '/glob/sub' }), ['deep/f.txt']);
+	});
+
+	test('absolute patterns are relative to cwd', () => {
+		assert.deepEqual(fs.globSync('/glob/sub/*.txt', { cwd: '/glob' }), ['sub/d.txt']);
+		assert.deepEqual(fs.globSync('/glob/sub/*.txt', { cwd: '/glob/sub' }), ['d.txt']);
+	});
+
+	test('exclude receives paths relative to cwd', () => {
+		const seen: string[] = [];
+		fs.globSync('*', {
+			cwd: '/glob',
+			exclude: path => {
+				seen.push(path);
+				return false;
+			},
+		});
+		assert(seen.includes('a.txt'), 'should be given cwd-relative paths');
+		assert(!seen.some(p => p.startsWith('/')), 'should not be given absolute paths');
+	});
+
 	test('globstar does not follow symlinks by default', () => {
 		const results = fs.globSync('/glob/**/*.txt');
 		assert(results.includes('glob/sub/d.txt'), 'should include the real directory');

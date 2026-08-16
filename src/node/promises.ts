@@ -18,8 +18,9 @@ import { Buffer } from 'buffer';
 import { Exception, rethrow, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
+import { contextOf } from '../internal/contexts.js';
 import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
-import { dirname, join, matchesGlob, resolve } from '../path.js';
+import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import '../polyfills.js';
 import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
 import * as _async from '../vfs/async.js';
@@ -1241,11 +1242,11 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt: 
 export function glob(this: V_Context, pattern: string | readonly string[], opt: fs.GlobOptions): NodeJS.AsyncIterator<Dirent | string>;
 export function glob(this: V_Context, pattern: string | readonly string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
-	const { cwd = '/', withFileTypes = false, exclude = () => false, followSymlinks = false } = opt || {};
-	const $ = this;
+	const $ = contextOf(this);
+	const { cwd = $.pwd, withFileTypes = false, exclude = () => false, followSymlinks = false } = opt || {};
 
-	const normalizedPatterns = pattern.map(p => p.replace(/^\/+/g, ''));
-
+	const base = resolve.call($, cwd instanceof URL ? cwd.pathname : cwd);
+	const normalizedPatterns = pattern.map(p => (p.startsWith('/') ? relative.call($, base, p) : p));
 	const hasGlobStar = normalizedPatterns.some(p => p.includes('**'));
 
 	const patternBases = normalizedPatterns.map(p => {
@@ -1272,19 +1273,19 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 
 		for (const entry of entries as Entries) {
 			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));
-			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
+			const relPath = relative.call($, base, fullPath);
+
+			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, relPath)) : exclude((withFileTypes ? entry : relPath) as any))
 				continue;
 
-			const relativePath = fullPath.replace(/^\/+/g, '');
+			if (await shouldDescend(fullPath, relPath)) yield* recursiveList(fullPath);
 
-			if (await shouldDescend(fullPath, relativePath)) yield* recursiveList(fullPath);
-
-			if (regexPatterns.some(rx => rx.test(relativePath))) {
-				yield withFileTypes ? entry : relativePath;
+			if (regexPatterns.some(rx => rx.test(relPath))) {
+				yield withFileTypes ? entry : relPath;
 			}
 		}
 	}
 
-	return recursiveList(resolve.call($, cwd instanceof URL ? cwd.pathname : cwd));
+	return recursiveList(base);
 }
 glob satisfies typeof promises.glob;

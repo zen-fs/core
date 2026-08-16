@@ -9,9 +9,10 @@ import { Buffer } from 'buffer';
 import { Errno, Exception, setUVMessage, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
+import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory } from '../internal/inode.js';
-import { dirname, join, matchesGlob, resolve } from '../path.js';
+import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
@@ -808,11 +809,11 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 export function globSync(this: V_Context, pattern: string | readonly string[], options: fs.GlobOptions): Dirent[] | string[];
 export function globSync(this: V_Context, pattern: string | readonly string[], options: GlobOptionsU = {}): Dirent[] | string[] {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
-	const { cwd = '/', withFileTypes = false, exclude = () => false, followSymlinks = false } = options;
-	const $ = this;
+	const $ = contextOf(this);
+	const { cwd = $.pwd, withFileTypes = false, exclude = () => false, followSymlinks = false } = options;
 
-	const normalizedPatterns = pattern.map(p => p.replace(/^\/+/g, ''));
-
+	const base = resolve.call($, cwd instanceof URL ? cwd.pathname : cwd);
+	const normalizedPatterns = pattern.map(p => (p.startsWith('/') ? relative.call($, base, p) : p));
 	const hasGlobStar = normalizedPatterns.some(p => p.includes('**'));
 
 	const patternBases = normalizedPatterns.map(p => {
@@ -840,20 +841,20 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 
 		for (const entry of entries as Entries) {
 			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));
-			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, fullPath)) : exclude((withFileTypes ? entry : fullPath) as any))
+			const relPath = relative.call($, base, fullPath);
+
+			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, relPath)) : exclude((withFileTypes ? entry : relPath) as any))
 				continue;
 
-			const relativePath = fullPath.replace(/^\/+/g, '');
+			if (shouldDescend(fullPath, relPath)) recursiveList(fullPath);
 
-			if (shouldDescend(fullPath, relativePath)) recursiveList(fullPath);
-
-			if (regexPatterns.some(rx => rx.test(relativePath))) {
-				results.push(withFileTypes ? entry : (relativePath as any));
+			if (regexPatterns.some(rx => rx.test(relPath))) {
+				results.push(withFileTypes ? entry : (relPath as any));
 			}
 		}
 	}
 
-	recursiveList(resolve.call($, cwd instanceof URL ? cwd.pathname : cwd));
+	recursiveList(base);
 	return results;
 }
 globSync satisfies typeof fs.globSync;
