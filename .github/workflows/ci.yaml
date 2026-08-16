@@ -72,7 +72,7 @@ jobs:
               run: tests/fetch/run.sh -vC
 
             - name: Report coverage
-              run: npx zenfs-test --report
+              run: npx zenfs-test --report-only
 
             - name: Cleanup sub-checks
               if: always()

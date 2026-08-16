@@ -49,7 +49,7 @@ export async function createCheck(id, name) {
 		started_at: new Date().toISOString(),
 	});
 
-	checks.set(id, { id: response.data.id, completed: false });
+	checks.set(id, { id: Number(response.data.id), completed: false });
 }
 
 /**

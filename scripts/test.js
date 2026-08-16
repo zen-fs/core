@@ -31,6 +31,7 @@ const { values: options, positionals } = parseArgs({
 		coverage: { type: 'string', default: 'tests/.coverage' },
 		preserve: { short: 'p', type: 'boolean' },
 		report: { type: 'boolean', default: false },
+		'report-only': { type: 'boolean', default: false },
 		clean: { type: 'boolean', default: false },
 		profile: { type: 'boolean', default: false },
 	},
@@ -74,7 +75,8 @@ Output:
 Coverage:
     --coverage <dir>      Override the default coverage data directory
     -p, --preserve        Do not delete or report coverage data
-    --report              ONLY report coverage
+    --report              Report coverage along with test results
+    --report-only         ONLY report coverage
     --clean               ONLY clean up coverage directory
 	--profile             Record performance profiles`);
 	process.exit();
@@ -105,7 +107,7 @@ function report() {
 	}
 }
 
-if (options.report) {
+if (options['report-only']) {
 	report();
 	process.exit();
 }
@@ -283,4 +285,4 @@ for (const setupFile of positionals) {
 	});
 }
 
-if (!options.preserve) report();
+if (!options.preserve && options.report) report();
