@@ -9,7 +9,7 @@ suite('Reading', () => {
 	});
 
 	test('Reading past the end of a file should not be an error', config('async'), async () => {
-		const handle = await fs.promises.open('a.js', 'r');
+		await using handle = await fs.promises.open('a.js', 'r');
 		const { bytesRead } = await handle.read(new Uint8Array(10), 0, 10, 10000);
 		assert.equal(bytesRead, 0);
 	});
