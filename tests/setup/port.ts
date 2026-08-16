@@ -1,7 +1,7 @@
 import { InMemory, Port, configureSingle, fs, resolveMountConfig, resolveRemoteMount, sync } from '@zenfs/core';
 import { after, afterEach } from 'node:test';
 import { MessageChannel } from 'node:worker_threads';
-import { copySync, data } from '../setup.js';
+import { copySync, data } from '../setup.ts';
 
 const { port1: localPort, port2: remotePort } = new MessageChannel();
 

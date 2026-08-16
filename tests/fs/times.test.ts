@@ -4,7 +4,7 @@ import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { wait } from 'utilium';
-import { config, fs } from '../common.js';
+import { config, fs } from '../common.ts';
 
 const path = 'x.txt';
 

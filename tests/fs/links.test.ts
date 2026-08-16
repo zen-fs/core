@@ -2,7 +2,7 @@
 import { join } from '@zenfs/core/path';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { config, fs } from '../common.js';
+import { config, fs } from '../common.ts';
 
 suite('Links', config('symlinks'), () => {
 	const target = '/a1.js',

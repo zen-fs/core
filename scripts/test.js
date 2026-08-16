@@ -237,7 +237,7 @@ async function runTests(config) {
 		}
 
 		try {
-			execFileSync('tsx', command, {
+			execFileSync('node', command, {
 				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 			});
 			if (!options.quiet) console.log(`${styleText('green', 'passed')}${identText} ${time()}`);

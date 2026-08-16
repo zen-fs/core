@@ -7,7 +7,7 @@ import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { encodeUTF8 } from 'utilium';
-import { config, fs } from '../common.js';
+import { config, fs } from '../common.ts';
 
 const asyncMode = 0o777;
 const syncMode = 0o644;

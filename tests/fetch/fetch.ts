@@ -1,6 +1,6 @@
 import { configure, Fetch } from '@zenfs/core';
 import { log } from 'kerium';
-import type { TestFlag, TestFlagState } from '../common.js';
+import type { TestFlag, TestFlagState } from '../common.ts';
 import { baseUrl } from './config.js';
 
 await configure({

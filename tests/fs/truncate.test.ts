@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { config, fs } from '../common.js';
+import { config, fs } from '../common.ts';
 
 const path: string = 'truncate-file.txt',
 	size = 1024 * 16,

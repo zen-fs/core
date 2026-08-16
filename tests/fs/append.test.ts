@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs, config } from '../common.js';
+import { fs, config } from '../common.ts';
 
 const content = 'Sample content',
 	original = 'ABCD';

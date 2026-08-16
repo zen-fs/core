@@ -2,7 +2,7 @@
 import { sync, type Dirent } from '@zenfs/core';
 import assert, { rejects } from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { config, fs } from '../common.js';
+import { config, fs } from '../common.ts';
 
 const testFile = 'test-file.txt';
 fs.writeFileSync(testFile, 'Sample content');

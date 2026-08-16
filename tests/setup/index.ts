@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path/posix';
 import { configureSingle, CopyOnWrite, InMemory, InMemoryStore, mounts, Readonly, StoreFS } from '@zenfs/core';
 import { S_IFDIR } from '@zenfs/core/constants';
-import { copySync, data } from '../setup.js';
+import { copySync, data } from '../setup.ts';
 
 copySync(data);
 

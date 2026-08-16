@@ -1,5 +1,5 @@
 import { configureSingle, CopyOnWrite, fs, InMemory, resolveMountConfig } from '@zenfs/core';
-import { copySync, data } from '../setup.js';
+import { copySync, data } from '../setup.ts';
 
 fs.umount('/');
 const readable = await resolveMountConfig({ backend: InMemory, label: 'ro' });

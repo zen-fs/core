@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path/posix';
 import { suite, test } from 'node:test';
-import { config, fs } from '../common.js';
+import { config, fs } from '../common.ts';
 
 const testDir = 'test-dir';
 const testFiles = ['file1.txt', 'file2.txt', 'file3.txt'];

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { fs } from '../common.js';
+import { fs } from '../common.ts';
 
 // Set up a directory structure for glob tests
 fs.mkdirSync('/glob');

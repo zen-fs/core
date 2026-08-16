@@ -2,10 +2,10 @@
 /* Run the FS test suite against native node:fs.
 Since the tests use absolute paths, everything is contained to a scratch directory using chroot-style path mapping. */
 import * as native from 'node:fs';
-import type { TestFlag, TestFlagState } from './common.js';
+import type { TestFlag, TestFlagState } from './common.ts';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { copySync, data, tmp } from './setup.js';
+import { copySync, data, tmp } from './setup.ts';
 import { styleText } from 'node:util';
 
 // The tests assume modes are used as-is, but native fs applies the process umask
