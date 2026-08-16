@@ -9,6 +9,7 @@ import type { ByteReadableStream, Transform, Writer } from 'node:stream/iter';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { V_Context } from '../context.js';
 import type { StreamOptions } from '../internal/filesystem.js';
+import type { InodeLike } from '../internal/inode.js';
 import type { FileContents } from '../vfs/shared.js';
 import type { Interface as ReadlineInterface } from './readline.js';
 import type { GlobOptionsU, NodeReaddirOptions } from './types.js';
@@ -20,7 +21,7 @@ import * as constants from '../constants.js';
 import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, resolve } from '../path.js';
 import '../polyfills.js';
-import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
+import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
 import * as _async from '../vfs/async.js';
 import { checkAccess } from '../vfs/config.js';
 import type { Handle } from '../vfs/file.js';
@@ -578,11 +579,28 @@ export async function exists(this: V_Context, path: fs.PathLike): Promise<boolea
 	}
 }
 
-export async function stat(this: V_Context, path: fs.PathLike, options: fs.BigIntOptions): Promise<BigIntStats>;
-export async function stat(this: V_Context, path: fs.PathLike, options?: { bigint?: false }): Promise<Stats>;
-export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
-export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	const stats = await _async.stat.call(this, path, false);
+export async function stat(this: V_Context, path: fs.PathLike, options: fs.BigIntOptions & { throwIfNoEntry?: true }): Promise<BigIntStats>;
+export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions & { bigint?: false; throwIfNoEntry?: true }): Promise<Stats>;
+export async function stat(
+	this: V_Context,
+	path: fs.PathLike,
+	options: fs.StatOptions & { bigint?: false; throwIfNoEntry: false }
+): Promise<Stats | undefined>;
+export async function stat(
+	this: V_Context,
+	path: fs.PathLike,
+	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false }
+): Promise<BigIntStats | undefined>;
+export async function stat(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { throwIfNoEntry?: true }): Promise<Stats | BigIntStats>;
+export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats | undefined>;
+export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats | undefined> {
+	let stats: InodeLike;
+	try {
+		stats = await _async.stat.call(this, path, false);
+	} catch (e) {
+		if (options?.throwIfNoEntry === false && _isNoEntry(e)) return;
+		throw e;
+	}
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 stat satisfies typeof promises.stat;
@@ -1022,7 +1040,7 @@ watch satisfies typeof promises.watch;
 
 export async function access(this: V_Context, path: fs.PathLike, mode: number = constants.F_OK): Promise<void> {
 	if (!checkAccess) return;
-	const stats = await stat.call(this, path);
+	const stats = await stat.call<V_Context, [fs.PathLike], Promise<Stats>>(this, path);
 	if (!stats.hasAccess(mode, this)) throw UV('EACCES', 'access', path.toString());
 }
 access satisfies typeof promises.access;

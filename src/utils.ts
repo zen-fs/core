@@ -71,6 +71,15 @@ export function validateFD(fd: number): void {
 }
 
 /**
+ * Whether an error means the path does not resolve to an entry. Used for `throwIfNoEntry`.
+ * @internal @hidden
+ */
+export function _isNoEntry(e: unknown): boolean {
+	const { code } = (e ?? {}) as Exception;
+	return code == 'ENOENT' || code == 'ENOTDIR';
+}
+
+/**
  * Normalizes a time to milliseconds since the epoch.
  * Note numbers and numeric strings are seconds, like Node's `toUnixTimestamp`.
  * @internal

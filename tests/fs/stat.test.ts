@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { defaultContext, hasAccess } from '@zenfs/core';
+import { defaultContext, hasAccess, type Stats } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { config, fs } from '../common.js';
@@ -70,6 +70,35 @@ suite('Stats', () => {
 		assert.equal(hasAccess(defaultContext, stat, fs.constants.X_OK), false);
 
 		Object.assign(defaultContext.credentials, prevCredentials);
+	});
+
+	const missing = '/does-not-exist';
+
+	test('statSync throws for a missing entry', config('sync'), () => {
+		assert.throws(() => fs.statSync(missing), { code: 'ENOENT' });
+		assert.throws(() => fs.statSync(missing, { throwIfNoEntry: true }), { code: 'ENOENT' });
+	});
+
+	test('statSync with throwIfNoEntry: false', config('sync'), () => {
+		assert.equal(fs.statSync(missing, { throwIfNoEntry: false }), undefined);
+		assert.equal(fs.statSync(existing_file + '/nope', { throwIfNoEntry: false }), undefined);
+	});
+
+	test('lstatSync with throwIfNoEntry: false', config('sync'), () => {
+		assert.throws(() => fs.lstatSync(missing), { code: 'ENOENT' });
+		assert.equal(fs.lstatSync(missing, { throwIfNoEntry: false }), undefined);
+	});
+
+	test('stat with throwIfNoEntry: false', config('async'), async () => {
+		await assert.rejects(fs.promises.stat(missing), { code: 'ENOENT' });
+		assert.equal(await fs.promises.stat(missing, { throwIfNoEntry: false }), undefined);
+		assert.equal(await fs.promises.stat(existing_file + '/nope', { throwIfNoEntry: false }), undefined);
+	});
+
+	test('stat callback with throwIfNoEntry: false', config('async'), async () => {
+		const { promise, resolve, reject } = Promise.withResolvers<Stats | undefined>();
+		fs.stat(missing, { throwIfNoEntry: false }, (error, stats) => (error ? reject(error) : resolve(stats)));
+		assert.equal(await promise, undefined);
 	});
 
 	test('stat file', config('async'), async () => {

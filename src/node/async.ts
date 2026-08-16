@@ -54,9 +54,21 @@ export function exists(this: V_Context, path: fs.PathLike, cb: (exists: boolean)
 exists satisfies Omit<typeof fs.exists, '__promisify__'>;
 
 export function stat(this: V_Context, path: fs.PathLike, callback: Callback<[Stats]>): void;
-export function stat(this: V_Context, path: fs.PathLike, options: { bigint?: false }, callback: Callback<[Stats]>): void;
-export function stat(this: V_Context, path: fs.PathLike, options: { bigint: true }, callback: Callback<[BigIntStats]>): void;
-export function stat(this: V_Context, path: fs.PathLike, options: fs.StatOptions, callback: Callback<[Stats] | [BigIntStats]>): void;
+export function stat(this: V_Context, path: fs.PathLike, options: { bigint?: false; throwIfNoEntry?: true }, callback: Callback<[Stats]>): void;
+export function stat(this: V_Context, path: fs.PathLike, options: { bigint: true; throwIfNoEntry?: true }, callback: Callback<[BigIntStats]>): void;
+export function stat(
+	this: V_Context,
+	path: fs.PathLike,
+	options: { bigint?: false; throwIfNoEntry: false },
+	callback: Callback<[Stats | undefined]>
+): void;
+export function stat(
+	this: V_Context,
+	path: fs.PathLike,
+	options: { bigint: true; throwIfNoEntry: false },
+	callback: Callback<[BigIntStats | undefined]>
+): void;
+export function stat(this: V_Context, path: fs.PathLike, options: fs.StatOptions, callback: Callback<[Stats | BigIntStats | undefined]>): void;
 export function stat(
 	this: V_Context,
 	path: fs.PathLike,

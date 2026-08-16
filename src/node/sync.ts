@@ -12,7 +12,7 @@ import * as constants from '../constants.js';
 import { wrap } from '../internal/error.js';
 import { hasAccess, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, resolve } from '../path.js';
-import { _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
@@ -44,23 +44,51 @@ export function existsSync(this: V_Context, path: fs.PathLike): boolean {
 }
 existsSync satisfies typeof fs.existsSync;
 
-export function statSync(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Stats;
-export function statSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
-export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	const stats = _sync.stat.call(this, path, false);
+export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions & { bigint?: false; throwIfNoEntry?: true }): Stats;
+export function statSync(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { bigint: true; throwIfNoEntry?: true }): BigIntStats;
+export function statSync(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { bigint?: false; throwIfNoEntry: false }): Stats | undefined;
+export function statSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false }
+): BigIntStats | undefined;
+export function statSync(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { throwIfNoEntry?: true }): Stats | BigIntStats;
+export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats | undefined;
+export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats | undefined {
+	let stats: InodeLike;
+	try {
+		stats = _sync.stat.call(this, path, false);
+	} catch (e) {
+		if (options?.throwIfNoEntry === false && _isNoEntry(e)) return;
+		throw e;
+	}
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
-statSync satisfies fs.StatSyncFn;
+statSync satisfies typeof fs.statSync;
 
 /**
  * Synchronous `lstat`.
  * `lstat()` is identical to `stat()`, except that if path is a symbolic link,
  * then the link itself is stat-ed, not the file that it refers to.
  */
-export function lstatSync(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Stats;
-export function lstatSync(this: V_Context, path: fs.PathLike, options: { bigint: true }): BigIntStats;
-export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats {
-	const stats = _sync.stat.call(this, path, true);
+export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions & { bigint?: false; throwIfNoEntry?: true }): Stats;
+export function lstatSync(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { bigint: true; throwIfNoEntry?: true }): BigIntStats;
+export function lstatSync(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { bigint?: false; throwIfNoEntry: false }): Stats | undefined;
+export function lstatSync(
+	this: V_Context,
+	path: fs.PathLike,
+	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false }
+): BigIntStats | undefined;
+export function lstatSync(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { throwIfNoEntry?: true }): Stats | BigIntStats;
+export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats | undefined;
+export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats | undefined {
+	let stats: InodeLike;
+	try {
+		stats = _sync.stat.call(this, path, true);
+	} catch (e) {
+		if (options?.throwIfNoEntry === false && _isNoEntry(e)) return;
+		throw e;
+	}
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 lstatSync satisfies typeof fs.lstatSync;
@@ -544,7 +572,7 @@ realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
 
 export function accessSync(this: V_Context, path: fs.PathLike, mode: number = 0o600): void {
 	if (!checkAccess) return;
-	if (!hasAccess(this, statSync.call<V_Context, Parameters<fs.StatSyncFn>, InodeLike>(this, path), mode)) {
+	if (!hasAccess(this, statSync.call<V_Context, [fs.PathLike], InodeLike>(this, path), mode)) {
 		throw new Exception(Errno.EACCES);
 	}
 }
@@ -716,7 +744,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 	source = normalizePath(source);
 	destination = normalizePath(destination);
 
-	const srcStats = lstatSync.call<V_Context, Parameters<fs.StatSyncFn>, Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
+	const srcStats = lstatSync.call<V_Context, [fs.PathLike], Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
 
 	if (opts?.errorOnExist && existsSync.call(this, destination)) throw UV('EEXIST', 'cp', destination);
 
