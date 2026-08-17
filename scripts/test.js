@@ -78,7 +78,7 @@ Coverage:
     --report              Report coverage along with test results
     --report-only         ONLY report coverage
     --clean               ONLY clean up coverage directory
-	--profile             Record performance profiles`);
+    --profile             Record performance profiles`);
 	process.exit();
 }
 
