@@ -26,6 +26,8 @@ const { values: options, positionals } = parseArgs({
 		skip: { short: 's', type: 'string', multiple: true, default: [] },
 		'exit-on-fail': { short: 'e', type: 'boolean' },
 		runs: { short: 'r', type: 'string', default: '1' },
+		// @todo [breaking] make using node the default and remove tsx completely
+		node: { short: 'N', type: 'boolean' },
 
 		// Coverage and performance
 		coverage: { type: 'string', default: 'tests/.coverage' },
@@ -62,6 +64,7 @@ Behavior:
     -I, --inspect         Use the inspector for debugging
     -s, --skip <pattern>  Skip tests with names matching the given pattern. Can be specified multiple times.
     -d, --debug           Output debug messages from the test runner
+    -N, --node            Use plain node instead of tsx. Requires use of erasable TS syntax only
 
 Output:
     -h, --help            Outputs this help message
@@ -112,7 +115,8 @@ if (options['report-only']) {
 	process.exit();
 }
 
-const nRuns = Number.isSafeInteger(parseInt(options.runs)) ? parseInt(options.runs) : 1;
+const nRuns = Number.isSafeInteger(parseInt(options.runs)) ? parseInt(options.runs) : 1,
+	nodeCommand = options.node ? 'node' : 'tsx';
 
 /** @type {typeof import('./ci.js')} */
 let ci;
@@ -177,7 +181,7 @@ function makeCommand(profileName, ...rest) {
 	]
 		.filter(v => v)
 		.filter(v => typeof v == 'string');
-	if (!options.quiet) debug('command: tsx', command.join(' '));
+	if (!options.quiet) debug('command: ' + nodeCommand, command.join(' '));
 
 	return command;
 }
@@ -237,7 +241,7 @@ async function runTests(config) {
 		}
 
 		try {
-			execFileSync('node', command, {
+			execFileSync(nodeCommand, command, {
 				stdio: ['ignore', options.verbose ? 'inherit' : 'ignore', 'inherit'],
 			});
 			if (!options.quiet) console.log(`${styleText('green', 'passed')}${identText} ${time()}`);
