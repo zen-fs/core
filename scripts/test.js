@@ -27,7 +27,7 @@ const { values: options, positionals } = parseArgs({
 		'exit-on-fail': { short: 'e', type: 'boolean' },
 		runs: { short: 'r', type: 'string', default: '1' },
 		// @todo [breaking] make using node the default and remove tsx completely
-		node: { short: 'N', type: 'boolean' },
+		node: { short: 'n', type: 'boolean', default: false },
 
 		// Coverage and performance
 		coverage: { type: 'string', default: 'tests/.coverage' },
@@ -45,7 +45,8 @@ const { values: options, positionals } = parseArgs({
  * @param  {...any} args
  */
 function debug(...args) {
-	if (options.debug) console.debug(styleText('dim', '[debug]'), ...args.map(a => (typeof a === 'string' ? styleText('dim', a) : a)));
+	if (options.debug || process.env.DEBUG)
+		console.debug(styleText('dim', '[debug]'), ...args.map(a => (typeof a === 'string' ? styleText('dim', a) : a)));
 }
 
 if (options.help) {
@@ -64,7 +65,7 @@ Behavior:
     -I, --inspect         Use the inspector for debugging
     -s, --skip <pattern>  Skip tests with names matching the given pattern. Can be specified multiple times.
     -d, --debug           Output debug messages from the test runner
-    -N, --node            Use plain node instead of tsx. Requires use of erasable TS syntax only
+    -n, --node            Use plain node instead of tsx. Requires use of erasable TS syntax only
 
 Output:
     -h, --help            Outputs this help message
