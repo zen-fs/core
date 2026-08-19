@@ -11,7 +11,9 @@
 	"keywords": [
 		"filesystem",
 		"node",
-		"storage"
+		"storage",
+		"fs",
+		"browser"
 	],
 	"bin": {
 		"make-index": "scripts/make-index.js",
