@@ -58,7 +58,7 @@ suite('Permissions', config('permissions'), () => {
 
 		function checkError(access: number) {
 			return function (error: Exception) {
-				assert(error instanceof Error);
+				assert(Error.isError(error));
 				assert(!hasAccess(defaultContext, stats!, access));
 			};
 		}

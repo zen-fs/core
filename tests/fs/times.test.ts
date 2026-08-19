@@ -33,7 +33,7 @@ suite('Times', config('times'), () => {
 		assert.deepEqual(unixTimestamps(await fs.promises.stat(path)), times);
 
 		await fs.promises.utimes('foobarbaz', atime, mtime).catch((error: Exception) => {
-			assert(error instanceof Error);
+			assert(Error.isError(error));
 			assert.equal(error.code, 'ENOENT');
 		});
 
