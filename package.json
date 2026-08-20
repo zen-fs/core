@@ -68,7 +68,7 @@
 		"spdx:fix": "npx lice -aw src tests/*.ts tests/**/*.test.ts",
 		"lint": "eslint src tests",
 		"test": "npx -s zenfs-test --clean; npx -s zenfs-test -abcpn; tests/fetch/run.sh; npx -s zenfs-test --report-only",
-		"test:native": "sudo npx -s zenfs-test tests/setup-native.ts --verbose && sudo chown -R $(whoami):$(whoami) tests/.coverage",
+		"test:native": "sudo npx -s zenfs-test tests/native-setup.ts --verbose && sudo chown -R $(whoami):$(whoami) tests/.coverage",
 		"build": "tsc -p tsconfig.json",
 		"build:docs": "typedoc",
 		"dev": "tsc -p tsconfig.json --watch",
