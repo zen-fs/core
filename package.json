@@ -52,6 +52,7 @@
 		"./promises": "./dist/node/promises.js",
 		"./readline": "./dist/node/readline.js",
 		"./eslint": "./eslint.shared.js",
+		"./tests/*.ts": "./tests/*.ts",
 		"./tests/*.js": "./tests/*.js",
 		"./tests/*": "./tests/*.js",
 		"./types/*": "./types/*"
