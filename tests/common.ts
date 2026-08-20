@@ -42,7 +42,8 @@ export type TestFlag =
 	| 'times'
 	| 'tempdir'
 	| 'lchmod'
-	| 'promises.exists';
+	| 'promises.exists'
+	| 'root';
 
 /**
  * Whether a backend supports a flag.

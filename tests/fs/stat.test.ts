@@ -35,7 +35,7 @@ suite('Stats', () => {
 		fs.close(fd);
 	});
 
-	test('hasAccess for non-root access', config('sync', 'permissions'), () => {
+	test('hasAccess for non-root access', config('sync', 'permissions', 'root'), () => {
 		const newFile = 'new.txt';
 
 		fs.writeFileSync(newFile, 'hello', { mode: 0o640 });

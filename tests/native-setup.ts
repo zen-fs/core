@@ -7,6 +7,7 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copySync, data, tmp } from './setup.ts';
 import { styleText } from 'node:util';
+import { isRoot } from 'utilium/node';
 
 // The tests assume modes are used as-is, but native fs applies the process umask
 process.umask(0);
@@ -218,6 +219,7 @@ export const flags: Partial<Record<TestFlag, TestFlagState>> = {
 	// The suite uses ZenFS' own extended attribute API, which `node:fs` does not have
 	xattr: false,
 	'promises.exists': false,
+	root: isRoot || 'skip',
 };
 
 copySync(data, fs);
