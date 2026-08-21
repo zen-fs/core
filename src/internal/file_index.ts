@@ -49,6 +49,11 @@ export class Index extends Map<string, Inode> {
 		return JSON.stringify(this.toJSON());
 	}
 
+	public clear() {
+		super.clear();
+		this.#lastAlloc = 0;
+	}
+
 	/**
 	 * Get the size in bytes of the index (including the size reported for each entry)
 	 */
