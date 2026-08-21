@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { Inode } from '@zenfs/core';
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 
 suite('Inode manipulation', () => {

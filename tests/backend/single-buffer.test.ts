@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
