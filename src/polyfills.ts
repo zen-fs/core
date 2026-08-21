@@ -51,7 +51,10 @@ Uint8Array.fromBase64 ??=
 Uint8Array.prototype.toHex ??=
 	(warn('Using a polyfill of Uint8Array.prototype.toHex'),
 	function toHex(this: Uint8Array): string {
-		return [...this].map(b => b.toString(16).padStart(2, '0')).join('');
+		// @todo use `Iterator.map` #296
+		return Array.from(this)
+			.map(b => b.toString(16).padStart(2, '0'))
+			.join('');
 	});
 
 Uint8Array.fromHex ??=

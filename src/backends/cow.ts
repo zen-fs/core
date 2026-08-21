@@ -173,11 +173,21 @@ export class CopyOnWriteFS extends FileSystem {
 
 	/** Moves the public inode numbers for a rename, including a directory's descendants */
 	protected renameInos(oldPath: string, newPath: string): void {
-		for (const [path, ino] of [...this.inos]) {
+		const changes = [];
+
+		for (const [path, ino] of this.inos) {
 			if (path != oldPath && !path.startsWith(oldPath + '/')) continue;
 
-			this.inos.delete(path);
-			this.inos.set(newPath + path.slice(oldPath.length), ino);
+			changes.push({
+				path,
+				add: newPath + path.slice(oldPath.length),
+				ino,
+			});
+		}
+
+		for (const change of changes) {
+			this.inos.delete(change.path);
+			this.inos.set(change.add, change.ino);
 		}
 	}
 

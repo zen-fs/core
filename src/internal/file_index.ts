@@ -37,7 +37,8 @@ export class Index extends Map<string, Inode> {
 		return {
 			version,
 			maxSize: this.maxSize,
-			entries: Object.fromEntries([...this].map(([k, v]) => [k, v.toJSON()])),
+			// @todo use `Iterator.map` #296
+			entries: Object.fromEntries(Array.from(this).map(([k, v]) => [k, v.toJSON()])),
 		};
 	}
 
@@ -98,12 +99,16 @@ export class Index extends Map<string, Inode> {
 		return entries;
 	}
 
+	#lastAlloc = 0;
+
 	/**
 	 * Get the next available ID in the index
 	 * @internal
 	 */
 	_alloc(): number {
-		return Math.max(...[...this.values()].flatMap(i => [i.ino, i.data])) + 1;
+		// @todo use `Iterator.flatMap` #296
+		this.#lastAlloc ||= Array.from(this.values()).reduce((max, inode) => Math.max(max, inode.ino, inode.data), 0);
+		return ++this.#lastAlloc;
 	}
 
 	/**
