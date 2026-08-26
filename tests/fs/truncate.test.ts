@@ -34,6 +34,18 @@ suite('Truncating', config('truncate'), () => {
 		fs.closeSync(fd);
 	});
 
+	test('Contents follow the size', config('sync'), () => {
+		const path = 'truncate-contents.txt';
+		fs.writeFileSync(path, 'SECRETDATA');
+
+		fs.truncateSync(path, 4);
+		assert.equal(fs.readFileSync(path, 'utf8'), 'SECR');
+
+		// Growing back reads as NULs, never the bytes the shrink cut off
+		fs.truncateSync(path, 10);
+		assert.equal(fs.readFileSync(path, 'utf8'), 'SECR\0\0\0\0\0\0');
+	});
+
 	const statSize = async (path: string) => (await fs.promises.stat(path)).size;
 
 	test('Async path functions', config('async'), async () => {
@@ -63,5 +75,16 @@ suite('Truncating', config('truncate'), () => {
 		assert.equal(await statSize(path), 0);
 
 		await handle.close();
+	});
+
+	test('Contents follow the size (async)', config('async'), async () => {
+		const path = 'truncate-contents-async.txt';
+		await fs.promises.writeFile(path, 'SECRETDATA');
+
+		await fs.promises.truncate(path, 4);
+		assert.equal(await fs.promises.readFile(path, 'utf8'), 'SECR');
+
+		await fs.promises.truncate(path, 10);
+		assert.equal(await fs.promises.readFile(path, 'utf8'), 'SECR\0\0\0\0\0\0');
 	});
 });
