@@ -41,7 +41,6 @@ suite('Truncating', config('truncate'), () => {
 		fs.truncateSync(path, 4);
 		assert.equal(fs.readFileSync(path, 'utf8'), 'SECR');
 
-		// Growing back reads as NULs, never the bytes the shrink cut off
 		fs.truncateSync(path, 10);
 		assert.equal(fs.readFileSync(path, 'utf8'), 'SECR\0\0\0\0\0\0');
 	});
