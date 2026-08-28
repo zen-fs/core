@@ -770,7 +770,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	/** Allocates a new ID and adds the ID/path */
 	protected allocNew(path: string): number {
-		this._lastID ??= Math.max(...this._paths.keys());
+		// @todo use `Iterator` helper #296
+		this._lastID ||= Array.from(this._paths.keys()).reduce((max, ino) => Math.max(max, ino), 0);
 		this._lastID += 2;
 		const id = this._lastID;
 		if (id > size_max) throw err(withErrno('ENOSPC', 'No IDs available'));

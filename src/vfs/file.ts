@@ -442,7 +442,8 @@ export class Handle {
  */
 export function toFD(file: Handle): number {
 	const map = contextOf(file.context).descriptors;
-	const fd = Math.max(map.size ? Math.max(...map.keys()) + 1 : 0, 4);
+	// @todo use `Iterator` helper #296
+	const fd = Array.from(map.keys()).reduce((max, k) => Math.max(max, k), 4);
 	map.set(fd, file);
 	return fd;
 }
