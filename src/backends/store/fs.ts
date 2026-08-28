@@ -333,9 +333,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.transaction();
 		const inode = await this.findInode(tx, path);
 
-		// A new size is a truncate, and without this the inode reports it while the data node keeps whatever it had.
-		// Not on a directory: its data is its listing, and `crossCopy` touches one with the size it just read.
-		// The cut is scrubbed before the view narrows, since `subarray` leaves those bytes in the buffer for `extendBuffer` to hand back on the regrow.
 		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
 			const data = (await tx.get(inode.data)) ?? new Uint8Array();
 			if (metadata.size < data.byteLength) data.fill(0, metadata.size);
