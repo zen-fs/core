@@ -113,7 +113,8 @@ export class Index extends Map<string, Inode> {
 	_alloc(): number {
 		// @todo use `Iterator.flatMap` #296
 		this.#lastAlloc ||= Array.from(this.values()).reduce((max, inode) => Math.max(max, inode.ino, inode.data), 0);
-		return ++this.#lastAlloc;
+		this.#lastAlloc += 2;
+		return this.#lastAlloc;
 	}
 
 	/**
