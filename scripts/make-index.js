@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { lstatSync, readdirSync, writeFileSync, constants as c } from 'node:fs';
+import { constants as c, lstatSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, matchesGlob, relative, resolve } from 'node:path/posix';
 import { parseArgs, styleText } from 'node:util';
 
@@ -9,6 +9,7 @@ const { values: options, positionals } = parseArgs({
 		ignore: { short: 'i', type: 'string', multiple: true, default: [] },
 		output: { short: 'o', type: 'string', default: 'index.json' },
 		quiet: { short: 'q', type: 'boolean', default: false },
+		xdev: { type: 'boolean', default: false },
 		verbose: { type: 'boolean', default: false },
 	},
 	allowPositionals: true,
@@ -22,11 +23,12 @@ if (options.help) {
 path: The path to create a listing for
 
 options:
-	--help, -h		Outputs this help message
-	--quiet, -q		The command will not generate any output, including error messages.
-	--verbose		Output verbose messages
-	--output, -o <path>	Path to the output file. Defaults to listing.
-	--ignore, -i <pattern>	Ignores files which match the glob <pattern>. Can be passed multiple times.
+    -h, --help              Outputs this help message
+    -q, --quiet             The command will not generate any output, including error messages.
+        --verbose           Output verbose messages
+        --xdev              Force crossing device/FS boundaries
+    -o, --output <path>     Path to the output file. Defaults to listing.
+    -i, --ignore <pattern>  Ignores files which match the glob <pattern>. Can be passed multiple times.
 	`);
 	process.exit();
 }
@@ -75,6 +77,8 @@ function getTypeText(/** @type {{ mode: number }} */ stats) {
 	}
 }
 
+const seenDevs = new Set();
+
 /**
  * @param {string} path
  */
@@ -86,6 +90,17 @@ function computeEntries(path) {
 		}
 
 		const stats = lstatSync(path);
+		if (!seenDevs.size) seenDevs.add(stats.dev);
+		else if (!seenDevs.has(stats.dev))
+			if (options.xdev) {
+				console.warn(
+					`${styleText('yellowBright', `--xdev: Adding entries from device ${stats.dev} (${path}). You may get duplicate inos which MUST be de-duplicated manually.`)}`
+				);
+				seenDevs.add(stats.dev);
+			} else {
+				console.warn(`${styleText('yellowBright', `Ignoring ${path} because it crosses a device boundary`)}`);
+				return;
+			}
 
 		const type = getTypeText(stats);
 
@@ -97,7 +112,7 @@ function computeEntries(path) {
 		}
 	} catch (/** @type {any} */ e) {
 		if (!options.quiet) {
-			console.log(`${styleText('red', 'fail')} ${path}: ${e.message}`);
+			console.log(`${styleText('red', 'fail')} ${path}: ${e instanceof Error ? e.message : String(e)}`);
 		}
 	}
 }
