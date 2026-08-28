@@ -547,7 +547,7 @@ export class CopyOnWriteFS extends FileSystem {
 		const data = new Uint8Array(size);
 		if (size) this.readable.readSync(path, data, 0, size);
 		this.writable.createFileSync(path, stats);
-		this.writable.touchSync(path, stats);
+		this.writable.touchSync(path, { ...pick(stats, _inode_fields), attributes: stats.attributes, size });
 		if (size) this.writable.writeSync(path, data, 0);
 	}
 
@@ -565,7 +565,7 @@ export class CopyOnWriteFS extends FileSystem {
 		const data = new Uint8Array(size);
 		if (size) await this.readable.read(path, data, 0, size);
 		await this.writable.createFile(path, stats);
-		await this.writable.touch(path, stats);
+		await this.writable.touch(path, { ...pick(stats, _inode_fields), attributes: stats.attributes, size });
 		if (size) await this.writable.write(path, data, 0);
 	}
 }
