@@ -333,6 +333,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.transaction();
 		const inode = await this.findInode(tx, path);
 
+		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
+			const data = (await tx.get(inode.data)) ?? new Uint8Array();
+			if (metadata.size < data.byteLength) data.fill(0, metadata.size);
+			await tx.set(inode.data, metadata.size < data.byteLength ? data.subarray(0, metadata.size) : extendBuffer(data, metadata.size));
+		}
+
 		if (inode.update(metadata)) {
 			this._add(inode.ino, path);
 			tx.setSync(inode.ino, inode);
@@ -345,6 +351,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		using tx = this.transaction();
 
 		const inode = this.findInodeSync(tx, path);
+
+		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
+			const data = tx.getSync(inode.data) ?? new Uint8Array();
+			if (metadata.size < data.byteLength) data.fill(0, metadata.size);
+			tx.setSync(inode.data, metadata.size < data.byteLength ? data.subarray(0, metadata.size) : extendBuffer(data, metadata.size));
+		}
 
 		if (inode.update(metadata)) {
 			this._add(inode.ino, path);
