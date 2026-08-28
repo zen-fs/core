@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { LockMode, LockRelease } from 'kerium/locks';
+import { err } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
@@ -30,6 +31,11 @@ export class VCache {
 	 */
 	public ref(path: string, inode: InodeLike): VNode {
 		let node = this.byIno.get(inode.ino);
+
+		if (node && node.inode.nlink === node.paths.size && !node.paths.has(path))
+			err(
+				`vcache.ref: vnode for ${this.fs.label || this.fs.uuid}:${inode.ino} has an nlink of ${node.inode.nlink} but referenced by more paths [#314]`
+			);
 
 		if (!node) {
 			node = new VNode(this.fs, path, inode);
