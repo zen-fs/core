@@ -34,7 +34,7 @@ suite('Truncating', config('truncate'), () => {
 		fs.closeSync(fd);
 	});
 
-	test('Contents follow the size', config('sync'), () => {
+	test('Contents follow the size #313', config('sync'), () => {
 		const path = 'truncate-contents.txt';
 		fs.writeFileSync(path, 'SECRETDATA');
 
@@ -77,7 +77,7 @@ suite('Truncating', config('truncate'), () => {
 		await handle.close();
 	});
 
-	test('Contents follow the size (async)', config('async'), async () => {
+	test('Contents follow the size (async) #313', config('async'), async () => {
 		const path = 'truncate-contents-async.txt';
 		await fs.promises.writeFile(path, 'SECRETDATA');
 

@@ -335,9 +335,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		// A new size on a file is a truncate, and without this the inode reports it while the data node keeps whatever it had.
 		// Only on a file: a directory's data is its listing, and `crossCopy` touches one with the size it just read.
-		if (isFile(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
+		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
 			const data = (await tx.get(inode.data)) ?? new Uint8Array();
-			await tx.set(inode.data, metadata.size < data.byteLength ? data.slice(0, metadata.size) : extendBuffer(data, metadata.size));
+			await tx.set(inode.data, metadata.size < data.byteLength ? data.subarray(0, metadata.size) : extendBuffer(data, metadata.size));
 		}
 
 		if (inode.update(metadata)) {
@@ -353,9 +353,9 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const inode = this.findInodeSync(tx, path);
 
-		if (isFile(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
+		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
 			const data = tx.getSync(inode.data) ?? new Uint8Array();
-			tx.setSync(inode.data, metadata.size < data.byteLength ? data.slice(0, metadata.size) : extendBuffer(data, metadata.size));
+			tx.setSync(inode.data, metadata.size < data.byteLength ? data.subarray(0, metadata.size) : extendBuffer(data, metadata.size));
 		}
 
 		if (inode.update(metadata)) {
