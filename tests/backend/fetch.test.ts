@@ -68,6 +68,14 @@ suite('CopyOnWrite over uncached Fetch #301', () => {
 		// Writes go through the vnode cache, so this surfaces when the handle is flushed rather than at `write`.
 		assert.throws(() => fs.fsyncSync(fd), { code: 'EAGAIN' });
 	});
+
+	test('Contents follow the size across the layers #313', async () => {
+		await fs.promises.truncate('/cow/a1.js', 4);
+		assert.equal(await fs.promises.readFile('/cow/a1.js', 'utf8'), '// C');
+
+		await fs.promises.truncate('/cow/a1.js', 10);
+		assert.equal(await fs.promises.readFile('/cow/a1.js', 'utf8'), '// C\0\0\0\0\0\0');
+	});
 });
 
 after(async () => {

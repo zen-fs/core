@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
 import { debug, err, warn } from 'kerium/log';
-import { decodeUTF8 } from 'utilium';
+import { _throw, decodeUTF8 } from 'utilium';
+import { Resource } from 'utilium/cache';
 import * as requests from 'utilium/requests';
 import type { IndexData } from '../internal/file_index.js';
 import { Index } from '../internal/file_index.js';
 import { IndexFS } from '../internal/index_fs.js';
+import type { Inode, InodeLike } from '../internal/inode.js';
+import { isDirectory } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { S_IFREG } from '../constants.js';
 import type { Backend, SharedConfig } from './backend.js';
@@ -80,6 +83,36 @@ export class FetchFS extends IndexFS {
 		protected remoteWrite?: boolean
 	) {
 		super(0x206e6673, 'nfs', index);
+	}
+
+	protected resize(path: string, inode: Inode, oldSize: number): Promise<void> | void {
+		if (isDirectory(inode) || inode.size == oldSize) return;
+
+		const url = this.baseUrl + path;
+		const resource = requests.resourcesCache.get(url) ?? new Resource(url, oldSize, {}, requests.resourcesCache);
+
+		resource.size = inode.size;
+		if (inode.size < oldSize) return;
+
+		const zeroes = new Uint8Array(inode.size - oldSize);
+		resource.add(zeroes, oldSize);
+
+		if (this.remoteWrite) return requests.set(url, zeroes, { offset: oldSize, warn }, this.requestInit).catch(parseError);
+	}
+
+	public override async touch(path: string, metadata: InodeLike): Promise<void> {
+		const inode = this.index.get(path) ?? _throw(withErrno('ENOENT'));
+		const oldSize = inode.size;
+		inode.update(metadata);
+		await this.resize(path, inode, oldSize);
+	}
+
+	public override touchSync(path: string, metadata: InodeLike): void {
+		const inode = this.index.get(path) ?? _throw(withErrno('ENOENT'));
+		const oldSize = inode.size;
+		inode.update(metadata);
+		const pending = this.resize(path, inode, oldSize);
+		if (pending) this._async(pending);
 	}
 
 	protected async remove(path: string): Promise<void> {
