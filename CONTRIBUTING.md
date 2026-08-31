@@ -29,6 +29,7 @@ LLM-generated issues and PRs are permitted under the following rules:
 - Don't "slopify" comments in code. There are two kinds of slop in comments that LLMs will often output:
     1. Inline comments explaining what the code is doing. This is a poor programming practice. Your code should be self-explanatory. For example: `duck.quack(5) // quack 5 times`, the comment is completely redundant.
     2. Documentation comments. While it is important to document functions and classes, you should usually only have one or two sentences. LLMs will often include hundreds of words, which is not useful. Additionally, the LLM may document "internal changes", which is not the point of these doc comments. They are meant to describe the "contract" of functions and classes, and occasionally non-obvious behavior.
+- In PRs, avoid massive rewrites and rebases when making additional changes. For example, if a maintainer asks for a small change there is no reason to rebase the whole PR.
 - In general, use common sense.
 
 ## Code Style
