@@ -16,6 +16,21 @@ Issues are used to track bugs and features. For anything else you probably want 
 
 When submitting a bug report, you must submit a [Minimal reproducible example](https://en.wikipedia.org/wiki/Minimal_reproducible_example) that does not depend on third party code. Failing to provide one may lead to delays in resolving the issue or outright closure.
 
+### LLM Policy
+
+LLM-generated issues and PRs are permitted under the following rules:
+
+- You must disclose _which model_ you used. In an issue, you might include a short sentence like "Generated with `claude-opus-5`".
+  For PRs, a `Co-Authored-By` with the model information is sufficient (and will be added to the squash commit if you don't include it). Always include the model ID, like `claude-opus-5` or `gpt-5.6-sol`.
+- You, the human, are responsible for what the LLM outputs.
+- Respect maintainers' time. Often time LLM-generated issues and PRs include exceedingly long descriptions and such that do not add value. While including details and context is important, a 2000 word PR description is probably not needed.
+    - LLMs may include information like "all tests passing", "format clean", etc. This is completely useless since PRs run through CI/CD workflows that check that stuff. Do not include this kind of information in your PR.
+    - In issues, LLMs may over-explain things like the minimal reproduction. Please don't include this since it doesn't help maintainers.
+- Don't "slopify" comments in code. There are two kinds of slop in comments that LLMs will often output:
+    1. Inline comments explaining what the code is doing. This is a poor programming practice. Your code should be self-explanatory. For example: `duck.quack(5) // quack 5 times`, the comment is completely redundant.
+    2. Documentation comments. While it is important to document functions and classes, you should usually only have one or two sentences. LLMs will often include hundreds of words, which is not useful. Additionally, the LLM may document "internal changes", which is not the point of these doc comments. They are meant to describe the "contract" of functions and classes, and occasionally non-obvious behavior.
+- In general, use common sense.
+
 ## Code Style
 
 #### Nesting
