@@ -360,7 +360,7 @@ export abstract class FileSystem {
 		// eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-unnecessary-type-assertion
 		const cmd = ioctl_default_ops_async[command as keyof typeof ioctl_default_ops_async];
 		if (!cmd) throw withErrno('ENOTTY');
-		return await (cmd as any).call(this, context, ...args);
+		return await (cmd as any)(this, context, ...args);
 	}
 
 	/** @internal */
@@ -368,6 +368,6 @@ export abstract class FileSystem {
 		// eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-unnecessary-type-assertion
 		const cmd = ioctl_default_ops_sync[command as keyof typeof ioctl_default_ops_sync];
 		if (!cmd) throw withErrno('ENOTTY');
-		return (cmd as any).call(this, context, ...args);
+		return (cmd as any)(this, context, ...args);
 	}
 }
