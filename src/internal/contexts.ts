@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // This needs to be in a separate file to avoid circular dependencies
+import { withErrno } from 'kerium';
+import { warn } from 'kerium/log';
 import type { Bound } from 'utilium';
 import type * as fs from '../node/index.js';
 import type * as path from '../path.js';
@@ -7,8 +9,7 @@ import type { Handle } from '../vfs/file.js';
 import type * as xattr from '../vfs/xattr.js';
 import type { Credentials, CredentialsInit } from './credentials.js';
 import { createCredentials } from './credentials.js';
-import { warn } from 'kerium/log';
-import { withErrno } from 'kerium';
+import type { FileSystem } from './filesystem.js';
 
 /**
  * Symbol used for context branding
@@ -48,6 +49,9 @@ export interface FSContext {
 
 	/** The child contexts */
 	readonly children: FSContext[];
+
+	/** The mount table for this context */
+	readonly mounts: Map<string, FileSystem>;
 }
 
 export function isContext(obj: unknown): obj is FSContext {
@@ -87,6 +91,7 @@ export interface ContextInit {
 	root?: string;
 	pwd?: string;
 	credentials?: CredentialsInit;
+	mounts?: Record<string, FileSystem>;
 }
 
 /**
@@ -103,6 +108,7 @@ export const defaultContext: FSContext = {
 	descriptors: new Map(),
 	parent: null,
 	children: [],
+	mounts: new Map(),
 };
 
 export function contextOf($: unknown): FSContext {
@@ -123,7 +129,12 @@ let _nextId = 2;
 export function createChildContext(parent: FSContext, init: ContextInit = {}): FSContext & { parent: FSContext } {
 	assertContext(parent);
 
-	const { root = parent.root, pwd = parent.pwd, credentials = structuredClone(parent.credentials) } = init;
+	const {
+		root = parent.root,
+		pwd = parent.pwd,
+		credentials = structuredClone(parent.credentials),
+		mounts = Object.fromEntries(parent.mounts),
+	} = init;
 
 	const ctx: FSContext & { parent: FSContext } = {
 		[kIsContext]: true,
@@ -134,6 +145,7 @@ export function createChildContext(parent: FSContext, init: ContextInit = {}): F
 		descriptors: new Map(),
 		parent: parent,
 		children: [],
+		mounts: new Map(Object.entries(mounts)),
 	};
 
 	Object.defineProperties(ctx, {

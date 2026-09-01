@@ -11,7 +11,7 @@ import { FileSystem } from './internal/filesystem.js';
 import { exists, mkdir, stat } from './node/promises.js';
 import { existsSync, mkdirSync, statSync } from './node/sync.js';
 import { _setAccessChecks } from './vfs/config.js';
-import { mount, mounts, umount } from './vfs/shared.js';
+import { mount, umount } from './vfs/shared.js';
 
 /**
  * Update the configuration of a file system.
@@ -292,7 +292,7 @@ function mountWithMkdirSync(path: string, fs: FileSystem): void {
  * @category Backends and Configuration
  */
 export function addDevice(driver: DeviceDriver, options?: object): Device {
-	const devfs = mounts.get('/dev');
+	const devfs = defaultContext.mounts.get('/dev');
 	if (!(devfs instanceof DeviceFS)) throw log.crit(withErrno('ENOTSUP', '/dev does not exist or is not a device file system'));
 	return devfs._createDevice(driver, options);
 }
@@ -333,11 +333,11 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		}
 	}
 
-	for (const fs of mounts.values()) {
+	for (const fs of defaultContext.mounts.values()) {
 		configureFileSystem(fs, configuration);
 	}
 
-	if (configuration.addDevices && !mounts.has('/dev')) {
+	if (configuration.addDevices && !defaultContext.mounts.has('/dev')) {
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		await devfs.ready();
@@ -388,11 +388,11 @@ export function configureSync<T extends ConfigMounts>(configuration: Partial<Con
 		}
 	}
 
-	for (const fs of mounts.values()) {
+	for (const fs of defaultContext.mounts.values()) {
 		configureFileSystem(fs, configuration);
 	}
 
-	if (configuration.addDevices && !mounts.has('/dev')) {
+	if (configuration.addDevices && !defaultContext.mounts.has('/dev')) {
 		const devfs = new DeviceFS();
 		devfs.addDefaults();
 		devfs.readySync();
@@ -412,5 +412,5 @@ export function configureSync<T extends ConfigMounts>(configuration: Partial<Con
 }
 
 export async function sync(): Promise<void> {
-	for (const fs of mounts.values()) await fs.sync();
+	for (const fs of defaultContext.mounts.values()) await fs.sync();
 }

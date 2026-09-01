@@ -10,7 +10,7 @@ import { Errno, Exception, UV, withErrno, type ExceptionExtra } from 'kerium';
 import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
 import { size_max } from '../constants.js';
-import { contextOf } from '../internal/contexts.js';
+import { contextOf, defaultContext } from '../internal/contexts.js';
 import { credentialsAllowRoot } from '../internal/credentials.js';
 import { withExceptionContext } from '../internal/error.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
@@ -26,8 +26,10 @@ export type MountObject = Record<AbsolutePath, FileSystem>;
  * The map of mount points
  * @category Backends and Configuration
  * @internal
+ * @deprecated Use `defaultContext.mounts`.
+ * @todo [breaking] remove this
  */
-export const mounts: Map<string, FileSystem> = new Map();
+export const mounts = defaultContext.mounts;
 
 // Set a default root.
 mount('/', InMemory.create({ label: 'root' }));
@@ -38,13 +40,14 @@ mount('/', InMemory.create({ label: 'root' }));
  * @internal
  */
 export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void {
+	const $ = contextOf(this);
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
 
-	mountPoint = resolve.call(this, mountPoint);
-	if (mounts.has(mountPoint)) throw err(withErrno('EINVAL', 'Mount point is already in use: ' + mountPoint));
+	mountPoint = resolve.call($, mountPoint);
+	if ($.mounts.has(mountPoint)) throw err(withErrno('EINVAL', 'Mount point is already in use: ' + mountPoint));
 
 	fs._mountPoint = mountPoint;
-	mounts.set(mountPoint, fs);
+	$.mounts.set(mountPoint, fs);
 	if (!caches.has(fs.uuid)) caches.set(fs.uuid, new VCache(fs));
 	info(`Mounted ${fs.name} on ${mountPoint}`);
 	debug(`${fs.name} attributes: ${[...fs.attributes].map(([k, v]) => (v !== undefined && v !== null ? k + '=' + v : k)).join(', ')}`);
@@ -56,10 +59,11 @@ export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void
  * @todo [BREAKING] make this `async` and `await` vcache sync
  */
 export function umount(this: V_Context, mountPoint: string): void {
+	const $ = contextOf(this);
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
 
 	mountPoint = resolve.call(this, mountPoint);
-	const fs = mounts.get(mountPoint);
+	const fs = $.mounts.get(mountPoint);
 	if (!fs) {
 		warn(mountPoint + ' is already unmounted');
 		return;
@@ -78,7 +82,7 @@ export function umount(this: V_Context, mountPoint: string): void {
 		void caches.get(fs.uuid)?.sync().then(_done);
 	}
 
-	mounts.delete(mountPoint);
+	$.mounts.delete(mountPoint);
 	notice('Unmounted ' + mountPoint);
 }
 
@@ -107,7 +111,7 @@ export interface ResolvedPath extends ResolvedMount {
  * @internal @hidden
  */
 export function resolveMount(path: string, ctx: V_Context, extra?: ExceptionExtra): ResolvedMount {
-	const { root } = contextOf(ctx);
+	const { root, mounts } = contextOf(ctx);
 	const _exceptionContext = { path, ...extra };
 	path = normalizePath(join(root, path), true);
 	path = resolve.call(ctx, path);
