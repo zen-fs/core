@@ -95,7 +95,7 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatO
 lstatSync satisfies typeof fs.lstatSync;
 
 export function truncateSync(this: V_Context, path: fs.PathLike, len: number | null = 0): void {
-	using file = _sync.open.call(this, path, { flag: 'r+' });
+	using file = _sync.open(this, path, { flag: 'r+' });
 	len ||= 0;
 	if (len < 0) throw UV('EINVAL', 'truncate', path.toString());
 	file.truncateSync(len);
@@ -125,7 +125,7 @@ unlinkSync satisfies typeof fs.unlinkSync;
  * @param flag {@link https://nodejs.org/api/fs.html#file-system-flags}
  */
 export function openSync(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
-	return toFD(_sync.open.call(this, path, { flag, mode }));
+	return toFD(_sync.open(this, path, { flag, mode }));
 }
 openSync satisfies typeof fs.openSync;
 
@@ -134,7 +134,7 @@ openSync satisfies typeof fs.openSync;
  * @internal
  */
 export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode?: fs.Mode | null): number {
-	return toFD(_sync.open.call(this, path, { flag, mode, preserveSymlinks: true }));
+	return toFD(_sync.open(this, path, { flag, mode, preserveSymlinks: true }));
 }
 
 /**
@@ -157,7 +157,7 @@ export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _op
 	using file =
 		typeof path == 'number'
 			? fromFD(this, path)
-			: _sync.open.call(this, path.toString(), { flag: options.flag, mode: 0o644, preserveSymlinks: false });
+			: _sync.open(this, path.toString(), { flag: options.flag, mode: 0o644, preserveSymlinks: false });
 	const { size } = file.stat();
 	const data = Buffer.alloc(size);
 	file.readSync(data, 0, size, 0);
@@ -198,7 +198,7 @@ export function writeFileSync(
 	using file =
 		typeof path == 'number'
 			? fromFD(this, path)
-			: _sync.open.call(this, path.toString(), {
+			: _sync.open(this, path.toString(), {
 					flag,
 					mode: options.mode,
 				});
@@ -228,7 +228,7 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 	const file =
 		typeof filename == 'number'
 			? fromFD(this, filename)
-			: _sync.open.call(this, normalizePath(filename), {
+			: _sync.open(this, normalizePath(filename), {
 					flag,
 					mode: options.mode,
 				});
@@ -476,7 +476,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 
 	path = normalizePath(path);
 
-	using file = _sync.open.call(this, path, { flag: 'wx', mode: 0o644 });
+	using file = _sync.open(this, path, { flag: 'wx', mode: 0o644 });
 	file.writeSync(encodeUTF8(normalizePath(target, true)));
 	file.chmodSync(constants.S_IFLNK);
 }
@@ -506,7 +506,7 @@ export function readlinkSync(
 readlinkSync satisfies typeof fs.readlinkSync;
 
 export function chownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
-	using handle = _sync.open.call(this, path, { flag: 'r+', mode: constants.F_OK });
+	using handle = _sync.open(this, path, { flag: 'r+', mode: constants.F_OK });
 	handle.chownSync(uid, gid);
 }
 chownSync satisfies typeof fs.chownSync;

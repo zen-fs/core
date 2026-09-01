@@ -72,13 +72,13 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
  * @category VFS
  * @internal
  */
-export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle {
+export function open($: V_Context, path: PathLike, opt: OpenOptions): Handle {
 	path = normalizePath(path);
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = flags.parse(opt.flag);
 
-	path = opt.preserveSymlinks ? path : resolve(this, path).fullPath;
-	const { fs, path: resolved } = resolveMount(path, this);
+	path = opt.preserveSymlinks ? path : resolve($, path).fullPath;
+	const { fs, path: resolved } = resolveMount(path, $);
 
 	let stats: InodeLike | undefined;
 	try {
@@ -94,7 +94,7 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 		// Create the file
 		const parentPath = dirname(resolved);
 		const parentStats = fs.statSync(parentPath);
-		if (checkAccess && !hasAccess(this, parentStats, constants.W_OK)) {
+		if (checkAccess && !hasAccess($, parentStats, constants.W_OK)) {
 			throw UV('EACCES', 'open', path);
 		}
 
@@ -107,7 +107,7 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 		// Serialize entry creation with other operations on the parent directory
 		using _ = lockPathSync(fs, parentPath, 'rw', parentStats);
 
-		const { euid: uid, egid: gid } = contextOf(this).credentials;
+		const { euid: uid, egid: gid } = contextOf($).credentials;
 		const inode = fs.createFileSync(resolved, {
 			mode,
 			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
@@ -115,19 +115,19 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 		});
 
 		// A new entry in the parent directory, which is a 'rename' event
-		emitChange(this, 'rename', path);
+		emitChange($, 'rename', path);
 
-		return new Handle(this, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
+		return new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
 	}
 
-	if (checkAccess && (!hasAccess(this, stats, mode) || !hasAccess(this, stats, flags.toMode(flag)))) {
+	if (checkAccess && (!hasAccess($, stats, mode) || !hasAccess($, stats, flags.toMode(flag)))) {
 		throw UV('EACCES', 'open', path);
 	}
 
 	if (flag & constants.O_EXCL) throw UV('EEXIST', 'open', path);
 	if (!opt.allowDirectory && isDirectory(stats)) throw UV('EISDIR', 'open', path);
 
-	const file = new Handle(this, path, resolved, flag, cacheOf(fs).ref(resolved, stats));
+	const file = new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, stats));
 
 	if (flag & constants.O_TRUNC) file.truncateSync(0);
 
