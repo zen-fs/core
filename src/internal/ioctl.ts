@@ -195,6 +195,12 @@ export interface IoctlContext {
 export type Ioctl = (context: IoctlContext, ...args: any[]) => any;
 
 /**
+ * What an ioctl takes from whoever is calling it, which is everything but the context it is given.
+ * @category ioctl
+ */
+export type IoctlArgs<T extends Ioctl> = T extends (context: IoctlContext, ...args: infer A) => any ? A : never;
+
+/**
  * @category ioctl
  */
 export interface IoctlOps extends Record<number, Ioctl> {}

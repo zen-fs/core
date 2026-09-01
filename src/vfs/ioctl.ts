@@ -9,7 +9,7 @@
 import { setUVMessage, UV } from 'kerium';
 import type { PathOrFileDescriptor } from 'node:fs';
 import type { V_Context } from '../context.js';
-import type { IoctlContext, IoctlDefaultAsyncOps, IoctlDefaultSyncOps, IoctlOps } from '../internal/ioctl.js';
+import type { IoctlArgs, IoctlContext, IoctlDefaultAsyncOps, IoctlDefaultSyncOps, IoctlOps } from '../internal/ioctl.js';
 import { normalizePath } from '../utils.js';
 import { resolve as resolveAsync } from './async.js';
 import { fromFD, type Handle } from './file.js';
@@ -25,7 +25,7 @@ export async function ioctl<const Command extends number, const Ops extends Ioct
 	this: V_Context,
 	path: PathOrFileDescriptor,
 	command: Command,
-	...args: Parameters<Ops[Command]>
+	...args: IoctlArgs<Ops[Command]>
 ): Promise<ReturnType<Ops[Command]>> {
 	let vcache: VCache, vnode: VNode, file: Handle | undefined;
 
@@ -68,7 +68,7 @@ export function ioctlSync<const Command extends number, const Ops extends IoctlO
 	this: V_Context,
 	path: PathOrFileDescriptor,
 	command: Command,
-	...args: Parameters<Ops[Command]>
+	...args: IoctlArgs<Ops[Command]>
 ): ReturnType<Ops[Command]> {
 	let vcache: VCache, vnode: VNode, file: Handle | undefined;
 
