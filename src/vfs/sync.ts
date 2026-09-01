@@ -102,7 +102,7 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 			throw UV('ENOTDIR', 'open', path);
 		}
 
-		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+		if (!opt.allowDirectory && isDirectory({ mode })) throw UV('EISDIR', 'open', path);
 
 		// Serialize entry creation with other operations on the parent directory
 		using _ = lockPathSync(fs, parentPath, 'rw', parentStats);
@@ -125,7 +125,7 @@ export function open(this: V_Context, path: PathLike, opt: OpenOptions): Handle 
 	}
 
 	if (flag & constants.O_EXCL) throw UV('EEXIST', 'open', path);
-	if (!opt.allowDirectory && stats.mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+	if (!opt.allowDirectory && isDirectory(stats)) throw UV('EISDIR', 'open', path);
 
 	const file = new Handle(this, path, resolved, flag, cacheOf(fs).ref(resolved, stats));
 

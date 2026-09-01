@@ -183,7 +183,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 			index.set(path, inode);
 
-			if (inode.mode & S_IFDIR) {
+			if (isDirectory(inode)) {
 				const dir = decodeDirListing((await tx.get(inode.data)) ?? _throw(withErrno('ENODATA')));
 
 				for (const [name, id] of Object.entries(dir)) {
@@ -211,7 +211,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 			index.set(path, inode);
 
-			if (inode.mode & S_IFDIR) {
+			if (isDirectory(inode)) {
 				const dir = decodeDirListing(tx.getSync(inode.data) ?? _throw(withErrno('ENODATA')));
 
 				for (const [name, id] of Object.entries(dir)) {
@@ -625,7 +625,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			const inode = new Inode(inodeData);
 
 			// If it is a directory and not yet visited, read its directory listing
-			if ((inode.mode & S_IFDIR) != S_IFDIR || visitedDirectories.has(ino)) {
+			if (!isDirectory(inode) || visitedDirectories.has(ino)) {
 				continue;
 			}
 
@@ -694,7 +694,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 			const inode = new Inode(inodeData);
 
-			if ((inode.mode & S_IFDIR) != S_IFDIR || visitedDirectories.has(ino)) {
+			if (!isDirectory(inode) || visitedDirectories.has(ino)) {
 				continue;
 			}
 

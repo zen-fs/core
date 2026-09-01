@@ -94,7 +94,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 
 		if (!isDirectory(parentStats)) throw UV('ENOTDIR', 'open', dirname(path));
 
-		if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+		if (!opt.allowDirectory && isDirectory({ mode })) throw UV('EISDIR', 'open', path);
 
 		// Serialize entry creation with other operations on the parent directory
 		using _ = await lockPath(fs, parentPath, 'rw', parentStats);
@@ -120,7 +120,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 
 	if (checkAccess && !hasAccess($, stats, flags.toMode(flag))) throw UV('EACCES', $ex);
 	if (flag & constants.O_EXCL) throw UV('EEXIST', $ex);
-	if (!opt.allowDirectory && mode & constants.S_IFDIR) throw UV('EISDIR', 'open', path);
+	if (!opt.allowDirectory && isDirectory({ mode })) throw UV('EISDIR', 'open', path);
 
 	const handle = new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, stats));
 
