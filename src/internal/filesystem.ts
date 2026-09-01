@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { withErrno } from 'kerium';
 import type { UUID } from 'node:crypto';
 import type { ConstMap } from 'utilium';
 import type { InodeLike } from './inode.js';
-import { withErrno } from 'kerium';
+import type { Ioctl, IoctlContext } from './ioctl.js';
+import { ioctl_default_ops_async, ioctl_default_ops_sync } from './ioctl.js';
 
 /**
  * Usage information about a file system
@@ -174,6 +176,18 @@ export abstract class FileSystem {
 	 * @see FileSystemAttributes
 	 */
 	public readonly attributes = new Map() as ConstMap<FileSystemAttributes> & Map<string, any>;
+
+	/** @internal */
+	getAsyncIoctl(context: IoctlContext, command: number): Ioctl | null | undefined {
+		// eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-unnecessary-type-assertion
+		return ioctl_default_ops_async[command as keyof typeof ioctl_default_ops_async];
+	}
+
+	/** @internal */
+	getSyncIoctl(context: IoctlContext, command: number): Ioctl | null | undefined {
+		// eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-unnecessary-type-assertion
+		return ioctl_default_ops_sync[command as keyof typeof ioctl_default_ops_sync];
+	}
 
 	public constructor(
 		/**

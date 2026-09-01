@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { withErrno } from 'kerium';
+import { err } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 import type { Concrete } from 'utilium';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
-
-import { withErrno } from 'kerium';
-import { err } from 'kerium/log';
+import type { Ioctl, IoctlContext } from '../internal/ioctl.js';
 import '../polyfills.js';
 
 /**
@@ -77,6 +77,14 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 
 	public get uuid(): UUID {
 		return this._fs.uuid;
+	}
+
+	getAsyncIoctl(context: IoctlContext, command: number): Ioctl | null | undefined {
+		return this._fs.getAsyncIoctl(context, command);
+	}
+
+	getSyncIoctl(context: IoctlContext, command: number): Ioctl | null | undefined {
+		return this._fs.getSyncIoctl(context, command);
 	}
 
 	public async ready(): Promise<void> {
