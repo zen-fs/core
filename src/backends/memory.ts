@@ -12,7 +12,7 @@ import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
 export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapStore {
 	public readonly flags = [] as const;
 
-	public readonly name = 'tmpfs';
+	public readonly name: string = 'tmpfs';
 
 	public constructor(
 		public readonly maxSize: number = size_max,
