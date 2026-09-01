@@ -288,12 +288,12 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 
 	public async ioctl(context: IoctlContext, command: number, ...args: any[]): Promise<any> {
 		using _ = await this.lock();
-		return await this._fs.ioctl(context, command, ...args);
+		return await this._fs.ioctl({ ...context, fs: this._fs }, command, ...args);
 	}
 
 	public ioctlSync(context: IoctlContext, command: number, ...args: any[]) {
 		using _ = this.lockSync();
-		return this._fs.ioctlSync(context, command, ...args);
+		return this._fs.ioctlSync({ ...context, fs: this._fs }, command, ...args);
 	}
 }
 
