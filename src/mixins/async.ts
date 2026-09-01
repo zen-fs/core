@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
-import { _asyncFSKeys, type _SyncFSKeys, type AsyncFSMethods, type Mixin } from './shared.js';
-
 import { withErrno } from 'kerium';
 import { crit, debug, err } from 'kerium/log';
 import { StoreFS } from '../backends/store/fs.js';
+import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
+import type { IoctlContext } from '../internal/ioctl.js';
 import { join } from '../path.js';
+import { _asyncFSKeys, type _SyncFSKeys, type AsyncFSMethods, type Mixin } from './shared.js';
 
 /**
  * @internal
@@ -200,6 +200,11 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			this.checkSync();
 			this._sync.writeSync(path, buffer, offset);
 			this._async(() => this.write(path, buffer, offset));
+		}
+
+		public ioctlSync(context: IoctlContext, command: number, ...args: any[]) {
+			this.checkSync();
+			return this._sync.ioctlSync(context, command, ...args);
 		}
 
 		public streamWrite(path: string, options: StreamOptions): WritableStream {

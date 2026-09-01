@@ -42,6 +42,7 @@ export const _asyncFSKeys = [
 	'sync',
 	'read',
 	'write',
+	'ioctl',
 ] as const satisfies _AsyncFSKeys[];
 
 /**

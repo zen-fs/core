@@ -192,7 +192,7 @@ export interface IoctlContext {
 /**
  * @category ioctl
  */
-export type Ioctl = (this: IoctlContext, ...args: any[]) => any;
+export type Ioctl = (context: IoctlContext, ...args: any[]) => any;
 
 /**
  * @category ioctl
@@ -204,47 +204,47 @@ export interface IoctlOps extends Record<number, Ioctl> {}
  * @category ioctl
  */
 export const ioctl_default_ops = {
-	[IOC.GetFlags](): number {
-		if (typeof this.inode.flags !== 'number') throw withErrno('ENOTTY');
-		return this.inode.flags;
+	[IOC.GetFlags]($): number {
+		if (typeof $.inode.flags !== 'number') throw withErrno('ENOTTY');
+		return $.inode.flags;
 	},
-	[IOC32.GetFlags](): number {
-		if (typeof this.inode.flags !== 'number') throw withErrno('ENOTTY');
-		return this.inode.flags;
+	[IOC32.GetFlags]($): number {
+		if (typeof $.inode.flags !== 'number') throw withErrno('ENOTTY');
+		return $.inode.flags;
 	},
-	[IOC.GetVersion](): number {
-		if (typeof this.inode.version !== 'number') throw withErrno('ENOTTY');
-		return this.inode.version;
+	[IOC.GetVersion]($): number {
+		if (typeof $.inode.version !== 'number') throw withErrno('ENOTTY');
+		return $.inode.version;
 	},
-	[IOC32.GetVersion](): number {
-		if (typeof this.inode.version !== 'number') throw withErrno('ENOTTY');
-		return this.inode.version;
+	[IOC32.GetVersion]($): number {
+		if (typeof $.inode.version !== 'number') throw withErrno('ENOTTY');
+		return $.inode.version;
 	},
 	[IOC.Fiemap](): never {
 		throw withErrno('ENOTSUP');
 	},
-	[IOC.GetXattr](name: string): fsxattr {
-		return new fsxattr(this.inode);
+	[IOC.GetXattr]($, _name: string): fsxattr {
+		return new fsxattr($.inode);
 	},
-	[IOC.SetXattr](name: string, value: fsxattr): never {
+	[IOC.SetXattr]($, _name: string, _value: fsxattr): never {
 		throw withErrno('ENOTSUP');
 	},
-	[IOC.GetLabel](): string | undefined {
-		return this.fs.label;
+	[IOC.GetLabel]($): string | undefined {
+		return $.fs.label;
 	},
-	[IOC.SetLabel](label: string): void {
-		this.fs.label = label;
+	[IOC.SetLabel]($, label: string): void {
+		$.fs.label = label;
 	},
-	[IOC.GetUUID](): string {
-		return this.fs.uuid;
+	[IOC.GetUUID]($): string {
+		return $.fs.uuid;
 	},
-	[IOC.GetSysfsPath](): string {
+	[IOC.GetSysfsPath]($): string {
 		/**
 		 * Returns the path component under /sys/fs/ that refers to this filesystem;
 		 * also /sys/kernel/debug/ for filesystems with debugfs exports
 		 * @todo Implement sysfs and have each FS implement the /sys/fs/<name> tree
 		 */
-		return `/sys/fs/${this.fs.name}/${this.fs.uuid}`;
+		return `/sys/fs/${$.fs.name}/${$.fs.uuid}`;
 	},
 } satisfies IoctlOps;
 
@@ -254,21 +254,21 @@ export const ioctl_default_ops = {
  */
 export const ioctl_default_ops_async = {
 	...ioctl_default_ops,
-	async [IOC.SetFlags](flags: number): Promise<void> {
-		this.inode.flags = flags;
-		await this.fs.touch(this.path, this.inode);
+	async [IOC.SetFlags]($, flags: number): Promise<void> {
+		$.inode.flags = flags;
+		await $.fs.touch($.path, $.inode);
 	},
-	async [IOC32.SetFlags](flags: number): Promise<void> {
-		this.inode.flags = flags;
-		await this.fs.touch(this.path, this.inode);
+	async [IOC32.SetFlags]($, flags: number): Promise<void> {
+		$.inode.flags = flags;
+		await $.fs.touch($.path, $.inode);
 	},
-	async [IOC.SetVersion](version: number): Promise<void> {
-		this.inode.version = version;
-		await this.fs.touch(this.path, this.inode);
+	async [IOC.SetVersion]($, version: number): Promise<void> {
+		$.inode.version = version;
+		await $.fs.touch($.path, $.inode);
 	},
-	async [IOC32.SetVersion](version: number): Promise<void> {
-		this.inode.version = version;
-		await this.fs.touch(this.path, this.inode);
+	async [IOC32.SetVersion]($, version: number): Promise<void> {
+		$.inode.version = version;
+		await $.fs.touch($.path, $.inode);
 	},
 } satisfies IoctlOps;
 
@@ -285,21 +285,21 @@ export interface IoctlDefaultAsyncOps extends _IoctlOpsAsync {}
  */
 export const ioctl_default_ops_sync = {
 	...ioctl_default_ops,
-	[IOC.SetFlags](flags: number): void {
-		this.inode.flags = flags;
-		this.fs.touchSync(this.path, this.inode);
+	[IOC.SetFlags]($, flags: number): void {
+		$.inode.flags = flags;
+		$.fs.touchSync($.path, $.inode);
 	},
-	[IOC32.SetFlags](flags: number): void {
-		this.inode.flags = flags;
-		this.fs.touchSync(this.path, this.inode);
+	[IOC32.SetFlags]($, flags: number): void {
+		$.inode.flags = flags;
+		$.fs.touchSync($.path, $.inode);
 	},
-	[IOC.SetVersion](version: number): void {
-		this.inode.version = version;
-		this.fs.touchSync(this.path, this.inode);
+	[IOC.SetVersion]($, version: number): void {
+		$.inode.version = version;
+		$.fs.touchSync($.path, $.inode);
 	},
-	[IOC32.SetVersion](version: number): void {
-		this.inode.version = version;
-		this.fs.touchSync(this.path, this.inode);
+	[IOC32.SetVersion]($, version: number): void {
+		$.inode.version = version;
+		$.fs.touchSync($.path, $.inode);
 	},
 } satisfies IoctlOps;
 

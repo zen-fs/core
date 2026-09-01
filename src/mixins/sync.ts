@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
+import type { IoctlContext } from '../internal/ioctl.js';
 import type { AsyncFSMethods, Mixin } from './shared.js';
 
 /**
@@ -60,6 +61,10 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 
 		public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
 			return this.writeSync(path, buffer, offset);
+		}
+
+		public async ioctl(context: IoctlContext, command: number, ...args: any[]): Promise<any> {
+			return this.ioctlSync(context, command, ...args);
 		}
 	}
 	return SyncFS;

@@ -79,14 +79,6 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.uuid;
 	}
 
-	getAsyncIoctl(context: IoctlContext, command: number): Ioctl | null | undefined {
-		return this._fs.getAsyncIoctl(context, command);
-	}
-
-	getSyncIoctl(context: IoctlContext, command: number): Ioctl | null | undefined {
-		return this._fs.getSyncIoctl(context, command);
-	}
-
 	public async ready(): Promise<void> {
 		return await this._fs.ready();
 	}
@@ -154,7 +146,6 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return !!this.currentLock?.isLocked;
 	}
 
-	/* eslint-disable @typescript-eslint/no-unused-vars */
 	public async rename(oldPath: string, newPath: string): Promise<void> {
 		using _ = await this.lock();
 		await this._fs.rename(oldPath, newPath);
@@ -295,7 +286,15 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
 		return this._fs.streamWrite(path, options);
 	}
 
-	/* eslint-enable @typescript-eslint/no-unused-vars */
+	public async ioctl(context: IoctlContext, command: number, ...args: any[]): Promise<any> {
+		using _ = await this.lock();
+		return await this._fs.ioctl(context, command, ...args);
+	}
+
+	public ioctlSync(context: IoctlContext, command: number, ...args: any[]) {
+		using _ = this.lockSync();
+		return this._fs.ioctlSync(context, command, ...args);
+	}
 }
 
 /**

@@ -6,15 +6,15 @@
 	- include/uapi/linux/fs.h (`FS_IOC_*`)
 */
 
-import { setUVMessage, UV, withErrno } from 'kerium';
+import { setUVMessage, UV } from 'kerium';
+import type { PathOrFileDescriptor } from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { IoctlContext, IoctlDefaultAsyncOps, IoctlDefaultSyncOps, IoctlOps } from '../internal/ioctl.js';
 import { normalizePath } from '../utils.js';
 import { resolve as resolveAsync } from './async.js';
+import { fromFD, type Handle } from './file.js';
 import { resolve as resolveSync } from './sync.js';
 import { cacheOf, type VCache } from './vcache.js';
-import type { PathOrFileDescriptor } from 'node:fs';
-import { fromFD, type Handle } from './file.js';
 import type { VNode } from './vnode.js';
 
 /**
@@ -52,10 +52,7 @@ export async function ioctl<const Command extends number, const Ops extends Ioct
 	};
 
 	try {
-		const op = vnode.fs.getAsyncIoctl(context, command);
-		if (!op) throw withErrno('ENOTTY');
-
-		return await op.call(context, ...args);
+		return await vnode.fs.ioctl(context, command, ...args);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { syscall: 'ioctl', path }));
 	} finally {
@@ -98,10 +95,7 @@ export function ioctlSync<const Command extends number, const Ops extends IoctlO
 	};
 
 	try {
-		const op = vnode.fs.getSyncIoctl(context, command);
-		if (!op) throw withErrno('ENOTTY');
-
-		return op.call(context, ...args);
+		return vnode.fs.ioctlSync(context, command, ...args);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { syscall: 'ioctl', path }));
 	} finally {
