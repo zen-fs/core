@@ -229,6 +229,10 @@ export interface InodeLike<T extends number | bigint = number> extends InodeFiel
 	 */
 	nlink: T;
 	/**
+	 * Device ID for special files
+	 */
+	rdev: T;
+	/**
 	 * Extended attributes
 	 */
 	attributes?: Attributes;
@@ -251,6 +255,7 @@ export const _inode_fields = [
 	'mtimeMs',
 	'ctimeMs',
 	'version',
+	'rdev',
 ] as const;
 
 /**
@@ -384,12 +389,14 @@ export class Inode extends $from(BufferView) implements InodeLike {
 	 */
 	@t.uint32 accessor version!: number;
 
+	@t.uint32 accessor rdev!: number;
+
 	/**
 	 * Padding up to 128 bytes.
 	 * This ensures there is enough room for expansion without breaking the ABI.
 	 * @internal
 	 */
-	@t.uint8(48) protected accessor __padding!: Uint8Array;
+	@t.uint8(44) protected accessor __padding!: Uint8Array;
 
 	@field(Attributes) accessor attributes!: Attributes;
 
