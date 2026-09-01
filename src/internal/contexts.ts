@@ -96,7 +96,7 @@ export interface ContextInit {
  */
 export const defaultContext: FSContext = {
 	[kIsContext]: true,
-	id: 0,
+	id: 1,
 	root: '/',
 	pwd: '/',
 	credentials: createCredentials({ uid: 0, gid: 0 }),
@@ -109,8 +109,8 @@ export function contextOf($: unknown): FSContext {
 	return isContext($) ? $ : defaultContext;
 }
 
-// 0 is reserved for the global/default context
-let _nextId = 1;
+// 1 is reserved for the global/default context
+let _nextId = 2;
 
 /**
  * Create a blank FS Context
