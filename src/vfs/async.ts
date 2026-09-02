@@ -76,7 +76,7 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
  * @internal
  */
 export async function open($: V_Context, path: PathLike, opt: OpenOptions): Promise<Handle> {
-	path = normalizePath(path);
+	path = normalizePath.call($, path);
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = flags.parse(opt.flag);
 
@@ -130,7 +130,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 }
 
 export async function readlink(this: V_Context, path: PathLike): Promise<string> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	const $ex = { syscall: 'readlink', path };
 	const { fs, stats, path: resolved } = await resolve(this, path, true, $ex);
@@ -145,7 +145,7 @@ export async function readlink(this: V_Context, path: PathLike): Promise<string>
 }
 
 export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {}): Promise<string | void> {
-	const original = normalizePath(path);
+	const original = normalizePath.call(this, path);
 	const { euid: uid, egid: gid } = contextOf(this).credentials;
 	const { mode = 0o777, recursive } = options;
 
@@ -200,7 +200,7 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 }
 
 export async function readdir(this: V_Context, path: PathLike, options: ReaddirOptions = {}): Promise<Dirent[]> {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	// Node reports `readdir` failures as `scandir`
 	const $ex = { syscall: 'scandir', path };
@@ -244,8 +244,8 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 }
 
 export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): Promise<void> {
-	oldPath = normalizePath(oldPath);
-	newPath = normalizePath(newPath);
+	oldPath = normalizePath.call(this, oldPath);
+	newPath = normalizePath.call(this, newPath);
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 	const src = await resolve(this, oldPath, true, $ex);
 	const dst = resolveMount(newPath, this, $ex);
@@ -291,8 +291,8 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 }
 
 export async function link(this: V_Context, target: PathLike, link: PathLike): Promise<void> {
-	target = normalizePath(target);
-	link = normalizePath(link);
+	target = normalizePath.call(this, target);
+	link = normalizePath.call(this, link);
 
 	const $ex = { syscall: 'link', path: target, dest: link };
 	const { fs, path: resolved } = resolveMount(target, this, $ex);

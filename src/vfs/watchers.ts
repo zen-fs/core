@@ -197,7 +197,7 @@ export function emitChange(context: V_Context, eventType: fs.WatchEventType, fil
 	const $ = contextOf(context);
 
 	if ($) filename = join($.root ?? '/', filename);
-	filename = normalizePath(filename);
+	filename = normalizePath.call(context, filename);
 
 	// Notify watchers, including ones on parent directories if they are watching recursively.
 	for (let path = filename; ; path = dirname(path)) {

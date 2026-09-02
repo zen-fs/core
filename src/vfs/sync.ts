@@ -73,7 +73,7 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
  * @internal
  */
 export function open($: V_Context, path: PathLike, opt: OpenOptions): Handle {
-	path = normalizePath(path);
+	path = normalizePath.call($, path);
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = flags.parse(opt.flag);
 
@@ -135,7 +135,7 @@ export function open($: V_Context, path: PathLike, opt: OpenOptions): Handle {
 }
 
 export function readlink(this: V_Context, path: PathLike): string {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	const { fs, stats, path: resolved } = resolve(this, path, true, { syscall: 'readlink' });
 
@@ -149,7 +149,7 @@ export function readlink(this: V_Context, path: PathLike): string {
 }
 
 export function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {}): string | void {
-	const original = normalizePath(path);
+	const original = normalizePath.call(this, path);
 	const $ex = { syscall: 'mkdir', path: original };
 
 	const { fullPath: realParent } = resolve(this, dirname(original), false, $ex);
@@ -207,7 +207,7 @@ export function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {
 }
 
 export function readdir(this: V_Context, path: PathLike, options: ReaddirOptions = {}): Dirent[] {
-	path = normalizePath(path);
+	path = normalizePath.call(this, path);
 
 	const { fs, path: resolved } = resolve(this, path);
 
@@ -254,8 +254,8 @@ export function readdir(this: V_Context, path: PathLike, options: ReaddirOptions
 }
 
 export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): void {
-	oldPath = normalizePath(oldPath);
-	newPath = normalizePath(newPath);
+	oldPath = normalizePath.call(this, oldPath);
+	newPath = normalizePath.call(this, newPath);
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 	const src = resolve(this, oldPath, true, $ex);
 	const dst = resolveMount(newPath, this, $ex);
@@ -304,8 +304,8 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 }
 
 export function link(this: V_Context, target: PathLike, link: PathLike): void {
-	target = normalizePath(target);
-	link = normalizePath(link);
+	target = normalizePath.call(this, target);
+	link = normalizePath.call(this, link);
 
 	const $ex = { syscall: 'link', path: target, dest: link };
 	const { fs, path: resolved } = resolveMount(target, this, $ex);

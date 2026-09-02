@@ -37,7 +37,7 @@ export async function ioctl<const Command extends number, const Ops extends Ioct
 		// For now this avoids some issues: touching vnode.paths, triggering the "referenced by more paths" error, and inode assignment
 		vnode.refs++;
 	} else {
-		path = normalizePath(path);
+		path = normalizePath.call(this, path);
 		const mnt = await resolveAsync(this, path, false, { syscall: 'ioctl', path });
 		if (!mnt.stats) throw UV('ENOENT', { syscall: 'ioctl', path });
 		vcache = cacheOf(mnt.fs);
@@ -80,7 +80,7 @@ export function ioctlSync<const Command extends number, const Ops extends IoctlO
 		// For now this avoids some issues: touching vnode.paths, triggering the "referenced by more paths" error, and inode assignment
 		vnode.refs++;
 	} else {
-		path = normalizePath(path);
+		path = normalizePath.call(this, path);
 		const mnt = resolveSync(this, path, false, { syscall: 'ioctl', path });
 		if (!mnt.stats) throw UV('ENOENT', { syscall: 'ioctl', path });
 		vcache = cacheOf(mnt.fs);
