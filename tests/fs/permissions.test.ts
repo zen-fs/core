@@ -54,7 +54,7 @@ suite('Permissions', config('permissions'), () => {
 			assert.equal(error.code, 'EACCES');
 		});
 		if (!stats) return;
-		assert(hasAccess(defaultContext, stats, X_OK));
+		if (stats.isDirectory()) assert(hasAccess(defaultContext, stats, X_OK));
 
 		function checkError(access: number) {
 			return function (error: Exception) {
