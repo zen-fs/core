@@ -71,6 +71,16 @@ export class Handle {
 	 */
 	protected closed: boolean = false;
 
+	/** How many descriptors refer to this open file */
+	protected refs: number = 1;
+
+	/** Take another reference to the open file */
+	public ref(): this {
+		if (this.closed) throw UV('EBADF', 'dup', this.path);
+		this.refs++;
+		return this;
+	}
+
 	public get isClosed(): boolean {
 		return this.closed;
 	}
@@ -113,6 +123,7 @@ export class Handle {
 	public closeSync(): void {
 		if (this.closed) throw UV('EBADF', 'close', this.path);
 		this.syncSync();
+		if (--this.refs > 0) return;
 		this.disposeSync(true);
 	}
 
@@ -254,6 +265,7 @@ export class Handle {
 	public async close(): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'close', this.path);
 		await this.sync();
+		if (--this.refs > 0) return;
 		this.dispose(true);
 	}
 
@@ -438,12 +450,13 @@ export class Handle {
 // descriptors
 
 /**
+ * Give an open file a descriptor
  * @internal @hidden
  */
-export function toFD(file: Handle): number {
-	const map = contextOf(file.context).descriptors;
-	// @todo use `Iterator` helper #296
-	const fd = Array.from(map.keys()).reduce((next, k) => Math.max(next, k + 1), 4);
+export function toFD(file: Handle, $: V_Context = file.context): number {
+	const map = contextOf($).descriptors;
+	let fd = 0;
+	while (map.has(fd)) fd++;
 	map.set(fd, file);
 	return fd;
 }
@@ -461,4 +474,12 @@ export function fromFD($: V_Context, fd: number): Handle {
 
 export function deleteFD($: V_Context, fd: number): boolean {
 	return contextOf($).descriptors.delete(fd);
+}
+
+/**
+ * Give an open file another descriptor
+ * @internal @hidden
+ */
+export function dupFD($: V_Context, fd: number): number {
+	return toFD(fromFD($, fd).ref(), $);
 }

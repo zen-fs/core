@@ -26,7 +26,7 @@ suite('Utf8Stream', config('write'), () => {
 		assert.equal(stream.maxLength, 32);
 		assert.equal(stream.periodicFlush, 0);
 		assert.equal(stream.mkdir, false);
-		assert.ok(stream.fd > 0);
+		assert.ok(stream.fd >= 0);
 
 		stream.destroy();
 	});

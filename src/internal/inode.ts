@@ -502,7 +502,10 @@ export function isFIFO(metadata: { mode: number }): boolean {
 export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 'gid'>, access: number): boolean {
 	const { credentials } = contextOf($);
 
-	if (isSymbolicLink(inode) || credentials.euid === 0 || credentials.egid === 0) return true;
+	if (isSymbolicLink(inode)) return true;
+
+	if (credentials.euid === 0 || credentials.egid === 0)
+		return !(access & c.X_OK) || isDirectory(inode) || !!(inode.mode & (c.S_IXUSR | c.S_IXGRP | c.S_IXOTH));
 
 	let perm = 0;
 
