@@ -15,10 +15,11 @@ import { Inode, type InodeLike } from './inode.js';
 
 /**
  * A device
- * @todo Maybe add some other device information, like a UUID?
  * @category Internals
  * @privateRemarks
  * UUIDs were considered, however they don't make sense without an easy mechanism for persistence
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export interface Device<TData = any> {
 	/**
@@ -50,6 +51,8 @@ export interface Device<TData = any> {
 
 /**
  * @category Internals
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export interface DeviceInit<TData = any> {
 	data?: TData;
@@ -62,6 +65,8 @@ export interface DeviceInit<TData = any> {
 /**
  * A device driver
  * @category Internals
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export interface DeviceDriver<TData = any> {
 	/**
@@ -112,6 +117,8 @@ export interface DeviceDriver<TData = any> {
 /**
  * A temporary file system that manages and interfaces with devices
  * @category Internals
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export class DeviceFS extends StoreFS<InMemoryStore> {
 	protected readonly devices = new Map<string, Device>();
@@ -350,6 +357,8 @@ const emptyBuffer = new Uint8Array();
  * - Writes discard data, advancing the file position.
  * @category Internals
  * @internal
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export const nullDevice: DeviceDriver = {
 	name: 'null',
@@ -375,6 +384,8 @@ export const nullDevice: DeviceDriver = {
  * - Provides basic file metadata, treating it as a character device.
  * @category Internals
  * @internal
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export const zeroDevice: DeviceDriver = {
 	name: 'zero',
@@ -396,6 +407,8 @@ export const zeroDevice: DeviceDriver = {
  * - Writes always fail with ENOSPC (no space left on device).
  * @category Internals
  * @internal
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export const fullDevice: DeviceDriver = {
 	name: 'full',
@@ -417,6 +430,8 @@ export const fullDevice: DeviceDriver = {
  * - Writes discard data, advancing the file position.
  * @category Internals
  * @internal
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export const randomDevice: DeviceDriver = {
 	name: 'random',
@@ -438,6 +453,8 @@ export const randomDevice: DeviceDriver = {
  * Simulates the `/dev/console` device.
  * @category Internals
  * @experimental @internal
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 const consoleDevice: DeviceDriver<{ output: (text: string, offset: number) => unknown }> = {
 	name: 'console',
@@ -458,6 +475,8 @@ const consoleDevice: DeviceDriver<{ output: (text: string, offset: number) => un
  * Shortcuts for importing.
  * @category Internals
  * @internal
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export const devices = {
 	null: nullDevice,

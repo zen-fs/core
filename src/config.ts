@@ -178,6 +178,8 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	/**
 	 * Whether to automatically add normal Linux devices
 	 * @default false
+	 * @deprecated Use `@zenfs/linux`!
+	 * @todo [breaking] remove
 	 */
 	addDevices: boolean;
 
@@ -290,6 +292,8 @@ function mountWithMkdirSync(path: string, fs: FileSystem): void {
 
 /**
  * @category Backends and Configuration
+ * @deprecated Use `@zenfs/linux`!
+ * @todo [breaking] remove
  */
 export function addDevice(driver: DeviceDriver, options?: object): Device {
 	const devfs = defaultContext.mounts.get('/dev');

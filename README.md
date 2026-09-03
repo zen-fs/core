@@ -159,10 +159,6 @@ fs.umount('/mnt/zip'); // finished using the zip
 > [!CAUTION]
 > Instances of backends follow the _internal_ API. You should never use a backend's methods unless you are extending a backend.
 
-### Devices and device files
-
-ZenFS includes support for device files. These are designed to follow Linux's device file behavior, for consistency and ease of use. Check out the [Devices and Device Drivers](https://zenfs.dev/core/documents/Devices_and_Device_Drivers) documentation for more information.
-
 ## `node:*` emulation
 
 ZenFS also includes emulation of some other `node:` modules for various reasons, importable from `@zenfs/core/<name>`:
