@@ -2,38 +2,23 @@ name: Docs
 on:
     workflow_dispatch:
     workflow_call:
+        secrets:
+            DOCS_DISPATCH_TOKEN:
+                description: Token with write access to docs repo, used to trigger a docs rebuild.
+                required: false
 
 jobs:
-    deploy:
+    dispatch:
         runs-on: ubuntu-latest
-        name: Deploy
-        permissions:
-            contents: write
-            id-token: write
-            pages: write
-        environment:
-            name: github-pages
-            url: ${{ steps.deploy.outputs.page_url }}
+        name: Trigger docs rebuild
         steps:
-            - name: Checkout
-              uses: actions/checkout@v5
-
-            - name: Set up Node.js
-              uses: actions/setup-node@v6
-              with:
-                  node-version: latest
-
-            - name: Install dependencies
-              run: npm install
-
-            - name: Build
-              run: npm run build:docs
-
-            - name: Upload artifact
-              uses: actions/upload-pages-artifact@v3
-              with:
-                  path: ./docs
-
-            - name: Deploy
-              id: deploy
-              uses: actions/deploy-pages@v4
+            - name: Dispatch
+              env:
+                  GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+              run: |
+                  if [ -z "$GH_TOKEN" ]; then
+                      echo "::warning::DOCS_DISPATCH_TOKEN is not set, docs will not be automatically updated."
+                      exit 0
+                  fi
+                  echo "{\"event_type\":\"docs\",\"client_payload\":{\"repository\":\"$GITHUB_REPOSITORY\",\"ref\":\"$GITHUB_REF_NAME\"}}" \
+                      | gh api --method POST repos/zen-fs/zen-fs.github.io/dispatches --input -
