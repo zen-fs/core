@@ -43,6 +43,9 @@ Your financial support would go a long way toward improving ZenFS and its commun
 
 ## Usage
 
+> [!IMPORTANT]
+> [Check out the ZenFS docs!](https://zenfs.dev/guides/using-zenfs/)
+
 ```js
 import { fs } from '@zenfs/core'; // You can also use the default export
 
@@ -52,15 +55,9 @@ const contents = fs.readFileSync('/test.txt', 'utf-8');
 console.log(contents);
 ```
 
-#### Using different and/or multiple backends
-
-A single `InMemory` backend is created by default, mounted on `/`.
-
-You can configure ZenFS to use a different backend and mount multiple backends. It is strongly recommended to do so using the `configure` function.
-
-You can use multiple backends by passing an object to `configure` which maps paths to file systems.
-
-The following example mounts a zip file to `/zip`, in-memory storage to `/tmp`, and IndexedDB to `/home`. Note that `/` has the default in-memory backend.
+A single `InMemory` backend is created by default, mounted on `/`. To use different backends, and to
+mount more than one, configure ZenFS with `configure`. This mounts a zip file to `/mnt/zip`,
+in-memory storage to `/tmp`, and IndexedDB to `/home`:
 
 ```js
 import { configure, InMemory } from '@zenfs/core';
@@ -78,106 +75,16 @@ await configure({
 });
 ```
 
-Note that while you aren't required to use absolute paths for the keys of `mounts`, it is a good practice to do so.
+The `fs/promises` API is available from `@zenfs/core/promises`, as the `promises` export, or as
+`fs.promises`.
 
-> [!TIP]
-> When configuring a mount point, you can pass in
->
-> 1. A `Backend` object, if the backend has no required options
-> 2. An object that has the options accepted by the backend and a `backend` property which is a `Backend` object
-> 3. A `FileSystem` instance
-
-Here is an example that mounts the `WebStorage` backend from `@zenfs/dom` on `/`:
-
-```js
-import { configureSingle, fs } from '@zenfs/core';
-import { WebStorage } from '@zenfs/dom';
-
-await configureSingle({ backend: WebStorage });
-
-if (!fs.existsSync('/test.txt')) {
-	fs.writeFileSync('/test.txt', 'This will persist across reloads!');
-}
-
-const contents = fs.readFileSync('/test.txt', 'utf-8');
-console.log(contents);
-```
-
-#### FS Promises
-
-The FS promises API is exposed as `promises`.
-
-```js
-import { configureSingle } from '@zenfs/core';
-import { exists, writeFile } from '@zenfs/core/promises';
-import { IndexedDB } from '@zenfs/dom';
-
-await configureSingle({ backend: IndexedDB });
-
-const exists = await exists('/myfile.txt');
-if (!exists) {
-	await writeFile('/myfile.txt', 'Lots of persistent data');
-}
-```
-
-> [!NOTE]
-> You can import the promises API using:
->
-> 1. Exports from `@zenfs/core/promises`
-> 2. The `promises` export from `@zenfs/core`
-> 3. `fs.promises` on the exported `fs` from `@zenfs/core`.
-
-#### Mounting and unmounting, creating backends
-
-If you would like to create backends without configure (e.g. to do something dynamic at runtime), you may do so by importing the backend and calling `resolveMountConfig` with it.
-
-You can then mount and unmount the backend instance by using `mount` and `umount`.
-
-```js
-import { configure, resolveMountConfig, InMemory } from '@zenfs/core';
-import { IndexedDB } from '@zenfs/dom';
-import { Zip } from '@zenfs/archives';
-
-await configure({
-	mounts: {
-		'/tmp': InMemory,
-		'/home': IndexedDB,
-	},
-});
-
-fs.mkdirSync('/mnt/zip', { recursive: true });
-
-const res = await fetch('mydata.zip');
-const zipfs = await resolveMountConfig({ backend: Zip, data: await res.arrayBuffer() });
-fs.mount('/mnt/zip', zipfs);
-
-// do stuff with the mounted zip
-
-fs.umount('/mnt/zip'); // finished using the zip
-```
-
-> [!CAUTION]
-> Instances of backends follow the _internal_ API. You should never use a backend's methods unless you are extending a backend.
-
-## `node:*` emulation
-
-ZenFS also includes emulation of some other `node:` modules for various reasons, importable from `@zenfs/core/<name>`:
-
-- `node:path`
-- `node:readline`
-
-For example:
-
-```ts
-import * as path from '@zenfs/core/path';
-```
+For the full usage guide, see **[the documentation](https://zenfs.dev/guides/using-zenfs/)**.
+This includes mounting at runtime, contexts and permissions, devices, and the `node:*`module emulation.
 
 ## Bundling
 
 ZenFS exports a drop-in for Node's `fs` module, so you can use it for your bundler of preference using the default export.
-
-> [!IMPORTANT]
-> See [COPYING.md](./COPYING.md)
+See [COPYING.md](./COPYING.md) for more info.
 
 ## Sponsors
 
