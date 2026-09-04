@@ -44,7 +44,7 @@ Your financial support would go a long way toward improving ZenFS and its commun
 ## Usage
 
 > [!IMPORTANT]
-> [Check out the ZenFS docs!](https://zenfs.dev/guides/using-zenfs/)
+> **[Check out the ZenFS docs!](https://zenfs.dev/guides/using-zenfs/)**
 
 ```js
 import { fs } from '@zenfs/core'; // You can also use the default export
