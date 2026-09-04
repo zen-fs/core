@@ -13,12 +13,5 @@
 		"useDefineForClassFields": true,
 		"types": ["node"]
 	},
-	"include": ["src/**/*.ts"],
-	"typedocOptions": {
-		"entryPoints": ["./src/index.ts"],
-		"name": "ZenFS",
-		"out": "docs",
-		"projectDocuments": ["documentation/*.md", "readme.md"],
-		"excludeReferences": true
-	}
+	"include": ["src/**/*.ts"]
 }
