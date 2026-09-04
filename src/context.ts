@@ -2,7 +2,7 @@
 import { UV } from 'kerium';
 import { bindFunctions } from 'utilium';
 import type { BoundContext, ContextInit, FSContext, V_Context } from './internal/contexts.js';
-import { contextOf, createChildContext } from './internal/contexts.js';
+import { contextOf, createChildContext, defaultContext } from './internal/contexts.js';
 import * as fs from './node/index.js';
 import * as path from './path.js';
 import * as xattr from './vfs/xattr.js';
@@ -22,9 +22,11 @@ export const boundContexts = new Map<number, BoundContext>();
  * @category Contexts
  */
 export function bindContext(this: V_Context, init: ContextInit = {}): BoundContext {
-	const $ = contextOf(this);
+	const $ = contextOf(this),
+		parent = $.parent || defaultContext;
 
-	if (!fs.statSync.call<typeof this, [string], fs.Stats>(this, $.root).isDirectory()) throw UV('ENOTDIR', { syscall: 'chroot', path: $.root });
+	if (!fs.statSync.call<typeof this, [string], fs.Stats>(parent, parent.root).isDirectory())
+		throw UV('ENOTDIR', { syscall: 'chroot', path: parent.root });
 
 	const ctx = createChildContext($, init);
 

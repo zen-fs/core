@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { bindContext, configure, fs, InMemory } from '@zenfs/core';
+import { bindContext, configure, fs, InMemory, type BoundContext } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { canary } from 'utilium';
@@ -123,5 +123,15 @@ suite('Context', () => {
 
 		assert.equal(ctx.readFileSync('/copy.txt', 'utf-8'), 'not in real root!');
 		assert(fs.readdirSync('/ctx').includes('copy.txt'));
+	});
+
+	test('bindContext should resolve root relative to the parent context', () => {
+		fs.mkdirSync('/secure');
+		const ctx = bindContext({ root: '/secure', credentials: { uid: 333, gid: 333 } });
+
+		const plain = bindContext({ credentials: { uid: 1, gid: 1 } });
+		console.log('child of / context: ok, root =', plain.root);
+
+		assert.doesNotThrow(() => ctx.bind({ credentials: { uid: 500, gid: 500 } }));
 	});
 });

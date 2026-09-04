@@ -168,7 +168,7 @@ export function chroot(this: V_Context, path: string) {
 		(handle as any).path = handle.path.slice($.root.length);
 	}
 
-	if (newRoot.length > $.root.length) throw withErrno('EPERM', 'Can not chroot() outside of current root');
+	if (newRoot.length < $.root.length) throw withErrno('EPERM', 'Can not chroot() outside of current root');
 
 	$.root = newRoot;
 }
