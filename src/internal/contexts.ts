@@ -129,12 +129,7 @@ let _nextId = 2;
 export function createChildContext(parent: FSContext, init: ContextInit = {}): FSContext & { parent: FSContext } {
 	assertContext(parent);
 
-	const {
-		root = parent.root,
-		pwd = parent.pwd,
-		credentials = structuredClone(parent.credentials),
-		mounts = Object.fromEntries(parent.mounts),
-	} = init;
+	const { root = parent.root, pwd = parent.pwd, credentials = structuredClone(parent.credentials), mounts } = init;
 
 	const ctx: FSContext & { parent: FSContext } = {
 		[kIsContext]: true,
@@ -145,7 +140,7 @@ export function createChildContext(parent: FSContext, init: ContextInit = {}): F
 		descriptors: new Map(),
 		parent: parent,
 		children: [],
-		mounts: new Map(Object.entries(mounts)),
+		mounts: mounts ? new Map(Object.entries(mounts)) : parent.mounts,
 	};
 
 	Object.defineProperties(ctx, {
