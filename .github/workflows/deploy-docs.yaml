@@ -21,4 +21,4 @@ jobs:
                       exit 0
                   fi
                   echo "{\"event_type\":\"docs\",\"client_payload\":{\"repository\":\"$GITHUB_REPOSITORY\",\"ref\":\"$GITHUB_REF_NAME\"}}" \
-                      | gh api --method POST repos/zen-fs/zen-fs.github.io/dispatches --input -
+                      | gh api --method POST repos/zen-fs/docs/dispatches --input -
