@@ -44,7 +44,7 @@ Your financial support would go a long way toward improving ZenFS and its commun
 ## Usage
 
 > [!IMPORTANT]
-> **[Check out the ZenFS docs!](https://zenfs.dev/guides/using-zenfs/)**
+> **[Check out the ZenFS docs!](https://zenfs.dev/start/usage/)**
 
 ```js
 import { fs } from '@zenfs/core'; // You can also use the default export
@@ -78,7 +78,7 @@ await configure({
 The `fs/promises` API is available from `@zenfs/core/promises`, as the `promises` export, or as
 `fs.promises`.
 
-For the full usage guide, see **[the documentation](https://zenfs.dev/guides/using-zenfs/)**.
+For the full usage guide, see **[the documentation](https://zenfs.dev/start/usage/)**.
 This includes mounting at runtime, contexts and permissions, devices, and the `node:*`module emulation.
 
 ## Bundling
