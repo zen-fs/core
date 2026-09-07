@@ -8,7 +8,7 @@ export const data = join(import.meta.dirname, 'data');
 
 export const tmp = join(import.meta.dirname, 'tmp');
 
-if (!existsSync(tmp)) mkdirSync(tmp);
+if (!existsSync(tmp)) mkdirSync(tmp, { recursive: true });
 
 export async function copyAsync(_path: string, fs: NodeFS = _fs): Promise<void> {
 	const path = relative(data, _path) || '/';
