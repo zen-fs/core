@@ -100,6 +100,16 @@ export class FetchFS extends IndexFS {
 		if (this.remoteWrite) return requests.set(url, zeroes, { offset: oldSize, warn }, this.requestInit).catch(parseError);
 	}
 
+	protected async _create(path: string, inode: Inode): Promise<void> {
+		await requests
+			.set(this.baseUrl + path, new Uint8Array(inode.size), { warn, cacheOnly: !this.remoteWrite, method: 'PUT' }, this.requestInit)
+			.catch(parseError);
+	}
+
+	protected _createSync(path: string, inode: Inode): void {
+		this._async(this._create(path, inode));
+	}
+
 	public override async touch(path: string, metadata: InodeLike): Promise<void> {
 		const inode = this.index.get(path) ?? _throw(withErrno('ENOENT'));
 		const oldSize = inode.size;
@@ -120,7 +130,7 @@ export class FetchFS extends IndexFS {
 	}
 
 	protected removeSync(path: string): void {
-		this._async(requests.remove(this.baseUrl + path, { warn, cacheOnly: !this.remoteWrite }, this.requestInit));
+		this._async(this.remove(path));
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number = 0, end: number): Promise<void> {

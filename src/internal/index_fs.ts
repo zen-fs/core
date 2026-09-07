@@ -18,6 +18,8 @@ interface MoveInfo {
  * A file system that uses an `Index` for metadata.
  * @category Internals
  * @internal
+ *
+ * @todo [breaking] replace the three method `create` system with something more intuitive, e.g. requiring subclasses to implement `createFile`, with this just exposing `create` for convenience.
  */
 export abstract class IndexFS extends FileSystem {
 	public constructor(
@@ -151,6 +153,11 @@ export abstract class IndexFS extends FileSystem {
 		this.removeSync(path);
 	}
 
+	/** Create a new file in the underlying backend */
+	protected _create?(path: string, inode: Inode): Promise<void>;
+	/** Create a new file in the underlying backend */
+	protected _createSync?(path: string, inode: Inode): void;
+
 	protected create(path: string, options: CreationOptions) {
 		if (this.index.has(path)) throw withErrno('EEXIST');
 
@@ -174,11 +181,25 @@ export abstract class IndexFS extends FileSystem {
 	}
 
 	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
-		return this.create(path, { ...options, mode: options.mode | S_IFREG });
+		const inode = this.create(path, { ...options, mode: options.mode | S_IFREG });
+		try {
+			await this._create?.(path, inode);
+			return inode;
+		} catch (e) {
+			this.index.delete(path);
+			throw e;
+		}
 	}
 
 	public createFileSync(path: string, options: CreationOptions): Inode {
-		return this.create(path, { ...options, mode: options.mode | S_IFREG });
+		const inode = this.create(path, { ...options, mode: options.mode | S_IFREG });
+		try {
+			this._createSync?.(path, inode);
+			return inode;
+		} catch (e) {
+			this.index.delete(path);
+			throw e;
+		}
 	}
 
 	protected _mkdir?(path: string, options: CreationOptions): Promise<void>;

@@ -69,9 +69,8 @@
 		"lint": "eslint src tests",
 		"test": "npx -s zenfs-test --clean; npx -s zenfs-test -abcpn; tests/fetch/run.sh; npx -s zenfs-test --report-only",
 		"test:native": "npx -s zenfs-test tests/native-setup.ts --verbose",
-		"build": "tsc -p tsconfig.json",
-		"build:docs": "typedoc",
-		"dev": "tsc -p tsconfig.json --watch",
+		"build": "tsc --build",
+		"dev": "tsc --build --watch",
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {
