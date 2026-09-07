@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import type { BufferView } from 'node:buffer';
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { InodeLike } from '../internal/inode.js';
@@ -138,18 +139,62 @@ export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode
 }
 
 /**
+ * Resolves the `buffer` option of `readFileSync` into a buffer covering the first `size` bytes of the view.
+ * @hidden
+ */
+function intoBuffer(into: ArrayBufferView | ((size: number) => ArrayBufferView), size: number): Buffer {
+	const isFn = typeof into == 'function';
+	const view = isFn ? into(size) : into;
+	const name = isFn ? 'options.buffer()' : 'options.buffer';
+
+	if (!ArrayBuffer.isView(view))
+		throw Object.assign(
+			new TypeError(
+				`The "options.buffer" property must be of type function or an instance of Buffer, TypedArray, or DataView. Received ${typeof view}`
+			),
+			{ code: 'ERR_INVALID_ARG_TYPE' }
+		);
+
+	if (view.byteLength < size)
+		throw Object.assign(
+			new TypeError(`The property '${name}.byteLength' is smaller than the file size of ${size} bytes. Received ${view.byteLength}`),
+			{
+				code: 'ERR_INVALID_ARG_VALUE',
+			}
+		);
+
+	return Buffer.from(view.buffer, view.byteOffset, size);
+}
+
+/**
  * Synchronously reads the entire contents of a file.
  * @option encoding The string encoding for the file contents. Defaults to `null`.
  * @option flag Defaults to `'r'`.
+ * @option buffer A view (or a factory taking the file size) the contents are read into,
+ * instead of allocating a new buffer. It must be large enough to hold the entire file.
  * @returns file contents
  */
-export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options?: { flag?: string } | null): NonSharedBuffer;
+export function readFileSync<T extends NodeJS.ArrayBufferView>(
+	this: V_Context,
+	path: fs.PathOrFileDescriptor,
+	options: fs.ReadFileSyncOptionsWithBuffer<T>
+): BufferView<T>;
 export function readFileSync(
 	this: V_Context,
 	path: fs.PathOrFileDescriptor,
-	options?: (fs.EncodingOption & { flag?: string }) | BufferEncoding | null
+	options?: fs.ReadFileSyncOptionsWithBufferEncoding | null
+): NonSharedBuffer;
+export function readFileSync(
+	this: V_Context,
+	path: fs.PathOrFileDescriptor,
+	options: fs.ReadFileSyncOptionsWithStringEncoding | BufferEncoding
 ): string;
-export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _options: fs.WriteFileOptions | null = {}): FileContents {
+export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options: fs.ReadFileSyncOptions): string | NonSharedBuffer;
+export function readFileSync(
+	this: V_Context,
+	path: fs.PathOrFileDescriptor,
+	_options: (fs.ReadFileSyncOptions & { buffer?: ArrayBufferView | ((size: number) => ArrayBufferView) }) | BufferEncoding | null = {}
+): FileContents {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = flags.parse(options.flag);
 	if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', path.toString());
@@ -159,7 +204,9 @@ export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, _op
 			? fromFD(this, path)
 			: _sync.open(this, path.toString(), { flag: options.flag, mode: 0o644, preserveSymlinks: false });
 	const { size } = file.stat();
-	const data = Buffer.alloc(size);
+
+	const into = typeof _options == 'object' && _options !== null ? _options.buffer : undefined;
+	const data = into === undefined ? Buffer.alloc(size) : intoBuffer(into, size);
 	file.readSync(data, 0, size, 0);
 
 	return options.encoding ? data.toString(options.encoding) : data;
@@ -673,7 +720,7 @@ export function copyFileSync(this: V_Context, source: fs.PathLike, destination: 
 
 	if (flags && flags & constants.COPYFILE_EXCL && existsSync.call(this, destination)) throw UV('EEXIST', 'copyFile', destination);
 
-	writeFileSync.call(this, destination, readFileSync.call(this, source));
+	writeFileSync.call(this, destination, readFileSync.call(this, source, {}));
 	emitChange(this, 'rename', destination.toString());
 }
 copyFileSync satisfies typeof fs.copyFileSync;
