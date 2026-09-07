@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/triple-slash-reference, @typescript-eslint/no-misused-promises */
-/// <reference path="../../types/readable-stream.d.ts" preserve="true" />
 import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions } from 'node:fs/promises';
 import type { Callback } from '../utils.js';
 import type { FileHandle } from './promises.js';
 
+import { eos, Readable, Writable } from '@zenfs/streams';
 import { Errno, Exception, UV } from 'kerium';
 import { warn } from 'kerium/log';
-import { finished, Readable, Writable } from 'readable-stream';
 
 interface FSImplementation {
 	open?: (...args: unknown[]) => unknown;
@@ -101,7 +100,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 	 * Closing before the stream has finished reports `ERR_STREAM_PREMATURE_CLOSE`.
 	 */
 	close(callback: Callback<[void]> = () => null): void {
-		finished(this, error => callback((error as Exception) ?? null));
+		eos(this, error => callback((error as Exception) ?? null));
 		this.destroy();
 	}
 
