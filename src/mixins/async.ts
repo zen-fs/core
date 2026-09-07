@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
+import type { Semaphore } from 'kerium/locks';
 import { crit, debug, err } from 'kerium/log';
 import { StoreFS } from '../backends/store/fs.js';
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
@@ -21,13 +22,13 @@ export type AsyncOperation = {
  * @category Internals
  */
 export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'existsSync'>> {
-	/**
-	 * @internal @protected
-	 */
+	/** @internal @protected */
 	_sync?: FileSystem;
-	/**
-	 * @deprecated Use {@link sync | `sync`} instead
-	 */
+
+	/** Restrict how many files can be copied across at once @internal @protected */
+	_crossCopySemaphore?: Semaphore;
+
+	/** @deprecated Use {@link sync | `sync`} instead */
 	queueDone(): Promise<void>;
 
 	ready(): Promise<void>;
@@ -225,13 +226,15 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			});
 		}
 
-		/**
-		 * @internal
-		 */
+		/** @internal @protected */
+		_crossCopySemaphore?: Semaphore;
+
+		/** @internal */
 		protected async crossCopy(path: string): Promise<void> {
 			this.checkSync();
 			const stats = await this.stat(path);
 			if (!isDirectory(stats)) {
+				using _ = (await this._crossCopySemaphore?.get()) || { [Symbol.dispose]() {} };
 				this._sync.createFileSync(path, stats);
 				const buffer = new Uint8Array(stats.size);
 				await this.read(path, buffer, 0, stats.size);
