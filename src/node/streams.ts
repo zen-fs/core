@@ -6,7 +6,9 @@ import type { CreateReadStreamOptions, CreateWriteStreamOptions } from 'node:fs/
 import type { Callback } from '../utils.js';
 import type { FileHandle } from './promises.js';
 
-import { eos, Readable, Writable } from '@zenfs/streams';
+import { eos } from '@zenfs/streams/end-of-stream';
+import { Readable } from '@zenfs/streams/readable';
+import { Writable } from '@zenfs/streams/writable';
 import { Errno, Exception, UV } from 'kerium';
 import { warn } from 'kerium/log';
 
