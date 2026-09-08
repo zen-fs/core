@@ -17,8 +17,8 @@ export interface FileReadResult<T extends ArrayBufferView> {
 	buffer: T;
 }
 
-/** The chunk size used when streaming reads and writes */
-const streamChunkSize = 0x1000;
+/** Default bytes per chunk for streamed reads, matching Node's default stream `highWaterMark` */
+const streamChunkSize = 0x10000;
 
 /**
  * @internal
@@ -403,19 +403,26 @@ export class Handle {
 		if (this.closed) throw UV('EBADF', 'streamRead', this.path);
 
 		const { vnode } = this;
-		return new ReadableStream({
-			async start(controller) {
-				using _ = await vnode.lock('ro');
-				const { start = 0, end = vnode.inode.size } = options;
+		const { chunkSize = streamChunkSize } = options;
+		let offset = options.start ?? 0;
+		let end = options.end;
 
-				for (let offset = start; offset < end; offset += streamChunkSize) {
-					const bytesRead = offset + streamChunkSize > end ? end - offset : streamChunkSize;
-					const buffer = new Uint8Array(bytesRead);
-					await vnode.read(buffer, offset, offset + bytesRead).catch(controller.error.bind(controller));
-					controller.enqueue(buffer);
+		return new ReadableStream({
+			async pull(controller) {
+				using _ = await vnode.lock('ro');
+				end ??= vnode.inode.size;
+
+				if (offset >= end) {
+					controller.close();
+					return;
 				}
 
-				controller.close();
+				const buffer = new Uint8Array(Math.min(chunkSize, end - offset));
+				await vnode.read(buffer, offset, offset + buffer.byteLength);
+				offset += buffer.byteLength;
+				controller.enqueue(buffer);
+
+				if (offset >= end) controller.close();
 			},
 			type: 'bytes',
 		});

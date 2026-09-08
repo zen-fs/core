@@ -66,7 +66,11 @@ export class ReadStream extends Readable implements fs.ReadStream {
 				this._path = handle['vfs'].path;
 
 				// `end` is inclusive for streams, but the internal range is not
-				const internal = handle.readableWebStream({ start: opts.start, end: opts.end === undefined ? undefined : opts.end + 1 });
+				const internal = handle.readableWebStream({
+					start: opts.start,
+					end: opts.end === undefined ? undefined : opts.end + 1,
+					chunkSize: opts.highWaterMark,
+				});
 				this.reader = internal.getReader();
 				this.pending = false;
 			})

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { RwLockable } from 'kerium/locks';
-import { Resource, type Range } from 'utilium/cache';
+import { addRange, Resource, type Range } from 'utilium/cache';
 import type { FileSystem } from '../internal/filesystem.js';
 import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 
@@ -70,15 +70,7 @@ export class VNode extends RwLockable {
 
 	/** Add a range to `dirtyRanges`, merging overlapping and adjacent ranges */
 	protected markDirty(start: number, end: number): void {
-		this.dirtyRanges.push({ start, end });
-		this.dirtyRanges.sort((a, b) => a.start - b.start);
-		const merged: Range[] = [];
-		for (const range of this.dirtyRanges) {
-			const last = merged.at(-1);
-			if (last && range.start <= last.end) last.end = Math.max(last.end, range.end);
-			else merged.push(range);
-		}
-		this.dirtyRanges = merged;
+		addRange(this.dirtyRanges, start, end);
 	}
 
 	/**
@@ -87,10 +79,9 @@ export class VNode extends RwLockable {
 	 */
 	protected copyFromCache(buffer: Uint8Array, start: number, end: number): void {
 		let pos = start;
-		for (const region of this.data.regions) {
+		for (const region of this.data.regionsIn(start, end)) {
 			const regionEnd = region.offset + region.data.byteLength;
 			if (regionEnd <= pos) continue;
-			if (region.offset >= end) break;
 
 			if (region.offset > pos) {
 				buffer.fill(0, pos - start, region.offset - start);

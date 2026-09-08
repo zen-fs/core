@@ -80,7 +80,7 @@
 		"kerium": "^1.5.0",
 		"memium": "^1.0.0",
 		"readable-stream": "^4.5.2",
-		"utilium": "^3.0.0"
+		"utilium": "^3.7.0"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

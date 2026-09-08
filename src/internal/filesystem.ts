@@ -137,13 +137,13 @@ export interface CreationOptions extends Readonly<Partial<InodeLike>> {
  */
 export interface StreamOptions {
 	start?: number;
-
 	end?: number;
-
 	autoClose?: boolean;
+	chunkSize?: number;
 }
 
-const _chunkSize = 0x1000;
+/** Default bytes per chunk for streamed reads, matching Node's default stream `highWaterMark` */
+const defaultChunkSize = 0x10000;
 
 /**
  * Provides a consistent and easy to use internal API.
@@ -315,19 +315,25 @@ export abstract class FileSystem {
 	 * @privateRemarks The default implementation of `streamRead` uses "chunked" `read`s
 	 */
 	public streamRead(path: string, options: StreamOptions): ReadableStream {
-		return new ReadableStream({
-			start: async controller => {
-				const { size } = await this.stat(path);
-				const { start = 0, end = size } = options;
+		const { chunkSize = defaultChunkSize } = options;
+		let offset = options.start ?? 0;
+		let end = options.end;
 
-				for (let offset = start; offset < end; offset += _chunkSize) {
-					const bytesRead = offset + _chunkSize > end ? end - offset : _chunkSize;
-					const buffer = new Uint8Array(bytesRead);
-					await this.read(path, buffer, offset, offset + bytesRead).catch(controller.error.bind(controller));
-					controller.enqueue(buffer);
+		return new ReadableStream({
+			pull: async controller => {
+				end ??= (await this.stat(path)).size;
+
+				if (offset >= end) {
+					controller.close();
+					return;
 				}
 
-				controller.close();
+				const buffer = new Uint8Array(Math.min(chunkSize, end - offset));
+				await this.read(path, buffer, offset, offset + buffer.byteLength);
+				offset += buffer.byteLength;
+				controller.enqueue(buffer);
+
+				if (offset >= end) controller.close();
 			},
 			type: 'bytes',
 		});
