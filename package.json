@@ -69,6 +69,7 @@
 		"lint": "eslint src tests",
 		"test": "npx -s zenfs-test --clean; npx -s zenfs-test -abcpn; tests/fetch/run.sh; npx -s zenfs-test --report-only",
 		"test:native": "npx -s zenfs-test tests/native-setup.ts --verbose",
+		"test:perf": "zbench",
 		"build": "tsc --build",
 		"dev": "tsc --build --watch",
 		"prepublishOnly": "npm run build"
@@ -91,7 +92,8 @@
 		"prettier": "^3.2.5",
 		"typedoc": "^0.28.18",
 		"typescript": "^6.0.0",
-		"typescript-eslint": "^8.58.0"
+		"typescript-eslint": "^8.58.0",
+		"zbench-js": "^0.1.0"
 	},
 	"prettier": {
 		"singleQuote": true,

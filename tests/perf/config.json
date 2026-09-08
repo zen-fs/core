@@ -1,0 +1,84 @@
+{
+	"flags": {
+		"prep": ["writeFile", "stream"]
+	},
+	"tests": [
+		{
+			"path": "stream-read.ts",
+			"name": "Read with createReadStream",
+			"flags": ["prep"],
+			"measure": {
+				"bytes": { "throughput": "s", "aggregate_throughput": "s", "unit": "MB" },
+				"files": { "cost": true, "unit": "file" }
+			},
+			"configurations": [
+				{ "name": "4K x2000", "value": { "size": 4096, "count": 2000, "hwm": 65536 } },
+				{ "name": "256K x200", "value": { "size": 262144, "count": 200, "hwm": 65536 } },
+				{ "name": "8M x8", "cpu": 1, "mem": 1, "value": { "size": 8388608, "count": 8, "hwm": 65536 } },
+				{
+					"name": "8M x8, hwm 1M",
+					"cpu": 1,
+					"mem": 1,
+					"value": { "size": 8388608, "count": 8, "hwm": 1048576 }
+				}
+			]
+		},
+		{
+			"path": "stream-write.ts",
+			"name": "Write with createWriteStream",
+			"measure": {
+				"bytes": { "throughput": "s", "aggregate_throughput": "s", "unit": "MB" },
+				"files": { "cost": true, "unit": "file" }
+			},
+			"configurations": [
+				{ "name": "4K x2000", "value": { "size": 4096, "count": 2000, "hwm": 65536 } },
+				{ "name": "256K x200", "value": { "size": 262144, "count": 200, "hwm": 65536 } },
+				{ "name": "8M x8", "cpu": 1, "mem": 1, "value": { "size": 8388608, "count": 8, "hwm": 65536 } },
+				{
+					"name": "8M x8, hwm 1M",
+					"cpu": 1,
+					"mem": 1,
+					"value": { "size": 8388608, "count": 8, "hwm": 1048576 }
+				}
+			]
+		},
+		{
+			"path": "fragmented-read.ts",
+			"name": "Read across many cached regions",
+			"measure": {
+				"reads": { "cost": true, "aggregate_cost": true, "unit": "read" }
+			},
+			"configurations": [
+				{ "name": "128 regions", "value": { "regions": 128, "reads": 4000 } },
+				{ "name": "512 regions", "value": { "regions": 512, "reads": 4000 } },
+				{ "name": "2048 regions", "cpu": 1, "value": { "regions": 2048, "reads": 4000 } },
+				{ "name": "8192 regions", "cpu": 2, "mem": 1, "value": { "regions": 8192, "reads": 4000 } }
+			]
+		},
+		{
+			"path": "fragmented-write.ts",
+			"name": "Scattered writes into one file",
+			"measure": {
+				"writes": { "cost": true, "aggregate_cost": true, "unit": "write" }
+			},
+			"configurations": [
+				{ "name": "512 writes", "value": { "writes": 512 } },
+				{ "name": "2048 writes", "cpu": 1, "value": { "writes": 2048 } },
+				{ "name": "8192 writes", "cpu": 2, "mem": 1, "value": { "writes": 8192 } }
+			]
+		},
+		{
+			"path": "append.ts",
+			"name": "Append 4 KB at a time",
+			"measure": {
+				"bytes": { "throughput": "s", "unit": "MB" },
+				"writes": { "cost": true, "aggregate_cost": true, "unit": "write" }
+			},
+			"configurations": [
+				{ "name": "500 appends", "value": { "writes": 500 } },
+				{ "name": "2000 appends", "value": { "writes": 2000 } },
+				{ "name": "8000 appends", "cpu": 1, "value": { "writes": 8000 } }
+			]
+		}
+	]
+}
