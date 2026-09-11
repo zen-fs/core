@@ -3,61 +3,24 @@ import type * as Node from 'node:fs';
 import { pick } from 'utilium';
 import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
-import type { InodeFields } from '../internal/inode.js';
+import type { InodeFields, InodeLike, StatsLike } from '../internal/inode.js';
 import { _inode_fields, hasAccess } from '../internal/inode.js';
 import { _temporal } from '../utils.js';
 
 const _nsMultiplier = BigInt(1_000_000) as 1_000_000n;
 
-export interface StatsLike<T extends number | bigint = number | bigint> {
-	/**
-	 * Size of the item in bytes.
-	 * For directories/symlinks, this is normally the size of the struct that represents the item.
-	 */
-	size: T;
-	/**
-	 * Unix-style file mode (e.g. 0o644) that includes the item type
-	 */
-	mode: T;
-	/**
-	 * Time of last access, since epoch
-	 */
-	atimeMs: T;
-	/**
-	 * Time of last modification, since epoch
-	 */
-	mtimeMs: T;
-	/**
-	 * Time of last time file status was changed, since epoch
-	 */
-	ctimeMs: T;
-	/**
-	 * Time of file creation, since epoch
-	 */
-	birthtimeMs: T;
-	/**
-	 * The id of the user that owns the file
-	 */
-	uid: T;
-	/**
-	 * The id of the group that owns the file
-	 */
-	gid: T;
-	/**
-	 * Inode number
-	 */
-	ino: T;
-	/**
-	 * Number of hard links
-	 */
-	nlink: T;
+export interface StatsExtra<T extends number | bigint> {
+	/** ID of device containing file */
+	dev: T;
+	/** Block size for file system I/O */
+	blksize: T;
 }
 
 /**
  * Provides information about a particular entry in the file system.
  * Common code used by both Stats and BigIntStats.
  */
-export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T>, StatsLike {
+export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T>, StatsLike<T>, StatsExtra<T> {
 	protected abstract _isBigint: T extends bigint ? true : false;
 
 	protected _convert(arg: number | bigint | string | boolean): T {
@@ -70,49 +33,23 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	public set blocks(value: T) {}
 
-	/**
-	 * Unix-style file mode (e.g. 0o644) that includes the type of the item.
-	 */
+	/** Unix-style file mode (e.g. 0o644) that includes the type of the item. */
 	public mode: T;
-
-	/**
-	 * ID of device containing file
-	 */
+	/** ID of device containing file */
 	public dev: T = this._convert(0);
-
-	/**
-	 * Inode number
-	 */
+	/** Inode number */
 	public ino: T = this._convert(0);
-
-	/**
-	 * Device ID (if special file)
-	 */
+	/** Device ID (if special file) */
 	public rdev: T = this._convert(0);
-
-	/**
-	 * Number of hard links
-	 */
+	/** Number of hard links */
 	public nlink: T = this._convert(1);
-
-	/**
-	 * Block size for file system I/O
-	 */
+	/** Block size for file system I/O */
 	public blksize: T = this._convert(4096);
-
-	/**
-	 * User ID of owner
-	 */
+	/** User ID of owner */
 	public uid: T = this._convert(0);
-
-	/**
-	 * Group ID of owner
-	 */
+	/** Group ID of owner */
 	public gid: T = this._convert(0);
-
-	/**
-	 * Time of last access, since epoch
-	 */
+	/** Time of last access, since epoch */
 	public atimeMs: T;
 
 	public get atime(): Date {
@@ -131,94 +68,65 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.atimeMs = this._convert(value.epochMilliseconds);
 	}
 
-	/**
-	 * Time of last modification, since epoch
-	 */
+	/** Time of last modification, since epoch */
 	public mtimeMs: T;
-
 	public get mtime(): Date {
 		return new Date(Number(this.mtimeMs));
 	}
-
 	public set mtime(value: Date) {
 		this.mtimeMs = this._convert(value.getTime());
 	}
-
 	public get mtimeInstant(): Temporal.Instant {
 		return _temporal().Instant.fromEpochMilliseconds(Number(this.mtimeMs));
 	}
-
 	public set mtimeInstant(value: Temporal.Instant) {
 		this.mtimeMs = this._convert(value.epochMilliseconds);
 	}
 
-	/**
-	 * Time of last time file status was changed, since epoch
-	 */
+	/** Time of last time file status was changed, since epoch */
 	public ctimeMs: T;
-
 	public get ctime(): Date {
 		return new Date(Number(this.ctimeMs));
 	}
-
 	public set ctime(value: Date) {
 		this.ctimeMs = this._convert(value.getTime());
 	}
-
 	public get ctimeInstant(): Temporal.Instant {
 		return _temporal().Instant.fromEpochMilliseconds(Number(this.ctimeMs));
 	}
-
 	public set ctimeInstant(value: Temporal.Instant) {
 		this.ctimeMs = this._convert(value.epochMilliseconds);
 	}
 
-	/**
-	 * Time of file creation, since epoch
-	 */
+	/** Time of file creation, since epoch */
 	public birthtimeMs: T;
-
 	public get birthtime(): Date {
 		return new Date(Number(this.birthtimeMs));
 	}
-
 	public set birthtime(value: Date) {
 		this.birthtimeMs = this._convert(value.getTime());
 	}
-
 	public get birthtimeInstant(): Temporal.Instant {
 		return _temporal().Instant.fromEpochMilliseconds(Number(this.birthtimeMs));
 	}
-
 	public set birthtimeInstant(value: Temporal.Instant) {
 		this.birthtimeMs = this._convert(value.epochMilliseconds);
 	}
 
-	/**
-	 * Size of the item in bytes.
-	 * For directories/symlinks, this is normally the size of the struct that represents the item.
-	 */
+	/** Size of the item in bytes. For directories/symlinks, this may be the size of the struct that represents the item. */
 	public size: T;
 
-	/**
-	 * @internal Used by inodes
-	 */
+	/** @internal Used by inodes */
 	public data?: number;
 
-	/**
-	 * @internal Used by inodes
-	 */
+	/** @internal Used by inodes */
 	public flags?: number;
 
-	/**
-	 * @internal Used by inodes
-	 */
+	/** @internal Used by inodes */
 	public version?: number;
 
-	/**
-	 * Creates a new stats instance from a stats-like object. Can be used to copy stats (note)
-	 */
-	public constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino, ...rest }: Partial<StatsLike & InodeFields> = {}) {
+	/** Creates a new stats instance from a stats-like object. Can be used to copy stats (note) */
+	public constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino, ...rest }: Partial<InodeLike<number | bigint>> = {}) {
 		const now = Date.now();
 		this.atimeMs = this._convert(atimeMs ?? now);
 		this.mtimeMs = this._convert(mtimeMs ?? now);
@@ -265,7 +173,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	}
 
 	public toJSON(): StatsLike<T> & InodeFields {
-		return pick(this, _inode_fields);
+		return pick(this, ..._inode_fields, 'dev', 'blksize');
 	}
 
 	/**
@@ -331,9 +239,6 @@ export function isStatsEqual<T extends number | bigint>(left: StatsCommon<T>, ri
 		&& left.mode == right.mode
 	);
 }
-
-/** @internal */
-export const ZenFsType = 0x7a656e6673; // 'z' 'e' 'n' 'f' 's'
 
 /**
  * @hidden

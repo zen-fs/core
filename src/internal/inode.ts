@@ -180,63 +180,41 @@ export interface InodeFields {
 	data?: number;
 	flags?: number;
 	version?: number;
+	/** Extended attributes */
+	attributes?: Attributes;
+}
+
+export interface StatsLike<T extends number | bigint = number | bigint> {
+	/** Size of the item in bytes. For directories/symlinks, this may be the size of the struct that represents the item. */
+	size: T;
+	/** Unix-style file mode (e.g. 0o644) that includes the item type */
+	mode: T;
+	/** Time of last access, since epoch */
+	atimeMs: T;
+	/** Time of last modification, since epoch */
+	mtimeMs: T;
+	/** Time of last time file status was changed, since epoch */
+	ctimeMs: T;
+	/** Time of file creation, since epoch */
+	birthtimeMs: T;
+	/** The id of the user that owns the file */
+	uid: T;
+	/** The id of the group that owns the file */
+	gid: T;
+	/** Inode number */
+	ino: T;
+	/** Number of hard links */
+	nlink: T;
+	/** Device ID for special files */
+	rdev: T;
 }
 
 /**
  * @category Internals
  * @internal
+ * @todo [breaking] switch fully to using bigints
  */
-export interface InodeLike<T extends number | bigint = number> extends InodeFields {
-	/**
-	 * Size of the item in bytes.
-	 * For directories/symlinks, this is normally the size of the struct that represents the item.
-	 */
-	size: T;
-	/**
-	 * Unix-style file mode (e.g. 0o644) that includes the item type
-	 */
-	mode: T;
-	/**
-	 * Time of last access, since epoch
-	 */
-	atimeMs: T;
-	/**
-	 * Time of last modification, since epoch
-	 */
-	mtimeMs: T;
-	/**
-	 * Time of last time file status was changed, since epoch
-	 */
-	ctimeMs: T;
-	/**
-	 * Time of file creation, since epoch
-	 */
-	birthtimeMs: T;
-	/**
-	 * The id of the user that owns the file
-	 */
-	uid: T;
-	/**
-	 * The id of the group that owns the file
-	 */
-	gid: T;
-	/**
-	 * Inode number
-	 */
-	ino: T;
-	/**
-	 * Number of hard links
-	 */
-	nlink: T;
-	/**
-	 * Device ID for special files
-	 */
-	rdev: T;
-	/**
-	 * Extended attributes
-	 */
-	attributes?: Attributes;
-}
+export interface InodeLike<T extends number | bigint = number> extends InodeFields, StatsLike<T> {}
 
 /**
  * @internal @hidden
