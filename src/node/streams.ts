@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-/* eslint-disable @typescript-eslint/triple-slash-reference, @typescript-eslint/no-misused-promises */
+/* eslint-disable @typescript-eslint/no-misused-promises */
 import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions } from 'node:fs/promises';
