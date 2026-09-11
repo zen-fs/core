@@ -313,9 +313,20 @@ export enum InodeFlags {
 	KernelFile = 1 << 17,
 }
 
-/** User visible flags */
+/**
+ * User visible flags
+ * These are actually masks for userspace `FileFlag`s, not `InodeFlags`.
+ * @deprecated Use the export from `/internal/ioctl`
+ * @todo [breaking] remove
+ */
 export const userVisibleFlags = 0x0003dfff;
-/** User modifiable flags */
+
+/**
+ * User modifiable flags
+ * These are actually masks for userspace `FileFlag`s, not `InodeFlags`.
+ * @deprecated Use the export from `/internal/ioctl`
+ * @todo [breaking] remove these re-exports
+ */
 export const userModifiableFlags = 0x000380ff;
 
 /**

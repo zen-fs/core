@@ -1,89 +1,14 @@
-import { Errno, Exception, withErrno } from 'kerium';
-import { sizeof } from 'memium';
-import { $from, struct, types as t } from 'memium/decorators';
-import { _throw } from 'utilium';
-import { BufferView } from 'utilium/buffer';
+import { withErrno } from 'kerium';
 import type { FileSystem } from './filesystem.js';
 import type { InodeLike } from './inode.js';
 import { InodeFlags } from './inode.js';
-
-/*
- * Flags for the fsxattr.xflags field
- */
-enum XFlag {
-	/** data in realtime volume */
-	RealTime = 0x00000001,
-	/** preallocated file extents */
-	PreAlloc = 0x00000002,
-	/** file cannot be modified */
-	Immutable = 0x00000008,
-	/** all writes append */
-	Append = 0x00000010,
-	/** all writes synchronous */
-	Sync = 0x00000020,
-	/** do not update access time */
-	NoAtime = 0x00000040,
-	/** do not include in backups */
-	NoDump = 0x00000080,
-	/** create with rt bit set */
-	RtInherit = 0x00000100,
-	/** create with parents projid */
-	ProjInherit = 0x00000200,
-	/** disallow symlink creation */
-	NoSymlinks = 0x00000400,
-	/** extent size allocator hint */
-	ExtSize = 0x00000800,
-	/** inherit inode extent size */
-	ExtSzInherit = 0x00001000,
-	/** do not defragment */
-	NoDefrag = 0x00002000,
-	/** use filestream allocator */
-	FileStream = 0x00004000,
-	/** use DAX for IO */
-	Dax = 0x00008000,
-	/** CoW extent size allocator hint */
-	CowExtSize = 0x00010000,
-	/** no DIFLAG for this */
-	HasAttr = 0x80000000,
-}
-
-@struct()
-class fsxattr extends $from(BufferView) {
-	static name = 'fsxattr';
-
-	/** xflags field value */
-	@t.uint32 accessor xflags!: number;
-	/** extsize field value */
-	@t.uint32 accessor extsize!: number;
-	/** nextents field value */
-	@t.uint32 accessor nextents!: number;
-	/** project identifier */
-	@t.uint32 accessor projid!: number;
-	/** CoW extsize field value */
-	@t.uint32 accessor cowextsize!: number;
-	@t.char(8) protected accessor pad: number[] = [];
-
-	public constructor(inode: Readonly<InodeLike> = _throw(new Exception(Errno.EINVAL, 'fsxattr must be initialized with an inode'))) {
-		super(new ArrayBuffer(sizeof(fsxattr)));
-
-		this.extsize = inode.size;
-		this.nextents = 1;
-		this.projid = inode.uid;
-		this.cowextsize = inode.size;
-
-		for (const name of Object.keys(InodeFlags) as (keyof typeof InodeFlags)[]) {
-			if (!((inode.flags || 0) & InodeFlags[name])) continue;
-			if (name in XFlag) this.xflags |= XFlag[name as keyof typeof XFlag];
-		}
-	}
-}
 
 /**
  * Inode flags (FS_IOC_GETFLAGS / FS_IOC_SETFLAGS)
  * @see `FS_*_FL` in `include/uapi/linux/fs.h` (around L250)
  * @experimental
  */
-enum FileFlag {
+export enum FileFlag {
 	/** Secure deletion */
 	SecureRm = 0x00000001,
 	/** Undelete */
@@ -148,22 +73,62 @@ enum FileFlag {
 	Reserved = 0x80000000,
 }
 
+/** User visible flags */
+export const userVisibleFlags = 0x0003dfff;
+/** User modifiable flags */
+export const userModifiableFlags = 0x000380ff;
+
+const flagPairs = [
+	[FileFlag.Sync, InodeFlags.Sync],
+	[FileFlag.Immutable, InodeFlags.Immutable],
+	[FileFlag.Append, InodeFlags.Append],
+	[FileFlag.NoAtime, InodeFlags.NoAtime],
+	[FileFlag.Encrypt, InodeFlags.Encrypted],
+	[FileFlag.DirSync, InodeFlags.Dirsync],
+	[FileFlag.Verity, InodeFlags.Verity],
+	[FileFlag.Dax, InodeFlags.DAX],
+	[FileFlag.CaseFold, InodeFlags.CaseFold],
+] satisfies [FileFlag, InodeFlags][];
+
+const supportedFlags: number = flagPairs.reduce((all, [flag]) => all | flag, 0),
+	settableFlags: number = flagPairs.reduce((all, [, flag]) => all | flag, 0);
+
+function toFileFlags(flags: number): number {
+	let value = 0;
+	for (const [file, inode] of flagPairs) if (flags & inode) value |= file;
+	return value;
+}
+
+function setFlags($: IoctlContext, flags: number): void {
+	if (flags & ~supportedFlags) throw withErrno('ENOTSUP', 'Unsupported file flags');
+
+	let value = 0;
+	for (const [file, inode] of flagPairs) if (flags & file) value |= inode;
+
+	$.inode.flags = (($.inode.flags || 0) & ~settableFlags) | value;
+}
+
 /**
  * `FS_IOC_*` commands for {@link ioctl | `ioctl`}
  * @remarks
  * These are computed from a script since constant values are needed for enum member types
+ * @todo [breaking] remove deprecated flags and handlers
  */
 export enum IOC {
 	GetFlags = 0x80086601,
 	SetFlags = 0x40086602,
 	GetVersion = 0x80087601,
 	SetVersion = 0x40087602,
+	/** @deprecated */
 	Fiemap = 0xc020660b,
+	/** @deprecated  */
 	GetXattr = 0x801c581f,
+	/** @deprecated */
 	SetXattr = 0x401c5820,
 	GetLabel = 0x81009431,
 	SetLabel = 0x41009432,
 	GetUUID = 0x80111500,
+	/** @deprecated */
 	GetSysfsPath = 0x80811501,
 }
 
@@ -212,11 +177,11 @@ export interface IoctlOps extends Record<number, Ioctl> {}
 export const ioctl_default_ops = {
 	[IOC.GetFlags]($): number {
 		if (typeof $.inode.flags !== 'number') throw withErrno('ENOTTY');
-		return $.inode.flags;
+		return toFileFlags($.inode.flags);
 	},
 	[IOC32.GetFlags]($): number {
 		if (typeof $.inode.flags !== 'number') throw withErrno('ENOTTY');
-		return $.inode.flags;
+		return toFileFlags($.inode.flags);
 	},
 	[IOC.GetVersion]($): number {
 		if (typeof $.inode.version !== 'number') throw withErrno('ENOTTY');
@@ -229,10 +194,10 @@ export const ioctl_default_ops = {
 	[IOC.Fiemap](): never {
 		throw withErrno('ENOTSUP');
 	},
-	[IOC.GetXattr]($, _name: string): fsxattr {
-		return new fsxattr($.inode);
+	[IOC.GetXattr](): never {
+		throw withErrno('ENOTSUP');
 	},
-	[IOC.SetXattr]($, _name: string, _value: fsxattr): never {
+	[IOC.SetXattr](): never {
 		throw withErrno('ENOTSUP');
 	},
 	[IOC.GetLabel]($): string | undefined {
@@ -244,13 +209,8 @@ export const ioctl_default_ops = {
 	[IOC.GetUUID]($): string {
 		return $.fs.uuid;
 	},
-	[IOC.GetSysfsPath]($): string {
-		/**
-		 * Returns the path component under /sys/fs/ that refers to this filesystem;
-		 * also /sys/kernel/debug/ for filesystems with debugfs exports
-		 * @todo Implement sysfs and have each FS implement the /sys/fs/<name> tree
-		 */
-		return `/sys/fs/${$.fs.name}/${$.fs.uuid}`;
+	[IOC.GetSysfsPath](): never {
+		throw withErrno('ENOTSUP');
 	},
 } satisfies IoctlOps;
 
@@ -261,11 +221,11 @@ export const ioctl_default_ops = {
 export const ioctl_default_ops_async = {
 	...ioctl_default_ops,
 	async [IOC.SetFlags]($, flags: number): Promise<void> {
-		$.inode.flags = flags;
+		setFlags($, flags);
 		await $.fs.touch($.path, $.inode);
 	},
 	async [IOC32.SetFlags]($, flags: number): Promise<void> {
-		$.inode.flags = flags;
+		setFlags($, flags);
 		await $.fs.touch($.path, $.inode);
 	},
 	async [IOC.SetVersion]($, version: number): Promise<void> {
@@ -292,11 +252,11 @@ export interface IoctlDefaultAsyncOps extends _IoctlOpsAsync {}
 export const ioctl_default_ops_sync = {
 	...ioctl_default_ops,
 	[IOC.SetFlags]($, flags: number): void {
-		$.inode.flags = flags;
+		setFlags($, flags);
 		$.fs.touchSync($.path, $.inode);
 	},
 	[IOC32.SetFlags]($, flags: number): void {
-		$.inode.flags = flags;
+		setFlags($, flags);
 		$.fs.touchSync($.path, $.inode);
 	},
 	[IOC.SetVersion]($, version: number): void {
