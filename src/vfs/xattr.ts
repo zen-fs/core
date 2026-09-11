@@ -59,15 +59,16 @@ export interface SetOptions extends Options {
 	replace?: boolean;
 }
 
-const _allowedRestrictedNames: Name[] = [];
+/** Attributes outside the `user` namespace that are supported. */
+export const allowedRestrictedNames = new Set<Name>();
 
 /**
  * Check permission for the attribute name.
- * For now, only attributes in the 'user' namespace are supported.
- * @throws ENOTSUP for attributes in namespaces other than 'user'
+ * Only the 'user' namespace and whatever is in {@link allowedRestrictedNames} are supported.
+ * @throws ENOTSUP for any other attribute
  */
 function checkName($: V_Context, name: Name, path: string, syscall: string): void {
-	if (!name.startsWith('user.') && !_allowedRestrictedNames.includes(name)) throw UV('ENOTSUP', syscall, path);
+	if (!name.startsWith('user.') && !allowedRestrictedNames.has(name)) throw UV('ENOTSUP', syscall, path);
 }
 
 /**
