@@ -5,7 +5,7 @@ import type { UUID } from 'node:crypto';
 import type { Concrete } from 'utilium';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
-import type { Ioctl, IoctlContext } from '../internal/ioctl.js';
+import type { IoctlContext } from '../internal/ioctl.js';
 import '../polyfills.js';
 
 /**
@@ -40,6 +40,8 @@ export class MutexLock {
 /**
  * @hidden
  * @category Internals
+ * @deprecated This is no longer needed and will be removed
+ * @todo [breaking] Remove
  */
 export class _MutexedFS<T extends FileSystem> implements FileSystem {
 	/**
@@ -313,9 +315,10 @@ export class _MutexedFS<T extends FileSystem> implements FileSystem {
  * Instead of extending `FileSystem`,
  * `MutexedFS` implements it in order to make sure all of the methods are passed through
  *
- * @todo Change `using _` to `using void` pending https://github.com/tc39/proposal-discard-binding
  * @category Internals
  * @internal
+ * @deprecated This is no longer needed and will be removed
+ * @todo [breaking] Remove
  */
 export function Mutexed<const T extends Concrete<typeof FileSystem>>(
 	FS: T
