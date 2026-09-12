@@ -19,7 +19,7 @@ export enum DirType {
  * @see `IFTODT` in `dirent.h`
  */
 export function ifToDt(mode: number): DirType {
-	return ((mode & 0o170000) >> 12) as DirType;
+	return (mode & 0o170000) >> 12;
 }
 
 /**
@@ -30,6 +30,9 @@ export function dtToIf(dt: DirType): number {
 	return dt << 12;
 }
 
+/**
+ * @todo [breaking] change this to an interface
+ */
 export class Dirent {
 	ino!: number;
 	type!: DirType;

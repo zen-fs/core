@@ -57,11 +57,14 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 	}
 
 	protected rpc<const T extends RPC.Method>(method: T, ...args: Parameters<RPC.Methods[T]>): Promise<Awaited<ReturnType<RPC.Methods[T]>>> {
-		return RPC.request<RPC.Request<T>, Awaited<ReturnType<RPC.Methods[T]>>>({ method, args } as Omit<RPC.Request<T>, 'id' | 'stack' | '_zenfs'>, {
-			port: this.port,
-			timeout: this.timeout,
-			fs: this,
-		});
+		return RPC.request<RPC.Request<T>, Awaited<ReturnType<RPC.Methods[T]>>>(
+			{ method, args },
+			{
+				port: this.port,
+				timeout: this.timeout,
+				fs: this,
+			}
+		);
 	}
 
 	public async ready(): Promise<void> {

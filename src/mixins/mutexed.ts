@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { withErrno } from 'kerium';
-import { err } from 'kerium/log';
+import { RwLockable } from 'kerium/locks';
 import type { UUID } from 'node:crypto';
 import type { Concrete } from 'utilium';
 import type { CreationOptions, FileSystem, StreamOptions, UsageInfo } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { IoctlContext } from '../internal/ioctl.js';
 import '../polyfills.js';
-import { RwLockable } from 'kerium/locks';
 
 /**
  * @hidden
