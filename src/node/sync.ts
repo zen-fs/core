@@ -635,7 +635,7 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 
 	let stats: InodeLike | undefined;
 	try {
-		stats = (lstatSync.bind(this) as typeof statSync)(path);
+		stats = lstatSync.call<V_Context, [fs.PathLike], InodeLike>(this, path);
 	} catch (error) {
 		if ((error as Exception).code != 'ENOENT' || !options?.force) throw error;
 	}
@@ -689,17 +689,12 @@ mkdtempSync satisfies typeof fs.mkdtempSync;
  * When the object is disposed, the directory and its contents will be removed if it still exists.
  * If the directory cannot be deleted, disposal will throw an error.
  * The object has a `remove()` method which will perform the same task.
- * @todo Add `satisfies` and maybe change return type once @types/node adds this.
  */
 export function mkdtempDisposableSync(
 	this: V_Context,
 	prefix: fs.PathLike,
 	options?: fs.EncodingOption | fs.BufferEncodingOption
-): {
-	path: string;
-	remove(): void;
-	[Symbol.dispose](): void;
-} {
+): fs.DisposableTempDir {
 	const path = _tempDirName(prefix);
 
 	mkdirSync.call(this, path);
@@ -708,6 +703,7 @@ export function mkdtempDisposableSync(
 
 	return { path, remove, [Symbol.dispose]: remove };
 }
+mkdtempDisposableSync satisfies typeof fs.mkdtempDisposableSync;
 
 /**
  * Synchronous `copyFile`. Copies a file.

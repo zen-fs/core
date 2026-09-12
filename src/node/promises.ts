@@ -1107,13 +1107,12 @@ mkdtemp satisfies typeof promises.mkdtemp;
  * When the object is disposed, the directory and its contents will be removed asynchronously if it still exists.
  * If the directory cannot be deleted, disposal will throw an error.
  * The object has an async `remove()` method which will perform the same task.
- * @todo Add `satisfies` and maybe change return type once @types/node adds this.
  */
 export async function mkdtempDisposable(
 	this: V_Context,
 	prefix: fs.PathLike,
 	options?: fs.EncodingOption | fs.BufferEncodingOption
-): Promise<{ path: string; remove(): Promise<void>; [Symbol.asyncDispose](): Promise<void> }> {
+): Promise<promises.DisposableTempDir> {
 	const path = _tempDirName(prefix);
 
 	await mkdir.call(this, path);
@@ -1122,6 +1121,7 @@ export async function mkdtempDisposable(
 
 	return { path, remove, [Symbol.asyncDispose]: remove };
 }
+mkdtempDisposable satisfies typeof promises.mkdtempDisposable;
 
 /**
  * Asynchronous `copyFile`. Copies a file.
