@@ -355,7 +355,6 @@ export async function handleRequest(port: Port, fs: FileSystem & { _descriptors?
 	if (!isMessage(request)) return;
 
 	let value, error: ExceptionJSON | Pick<Error, 'message' | 'stack'> | undefined;
-	const transferList: Transferable[] = [];
 
 	try {
 		switch (request.method) {
@@ -370,8 +369,8 @@ export async function handleRequest(port: Port, fs: FileSystem & { _descriptors?
 			case 'mkdir': {
 				// @ts-expect-error 2556
 				const md = await fs[request.method](...request.args);
-				value = md instanceof Inode ? md : new Inode(md);
-				transferList.push(value.buffer);
+				const inode = md instanceof Inode ? md : new Inode(md);
+				value = new Uint8Array(inode.buffer, inode.byteOffset, inode.byteLength);
 				break;
 			}
 			case 'touch': {
@@ -389,5 +388,5 @@ export async function handleRequest(port: Port, fs: FileSystem & { _descriptors?
 		error = e instanceof Exception ? e.toJSON() : pick(e, 'message', 'stack');
 	}
 
-	port.send({ _zenfs: true, ...pick(request, 'id', 'method', 'stack'), error, value }, transferList);
+	port.send({ _zenfs: true, ...pick(request, 'id', 'method', 'stack'), error, value });
 }
