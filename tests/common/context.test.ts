@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { bindContext, configure, fs, InMemory, type BoundContext } from '@zenfs/core';
+import { bindContext, configure, fs, InMemory } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { canary } from 'utilium';

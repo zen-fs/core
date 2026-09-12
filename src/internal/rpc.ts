@@ -168,20 +168,26 @@ export interface Message {
 	stack: string;
 }
 
-export interface Request<TMethod extends Method = Method> extends Message {
+export interface RequestInit<TMethod extends Method = Method> {
 	method: TMethod;
 	args: Parameters<Methods[TMethod]>;
 }
 
-export interface Response<TMethod extends Method = Method> extends Message {
-	error?: WithOptional<ExceptionJSON, 'code' | 'errno'>;
-	method: TMethod;
-	/**
-	 * This is undefined if an error occurs, and we check it at runtime.
-	 * We don't do the type stuff because Typescript gets confused
-	 */
-	value: ReturnType<Methods[TMethod]>;
-}
+export type Request<TMethod extends Method = Method> = {
+	[K in Method]: Message & RequestInit<K>;
+}[TMethod];
+
+export type Response<TMethod extends Method = Method> = {
+	[K in Method]: Message & {
+		error?: WithOptional<ExceptionJSON, 'code' | 'errno'>;
+		method: K;
+		/**
+		 * This is undefined if an error occurs, and we check it at runtime.
+		 * We don't do the type stuff because Typescript gets confused
+		 */
+		value: ReturnType<Methods[K]>;
+	};
+}[TMethod];
 
 /*
 
@@ -273,8 +279,8 @@ export interface Executor extends PromiseWithResolvers<any> {
  */
 const executors: Map<string, Executor> = new Map();
 
-export function request<const TRequest extends Request, TValue>(
-	request: Omit<TRequest, 'id' | 'stack' | '_zenfs'>,
+export function request<const Init extends RequestInit, TValue>(
+	request: Init,
 	{ port, timeout: ms = 1000, fs }: Partial<Options> & { fs: PortFS }
 ): Promise<TValue> {
 	const stack = '\n' + new Error().stack!.slice('Error:'.length);
@@ -296,14 +302,6 @@ export function request<const TRequest extends Request, TValue>(
 	return promise;
 }
 
-// Why Typescript, WHY does the type need to be asserted even when the method is explicitly checked?
-
-function __requestMethod<const T extends Method>(req: Request): asserts req is Request<T> {}
-
-function __responseMethod<const R extends Response, const T extends Method>(res: R, ...t: T[]): res is R & Response<T> {
-	return t.includes(res.method as T);
-}
-
 export function handleResponse<const TMethod extends Method>(response: Response<TMethod>): void {
 	if (!isMessage(response)) return;
 
@@ -323,7 +321,7 @@ export function handleResponse<const TMethod extends Method>(response: Response<
 	}
 
 	disposeExecutors(response.id);
-	resolve(__responseMethod(response, 'stat', 'createFile', 'mkdir') ? new Inode(response.value) : response.value);
+	resolve(['stat', 'createFile', 'mkdir'].includes(response.method) ? new Inode(response.value as any) : response.value);
 	return;
 }
 
@@ -362,7 +360,6 @@ export async function handleRequest(port: Port, fs: FileSystem & { _descriptors?
 	try {
 		switch (request.method) {
 			case 'read': {
-				__requestMethod<'read'>(request);
 				const [path, buffer, start, end] = request.args;
 				await fs.read(path, buffer, start, end);
 				value = buffer;
@@ -371,15 +368,13 @@ export async function handleRequest(port: Port, fs: FileSystem & { _descriptors?
 			case 'stat':
 			case 'createFile':
 			case 'mkdir': {
-				__requestMethod<'stat' | 'createFile' | 'mkdir'>(request);
 				// @ts-expect-error 2556
 				const md = await fs[request.method](...request.args);
-				const inode = md instanceof Inode ? md : new Inode(md);
-				value = new Uint8Array(inode.buffer, inode.byteOffset, inode.byteLength);
+				value = md instanceof Inode ? md : new Inode(md);
+				transferList.push(value.buffer);
 				break;
 			}
 			case 'touch': {
-				__requestMethod<'touch'>(request);
 				const [path, metadata] = request.args;
 				await fs.touch(path, new Inode(metadata));
 				value = undefined;

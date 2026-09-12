@@ -219,11 +219,11 @@ export abstract class IndexFS extends FileSystem {
 		return inode;
 	}
 
-	public link(target: string, link: string): Promise<void> {
+	public link(): Promise<void> {
 		throw withErrno('ENOSYS');
 	}
 
-	public linkSync(target: string, link: string): void {
+	public linkSync(): void {
 		throw withErrno('ENOSYS');
 	}
 
