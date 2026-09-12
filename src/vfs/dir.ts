@@ -30,12 +30,9 @@ export function dtToIf(dt: DirType): number {
 	return dt << 12;
 }
 
-/**
- * @todo [breaking] change this to an interface
- */
-export class Dirent {
-	ino!: number;
-	type!: DirType;
-	path!: string;
-	name!: string;
+export interface Dirent {
+	ino: number;
+	type: DirType;
+	path: string;
+	name: string;
 }

@@ -148,14 +148,14 @@ await suite('SingleBuffer', () => {
 		const growthSizes = [0, 1, 17, 512, 8192, 65535, 262144, 524288];
 		const shrinkSizes = [262144, 4096, 128, 0];
 
-		const verifySnapshot = (expected: Buffer, size: number) => {
+		const verifySnapshot = async (expected: Buffer, size: number) => {
 			mount(verifyMountPoint, writable);
 			try {
 				const reopened = fs.readFileSync(`${verifyMountPoint}/payload.bin`);
 				assert.strictEqual(reopened.byteLength, size, `snapshot size mismatch for ${size} bytes`);
 				assert.deepStrictEqual(reopened, expected, `snapshot content mismatch for ${size} bytes`);
 			} finally {
-				vfs.umount(verifyMountPoint);
+				await vfs.umount(verifyMountPoint);
 			}
 		};
 
@@ -166,7 +166,7 @@ await suite('SingleBuffer', () => {
 				const direct = fs.readFileSync(filePath);
 				assert.strictEqual(direct.byteLength, size, `direct size mismatch for ${size} bytes`);
 				assert.deepStrictEqual(direct, payload, `direct content mismatch for ${size} bytes`);
-				verifySnapshot(direct, size);
+				await verifySnapshot(direct, size);
 			}
 
 			for (const size of shrinkSizes) {
@@ -175,11 +175,11 @@ await suite('SingleBuffer', () => {
 				const direct = fs.readFileSync(filePath);
 				assert.strictEqual(direct.byteLength, size, `direct size mismatch after shrink to ${size} bytes`);
 				assert.deepStrictEqual(direct, payload, `direct content mismatch after shrink to ${size} bytes`);
-				verifySnapshot(direct, size);
+				await verifySnapshot(direct, size);
 			}
 		} finally {
 			if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-			vfs.umount(mountPoint);
+			await vfs.umount(mountPoint);
 		}
 	});
 
@@ -201,7 +201,7 @@ await suite('SingleBuffer', () => {
 				assert.deepStrictEqual(fs.readFileSync(`${mountPoint}/f${i}.txt`), expected, `content mismatch at f${i}.txt`);
 			}
 		} finally {
-			vfs.umount(mountPoint);
+			await vfs.umount(mountPoint);
 		}
 	});
 });

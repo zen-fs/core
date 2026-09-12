@@ -6,7 +6,6 @@ import { $from, field, struct, types as t } from 'memium/decorators';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
 import { BufferView } from 'utilium/buffer';
 import * as c from '../constants.js';
-import { Stats } from '../node/stats.js';
 import { contextOf, type V_Context } from './contexts.js';
 
 /**
@@ -292,22 +291,6 @@ export enum InodeFlags {
 }
 
 /**
- * User visible flags
- * These are actually masks for userspace `FileFlag`s, not `InodeFlags`.
- * @deprecated Use the export from `/internal/ioctl`
- * @todo [breaking] remove
- */
-export const userVisibleFlags = 0x0003dfff;
-
-/**
- * User modifiable flags
- * These are actually masks for userspace `FileFlag`s, not `InodeFlags`.
- * @deprecated Use the export from `/internal/ioctl`
- * @todo [breaking] remove these re-exports
- */
-export const userModifiableFlags = 0x000380ff;
-
-/**
  * Generic inode definition that can easily be serialized.
  * @category Internals
  * @internal
@@ -405,14 +388,6 @@ export class Inode extends $from(BufferView) implements InodeLike {
 			...pick(this, _inode_fields),
 			attributes: this.attributes,
 		};
-	}
-
-	/**
-	 * Handy function that converts the Inode to a Node Stats object.
-	 * @deprecated Use `new Stats(inode)` instead.
-	 */
-	public toStats(): Stats {
-		return new Stats(this);
 	}
 
 	/**

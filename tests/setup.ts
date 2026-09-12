@@ -43,8 +43,3 @@ export function copySync(_path: string, fs: NodeFS = _fs): void {
 		copySync(join(_path, file), fs);
 	}
 }
-
-/**
- * @deprecated @hidden
- */
-export const copy = copySync;

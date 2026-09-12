@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { configure, fs, mounts } from '@zenfs/core';
+import { configure, fs, defaultContext } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 
 suite('Case folding', () => {
 	test('Configuration', async () => {
 		await configure({ caseFold: 'lower' });
-		assert.equal(mounts.get('/')?.attributes.get('case_fold'), 'lower');
+		assert.equal(defaultContext.mounts.get('/')?.attributes.get('case_fold'), 'lower');
 	});
 
 	test('Write', () => {
