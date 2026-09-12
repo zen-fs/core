@@ -29,8 +29,7 @@ export interface FSContext {
 	readonly id: number;
 
 	/**
-	 * The absolute root path of the context
-	 *
+	 * The absolute root path of the context.
 	 * Note the parent's root is not considered
 	 */
 	root: string;

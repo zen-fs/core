@@ -176,9 +176,10 @@ export interface Request<TMethod extends Method = Method> extends Message {
 export interface Response<TMethod extends Method = Method> extends Message {
 	error?: WithOptional<ExceptionJSON, 'code' | 'errno'>;
 	method: TMethod;
-
-	// Note: This is undefined if an error occurs, and we check it at runtime
-	// We don't do the type stuff because Typescript gets confused
+	/**
+	 * This is undefined if an error occurs, and we check it at runtime.
+	 * We don't do the type stuff because Typescript gets confused
+	 */
 	value: ReturnType<Methods[TMethod]>;
 }
 

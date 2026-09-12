@@ -120,9 +120,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		debug(this.name + ': supports features: ' + this.store.flags?.join(', '));
 	}
 
-	/**
-	 * @experimental
-	 */
 	public usage(): UsageInfo {
 		return (
 			this.store.usage?.() || {
@@ -412,14 +409,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return Object.keys(decodeDirListing(tx.getSync(node.data) ?? _throw(withErrno('ENOENT'))));
 	}
 
-	/**
-	 * Updated the inode and data node at `path`
-	 */
 	public async sync(): Promise<void> {}
 
-	/**
-	 * Updated the inode and data node at `path`
-	 */
 	public syncSync(): void {}
 
 	public async link(target: string, link: string): Promise<void> {
@@ -595,12 +586,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			return;
 		}
 
-		// Keep track of directories we have already traversed to avoid loops
 		const visitedDirectories = new Set<number>();
 
 		let i = 0;
 
-		// Start BFS from root
 		const queue: Array<[path: string, ino: number]> = [['/', rootIno]];
 
 		while (queue.length > 0) {
@@ -609,7 +598,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 			this._add(ino, path);
 
-			// Get the inode data from the store
 			const inodeData = await tx.get(ino);
 			if (!inodeData) {
 				warn('Store is missing data for inode: ' + ino);
@@ -621,17 +609,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				continue;
 			}
 
-			// Parse the raw data into our Inode object
 			const inode = new Inode(inodeData);
 
-			// If it is a directory and not yet visited, read its directory listing
-			if (!isDirectory(inode) || visitedDirectories.has(ino)) {
-				continue;
-			}
+			if (!isDirectory(inode) || visitedDirectories.has(ino)) continue;
 
 			visitedDirectories.add(ino);
 
-			// Grab the directory listing from the store
 			const dirData = await tx.get(inode.data);
 			if (!dirData) {
 				warn('Store is missing directory data: ' + inode.data);
@@ -812,12 +795,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const parent = await this.findInode(tx, parentPath);
 		const listing = decodeDirListing((await tx.get(parent.data)) ?? _throw(withErrno('ENOENT')));
 
-		// Check if file already exists.
 		if (listing[fname]) throw withErrno('EEXIST');
 
 		const id = this.allocNew(path);
 
-		// Commit data.
 		const inode = new Inode({
 			...options,
 			ino: id,
@@ -829,7 +810,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await tx.set(inode.ino, inode);
 		await tx.set(inode.data, data);
 
-		// Update and commit parent directory listing.
 		listing[fname] = inode.ino;
 		await tx.set(parent.data, encodeDirListing(listing));
 		await tx.commit();
@@ -871,7 +851,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			nlink: 1,
 		});
 
-		// Update and commit parent directory listing.
 		tx.setSync(inode.ino, inode);
 		tx.setSync(inode.data, data);
 		listing[fname] = inode.ino;

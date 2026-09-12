@@ -42,7 +42,6 @@ export class VCache {
 			this.byIno.set(inode.ino, node);
 		} else {
 			node.paths.add(path);
-			// The vnode's inode is authoritative when dirty; otherwise refresh it with the newer stats
 			if (!node.dirty && inode !== node.inode) Object.assign(node.inode, inode);
 		}
 

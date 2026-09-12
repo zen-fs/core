@@ -37,7 +37,6 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 	try {
 		const resolved = resolveMount(path, $);
 
-		// Stat it to make sure it exists. The vnode cache takes precedence since it may have unsynced changes
 		const stats = cacheOf(resolved.fs).get(resolved.path)?.inode ?? (await resolved.fs.stat(resolved.path));
 
 		if (!isSymbolicLink(stats)) {
@@ -99,7 +98,6 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 		// Serialize entry creation with other operations on the parent directory
 		using _ = await lockPath(fs, parentPath, 'rw', parentStats);
 
-		// Another task may have created the file while we waited for the lock
 		stats = cacheOf(fs).get(resolved)?.inode ?? (await fs.stat(resolved).catch(() => undefined));
 
 		if (!stats) {
@@ -111,7 +109,6 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 				gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
 			});
 
-			// A new entry in the parent directory, which is a 'rename' event
 			emitChange($, 'rename', path);
 
 			return new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
@@ -202,7 +199,6 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 export async function readdir(this: V_Context, path: PathLike, options: ReaddirOptions = {}): Promise<Dirent[]> {
 	path = normalizePath.call(this, path);
 
-	// Node reports `readdir` failures as `scandir`
 	const $ex = { syscall: 'scandir', path };
 	const { fs, path: resolved, stats } = await resolve(this, path, false, $ex);
 
@@ -285,7 +281,6 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	await src.fs.rename(src.path, dst.path);
 	cacheOf(fs).rename(src.path, dst.path);
 
-	// Both names change which entries exist, so both are 'rename' events
 	emitChange(this, 'rename', oldPath);
 	emitChange(this, 'rename', newPath);
 }

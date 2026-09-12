@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/no-misused-promises */
-import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type { CreateReadStreamOptions, CreateWriteStreamOptions } from 'node:fs/promises';
 import type { Callback } from '../utils.js';
@@ -12,42 +11,7 @@ import { Writable } from '@zenfs/streams/writable';
 import { Errno, Exception, UV } from 'kerium';
 import { warn } from 'kerium/log';
 
-interface FSImplementation {
-	open?: (...args: unknown[]) => unknown;
-	close?: (...args: unknown[]) => unknown;
-}
-
-interface StreamOptions extends Abortable {
-	flags?: string;
-	encoding?: BufferEncoding;
-	fd?: number | FileHandle;
-	mode?: number;
-	autoClose?: boolean;
-	emitClose?: boolean;
-	start?: number;
-	highWaterMark?: number;
-}
-
-/**
- * This type is from node:fs but not exported.
- * @hidden
- */
-export interface ReadStreamOptions extends StreamOptions {
-	fs?: FSImplementation & { read: (...args: unknown[]) => unknown };
-	end?: number;
-}
-
-/**
- * This type is from node:fs but not exported.
- * @hidden
- */
-export interface WriteStreamOptions extends StreamOptions {
-	flush?: boolean;
-	fs?: FSImplementation & {
-		write: (...args: unknown[]) => unknown;
-		writev?: (...args: unknown[]) => unknown;
-	};
-}
+export type { ReadStreamOptions, WriteStreamOptions } from 'node:fs';
 
 /**
  * A ReadStream implementation that wraps an underlying global ReadableStream.

@@ -6,11 +6,6 @@ import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
 import { resolve } from './path.js';
 import type { V_Context } from './internal/contexts.js';
 
-declare global {
-	function atob(data: string): string;
-	function btoa(data: string): string;
-}
-
 /**
  * Decodes a directory listing
  * @hidden

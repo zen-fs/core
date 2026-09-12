@@ -19,17 +19,6 @@ import { ReadStream, WriteStream, type ReadStreamOptions, type WriteStreamOption
 const nop = () => {};
 
 /**
- * Helper to collect an async iterator into an array
- */
-async function collectAsyncIterator<T>(it: NodeJS.AsyncIterator<T>): Promise<T[]> {
-	const results: T[] = [];
-	for await (const result of it) {
-		results.push(result);
-	}
-	return results;
-}
-
-/**
  * Asynchronous rename. No arguments other than a possible exception are given to the completion callback.
  */
 export function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike, cb: Callback = nop): void {
@@ -704,7 +693,7 @@ watch satisfies Omit<typeof fs.watch, '__promisify__'>;
 export function createReadStream(this: V_Context, path: fs.PathLike, options?: BufferEncoding | ReadStreamOptions): ReadStream {
 	options = typeof options == 'object' ? options : { encoding: options };
 	const _handle = promises.open.call(this, path, 'r', options?.mode);
-	return new ReadStream({ ...options, autoClose: true }, _handle);
+	return new ReadStream({ ...options, autoClose: true, signal: options?.signal ?? undefined }, _handle);
 }
 createReadStream satisfies Omit<typeof fs.createReadStream, '__promisify__'>;
 
@@ -885,7 +874,7 @@ export function glob(
 		pattern,
 		typeof options === 'function' ? undefined : options
 	);
-	collectAsyncIterator(it)
+	Array.fromAsync(it)
 		.then(results => callback(null, (results as any) ?? []))
 		.catch((e: Exception) => callback(e));
 }

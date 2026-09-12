@@ -39,14 +39,10 @@ export interface PortOptions {
 export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSystem) {
 	public readonly port: RPC.Port<T>;
 
-	/**
-	 * @hidden
-	 */
+	/** @hidden */
 	_sync = InMemory.create({ label: 'tmpfs:port' });
 
-	/**
-	 * Constructs a new PortFS instance that connects with the FS running on `options.port`.
-	 */
+	/** Constructs a new PortFS instance that connects with the FS running on `options.port`. */
 	public constructor(
 		public readonly channel: T,
 		public readonly timeout: number = 250

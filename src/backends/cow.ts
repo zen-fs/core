@@ -203,7 +203,7 @@ export class CopyOnWriteFS extends FileSystem {
 
 		/* Note the layer's inode is not mutated, since it may be a persistent object.
 		`Inode` fields are accessors, so a copy must be explicit rather than a spread. */
-		return { ...pick(inode, _inode_fields), attributes: inode.attributes, ino };
+		return Object.assign(pick(inode, _inode_fields), { attributes: inode.attributes, ino });
 	}
 
 	/**
@@ -328,14 +328,9 @@ export class CopyOnWriteFS extends FileSystem {
 	public async unlink(path: string): Promise<void> {
 		if (!(await this.exists(path))) throw withErrno('ENOENT');
 
-		if (await this.writable.exists(path)) {
-			await this.writable.unlink(path);
-		}
+		if (await this.writable.exists(path)) await this.writable.unlink(path);
 
-		// if it still exists add to the delete log
-		if (await this.exists(path)) {
-			this.journal.add('delete', path);
-		}
+		if (await this.exists(path)) this.journal.add('delete', path);
 
 		this.inos.delete(path);
 	}
@@ -343,14 +338,9 @@ export class CopyOnWriteFS extends FileSystem {
 	public unlinkSync(path: string): void {
 		if (!this.existsSync(path)) throw withErrno('ENOENT');
 
-		if (this.writable.existsSync(path)) {
-			this.writable.unlinkSync(path);
-		}
+		if (this.writable.existsSync(path)) this.writable.unlinkSync(path);
 
-		// if it still exists add to the delete log
-		if (this.existsSync(path)) {
-			this.journal.add('delete', path);
-		}
+		if (this.existsSync(path)) this.journal.add('delete', path);
 
 		this.inos.delete(path);
 	}
@@ -364,7 +354,6 @@ export class CopyOnWriteFS extends FileSystem {
 			this.inos.delete(path);
 			return;
 		}
-		// Check if directory is empty.
 		if ((await this.readdir(path)).length) throw withErrno('ENOTEMPTY');
 		this.journal.add('delete', path);
 		this.inos.delete(path);
@@ -379,7 +368,6 @@ export class CopyOnWriteFS extends FileSystem {
 			this.inos.delete(path);
 			return;
 		}
-		// Check if directory is empty.
 		if (this.readdirSync(path).length) throw withErrno('ENOTEMPTY');
 		this.journal.add('delete', path);
 		this.inos.delete(path);
@@ -586,14 +574,14 @@ const _CopyOnWrite = {
 type _CopyOnWrite = typeof _CopyOnWrite;
 
 /**
- * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.
+ * Makes a read-only filesystem writable by storing writes on a second, writable file system.
  * Deletes are persisted via metadata stored on the writable file system.
  * @category Backends and Configuration
  */
 
 export interface CopyOnWrite extends _CopyOnWrite {}
 /**
- * Overlay makes a read-only filesystem writable by storing writes on a second, writable file system.
+ * Makes a read-only filesystem writable by storing writes on a second, writable file system.
  * Deletes are persisted via metadata stored on the writable file system.
  * @category Backends and Configuration
  * @internal

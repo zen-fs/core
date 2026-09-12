@@ -67,4 +67,14 @@ Uint8Array.fromHex ??=
 		return bytes;
 	});
 
+Array.fromAsync ??=
+	(warn('Using a polyfill of Array.fromAsync'),
+	async function collectAsyncIterator<T>(it: NodeJS.AsyncIterator<T>): Promise<T[]> {
+		const results: T[] = [];
+		for await (const result of it) {
+			results.push(result);
+		}
+		return results;
+	});
+
 /* node:coverage enable */

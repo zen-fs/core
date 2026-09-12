@@ -165,10 +165,8 @@ export function checkOptions<T extends Backend>(backend: T, options: Record<stri
 
 		if (Array.isArray(opt.type) ? opt.type.some(v => isType(v)) : isType(opt.type as OptionType)) continue;
 
-		// The type of the value as a string
 		const type = typeof value == 'object' && 'constructor' in value ? value.constructor.name : typeof value;
 
-		// The expected type (as a string)
 		const name = (type: OptionType) => (typeof type == 'function' ? (type.name != 'type' ? type.name : type.toString()) : (type as string));
 		const expected = Array.isArray(opt.type) ? `one of ${opt.type.map(name).join(', ')}` : name(opt.type as OptionType);
 

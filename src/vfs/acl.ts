@@ -29,10 +29,7 @@ export const enum Tag {
 	Group = 0x08,
 	Mask = 0x10,
 	Other = 0x20,
-
-	/**
-	 * @internal @hidden
-	 */
+	/** @internal @hidden */
 	_None = 0x00,
 }
 
@@ -94,7 +91,6 @@ export function toMode(acl: ACL): number {
 			case Tag.Other:
 				mode |= entry.perm;
 				break;
-
 			case Tag.User:
 			case Tag.Group:
 			case Tag.Mask:

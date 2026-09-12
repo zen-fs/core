@@ -239,7 +239,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	 */
 	protected originalData: Map<number, { data?: Uint8Array; offset: number }[]> = new Map();
 
-	/**TransactionEntry
+	/**
 	 * List of keys modified in this transaction, if any.
 	 */
 	protected modifiedKeys: Set<number> = new Set();
@@ -293,11 +293,9 @@ export class WrappedTransaction<T extends Store = Store> {
 
 	public async abort(): Promise<void> {
 		if (this.done) return;
-		// Rollback old values.
 		for (const [id, entries] of this.originalData) {
 			if (!this.modifiedKeys.has(id)) continue;
 
-			// Key didn't exist.
 			if (entries.some(ent => !ent.data)) {
 				await this.raw.remove(id);
 				this.fs._remove(id);
@@ -313,11 +311,9 @@ export class WrappedTransaction<T extends Store = Store> {
 
 	public abortSync(): void {
 		if (this.done) return;
-		// Rollback old values.
 		for (const [id, entries] of this.originalData) {
 			if (!this.modifiedKeys.has(id)) continue;
 
-			// Key didn't exist.
 			if (entries.some(ent => !ent.data)) {
 				this.raw.removeSync(id);
 				this.fs._remove(id);

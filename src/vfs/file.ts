@@ -11,12 +11,6 @@ import { validateFD } from '../utils.js';
 import { cacheOf } from './vcache.js';
 import type { VNode } from './vnode.js';
 
-/** @hidden */
-export interface FileReadResult<T extends ArrayBufferView> {
-	bytesRead: number;
-	buffer: T;
-}
-
 /** Default bytes per chunk for streamed reads, matching Node's default stream `highWaterMark` */
 const streamChunkSize = 0x10000;
 
@@ -24,9 +18,7 @@ const streamChunkSize = 0x10000;
  * @internal
  */
 export class Handle {
-	/**
-	 * Current position
-	 */
+	/** Current position */
 	protected _position: number = 0;
 
 	/**

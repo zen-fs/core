@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+/* eslint-disable @typescript-eslint/require-await */
 import type { CreationOptions, FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { IoctlContext } from '../internal/ioctl.js';
@@ -8,7 +9,6 @@ import type { AsyncFSMethods, Mixin } from './shared.js';
  * Implements the asynchronous API in terms of the synchronous API.
  * @category Internals
  */
-/* eslint-disable @typescript-eslint/require-await */
 export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, AsyncFSMethods> {
 	abstract class SyncFS extends FS implements AsyncFSMethods {
 		public async exists(path: string): Promise<boolean> {
@@ -69,4 +69,3 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 	}
 	return SyncFS;
 }
-/* eslint-enable @typescript-eslint/require-await */

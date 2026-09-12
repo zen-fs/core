@@ -223,7 +223,6 @@ export function readdir(this: V_Context, path: PathLike, options: ReaddirOptions
 		entries = fs.readdirSync(resolved);
 	}
 
-	// Iterate over entries and handle recursive case if needed
 	const values: Dirent[] = [];
 
 	const addEntry = (entry: string) => {
