@@ -126,7 +126,21 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public version?: number;
 
 	/** Creates a new stats instance from a stats-like object. Can be used to copy stats (note) */
-	public constructor({ atimeMs, mtimeMs, ctimeMs, birthtimeMs, uid, gid, size, mode, ino, ...rest }: Partial<InodeLike<number | bigint>> = {}) {
+	public constructor({
+		atimeMs,
+		mtimeMs,
+		ctimeMs,
+		birthtimeMs,
+		uid,
+		gid,
+		size,
+		mode,
+		ino,
+		rdev,
+		dev,
+		blksize,
+		...rest
+	}: Partial<InodeLike<number | bigint> & StatsExtra<number | bigint>> = {}) {
 		const now = Date.now();
 		this.atimeMs = this._convert(atimeMs ?? now);
 		this.mtimeMs = this._convert(mtimeMs ?? now);
@@ -137,6 +151,9 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.size = this._convert(size ?? 0);
 		this.ino = this._convert(ino ?? 0);
 		this.mode = this._convert(mode ?? 0o644 & c.S_IFREG);
+		this.rdev = this._convert(rdev ?? 0);
+		this.dev = this._convert(dev ?? 0);
+		this.blksize = this._convert(blksize ?? 4096);
 
 		if ((this.mode & c.S_IFMT) == 0) {
 			this.mode = (this.mode | this._convert(c.S_IFREG)) as T;
