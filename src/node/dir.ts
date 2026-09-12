@@ -5,7 +5,6 @@ import type { Callback } from '../utils.js';
 
 import { Buffer } from 'buffer';
 import type { Exception } from 'kerium';
-import { warn } from 'kerium/log';
 import { join, parse } from '../path.js';
 import { DirType, type Dirent as VFSDirent } from '../vfs/dir.js';
 import { readdir } from './promises.js';
@@ -32,14 +31,6 @@ export class Dirent<Name extends string | Buffer = string> implements _Dirent<Na
 	_parentPath!: string;
 
 	get parentPath(): string {
-		return this._parentPath;
-	}
-
-	/**
-	 * @deprecated Removed in Node v24, use `parentPath` instead.
-	 */
-	get path(): string {
-		warn('Dirent.path was removed in Node v24, use parentPath instead');
 		return this._parentPath;
 	}
 

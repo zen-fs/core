@@ -78,10 +78,10 @@ await suite('FS with MessageChannel', () => {
 		await fs.promises.writeFile('/test', content);
 	});
 
-	test('remote content', () => {
+	test('remote content', async () => {
 		fs.mount('/tmp', tmpfs);
 		assert.equal(fs.readFileSync('/tmp/test', 'utf8'), content);
-		fs.umount('/tmp');
+		await fs.umount('/tmp');
 	});
 
 	test('read', async () => {

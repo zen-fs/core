@@ -28,9 +28,6 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
 	/** Restrict how many files can be copied across at once @internal @protected */
 	_crossCopySemaphore?: Semaphore;
 
-	/** @deprecated Use {@link sync | `sync`} instead */
-	queueDone(): Promise<void>;
-
 	ready(): Promise<void>;
 
 	sync(): Promise<void>;
@@ -48,20 +45,6 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
  */
 export function Async<const T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, AsyncMixin> {
 	abstract class AsyncFS extends FS implements AsyncMixin {
-		/**
-		 * @deprecated Use {@link sync | `sync`} instead
-		 */
-		async done(): Promise<void> {
-			return this.sync();
-		}
-
-		/**
-		 * @deprecated Use {@link sync | `sync`} instead
-		 */
-		public queueDone(): Promise<void> {
-			return this.sync();
-		}
-
 		private _promise: Promise<unknown> = Promise.resolve();
 
 		protected _async(thunk: () => Promise<unknown>) {

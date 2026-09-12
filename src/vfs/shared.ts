@@ -10,7 +10,7 @@ import { Errno, Exception, UV, withErrno, type ExceptionExtra } from 'kerium';
 import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
 import { size_max } from '../constants.js';
-import { contextOf, defaultContext } from '../internal/contexts.js';
+import { contextOf } from '../internal/contexts.js';
 import { credentialsAllowRoot } from '../internal/credentials.js';
 import { withExceptionContext } from '../internal/error.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
@@ -21,15 +21,6 @@ import { caches, VCache } from './vcache.js';
  * @internal @hidden
  */
 export type MountObject = Record<AbsolutePath, FileSystem>;
-
-/**
- * The map of mount points
- * @category Backends and Configuration
- * @internal
- * @deprecated Use `defaultContext.mounts`.
- * @todo [breaking] remove this
- */
-export const mounts = defaultContext.mounts;
 
 // Set a default root.
 mount('/', InMemory.create({ label: 'root' }));
@@ -56,9 +47,29 @@ export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void
 /**
  * Unmounts the file system at `mountPoint`.
  * @category Backends and Configuration
- * @todo [BREAKING] make this `async` and `await` vcache sync
  */
-export function umount(this: V_Context, mountPoint: string): void {
+export async function umount(this: V_Context, mountPoint: string): Promise<void> {
+	const $ = contextOf(this);
+	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
+
+	mountPoint = resolve.call(this, mountPoint);
+	const fs = $.mounts.get(mountPoint);
+	if (!fs) {
+		warn(mountPoint + ' is already unmounted');
+		return;
+	}
+
+	await caches.get(fs.uuid)?.sync();
+	caches.delete(fs.uuid);
+	$.mounts.delete(mountPoint);
+	notice('Unmounted ' + mountPoint);
+}
+
+/**
+ * Unmounts the file system at `mountPoint`.
+ * @category Backends and Configuration
+ */
+export function umountSync(this: V_Context, mountPoint: string): void {
 	const $ = contextOf(this);
 	if (mountPoint[0] != '/') mountPoint = '/' + mountPoint;
 

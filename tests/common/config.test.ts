@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { configureSingleSync, configureSync, fs, InMemory, mounts, SingleBuffer, type Backend } from '@zenfs/core';
+import { configureSingleSync, configureSync, defaultContext, fs, InMemory, SingleBuffer, type Backend } from '@zenfs/core';
 import { Errno } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
@@ -16,7 +16,7 @@ const AsyncBackend = {
 suite('Sync configuration', () => {
 	test('configureSingleSync mounts root synchronously', () => {
 		configureSingleSync({ backend: InMemory, label: 'sync-root' });
-		assert.equal(mounts.get('/')?.label, 'sync-root');
+		assert.equal(defaultContext.mounts.get('/')?.label, 'sync-root');
 
 		fs.writeFileSync('/sync-file', 'sync');
 		assert.equal(fs.readFileSync('/sync-file', 'utf8'), 'sync');
@@ -29,11 +29,11 @@ suite('Sync configuration', () => {
 			},
 		});
 
-		assert.ok(mounts.has('/tmp'));
+		assert.ok(defaultContext.mounts.has('/tmp'));
 		fs.writeFileSync('/tmp/sync.txt', 'ok');
 		assert.equal(fs.readFileSync('/tmp/sync.txt', 'utf8'), 'ok');
 
-		fs.umount('/tmp');
+		fs.umountSync('/tmp');
 		fs.rmSync('/tmp', { recursive: true, force: true });
 	});
 

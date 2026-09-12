@@ -110,32 +110,19 @@ function setFlags($: IoctlContext, flags: number): void {
 
 /**
  * `FS_IOC_*` commands for {@link ioctl | `ioctl`}
- * @remarks
- * These are computed from a script since constant values are needed for enum member types
- * @todo [breaking] remove deprecated flags and handlers
  */
 export enum IOC {
 	GetFlags = 0x80086601,
 	SetFlags = 0x40086602,
 	GetVersion = 0x80087601,
 	SetVersion = 0x40087602,
-	/** @deprecated */
-	Fiemap = 0xc020660b,
-	/** @deprecated  */
-	GetXattr = 0x801c581f,
-	/** @deprecated */
-	SetXattr = 0x401c5820,
 	GetLabel = 0x81009431,
 	SetLabel = 0x41009432,
 	GetUUID = 0x80111500,
-	/** @deprecated */
-	GetSysfsPath = 0x80811501,
 }
 
 /**
  * `FS_IOC32_*` commands for {@link ioctl | `ioctl`}
- * @remarks
- * These are computed from a script since constant values are needed for enum member types
  */
 export enum IOC32 {
 	GetFlags = 0x80046601,
@@ -191,15 +178,6 @@ export const ioctl_default_ops = {
 		if (typeof $.inode.version !== 'number') throw withErrno('ENOTTY');
 		return $.inode.version;
 	},
-	[IOC.Fiemap](): never {
-		throw withErrno('ENOTSUP');
-	},
-	[IOC.GetXattr](): never {
-		throw withErrno('ENOTSUP');
-	},
-	[IOC.SetXattr](): never {
-		throw withErrno('ENOTSUP');
-	},
 	[IOC.GetLabel]($): string | undefined {
 		return $.fs.label;
 	},
@@ -208,9 +186,6 @@ export const ioctl_default_ops = {
 	},
 	[IOC.GetUUID]($): string {
 		return $.fs.uuid;
-	},
-	[IOC.GetSysfsPath](): never {
-		throw withErrno('ENOTSUP');
 	},
 } satisfies IoctlOps;
 

@@ -370,8 +370,8 @@ export async function handleRequest(port: Port, fs: FileSystem & { _descriptors?
 			case 'mkdir': {
 				// @ts-expect-error 2556
 				const md = await fs[request.method](...request.args);
-				value = md instanceof Inode ? md : new Inode(md);
-				transferList.push(value.buffer);
+				const inode = md instanceof Inode ? md : new Inode(md);
+				value = new Uint8Array(inode.buffer, inode.byteOffset, inode.byteLength);
 				break;
 			}
 			case 'touch': {

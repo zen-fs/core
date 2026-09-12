@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { Backend, BackendConfiguration, FilesystemOf, SharedConfig } from './backends/backend.js';
-import type { Device, DeviceDriver } from './internal/devices.js';
 
 import { log, withErrno } from 'kerium';
 import { checkOptions, isBackend, isBackendConfig } from './backends/backend.js';
 import { defaultContext } from './internal/contexts.js';
 import { createCredentials } from './internal/credentials.js';
-import { DeviceFS } from './internal/devices.js';
 import { FileSystem } from './internal/filesystem.js';
 import { exists, mkdir, stat } from './node/promises.js';
 import { existsSync, mkdirSync, statSync } from './node/sync.js';
 import { _setAccessChecks } from './vfs/config.js';
-import { mount, umount } from './vfs/shared.js';
+import { mount, umount, umountSync } from './vfs/shared.js';
 
 /**
  * Update the configuration of a file system.
@@ -176,14 +174,6 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	gid: number;
 
 	/**
-	 * Whether to automatically add normal Linux devices
-	 * @default false
-	 * @deprecated Use `@zenfs/linux`!
-	 * @todo [breaking] remove
-	 */
-	addDevices: boolean;
-
-	/**
 	 * Whether to automatically create some directories (e.g. /tmp)
 	 * @default false
 	 */
@@ -223,7 +213,7 @@ export async function configureSingle<T extends Backend>(configuration: MountCon
 	}
 
 	const resolved = await resolveMountConfig(configuration);
-	umount('/');
+	await umount('/');
 	mount('/', resolved);
 }
 
@@ -238,7 +228,7 @@ export function configureSingleSync<T extends Backend>(configuration: MountConfi
 	}
 
 	const resolved = resolveMountConfigSync(configuration);
-	umount('/');
+	umountSync('/');
 	mount('/', resolved);
 }
 
@@ -290,17 +280,6 @@ function mountWithMkdirSync(path: string, fs: FileSystem): void {
 	mount(path, fs);
 }
 
-/**
- * @category Backends and Configuration
- * @deprecated Use `@zenfs/linux`!
- * @todo [breaking] remove
- */
-export function addDevice(driver: DeviceDriver, options?: object): Device {
-	const devfs = defaultContext.mounts.get('/dev');
-	if (!(devfs instanceof DeviceFS)) throw log.crit(withErrno('ENOTSUP', '/dev does not exist or is not a device file system'));
-	return devfs._createDevice(driver, options);
-}
-
 const _defaultDirectories = ['/tmp', '/var', '/etc'];
 
 /**
@@ -331,7 +310,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 				mountConfig.caseFold ??= configuration.caseFold;
 			}
 
-			if (point == '/') umount('/');
+			if (point == '/') await umount('/');
 
 			await mountWithMkdir(point, await resolveMountConfig(mountConfig));
 		}
@@ -339,13 +318,6 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 
 	for (const fs of defaultContext.mounts.values()) {
 		configureFileSystem(fs, configuration);
-	}
-
-	if (configuration.addDevices && !defaultContext.mounts.has('/dev')) {
-		const devfs = new DeviceFS();
-		devfs.addDefaults();
-		await devfs.ready();
-		await mountWithMkdir('/dev', devfs);
 	}
 
 	if (configuration.defaultDirectories) {
@@ -386,7 +358,7 @@ export function configureSync<T extends ConfigMounts>(configuration: Partial<Con
 				mountConfig.caseFold ??= configuration.caseFold;
 			}
 
-			if (point == '/') umount('/');
+			if (point == '/') umountSync('/');
 
 			mountWithMkdirSync(point, resolveMountConfigSync(mountConfig));
 		}
@@ -394,13 +366,6 @@ export function configureSync<T extends ConfigMounts>(configuration: Partial<Con
 
 	for (const fs of defaultContext.mounts.values()) {
 		configureFileSystem(fs, configuration);
-	}
-
-	if (configuration.addDevices && !defaultContext.mounts.has('/dev')) {
-		const devfs = new DeviceFS();
-		devfs.addDefaults();
-		devfs.readySync();
-		mountWithMkdirSync('/dev', devfs);
 	}
 
 	if (configuration.defaultDirectories) {
