@@ -23,7 +23,6 @@
 	"files": [
 		"dist",
 		"tests",
-		"types",
 		"license.md",
 		"eslint.shared.js"
 	],
