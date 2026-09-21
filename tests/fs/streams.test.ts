@@ -167,7 +167,7 @@ suite('Streams', config('streams'), () => {
 		assert.deepEqual(sizes.slice(0, -1), Array(sizes.length - 1).fill(highWaterMark));
 		assert.equal(
 			sizes.reduce((a, b) => a + b, 0),
-			large.length
+			large.length,
 		);
 	});
 

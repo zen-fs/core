@@ -45,7 +45,7 @@ suite('Index', () => {
 		const index = buildIndex(60_000);
 		assert.equal(
 			atDepth(1000, () => index._alloc()),
-			120_002
+			120_002,
 		);
 	});
 });

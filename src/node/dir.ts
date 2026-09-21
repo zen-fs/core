@@ -105,7 +105,7 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 
 	public constructor(
 		public readonly path: string,
-		protected readonly context: V_Context
+		protected readonly context: V_Context,
 	) {}
 
 	/**

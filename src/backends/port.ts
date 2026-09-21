@@ -45,7 +45,7 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 	/** Constructs a new PortFS instance that connects with the FS running on `options.port`. */
 	public constructor(
 		public readonly channel: T,
-		public readonly timeout: number = 250
+		public readonly timeout: number = 250,
 	) {
 		super(0x706f7274, 'portfs');
 		this.port = RPC.from(channel);
@@ -220,7 +220,7 @@ export const Port: Port = _Port;
 export async function resolveRemoteMount<T extends Backend>(
 	channel: RPC.Channel | RPC.Port,
 	config: MountConfiguration<T>,
-	_depth = 0
+	_depth = 0,
 ): Promise<FilesystemOf<T>> {
 	const port = RPC.from(channel);
 	const stopAndReplay = RPC.catchMessages(port);

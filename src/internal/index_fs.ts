@@ -25,7 +25,7 @@ export abstract class IndexFS extends FileSystem {
 	public constructor(
 		id: number,
 		name: string,
-		public readonly index: Index = new Index()
+		public readonly index: Index = new Index(),
 	) {
 		super(id, name);
 	}

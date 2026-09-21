@@ -85,7 +85,7 @@ export class Handle {
 		public readonly path: string,
 		public readonly internalPath: string,
 		public readonly flag: number,
-		public readonly vnode: VNode
+		public readonly vnode: VNode,
 	) {}
 
 	protected get _isSync(): boolean {
@@ -182,7 +182,7 @@ export class Handle {
 		buffer: ArrayBufferView,
 		offset: number = 0,
 		length: number = buffer.byteLength - offset,
-		position: number = this.position
+		position: number = this.position,
 	): number {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
 		if (this.flag & c.O_WRONLY) throw UV('EBADF', 'read', this.path);
@@ -304,7 +304,7 @@ export class Handle {
 		buffer: Uint8Array,
 		offset: number = 0,
 		length: number = buffer.byteLength - offset,
-		position: number = this.position
+		position: number = this.position,
 	): Promise<number> {
 		if (this.closed) throw UV('EBADF', 'write', this.path);
 		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw UV('EBADF', 'write', this.path);
@@ -335,7 +335,7 @@ export class Handle {
 		buffer: ArrayBufferView,
 		offset: number = 0,
 		length: number = buffer.byteLength - offset,
-		position: number = this.position
+		position: number = this.position,
 	): Promise<number> {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
 		if (this.flag & c.O_WRONLY) throw UV('EBADF', 'read', this.path);

@@ -35,7 +35,7 @@ export class VCache {
 
 		if (node && node.inode.nlink === node.paths.size && !node.paths.has(path))
 			err(
-				`vcache.ref: vnode for ${this.fs.label || this.fs.uuid}:${inode.ino} has an nlink of ${node.inode.nlink} but referenced by more paths [#314]`
+				`vcache.ref: vnode for ${this.fs.label || this.fs.uuid}:${inode.ino} has an nlink of ${node.inode.nlink} but referenced by more paths [#314]`,
 			);
 
 		if (!node) {

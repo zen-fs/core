@@ -39,7 +39,7 @@ export class VNode extends RwLockable {
 	public constructor(
 		public readonly fs: FileSystem,
 		path: string,
-		public readonly inode: InodeLike
+		public readonly inode: InodeLike,
 	) {
 		super();
 		this.paths.add(path);

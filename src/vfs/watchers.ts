@@ -35,7 +35,7 @@ class Watcher<TEvents extends Record<string, unknown[]> = Record<string, unknown
 		 * @internal
 		 */
 		public readonly _context: V_Context,
-		public readonly path: string
+		public readonly path: string,
 	) {
 		super();
 	}
@@ -87,7 +87,7 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 	public constructor(
 		context: V_Context,
 		path: string,
-		public readonly options: fs.WatchOptions
+		public readonly options: fs.WatchOptions,
 	) {
 		const $ = contextOf(context);
 
@@ -127,7 +127,7 @@ export class StatWatcher
 	public constructor(
 		context: V_Context,
 		path: string,
-		private options: { persistent?: boolean; interval?: number }
+		private options: { persistent?: boolean; interval?: number },
 	) {
 		super(context, path);
 		this.start();

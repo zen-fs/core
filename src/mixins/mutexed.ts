@@ -236,7 +236,7 @@ export class _MutexedFS<T extends FileSystem> extends RwLockable implements File
  * @todo [breaking] Remove
  */
 export function Mutexed<const T extends Concrete<typeof FileSystem>>(
-	FS: T
+	FS: T,
 ): typeof _MutexedFS<InstanceType<T>> & {
 	new (...args: ConstructorParameters<T>): _MutexedFS<InstanceType<T>>;
 } {

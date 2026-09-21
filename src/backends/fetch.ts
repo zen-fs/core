@@ -80,7 +80,7 @@ export class FetchFS extends IndexFS {
 		index: Index,
 		protected baseUrl: string,
 		protected requestInit: RequestInit = {},
-		protected remoteWrite?: boolean
+		protected remoteWrite?: boolean,
 	) {
 		super(0x206e6673, 'nfs', index);
 	}

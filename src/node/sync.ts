@@ -52,7 +52,7 @@ export function statSync(this: V_Context, path: fs.PathLike, options: fs.StatOpt
 export function statSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false }
+	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false },
 ): BigIntStats | undefined;
 export function statSync(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { throwIfNoEntry?: true }): Stats | BigIntStats;
 export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats | undefined;
@@ -79,7 +79,7 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options: fs.StatOp
 export function lstatSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false }
+	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false },
 ): BigIntStats | undefined;
 export function lstatSync(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { throwIfNoEntry?: true }): Stats | BigIntStats;
 export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Stats | BigIntStats | undefined;
@@ -150,9 +150,9 @@ function intoBuffer(into: ArrayBufferView | ((size: number) => ArrayBufferView),
 	if (!ArrayBuffer.isView(view))
 		throw Object.assign(
 			new TypeError(
-				`The "options.buffer" property must be of type function or an instance of Buffer, TypedArray, or DataView. Received ${typeof view}`
+				`The "options.buffer" property must be of type function or an instance of Buffer, TypedArray, or DataView. Received ${typeof view}`,
 			),
-			{ code: 'ERR_INVALID_ARG_TYPE' }
+			{ code: 'ERR_INVALID_ARG_TYPE' },
 		);
 
 	if (view.byteLength < size)
@@ -160,7 +160,7 @@ function intoBuffer(into: ArrayBufferView | ((size: number) => ArrayBufferView),
 			new TypeError(`The property '${name}.byteLength' is smaller than the file size of ${size} bytes. Received ${view.byteLength}`),
 			{
 				code: 'ERR_INVALID_ARG_VALUE',
-			}
+			},
 		);
 
 	return Buffer.from(view.buffer, view.byteOffset, size);
@@ -177,23 +177,23 @@ function intoBuffer(into: ArrayBufferView | ((size: number) => ArrayBufferView),
 export function readFileSync<T extends NodeJS.ArrayBufferView>(
 	this: V_Context,
 	path: fs.PathOrFileDescriptor,
-	options: fs.ReadFileSyncOptionsWithBuffer<T>
+	options: fs.ReadFileSyncOptionsWithBuffer<T>,
 ): BufferView<T>;
 export function readFileSync(
 	this: V_Context,
 	path: fs.PathOrFileDescriptor,
-	options?: fs.ReadFileSyncOptionsWithBufferEncoding | null
+	options?: fs.ReadFileSyncOptionsWithBufferEncoding | null,
 ): NonSharedBuffer;
 export function readFileSync(
 	this: V_Context,
 	path: fs.PathOrFileDescriptor,
-	options: fs.ReadFileSyncOptionsWithStringEncoding | BufferEncoding
+	options: fs.ReadFileSyncOptionsWithStringEncoding | BufferEncoding,
 ): string;
 export function readFileSync(this: V_Context, path: fs.PathOrFileDescriptor, options: fs.ReadFileSyncOptions): string | NonSharedBuffer;
 export function readFileSync(
 	this: V_Context,
 	path: fs.PathOrFileDescriptor,
-	_options: (fs.ReadFileSyncOptions & { buffer?: ArrayBufferView | ((size: number) => ArrayBufferView) }) | BufferEncoding | null = {}
+	_options: (fs.ReadFileSyncOptions & { buffer?: ArrayBufferView | ((size: number) => ArrayBufferView) }) | BufferEncoding | null = {},
 ): FileContents {
 	const options = normalizeOptions(_options, null, 'r', 0o644);
 	const flag = flags.parse(options.flag);
@@ -227,7 +227,7 @@ export function writeFileSync(
 	this: V_Context,
 	path: fs.PathOrFileDescriptor,
 	data: FileContents,
-	_options: fs.WriteFileOptions | BufferEncoding = {}
+	_options: fs.WriteFileOptions | BufferEncoding = {},
 ): void {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	const flag = flags.parse(options.flag);
@@ -336,7 +336,7 @@ export function writeSync(
 	data: ArrayBufferView,
 	offset?: number | null,
 	length?: number | null,
-	position?: number | null
+	position?: number | null,
 ): number;
 export function writeSync(this: V_Context, fd: number, data: string, position?: number | null, encoding?: BufferEncoding | null): number;
 export function writeSync(
@@ -345,7 +345,7 @@ export function writeSync(
 	data: FileContents,
 	posOrOff?: number | null,
 	lenOrEnc?: BufferEncoding | number | null,
-	pos?: number | null
+	pos?: number | null,
 ): number {
 	let buffer: Uint8Array, offset: number | undefined, length: number, position: number | null;
 	if (typeof data === 'string') {
@@ -378,7 +378,7 @@ export function readSync(
 	buffer: ArrayBufferView,
 	offset: number,
 	length: number,
-	position?: fs.ReadPosition | null
+	position?: fs.ReadPosition | null,
 ): number;
 /**
  * Read data from the file specified by `fd`.
@@ -394,7 +394,7 @@ export function readSync(
 	buffer: ArrayBufferView,
 	options?: fs.ReadOptions | number,
 	length?: number,
-	position?: fs.ReadPosition | null
+	position?: fs.ReadPosition | null,
 ): number {
 	const file = fromFD(this, fd);
 	const offset = typeof options == 'object' ? options.offset : options;
@@ -463,27 +463,27 @@ mkdirSync satisfies typeof fs.mkdirSync;
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: { encoding: BufferEncoding | null; withFileTypes?: false; recursive?: boolean } | BufferEncoding | null
+	options?: { encoding: BufferEncoding | null; withFileTypes?: false; recursive?: boolean } | BufferEncoding | null,
 ): string[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer'
+	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer',
 ): NonSharedBuffer[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null,
 ): string[] | NonSharedBuffer[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean }
+	options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean },
 ): Dirent[];
 export function readdirSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
+	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean },
 ): Dirent<NonSharedBuffer>[];
 export function readdirSync(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): string[] | Dirent<any>[] | Buffer[];
 export function readdirSync(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): string[] | Dirent<any>[] | Buffer[] {
@@ -534,12 +534,12 @@ export function readlinkSync(this: V_Context, path: fs.PathLike, options: fs.Enc
 export function readlinkSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
+	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption,
 ): NonSharedBuffer | string;
 export function readlinkSync(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
+	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption,
 ): Buffer | string {
 	const buf = Buffer.from(_sync.readlink.call(this, path));
 
@@ -693,7 +693,7 @@ mkdtempSync satisfies typeof fs.mkdtempSync;
 export function mkdtempDisposableSync(
 	this: V_Context,
 	prefix: fs.PathLike,
-	options?: fs.EncodingOption | fs.BufferEncodingOption
+	options?: fs.EncodingOption | fs.BufferEncodingOption,
 ): fs.DisposableTempDir {
 	const path = _tempDirName(prefix);
 

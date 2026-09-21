@@ -281,7 +281,7 @@ const executors: Map<string, Executor> = new Map();
 
 export function request<const Init extends RequestInit, TValue>(
 	request: Init,
-	{ port, timeout: ms = 1000, fs }: Partial<Options> & { fs: PortFS }
+	{ port, timeout: ms = 1000, fs }: Partial<Options> & { fs: PortFS },
 ): Promise<TValue> {
 	const stack = '\n' + new Error().stack!.slice('Error:'.length);
 	if (!port) throw err(withErrno('EINVAL', 'Can not make an RPC request without a port'));

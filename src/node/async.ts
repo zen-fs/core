@@ -49,20 +49,20 @@ export function stat(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { bigint?: false; throwIfNoEntry: false },
-	callback: Callback<[Stats | undefined]>
+	callback: Callback<[Stats | undefined]>,
 ): void;
 export function stat(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { bigint: true; throwIfNoEntry: false },
-	callback: Callback<[BigIntStats | undefined]>
+	callback: Callback<[BigIntStats | undefined]>,
 ): void;
 export function stat(this: V_Context, path: fs.PathLike, options: fs.StatOptions, callback: Callback<[Stats | BigIntStats | undefined]>): void;
 export function stat(
 	this: V_Context,
 	path: fs.PathLike,
 	options?: fs.StatOptions | Callback<[Stats]>,
-	callback: Callback<[Stats]> | Callback<[BigIntStats]> = nop
+	callback: Callback<[Stats]> | Callback<[BigIntStats]> = nop,
 ): void {
 	callback = typeof options == 'function' ? options : callback;
 	promises.stat
@@ -85,7 +85,7 @@ export function lstat(
 	this: V_Context,
 	path: fs.PathLike,
 	options?: fs.StatOptions | Callback<[Stats]>,
-	callback: Callback<[Stats]> | Callback<[BigIntStats]> = nop
+	callback: Callback<[Stats]> | Callback<[BigIntStats]> = nop,
 ): void {
 	callback = typeof options == 'function' ? options : callback;
 	promises.lstat
@@ -130,7 +130,7 @@ export function open(
 	path: fs.PathLike,
 	flag: fs.OpenMode,
 	cbMode?: number | string | Callback<[number]>,
-	cb: Callback<[number]> = nop
+	cb: Callback<[number]> = nop,
 ): void {
 	const mode = normalizeMode(cbMode, 0o644);
 	cb = typeof cbMode === 'function' ? cbMode : cb;
@@ -153,13 +153,13 @@ export function readFile(
 	this: V_Context,
 	filename: fs.PathLike,
 	options: { encoding: BufferEncoding; flag?: string } | BufferEncoding,
-	cb: Callback<[string]>
+	cb: Callback<[string]>,
 ): void;
 export function readFile(
 	this: V_Context,
 	filename: fs.PathLike,
 	options?: fs.WriteFileOptions | BufferEncoding | Callback<[Uint8Array]>,
-	cb: Callback<[string]> | Callback<[Uint8Array]> = nop
+	cb: Callback<[string]> | Callback<[Uint8Array]> = nop,
 ) {
 	cb = typeof options === 'function' ? options : cb;
 
@@ -188,7 +188,7 @@ export function writeFile(
 	filename: fs.PathLike,
 	data: FileContents,
 	cbEncOpts?: fs.WriteFileOptions | Callback,
-	cb: Callback = nop
+	cb: Callback = nop,
 ): void {
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
 	promises.writeFile
@@ -212,7 +212,7 @@ export function appendFile(
 	filename: fs.PathLike,
 	data: FileContents,
 	options?: fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode },
-	cb?: Callback
+	cb?: Callback,
 ): void;
 export function appendFile(this: V_Context, filename: fs.PathLike, data: FileContents, encoding?: BufferEncoding, cb?: Callback): void;
 export function appendFile(
@@ -220,7 +220,7 @@ export function appendFile(
 	filename: fs.PathLike,
 	data: FileContents,
 	cbEncOpts?: (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | Callback,
-	cb: Callback = nop
+	cb: Callback = nop,
 ): void {
 	const optionsOrEncoding = typeof cbEncOpts != 'function' ? cbEncOpts : undefined;
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
@@ -242,7 +242,7 @@ export function fstat(
 	this: V_Context,
 	fd: number,
 	options?: fs.StatOptions | Callback<[Stats]>,
-	cb: Callback<[Stats]> | Callback<[BigIntStats]> = nop
+	cb: Callback<[Stats]> | Callback<[BigIntStats]> = nop,
 ): void {
 	cb = typeof options == 'function' ? options : cb;
 
@@ -308,7 +308,7 @@ export function write(
 	offset: number,
 	length: number,
 	position?: number,
-	cb?: Callback<[number, Uint8Array]>
+	cb?: Callback<[number, Uint8Array]>,
 ): void;
 export function write(this: V_Context, fd: number, data: FileContents, cb?: Callback<[number, string]>): void;
 export function write(this: V_Context, fd: number, data: FileContents, position?: number, cb?: Callback<[number, string]>): void;
@@ -318,7 +318,7 @@ export function write(
 	data: FileContents,
 	position: number | null,
 	encoding: BufferEncoding,
-	cb?: Callback<[number, string]>
+	cb?: Callback<[number, string]>,
 ): void;
 export function write(
 	this: V_Context,
@@ -327,7 +327,7 @@ export function write(
 	cbPosOff?: number | Callback<[number, string]> | null,
 	cbLenEnc?: number | BufferEncoding | Callback<[number, string]>,
 	cbPosEnc?: number | BufferEncoding | Callback<[number, Uint8Array]> | Callback<[number, string]>,
-	cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop
+	cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop,
 ): void {
 	let buffer: Buffer, offset: number, length: number, position: number | null, encoding: BufferEncoding;
 	const handle = new promises.FileHandle(this, fd);
@@ -372,7 +372,7 @@ export function read(
 	offset: number,
 	length: number,
 	position?: number,
-	cb: Callback<[number, Uint8Array]> = nop
+	cb: Callback<[number, Uint8Array]> = nop,
 ): void {
 	new promises.FileHandle(this, fd)
 		.read(buffer, offset, length, position)
@@ -440,7 +440,7 @@ export function readdir(
 	this: V_Context,
 	path: fs.PathLike,
 	_options: { withFileTypes?: boolean } | Callback<[string[]]>,
-	cb: Callback<[string[]]> | Callback<[Dirent[]]> = nop
+	cb: Callback<[string[]]> | Callback<[Dirent[]]> = nop,
 ): void {
 	cb = typeof _options == 'function' ? _options : cb;
 	const options = typeof _options != 'function' ? _options : {};
@@ -486,7 +486,7 @@ export function readlink(
 	this: V_Context,
 	path: fs.PathLike,
 	options: fs.BufferEncodingOption | fs.EncodingOption | Callback<[string]>,
-	callback: Callback<[string]> | Callback<[Uint8Array]> = nop
+	callback: Callback<[string]> | Callback<[Uint8Array]> = nop,
 ): void {
 	callback = typeof options == 'function' ? options : callback;
 	promises.readlink
@@ -595,13 +595,13 @@ export function watchFile(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { persistent?: boolean; interval?: number },
-	listener: (curr: Stats, prev: Stats) => void
+	listener: (curr: Stats, prev: Stats) => void,
 ): void;
 export function watchFile(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
-	listener?: (curr: Stats, prev: Stats) => void
+	listener?: (curr: Stats, prev: Stats) => void,
 ): void {
 	const normalizedPath = normalizePath.call(this, path);
 	const opts = typeof options != 'function' ? options : {};
@@ -668,13 +668,13 @@ export function watch(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { persistent?: boolean },
-	listener?: (event: string, filename: string) => any
+	listener?: (event: string, filename: string) => any,
 ): FSWatcher;
 export function watch(
 	this: V_Context,
 	path: fs.PathLike,
 	options?: fs.WatchOptions | ((event: string, filename: string) => any),
-	listener?: (event: string, filename: string) => any
+	listener?: (event: string, filename: string) => any,
 ): FSWatcher {
 	const watcher = new FSWatcher<string>(this, normalizePath.call(this, path), typeof options == 'object' ? options : {});
 	listener = typeof options == 'function' ? options : listener;
@@ -734,14 +734,14 @@ export function mkdtemp(
 	this: V_Context,
 	prefix: string,
 	options: fs.EncodingOption | fs.BufferEncodingOption | Callback<[string]>,
-	callback: Callback<[Buffer]> | Callback<[string]> = nop
+	callback: Callback<[Buffer]> | Callback<[string]> = nop,
 ): void {
 	callback = typeof options === 'function' ? options : callback;
 	promises.mkdtemp
 		.call<V_Context, [string, fs.EncodingOption], Promise<string>>(
 			this,
 			prefix,
-			typeof options != 'function' ? (options as fs.EncodingOption) : null
+			typeof options != 'function' ? (options as fs.EncodingOption) : null,
 		)
 		.then(result => (callback as Callback<[string | Buffer]>)(null, result))
 		.catch(callback);
@@ -813,13 +813,13 @@ export function statfs(
 	this: V_Context,
 	path: fs.PathLike,
 	options: fs.StatFsOptions & { bigint: true },
-	callback: Callback<[fs.BigIntStatsFs]>
+	callback: Callback<[fs.BigIntStatsFs]>,
 ): void;
 export function statfs(
 	this: V_Context,
 	path: fs.PathLike,
 	options?: fs.StatFsOptions | Callback<[fs.StatsFs]>,
-	callback: Callback<[fs.StatsFs]> | Callback<[fs.BigIntStatsFs]> = nop
+	callback: Callback<[fs.StatsFs]> | Callback<[fs.BigIntStatsFs]> = nop,
 ): void {
 	callback = typeof options === 'function' ? options : callback;
 	promises.statfs
@@ -847,32 +847,32 @@ export function glob(
 	this: V_Context,
 	pattern: string | readonly string[],
 	options: fs.GlobOptionsWithFileTypes,
-	callback: GlobCallback<[Dirent[]]>
+	callback: GlobCallback<[Dirent[]]>,
 ): void;
 export function glob(
 	this: V_Context,
 	pattern: string | readonly string[],
 	options: fs.GlobOptionsWithoutFileTypes,
-	callback: GlobCallback<[string[]]>
+	callback: GlobCallback<[string[]]>,
 ): void;
 export function glob(
 	this: V_Context,
 	pattern: string | readonly string[],
 	options: fs.GlobOptions,
-	callback: GlobCallback<[Dirent[] | string[]]>
+	callback: GlobCallback<[Dirent[] | string[]]>,
 ): void;
 export function glob(
 	this: V_Context,
 	pattern: string | readonly string[],
 	options: GlobOptionsU | GlobCallback<[string[]]>,
-	callback: GlobCallback<[Dirent[]]> | GlobCallback<[string[]]> = nop
+	callback: GlobCallback<[Dirent[]]> | GlobCallback<[string[]]> = nop,
 ): void {
 	callback = typeof options == 'function' ? options : callback;
 
 	const it = promises.glob.call<V_Context, [string | readonly string[], GlobOptionsU?], NodeJS.AsyncIterator<Dirent | string>>(
 		this,
 		pattern,
-		typeof options === 'function' ? undefined : options
+		typeof options === 'function' ? undefined : options,
 	);
 	Array.fromAsync(it)
 		.then(results => callback(null, (results as any) ?? []))

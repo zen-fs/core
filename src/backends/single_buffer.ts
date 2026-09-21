@@ -205,8 +205,8 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 			throw crit(
 				withErrno(
 					'EIO',
-					`sbfs: checksum mismatch for metadata block (saved ${hex(this.metadata.checksum)}, computed ${hex(checksum(this.metadata))})`
-				)
+					`sbfs: checksum mismatch for metadata block (saved ${hex(this.metadata.checksum)}, computed ${hex(checksum(this.metadata))})`,
+				),
 			);
 
 		if (this.inode_format != _inode_version) throw crit(withErrno('EIO', 'sbfs: inode format mismatch'));
@@ -525,7 +525,7 @@ const _SingleBuffer = {
 		const fs = new StoreFS(
 			ArrayBuffer.isView(opt.buffer)
 				? new SingleBufferStore(opt.buffer.buffer, opt.buffer.byteOffset, opt.buffer.byteLength)
-				: new SingleBufferStore(opt.buffer)
+				: new SingleBufferStore(opt.buffer),
 		);
 		fs.checkRootSync();
 		return fs;

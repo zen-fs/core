@@ -38,7 +38,7 @@ export class Interface extends EventEmitter<InterfaceEvents> implements readline
 		public readonly input: NodeJS.ReadableStream,
 		public readonly output?: NodeJS.WritableStream,
 		completer?: readline.Completer | readline.AsyncCompleter,
-		public readonly terminal: boolean = false
+		public readonly terminal: boolean = false,
 	) {
 		super();
 
@@ -463,7 +463,7 @@ export function createInterface(
 	input: NodeJS.ReadableStream,
 	output?: NodeJS.WritableStream,
 	completer?: readline.Completer | readline.AsyncCompleter,
-	terminal?: boolean
+	terminal?: boolean,
 ): Interface;
 /**
  * Creates a readline interface from options
@@ -475,7 +475,7 @@ export function createInterface(
 	input: NodeJS.ReadableStream | readline.ReadLineOptions,
 	output?: NodeJS.WritableStream,
 	completer?: readline.Completer | readline.AsyncCompleter,
-	terminal?: boolean
+	terminal?: boolean,
 ): Interface {
 	return 'input' in input
 		? new Interface(input.input, input.output, input.completer, input.terminal)

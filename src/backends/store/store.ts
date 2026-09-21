@@ -230,7 +230,7 @@ export class WrappedTransaction<T extends Store = Store> {
 
 	public constructor(
 		public readonly raw: Transaction<T>,
-		protected fs: StoreFS<T>
+		protected fs: StoreFS<T>,
 	) {}
 
 	/**

@@ -314,7 +314,7 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		createCredentials({
 			uid: configuration.uid || 0,
 			gid: configuration.gid || 0,
-		})
+		}),
 	);
 
 	_setAccessChecks(!configuration.disableAccessChecks);
@@ -370,7 +370,7 @@ export function configureSync<T extends ConfigMounts>(configuration: Partial<Con
 		createCredentials({
 			uid: configuration.uid || 0,
 			gid: configuration.gid || 0,
-		})
+		}),
 	);
 
 	_setAccessChecks(!configuration.disableAccessChecks);

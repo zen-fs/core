@@ -147,7 +147,7 @@ export class CopyOnWriteFS extends FileSystem {
 		public readonly writable: FileSystem,
 
 		/** The journal to use for persisting deletions */
-		public readonly journal = new Journal()
+		public readonly journal = new Journal(),
 	) {
 		super(0x62756c6c, readable.name);
 

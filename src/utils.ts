@@ -12,7 +12,7 @@ import type { V_Context } from './internal/contexts.js';
  */
 export function decodeDirListing(data: Uint8Array): Record<string, number> {
 	return JSON.parse(decodeUTF8(data), (k, v) =>
-		k == '' ? v : typeof v == 'string' ? BigInt(v).toString(16).slice(0, Math.min(v.length, 8)) : (v as number)
+		k == '' ? v : typeof v == 'string' ? BigInt(v).toString(16).slice(0, Math.min(v.length, 8)) : (v as number),
 	);
 }
 
@@ -123,7 +123,7 @@ export function normalizeOptions(
 	options: fs.WriteFileOptions | (fs.EncodingOption & { flag?: fs.OpenMode }) | undefined,
 	encoding: BufferEncoding | null = 'utf8',
 	flag: string,
-	mode: number = 0
+	mode: number = 0,
 ): fs.ObjectEncodingOptions & { flag: string; mode: number } {
 	if (typeof options != 'object' || options === null) {
 		return {

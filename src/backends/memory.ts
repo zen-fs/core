@@ -16,7 +16,7 @@ export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapSto
 
 	public constructor(
 		public readonly maxSize: number = size_max,
-		public readonly label?: string
+		public readonly label?: string,
 	) {
 		super();
 	}

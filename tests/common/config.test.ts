@@ -43,7 +43,7 @@ suite('Sync configuration', () => {
 				configureSync({
 					mounts: { '/': { backend: AsyncBackend } },
 				}),
-			{ errno: Errno.EAGAIN }
+			{ errno: Errno.EAGAIN },
 		);
 	});
 

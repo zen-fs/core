@@ -71,7 +71,7 @@ export function fromMode(mode: number): ACL {
 	acl.entries.push(
 		Object.assign(new Entry(), { tag: Tag.UserObj, perm: (mode & S_IRWXU) >> 6 }),
 		Object.assign(new Entry(), { tag: Tag.GroupObj, perm: (mode & S_IRWXG) >> 3 }),
-		Object.assign(new Entry(), { tag: Tag.Other, perm: mode & S_IRWXO })
+		Object.assign(new Entry(), { tag: Tag.Other, perm: mode & S_IRWXO }),
 	);
 
 	return acl;
@@ -115,7 +115,7 @@ export async function set($: V_Context, path: string, acl: ACL): Promise<void> {
 		$,
 		path,
 		'system.posix_acl_access',
-		new Uint8Array(acl.buffer, acl.byteOffset, acl.byteLength)
+		new Uint8Array(acl.buffer, acl.byteOffset, acl.byteLength),
 	);
 }
 
@@ -124,7 +124,7 @@ export function setSync($: V_Context, path: string, acl: ACL): void {
 		$,
 		path,
 		'system.posix_acl_access',
-		new Uint8Array(acl.buffer, acl.byteOffset, acl.byteLength)
+		new Uint8Array(acl.buffer, acl.byteOffset, acl.byteLength),
 	);
 }
 

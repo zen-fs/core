@@ -188,7 +188,7 @@ export abstract class FileSystem {
 		 * The name for this file system.
 		 * For example, tmpfs for an in memory one
 		 */
-		public readonly name: string
+		public readonly name: string,
 	) {
 		if (this.streamRead === FileSystem.prototype.streamRead) this.attributes.set('default_stream_read');
 		if (this.streamWrite === FileSystem.prototype.streamWrite) this.attributes.set('default_stream_write');

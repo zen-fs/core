@@ -108,7 +108,7 @@ export class FileHandle implements promises.FileHandle {
 
 	public constructor(
 		protected context: V_Context,
-		fd: number
+		fd: number,
 	) {
 		this._fd = fd;
 		this.vfs = fromFD(context, fd);
@@ -183,7 +183,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async appendFile(
 		data: string | Uint8Array,
-		_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {}
+		_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {},
 	): Promise<void> {
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = flags.parse(options.flag);
@@ -206,18 +206,18 @@ export class FileHandle implements promises.FileHandle {
 		buffer: T,
 		offset?: number,
 		length?: number,
-		position?: number | null
+		position?: number | null,
 	): Promise<promises.FileReadResult<T>>;
 	public async read<T extends NodeJS.ArrayBufferView = Buffer>(
 		buffer: T,
-		options?: promises.FileReadOptions<T>
+		options?: promises.FileReadOptions<T>,
 	): Promise<promises.FileReadResult<T>>;
 	public async read<T extends NodeJS.ArrayBufferView = Buffer>(options?: promises.FileReadOptions<T>): Promise<promises.FileReadResult<T>>;
 	public async read<T extends NodeJS.ArrayBufferView = Buffer>(
 		buffer?: T | promises.FileReadOptions<T>,
 		offset?: number | null | promises.FileReadOptions<T>,
 		length?: number | null,
-		position?: fs.ReadPosition | null
+		position?: fs.ReadPosition | null,
 	): Promise<promises.FileReadResult<T>> {
 		if (typeof offset == 'object' && offset != null) {
 			position = offset.position;
@@ -316,7 +316,7 @@ export class FileHandle implements promises.FileHandle {
 		data: T,
 		options?: number | null | { offset?: number; length?: number; position?: number },
 		lenOrEnc?: BufferEncoding | number | null,
-		position?: number | null
+		position?: number | null,
 	): Promise<{ bytesWritten: number; buffer: T }> {
 		let buffer: Uint8Array, offset: number | null | undefined, length: number;
 		if (typeof options == 'object' && options != null) {
@@ -378,7 +378,7 @@ export class FileHandle implements promises.FileHandle {
 	 */
 	public async writev<TBuffers extends readonly NodeJS.ArrayBufferView[]>(
 		buffers: TBuffers,
-		position?: number
+		position?: number,
 	): Promise<fs.WriteVResult<TBuffers>> {
 		if (typeof position == 'number') this.vfs.position = position;
 
@@ -585,12 +585,12 @@ export async function stat(this: V_Context, path: fs.PathLike, options?: fs.Stat
 export async function stat(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.StatOptions & { bigint?: false; throwIfNoEntry: false }
+	options: fs.StatOptions & { bigint?: false; throwIfNoEntry: false },
 ): Promise<Stats | undefined>;
 export async function stat(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false }
+	options: fs.StatOptions & { bigint: true; throwIfNoEntry: false },
 ): Promise<BigIntStats | undefined>;
 export async function stat(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { throwIfNoEntry?: true }): Promise<Stats | BigIntStats>;
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats | undefined>;
@@ -661,22 +661,22 @@ open satisfies typeof promises.open;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options?: ({ encoding?: null; flag?: fs.OpenMode } & Abortable) | null
+	options?: ({ encoding?: null; flag?: fs.OpenMode } & Abortable) | null,
 ): Promise<NonSharedBuffer>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options: ({ encoding: BufferEncoding; flag?: fs.OpenMode } & Abortable) | BufferEncoding
+	options: ({ encoding: BufferEncoding; flag?: fs.OpenMode } & Abortable) | BufferEncoding,
 ): Promise<string>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	_options?: (fs.ObjectEncodingOptions & Abortable & { flag?: fs.OpenMode }) | BufferEncoding | null
+	_options?: (fs.ObjectEncodingOptions & Abortable & { flag?: fs.OpenMode }) | BufferEncoding | null,
 ): Promise<string | NonSharedBuffer>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null
+	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null,
 ): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', 0o444);
 	await using handle: FileHandle =
@@ -697,7 +697,7 @@ export async function writeFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
 	data: FileContents | Stream | Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView>,
-	_options?: (fs.ObjectEncodingOptions & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null
+	_options?: (fs.ObjectEncodingOptions & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null,
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	await using handle = path instanceof FileHandle ? path : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
@@ -720,7 +720,7 @@ export async function appendFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
 	data: FileContents | Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView>,
-	_options?: BufferEncoding | (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | null
+	_options?: BufferEncoding | (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | null,
 ): Promise<void> {
 	const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 	const flag = flags.parse(options.flag);
@@ -771,13 +771,13 @@ export async function mkdir(this: V_Context, path: fs.PathLike, options: fs.Make
 export async function mkdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false | undefined }) | null
+	options?: fs.Mode | (fs.MakeDirectoryOptions & { recursive?: false | undefined }) | null,
 ): Promise<void>;
 export async function mkdir(this: V_Context, path: fs.PathLike, options?: fs.Mode | fs.MakeDirectoryOptions | null): Promise<string | undefined>;
 export async function mkdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: fs.Mode | fs.MakeDirectoryOptions | null
+	options?: fs.Mode | fs.MakeDirectoryOptions | null,
 ): Promise<string | undefined | void> {
 	options = typeof options === 'object' ? options : { mode: options };
 	const mode = normalizeMode(options?.mode, 0o777);
@@ -797,27 +797,27 @@ mkdir satisfies typeof promises.mkdir;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null,
 ): Promise<string[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer'
+	options: { encoding: 'buffer'; withFileTypes?: false; recursive?: boolean } | 'buffer',
 ): Promise<NonSharedBuffer[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null
+	options?: (fs.ObjectEncodingOptions & { withFileTypes?: false; recursive?: boolean }) | BufferEncoding | null,
 ): Promise<string[] | NonSharedBuffer[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean }
+	options: fs.ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean },
 ): Promise<Dirent[]>;
 export async function readdir(
 	this: V_Context,
 	path: fs.PathLike,
-	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean }
+	options: { encoding: 'buffer'; withFileTypes: true; recursive?: boolean },
 ): Promise<Dirent<NonSharedBuffer>[]>;
 export async function readdir(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]>;
 export async function readdir(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
@@ -871,12 +871,12 @@ export async function readlink(this: V_Context, path: fs.PathLike, options?: fs.
 export async function readlink(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
+	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null,
 ): Promise<string | NonSharedBuffer>;
 export async function readlink(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null
+	options?: fs.BufferEncodingOption | fs.EncodingOption | string | null,
 ): Promise<string | Buffer> {
 	path = normalizePath.call(this, path);
 
@@ -960,7 +960,7 @@ export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.
 export async function realpath(
 	this: V_Context,
 	path: fs.PathLike,
-	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption
+	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption,
 ): Promise<string | Buffer> {
 	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
 	path = normalizePath.call(this, path);
@@ -976,22 +976,22 @@ realpath satisfies typeof promises.realpath;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
-	options?: fs.WatchOptions | BufferEncoding
+	options?: fs.WatchOptions | BufferEncoding,
 ): AsyncIteratorObject<promises.FileChangeInfo<string>, undefined>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
-	options: fs.WatchOptions | fs.BufferEncodingOption
+	options: fs.WatchOptions | fs.BufferEncodingOption,
 ): AsyncIteratorObject<promises.FileChangeInfo<NonSharedBuffer>, undefined>;
 export function watch(
 	this: V_Context,
 	filename: fs.PathLike,
-	options?: fs.WatchOptions | string
+	options?: fs.WatchOptions | string,
 ): AsyncIteratorObject<promises.FileChangeInfo<string>, undefined> | AsyncIteratorObject<promises.FileChangeInfo<NonSharedBuffer>, undefined>;
 export function watch<T extends string | Buffer>(
 	this: V_Context,
 	filename: fs.PathLike,
-	options: fs.WatchOptions | string = {}
+	options: fs.WatchOptions | string = {},
 ): AsyncIteratorObject<promises.FileChangeInfo<T>, undefined> {
 	const opts = typeof options !== 'string' ? options : ({ encoding: options as BufferEncoding | 'buffer' } satisfies fs.WatchOptions);
 
@@ -1111,7 +1111,7 @@ mkdtemp satisfies typeof promises.mkdtemp;
 export async function mkdtempDisposable(
 	this: V_Context,
 	prefix: fs.PathLike,
-	options?: fs.EncodingOption | fs.BufferEncodingOption
+	options?: fs.EncodingOption | fs.BufferEncodingOption,
 ): Promise<promises.DisposableTempDir> {
 	const path = _tempDirName(prefix);
 
@@ -1182,7 +1182,7 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 				[
 					readdir.call<V_Context, [string, any], Promise<Dirent[]>>(this, source, { withFileTypes: true }),
 					mkdir.call(this, destination, { recursive: true }),
-				] // Ensure the destination directory exists
+				], // Ensure the destination directory exists
 			);
 
 			const _cp = async (dirent: Dirent) => {

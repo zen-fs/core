@@ -71,7 +71,7 @@ if (opts.verbose) {
 
 	for (const { name, bits, mask, shift } of parts) {
 		console.log(
-			`${name.padEnd(4)} | ${bits.toString().padStart(4)} | ${mask.toString(16).padStart(4, '0')} | ${shift.toString().padStart(5)} | ${((mask << shift) >>> 0).toString(2).padStart(32, '0')}`
+			`${name.padEnd(4)} | ${bits.toString().padStart(4)} | ${mask.toString(16).padStart(4, '0')} | ${shift.toString().padStart(5)} | ${((mask << shift) >>> 0).toString(2).padStart(32, '0')}`,
 		);
 	}
 
@@ -179,7 +179,7 @@ switch (opts.format) {
 					(dir & _ior ? 'R' : '-') + (dir & _iow ? 'W' : '-'),
 					type.toString(16).padStart(2),
 					nr.toString(16).padStart(2),
-					size.toString(16).padStart(4)
+					size.toString(16).padStart(4),
 				);
 			}
 			console.log();

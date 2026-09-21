@@ -18,7 +18,7 @@ export interface PassthroughOptions {
 export class PassthroughFS extends FileSystem {
 	public constructor(
 		public readonly nodeFS: NodeFS,
-		public readonly prefix: string
+		public readonly prefix: string,
 	) {
 		super(0x6e6f6465, 'nodefs');
 	}

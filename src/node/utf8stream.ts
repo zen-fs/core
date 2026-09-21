@@ -207,7 +207,7 @@ export class Utf8Stream extends EventEmitter<fs.Utf8StreamEventMap> implements N
 		if (contentMode != 'buffer' && contentMode != 'utf8')
 			throw error(
 				'ERR_INVALID_ARG_VALUE',
-				`The property 'options.contentMode' must be one of: 'buffer', 'utf8'. Received ${JSON.stringify(contentMode)}`
+				`The property 'options.contentMode' must be one of: 'buffer', 'utf8'. Received ${JSON.stringify(contentMode)}`,
 			);
 
 		this.#contentMode = contentMode;
@@ -225,7 +225,7 @@ export class Utf8Stream extends EventEmitter<fs.Utf8StreamEventMap> implements N
 		if (this.#minLength >= this.#maxWrite)
 			throw error(
 				'ERR_INVALID_ARG_VALUE',
-				`The argument 'minLength' should be smaller than maxWrite (${this.#maxWrite}). Received ${this.#minLength}`
+				`The argument 'minLength' should be smaller than maxWrite (${this.#maxWrite}). Received ${this.#minLength}`,
 			);
 
 		if (this.#periodicFlush !== 0) {

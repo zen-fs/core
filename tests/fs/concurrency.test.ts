@@ -67,7 +67,7 @@ suite('Concurrency', config('write', 'async'), () => {
 			const rejected = results.filter(r => r.status === 'rejected');
 			assert.deepEqual(
 				rejected.map(r => r.reason.code ?? r.reason.message),
-				[]
+				[],
 			);
 
 			assert.equal(await fs.promises.readFile('/issue-303.txt', 'utf8'), contents);
@@ -96,7 +96,7 @@ suite('Concurrency', config('write', 'async'), () => {
 		const rejected = results.filter(r => r.status == 'rejected');
 		assert.deepEqual(
 			rejected.map(r => r.reason.code ?? r.reason.message),
-			[]
+			[],
 		);
 
 		for (const path of paths) assert((await fs.promises.stat(path)).isDirectory());
@@ -107,7 +107,7 @@ suite('Concurrency', config('write', 'async'), () => {
 
 		assert.deepEqual(
 			results.filter(result => result !== undefined),
-			['/308-same']
+			['/308-same'],
 		);
 	});
 });

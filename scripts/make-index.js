@@ -94,7 +94,7 @@ function computeEntries(path) {
 		else if (!seenDevs.has(stats.dev))
 			if (options.xdev) {
 				console.warn(
-					`${styleText('yellowBright', `--xdev: Adding entries from device ${stats.dev} (${path}). You may get duplicate inos which MUST be de-duplicated manually.`)}`
+					`${styleText('yellowBright', `--xdev: Adding entries from device ${stats.dev} (${path}). You may get duplicate inos which MUST be de-duplicated manually.`)}`,
 				);
 				seenDevs.add(stats.dev);
 			} else {

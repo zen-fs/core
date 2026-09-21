@@ -83,7 +83,7 @@ export async function get(
 	this: V_Context,
 	path: string,
 	name: Name,
-	opt?: Options & (BufferEncodingOption | { encoding?: null })
+	opt?: Options & (BufferEncodingOption | { encoding?: null }),
 ): Promise<Uint8Array>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): Promise<string>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options = {}): Promise<string | Uint8Array> {
