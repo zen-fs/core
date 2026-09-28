@@ -3,9 +3,8 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
-import { sizeof } from 'memium';
 import { fs, mount, resolveMountConfig, SingleBuffer, vfs } from '@zenfs/core';
-import { MetadataBlock, SuperBlock } from '@zenfs/core/backends/single_buffer';
+import { SuperBlock } from '@zenfs/core/backends/single_buffer';
 import { setupLogs } from '../logs.js';
 
 setupLogs();
@@ -37,8 +36,6 @@ await suite('SingleBuffer', () => {
 
 		const worker = new Worker(import.meta.dirname + '/single-buffer.worker.js', { workerData: sharedBuffer });
 
-		// Pause while we wait for the worker to emit the 'continue' message, which
-		// means it has mounted the filesystem and created /worker-file.ts
 		const { promise, resolve, reject } = Promise.withResolvers<void>();
 
 		setTimeout(reject, 1000);
@@ -55,85 +52,25 @@ await suite('SingleBuffer', () => {
 		assert(fs.existsSync('/shared/worker-file.ts'));
 	});
 
-	test('aligns metadata when used_bytes is unaligned #309', () => {
-		// Writers reserve data of any length, so used_bytes can sit at any remainder when the metadata block is rotated.
-		for (const used of [8192n, 8193n, 8194n, 8195n]) {
-			const superblock = new SuperBlock(new ArrayBuffer(0x100000));
-			superblock.used_bytes = used;
+	test('metadata table grows while keeping every id retrievable', () => {
+		const superblock = new SuperBlock(new ArrayBuffer(0x100000));
+		const offsets = new Map<number, number>();
 
-			const metadata = superblock.rotateMetadata();
-			const expected = Number((used + 3n) & ~3n);
-
-			assert.strictEqual(metadata.byteOffset, expected, `metadata offset for used_bytes ${used}`);
-			assert.strictEqual(superblock.used_bytes, BigInt(expected + sizeof(MetadataBlock)), `used_bytes after rotating from ${used}`);
+		for (let i = 0; i < 500; i++) {
+			const id = i * 2 + 1;
+			const offset = superblock.allocate(16);
+			superblock.insert(id, offset, 16);
+			offsets.set(id, offset);
 		}
-	});
 
-	test('refuses to rotate metadata past the end of the filesystem', () => {
-		const exhausted = new SuperBlock(new ArrayBuffer(sizeof(SuperBlock) + sizeof(MetadataBlock) + 4));
-		const exhaustedUsed = exhausted.used_bytes;
+		assert(superblock.table_capacity >= 512, 'the table grew to hold 500 entries');
+		for (const [id, offset] of offsets) assert.strictEqual(superblock.lookup(id)?.offset, offset, `id ${id} is retrievable`);
 
-		assert.throws(() => exhausted.rotateMetadata(), { code: 'ENOSPC' }, 'rotating without room should fail with ENOSPC');
-		assert.strictEqual(exhausted.used_bytes, exhaustedUsed, 'a failed rotation must not consume space');
+		for (const id of offsets.keys()) if (id % 4 === 1) superblock.remove(id);
 
-		const constrained = new SuperBlock(new ArrayBuffer(0x100000));
-		constrained.total_bytes = BigInt(sizeof(SuperBlock) + sizeof(MetadataBlock) + 4);
-		const constrainedUsed = constrained.used_bytes;
-
-		assert.throws(() => constrained.rotateMetadata(), { code: 'ENOSPC' }, 'rotating past total_bytes should fail with ENOSPC');
-		assert.strictEqual(constrained.used_bytes, constrainedUsed, 'a failed rotation must not consume space');
-		assert(constrained.used_bytes <= constrained.total_bytes, 'used_bytes must never exceed total_bytes');
-	});
-
-	test('concurrent rotation keeps every metadata block reachable', async () => {
-		const rotations = 100;
-		const buffer = new SharedArrayBuffer(0x200000);
-		const gate = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
-
-		const superblock = new SuperBlock(buffer);
-		const original = superblock.metadata_offset;
-
-		const worker = new Worker(import.meta.dirname + '/single-buffer-rotate.worker.js', { workerData: { buffer, gate, rotations } });
-
-		const ready = Promise.withResolvers<void>();
-		const finished = Promise.withResolvers<number[]>();
-		const expired = setTimeout(() => {
-			const error = new Error('the worker did not finish rotating');
-			ready.reject(error);
-			finished.reject(error);
-		}, 1000);
-
-		worker.on('error', error => {
-			ready.reject(error);
-			finished.reject(error);
-		});
-		worker.on('message', message => (message === 'ready' ? ready.resolve() : finished.resolve(message as number[])));
-
-		try {
-			await ready.promise;
-
-			Atomics.store(gate, 0, 1);
-			Atomics.notify(gate, 0);
-
-			const mine: number[] = [];
-			for (let i = 0; i < rotations; i++) mine.push(superblock.rotateMetadata().byteOffset);
-
-			const theirs = await finished.promise;
-
-			const chain = new Set<number>();
-			for (let block: MetadataBlock | undefined = new SuperBlock(buffer).metadata; block; block = block.previous) {
-				if (chain.has(block.byteOffset)) break;
-				chain.add(block.byteOffset);
-			}
-
-			assert.strictEqual(new Set([...mine, ...theirs]).size, rotations * 2, 'two rotations reserved the same offset');
-			assert.strictEqual(chain.size, rotations * 2 + 1, 'blocks are missing from the chain');
-
-			for (const offset of [original, ...mine, ...theirs]) assert(chain.has(offset), `the block at ${offset} is not in the chain`);
-		} finally {
-			clearTimeout(expired);
-			await worker.terminate();
-			worker.unref();
+		for (const [id, offset] of offsets) {
+			if (id % 4 === 1) assert.strictEqual(superblock.lookup(id), undefined, `id ${id} was removed`);
+			else assert.strictEqual(superblock.lookup(id)?.offset, offset, `id ${id} is still present`);
 		}
 	});
 
@@ -189,7 +126,6 @@ await suite('SingleBuffer', () => {
 		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, label: 'rotation' });
 		mount(mountPoint, writable);
 
-		// Uneven writes leave used_bytes between alignment boundaries when the metadata block fills up.
 		const sizes = [1, 17, 257, 3, 5, 13, 1023, 4095, 7, 9];
 		try {
 			for (let i = 0; i < 400; i++) {
@@ -206,7 +142,6 @@ await suite('SingleBuffer', () => {
 	});
 
 	test('reuses freed space across many write/delete cycles #323', async () => {
-		// The old allocator only ever grew used_bytes, so a 1 MiB store exhausted after ~256 cycles of a 4 KiB file.
 		const buffer = new ArrayBuffer(0x100000);
 		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer });
 		mount('/sbfs-churn', writable);
