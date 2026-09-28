@@ -204,4 +204,68 @@ await suite('SingleBuffer', () => {
 			vfs.umount(mountPoint);
 		}
 	});
+
+	test('reuses freed space across many write/delete cycles #323', async () => {
+		// The old allocator only ever grew used_bytes, so a 1 MiB store exhausted after ~256 cycles of a 4 KiB file.
+		const buffer = new ArrayBuffer(0x100000);
+		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer });
+		mount('/sbfs-churn', writable);
+
+		const payload = randomBytes(4096);
+		try {
+			for (let i = 0; i < 2000; i++) {
+				fs.writeFileSync('/sbfs-churn/a', payload);
+				fs.rmSync('/sbfs-churn/a');
+			}
+
+			fs.writeFileSync('/sbfs-churn/a', payload);
+			assert.deepStrictEqual(fs.readFileSync('/sbfs-churn/a'), payload);
+		} finally {
+			vfs.umount('/sbfs-churn');
+		}
+	});
+
+	test('reuses and coalesces freed regions', () => {
+		const superblock = new SuperBlock(new ArrayBuffer(0x10000));
+
+		const first = superblock.allocate(4096);
+		const second = superblock.allocate(4096);
+		superblock.allocate(4096);
+
+		superblock.free(second, 4096);
+		assert.strictEqual(superblock.allocate(4096), second, 'a freed region is reused');
+
+		superblock.free(first, 4096);
+		superblock.free(second, 4096);
+		assert.strictEqual(superblock.allocate(8192), first, 'adjacent freed regions coalesce into one');
+		assert.strictEqual(superblock.free_bytes, 0n);
+	});
+
+	test('recovers all space after freeing every allocation', () => {
+		const superblock = new SuperBlock(new ArrayBuffer(0x4000));
+
+		const offsets: number[] = [];
+		assert.throws(
+			() => {
+				for (;;) offsets.push(superblock.allocate(512));
+			},
+			{ code: 'ENOSPC' }
+		);
+
+		for (const offset of offsets) superblock.free(offset, 512);
+
+		let refilled = 0;
+		assert.throws(
+			() => {
+				for (;;) {
+					superblock.allocate(512);
+					refilled++;
+				}
+			},
+			{ code: 'ENOSPC' }
+		);
+
+		assert.strictEqual(refilled, offsets.length, 'every freed region is reusable');
+		assert.strictEqual(superblock.free_bytes, 0n);
+	});
 });

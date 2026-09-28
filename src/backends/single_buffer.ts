@@ -49,6 +49,28 @@ class MetadataEntry extends $from(BufferView) {
 }
 
 /**
+ * A node in the free list, stored at the start of each free region.
+ * Regions are kept aligned to `allocation_alignment`, so a region is always large enough to hold this header.
+ */
+@struct.packed()
+class FreeExtent extends $from(BufferView) {
+	static name = 'FreeExtent';
+
+	/** Size of the free region, including this header. */
+	@t.uint32 accessor size!: number;
+
+	/** Offset of the next free region, or 0 for the end of the list. */
+	@t.uint32 accessor next!: number;
+}
+
+/** Allocations are rounded up to this many bytes so every region can hold a `FreeExtent` when freed. */
+const allocation_alignment = sizeof(FreeExtent);
+
+function alignUp(value: number): number {
+	return Math.ceil(value / allocation_alignment) * allocation_alignment;
+}
+
+/**
  * Number of entries per block of metadata
  */
 const entries_per_block = 255;
@@ -160,6 +182,9 @@ Object.assign(MetadataBlock, { lockIndex: offsetof(MetadataBlock, 'locked') / In
 
 const sb_magic = 0x62732e7a; // 'z.sb'
 
+/** On-disk format version. v2 adds the free list (`free_offset`, `free_bytes`) for space reuse. */
+const sb_version = 2;
+
 /**
  * Shortcut for minor perf. bump
  * @internal
@@ -187,15 +212,20 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 				used_bytes: BigInt(sizeof(SuperBlock) + sizeof(MetadataBlock)),
 				total_bytes: BigInt(this.buffer.byteLength),
 				magic: sb_magic,
-				version: 1,
+				version: sb_version,
 				inode_format: _inode_version,
 				metadata_block_size: sizeof(MetadataBlock),
+				free_offset: 0,
+				free_bytes: 0n,
 				uuid: encodeUUID(crypto.randomUUID()),
 			});
 			_update(this);
 			_update(md);
 			return;
 		}
+
+		if (this.version != sb_version)
+			throw crit(withErrno('EIO', `sbfs: on-disk format version ${this.version} is not supported (expected ${sb_version})`));
 
 		if (this.checksum !== checksum(this)) throw crit(withErrno('EIO', 'sbfs: checksum mismatch for super block'));
 
@@ -257,8 +287,20 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 	/** An optional label for the file system */
 	@t.char(64) accessor label!: Uint8Array;
 
+	/** Offset of the first free region, or 0 if the free list is empty. */
+	@t.uint32 accessor free_offset!: number;
+
+	/** Total bytes held in the free list. */
+	@t.uint64 accessor free_bytes!: bigint;
+
 	/** Padded to 256 bytes */
-	@t.char(132) accessor _padding!: Uint8Array;
+	@t.char(116) accessor _padding!: Uint8Array;
+
+	/**
+	 * If non-zero, the free list is locked for writing.
+	 * Kept last and excluded from the checksum since it is toggled without `_update`.
+	 */
+	@t.int32 accessor free_lock!: number;
 
 	/**
 	 * Rotate out the current metadata block.
@@ -331,6 +373,115 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 
 		return true;
 	}
+
+	protected _lockView?: Int32Array;
+
+	private get lockView(): Int32Array {
+		return (this._lockView ??= new Int32Array(this.buffer, this.byteOffset + freeLockOffset, 1));
+	}
+
+	/** Acquire the free-list lock, serializing allocation and freeing across realms. */
+	protected lockFreeList(): SBLock {
+		const view = this.lockView;
+		for (let attempts = 0; Atomics.compareExchange(view, 0, 0, 1) !== 0; attempts++) {
+			if (attempts > max_lock_attempts) throw crit(withErrno('EBUSY', 'sbfs: exceeded max attempts waiting for the free list lock'));
+			Atomics.wait(view, 0, 1);
+		}
+
+		const release = () => {
+			Atomics.store(view, 0, 0);
+			Atomics.notify(view, 0, 1);
+		};
+		release[Symbol.dispose] = release;
+		return release;
+	}
+
+	private relink(previous: number, target: number): void {
+		if (previous) new FreeExtent(this.buffer, previous).next = target;
+		else this.free_offset = target;
+	}
+
+	/**
+	 * Reserve `length` bytes, reusing a freed region when one fits and otherwise growing into unallocated space.
+	 * @returns the offset of the reserved region
+	 */
+	public allocate(length: number): number {
+		const size = Math.max(alignUp(length), allocation_alignment);
+		using _lock = this.lockFreeList();
+
+		let previous = 0;
+		for (let offset = this.free_offset; offset;) {
+			const extent = new FreeExtent(this.buffer, offset);
+			const next = extent.next;
+
+			if (extent.size >= size) {
+				const remainder = extent.size - size;
+				if (remainder >= allocation_alignment) {
+					const split = new FreeExtent(this.buffer, offset + size);
+					split.size = remainder;
+					split.next = next;
+					this.relink(previous, offset + size);
+				} else {
+					this.relink(previous, next);
+				}
+
+				this.free_bytes -= BigInt(size);
+				_update(this);
+				return offset;
+			}
+
+			previous = offset;
+			offset = next;
+		}
+
+		for (;;) {
+			const used = Atomics.load(this, kUsedBytes);
+			const padding = BigInt((allocation_alignment - (Number(used) % allocation_alignment)) % allocation_alignment);
+			const offset = used + padding;
+			if (offset + BigInt(size) > this.total_bytes) throw err(withErrno('ENOSPC', 'sbfs: no space left on device'));
+			if (Atomics.compareExchange(this, kUsedBytes, used, offset + BigInt(size)) !== used) continue;
+			_update(this);
+			return Number(offset);
+		}
+	}
+
+	/** Return a previously reserved region to the free list, coalescing with adjacent free regions. */
+	public free(offset: number, length: number): void {
+		const size = Math.max(alignUp(length), allocation_alignment);
+		using _lock = this.lockFreeList();
+
+		let previous = 0;
+		let next = this.free_offset;
+		while (next && next < offset) {
+			previous = next;
+			next = new FreeExtent(this.buffer, next).next;
+		}
+
+		let end = offset + size;
+		if (next && end === next) {
+			const following = new FreeExtent(this.buffer, next);
+			end += following.size;
+			next = following.next;
+		}
+
+		if (previous) {
+			const preceding = new FreeExtent(this.buffer, previous);
+			if (previous + preceding.size === offset) {
+				preceding.size = end - previous;
+				preceding.next = next;
+				this.free_bytes += BigInt(size);
+				_update(this);
+				return;
+			}
+		}
+
+		const extent = new FreeExtent(this.buffer, offset);
+		extent.size = end - offset;
+		extent.next = next;
+		this.relink(previous, offset);
+		this.free_bytes += BigInt(size);
+		_update(this);
+	}
 }
 
 /**
@@ -339,13 +490,16 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
  */
 const kMetadataOffset = offsetof(SuperBlock, 'metadata_offset') / Uint32Array.BYTES_PER_ELEMENT;
 
+/** Byte offset of `SuperBlock.free_lock`, used for the free-list lock's `Int32Array` view. */
+const freeLockOffset = offsetof(SuperBlock, 'free_lock');
+
 /**
  * Compute the checksum for a super block or metadata block.
  * Note we don't include the checksum when computing a new one.
  */
 function checksum(value: SuperBlock | MetadataBlock): number {
 	let length = sizeof(value) - 4;
-	if (value instanceof MetadataBlock) length -= Int32Array.BYTES_PER_ELEMENT;
+	if (value instanceof MetadataBlock || value instanceof SuperBlock) length -= Int32Array.BYTES_PER_ELEMENT;
 	return crc32c(new Uint8Array(value.buffer, value.byteOffset + 4, length));
 }
 
@@ -422,26 +576,33 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 			for (const entry of block.items) {
 				if (!entry.offset || entry.id != id) continue;
 
-				using lock = block.lock();
+				using _lock = block.lock();
 
-				if (data.length == entry.size) {
-					this._u8.set(data, entry.offset);
-					return;
-				}
+				const oldRegion = Math.max(alignUp(entry.size), allocation_alignment);
+				const newRegion = Math.max(alignUp(data.length), allocation_alignment);
 
-				if (data.length < entry.size || this.superblock.isUnused(entry.offset, data.length)) {
+				if (newRegion === oldRegion) {
 					this._u8.set(data, entry.offset);
 					entry.size = data.length;
 					_update(block);
 					return;
 				}
 
-				entry.offset = Number(Atomics.add(this.superblock, kUsedBytes, BigInt(data.length)));
-				entry.size = data.length;
+				if (newRegion < oldRegion) {
+					this._u8.set(data, entry.offset);
+					entry.size = data.length;
+					_update(block);
+					this.superblock.free(entry.offset + newRegion, oldRegion - newRegion);
+					return;
+				}
 
-				this._u8.set(data, entry.offset);
+				const grown = this.superblock.allocate(data.length);
+				const previousOffset = entry.offset;
+				this._u8.set(data, grown);
+				entry.offset = grown;
+				entry.size = data.length;
 				_update(block);
-				_update(this.superblock);
+				this.superblock.free(previousOffset, oldRegion);
 				return;
 			}
 		}
@@ -453,9 +614,9 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 			entry = this.superblock.metadata.items[0];
 		}
 
-		using lock = this.superblock.metadata.lock();
+		using _lock = this.superblock.metadata.lock();
 
-		const offset = Number(Atomics.add(this.superblock, kUsedBytes, BigInt(data.length)));
+		const offset = this.superblock.allocate(data.length);
 
 		entry.id = id;
 		entry.offset = offset;
@@ -464,7 +625,6 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		this._u8.set(data, offset);
 
 		_update(this.superblock.metadata);
-		_update(this.superblock);
 	}
 
 	public delete(id: number): void {
@@ -472,10 +632,16 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 			block.waitUnlocked();
 			for (const entry of block.items) {
 				if (entry.id != id) continue;
+
+				using _lock = block.lock();
+
+				const offset = entry.offset;
+				const size = Math.max(alignUp(entry.size), allocation_alignment);
 				entry.offset = 0;
 				entry.size = 0;
 				entry.id = 0;
 				_update(block);
+				if (offset) this.superblock.free(offset, size);
 				return;
 			}
 		}
@@ -499,7 +665,7 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 	public usage(): UsageInfo {
 		return {
 			totalSpace: Number(this.superblock.total_bytes),
-			freeSpace: Number(this.superblock.total_bytes - this.superblock.used_bytes),
+			freeSpace: Number(this.superblock.total_bytes - this.superblock.used_bytes + this.superblock.free_bytes),
 		};
 	}
 
