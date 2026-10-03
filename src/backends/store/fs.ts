@@ -45,8 +45,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * Add a inode/path pair
 	 */
 	_add(ino: number, path: string) {
-		if (!this._paths.has(ino)) this._paths.set(ino, new Set());
-		this._paths.get(ino)!.add(path);
+		this._paths.getOrInsertComputed(ino, () => new Set()).add(path);
 		this._ids.set(path, ino);
 	}
 

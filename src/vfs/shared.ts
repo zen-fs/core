@@ -48,7 +48,7 @@ export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void
 
 	fs._mountPoint = mountPoint;
 	$.mounts.set(mountPoint, fs);
-	if (!caches.has(fs.uuid)) caches.set(fs.uuid, new VCache(fs));
+	caches.getOrInsertComputed(fs.uuid, () => new VCache(fs));
 	info(`Mounted ${fs.name} on ${mountPoint}`);
 	debug(`${fs.name} attributes: ${[...fs.attributes].map(([k, v]) => (v !== undefined && v !== null ? k + '=' + v : k)).join(', ')}`);
 }

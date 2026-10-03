@@ -4,6 +4,7 @@ import { err } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
+import '../polyfills.js';
 import { VNode } from './vnode.js';
 
 /**
@@ -130,12 +131,7 @@ export const caches = new Map<UUID, VCache>();
  * @internal
  */
 export function cacheOf(fs: FileSystem): VCache {
-	let cache = caches.get(fs.uuid);
-	if (!cache) {
-		cache = new VCache(fs);
-		caches.set(fs.uuid, cache);
-	}
-	return cache;
+	return caches.getOrInsertComputed(fs.uuid, () => new VCache(fs));
 }
 
 /**

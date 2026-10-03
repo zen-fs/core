@@ -346,8 +346,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * on during the transaction.
 	 */
 	protected stash(id: number, data?: Uint8Array, offset: number = 0): void {
-		if (!this.originalData.has(id)) this.originalData.set(id, []);
-		this.originalData.get(id)!.push({ data, offset });
+		this.originalData.getOrInsertComputed(id, () => []).push({ data, offset });
 	}
 
 	/**

@@ -9,6 +9,7 @@ import { contextOf } from '../internal/contexts.js';
 import { isStatsEqual, type Stats } from '../node/stats.js';
 import { statSync } from '../node/sync.js';
 import { basename, dirname, join, relative } from '../path.js';
+import '../polyfills.js';
 import { normalizePath } from '../utils.js';
 
 /** Alias so `.call` resolves to the non-bigint overload */
@@ -174,10 +175,7 @@ const watchers: Map<string, Set<FSWatcher>> = new Map();
 
 export function addWatcher(path: string, watcher: FSWatcher) {
 	const normalizedPath = normalizePath(path);
-	if (!watchers.has(normalizedPath)) {
-		watchers.set(normalizedPath, new Set());
-	}
-	watchers.get(normalizedPath)!.add(watcher);
+	watchers.getOrInsertComputed(normalizedPath, () => new Set()).add(watcher);
 }
 
 export function removeWatcher(path: string, watcher: FSWatcher) {
