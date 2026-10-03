@@ -77,4 +77,20 @@ Array.fromAsync ??=
 		return results;
 	});
 
+Map.prototype.getOrInsert ??=
+	(warn('Using a polyfill of Map.prototype.getOrInsert'),
+	function getOrInsert<K, V>(this: Map<K, V>, key: K, defaultValue: V): V {
+		if (!this.has(key)) this.set(key, defaultValue);
+		return this.get(key)!;
+	});
+
+Map.prototype.getOrInsertComputed ??=
+	(warn('Using a polyfill of Map.prototype.getOrInsertComputed'),
+	function getOrInsertComputed<K, V>(this: Map<K, V>, key: K, callback: (key: K) => V): V {
+		if (this.has(key)) return this.get(key)!;
+		const value = callback(key);
+		this.set(key, value);
+		return value;
+	});
+
 /* node:coverage enable */
