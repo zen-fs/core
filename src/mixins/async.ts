@@ -37,6 +37,13 @@ export interface AsyncMixin extends Pick<FileSystem, Exclude<_SyncFSKeys, 'exist
 }
 
 /**
+ * Whether the stack of `error` has a patched method or `key`'s sync method below the innermost patched method.
+ */
+function isInLoop(key: string, error: Error = new Error()): boolean {
+	return new RegExp(`__patched__[^]*(__patched__|\\b${key}Sync\\b)`).test(error.stack ?? '');
+}
+
+/**
  * Async() implements synchronous methods on an asynchronous file system
  *
  * Implementing classes must define `_sync` for the synchronous file system used as a cache.
@@ -265,28 +272,10 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				// TS does not narrow the union based on the key
 				const originalMethod = this[key].bind(this) as (...args: unknown[]) => Promise<unknown>;
 
-				function isInLoop(depth: number, error?: Error) {
-					if (!error) {
-						error = new Error();
-						Error.captureStackTrace(error, isInLoop);
-					}
-
-					if (!error.stack) return false;
-
-					const stack = error.stack.split('\n').slice(depth).join('\n');
-
-					// From the async queue
-					return (
-						stack.includes(`at <computed> [as ${key}]`)
-						|| stack.includes(`at async <computed> [as ${key}]`)
-						|| stack.includes(`${key}Sync `)
-					);
-				}
-
-				(this as any)[key] = async (...args: unknown[]) => {
+				const fn = async function __patched__(this: AsyncFS, ...args: unknown[]) {
 					const result = await originalMethod(...args);
 
-					if (isInLoop(2)) return result;
+					if (isInLoop(key)) return result;
 
 					if (!this._isInitialized) {
 						this._skippedCacheUpdates++;
@@ -297,12 +286,16 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 						// @ts-expect-error 2556 - The type of `args` is not narrowed
 						this._sync?.[`${key}Sync`]?.(...args);
 					} catch (e: any) {
-						if (isInLoop(3, e)) return result;
+						if (isInLoop(key, e)) return result;
 						e.message += ' (Out of sync!)';
 						throw err(e);
 					}
 					return result;
 				};
+
+				Object.defineProperty(fn, 'name', { get: () => key });
+
+				(this as any)[key] = fn;
 			}
 
 			debug(`Async: patched ${toPatch.length} methods`);
