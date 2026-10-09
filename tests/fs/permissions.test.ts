@@ -157,7 +157,8 @@ suite('Permissions', config('permissions'), () => {
 	});
 
 	test('chmod, chown and utimes depend on owning the file, not on its permission bits', async () => {
-		const as = (uid: number, groups: number[] = []) => bindContext({ credentials: { uid, gid: uid, suid: uid, sgid: uid, euid: uid, egid: uid, groups } });
+		const as = (uid: number, groups: number[] = []) =>
+			bindContext({ credentials: { uid, gid: uid, suid: uid, sgid: uid, euid: uid, egid: uid, groups } });
 		const alice = as(1000, [3000]);
 		const bob = as(2000);
 

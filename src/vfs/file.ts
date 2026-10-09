@@ -5,7 +5,16 @@ import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
 import { contextOf } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import { _chown, InodeFlags, isBlockDevice, isCharacterDevice, mayChangeMode, mayChangeOwner, mayChangeTimes, type InodeLike } from '../internal/inode.js';
+import {
+	_chown,
+	InodeFlags,
+	isBlockDevice,
+	isCharacterDevice,
+	mayChangeMode,
+	mayChangeOwner,
+	mayChangeTimes,
+	type InodeLike,
+} from '../internal/inode.js';
 import { checkAccess } from './config.js';
 import '../polyfills.js';
 import { validateFD } from '../utils.js';

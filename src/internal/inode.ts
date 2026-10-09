@@ -497,8 +497,7 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 
 	if (isSymbolicLink(inode)) return true;
 
-	if (credentials.euid === 0)
-		return !(access & c.X_OK) || isDirectory(inode) || !!(inode.mode & (c.S_IXUSR | c.S_IXGRP | c.S_IXOTH));
+	if (credentials.euid === 0) return !(access & c.X_OK) || isDirectory(inode) || !!(inode.mode & (c.S_IXUSR | c.S_IXGRP | c.S_IXOTH));
 
 	let shift: number;
 	if (credentials.euid === inode.uid) shift = 6;
@@ -549,7 +548,11 @@ export function mayChangeTimes($: V_Context, inode: Pick<InodeLike, 'mode' | 'ui
  * @returns `EACCES` or `EPERM`, or `undefined` when removal is allowed
  * @internal
  */
-export function removalDenied($: V_Context, parent: Pick<InodeLike, 'mode' | 'uid' | 'gid'>, entry: Pick<InodeLike, 'mode' | 'uid' | 'gid'>): 'EACCES' | 'EPERM' | undefined {
+export function removalDenied(
+	$: V_Context,
+	parent: Pick<InodeLike, 'mode' | 'uid' | 'gid'>,
+	entry: Pick<InodeLike, 'mode' | 'uid' | 'gid'>
+): 'EACCES' | 'EPERM' | undefined {
 	if (!hasAccess($, parent, c.W_OK | c.X_OK)) return 'EACCES';
 	if (!(parent.mode & c.S_ISVTX)) return;
 	const { euid } = contextOf($).credentials;

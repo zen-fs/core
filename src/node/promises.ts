@@ -913,7 +913,9 @@ export async function lchown(this: V_Context, path: fs.PathLike, uid: number, gi
 lchown satisfies typeof promises.lchown;
 
 export async function chmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	await using handle = await _async.open(this, path, { flag: 'r+', allowDirectory: true }).catch(rethrow({ syscall: 'chmod', path: normalizePath.call(this, path) }));
+	await using handle = await _async
+		.open(this, path, { flag: 'r+', allowDirectory: true })
+		.catch(rethrow({ syscall: 'chmod', path: normalizePath.call(this, path) }));
 	await handle.chmod(normalizeMode(mode));
 }
 chmod satisfies typeof promises.chmod;

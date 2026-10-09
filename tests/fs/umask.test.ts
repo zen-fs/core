@@ -64,7 +64,7 @@ suite('umask', () => {
 		assert.equal((await rootFS.promises.lstat('/umask-link')).mode & 0o777, 0o777);
 	});
 
-	test('a child context starts with its parent\'s umask, and can set its own', () => {
+	test("a child context starts with its parent's umask, and can set its own", () => {
 		const parent = bindContext({ umask: 0o027 });
 		const inherited = bindContext.call(parent, {});
 		assert.equal(inherited.umask, 0o027);
