@@ -61,9 +61,9 @@ suite('Stats', () => {
 		assert.equal(hasAccess(defaultContext, stat, fs.constants.R_OK), true);
 		assert.equal(hasAccess(defaultContext, stat, fs.constants.W_OK), false);
 		assert.equal(hasAccess(defaultContext, stat, fs.constants.X_OK), false);
-		// changing group
+		// changing group (access is checked against the effective gid)
 
-		Object.assign(defaultContext.credentials, { ...nonRootCredentials, gid: 44 });
+		Object.assign(defaultContext.credentials, { ...nonRootCredentials, gid: 44, egid: 44 });
 
 		assert.equal(hasAccess(defaultContext, stat, fs.constants.R_OK), false);
 		assert.equal(hasAccess(defaultContext, stat, fs.constants.W_OK), false);

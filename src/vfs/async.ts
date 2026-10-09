@@ -6,8 +6,8 @@ import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './
 import { rethrow, setUVMessage, UV, type Exception, type ExceptionExtra } from 'kerium';
 import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
-import { contextOf } from '../internal/contexts.js';
-import { hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
+import { applyUmask, contextOf } from '../internal/contexts.js';
+import { hasAccess, isDirectory, isSymbolicLink, removalDenied, type InodeLike } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { checkAccess } from './config.js';
@@ -104,7 +104,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 			const { euid: uid, egid: gid } = contextOf($).credentials;
 
 			const inode = await fs.createFile(resolved, {
-				mode,
+				mode: applyUmask($, mode),
 				uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
 				gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
 			});
@@ -115,7 +115,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 		}
 	}
 
-	if (checkAccess && !hasAccess($, stats, flags.toMode(flag))) throw UV('EACCES', $ex);
+	if (checkAccess && !opt.allowDirectory && !hasAccess($, stats, flags.toMode(flag))) throw UV('EACCES', $ex);
 	if (flag & constants.O_EXCL) throw UV('EEXIST', $ex);
 	if (!opt.allowDirectory && isDirectory({ mode })) throw UV('EISDIR', 'open', path);
 
@@ -181,7 +181,7 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 
 		const inode = await fs
 			.mkdir(resolved, {
-				mode,
+				mode: applyUmask(this, mode),
 				uid: parent.mode & constants.S_ISUID ? parent.uid : uid,
 				gid: parent.mode & constants.S_ISGID ? parent.gid : gid,
 			})
@@ -261,6 +261,11 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	});
 
 	if (checkAccess && (!hasAccess(this, oldParent, constants.R_OK) || !hasAccess(this, newParent, constants.W_OK))) throw UV('EACCES', $ex);
+	if (checkAccess) {
+		// the source name leaves its directory, and a target that is replaced leaves its own
+		const denied = removalDenied(this, oldParent, src.stats) ?? (newStats ? removalDenied(this, newParent, newStats) : undefined);
+		if (denied) throw UV(denied, $ex);
+	}
 
 	if (newStats && !isDirectory(src.stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(src.stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
@@ -321,14 +326,14 @@ export async function stat(this: V_Context, path: PathLike, lstat: boolean): Pro
 	if (!lstat) stats = (await resolve(this, path, false, extra)).stats;
 	else {
 		const { base, dir } = parse(path);
-		const { fs, path: parent } = await resolve(this, dir, false, extra);
-		const target = base ? join(parent, base) : parent;
+		const { fullPath } = await resolve(this, dir, false, extra);
+		// a mount point is the root of what is mounted there, for lstat as for stat
+		const { fs, path: target } = resolveMount(base ? join(fullPath, base) : fullPath, this);
 		stats = cacheOf(fs).get(target)?.inode ?? (await fs.stat(target).catch(rethrow(extra)));
 	}
 
 	if (!stats) throw UV('ENOENT', extra);
 
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', extra);
-
+	// no permission on the file itself is needed to stat it, only to reach it
 	return stats;
 }

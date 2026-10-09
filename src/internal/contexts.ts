@@ -40,6 +40,13 @@ export interface FSContext {
 	/** The credentials of the context, used for access checks */
 	readonly credentials: Credentials;
 
+	/**
+	 * The file mode creation mask, as `umask(2)`: the permission bits set here are cleared from the mode of
+	 * every file and directory this context creates. A child context starts with its parent's, as a forked
+	 * process does. `0` (the default context's) masks nothing.
+	 */
+	umask: number;
+
 	/** A map of open file descriptors to their handles */
 	readonly descriptors: Map<number, Handle>;
 
@@ -90,6 +97,8 @@ export interface ContextInit {
 	root?: string;
 	pwd?: string;
 	credentials?: CredentialsInit;
+	/** The file mode creation mask. Defaults to the parent's. */
+	umask?: number;
 	mounts?: Record<string, FileSystem>;
 }
 
@@ -104,6 +113,7 @@ export const defaultContext: FSContext = {
 	root: '/',
 	pwd: '/',
 	credentials: createCredentials({ uid: 0, gid: 0 }),
+	umask: 0,
 	descriptors: new Map(),
 	parent: null,
 	children: [],
@@ -112,6 +122,15 @@ export const defaultContext: FSContext = {
 
 export function contextOf($: unknown): FSContext {
 	return isContext($) ? $ : defaultContext;
+}
+
+/**
+ * The mode a file or directory is created with: `mode` without the permission bits the context's `umask` clears.
+ * Bits above the permission bits (the file type, setuid, setgid, sticky) are not affected.
+ * @internal
+ */
+export function applyUmask($: unknown, mode: number): number {
+	return mode & ~(contextOf($).umask & 0o777);
 }
 
 // 1 is reserved for the global/default context
@@ -128,7 +147,7 @@ let _nextId = 2;
 export function createChildContext(parent: FSContext, init: ContextInit = {}): FSContext & { parent: FSContext } {
 	assertContext(parent);
 
-	const { root = parent.root, pwd = parent.pwd, credentials = structuredClone(parent.credentials), mounts } = init;
+	const { root = parent.root, pwd = parent.pwd, credentials = structuredClone(parent.credentials), umask = parent.umask, mounts } = init;
 
 	const ctx: FSContext & { parent: FSContext } = {
 		[kIsContext]: true,
@@ -136,6 +155,7 @@ export function createChildContext(parent: FSContext, init: ContextInit = {}): F
 		root,
 		pwd,
 		credentials: createCredentials(credentials),
+		umask: umask & 0o777,
 		descriptors: new Map(),
 		parent: parent,
 		children: [],

@@ -9,12 +9,14 @@ import type { InodeLike } from '../internal/inode.js';
 import { Errno, Exception, UV, withErrno, type ExceptionExtra } from 'kerium';
 import { alert, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
-import { size_max } from '../constants.js';
+import { size_max, X_OK } from '../constants.js';
 import { contextOf, defaultContext } from '../internal/contexts.js';
 import { credentialsAllowRoot } from '../internal/credentials.js';
 import { withExceptionContext } from '../internal/error.js';
-import { join, resolve, type AbsolutePath } from '../path.js';
+import { hasAccess, isDirectory } from '../internal/inode.js';
+import { dirname, join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
+import { checkAccess } from './config.js';
 import { caches, VCache } from './vcache.js';
 
 /**
@@ -111,6 +113,15 @@ export interface ResolvedPath extends ResolvedMount {
  * @internal @hidden
  */
 export function resolveMount(path: string, ctx: V_Context, extra?: ExceptionExtra): ResolvedMount {
+	const resolved = locateMount(path, ctx, extra);
+	if (checkAccess && contextOf(ctx).credentials.euid !== 0) checkSearchAccess(ctx, path, extra);
+	return resolved;
+}
+
+/**
+ * The mount a path is on, with no permission checks
+ */
+function locateMount(path: string, ctx: V_Context, extra?: ExceptionExtra): ResolvedMount {
 	const { root, mounts } = contextOf(ctx);
 	const _exceptionContext = { path, ...extra };
 	path = normalizePath(join(root, path), true);
@@ -129,6 +140,37 @@ export function resolveMount(path: string, ctx: V_Context, extra?: ExceptionExtr
 	}
 
 	throw alert(new Exception(Errno.EIO, 'No file system for ' + path));
+}
+
+/**
+ * Reaching a path needs search (execute) permission on every directory leading to it, as on Linux:
+ * a user cannot read a world-readable file inside a directory they may not search.
+ *
+ * Root is not checked (the caller skips it). A directory that cannot be examined synchronously, or a
+ * component that is not there yet, is passed over: the operation itself reports a missing path, and
+ * only a directory that is really there and really refuses is an error here.
+ */
+function checkSearchAccess(ctx: V_Context, path: string, extra?: ExceptionExtra): void {
+	const { root } = contextOf(ctx);
+	const full = resolve.call(ctx, normalizePath(join(root, path), true));
+	const ancestors: string[] = [];
+	for (let dir = dirname(full); ; dir = dirname(dir)) {
+		ancestors.push(dir);
+		if (dir === '/') break;
+	}
+
+	// from the top down, so the first directory that refuses is the one reported
+	for (const dir of ancestors.reverse()) {
+		let inode: InodeLike | undefined;
+		try {
+			const mount = locateMount(dir, ctx);
+			inode = caches.get(mount.fs.uuid)?.get(mount.path)?.inode ?? mount.fs.statSync(mount.path);
+		} catch {
+			continue;
+		}
+		if (!inode || !isDirectory(inode)) continue;
+		if (!hasAccess(ctx, inode, X_OK)) throw UV('EACCES', { path, ...extra });
+	}
 }
 
 /**
@@ -197,7 +239,9 @@ export interface OpenOptions {
 	 */
 	preserveSymlinks?: boolean;
 	/**
-	 * If true, allows opening directories
+	 * If true, the file is opened only to read or change its metadata (chmod, chown, utimes):
+	 * directories may be opened, and the access the flag implies is not required, since changing
+	 * metadata depends on owning the file, not on being able to read or write it.
 	 */
 	allowDirectory?: boolean;
 }

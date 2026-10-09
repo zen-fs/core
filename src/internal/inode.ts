@@ -485,6 +485,10 @@ export function isFIFO(metadata: { mode: number }): boolean {
 
 /**
  * Checks if a given user/group has access to this item
+ *
+ * This follows Linux: the effective ids are checked, only an effective uid of 0 is privileged,
+ * and exactly one class of permission bits applies (owner, else group, else other), so an owner
+ * denied by the owner bits is denied even when the group or other bits would allow it.
  * @param access The requested access, combination of `W_OK`, `R_OK`, and `X_OK`
  * @internal
  */
@@ -493,28 +497,64 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 
 	if (isSymbolicLink(inode)) return true;
 
-	if (credentials.euid === 0 || credentials.egid === 0)
+	if (credentials.euid === 0)
 		return !(access & c.X_OK) || isDirectory(inode) || !!(inode.mode & (c.S_IXUSR | c.S_IXGRP | c.S_IXOTH));
 
-	let perm = 0;
+	let shift: number;
+	if (credentials.euid === inode.uid) shift = 6;
+	else if (credentials.egid === inode.gid || credentials.groups.includes(Number(inode.gid))) shift = 3;
+	else shift = 0;
 
-	if (credentials.uid === inode.uid) {
-		if (inode.mode & c.S_IRUSR) perm |= c.R_OK;
-		if (inode.mode & c.S_IWUSR) perm |= c.W_OK;
-		if (inode.mode & c.S_IXUSR) perm |= c.X_OK;
-	}
-
-	if (credentials.gid === inode.gid || credentials.groups.includes(Number(inode.gid))) {
-		if (inode.mode & c.S_IRGRP) perm |= c.R_OK;
-		if (inode.mode & c.S_IWGRP) perm |= c.W_OK;
-		if (inode.mode & c.S_IXGRP) perm |= c.X_OK;
-	}
-
-	if (inode.mode & c.S_IROTH) perm |= c.R_OK;
-	if (inode.mode & c.S_IWOTH) perm |= c.W_OK;
-	if (inode.mode & c.S_IXOTH) perm |= c.X_OK;
+	// R_OK, W_OK and X_OK are 4, 2 and 1, the same layout as each class of permission bits
+	const perm = (inode.mode >> shift) & 0o7;
 
 	return (perm & access) === access;
+}
+
+/**
+ * Whether `$` may change the mode of `inode`: only its owner or root may, whatever the mode allows
+ * @internal
+ */
+export function mayChangeMode($: V_Context, inode: Pick<InodeLike, 'uid'>): boolean {
+	const { euid } = contextOf($).credentials;
+	return euid === 0 || euid === inode.uid;
+}
+
+/**
+ * Whether `$` may give `inode` to `uid` and `gid`: root may do anything; the owner may only change the
+ * group, and only to one it belongs to
+ * @internal
+ */
+export function mayChangeOwner($: V_Context, inode: Pick<InodeLike, 'uid' | 'gid'>, uid: number, gid: number): boolean {
+	const { euid, egid, groups } = contextOf($).credentials;
+	if (euid === 0) return true;
+	if (euid !== inode.uid || uid !== inode.uid) return false;
+	return gid === inode.gid || gid === egid || groups.includes(gid);
+}
+
+/**
+ * Whether `$` may set the timestamps of `inode`: its owner, root, or anyone who may write to it
+ * @internal
+ */
+export function mayChangeTimes($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 'gid'>): boolean {
+	const { euid } = contextOf($).credentials;
+	return euid === 0 || euid === inode.uid || hasAccess($, inode, c.W_OK);
+}
+
+/**
+ * Why `$` may not remove (or replace) a directory entry, if it may not, following Linux:
+ * the parent directory needs write and search permission, the entry's own mode does not matter,
+ * and in a sticky directory (`S_ISVTX`, as `/tmp` has) only the entry's owner, the directory's
+ * owner or root may remove it.
+ * @returns `EACCES` or `EPERM`, or `undefined` when removal is allowed
+ * @internal
+ */
+export function removalDenied($: V_Context, parent: Pick<InodeLike, 'mode' | 'uid' | 'gid'>, entry: Pick<InodeLike, 'mode' | 'uid' | 'gid'>): 'EACCES' | 'EPERM' | undefined {
+	if (!hasAccess($, parent, c.W_OK | c.X_OK)) return 'EACCES';
+	if (!(parent.mode & c.S_ISVTX)) return;
+	const { euid } = contextOf($).credentials;
+	if (euid === 0 || euid === entry.uid || euid === parent.uid) return;
+	return 'EPERM';
 }
 
 /**

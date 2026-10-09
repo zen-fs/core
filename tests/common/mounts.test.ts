@@ -19,6 +19,22 @@ suite('Mounts', () => {
 		fs.rmSync('/nested', { recursive: true, force: true });
 	});
 
+	test('stat and lstat of a mount point both describe the mounted root', async () => {
+		await configure({ mounts: { '/mounted': InMemory } });
+		fs.mkdirSync('/mounted/inside');
+
+		// the directory underneath is not what either call reports once something is mounted there
+		fs.chmodSync('/mounted', 0o1777);
+		assert.equal(fs.statSync('/mounted').mode & 0o7777, 0o1777);
+		assert.equal(fs.lstatSync('/mounted').mode & 0o7777, 0o1777);
+		assert.equal((await fs.promises.lstat('/mounted')).mode & 0o7777, 0o1777);
+		assert.equal(fs.lstatSync('/mounted').ino, fs.statSync('/mounted').ino);
+
+		fs.rmdirSync('/mounted/inside');
+		fs.umount('/mounted');
+		fs.rmdirSync('/mounted');
+	});
+
 	test('Race conditions', async () => {
 		await configure({
 			mounts: {

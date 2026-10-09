@@ -19,7 +19,7 @@ import { Exception, rethrow, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
-import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
+import { hasAccess, InodeFlags, isDirectory, removalDenied } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import '../polyfills.js';
 import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
@@ -572,7 +572,8 @@ export async function exists(this: V_Context, path: fs.PathLike): Promise<boolea
 		const { fs, path: resolved } = await _async.resolve(this, path);
 		return await fs.exists(resolved);
 	} catch (e) {
-		if (e instanceof Exception && e.code == 'ENOENT') {
+		// not there, not a directory on the way, or not reachable: all "no", as in Node's `exists`
+		if (e instanceof Exception && (e.code == 'ENOENT' || e.code == 'ENOTDIR' || e.code == 'EACCES')) {
 			return false;
 		}
 
@@ -631,7 +632,10 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 	const $ex = { syscall: 'unlink', path };
 
 	const stats = await fs.stat(resolved).catch(rethrow($ex));
-	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', $ex);
+	if (checkAccess) {
+		const denied = removalDenied(this, await fs.stat(dirname(resolved)).catch(rethrow($ex)), stats);
+		if (denied) throw UV(denied, $ex);
+	}
 
 	using _ = await lockPath(fs, dirname(resolved), 'rw');
 	await fs.unlink(resolved).catch(rethrow($ex));
@@ -752,7 +756,10 @@ export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 
 	if (!isDirectory(stats)) throw UV('ENOTDIR', $ex);
 
-	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', $ex);
+	if (checkAccess) {
+		const denied = removalDenied(this, await fs.stat(dirname(resolved)).catch(rethrow($ex)), stats);
+		if (denied) throw UV(denied, $ex);
+	}
 
 	using _ = await lockPath(fs, dirname(resolved), 'rw');
 	await fs.rmdir(resolved).catch(rethrow($ex));
@@ -862,7 +869,7 @@ export async function symlink(this: V_Context, dest: fs.PathLike, path: fs.PathL
 	await using handle = await _async.open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
 	const encoded = encodeUTF8(normalizePath.call(this, dest, true));
 	await handle.write(encoded, 0, encoded.length, 0);
-	await handle.chmod(constants.S_IFLNK);
+	await handle.chmod(constants.S_IFLNK | 0o777);
 }
 symlink satisfies typeof promises.symlink;
 
@@ -889,7 +896,7 @@ export async function readlink(
 readlink satisfies typeof promises.readlink;
 
 export async function chown(this: V_Context, path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	await using handle = await open.call(this, path, 'r+');
+	await using handle = await _async.open(this, path, { flag: 'r+', allowDirectory: true });
 	await handle.chown(uid, gid);
 }
 chown satisfies typeof promises.chown;
@@ -906,8 +913,8 @@ export async function lchown(this: V_Context, path: fs.PathLike, uid: number, gi
 lchown satisfies typeof promises.lchown;
 
 export async function chmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	await using handle = await open.call(this, path, 'r+').catch(rethrow({ syscall: 'chmod', path: normalizePath.call(this, path) }));
-	await handle.chmod(mode);
+	await using handle = await _async.open(this, path, { flag: 'r+', allowDirectory: true }).catch(rethrow({ syscall: 'chmod', path: normalizePath.call(this, path) }));
+	await handle.chmod(normalizeMode(mode));
 }
 chmod satisfies typeof promises.chmod;
 

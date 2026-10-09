@@ -12,7 +12,7 @@ import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
-import { hasAccess, isDirectory } from '../internal/inode.js';
+import { hasAccess, isDirectory, removalDenied } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
@@ -39,7 +39,8 @@ export function existsSync(this: V_Context, path: fs.PathLike): boolean {
 		const { fs, path: resolvedPath } = _sync.resolve(this, path);
 		return fs.existsSync(resolvedPath);
 	} catch (e: any) {
-		if (e.errno == Errno.ENOENT) return false;
+		// not there, not a directory on the way, or not reachable: all "no", as in Node's `existsSync`
+		if (e.errno == Errno.ENOENT || e.errno == Errno.ENOTDIR || e.errno == Errno.EACCES) return false;
 
 		throw e;
 	}
@@ -107,8 +108,9 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		if (checkAccess && !hasAccess(this, fs.statSync(resolved), constants.W_OK)) {
-			throw UV('EACCES', 'unlink');
+		if (checkAccess) {
+			const denied = removalDenied(this, fs.statSync(dirname(resolved)), fs.statSync(resolved));
+			if (denied) throw UV(denied, 'unlink');
 		}
 		using _ = lockPathSync(fs, dirname(resolved), 'rw');
 		fs.unlinkSync(resolved);
@@ -438,7 +440,10 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 
 	const stats = wrap(fs, 'statSync', { path, syscall: 'rmdir' })(resolved);
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
-	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', 'rmdir', path);
+	if (checkAccess) {
+		const denied = removalDenied(this, wrap(fs, 'statSync', { path, syscall: 'rmdir' })(dirname(resolved)), stats);
+		if (denied) throw UV(denied, 'rmdir', path);
+	}
 
 	using _ = lockPathSync(fs, dirname(resolved), 'rw');
 	wrap(fs, 'rmdirSync', path)(resolved);
@@ -525,7 +530,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 
 	using file = _sync.open(this, path, { flag: 'wx', mode: 0o644 });
 	file.writeSync(encodeUTF8(normalizePath.call(this, target, true)));
-	file.chmodSync(constants.S_IFLNK);
+	file.chmodSync(constants.S_IFLNK | 0o777);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
@@ -553,13 +558,13 @@ export function readlinkSync(
 readlinkSync satisfies typeof fs.readlinkSync;
 
 export function chownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
-	using handle = _sync.open(this, path, { flag: 'r+', mode: constants.F_OK });
+	using handle = _sync.open(this, path, { flag: 'r+', mode: constants.F_OK, allowDirectory: true });
 	handle.chownSync(uid, gid);
 }
 chownSync satisfies typeof fs.chownSync;
 
 export function lchownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
-	const fd = lopenSync.call(this, path, 'r+');
+	const fd = toFD(_sync.open(this, path, { flag: 'r+', preserveSymlinks: true, allowDirectory: true }));
 	fchownSync.call(this, fd, uid, gid);
 	closeSync.call(this, fd);
 }
@@ -568,7 +573,7 @@ lchownSync satisfies typeof fs.lchownSync;
 export function chmodSync(this: V_Context, path: fs.PathLike, mode: fs.Mode): void {
 	let fd: number;
 	try {
-		fd = openSync.call(this, path, 'r+');
+		fd = toFD(_sync.open(this, path, { flag: 'r+', allowDirectory: true }));
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { syscall: 'chmod', path: normalizePath.call(this, path) }));
 	}
@@ -578,7 +583,7 @@ export function chmodSync(this: V_Context, path: fs.PathLike, mode: fs.Mode): vo
 chmodSync satisfies typeof fs.chmodSync;
 
 export function lchmodSync(this: V_Context, path: fs.PathLike, mode: number | string): void {
-	const fd = lopenSync.call(this, path, 'r+');
+	const fd = toFD(_sync.open(this, path, { flag: 'r+', preserveSymlinks: true, allowDirectory: true }));
 	fchmodSync.call(this, fd, mode);
 	closeSync.call(this, fd);
 }
@@ -588,7 +593,7 @@ lchmodSync satisfies typeof fs.lchmodSync;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export function utimesSync(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): void {
-	const fd = openSync.call(this, path, 'r+');
+	const fd = toFD(_sync.open(this, path, { flag: 'r+', allowDirectory: true }));
 	futimesSync.call(this, fd, atime, mtime);
 	closeSync.call(this, fd);
 }
@@ -598,7 +603,7 @@ utimesSync satisfies typeof fs.utimesSync;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export function lutimesSync(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): void {
-	const fd = lopenSync.call(this, path, 'r+');
+	const fd = toFD(_sync.open(this, path, { flag: 'r+', preserveSymlinks: true, allowDirectory: true }));
 	futimesSync.call(this, fd, atime, mtime);
 	closeSync.call(this, fd);
 }
