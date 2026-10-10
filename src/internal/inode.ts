@@ -501,17 +501,15 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 		if (inode.mode & c.S_IRUSR) perm |= c.R_OK;
 		if (inode.mode & c.S_IWUSR) perm |= c.W_OK;
 		if (inode.mode & c.S_IXUSR) perm |= c.X_OK;
-	}
-
-	if (credentials.egid === inode.gid || credentials.groups.includes(Number(inode.gid))) {
+	} else if (credentials.egid === inode.gid || credentials.groups.includes(Number(inode.gid))) {
 		if (inode.mode & c.S_IRGRP) perm |= c.R_OK;
 		if (inode.mode & c.S_IWGRP) perm |= c.W_OK;
 		if (inode.mode & c.S_IXGRP) perm |= c.X_OK;
+	} else {
+		if (inode.mode & c.S_IROTH) perm |= c.R_OK;
+		if (inode.mode & c.S_IWOTH) perm |= c.W_OK;
+		if (inode.mode & c.S_IXOTH) perm |= c.X_OK;
 	}
-
-	if (inode.mode & c.S_IROTH) perm |= c.R_OK;
-	if (inode.mode & c.S_IWOTH) perm |= c.W_OK;
-	if (inode.mode & c.S_IXOTH) perm |= c.X_OK;
 
 	return (perm & access) === access;
 }

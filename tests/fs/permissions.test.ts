@@ -97,7 +97,8 @@ suite('Permissions', config('permissions'), () => {
 	});
 
 	test('access checks follow Linux #326', () => {
-		const as = (uid: number, gid: number, euid = uid, egid = gid) => bindContext({ credentials: { uid, gid, euid, egid } });
+		const as = (uid: number, gid: number, euid = uid, egid = gid, groups: number[] = []) =>
+			bindContext({ credentials: { uid, gid, euid, egid, groups } });
 		const file = (mode: number, uid = 1000, gid = 1000) => ({ mode: 0o100000 | mode, uid, gid });
 
 		assert(!hasAccess(as(1000, 0), file(0o600, 0, 0), R_OK));
@@ -106,6 +107,13 @@ suite('Permissions', config('permissions'), () => {
 		assert(hasAccess(as(1000, 1000, 2000, 1000), file(0o600, 2000, 5), R_OK | W_OK));
 		assert(!hasAccess(as(2000, 1000, 1000, 1000), file(0o600, 2000, 5), R_OK));
 		assert(!hasAccess(as(1000, 0, 1000, 1000), file(0o060, 2000, 0), R_OK));
+
+		assert(!hasAccess(as(1000, 1000), file(0o077), R_OK));
+		assert(!hasAccess(as(1000, 1000), file(0o407, 2000), R_OK));
+		assert(hasAccess(as(1000, 3000), file(0o004, 2000, 2000), R_OK));
+		assert(hasAccess(as(1000, 3000, 1000, 3000, [2000]), file(0o040, 2000, 2000), R_OK));
+		assert(hasAccess(as(1000, 2000), file(0o021, 0, 2000), W_OK));
+		assert(!hasAccess(as(1000, 2000), file(0o021, 0, 2000), X_OK));
 	});
 
 	test('stat needs no permission on the file itself #326', async () => {
