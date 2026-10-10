@@ -120,7 +120,7 @@ export function open($: V_Context, path: PathLike, opt: OpenOptions): Handle {
 		return new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
 	}
 
-	if (checkAccess && (!hasAccess($, stats, mode) || !hasAccess($, stats, flags.toMode(flag)))) {
+	if (checkAccess && !hasAccess($, stats, flags.toMode(flag))) {
 		throw UV('EACCES', 'open', path);
 	}
 

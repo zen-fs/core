@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { bindContext, fs as rootFS } from '@zenfs/core';
 import { R_OK, W_OK, X_OK } from '@zenfs/core/constants';
 import { defaultContext } from '@zenfs/core/internal/contexts';
 import { hasAccess } from '@zenfs/core/internal/inode';
@@ -83,6 +84,17 @@ suite('Permissions', config('permissions'), () => {
 		}
 		assert(hasAccess(defaultContext, stats, W_OK));
 	}
+
+	test('unprivileged users can read files they do not own', async () => {
+		await rootFS.promises.writeFile('/root-owned.txt', 'shared', { mode: 0o644 });
+		const user = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+
+		assert.equal(user.fs.readFileSync('/root-owned.txt', 'utf8'), 'shared');
+		assert.equal(await user.fs.promises.readFile('/root-owned.txt', 'utf8'), 'shared');
+
+		assert.throws(() => user.fs.writeFileSync('/root-owned.txt', 'nope'), { code: 'EACCES' });
+		await assert.rejects(user.fs.promises.writeFile('/root-owned.txt', 'nope'), { code: 'EACCES' });
+	});
 
 	const copy = { ...defaultContext.credentials };
 	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
