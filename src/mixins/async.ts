@@ -71,6 +71,9 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		private _promise: Promise<unknown> = Promise.resolve();
 
+		/** The async methods before patching, which do not update the sync cache */
+		private _unpatched = {} as AsyncFSMethods;
+
 		protected _async(thunk: () => Promise<unknown>) {
 			this._promise = this._promise.finally(() => thunk());
 		}
@@ -133,7 +136,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public renameSync(oldPath: string, newPath: string): void {
 			this.checkSync();
 			this._sync.renameSync(oldPath, newPath);
-			this._async(() => this.rename(oldPath, newPath));
+			this._async(() => this._unpatched.rename(oldPath, newPath));
 		}
 
 		public statSync(path: string): InodeLike {
@@ -144,32 +147,32 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public touchSync(path: string, metadata: InodeLike): void {
 			this.checkSync();
 			this._sync.touchSync(path, metadata);
-			this._async(() => this.touch(path, metadata));
+			this._async(() => this._unpatched.touch(path, metadata));
 		}
 
 		public createFileSync(path: string, options: CreationOptions): InodeLike {
 			this.checkSync();
 			const result = this._sync.createFileSync(path, options);
-			this._async(() => this.createFile(path, options));
+			this._async(() => this._unpatched.createFile(path, options));
 			return result;
 		}
 
 		public unlinkSync(path: string): void {
 			this.checkSync();
 			this._sync.unlinkSync(path);
-			this._async(() => this.unlink(path));
+			this._async(() => this._unpatched.unlink(path));
 		}
 
 		public rmdirSync(path: string): void {
 			this.checkSync();
 			this._sync.rmdirSync(path);
-			this._async(() => this.rmdir(path));
+			this._async(() => this._unpatched.rmdir(path));
 		}
 
 		public mkdirSync(path: string, options: CreationOptions): InodeLike {
 			this.checkSync();
 			const result = this._sync.mkdirSync(path, options);
-			this._async(() => this.mkdir(path, options));
+			this._async(() => this._unpatched.mkdir(path, options));
 			return result;
 		}
 
@@ -181,7 +184,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public linkSync(srcpath: string, dstpath: string): void {
 			this.checkSync();
 			this._sync.linkSync(srcpath, dstpath);
-			this._async(() => this.link(srcpath, dstpath));
+			this._async(() => this._unpatched.link(srcpath, dstpath));
 		}
 
 		public async sync(): Promise<void> {
@@ -207,7 +210,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		public writeSync(path: string, buffer: Uint8Array, offset: number): void {
 			this.checkSync();
 			this._sync.writeSync(path, buffer, offset);
-			this._async(() => this.write(path, buffer, offset));
+			this._async(() => this._unpatched.write(path, buffer, offset));
 		}
 
 		public ioctlSync(context: IoctlContext, command: number, ...args: any[]) {
@@ -295,6 +298,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 				Object.defineProperty(fn, 'name', { get: () => key });
 
+				(this._unpatched as any)[key] = originalMethod;
 				(this as any)[key] = fn;
 			}
 
