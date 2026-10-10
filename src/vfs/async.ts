@@ -260,7 +260,12 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 		throw e;
 	});
 
-	if (checkAccess && (!hasAccess(this, oldParent, constants.R_OK) || !hasAccess(this, newParent, constants.W_OK))) throw UV('EACCES', $ex);
+	if (
+		checkAccess
+		&& (!hasAccess(this, oldParent, constants.W_OK | constants.X_OK) || !hasAccess(this, newParent, constants.W_OK | constants.X_OK))
+	) {
+		throw UV('EACCES', $ex);
+	}
 
 	if (newStats && !isDirectory(src.stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(src.stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);

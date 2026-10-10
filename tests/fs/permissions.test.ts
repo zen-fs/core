@@ -125,6 +125,35 @@ suite('Permissions', config('permissions'), () => {
 		assert.throws(() => user.fs.readFileSync('/secret-stat.txt'), { code: 'EACCES' });
 	});
 
+	test('removing an entry needs write and search permission on its parent #326', async () => {
+		const alice = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+
+		await rootFS.promises.mkdir('/removal-root', { mode: 0o755 });
+		await rootFS.promises.writeFile('/removal-root/file', 'x', { mode: 0o666 });
+		await rootFS.promises.mkdir('/removal-root/dir', { mode: 0o777 });
+		await rootFS.promises.mkdir('/removal-own', { mode: 0o755 });
+		await rootFS.promises.lchown('/removal-own', 1000, 1000);
+		await rootFS.promises.writeFile('/removal-own/readonly', 'x', { mode: 0o444 });
+		await rootFS.promises.mkdir('/removal-own/readonly-dir', { mode: 0o555 });
+		await rootFS.promises.mkdir('/removal-unreadable', { mode: 0o300 });
+		await rootFS.promises.lchown('/removal-unreadable', 1000, 1000);
+		await rootFS.promises.writeFile('/removal-unreadable/file', 'x');
+
+		await assert.rejects(alice.fs.promises.unlink('/removal-root/file'), { code: 'EACCES' });
+		assert.throws(() => alice.fs.unlinkSync('/removal-root/file'), { code: 'EACCES' });
+		await assert.rejects(alice.fs.promises.rmdir('/removal-root/dir'), { code: 'EACCES' });
+		assert.throws(() => alice.fs.rmdirSync('/removal-root/dir'), { code: 'EACCES' });
+		assert.throws(() => alice.fs.renameSync('/removal-root/file', '/removal-own/file'), { code: 'EACCES' });
+		await assert.rejects(alice.fs.promises.rename('/removal-own/readonly', '/removal-root/file'), { code: 'EACCES' });
+
+		await alice.fs.promises.unlink('/removal-own/readonly');
+		alice.fs.rmdirSync('/removal-own/readonly-dir');
+		assert.deepEqual(rootFS.readdirSync('/removal-own'), []);
+
+		await alice.fs.promises.rename('/removal-unreadable/file', '/removal-unreadable/renamed');
+		alice.fs.renameSync('/removal-unreadable/renamed', '/removal-unreadable/file');
+	});
+
 	const copy = { ...defaultContext.credentials };
 	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));

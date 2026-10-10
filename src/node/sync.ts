@@ -107,7 +107,8 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		if (checkAccess && !hasAccess(this, fs.statSync(resolved), constants.W_OK)) {
+		fs.statSync(resolved);
+		if (checkAccess && !hasAccess(this, fs.statSync(dirname(resolved)), constants.W_OK | constants.X_OK)) {
 			throw UV('EACCES', 'unlink');
 		}
 		using _ = lockPathSync(fs, dirname(resolved), 'rw');
@@ -438,7 +439,8 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 
 	const stats = wrap(fs, 'statSync', { path, syscall: 'rmdir' })(resolved);
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
-	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', 'rmdir', path);
+	const parent = wrap(fs, 'statSync', { path, syscall: 'rmdir' })(dirname(resolved));
+	if (checkAccess && !hasAccess(this, parent, constants.W_OK | constants.X_OK)) throw UV('EACCES', 'rmdir', path);
 
 	using _ = lockPathSync(fs, dirname(resolved), 'rw');
 	wrap(fs, 'rmdirSync', path)(resolved);

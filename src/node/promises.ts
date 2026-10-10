@@ -630,8 +630,9 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 	const { fs, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'unlink', path };
 
-	const stats = await fs.stat(resolved).catch(rethrow($ex));
-	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', $ex);
+	await fs.stat(resolved).catch(rethrow($ex));
+	const parent = await fs.stat(dirname(resolved)).catch(rethrow($ex));
+	if (checkAccess && !hasAccess(this, parent, constants.W_OK | constants.X_OK)) throw UV('EACCES', $ex);
 
 	using _ = await lockPath(fs, dirname(resolved), 'rw');
 	await fs.unlink(resolved).catch(rethrow($ex));
@@ -752,7 +753,8 @@ export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 
 	if (!isDirectory(stats)) throw UV('ENOTDIR', $ex);
 
-	if (checkAccess && !hasAccess(this, stats, constants.W_OK)) throw UV('EACCES', $ex);
+	const parent = await fs.stat(dirname(resolved)).catch(rethrow($ex));
+	if (checkAccess && !hasAccess(this, parent, constants.W_OK | constants.X_OK)) throw UV('EACCES', $ex);
 
 	using _ = await lockPath(fs, dirname(resolved), 'rw');
 	await fs.rmdir(resolved).catch(rethrow($ex));
