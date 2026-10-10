@@ -40,7 +40,7 @@ export async function ioctl<const Command extends number, const Ops extends Ioct
 		path = normalizePath.call(this, path);
 		const mnt = await resolveAsync(this, path, false, { syscall: 'ioctl', path });
 		if (!mnt.stats) throw UV('ENOENT', { syscall: 'ioctl', path });
-		vcache = cacheOf(mnt.fs);
+		vcache = mnt.cache;
 		vnode = vcache.ref(mnt.path, vcache.get(mnt.path)?.inode ?? mnt.stats);
 	}
 
@@ -83,7 +83,7 @@ export function ioctlSync<const Command extends number, const Ops extends IoctlO
 		path = normalizePath.call(this, path);
 		const mnt = resolveSync(this, path, false, { syscall: 'ioctl', path });
 		if (!mnt.stats) throw UV('ENOENT', { syscall: 'ioctl', path });
-		vcache = cacheOf(mnt.fs);
+		vcache = mnt.cache;
 		vnode = vcache.ref(mnt.path, vcache.get(mnt.path)?.inode ?? mnt.stats);
 	}
 

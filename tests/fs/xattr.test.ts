@@ -22,6 +22,16 @@ suite('Extended Attributes', config('xattr'), () => {
 		assert.equal(value, testValue);
 	});
 
+	test('set is kept when an open handle with unsynced changes is synced', async () => {
+		await using handle = await fs.promises.open(testFile, 'r');
+		await handle.chmod(0o640);
+		await fs.xattr.set(testFile, 'user.unsynced', 'value');
+		await handle.sync();
+
+		assert.equal(await fs.xattr.get(testFile, 'user.unsynced', { encoding: 'utf8' }), 'value');
+		assert.equal((await fs.promises.stat(testFile)).mode & 0o777, 0o640);
+	});
+
 	test('get attributes with buffer encoding', async () => {
 		await fs.xattr.set(testFile, 'user.buffer', 'buffer value');
 		const buffer = await fs.xattr.get(testFile, 'user.buffer', { encoding: 'buffer' });

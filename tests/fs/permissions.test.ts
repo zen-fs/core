@@ -253,6 +253,18 @@ suite('Permissions', config('permissions'), () => {
 		assert.equal(modeOf('/sid/dir'), 0o6755);
 	});
 
+	test('access checks see unsynced changes to an open file', async () => {
+		const alice = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+
+		await rootFS.promises.writeFile('/unsynced', 'x', { mode: 0o644 });
+		const fd = rootFS.openSync('/unsynced', 'r');
+		rootFS.fchmodSync(fd, 0o600);
+
+		assert.throws(() => alice.fs.readFileSync('/unsynced'), { code: 'EACCES' });
+		await assert.rejects(alice.fs.promises.readFile('/unsynced'), { code: 'EACCES' });
+		rootFS.closeSync(fd);
+	});
+
 	const copy = { ...defaultContext.credentials };
 	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));

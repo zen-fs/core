@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { LockMode, LockRelease } from 'kerium/locks';
+import { setUVMessage, type ExceptionExtra } from 'kerium';
 import { err } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 import { withoutExceptionContext } from '../internal/error.js';
@@ -115,6 +116,69 @@ export class VCache {
 			if (!node.refs) this.evict(node);
 		}
 	}
+
+	/** Get the inode for a path, preferring the cached vnode since it may have unsynced changes */
+	public async stat(path: string, extra?: ExceptionExtra): Promise<InodeLike> {
+		try {
+			return this.get(path)?.inode ?? (await this.fs.stat(path));
+		} catch (e: any) {
+			throw extra ? setUVMessage(Object.assign(e, extra)) : e;
+		}
+	}
+
+	/** Synchronous version of {@link stat} */
+	public statSync(path: string, extra?: ExceptionExtra): InodeLike {
+		try {
+			return this.get(path)?.inode ?? this.fs.statSync(path);
+		} catch (e: any) {
+			throw extra ? setUVMessage(Object.assign(e, extra)) : e;
+		}
+	}
+
+	/**
+	 * Ref and lock the vnode for a path, usually a parent directory during a namespace operation.
+	 * The returned release function unlocks and unrefs the vnode.
+	 * If `inode` is not provided and the vnode is not cached, the backend is `stat`ed.
+	 */
+	public async lock(path: string, mode: LockMode, inode?: InodeLike): Promise<LockRelease> {
+		inode ??= await this.stat(path);
+		const node = this.ref(path, inode);
+		const unlock = await node.lock(mode);
+
+		let released = false;
+		const release = (): void => {
+			if (released) return;
+			released = true;
+			unlock();
+			this.unref(node);
+		};
+		release[Symbol.dispose] = release;
+		return release;
+	}
+
+	/** Synchronous version of {@link lock} */
+	public lockSync(path: string, mode: LockMode, inode?: InodeLike): LockRelease {
+		inode ??= this.statSync(path);
+		const node = this.ref(path, inode);
+
+		let unlock: LockRelease;
+		try {
+			unlock = node.lockSync(mode);
+		} catch (e) {
+			this.unref(node);
+			throw e;
+		}
+
+		let released = false;
+		const release = (): void => {
+			if (released) return;
+			released = true;
+			unlock();
+			this.unref(node);
+		};
+		release[Symbol.dispose] = release;
+		return release;
+	}
 }
 
 /**
@@ -133,57 +197,4 @@ export const caches = new Map<UUID, VCache>();
  */
 export function cacheOf(fs: FileSystem): VCache {
 	return caches.getOrInsertComputed(fs.uuid, () => new VCache(withoutExceptionContext(fs)));
-}
-
-/**
- * Ref and lock the vnode for a path, usually a parent directory during a namespace operation.
- * The returned release function unlocks and unrefs the vnode.
- * If `inode` is not provided and the vnode is not cached, the backend is `stat`ed.
- * @category VFS
- * @internal
- */
-export async function lockPath(fs: FileSystem, path: string, mode: LockMode, inode?: InodeLike): Promise<LockRelease> {
-	const cache = cacheOf(fs);
-	inode ??= cache.get(path)?.inode ?? (await fs.stat(path));
-	const node = cache.ref(path, inode);
-	const unlock = await node.lock(mode);
-
-	let released = false;
-	const release = (): void => {
-		if (released) return;
-		released = true;
-		unlock();
-		cache.unref(node);
-	};
-	release[Symbol.dispose] = release;
-	return release;
-}
-
-/**
- * Synchronous version of `lockPath`.
- * @category VFS
- * @internal
- */
-export function lockPathSync(fs: FileSystem, path: string, mode: LockMode, inode?: InodeLike): LockRelease {
-	const cache = cacheOf(fs);
-	inode ??= cache.get(path)?.inode ?? fs.statSync(path);
-	const node = cache.ref(path, inode);
-
-	let unlock: LockRelease;
-	try {
-		unlock = node.lockSync(mode);
-	} catch (e) {
-		cache.unref(node);
-		throw e;
-	}
-
-	let released = false;
-	const release = (): void => {
-		if (released) return;
-		released = true;
-		unlock();
-		cache.unref(node);
-	};
-	release[Symbol.dispose] = release;
-	return release;
 }

@@ -15,7 +15,7 @@ import { credentialsAllowRoot } from '../internal/credentials.js';
 import { withExceptionContext } from '../internal/error.js';
 import { join, resolve, type AbsolutePath } from '../path.js';
 import { normalizePath } from '../utils.js';
-import { caches, VCache } from './vcache.js';
+import { cacheOf, caches, VCache } from './vcache.js';
 
 /**
  * @internal @hidden
@@ -91,6 +91,7 @@ export function umount(this: V_Context, mountPoint: string): void {
  */
 export interface ResolvedMount {
 	fs: FileSystem;
+	cache: VCache;
 	path: string;
 	mountPoint: string;
 	root: string;
@@ -125,7 +126,7 @@ export function resolveMount(path: string, ctx: V_Context, extra?: ExceptionExtr
 		if (case_fold === 'lower') path = path.toLowerCase();
 		if (case_fold === 'upper') path = path.toUpperCase();
 
-		return { fs: withExceptionContext(fs, _exceptionContext), path, mountPoint, root };
+		return { fs: withExceptionContext(fs, _exceptionContext), cache: cacheOf(fs), path, mountPoint, root };
 	}
 
 	throw alert(new Exception(Errno.EIO, 'No file system for ' + path));

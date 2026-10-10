@@ -20,7 +20,6 @@ import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
 import { _statfs, resolveMount } from '../vfs/shared.js';
 import * as _sync from '../vfs/sync.js';
-import { cacheOf, lockPathSync } from '../vfs/vcache.js';
 import { emitChange } from '../vfs/watchers.js';
 import { Dir, Dirent } from './dir.js';
 import { BigIntStats, Stats } from './stats.js';
@@ -105,12 +104,12 @@ truncateSync satisfies typeof fs.truncateSync;
 
 export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = resolveMount(path, this);
 	try {
-		assertRemovable(this, fs.statSync(dirname(resolved)), fs.statSync(resolved));
-		using _ = lockPathSync(fs, dirname(resolved), 'rw');
+		assertRemovable(this, cache.statSync(dirname(resolved)), cache.statSync(resolved));
+		using _ = cache.lockSync(dirname(resolved), 'rw');
 		fs.unlinkSync(resolved);
-		cacheOf(fs).remove(resolved);
+		cache.remove(resolved);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { syscall: 'unlink', path }));
 	}
@@ -432,15 +431,15 @@ futimesSync satisfies typeof fs.futimesSync;
 
 export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = _sync.resolve(this, path);
+	const { fs, cache, path: resolved } = _sync.resolve(this, path);
 
-	const stats = wrap(fs, 'statSync', { path, syscall: 'rmdir' })(resolved);
+	const stats = cache.statSync(resolved, { path, syscall: 'rmdir' });
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
-	assertRemovable(this, wrap(fs, 'statSync', { path, syscall: 'rmdir' })(dirname(resolved)), stats, { syscall: 'rmdir', path });
+	assertRemovable(this, cache.statSync(dirname(resolved), { path, syscall: 'rmdir' }), stats, { syscall: 'rmdir', path });
 
-	using _ = lockPathSync(fs, dirname(resolved), 'rw');
+	using _ = cache.lockSync(dirname(resolved), 'rw');
 	wrap(fs, 'rmdirSync', path)(resolved);
-	cacheOf(fs).remove(resolved);
+	cache.remove(resolved);
 	emitChange(this, 'rename', path.toString());
 }
 rmdirSync satisfies typeof fs.rmdirSync;

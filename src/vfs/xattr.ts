@@ -88,10 +88,10 @@ export async function get(
 export async function get(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): Promise<string>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options = {}): Promise<string | Uint8Array> {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { cache, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.get');
 
-	const inode = await fs.stat(resolved).catch(rethrow('xattr.get', path));
+	const inode = await cache.stat(resolved).catch(rethrow('xattr.get', path));
 
 	if (checkAccess && !hasAccess(this, inode, R_OK)) throw UV('EACCES', 'xattr.get', path);
 
@@ -118,11 +118,11 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 export function getSync(this: V_Context, path: string, name: Name, opt: Options = {}): string | Uint8Array {
 	path = normalizePath.call(this, path);
 	checkName(this, name, path, 'xattr.get');
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { cache, path: resolved } = resolveMount(path, this);
 
 	let inode: InodeLike;
 	try {
-		inode = fs.statSync(resolved);
+		inode = cache.statSync(resolved);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { path }));
 	}
@@ -149,10 +149,10 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
  */
 export async function set(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): Promise<void> {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = resolveMount(path, this);
 
 	checkName(this, name, path, 'xattr.set');
-	const inode = await fs.stat(resolved).catch(rethrow('xattr.set', path));
+	const inode = await cache.stat(resolved).catch(rethrow('xattr.set', path));
 
 	if (checkAccess && !hasAccess(this, inode, W_OK)) throw UV('EACCES', 'xattr.set', path);
 
@@ -179,13 +179,13 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
  */
 export function setSync(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): void {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = resolveMount(path, this);
 
 	checkName(this, name, path, 'xattr.set');
 
 	let inode: InodeLike;
 	try {
-		inode = fs.statSync(resolved);
+		inode = cache.statSync(resolved);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { path }));
 	}
@@ -217,10 +217,10 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
  */
 export async function remove(this: V_Context, path: string, name: Name): Promise<void> {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.remove');
 
-	const inode = await fs.stat(resolved).catch(rethrow('xattr.remove', path));
+	const inode = await cache.stat(resolved).catch(rethrow('xattr.remove', path));
 
 	if (checkAccess && !hasAccess(this, inode, W_OK)) throw UV('EACCES', 'xattr.remove', path);
 
@@ -242,12 +242,12 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
  */
 export function removeSync(this: V_Context, path: string, name: Name): void {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = resolveMount(path, this);
 	checkName(this, name, path, 'xattr.remove');
 
 	let inode: InodeLike;
 	try {
-		inode = fs.statSync(resolved);
+		inode = cache.statSync(resolved);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { path }));
 	}
@@ -276,9 +276,9 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
  */
 export async function list(this: V_Context, path: string): Promise<Name[]> {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { cache, path: resolved } = resolveMount(path, this);
 
-	const inode = await fs.stat(resolved).catch(rethrow('xattr.list', path));
+	const inode = await cache.stat(resolved).catch(rethrow('xattr.list', path));
 
 	if (!inode.attributes) return [];
 
@@ -293,11 +293,11 @@ export async function list(this: V_Context, path: string): Promise<Name[]> {
  */
 export function listSync(this: V_Context, path: string): Name[] {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { cache, path: resolved } = resolveMount(path, this);
 
 	let inode: InodeLike;
 	try {
-		inode = fs.statSync(resolved);
+		inode = cache.statSync(resolved);
 	} catch (e: any) {
 		throw setUVMessage(Object.assign(e, { path }));
 	}

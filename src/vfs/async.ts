@@ -15,7 +15,7 @@ import { Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
 import * as flags from './flags.js';
 import { resolveMount } from './shared.js';
-import { cacheOf, lockPath } from './vcache.js';
+import { cacheOf } from './vcache.js';
 import { emitChange } from './watchers.js';
 
 /**
@@ -28,7 +28,7 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 
 	if (preserveSymlinks) {
 		const resolved = resolveMount(path, $, extra);
-		const stats = cacheOf(resolved.fs).get(resolved.path)?.inode ?? (await resolved.fs.stat(resolved.path).catch(() => undefined));
+		const stats = await resolved.cache.stat(resolved.path).catch(() => undefined);
 		return { ...resolved, fullPath: path, stats };
 	}
 
@@ -37,7 +37,7 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 	try {
 		const resolved = resolveMount(path, $);
 
-		const stats = cacheOf(resolved.fs).get(resolved.path)?.inode ?? (await resolved.fs.stat(resolved.path));
+		const stats = await resolved.cache.stat(resolved.path);
 
 		if (!isSymbolicLink(stats)) {
 			return { ...resolved, fullPath: path, stats };
@@ -54,12 +54,10 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 	const maybePath = join(realDir, base);
 	const resolved = resolveMount(maybePath, $);
 
-	const stats =
-		cacheOf(resolved.fs).get(resolved.path)?.inode
-		?? (await resolved.fs.stat(resolved.path).catch((e: Exception) => {
-			if (e.code == 'ENOENT') return;
-			throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
-		}));
+	const stats = await resolved.cache.stat(resolved.path).catch((e: Exception) => {
+		if (e.code == 'ENOENT') return;
+		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
+	});
 
 	if (!stats) return { ...resolved, fullPath: maybePath };
 	if (!isSymbolicLink(stats)) {
@@ -81,14 +79,14 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 
 	const $ex = { syscall: 'open', path };
 	// eslint-disable-next-line prefer-const
-	let { fs, path: resolved, stats } = await resolve($, path, opt.preserveSymlinks, $ex);
+	let { fs, cache, path: resolved, stats } = await resolve($, path, opt.preserveSymlinks, $ex);
 
 	if (!stats) {
 		if (!(flag & constants.O_CREAT)) throw UV('ENOENT', $ex);
 
 		// Create the file
 		const parentPath = dirname(resolved);
-		const parentStats = await fs.stat(parentPath);
+		const parentStats = await cache.stat(parentPath, $ex);
 		if (checkAccess && !hasAccess($, parentStats, constants.W_OK)) throw UV('EACCES', 'open', dirname(path));
 
 		if (!isDirectory(parentStats)) throw UV('ENOTDIR', 'open', dirname(path));
@@ -96,9 +94,9 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 		if (!opt.allowDirectory && isDirectory({ mode })) throw UV('EISDIR', 'open', path);
 
 		// Serialize entry creation with other operations on the parent directory
-		using _ = await lockPath(fs, parentPath, 'rw', parentStats);
+		using _ = await cache.lock(parentPath, 'rw', parentStats);
 
-		stats = cacheOf(fs).get(resolved)?.inode ?? (await fs.stat(resolved).catch(() => undefined));
+		stats = await cache.stat(resolved).catch(() => undefined);
 
 		if (!stats) {
 			const { euid: uid, egid: gid } = contextOf($).credentials;
@@ -111,7 +109,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 
 			emitChange($, 'rename', path);
 
-			return new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, inode));
+			return new Handle($, path, resolved, flag, cache.ref(resolved, inode));
 		}
 	}
 
@@ -119,7 +117,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 	if (flag & constants.O_EXCL) throw UV('EEXIST', $ex);
 	if (!opt.allowDirectory && isDirectory({ mode })) throw UV('EISDIR', 'open', path);
 
-	const handle = new Handle($, path, resolved, flag, cacheOf(fs).ref(resolved, stats));
+	const handle = new Handle($, path, resolved, flag, cache.ref(resolved, stats));
 
 	if (flag & constants.O_TRUNC) await handle.truncate(0);
 
@@ -149,7 +147,7 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 	const $ex = { syscall: 'mkdir', path: original };
 
 	const { fullPath: realParent } = await resolve(this, dirname(original), false, $ex);
-	const { fs, path: target } = resolveMount(join(realParent, basename(original)), this, $ex);
+	const { fs, cache, path: target } = resolveMount(join(realParent, basename(original)), this, $ex);
 
 	const followed = realParent != dirname(original);
 
@@ -158,12 +156,12 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 	const __create = async (path: string, resolved: string): Promise<InodeLike> => {
 		const parentPath = dirname(resolved);
 
-		const parent = recursive && parentPath != '/' ? await __create(dirname(path), parentPath) : await fs.stat(parentPath);
+		const parent = recursive && parentPath != '/' ? await __create(dirname(path), parentPath) : await cache.stat(parentPath, $ex);
 
-		using _ = await lockPath(fs, parentPath, 'rw', parent);
+		using _ = await cache.lock(parentPath, 'rw', parent);
 
 		if (recursive) {
-			const existing = cacheOf(fs).get(resolved)?.inode ?? (await fs.stat(resolved).catch(() => null));
+			const existing = await cache.stat(resolved).catch(() => null);
 
 			if (existing) {
 				const stats = isSymbolicLink(existing) ? (await resolve(this, path, false, $ex)).stats : existing;
@@ -200,7 +198,7 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 	path = normalizePath.call(this, path);
 
 	const $ex = { syscall: 'scandir', path };
-	const { fs, path: resolved, stats } = await resolve(this, path, false, $ex);
+	const { fs, cache, path: resolved, stats } = await resolve(this, path, false, $ex);
 
 	if (!stats) throw UV('ENOENT', $ex);
 
@@ -210,13 +208,13 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 
 	let entries: string[];
 	{
-		using _ = await lockPath(fs, resolved, 'ro', stats);
+		using _ = await cache.lock(resolved, 'ro', stats);
 		entries = await fs.readdir(resolved);
 	}
 
 	const values: Dirent[] = [];
 	const addEntry = async (entry: string) => {
-		const entryStats = await fs.stat(join(resolved, entry)).catch((e: Exception) => {
+		const entryStats = await cache.stat(join(resolved, entry), $ex).catch((e: Exception) => {
 			if (e.code == 'ENOENT') return;
 			throw e;
 		});
@@ -251,14 +249,12 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	if (dst.path.startsWith(src.path + '/')) throw UV('EINVAL', $ex);
 	if (!src.stats) throw UV('ENOENT', $ex);
 
-	const fs = src.fs;
-
 	const srcDir = dirname(src.path);
 	const dstDir = dirname(dst.path);
 
-	const oldParent = await fs.stat(srcDir);
-	const newParent = await fs.stat(dstDir);
-	const newStats = await fs.stat(dst.path).catch((e: Exception) => {
+	const oldParent = await src.cache.stat(srcDir, $ex);
+	const newParent = await src.cache.stat(dstDir, $ex);
+	const newStats = await src.cache.stat(dst.path, $ex).catch((e: Exception) => {
 		if (e.code == 'ENOENT') return null;
 		throw e;
 	});
@@ -278,11 +274,11 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	];
 	if (oldParent.ino > newParent.ino) parents.reverse();
 
-	using _first = await lockPath(fs, parents[0][0], 'rw', parents[0][1]);
-	using _second = oldParent.ino == newParent.ino ? null : await lockPath(fs, parents[1][0], 'rw', parents[1][1]);
+	using _first = await src.cache.lock(parents[0][0], 'rw', parents[0][1]);
+	using _second = oldParent.ino == newParent.ino ? null : await src.cache.lock(parents[1][0], 'rw', parents[1][1]);
 
 	await src.fs.rename(src.path, dst.path);
-	cacheOf(fs).rename(src.path, dst.path);
+	src.cache.rename(src.path, dst.path);
 
 	emitChange(this, 'rename', oldPath);
 	emitChange(this, 'rename', newPath);
@@ -293,26 +289,26 @@ export async function link(this: V_Context, target: PathLike, link: PathLike): P
 	link = normalizePath.call(this, link);
 
 	const $ex = { syscall: 'link', path: target, dest: link };
-	const { fs, path: resolved } = resolveMount(target, this, $ex);
+	const { fs, cache, path: resolved } = resolveMount(target, this, $ex);
 	const dst = resolveMount(link, this, $ex);
 
 	if (fs.uuid != dst.fs.uuid) throw UV('EXDEV', $ex);
 
-	const stats = await fs.stat(resolved);
+	const stats = await cache.stat(resolved, $ex);
 
 	if (checkAccess) {
 		if (!hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', $ex);
 
-		const dirStats = await fs.stat(dirname(resolved));
+		const dirStats = await cache.stat(dirname(resolved), $ex);
 		if (!hasAccess(this, dirStats, constants.R_OK)) throw UV('EACCES', $ex);
 
-		const destStats = await fs.stat(dirname(dst.path));
+		const destStats = await cache.stat(dirname(dst.path), $ex);
 		if (!hasAccess(this, destStats, constants.W_OK)) throw UV('EACCES', $ex);
 	}
 
-	using _ = await lockPath(fs, dirname(dst.path), 'rw');
+	using _ = await cache.lock(dirname(dst.path), 'rw');
 	await fs.link(resolved, dst.path);
-	cacheOf(fs).link(resolved, dst.path);
+	cache.link(resolved, dst.path);
 }
 
 export async function stat(this: V_Context, path: PathLike, lstat: boolean): Promise<InodeLike> {
@@ -329,7 +325,7 @@ export async function stat(this: V_Context, path: PathLike, lstat: boolean): Pro
 		const mounted = base && mounts.get(join(root, parent.fullPath, base));
 		const fs = mounted || parent.fs;
 		const target = mounted ? '/' : join(parent.path, base);
-		stats = cacheOf(fs).get(target)?.inode ?? (await fs.stat(target).catch(rethrow(extra)));
+		stats = await cacheOf(fs).stat(target).catch(rethrow(extra));
 	}
 
 	if (!stats) throw UV('ENOENT', extra);

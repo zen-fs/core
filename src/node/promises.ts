@@ -29,7 +29,6 @@ import type { Handle } from '../vfs/file.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
 import { _statfs, resolveMount } from '../vfs/shared.js';
-import { cacheOf, lockPath } from '../vfs/vcache.js';
 import { emitChange, FSWatcher } from '../vfs/watchers.js';
 import { Dir, Dirent } from './dir.js';
 import { createInterface } from './readline.js';
@@ -627,15 +626,15 @@ truncate satisfies typeof promises.truncate;
 
 export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> {
 	path = normalizePath.call(this, path);
-	const { fs, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'unlink', path };
 
-	const stats = await fs.stat(resolved).catch(rethrow($ex));
-	assertRemovable(this, await fs.stat(dirname(resolved)).catch(rethrow($ex)), stats, $ex);
+	const stats = await cache.stat(resolved).catch(rethrow($ex));
+	assertRemovable(this, await cache.stat(dirname(resolved)).catch(rethrow($ex)), stats, $ex);
 
-	using _ = await lockPath(fs, dirname(resolved), 'rw');
+	using _ = await cache.lock(dirname(resolved), 'rw');
 	await fs.unlink(resolved).catch(rethrow($ex));
-	cacheOf(fs).remove(resolved);
+	cache.remove(resolved);
 	emitChange(this, 'rename', path.toString());
 }
 unlink satisfies typeof promises.unlink;
@@ -743,20 +742,20 @@ appendFile satisfies typeof promises.appendFile;
 export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 	path = normalizePath.call(this, path);
 
-	const { fs, path: resolved } = await _async.resolve(this, path);
+	const { fs, cache, path: resolved } = await _async.resolve(this, path);
 	const $ex = { syscall: 'rmdir', path };
 
-	const stats = await fs.stat(resolved).catch(rethrow($ex));
+	const stats = await cache.stat(resolved).catch(rethrow($ex));
 
 	if (!stats) throw UV('ENOENT', $ex);
 
 	if (!isDirectory(stats)) throw UV('ENOTDIR', $ex);
 
-	assertRemovable(this, await fs.stat(dirname(resolved)).catch(rethrow($ex)), stats, $ex);
+	assertRemovable(this, await cache.stat(dirname(resolved)).catch(rethrow($ex)), stats, $ex);
 
-	using _ = await lockPath(fs, dirname(resolved), 'rw');
+	using _ = await cache.lock(dirname(resolved), 'rw');
 	await fs.rmdir(resolved).catch(rethrow($ex));
-	cacheOf(fs).remove(resolved);
+	cache.remove(resolved);
 	emitChange(this, 'rename', path.toString());
 }
 rmdir satisfies typeof promises.rmdir;
