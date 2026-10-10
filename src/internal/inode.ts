@@ -516,6 +516,14 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 }
 
 /**
+ * Throws if a given user may not search the directory `dir`
+ * @internal
+ */
+export function assertSearchable($: V_Context, dir: Pick<InodeLike, 'mode' | 'uid' | 'gid'>, extra?: ExceptionExtra): void {
+	if (checkAccess && !hasAccess($, dir, c.X_OK)) throw UV('EACCES', extra);
+}
+
+/**
  * Throws if a given user may not remove `entry` from the directory `parent`
  * @internal
  */

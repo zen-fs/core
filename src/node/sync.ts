@@ -38,7 +38,7 @@ export function existsSync(this: V_Context, path: fs.PathLike): boolean {
 		const { fs, path: resolvedPath } = _sync.resolve(this, path);
 		return fs.existsSync(resolvedPath);
 	} catch (e: any) {
-		if (e.errno == Errno.ENOENT) return false;
+		if (e.errno == Errno.ENOENT || e.errno == Errno.ENOTDIR || e.errno == Errno.EACCES) return false;
 
 		throw e;
 	}

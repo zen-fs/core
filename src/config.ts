@@ -10,7 +10,7 @@ import { DeviceFS } from './internal/devices.js';
 import { FileSystem } from './internal/filesystem.js';
 import { exists, mkdir, stat } from './node/promises.js';
 import { existsSync, mkdirSync, statSync } from './node/sync.js';
-import { _setAccessChecks } from './vfs/config.js';
+import { _setVFSConfig } from './vfs/config.js';
 import { mount, umount } from './vfs/shared.js';
 
 /**
@@ -198,6 +198,13 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	disableAccessChecks: boolean;
 
 	/**
+	 * If true, path resolution always walks each directory in a path, checking search permission on each.
+	 * This is more correct but can be much slower.
+	 * @default false
+	 */
+	resolveFullWalk: boolean;
+
+	/**
 	 * If true, files will only sync to the file system when closed.
 	 * This overrides `disableUpdateOnRead`
 	 *
@@ -317,7 +324,10 @@ export async function configure<T extends ConfigMounts>(configuration: Partial<C
 		}),
 	);
 
-	_setAccessChecks(!configuration.disableAccessChecks);
+	_setVFSConfig({
+		checkAccess: !configuration.disableAccessChecks,
+		resolveFullWalk: !!configuration.resolveFullWalk,
+	});
 
 	if (configuration.log) log.configure(configuration.log);
 
@@ -373,7 +383,10 @@ export function configureSync<T extends ConfigMounts>(configuration: Partial<Con
 		}),
 	);
 
-	_setAccessChecks(!configuration.disableAccessChecks);
+	_setVFSConfig({
+		checkAccess: !configuration.disableAccessChecks,
+		resolveFullWalk: !!configuration.resolveFullWalk,
+	});
 
 	if (configuration.log) log.configure(configuration.log);
 

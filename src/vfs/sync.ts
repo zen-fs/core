@@ -9,11 +9,11 @@ import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
-import { assertRemovable, hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
+import { assertRemovable, assertSearchable, hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { cacheOf } from './vcache.js';
-import { checkAccess } from './config.js';
+import { checkAccess, resolveFullWalk } from './config.js';
 import { Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
 import * as flags from './flags.js';
@@ -30,24 +30,36 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 	path = resolvePath.call($, path);
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
-	try {
-		const resolved = resolveMount(path, $);
+	if (!resolveFullWalk)
+		try {
+			const resolved = resolveMount(path, $);
 
-		// Stat it to make sure it exists. The vnode cache takes precedence since it may have unsynced changes
-		const stats = resolved.cache.statSync(resolved.path);
+			// Stat it to make sure it exists. The vnode cache takes precedence since it may have unsynced changes
+			const stats = resolved.cache.statSync(resolved.path);
 
-		if (!isSymbolicLink(stats) || preserveSymlinks) {
-			return { ...resolved, fullPath: path, stats };
+			if (!isSymbolicLink(stats) || preserveSymlinks) {
+				return { ...resolved, fullPath: path, stats };
+			}
+
+			const target = resolvePath.call($, dirname(path), readlink.call($, path));
+			return resolve($, target, preserveSymlinks, extra);
+		} catch {
+			// Go the long way
 		}
 
-		const target = resolvePath.call($, dirname(path), readlink.call($, path));
-		return resolve($, target, preserveSymlinks, extra);
-	} catch {
-		// Go the long way
+	const { base, dir } = parse(path);
+	const $ex = { syscall: 'stat', path, ...extra };
+
+	let realDir = '/';
+	if (dir != '/') {
+		const parent = resolve($, dir, false, extra);
+		if (parent.stats && isDirectory(parent.stats)) assertSearchable($, parent.stats, $ex);
+		realDir = parent.fullPath;
+	} else if (base && checkAccess) {
+		const root = resolveMount('/', $);
+		assertSearchable($, root.cache.statSync(root.path), $ex);
 	}
 
-	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : resolve($, dir, false, extra).fullPath;
 	const maybePath = join(realDir, base);
 	const resolved = resolveMount(maybePath, $);
 
@@ -93,7 +105,7 @@ export function open($: V_Context, path: PathLike, opt: OpenOptions): Handle {
 		// Create the file
 		const parentPath = dirname(resolved);
 		const parentStats = cache.statSync(parentPath, { syscall: 'open', path });
-		if (checkAccess && !hasAccess($, parentStats, constants.W_OK)) {
+		if (checkAccess && !hasAccess($, parentStats, constants.W_OK | constants.X_OK)) {
 			throw UV('EACCES', 'open', path);
 		}
 
@@ -186,7 +198,7 @@ export function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {
 			if (followed && fs.existsSync(join(parentPath, basename(path)))) throw UV('ENOENT', $ex);
 		}
 
-		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', path);
+		if (checkAccess && !hasAccess(this, parent, constants.W_OK | constants.X_OK)) throw UV('EACCES', 'mkdir', path);
 
 		using _ = cache.lockSync(parentPath, 'rw', parent);
 
@@ -339,6 +351,7 @@ export function stat(this: V_Context, path: PathLike, lstat: boolean): InodeLike
 	else {
 		const { base, dir } = parse(path);
 		const parent = resolve(this, dir, false, extra);
+		if (parent.stats && isDirectory(parent.stats)) assertSearchable(this, parent.stats, extra);
 		const { root, mounts } = contextOf(this);
 		const mounted = base && mounts.get(join(root, parent.fullPath, base));
 		const fs = mounted || parent.fs;

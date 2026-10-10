@@ -571,7 +571,7 @@ export async function exists(this: V_Context, path: fs.PathLike): Promise<boolea
 		const { fs, path: resolved } = await _async.resolve(this, path);
 		return await fs.exists(resolved);
 	} catch (e) {
-		if (e instanceof Exception && e.code == 'ENOENT') {
+		if (e instanceof Exception && (e.code == 'ENOENT' || e.code == 'ENOTDIR' || e.code == 'EACCES')) {
 			return false;
 		}
 

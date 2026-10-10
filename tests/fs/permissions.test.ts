@@ -4,6 +4,7 @@ import { R_OK, W_OK, X_OK } from '@zenfs/core/constants';
 import { defaultContext } from '@zenfs/core/internal/contexts';
 import { hasAccess } from '@zenfs/core/internal/inode';
 import { join } from '@zenfs/core/path';
+import * as vfsConfig from '@zenfs/core/vfs/config';
 import type { Exception } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
@@ -263,6 +264,56 @@ suite('Permissions', config('permissions'), () => {
 		assert.throws(() => alice.fs.readFileSync('/unsynced'), { code: 'EACCES' });
 		await assert.rejects(alice.fs.promises.readFile('/unsynced'), { code: 'EACCES' });
 		rootFS.closeSync(fd);
+	});
+
+	test('reaching a path needs search permission on every directory leading to it #326', async () => {
+		const alice = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+		const bob = bindContext({ credentials: { uid: 2000, gid: 2000 } });
+
+		await rootFS.promises.mkdir('/private', { mode: 0o700 });
+		await rootFS.promises.lchown('/private', 1000, 1000);
+		await rootFS.promises.mkdir('/private/inner', { mode: 0o755 });
+		await rootFS.promises.writeFile('/private/inner/readable.txt', 'secret', { mode: 0o644 });
+		await rootFS.promises.symlink('/private', '/private-link');
+		await rootFS.promises.mkdir('/search-only', { mode: 0o711 });
+		await rootFS.promises.writeFile('/search-only/known.txt', 'known', { mode: 0o644 });
+		await rootFS.promises.mkdir('/no-search', { mode: 0o722 });
+
+		assert.throws(() => bob.fs.readFileSync('/private-link/inner/readable.txt'), { code: 'EACCES' });
+		await assert.rejects(bob.fs.promises.readFile('/private-link/inner/readable.txt'), { code: 'EACCES' });
+		assert.throws(() => bob.fs.lstatSync('/private/inner'), { code: 'EACCES' });
+		assert.throws(() => bob.fs.mkdirSync('/no-search/dir'), { code: 'EACCES' });
+		assert.throws(() => bob.fs.writeFileSync('/no-search/file', 'x'), { code: 'EACCES' });
+
+		const { checkAccess, resolveFullWalk } = vfsConfig;
+		vfsConfig._setVFSConfig({ checkAccess, resolveFullWalk: true });
+		try {
+			assert.equal(alice.fs.readFileSync('/private/inner/readable.txt', 'utf8'), 'secret');
+			assert.equal(rootFS.readFileSync('/private/inner/readable.txt', 'utf8'), 'secret');
+
+			assert.throws(() => bob.fs.readFileSync('/private/inner/readable.txt'), { code: 'EACCES' });
+			await assert.rejects(bob.fs.promises.readFile('/private/inner/readable.txt'), { code: 'EACCES' });
+			assert.throws(() => bob.fs.statSync('/private/inner/readable.txt'), { code: 'EACCES' });
+			await assert.rejects(bob.fs.promises.stat('/private/inner/readable.txt'), { code: 'EACCES' });
+			assert.throws(() => bob.fs.readdirSync('/private/inner'), { code: 'EACCES' });
+			assert.throws(() => bob.fs.writeFileSync('/private/inner/new.txt', 'x'), { code: 'EACCES' });
+			assert.throws(() => bob.fs.unlinkSync('/private/inner/readable.txt'), { code: 'EACCES' });
+			assert.throws(() => bob.fs.mkdirSync('/private/inner/dir'), { code: 'EACCES' });
+			assert.throws(() => bob.fs.renameSync('/private/inner/readable.txt', '/stolen.txt'), { code: 'EACCES' });
+			assert(rootFS.existsSync('/private/inner/readable.txt'));
+
+			assert.equal(bob.fs.statSync('/private').mode & 0o777, 0o700);
+			assert.throws(() => bob.fs.readdirSync('/private'), { code: 'EACCES' });
+
+			assert.equal(bob.fs.readFileSync('/search-only/known.txt', 'utf8'), 'known');
+			assert.throws(() => bob.fs.readdirSync('/search-only'), { code: 'EACCES' });
+
+			assert.equal(bob.fs.existsSync('/private/inner/readable.txt'), false);
+			assert.equal(await bob.fs.promises.exists('/private/inner/readable.txt'), false);
+			assert.equal(bob.fs.existsSync('/search-only/known.txt'), true);
+		} finally {
+			vfsConfig._setVFSConfig({ checkAccess, resolveFullWalk });
+		}
 	});
 
 	const copy = { ...defaultContext.credentials };

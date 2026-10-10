@@ -7,10 +7,10 @@ import { rethrow, setUVMessage, UV, type Exception, type ExceptionExtra } from '
 import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
-import { assertRemovable, hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
+import { assertRemovable, assertSearchable, hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
-import { checkAccess } from './config.js';
+import { checkAccess, resolveFullWalk } from './config.js';
 import { Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
 import * as flags from './flags.js';
@@ -28,23 +28,35 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
-	try {
-		const resolved = resolveMount(path, $);
+	if (!resolveFullWalk)
+		try {
+			const resolved = resolveMount(path, $);
 
-		const stats = await resolved.cache.stat(resolved.path);
+			const stats = await resolved.cache.stat(resolved.path);
 
-		if (!isSymbolicLink(stats) || preserveSymlinks) {
-			return { ...resolved, fullPath: path, stats };
+			if (!isSymbolicLink(stats) || preserveSymlinks) {
+				return { ...resolved, fullPath: path, stats };
+			}
+
+			const target = resolvePath.call($, dirname(path), await readlink.call($, path));
+			return await resolve($, target, preserveSymlinks, extra);
+		} catch {
+			// Go the long way
 		}
 
-		const target = resolvePath.call($, dirname(path), await readlink.call($, path));
-		return await resolve($, target, preserveSymlinks, extra);
-	} catch {
-		// Go the long way
+	const { base, dir } = parse(path);
+	const $ex = { syscall: 'stat', path, ...extra };
+
+	let realDir = '/';
+	if (dir != '/') {
+		const parent = await resolve($, dir, false, extra);
+		if (parent.stats && isDirectory(parent.stats)) assertSearchable($, parent.stats, $ex);
+		realDir = parent.fullPath;
+	} else if (base && checkAccess) {
+		const root = resolveMount('/', $);
+		assertSearchable($, await root.cache.stat(root.path), $ex);
 	}
 
-	const { base, dir } = parse(path);
-	const realDir = dir == '/' ? '/' : (await resolve($, dir, false, extra)).fullPath;
 	const maybePath = join(realDir, base);
 	const resolved = resolveMount(maybePath, $);
 
@@ -81,7 +93,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 		// Create the file
 		const parentPath = dirname(resolved);
 		const parentStats = await cache.stat(parentPath, $ex);
-		if (checkAccess && !hasAccess($, parentStats, constants.W_OK)) throw UV('EACCES', 'open', dirname(path));
+		if (checkAccess && !hasAccess($, parentStats, constants.W_OK | constants.X_OK)) throw UV('EACCES', 'open', dirname(path));
 
 		if (!isDirectory(parentStats)) throw UV('ENOTDIR', 'open', dirname(path));
 
@@ -169,7 +181,7 @@ export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptio
 			if (followed && (await fs.exists(join(parentPath, basename(path))))) throw UV('ENOTDIR', 'mkdir', path);
 		}
 
-		if (checkAccess && !hasAccess(this, parent, constants.W_OK)) throw UV('EACCES', 'mkdir', path);
+		if (checkAccess && !hasAccess(this, parent, constants.W_OK | constants.X_OK)) throw UV('EACCES', 'mkdir', path);
 
 		const inode = await fs
 			.mkdir(resolved, {
@@ -315,6 +327,7 @@ export async function stat(this: V_Context, path: PathLike, lstat: boolean): Pro
 	else {
 		const { base, dir } = parse(path);
 		const parent = await resolve(this, dir, false, extra);
+		if (parent.stats && isDirectory(parent.stats)) assertSearchable(this, parent.stats, extra);
 		const { root, mounts } = contextOf(this);
 		const mounted = base && mounts.get(join(root, parent.fullPath, base));
 		const fs = mounted || parent.fs;
