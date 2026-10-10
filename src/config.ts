@@ -211,6 +211,7 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	 * This can increase performance.
 	 * @experimental
 	 * @default false
+	 * @deprecated Replaced by the `Sync` inode flag in v2.0.0
 	 */
 	onlySyncOnClose: boolean;
 
