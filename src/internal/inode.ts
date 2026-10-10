@@ -497,13 +497,13 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 
 	let perm = 0;
 
-	if (credentials.uid === inode.uid) {
+	if (credentials.euid === inode.uid) {
 		if (inode.mode & c.S_IRUSR) perm |= c.R_OK;
 		if (inode.mode & c.S_IWUSR) perm |= c.W_OK;
 		if (inode.mode & c.S_IXUSR) perm |= c.X_OK;
 	}
 
-	if (credentials.gid === inode.gid || credentials.groups.includes(Number(inode.gid))) {
+	if (credentials.egid === inode.gid || credentials.groups.includes(Number(inode.gid))) {
 		if (inode.mode & c.S_IRGRP) perm |= c.R_OK;
 		if (inode.mode & c.S_IWGRP) perm |= c.W_OK;
 		if (inode.mode & c.S_IXGRP) perm |= c.X_OK;
