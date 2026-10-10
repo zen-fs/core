@@ -214,7 +214,7 @@ export class Handle {
 	}
 
 	public chownSync(uid: number, gid: number): void {
-		if (this.closed) throw UV('EBADF', 'chmod', this.path);
+		if (this.closed) throw UV('EBADF', 'chown', this.path);
 		using _ = this.vnode.lockSync('rw');
 		this.vnode.metadataDirty = true;
 		_chown(this.inode, uid, gid);
