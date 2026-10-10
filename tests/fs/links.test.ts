@@ -197,6 +197,72 @@ suite('Links', config('symlinks'), () => {
 		assert(fs.lstatSync('/wfS-dangling').isSymbolicLink());
 	});
 
+	test('operations follow symlinks in parent directories', config('async'), async () => {
+		await fs.promises.mkdir('/parent-real');
+		await fs.promises.symlink('/parent-real', '/parent-link');
+		await fs.promises.writeFile('/parent-real/unlink', 'x');
+		await fs.promises.writeFile('/parent-real/rename', 'x');
+		await fs.promises.mkdir('/parent-real/rmdir');
+		await fs.promises.symlink('/parent-real/renamed', '/parent-real/symlink');
+		await fs.promises.symlink('/parent-real/rmdir', '/parent-real/dir-link');
+
+		await fs.promises.unlink('/parent-link/unlink');
+		await fs.promises.rename('/parent-link/rename', '/parent-link/renamed');
+		assert.equal(await fs.promises.readlink('/parent-link/symlink'), '/parent-real/renamed');
+		await fs.promises.lutimes('/parent-link/symlink', 1, 1);
+		assert.equal((await fs.promises.lstat('/parent-real/symlink')).mtimeMs, 1000);
+
+		await assert.rejects(fs.promises.rmdir('/parent-link/dir-link'), { code: 'ENOTDIR' });
+		await fs.promises.unlink('/parent-link/dir-link');
+		await fs.promises.rmdir('/parent-link/rmdir');
+
+		assert.deepEqual((await fs.promises.readdir('/parent-real')).sort(), ['renamed', 'symlink']);
+	});
+
+	test('operations follow symlinks in parent directories (sync)', config('sync'), () => {
+		fs.mkdirSync('/parentS-real');
+		fs.symlinkSync('/parentS-real', '/parentS-link');
+		fs.writeFileSync('/parentS-real/unlink', 'x');
+		fs.writeFileSync('/parentS-real/rename', 'x');
+		fs.mkdirSync('/parentS-real/rmdir');
+		fs.symlinkSync('/parentS-real/renamed', '/parentS-real/symlink');
+		fs.symlinkSync('/parentS-real/rmdir', '/parentS-real/dir-link');
+
+		fs.unlinkSync('/parentS-link/unlink');
+		fs.renameSync('/parentS-link/rename', '/parentS-link/renamed');
+		assert.equal(fs.readlinkSync('/parentS-link/symlink'), '/parentS-real/renamed');
+		fs.lutimesSync('/parentS-link/symlink', 1, 1);
+		assert.equal(fs.lstatSync('/parentS-real/symlink').mtimeMs, 1000);
+
+		assert.throws(() => fs.rmdirSync('/parentS-link/dir-link'), { code: 'ENOTDIR' });
+		fs.unlinkSync('/parentS-link/dir-link');
+		fs.rmdirSync('/parentS-link/rmdir');
+
+		assert.deepEqual(fs.readdirSync('/parentS-real').sort(), ['renamed', 'symlink']);
+	});
+
+	test('link follows symlinks in parent directories', config('links'), async () => {
+		await fs.promises.link('/parent-link/renamed', '/parent-link/hard');
+		assert.equal(await fs.promises.readFile('/parent-real/hard', 'utf8'), 'x');
+		fs.linkSync('/parentS-link/renamed', '/parentS-link/hard');
+		assert.equal(fs.readFileSync('/parentS-real/hard', 'utf8'), 'x');
+	});
+
+	test('xattr follows symlinks unless noFollow is set', config('xattr'), async () => {
+		await fs.xattr.set('/parent-link/renamed', 'user.parent', 'async');
+		assert.equal(await fs.xattr.get('/parent-real/renamed', 'user.parent', { encoding: 'utf8' }), 'async');
+		fs.xattr.setSync('/parentS-link/renamed', 'user.parent', 'sync');
+		assert.equal(fs.xattr.getSync('/parentS-real/renamed', 'user.parent', { encoding: 'utf8' }), 'sync');
+
+		await fs.xattr.set('/parent-link/symlink', 'user.link', 'on link', { noFollow: true });
+		assert.equal(await fs.xattr.get('/parent-real/symlink', 'user.link', { encoding: 'utf8', noFollow: true }), 'on link');
+		await assert.rejects(fs.xattr.get('/parent-real/renamed', 'user.link'), { code: 'ENODATA' });
+		assert.deepEqual(await fs.xattr.list('/parent-link/symlink'), ['user.parent']);
+
+		await fs.xattr.remove('/parent-link/renamed', 'user.parent');
+		assert.deepEqual(fs.xattr.listSync('/parent-real/renamed'), []);
+	});
+
 	test('cp preserves a symlink by default #304', async () => {
 		await fs.promises.mkdir('/cp-src');
 		await fs.promises.writeFile('/cp-src/real.txt', 'contents');

@@ -42,9 +42,8 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 
 		const target = resolvePath.call($, dirname(path), readlink.call($, path));
 		return resolve($, target, preserveSymlinks, extra);
-	} catch (e: any) {
-		setUVMessage(Object.assign(e, { syscall: 'stat', path, ...extra }));
-		if (preserveSymlinks) throw e;
+	} catch {
+		// Go the long way
 	}
 
 	const { base, dir } = parse(path);
@@ -60,7 +59,7 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
 	}
 
-	if (!isSymbolicLink(stats)) {
+	if (!isSymbolicLink(stats) || preserveSymlinks) {
 		return { ...resolved, fullPath: maybePath, stats };
 	}
 
@@ -77,7 +76,7 @@ export function open($: V_Context, path: PathLike, opt: OpenOptions): Handle {
 	const mode = normalizeMode(opt.mode, 0o644),
 		flag = flags.parse(opt.flag);
 
-	path = opt.preserveSymlinks ? path : resolve($, path).fullPath;
+	path = resolve($, path, opt.preserveSymlinks).fullPath;
 	const { fs, cache, path: resolved } = resolveMount(path, $);
 
 	let stats: InodeLike | undefined;
@@ -257,7 +256,7 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 	newPath = normalizePath.call(this, newPath);
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 	const src = resolve(this, oldPath, true, $ex);
-	const dst = resolveMount(newPath, this, $ex);
+	const dst = resolve(this, newPath, true, $ex);
 
 	if (src.fs.uuid !== dst.fs.uuid) throw UV('EXDEV', $ex);
 	// A directory can not be moved inside itself
@@ -308,8 +307,8 @@ export function link(this: V_Context, target: PathLike, link: PathLike): void {
 	link = normalizePath.call(this, link);
 
 	const $ex = { syscall: 'link', path: target, dest: link };
-	const { fs, cache, path: resolved } = resolveMount(target, this, $ex);
-	const dst = resolveMount(link, this, $ex);
+	const { fs, cache, path: resolved } = resolve(this, target, true, $ex);
+	const dst = resolve(this, link, true, $ex);
 
 	if (fs.uuid !== dst.fs.uuid) throw UV('EXDEV', $ex);
 

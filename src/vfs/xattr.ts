@@ -8,7 +8,8 @@ import { Attributes, hasAccess } from '../internal/inode.js';
 import { normalizePath } from '../utils.js';
 import { checkAccess } from './config.js';
 import { R_OK, W_OK } from '../constants.js';
-import { resolveMount } from './shared.js';
+import { resolve as resolveAsync } from './async.js';
+import { resolve as resolveSync } from './sync.js';
 
 /**
  * Extended attribute name with namespace prefix.
@@ -88,7 +89,7 @@ export async function get(
 export async function get(this: V_Context, path: string, name: Name, opt: Options & ObjectEncodingOptions): Promise<string>;
 export async function get(this: V_Context, path: string, name: Name, opt: Options = {}): Promise<string | Uint8Array> {
 	path = normalizePath.call(this, path);
-	const { cache, path: resolved } = resolveMount(path, this);
+	const { cache, path: resolved } = await resolveAsync(this, path, opt.noFollow);
 	checkName(this, name, path, 'xattr.get');
 
 	const inode = await cache.stat(resolved).catch(rethrow('xattr.get', path));
@@ -118,7 +119,7 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
 export function getSync(this: V_Context, path: string, name: Name, opt: Options = {}): string | Uint8Array {
 	path = normalizePath.call(this, path);
 	checkName(this, name, path, 'xattr.get');
-	const { cache, path: resolved } = resolveMount(path, this);
+	const { cache, path: resolved } = resolveSync(this, path, opt.noFollow);
 
 	let inode: InodeLike;
 	try {
@@ -149,7 +150,7 @@ export function getSync(this: V_Context, path: string, name: Name, opt: Options 
  */
 export async function set(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): Promise<void> {
 	path = normalizePath.call(this, path);
-	const { fs, cache, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = await resolveAsync(this, path, opt.noFollow);
 
 	checkName(this, name, path, 'xattr.set');
 	const inode = await cache.stat(resolved).catch(rethrow('xattr.set', path));
@@ -179,7 +180,7 @@ export async function set(this: V_Context, path: string, name: Name, value: stri
  */
 export function setSync(this: V_Context, path: string, name: Name, value: string | Uint8Array, opt: SetOptions = {}): void {
 	path = normalizePath.call(this, path);
-	const { fs, cache, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = resolveSync(this, path, opt.noFollow);
 
 	checkName(this, name, path, 'xattr.set');
 
@@ -217,7 +218,7 @@ export function setSync(this: V_Context, path: string, name: Name, value: string
  */
 export async function remove(this: V_Context, path: string, name: Name): Promise<void> {
 	path = normalizePath.call(this, path);
-	const { fs, cache, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = await resolveAsync(this, path);
 	checkName(this, name, path, 'xattr.remove');
 
 	const inode = await cache.stat(resolved).catch(rethrow('xattr.remove', path));
@@ -242,7 +243,7 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
  */
 export function removeSync(this: V_Context, path: string, name: Name): void {
 	path = normalizePath.call(this, path);
-	const { fs, cache, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = resolveSync(this, path);
 	checkName(this, name, path, 'xattr.remove');
 
 	let inode: InodeLike;
@@ -276,7 +277,7 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
  */
 export async function list(this: V_Context, path: string): Promise<Name[]> {
 	path = normalizePath.call(this, path);
-	const { cache, path: resolved } = resolveMount(path, this);
+	const { cache, path: resolved } = await resolveAsync(this, path);
 
 	const inode = await cache.stat(resolved).catch(rethrow('xattr.list', path));
 
@@ -293,7 +294,7 @@ export async function list(this: V_Context, path: string): Promise<Name[]> {
  */
 export function listSync(this: V_Context, path: string): Name[] {
 	path = normalizePath.call(this, path);
-	const { cache, path: resolved } = resolveMount(path, this);
+	const { cache, path: resolved } = resolveSync(this, path);
 
 	let inode: InodeLike;
 	try {

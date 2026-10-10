@@ -28,7 +28,7 @@ import { checkAccess } from '../vfs/config.js';
 import type { Handle } from '../vfs/file.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
-import { _statfs, resolveMount } from '../vfs/shared.js';
+import { _statfs } from '../vfs/shared.js';
 import { emitChange, FSWatcher } from '../vfs/watchers.js';
 import { Dir, Dirent } from './dir.js';
 import { createInterface } from './readline.js';
@@ -626,8 +626,8 @@ truncate satisfies typeof promises.truncate;
 
 export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> {
 	path = normalizePath.call(this, path);
-	const { fs, cache, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'unlink', path };
+	const { fs, cache, path: resolved } = await _async.resolve(this, path, true, $ex);
 
 	const stats = await cache.stat(resolved).catch(rethrow($ex));
 	assertRemovable(this, await cache.stat(dirname(resolved)).catch(rethrow($ex)), stats, $ex);
@@ -742,7 +742,7 @@ appendFile satisfies typeof promises.appendFile;
 export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 	path = normalizePath.call(this, path);
 
-	const { fs, cache, path: resolved } = await _async.resolve(this, path);
+	const { fs, cache, path: resolved } = await _async.resolve(this, path, true);
 	const $ex = { syscall: 'rmdir', path };
 
 	const stats = await cache.stat(resolved).catch(rethrow($ex));
@@ -1228,8 +1228,8 @@ export async function statfs(this: V_Context, path: fs.PathLike, opts: fs.StatFs
 export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs>;
 export async function statfs(this: V_Context, path: fs.PathLike, opts?: fs.StatFsOptions): Promise<fs.StatsFs | fs.BigIntStatsFs> {
 	path = normalizePath.call(this, path);
-	const { fs } = resolveMount(path, this);
-	return Promise.resolve(_statfs(fs, opts?.bigint));
+	const { fs } = await _async.resolve(this, path);
+	return _statfs(fs, opts?.bigint);
 }
 
 /**

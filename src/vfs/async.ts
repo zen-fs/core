@@ -26,12 +26,6 @@ import { emitChange } from './watchers.js';
 export async function resolve($: V_Context, path: string, preserveSymlinks?: boolean, extra?: ExceptionExtra): Promise<ResolvedPath> {
 	path = resolvePath.call($, path);
 
-	if (preserveSymlinks) {
-		const resolved = resolveMount(path, $, extra);
-		const stats = await resolved.cache.stat(resolved.path).catch(() => undefined);
-		return { ...resolved, fullPath: path, stats };
-	}
-
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
 	try {
@@ -39,7 +33,7 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 
 		const stats = await resolved.cache.stat(resolved.path);
 
-		if (!isSymbolicLink(stats)) {
+		if (!isSymbolicLink(stats) || preserveSymlinks) {
 			return { ...resolved, fullPath: path, stats };
 		}
 
@@ -60,7 +54,7 @@ export async function resolve($: V_Context, path: string, preserveSymlinks?: boo
 	});
 
 	if (!stats) return { ...resolved, fullPath: maybePath };
-	if (!isSymbolicLink(stats)) {
+	if (!isSymbolicLink(stats) || preserveSymlinks) {
 		return { ...resolved, fullPath: maybePath, stats };
 	}
 
@@ -242,7 +236,7 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	newPath = normalizePath.call(this, newPath);
 	const $ex = { syscall: 'rename', path: oldPath, dest: newPath };
 	const src = await resolve(this, oldPath, true, $ex);
-	const dst = resolveMount(newPath, this, $ex);
+	const dst = await resolve(this, newPath, true, $ex);
 
 	if (src.fs.uuid !== dst.fs.uuid) throw UV('EXDEV', $ex);
 	// A directory can not be moved inside itself
@@ -289,8 +283,8 @@ export async function link(this: V_Context, target: PathLike, link: PathLike): P
 	link = normalizePath.call(this, link);
 
 	const $ex = { syscall: 'link', path: target, dest: link };
-	const { fs, cache, path: resolved } = resolveMount(target, this, $ex);
-	const dst = resolveMount(link, this, $ex);
+	const { fs, cache, path: resolved } = await resolve(this, target, true, $ex);
+	const dst = await resolve(this, link, true, $ex);
 
 	if (fs.uuid != dst.fs.uuid) throw UV('EXDEV', $ex);
 

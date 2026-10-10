@@ -18,7 +18,7 @@ import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions,
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
-import { _statfs, resolveMount } from '../vfs/shared.js';
+import { _statfs } from '../vfs/shared.js';
 import * as _sync from '../vfs/sync.js';
 import { emitChange } from '../vfs/watchers.js';
 import { Dir, Dirent } from './dir.js';
@@ -104,7 +104,7 @@ truncateSync satisfies typeof fs.truncateSync;
 
 export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath.call(this, path);
-	const { fs, cache, path: resolved } = resolveMount(path, this);
+	const { fs, cache, path: resolved } = _sync.resolve(this, path, true, { syscall: 'unlink', path });
 	try {
 		assertRemovable(this, cache.statSync(dirname(resolved)), cache.statSync(resolved));
 		using _ = cache.lockSync(dirname(resolved), 'rw');
@@ -431,7 +431,7 @@ futimesSync satisfies typeof fs.futimesSync;
 
 export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath.call(this, path);
-	const { fs, cache, path: resolved } = _sync.resolve(this, path);
+	const { fs, cache, path: resolved } = _sync.resolve(this, path, true);
 
 	const stats = cache.statSync(resolved, { path, syscall: 'rmdir' });
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
@@ -836,7 +836,7 @@ export function statfsSync(this: V_Context, path: fs.PathLike, options: fs.StatF
 export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs;
 export function statfsSync(this: V_Context, path: fs.PathLike, options?: fs.StatFsOptions): fs.StatsFs | fs.BigIntStatsFs {
 	path = normalizePath.call(this, path);
-	const { fs } = resolveMount(path, this);
+	const { fs } = _sync.resolve(this, path);
 	return _statfs(fs, options?.bigint);
 }
 
