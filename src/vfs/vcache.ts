@@ -2,6 +2,7 @@
 import type { LockMode, LockRelease } from 'kerium/locks';
 import { err } from 'kerium/log';
 import type { UUID } from 'node:crypto';
+import { withoutExceptionContext } from '../internal/error.js';
 import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
@@ -131,7 +132,7 @@ export const caches = new Map<UUID, VCache>();
  * @internal
  */
 export function cacheOf(fs: FileSystem): VCache {
-	return caches.getOrInsertComputed(fs.uuid, () => new VCache(fs));
+	return caches.getOrInsertComputed(fs.uuid, () => new VCache(withoutExceptionContext(fs)));
 }
 
 /**

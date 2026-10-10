@@ -41,13 +41,16 @@ export function wrap<const FS, const Prop extends keyof FS & string>(fs: FS, pro
 	} as FS[Prop];
 }
 
+const kTarget = Symbol('withExceptionContext:target');
+
 /**
  * @internal
  * Wraps an `fs` so that thrown errors aren't empty
  */
 export function withExceptionContext<const FS extends FileSystem>(fs: FS, context: ExceptionExtra): FS {
 	return new Proxy(fs, {
-		get(target, prop: keyof FS & string) {
+		get(target, prop: (keyof FS & string) | typeof kTarget) {
+			if (prop === kTarget) return target;
 			const value = Reflect.get(target, prop);
 			if (typeof value != 'function') return value;
 
@@ -69,4 +72,12 @@ export function withExceptionContext<const FS extends FileSystem>(fs: FS, contex
 			};
 		},
 	});
+}
+
+/**
+ * @internal
+ * Returns the file system wrapped by {@link withExceptionContext}, or `fs` if it is not wrapped
+ */
+export function withoutExceptionContext<const FS extends FileSystem>(fs: FS): FS {
+	return (fs as FS & { [kTarget]?: FS })[kTarget] ?? fs;
 }
