@@ -12,7 +12,7 @@ import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
-import { hasAccess, isDirectory } from '../internal/inode.js';
+import { assertRemovable, hasAccess, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
@@ -107,10 +107,7 @@ export function unlinkSync(this: V_Context, path: fs.PathLike): void {
 	path = normalizePath.call(this, path);
 	const { fs, path: resolved } = resolveMount(path, this);
 	try {
-		fs.statSync(resolved);
-		if (checkAccess && !hasAccess(this, fs.statSync(dirname(resolved)), constants.W_OK | constants.X_OK)) {
-			throw UV('EACCES', 'unlink');
-		}
+		assertRemovable(this, fs.statSync(dirname(resolved)), fs.statSync(resolved));
 		using _ = lockPathSync(fs, dirname(resolved), 'rw');
 		fs.unlinkSync(resolved);
 		cacheOf(fs).remove(resolved);
@@ -439,8 +436,7 @@ export function rmdirSync(this: V_Context, path: fs.PathLike): void {
 
 	const stats = wrap(fs, 'statSync', { path, syscall: 'rmdir' })(resolved);
 	if (!isDirectory(stats)) throw UV('ENOTDIR', 'rmdir', path);
-	const parent = wrap(fs, 'statSync', { path, syscall: 'rmdir' })(dirname(resolved));
-	if (checkAccess && !hasAccess(this, parent, constants.W_OK | constants.X_OK)) throw UV('EACCES', 'rmdir', path);
+	assertRemovable(this, wrap(fs, 'statSync', { path, syscall: 'rmdir' })(dirname(resolved)), stats, { syscall: 'rmdir', path });
 
 	using _ = lockPathSync(fs, dirname(resolved), 'rw');
 	wrap(fs, 'rmdirSync', path)(resolved);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { withErrno } from 'kerium';
+import { UV, withErrno, type ExceptionExtra } from 'kerium';
 import { crit, warn } from 'kerium/log';
 import { sizeof } from 'memium';
 import { $from, field, struct, types as t } from 'memium/decorators';
@@ -7,6 +7,7 @@ import { decodeUTF8, encodeUTF8, pick } from 'utilium';
 import { BufferView } from 'utilium/buffer';
 import * as c from '../constants.js';
 import { Stats } from '../node/stats.js';
+import { checkAccess } from '../vfs/config.js';
 import { contextOf, type V_Context } from './contexts.js';
 
 /**
@@ -512,6 +513,24 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 	}
 
 	return (perm & access) === access;
+}
+
+/**
+ * Throws if a given user may not remove `entry` from the directory `parent`
+ * @internal
+ */
+export function assertRemovable(
+	$: V_Context,
+	parent: Pick<InodeLike, 'mode' | 'uid' | 'gid'>,
+	entry: Pick<InodeLike, 'uid'>,
+	extra?: ExceptionExtra,
+): void {
+	if (!checkAccess) return;
+
+	if (!hasAccess($, parent, c.W_OK | c.X_OK)) throw UV('EACCES', extra);
+
+	const { euid } = contextOf($).credentials;
+	if (parent.mode & c.S_ISVTX && euid !== 0 && euid !== entry.uid && euid !== parent.uid) throw UV('EPERM', extra);
 }
 
 /**

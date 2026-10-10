@@ -19,7 +19,7 @@ import { Exception, rethrow, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
-import { hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
+import { assertRemovable, hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import '../polyfills.js';
 import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
@@ -630,9 +630,8 @@ export async function unlink(this: V_Context, path: fs.PathLike): Promise<void> 
 	const { fs, path: resolved } = resolveMount(path, this);
 	const $ex = { syscall: 'unlink', path };
 
-	await fs.stat(resolved).catch(rethrow($ex));
-	const parent = await fs.stat(dirname(resolved)).catch(rethrow($ex));
-	if (checkAccess && !hasAccess(this, parent, constants.W_OK | constants.X_OK)) throw UV('EACCES', $ex);
+	const stats = await fs.stat(resolved).catch(rethrow($ex));
+	assertRemovable(this, await fs.stat(dirname(resolved)).catch(rethrow($ex)), stats, $ex);
 
 	using _ = await lockPath(fs, dirname(resolved), 'rw');
 	await fs.unlink(resolved).catch(rethrow($ex));
@@ -753,8 +752,7 @@ export async function rmdir(this: V_Context, path: fs.PathLike): Promise<void> {
 
 	if (!isDirectory(stats)) throw UV('ENOTDIR', $ex);
 
-	const parent = await fs.stat(dirname(resolved)).catch(rethrow($ex));
-	if (checkAccess && !hasAccess(this, parent, constants.W_OK | constants.X_OK)) throw UV('EACCES', $ex);
+	assertRemovable(this, await fs.stat(dirname(resolved)).catch(rethrow($ex)), stats, $ex);
 
 	using _ = await lockPath(fs, dirname(resolved), 'rw');
 	await fs.rmdir(resolved).catch(rethrow($ex));

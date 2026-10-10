@@ -154,6 +154,33 @@ suite('Permissions', config('permissions'), () => {
 		alice.fs.renameSync('/removal-unreadable/renamed', '/removal-unreadable/file');
 	});
 
+	test('sticky directories only let owners remove entries #326', async () => {
+		const alice = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+		const bob = bindContext({ credentials: { uid: 2000, gid: 2000 } });
+
+		await rootFS.promises.mkdir('/sticky', { mode: 0o1777 });
+		await alice.fs.promises.writeFile('/sticky/alice', 'a', { mode: 0o666 });
+		await alice.fs.promises.mkdir('/sticky/alice-dir', { mode: 0o777 });
+		await bob.fs.promises.writeFile('/sticky/bob', 'b');
+
+		await assert.rejects(bob.fs.promises.unlink('/sticky/alice'), { code: 'EPERM' });
+		assert.throws(() => bob.fs.unlinkSync('/sticky/alice'), { code: 'EPERM' });
+		await assert.rejects(bob.fs.promises.rmdir('/sticky/alice-dir'), { code: 'EPERM' });
+		assert.throws(() => bob.fs.rmdirSync('/sticky/alice-dir'), { code: 'EPERM' });
+		assert.throws(() => bob.fs.renameSync('/sticky/alice', '/sticky/stolen'), { code: 'EPERM' });
+		await assert.rejects(alice.fs.promises.rename('/sticky/alice', '/sticky/bob'), { code: 'EPERM' });
+
+		await alice.fs.promises.unlink('/sticky/alice');
+		alice.fs.rmdirSync('/sticky/alice-dir');
+		await rootFS.promises.unlink('/sticky/bob');
+		assert.deepEqual(rootFS.readdirSync('/sticky'), []);
+
+		await rootFS.promises.mkdir('/sticky-alice', { mode: 0o1777 });
+		await rootFS.promises.lchown('/sticky-alice', 1000, 1000);
+		await bob.fs.promises.writeFile('/sticky-alice/bob', 'b');
+		await alice.fs.promises.unlink('/sticky-alice/bob');
+	});
+
 	const copy = { ...defaultContext.credentials };
 	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));

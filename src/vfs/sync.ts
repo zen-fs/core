@@ -9,7 +9,7 @@ import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
-import { hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
+import { assertRemovable, hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { cacheOf, lockPathSync } from './vcache.js';
@@ -276,12 +276,9 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 		if (e.code != 'ENOENT') throw e;
 	}
 
-	if (
-		checkAccess
-		&& (!hasAccess(this, oldParent, constants.W_OK | constants.X_OK) || !hasAccess(this, newParent, constants.W_OK | constants.X_OK))
-	) {
-		throw UV('EACCES', $ex);
-	}
+	assertRemovable(this, oldParent, src.stats, $ex);
+	if (newStats) assertRemovable(this, newParent, newStats, $ex);
+	if (checkAccess && !hasAccess(this, newParent, constants.W_OK | constants.X_OK)) throw UV('EACCES', $ex);
 
 	if (newStats && !isDirectory(src.stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(src.stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
