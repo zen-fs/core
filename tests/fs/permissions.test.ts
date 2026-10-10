@@ -181,6 +181,35 @@ suite('Permissions', config('permissions'), () => {
 		await alice.fs.promises.unlink('/sticky-alice/bob');
 	});
 
+	test('only owners may change the mode, owner, or times of a file #326', async () => {
+		const alice = bindContext({ credentials: { uid: 1000, gid: 1000, groups: [3000] } });
+		const bob = bindContext({ credentials: { uid: 2000, gid: 2000 } });
+
+		await rootFS.promises.writeFile('/owned', 'x', { mode: 0o666 });
+		rootFS.chownSync('/owned', 1000, 1000);
+
+		assert.throws(() => bob.fs.chmodSync('/owned', 0o600), { code: 'EPERM' });
+		await assert.rejects(bob.fs.promises.chmod('/owned', 0o600), { code: 'EPERM' });
+		assert.throws(() => bob.fs.utimesSync('/owned', 1, 2), { code: 'EPERM' });
+		await assert.rejects(bob.fs.promises.utimes('/owned', 1, 2), { code: 'EPERM' });
+		assert.throws(() => bob.fs.chownSync('/owned', -1, 2000), { code: 'EPERM' });
+		assert.throws(() => bob.fs.chownSync('/owned', 1000, -1), { code: 'EPERM' });
+		bob.fs.chownSync('/owned', -1, -1);
+
+		alice.fs.chmodSync('/owned', 0o644);
+		await alice.fs.promises.utimes('/owned', 1, 2);
+		alice.fs.chownSync('/owned', -1, 3000);
+		await alice.fs.promises.chown('/owned', 1000, 1000);
+		assert.throws(() => alice.fs.chownSync('/owned', -1, 4000), { code: 'EPERM' });
+		assert.throws(() => alice.fs.chownSync('/owned', 2000, -1), { code: 'EPERM' });
+
+		rootFS.chownSync('/owned', 2000, 2000);
+		const stats = rootFS.statSync('/owned');
+		assert.equal(stats.mode & 0o777, 0o644);
+		assert.equal(stats.mtimeMs, 2000);
+		assert.equal(stats.uid, 2000);
+	});
+
 	const copy = { ...defaultContext.credentials };
 	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));

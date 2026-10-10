@@ -534,6 +534,32 @@ export function assertRemovable(
 }
 
 /**
+ * Throws if a given user is neither root nor the owner of `inode`
+ * @internal
+ */
+export function assertOwner($: V_Context, inode: Pick<InodeLike, 'uid'>, extra?: ExceptionExtra): void {
+	if (!checkAccess) return;
+
+	const { euid } = contextOf($).credentials;
+	if (euid !== 0 && euid !== inode.uid) throw UV('EPERM', extra);
+}
+
+/**
+ * Throws if a given user may not change the owner of `inode` to `uid` and `gid`, where `-1` leaves an ID unchanged
+ * @internal
+ */
+export function assertCanChown($: V_Context, inode: Pick<InodeLike, 'uid' | 'gid'>, uid: number, gid: number, extra?: ExceptionExtra): void {
+	if (!checkAccess) return;
+
+	const { euid, egid, groups } = contextOf($).credentials;
+	if (euid === 0) return;
+
+	const isOwner = euid === inode.uid;
+	if (uid !== -1 && !(isOwner && uid === inode.uid)) throw UV('EPERM', extra);
+	if (gid !== -1 && !(isOwner && (gid === inode.gid || gid === egid || groups.includes(gid)))) throw UV('EPERM', extra);
+}
+
+/**
  * @hidden @internal
  *
  * @todo https://github.com/nodejs/node/pull/58836 support -1 for `*chown`

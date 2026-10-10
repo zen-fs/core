@@ -5,7 +5,7 @@ import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
 import { contextOf } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import { _chown, InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
+import { _chown, assertCanChown, assertOwner, InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
 import { validateFD } from '../utils.js';
 import { cacheOf } from './vcache.js';
@@ -207,6 +207,7 @@ export class Handle {
 
 	public chmodSync(mode: number): void {
 		if (this.closed) throw UV('EBADF', 'chmod', this.path);
+		assertOwner(this.context, this.inode, { syscall: 'chmod', path: this.path });
 		using _ = this.vnode.lockSync('rw');
 		this.vnode.metadataDirty = true;
 		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
@@ -215,6 +216,7 @@ export class Handle {
 
 	public chownSync(uid: number, gid: number): void {
 		if (this.closed) throw UV('EBADF', 'chown', this.path);
+		assertCanChown(this.context, this.inode, uid, gid, { syscall: 'chown', path: this.path });
 		using _ = this.vnode.lockSync('rw');
 		this.vnode.metadataDirty = true;
 		_chown(this.inode, uid, gid);
@@ -226,6 +228,7 @@ export class Handle {
 	 */
 	public utimesSync(atime: number, mtime: number): void {
 		if (this.closed) throw UV('EBADF', 'utimes', this.path);
+		assertOwner(this.context, this.inode, { syscall: 'utimes', path: this.path });
 
 		using _ = this.vnode.lockSync('rw');
 		this.vnode.metadataDirty = true;
@@ -360,6 +363,7 @@ export class Handle {
 
 	public async chmod(mode: number): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'chmod', this.path);
+		assertOwner(this.context, this.inode, { syscall: 'chmod', path: this.path });
 		using _ = await this.vnode.lock('rw');
 		this.vnode.metadataDirty = true;
 		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
@@ -368,6 +372,7 @@ export class Handle {
 
 	public async chown(uid: number, gid: number): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'chown', this.path);
+		assertCanChown(this.context, this.inode, uid, gid, { syscall: 'chown', path: this.path });
 		using _ = await this.vnode.lock('rw');
 		this.vnode.metadataDirty = true;
 		_chown(this.inode, uid, gid);
@@ -379,6 +384,7 @@ export class Handle {
 	 */
 	public async utimes(atime: number, mtime: number): Promise<void> {
 		if (this.closed) throw UV('EBADF', 'utimes', this.path);
+		assertOwner(this.context, this.inode, { syscall: 'utimes', path: this.path });
 
 		using _ = await this.vnode.lock('rw');
 		this.vnode.metadataDirty = true;
