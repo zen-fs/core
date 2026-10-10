@@ -19,6 +19,18 @@ suite('Mounts', () => {
 		fs.rmSync('/nested', { recursive: true, force: true });
 	});
 
+	test('lstat of a mount point is the mounted root #326', async () => {
+		await configure({ mounts: { '/mounted': InMemory } });
+
+		await fs.promises.utimes('/mounted', 1, 1);
+		assert.equal(fs.statSync('/mounted').mtimeMs, 1000);
+		assert.equal(fs.lstatSync('/mounted').mtimeMs, 1000);
+		assert.equal((await fs.promises.lstat('/mounted')).mtimeMs, 1000);
+
+		fs.umount('/mounted');
+		fs.rmdirSync('/mounted');
+	});
+
 	test('Race conditions', async () => {
 		await configure({
 			mounts: {

@@ -321,8 +321,11 @@ export async function stat(this: V_Context, path: PathLike, lstat: boolean): Pro
 	if (!lstat) stats = (await resolve(this, path, false, extra)).stats;
 	else {
 		const { base, dir } = parse(path);
-		const { fs, path: parent } = await resolve(this, dir, false, extra);
-		const target = base ? join(parent, base) : parent;
+		const parent = await resolve(this, dir, false, extra);
+		const { root, mounts } = contextOf(this);
+		const mounted = base && mounts.get(join(root, parent.fullPath, base));
+		const fs = mounted || parent.fs;
+		const target = mounted ? '/' : join(parent.path, base);
 		stats = cacheOf(fs).get(target)?.inode ?? (await fs.stat(target).catch(rethrow(extra)));
 	}
 

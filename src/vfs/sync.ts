@@ -338,9 +338,12 @@ export function stat(this: V_Context, path: PathLike, lstat: boolean): InodeLike
 	if (!lstat) stats = resolve(this, path, false, extra).stats;
 	else {
 		const { base, dir } = parse(path);
-		const { fs, path: parent } = resolve(this, dir, false, extra);
+		const parent = resolve(this, dir, false, extra);
+		const { root, mounts } = contextOf(this);
+		const mounted = base && mounts.get(join(root, parent.fullPath, base));
+		const fs = mounted || parent.fs;
+		const target = mounted ? '/' : join(parent.path, base);
 		try {
-			const target = base ? join(parent, base) : parent;
 			stats = cacheOf(fs).get(target)?.inode ?? fs.statSync(target);
 		} catch (e: any) {
 			setUVMessage(Object.assign(e, extra));
