@@ -253,8 +253,11 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 
 	const fs = src.fs;
 
-	const oldParent = await fs.stat(dirname(src.path));
-	const newParent = await fs.stat(dirname(dst.path));
+	const srcDir = dirname(src.path);
+	const dstDir = dirname(dst.path);
+
+	const oldParent = await fs.stat(srcDir);
+	const newParent = await fs.stat(dstDir);
 	const newStats = await fs.stat(dst.path).catch((e: Exception) => {
 		if (e.code == 'ENOENT') return null;
 		throw e;
@@ -263,12 +266,10 @@ export async function rename(this: V_Context, oldPath: PathLike, newPath: PathLi
 	assertRemovable(this, oldParent, src.stats, $ex);
 	if (newStats) assertRemovable(this, newParent, newStats, $ex);
 	if (checkAccess && !hasAccess(this, newParent, constants.W_OK | constants.X_OK)) throw UV('EACCES', $ex);
+	if (checkAccess && isDirectory(src.stats) && srcDir != dstDir && !hasAccess(this, src.stats, constants.W_OK)) throw UV('EACCES', $ex);
 
 	if (newStats && !isDirectory(src.stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(src.stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
-
-	const srcDir = dirname(src.path);
-	const dstDir = dirname(dst.path);
 
 	// Lock both parent directories, ordered by inode number to avoid ABBA deadlocks (like Linux's `lock_two_nondirectories`)
 	const parents: [string, InodeLike][] = [

@@ -266,8 +266,11 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 
 	const fs = src.fs;
 
-	const oldParent = fs.statSync(dirname(src.path));
-	const newParent = fs.statSync(dirname(dst.path));
+	const srcDir = dirname(src.path);
+	const dstDir = dirname(dst.path);
+
+	const oldParent = fs.statSync(srcDir);
+	const newParent = fs.statSync(dstDir);
 
 	let newStats: InodeLike | undefined;
 	try {
@@ -279,12 +282,10 @@ export function rename(this: V_Context, oldPath: PathLike, newPath: PathLike): v
 	assertRemovable(this, oldParent, src.stats, $ex);
 	if (newStats) assertRemovable(this, newParent, newStats, $ex);
 	if (checkAccess && !hasAccess(this, newParent, constants.W_OK | constants.X_OK)) throw UV('EACCES', $ex);
+	if (checkAccess && isDirectory(src.stats) && srcDir != dstDir && !hasAccess(this, src.stats, constants.W_OK)) throw UV('EACCES', $ex);
 
 	if (newStats && !isDirectory(src.stats) && isDirectory(newStats)) throw UV('EISDIR', $ex);
 	if (newStats && isDirectory(src.stats) && !isDirectory(newStats)) throw UV('ENOTDIR', $ex);
-
-	const srcDir = dirname(src.path);
-	const dstDir = dirname(dst.path);
 
 	// Lock both parent directories, ordered by inode number to avoid ABBA deadlocks (like Linux's `lock_two_nondirectories`)
 	const parents: [string, InodeLike][] = [

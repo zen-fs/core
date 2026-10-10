@@ -573,5 +573,20 @@ export function _chown(stats: Partial<InodeLike>, uid: number, gid: number): boo
 	if (!isNaN(gid) && gid >= 0 && gid < c.size_max) stats.gid = gid;
 	else valid = false;
 
+	if (stats.mode !== undefined && !isDirectory({ mode: stats.mode })) {
+		stats.mode &= ~c.S_ISUID;
+		if (stats.mode & c.S_IXGRP) stats.mode &= ~c.S_ISGID;
+	}
+
 	return valid;
+}
+
+/**
+ * @hidden @internal
+ */
+export function _chmod($: V_Context, inode: Pick<InodeLike, 'mode' | 'gid'>, mode: number): void {
+	const { euid, egid, groups } = contextOf($).credentials;
+	if (checkAccess && euid !== 0 && egid !== inode.gid && !groups.includes(inode.gid)) mode &= ~c.S_ISGID;
+
+	inode.mode = (inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
 }

@@ -210,6 +210,49 @@ suite('Permissions', config('permissions'), () => {
 		assert.equal(stats.uid, 2000);
 	});
 
+	test('moving a directory to another parent needs write permission on it', async () => {
+		const alice = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+
+		await rootFS.promises.mkdir('/move-a', { mode: 0o777 });
+		await rootFS.promises.mkdir('/move-b', { mode: 0o777 });
+		await rootFS.promises.mkdir('/move-a/dir', { mode: 0o755 });
+		await rootFS.promises.writeFile('/move-a/file', 'x', { mode: 0o644 });
+
+		assert.throws(() => alice.fs.renameSync('/move-a/dir', '/move-b/dir'), { code: 'EACCES' });
+		await assert.rejects(alice.fs.promises.rename('/move-a/dir', '/move-b/dir'), { code: 'EACCES' });
+		await alice.fs.promises.rename('/move-a/dir', '/move-a/renamed');
+		await alice.fs.promises.rename('/move-a/file', '/move-b/file');
+	});
+
+	test('chmod and chown clear setuid and setgid like Linux', async () => {
+		const alice = bindContext({ credentials: { uid: 1000, gid: 1000, groups: [3000] } });
+		const modeOf = (path: string) => rootFS.statSync(path).mode & 0o7777;
+
+		await rootFS.promises.mkdir('/sid', { mode: 0o777 });
+		await alice.fs.promises.writeFile('/sid/file', 'x');
+		await alice.fs.promises.mkdir('/sid/dir');
+
+		alice.fs.chmodSync('/sid/file', 0o6755);
+		assert.equal(modeOf('/sid/file'), 0o6755);
+		alice.fs.chownSync('/sid/file', -1, -1);
+		assert.equal(modeOf('/sid/file'), 0o755);
+
+		alice.fs.chmodSync('/sid/file', 0o2745);
+		alice.fs.chownSync('/sid/file', -1, 3000);
+		assert.equal(modeOf('/sid/file'), 0o2745);
+
+		rootFS.chmodSync('/sid/file', 0o4755);
+		rootFS.chownSync('/sid/file', 1000, 0);
+		assert.equal(modeOf('/sid/file'), 0o755);
+
+		alice.fs.chmodSync('/sid/file', 0o2755);
+		assert.equal(modeOf('/sid/file'), 0o755);
+
+		await alice.fs.promises.lchmod('/sid/dir', 0o6755);
+		await alice.fs.promises.lchown('/sid/dir', -1, -1);
+		assert.equal(modeOf('/sid/dir'), 0o6755);
+	});
+
 	const copy = { ...defaultContext.credentials };
 	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));

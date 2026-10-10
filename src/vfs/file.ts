@@ -5,7 +5,7 @@ import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
 import { contextOf } from '../internal/contexts.js';
 import type { FileSystem, StreamOptions } from '../internal/filesystem.js';
-import { _chown, assertCanChown, assertOwner, InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
+import { _chmod, _chown, assertCanChown, assertOwner, InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '../internal/inode.js';
 import '../polyfills.js';
 import { validateFD } from '../utils.js';
 import { cacheOf } from './vcache.js';
@@ -210,7 +210,7 @@ export class Handle {
 		assertOwner(this.context, this.inode, { syscall: 'chmod', path: this.path });
 		using _ = this.vnode.lockSync('rw');
 		this.vnode.metadataDirty = true;
-		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
+		_chmod(this.context, this.inode, mode);
 		if (this._isSync || mode > c.S_IFMT) this.vnode.syncSync();
 	}
 
@@ -366,7 +366,7 @@ export class Handle {
 		assertOwner(this.context, this.inode, { syscall: 'chmod', path: this.path });
 		using _ = await this.vnode.lock('rw');
 		this.vnode.metadataDirty = true;
-		this.inode.mode = (this.inode.mode & (mode > c.S_IFMT ? ~c.S_IFMT : c.S_IFMT)) | mode;
+		_chmod(this.context, this.inode, mode);
 		if (this._isSync || mode > c.S_IFMT) await this.vnode.sync();
 	}
 
