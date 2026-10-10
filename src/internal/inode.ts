@@ -493,8 +493,7 @@ export function hasAccess($: V_Context, inode: Pick<InodeLike, 'mode' | 'uid' | 
 
 	if (isSymbolicLink(inode)) return true;
 
-	if (credentials.euid === 0 || credentials.egid === 0)
-		return !(access & c.X_OK) || isDirectory(inode) || !!(inode.mode & (c.S_IXUSR | c.S_IXGRP | c.S_IXOTH));
+	if (credentials.euid === 0) return !(access & c.X_OK) || isDirectory(inode) || !!(inode.mode & (c.S_IXUSR | c.S_IXGRP | c.S_IXOTH));
 
 	let perm = 0;
 

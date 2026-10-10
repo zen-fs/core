@@ -85,7 +85,7 @@ suite('Permissions', config('permissions'), () => {
 		assert(hasAccess(defaultContext, stats, W_OK));
 	}
 
-	test('unprivileged users can read files they do not own', async () => {
+	test('unprivileged users can read files they do not own #326', async () => {
 		await rootFS.promises.writeFile('/root-owned.txt', 'shared', { mode: 0o644 });
 		const user = bindContext({ credentials: { uid: 1000, gid: 1000 } });
 
@@ -94,6 +94,14 @@ suite('Permissions', config('permissions'), () => {
 
 		assert.throws(() => user.fs.writeFileSync('/root-owned.txt', 'nope'), { code: 'EACCES' });
 		await assert.rejects(user.fs.promises.writeFile('/root-owned.txt', 'nope'), { code: 'EACCES' });
+	});
+
+	test('access checks follow Linux #326', () => {
+		const as = (uid: number, gid: number) => bindContext({ credentials: { uid, gid } });
+		const file = (mode: number, uid = 1000, gid = 1000) => ({ mode: 0o100000 | mode, uid, gid });
+
+		assert(!hasAccess(as(1000, 0), file(0o600, 0, 0), R_OK));
+		assert(hasAccess(as(0, 1000), file(0o000, 5, 5), R_OK | W_OK));
 	});
 
 	const copy = { ...defaultContext.credentials };
