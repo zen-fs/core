@@ -525,7 +525,7 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 
 	using file = _sync.open(this, path, { flag: 'wx', mode: 0o644 });
 	file.writeSync(encodeUTF8(normalizePath.call(this, target, true)));
-	file.chmodSync(constants.S_IFLNK);
+	file.chmodSync(constants.S_IFLNK | 0o777);
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 

@@ -862,7 +862,7 @@ export async function symlink(this: V_Context, dest: fs.PathLike, path: fs.PathL
 	await using handle = await _async.open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
 	const encoded = encodeUTF8(normalizePath.call(this, dest, true));
 	await handle.write(encoded, 0, encoded.length, 0);
-	await handle.chmod(constants.S_IFLNK);
+	await handle.chmod(constants.S_IFLNK | 0o777);
 }
 symlink satisfies typeof promises.symlink;
 

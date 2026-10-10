@@ -18,6 +18,16 @@ suite('Links', config('symlinks'), () => {
 		assert(stats.isSymbolicLink());
 	});
 
+	test('symlinks have mode 0o777 #326', async () => {
+		assert.equal((await fs.promises.lstat(symlink)).mode & 0o7777, 0o777);
+
+		fs.symlinkSync(target, 'symlink-sync.js');
+		const stats = fs.lstatSync('symlink-sync.js');
+		assert(stats.isSymbolicLink());
+		assert.equal(stats.mode & 0o7777, 0o777);
+		fs.unlinkSync('symlink-sync.js');
+	});
+
 	test('lstat file inside symlinked directory #241', async () => {
 		await fs.promises.mkdir('/a');
 		await fs.promises.writeFile('/a/hello.txt', 'hello world');
