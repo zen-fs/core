@@ -104,6 +104,15 @@ suite('Permissions', config('permissions'), () => {
 		assert(hasAccess(as(0, 1000), file(0o000, 5, 5), R_OK | W_OK));
 	});
 
+	test('stat needs no permission on the file itself #326', async () => {
+		await rootFS.promises.writeFile('/secret-stat.txt', 'x', { mode: 0o000 });
+		const user = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+
+		assert.equal(user.fs.statSync('/secret-stat.txt').size, 1);
+		assert.equal((await user.fs.promises.lstat('/secret-stat.txt')).size, 1);
+		assert.throws(() => user.fs.readFileSync('/secret-stat.txt'), { code: 'EACCES' });
+	});
+
 	const copy = { ...defaultContext.credentials };
 	Object.assign(defaultContext.credentials, { uid: 1000, gid: 1000, euid: 1000, egid: 1000 });
 	test('Access controls: /', () => test_item('/'));

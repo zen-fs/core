@@ -350,7 +350,5 @@ export function stat(this: V_Context, path: PathLike, lstat: boolean): InodeLike
 
 	if (!stats) throw UV('ENOENT', extra);
 
-	if (checkAccess && !hasAccess(this, stats, constants.R_OK)) throw UV('EACCES', extra);
-
 	return stats;
 }
