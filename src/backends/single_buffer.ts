@@ -199,6 +199,9 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 
 		switch (this.version) {
 			case 0:
+				err('sbfs: got unexpected super block version 0');
+				break;
+			case 1:
 				// current
 				break;
 			default:
@@ -233,7 +236,7 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 
 	/**
 	 * The version of the on-disk format
-	 * 0: v1.10.0+
+	 * 1: v1.10.0+
 	 */
 	@t.uint16 accessor version!: number;
 
