@@ -197,6 +197,14 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 			return;
 		}
 
+		switch (this.version) {
+			case 0:
+				// current
+				break;
+			default:
+				throw crit(withErrno('EIO', 'sbfs: unsupported super block version'));
+		}
+
 		if (this.checksum !== checksum(this)) throw crit(withErrno('EIO', 'sbfs: checksum mismatch for super block'));
 
 		this.metadata = new MetadataBlock(this.buffer, this.metadata_offset);
@@ -223,7 +231,10 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 	/** Signature for the superblock. */
 	@t.uint32 accessor magic!: number;
 
-	/** The version of the on-disk format */
+	/**
+	 * The version of the on-disk format
+	 * 0: v1.10.0+
+	 */
 	@t.uint16 accessor version!: number;
 
 	/** Which format of `Inode` is used */
