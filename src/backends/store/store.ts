@@ -62,6 +62,11 @@ export interface Store {
 	usage?(): UsageInfo;
 
 	/**
+	 * Allocate IDs for a new inode + data
+	 */
+	allocId?(): [ino: number, data: number];
+
+	/**
 	 * @internal @hidden
 	 */
 	fs?: StoreFS;

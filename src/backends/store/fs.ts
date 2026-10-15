@@ -763,14 +763,20 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	private _lastID?: number;
 
 	/** Allocates a new ID and adds the ID/path */
-	protected allocNew(path: string): number {
+	protected allocNew(path: string): [number, number] {
+		if (this.store.allocId) {
+			const ids = this.store.allocId();
+			this._add(ids[0], path);
+			return ids;
+		}
+
 		// @todo use `Iterator` helper #296
 		this._lastID ||= Array.from(this._paths.keys()).reduce((max, ino) => Math.max(max, ino), 0);
 		this._lastID += 2;
 		const id = this._lastID;
 		if (id > size_max) throw err(withErrno('ENOSPC', 'No IDs available'));
 		this._add(id, path);
-		return id;
+		return [id, id + 1];
 	}
 
 	/**
@@ -796,12 +802,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (listing[fname]) throw withErrno('EEXIST');
 
-		const id = this.allocNew(path);
+		const [ino, dataId] = this.allocNew(path);
 
 		const inode = new Inode({
 			...options,
-			ino: id,
-			data: id + 1,
+			ino,
+			data: dataId,
 			size: data.byteLength,
 			nlink: 1,
 		});
@@ -840,12 +846,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (listing[fname]) throw withErrno('EEXIST');
 
-		const id = this.allocNew(path);
+		const [ino, dataId] = this.allocNew(path);
 
 		const inode = new Inode({
 			...options,
-			ino: id,
-			data: id + 1,
+			ino,
+			data: dataId,
 			size: data.byteLength,
 			nlink: 1,
 		});
