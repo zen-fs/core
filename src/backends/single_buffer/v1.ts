@@ -8,12 +8,11 @@ import type { UUID } from 'node:crypto';
 import { BufferView } from 'utilium/buffer';
 import { crc32c } from 'utilium/checksum';
 import { decodeUUID, encodeUUID } from 'utilium/string';
-import type { UsageInfo } from '../internal/filesystem.js';
-import { _inode_version, Inode } from '../internal/inode.js';
-import type { Backend } from './backend.js';
-import { StoreFS } from './store/fs.js';
-import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
-import type { Store } from './store/store.js';
+import type { UsageInfo } from '../../internal/filesystem.js';
+import { _inode_version, Inode } from '../../internal/inode.js';
+import type { StoreFS } from '../store/fs.js';
+import { SyncMapTransaction, type SyncMapStore } from '../store/map.js';
+import type { Store } from '../store/store.js';
 
 type SBLock = Disposable & (() => void);
 
@@ -158,13 +157,13 @@ export class MetadataBlock extends $from.typed(Int32Array)<ArrayBufferLike> {
 // workaround for https://github.com/microsoft/TypeScript/issues/61862
 Object.assign(MetadataBlock, { lockIndex: offsetof(MetadataBlock, 'locked') / Int32Array.BYTES_PER_ELEMENT });
 
-const sb_magic = 0x62732e7a; // 'z.sb'
+export const sb_magic = 0x62732e7a; // 'z.sb'
 
 /**
  * Shortcut for minor perf. bump
  * @internal
  */
-const kUsedBytes = 2;
+export const kUsedBytes = 2;
 
 /**
  * The super block structure for a single-buffer file system
@@ -357,7 +356,7 @@ const kMetadataOffset = offsetof(SuperBlock, 'metadata_offset') / Uint32Array.BY
  * Compute the checksum for a super block or metadata block.
  * Note we don't include the checksum when computing a new one.
  */
-function checksum(value: SuperBlock | MetadataBlock): number {
+export function checksum(value: SuperBlock | MetadataBlock): number {
 	let length = sizeof(value) - 4;
 	if (value instanceof MetadataBlock) length -= Int32Array.BYTES_PER_ELEMENT;
 	return crc32c(new Uint8Array(value.buffer, value.byteOffset + 4, length));
@@ -367,7 +366,7 @@ function checksum(value: SuperBlock | MetadataBlock): number {
  * Update a block's checksum and timestamp.
  * @internal @hidden
  */
-function _update(value: SuperBlock | MetadataBlock): void {
+export function _update(value: SuperBlock | MetadataBlock): void {
 	if (value instanceof MetadataBlock) value.timestamp = BigInt(Date.now());
 	value.checksum = checksum(value);
 }
@@ -521,39 +520,3 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		return new SyncMapTransaction(this);
 	}
 }
-
-/**
- * Options for the `SingleBuffer` backend
- * @category Backends and Configuration
- */
-export interface SingleBufferOptions {
-	buffer: ArrayBufferLike | ArrayBufferView;
-}
-
-const _SingleBuffer = {
-	name: 'SingleBuffer',
-	options: {
-		buffer: { type: 'object', required: true },
-	},
-	create(opt: SingleBufferOptions) {
-		const fs = new StoreFS(
-			ArrayBuffer.isView(opt.buffer)
-				? new SingleBufferStore(opt.buffer.buffer, opt.buffer.byteOffset, opt.buffer.byteLength)
-				: new SingleBufferStore(opt.buffer),
-		);
-		fs.checkRootSync();
-		return fs;
-	},
-} as const satisfies Backend<StoreFS<SingleBufferStore>, SingleBufferOptions>;
-type _SingleBuffer = typeof _SingleBuffer;
-/**
- * A backend that uses a single buffer for storing data
- * @category Backends and Configuration
- */
-export interface SingleBuffer extends _SingleBuffer {}
-
-/**
- * A backend that uses a single buffer for storing data
- * @category Backends and Configuration
- */
-export const SingleBuffer: SingleBuffer = _SingleBuffer;
