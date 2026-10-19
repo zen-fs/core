@@ -14,13 +14,13 @@ await suite('SingleBuffer', () => {
 	test('filesystem restoration from original buffer (with same metadata)', async () => {
 		const buffer = new ArrayBuffer(0x100000);
 
-		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer });
+		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false });
 		mount('/mnt', writable);
 
 		fs.writeFileSync('/mnt/example.ts', 'console.log("hello world")', 'utf-8');
 		const stats = fs.statSync('/mnt/example.ts');
 
-		const snapshot = await resolveMountConfig({ backend: SingleBuffer, buffer });
+		const snapshot = await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false });
 		mount('/snapshot', snapshot);
 
 		const snapshotStats = fs.statSync('/snapshot/example.ts');
@@ -31,7 +31,7 @@ await suite('SingleBuffer', () => {
 	test('cross-thread SharedArrayBuffer', async () => {
 		const sharedBuffer = new SharedArrayBuffer(0x100000);
 
-		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer: sharedBuffer });
+		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer: sharedBuffer, v2: false });
 		fs.mkdirSync('/shared');
 		mount('/shared', writable);
 
@@ -141,7 +141,7 @@ await suite('SingleBuffer', () => {
 		const mountPoint = '/sbfs-reliability';
 		const verifyMountPoint = '/sbfs-verify';
 		const buffer = new ArrayBuffer(0x400000);
-		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, label: 'reliability' });
+		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, label: 'reliability', v2: false });
 		mount(mountPoint, writable);
 
 		const filePath = `${mountPoint}/payload.bin`;
@@ -186,7 +186,7 @@ await suite('SingleBuffer', () => {
 	test('keeps metadata aligned when files have uneven sizes #309', async () => {
 		const mountPoint = '/sbfs-rotation';
 		const buffer = new ArrayBuffer(0x400000);
-		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, label: 'rotation' });
+		const writable = await resolveMountConfig({ backend: SingleBuffer, buffer, label: 'rotation', v2: false });
 		mount(mountPoint, writable);
 
 		// Uneven writes leave used_bytes between alignment boundaries when the metadata block fills up.

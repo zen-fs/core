@@ -10,7 +10,7 @@ setupLogs('<worker>');
 const { buffer, gate, mode = 'create', id = 0, count = 0 } = workerData;
 
 try {
-	if (mode != 'read') await configureSingle({ backend: SingleBuffer, buffer, v2: true });
+	if (mode != 'read') await configureSingle({ backend: SingleBuffer, buffer });
 
 	switch (mode) {
 		case 'create': {

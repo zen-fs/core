@@ -137,7 +137,8 @@ const _SingleBuffer = {
 		const bytes = new Uint8Array(buffer, byteOffset, byteLength);
 		const view = new DataView(buffer, byteOffset, byteLength);
 
-		using _ = opt.v2 ? lockSetup(bytes, view) : undefined;
+		const formatted = view.getUint32(4, true) == v1.sb_magic;
+		using _ = opt.v2 || (!formatted && opt.v2 !== false) ? lockSetup(bytes, view) : undefined;
 
 		let store: v1.SingleBufferStore | v2.SingleBufferStore;
 

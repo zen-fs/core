@@ -16,6 +16,7 @@ try {
 	await configureSingle({
 		backend: SingleBuffer,
 		buffer: workerData,
+		v2: false,
 	});
 
 	fs.writeFileSync('/worker-file.ts', content, 'utf-8');

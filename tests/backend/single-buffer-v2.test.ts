@@ -218,7 +218,7 @@ await suite('SingleBuffer v2', () => {
 	test('upgrades version 1 file systems in place', async () => {
 		const buffer = new ArrayBuffer(0x300000);
 		const v1 = '/sbfs-v1';
-		mount(v1, await resolveMountConfig({ backend: SingleBuffer, buffer }));
+		mount(v1, await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false }));
 
 		// Enough files for several metadata blocks, with growth and deletion leaking space
 		fs.mkdirSync(v1 + '/dir/nested', { recursive: true });
@@ -267,18 +267,26 @@ await suite('SingleBuffer v2', () => {
 		umountAgain();
 	});
 
-	test('is opt-in, but always used for existing version 2 file systems', async () => {
+	test('is the default, but not used for existing version 1 file systems unless asked for', async () => {
+		const version = (buffer: ArrayBufferLike) => new SuperBlock(buffer, 0).version;
+
+		const fresh = new ArrayBuffer(0x100000);
+		await resolveMountConfig({ backend: SingleBuffer, buffer: fresh });
+		assert.equal(version(fresh), 2);
+
 		const buffer = new ArrayBuffer(0x100000);
+		await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false });
+		assert.equal(version(buffer), 1);
 
 		await resolveMountConfig({ backend: SingleBuffer, buffer });
-		assert.equal(new SuperBlock(buffer, 0).version, 1);
+		assert.equal(version(buffer), 1);
 
 		await resolveMountConfig({ backend: SingleBuffer, buffer, v2: true });
-		assert.equal(new SuperBlock(buffer, 0).version, 2);
+		assert.equal(version(buffer), 2);
 
-		mount('/sbfs-detect', await resolveMountConfig({ backend: SingleBuffer, buffer }));
+		mount('/sbfs-detect', await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false }));
 		fs.writeFileSync('/sbfs-detect/file', 'still version 2');
-		assert.equal(new SuperBlock(buffer, 0).version, 2);
+		assert.equal(version(buffer), 2);
 		vfs.umount('/sbfs-detect');
 
 		assert.throws(() => new SingleBufferStore(buffer), { code: 'EIO' });
