@@ -1,6 +1,7 @@
 {
 	"flags": {
-		"prep": ["writeFile", "stream"]
+		"prep": ["writeFile", "stream"],
+		"sbfs_v2": [true, false]
 	},
 	"tests": [
 		{
@@ -78,6 +79,35 @@
 				{ "name": "500 appends", "value": { "writes": 500 } },
 				{ "name": "2000 appends", "value": { "writes": 2000 } },
 				{ "name": "8000 appends", "cpu": 1, "value": { "writes": 8000 } }
+			]
+		},
+		{
+			"path": "single-buffer-read.ts",
+			"name": "Random 4 KB reads from one file in a SingleBuffer",
+			"flags": ["sbfs_v2"],
+			"measure": {
+				"bytes": { "throughput": "s", "unit": "MB" },
+				"reads": { "cost": true, "unit": "read" }
+			},
+			"configurations": [
+				{ "name": "1 MiB", "value": { "size": 1048576, "count": 256 } },
+				{ "name": "8 MiB", "value": { "size": 8388608, "count": 1024 } },
+				{ "name": "32 MiB", "cpu": 1, "value": { "size": 33554432, "count": 1024 } }
+			]
+		},
+		{
+			"path": "single-buffer-write.ts",
+			"name": "Random 4 KB writes to one file in a SingleBuffer",
+			"flags": ["sbfs_v2"],
+			"measure": {
+				"bytes": { "throughput": "s", "unit": "MB" },
+				"writes": { "cost": true, "unit": "write" }
+			},
+			"configurations": [
+				{ "name": "1 MiB, flushed", "value": { "size": 1048576, "count": 256, "flush": 1, "sync": 0 } },
+				{ "name": "1 MiB, O_SYNC", "value": { "size": 1048576, "count": 256, "flush": 0, "sync": 1 } },
+				{ "name": "8 MiB, flushed", "cpu": 1, "value": { "size": 8388608, "count": 1024, "flush": 1, "sync": 0 } },
+				{ "name": "8 MiB, O_SYNC", "cpu": 1, "value": { "size": 8388608, "count": 1024, "flush": 0, "sync": 1 } }
 			]
 		}
 	]
