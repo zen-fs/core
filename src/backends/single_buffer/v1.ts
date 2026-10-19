@@ -196,17 +196,6 @@ export class SuperBlock extends $from.typed(BigUint64Array)<ArrayBufferLike> {
 			return;
 		}
 
-		switch (this.version) {
-			case 0:
-				err('sbfs: got unexpected super block version 0');
-				break;
-			case 1:
-				// current
-				break;
-			default:
-				throw crit(withErrno('EIO', 'sbfs: unsupported super block version'));
-		}
-
 		if (this.checksum !== checksum(this)) throw crit(withErrno('EIO', 'sbfs: checksum mismatch for super block'));
 
 		this.metadata = new MetadataBlock(this.buffer, this.metadata_offset);
