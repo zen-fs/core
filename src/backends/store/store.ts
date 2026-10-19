@@ -11,7 +11,7 @@ import type { StoreFS } from './fs.js';
  * @category Stores and Transactions
  */
 export type StoreFlag =
-	/** The store supports partial reads and writes */
+	/** The store supports reading ranges and writing at offsets */
 	'partial';
 
 /**
@@ -99,18 +99,18 @@ export abstract class Transaction<T extends Store = Store> {
 	public abstract getSync(id: number, offset: number, end?: number): Uint8Array | undefined;
 
 	/**
-	 * Adds the data to the store under an id. Overwrites any existing data.
-	 * @param id The key to add the data under.
-	 * @param data The data to add to the store.
+	 * Stores data under an id.
+	 * Without `offset`, replaces any existing data.
+	 * With `offset`, writes the data at `offset` and keeps the rest, which partial stores must support.
 	 */
-	public abstract set(id: number, data: Uint8Array, offset: number): Promise<void>;
+	public abstract set(id: number, data: Uint8Array, offset?: number): Promise<void>;
 
 	/**
-	 * Adds the data to the store under and id.
-	 * @param id The key to add the data under.
-	 * @param data The data to add to the store.
+	 * Stores data under an id.
+	 * Without `offset`, replaces any existing data.
+	 * With `offset`, writes the data at `offset` and keeps the rest, which partial stores must support.
 	 */
-	public abstract setSync(id: number, data: Uint8Array, offset: number): void;
+	public abstract setSync(id: number, data: Uint8Array, offset?: number): void;
 
 	/**
 	 * Deletes the data at `ino`.
@@ -136,7 +136,7 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 		return this.getSync(id, offset, end);
 	}
 
-	public async set(id: number, data: Uint8Array, offset: number): Promise<void> {
+	public async set(id: number, data: Uint8Array, offset?: number): Promise<void> {
 		return this.setSync(id, data, offset);
 	}
 
@@ -206,7 +206,7 @@ export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extend
 		return region.data.subarray(offset - region.offset, end - region.offset);
 	}
 
-	public setSync(id: number, data: Uint8Array, offset: number): void {
+	public setSync(id: number, data: Uint8Array, offset?: number): void {
 		this.async(this.set(id, data, offset));
 	}
 
@@ -242,7 +242,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	protected originalData: Map<number, { data?: Uint8Array; offset: number }[]> = new Map();
+	protected originalData: Map<number, { data?: Uint8Array; offset?: number }[]> = new Map();
 
 	/**
 	 * List of keys modified in this transaction, if any.
@@ -265,25 +265,25 @@ export class WrappedTransaction<T extends Store = Store> {
 		return data;
 	}
 
-	public async set(id: number, view: Uint8Array | ArrayBufferView, offset: number = 0): Promise<void> {
+	public async set(id: number, view: Uint8Array | ArrayBufferView, offset?: number): Promise<void> {
 		await this.markModified(id, offset, view.byteLength);
 		const buffer = view instanceof Uint8Array ? view : new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
 		await this.raw.set(id, buffer, offset);
 	}
 
-	public setSync(id: number, view: Uint8Array | ArrayBufferView, offset: number = 0): void {
+	public setSync(id: number, view: Uint8Array | ArrayBufferView, offset?: number): void {
 		this.markModifiedSync(id, offset, view.byteLength);
 		const buffer = view instanceof Uint8Array ? view : new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
 		this.raw.setSync(id, buffer, offset);
 	}
 
 	public async remove(id: number): Promise<void> {
-		await this.markModified(id, 0, undefined);
+		await this.markModified(id);
 		await this.raw.remove(id);
 	}
 
 	public removeSync(id: number): void {
-		this.markModifiedSync(id, 0, undefined);
+		this.markModifiedSync(id);
 		this.raw.removeSync(id);
 	}
 
@@ -350,18 +350,18 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * prevent needless `get` requests if the program modifies the data later
 	 * on during the transaction.
 	 */
-	protected stash(id: number, data?: Uint8Array, offset: number = 0): void {
+	protected stash(id: number, data?: Uint8Array, offset?: number): void {
 		this.originalData.getOrInsertComputed(id, () => []).push({ data, offset });
 	}
 
 	/**
 	 * Marks an id as modified, and stashes its value if it has not been stashed already.
 	 */
-	protected async markModified(id: number, offset: number, length?: number): Promise<void> {
+	protected async markModified(id: number, offset?: number, length?: number): Promise<void> {
 		this.modifiedKeys.add(id);
-		const end = length ? offset + length : undefined;
+		const end = offset !== undefined && length ? offset + length : undefined;
 		try {
-			this.stash(id, await this.raw.get(id, offset, end), offset);
+			this.stash(id, await this.raw.get(id, offset ?? 0, end), offset);
 		} catch (e) {
 			if (!(this.raw instanceof AsyncTransaction)) throw e;
 
@@ -375,7 +375,7 @@ export class WrappedTransaction<T extends Store = Store> {
 			const resource = tx._cached(id);
 			if (!resource) throw e;
 
-			for (const range of resource.cached(offset, end ?? offset)) {
+			for (const range of resource.cached(offset ?? 0, end ?? offset ?? 0)) {
 				this.stash(id, await this.raw.get(id, range.start, range.end), range.start);
 			}
 		}
@@ -384,12 +384,12 @@ export class WrappedTransaction<T extends Store = Store> {
 	/**
 	 * Marks an id as modified, and stashes its value if it has not been stashed already.
 	 */
-	protected markModifiedSync(id: number, offset: number, length?: number): void {
+	protected markModifiedSync(id: number, offset?: number, length?: number): void {
 		this.modifiedKeys.add(id);
-		const end = length ? offset + length : undefined;
+		const end = offset !== undefined && length ? offset + length : undefined;
 
 		try {
-			this.stash(id, this.raw.getSync(id, offset, end), offset);
+			this.stash(id, this.raw.getSync(id, offset ?? 0, end), offset);
 		} catch (e) {
 			if (!(this.raw instanceof AsyncTransaction)) throw e;
 
@@ -403,7 +403,7 @@ export class WrappedTransaction<T extends Store = Store> {
 			const resource = tx._cached(id);
 			if (!resource) throw e;
 
-			for (const range of resource.cached(offset, end ?? offset)) {
+			for (const range of resource.cached(offset ?? 0, end ?? offset ?? 0)) {
 				this.stash(id, this.raw.getSync(id, range.start, range.end), range.start);
 			}
 		}

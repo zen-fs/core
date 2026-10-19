@@ -478,14 +478,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = await this.findInode(tx, path);
 		const end = offset + data.byteLength;
 
-		let buffer = data;
 		if (!tx.flag('partial')) {
-			buffer = extendBuffer((await tx.get(inode.data)) ?? new Uint8Array(), end);
+			const buffer = extendBuffer((await tx.get(inode.data)) ?? new Uint8Array(), end);
 			buffer.set(data, offset);
-			offset = 0;
+			await tx.set(inode.data, buffer);
+		} else if (offset <= inode.size) {
+			await tx.set(inode.data, data, offset);
+		} else {
+			// Writes past the end of the file also zero the bytes before them
+			const extended = new Uint8Array(end - inode.size);
+			extended.set(data, offset - inode.size);
+			await tx.set(inode.data, extended, inode.size);
 		}
-
-		await tx.set(inode.data, buffer, offset);
 
 		// Update the inode in the same transaction, so data and metadata can not get out of sync (#286)
 		inode.update({ size: Math.max(inode.size, end), mtimeMs: Date.now() });
@@ -502,14 +506,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = this.findInodeSync(tx, path);
 		const end = offset + data.byteLength;
 
-		let buffer = data;
 		if (!tx.flag('partial')) {
-			buffer = extendBuffer(tx.getSync(inode.data) ?? new Uint8Array(), end);
+			const buffer = extendBuffer(tx.getSync(inode.data) ?? new Uint8Array(), end);
 			buffer.set(data, offset);
-			offset = 0;
+			tx.setSync(inode.data, buffer);
+		} else if (offset <= inode.size) {
+			tx.setSync(inode.data, data, offset);
+		} else {
+			// Writes past the end of the file also zero the bytes before them
+			const extended = new Uint8Array(end - inode.size);
+			extended.set(data, offset - inode.size);
+			tx.setSync(inode.data, extended, inode.size);
 		}
-
-		tx.setSync(inode.data, buffer, offset);
 
 		// Update the inode in the same transaction, so data and metadata can not get out of sync (#286)
 		inode.update({ size: Math.max(inode.size, end), mtimeMs: Date.now() });

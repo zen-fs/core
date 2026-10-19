@@ -8,9 +8,9 @@ import { AsyncTransaction, SyncTransaction } from './store.js';
  */
 export interface SyncMapStore extends Store {
 	keys(): Iterable<number>;
-	get(id: number): Uint8Array | undefined;
-	getAsync?(id: number): Promise<Uint8Array | undefined>;
-	set(id: number, data: Uint8Array): void;
+	get(id: number, offset?: number, end?: number): Uint8Array | undefined;
+	getAsync?(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined>;
+	set(id: number, data: Uint8Array, offset?: number): void;
 	delete(id: number): void;
 }
 
@@ -27,16 +27,16 @@ export class SyncMapTransaction extends SyncTransaction<SyncMapStore> {
 		return this.store.keys();
 	}
 
-	public async get(id: number): Promise<Uint8Array | undefined> {
-		return await (this.store.getAsync?.(id) ?? this.store.get(id));
+	public async get(id: number, offset?: number, end?: number): Promise<Uint8Array | undefined> {
+		return await (this.store.getAsync?.(id, offset, end) ?? this.store.get(id, offset, end));
 	}
 
-	public getSync(id: number): Uint8Array | undefined {
-		return this.store.get(id);
+	public getSync(id: number, offset?: number, end?: number): Uint8Array | undefined {
+		return this.store.get(id, offset, end);
 	}
 
-	public setSync(id: number, data: Uint8Array): void {
-		this.store.set(id, data);
+	public setSync(id: number, data: Uint8Array, offset?: number): void {
+		this.store.set(id, data, offset);
 	}
 
 	public removeSync(id: number): void {
