@@ -472,25 +472,15 @@ export class WriteTransaction implements BPlusTreeStorage {
 			const block = this.pendingHead;
 			if (oldest !== undefined && store.getBigUint64(block + offsetof(PendingHeader, 'generation'), true) > oldest) break;
 
-			const extents: [offset: number, size: number][] = [];
+			// Released blocks become spares, up to twice the low-water mark
 			for (let i = 0; i < store.getUint32(block + offsetof(PendingHeader, 'count'), true); i++) {
 				const entry = block + sizeof(PendingHeader) + i * sizeof(Extent);
-				extents.push([store.getUint32(entry + offsetof(Extent, 'offset'), true), store.getUint32(entry + offsetof(Extent, 'size'), true)]);
-			}
+				const offset = store.getUint32(entry + offsetof(Extent, 'offset'), true);
+				const size = store.getUint32(entry + offsetof(Extent, 'size'), true);
 
-			// Released blocks become spares, up to twice the low-water mark
-			for (const extent of extents) {
-				while (extent[1] >= this.pageSize && this.availableBlocks() < 2 * this.lowWater()) {
-					this.pushSpare(extent[0]);
-					this.pendingBytes -= this.pageSize;
-					extent[0] += this.pageSize;
-					extent[1] -= this.pageSize;
-				}
-			}
-
-			for (const [offset, size] of extents) {
 				this.pendingBytes -= size;
-				this.freeExtent(offset, size);
+				if (size == this.pageSize && this.availableBlocks() < 2 * this.lowWater()) this.pushSpare(offset);
+				else this.freeExtent(offset, size);
 			}
 
 			const last = block == this.pendingTail;
@@ -812,9 +802,11 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 				extent.offset = old.offset;
 				extent.capacity = old.capacity;
 			} else {
-				// Data that grows from partial writes gets room to keep growing
-				const roomy = offset === undefined ? extent.size : Math.max(extent.size, Math.floor((old?.capacity ?? 0) * 1.5));
-				extent.capacity = extent.size ? roomy : 0;
+				// Partial writes keep the old capacity, and data that outgrows it gets room to keep growing
+				const capacity = offset === undefined ? 0 : (old?.capacity ?? 0);
+				if (extent.size <= capacity) extent.capacity = capacity;
+				else if (capacity) extent.capacity = Math.max(extent.size, Math.floor(capacity * 1.5));
+				else extent.capacity = extent.size;
 				try {
 					extent.offset = extent.capacity ? tx.allocate(extent.capacity) : 0;
 				} catch (e) {
