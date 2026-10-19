@@ -79,7 +79,7 @@
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
 		"kerium": "^1.5.0",
-		"memium": "^1.0.0",
+		"memium": "^1.1.0",
 		"utilium": "^3.7.0"
 	},
 	"devDependencies": {

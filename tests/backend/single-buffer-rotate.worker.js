@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { parentPort, workerData } from 'node:worker_threads';
-import { SuperBlock } from '../../dist/backends/single_buffer.js';
+import { SuperBlock } from '../../dist/backends/single_buffer/v1.js';
 import { setupLogs } from '../logs.js';
 
 setupLogs('<worker>');
