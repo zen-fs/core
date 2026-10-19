@@ -134,4 +134,34 @@ suite('Context', () => {
 
 		assert.doesNotThrow(() => ctx.bind({ credentials: { uid: 500, gid: 500 } }));
 	});
+
+	test('umask is inherited by children', () => {
+		const parent = bindContext({ umask: 0o027 });
+		assert.equal(parent.bind({}).umask, 0o027);
+		assert.equal(parent.bind({ umask: 0o077 }).umask, 0o077);
+	});
+
+	test('umask applies to created files and directories', async () => {
+		fs.mkdirSync('/masked');
+		const masked = bindContext({ root: '/masked', umask: 0o027 });
+
+		masked.fs.writeFileSync('/sync.txt', '', { mode: 0o666 });
+		assert.equal(masked.fs.statSync('/sync.txt').mode & 0o7777, 0o640);
+
+		await masked.fs.promises.writeFile('/async.txt', '', { mode: 0o666 });
+		assert.equal(masked.fs.statSync('/async.txt').mode & 0o7777, 0o640);
+
+		masked.fs.mkdirSync('/a/b', { recursive: true, mode: 0o777 });
+		assert.equal(masked.fs.statSync('/a').mode & 0o7777, 0o750);
+		assert.equal(masked.fs.statSync('/a/b').mode & 0o7777, 0o750);
+
+		await masked.fs.promises.mkdir('/c', 0o1777);
+		assert.equal(masked.fs.statSync('/c').mode & 0o7777, 0o1750);
+
+		masked.fs.symlinkSync('/sync.txt', '/link');
+		assert.equal(masked.fs.lstatSync('/link').mode & 0o7777, 0o777);
+
+		masked.fs.chmodSync('/sync.txt', 0o666);
+		assert.equal(masked.fs.statSync('/sync.txt').mode & 0o7777, 0o666);
+	});
 });

@@ -6,7 +6,7 @@ import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './
 import { rethrow, setUVMessage, UV, type Exception, type ExceptionExtra } from 'kerium';
 import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
-import { contextOf } from '../internal/contexts.js';
+import { applyUmask, contextOf } from '../internal/contexts.js';
 import { assertRemovable, assertSearchable, hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath } from '../utils.js';
@@ -108,7 +108,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 			const { euid: uid, egid: gid } = contextOf($).credentials;
 
 			const inode = await fs.createFile(resolved, {
-				mode,
+				mode: applyUmask($, mode),
 				uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
 				gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
 			});
@@ -148,7 +148,8 @@ export async function readlink(this: V_Context, path: PathLike): Promise<string>
 export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {}): Promise<string | void> {
 	const original = normalizePath.call(this, path);
 	const { euid: uid, egid: gid } = contextOf(this).credentials;
-	const { mode = 0o777, recursive } = options;
+	const { recursive } = options;
+	const mode = applyUmask(this, options.mode ?? 0o777);
 
 	const $ex = { syscall: 'mkdir', path: original };
 

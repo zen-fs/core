@@ -7,7 +7,7 @@ import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './
 import { setUVMessage, UV, type ExceptionExtra } from 'kerium';
 import { decodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
-import { contextOf } from '../internal/contexts.js';
+import { applyUmask, contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { assertRemovable, assertSearchable, hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
@@ -120,7 +120,7 @@ export function open($: V_Context, path: PathLike, opt: OpenOptions): Handle {
 
 		const { euid: uid, egid: gid } = contextOf($).credentials;
 		const inode = fs.createFileSync(resolved, {
-			mode,
+			mode: applyUmask($, mode),
 			uid: parentStats.mode & constants.S_ISUID ? parentStats.uid : uid,
 			gid: parentStats.mode & constants.S_ISGID ? parentStats.gid : gid,
 		});
@@ -170,7 +170,8 @@ export function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {
 
 	const { euid: uid, egid: gid } = contextOf(this).credentials;
 
-	const { mode = 0o777, recursive } = options;
+	const { recursive } = options;
+	const mode = applyUmask(this, options.mode ?? 0o777);
 
 	let firstCreated: string | undefined;
 

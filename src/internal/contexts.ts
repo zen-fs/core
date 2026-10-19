@@ -40,6 +40,9 @@ export interface FSContext {
 	/** The credentials of the context, used for access checks */
 	readonly credentials: Credentials;
 
+	/** Permission bits cleared from the mode of newly created files and directories */
+	umask: number;
+
 	/** A map of open file descriptors to their handles */
 	readonly descriptors: Map<number, Handle>;
 
@@ -90,6 +93,7 @@ export interface ContextInit {
 	root?: string;
 	pwd?: string;
 	credentials?: CredentialsInit;
+	umask?: number;
 	mounts?: Record<string, FileSystem>;
 }
 
@@ -104,6 +108,7 @@ export const defaultContext: FSContext = {
 	root: '/',
 	pwd: '/',
 	credentials: createCredentials({ uid: 0, gid: 0 }),
+	umask: 0,
 	descriptors: new Map(),
 	parent: null,
 	children: [],
@@ -112,6 +117,11 @@ export const defaultContext: FSContext = {
 
 export function contextOf($: unknown): FSContext {
 	return isContext($) ? $ : defaultContext;
+}
+
+/** Clears the permission bits of `mode` that are set in the context's umask. */
+export function applyUmask($: unknown, mode: number): number {
+	return mode & ~(contextOf($).umask & 0o777);
 }
 
 // 1 is reserved for the global/default context
@@ -128,7 +138,7 @@ let _nextId = 2;
 export function createChildContext(parent: FSContext, init: ContextInit = {}): FSContext & { parent: FSContext } {
 	assertContext(parent);
 
-	const { root = parent.root, pwd = parent.pwd, credentials = structuredClone(parent.credentials), mounts } = init;
+	const { root = parent.root, pwd = parent.pwd, credentials = structuredClone(parent.credentials), umask = parent.umask, mounts } = init;
 
 	const ctx: FSContext & { parent: FSContext } = {
 		[kIsContext]: true,
@@ -136,6 +146,7 @@ export function createChildContext(parent: FSContext, init: ContextInit = {}): F
 		root,
 		pwd,
 		credentials: createCredentials(credentials),
+		umask,
 		descriptors: new Map(),
 		parent: parent,
 		children: [],
