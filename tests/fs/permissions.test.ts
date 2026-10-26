@@ -133,11 +133,11 @@ suite('Permissions', config('permissions'), () => {
 		await rootFS.promises.writeFile('/removal-root/file', 'x', { mode: 0o666 });
 		await rootFS.promises.mkdir('/removal-root/dir', { mode: 0o777 });
 		await rootFS.promises.mkdir('/removal-own', { mode: 0o755 });
-		await rootFS.promises.lchown('/removal-own', 1000, 1000);
+		await rootFS.promises.chown('/removal-own', 1000, 1000);
 		await rootFS.promises.writeFile('/removal-own/readonly', 'x', { mode: 0o444 });
 		await rootFS.promises.mkdir('/removal-own/readonly-dir', { mode: 0o555 });
 		await rootFS.promises.mkdir('/removal-unreadable', { mode: 0o300 });
-		await rootFS.promises.lchown('/removal-unreadable', 1000, 1000);
+		await rootFS.promises.chown('/removal-unreadable', 1000, 1000);
 		await rootFS.promises.writeFile('/removal-unreadable/file', 'x');
 
 		await assert.rejects(alice.fs.promises.unlink('/removal-root/file'), { code: 'EACCES' });
@@ -177,7 +177,7 @@ suite('Permissions', config('permissions'), () => {
 		assert.deepEqual(rootFS.readdirSync('/sticky'), []);
 
 		await rootFS.promises.mkdir('/sticky-alice', { mode: 0o1777 });
-		await rootFS.promises.lchown('/sticky-alice', 1000, 1000);
+		await rootFS.promises.chown('/sticky-alice', 1000, 1000);
 		await bob.fs.promises.writeFile('/sticky-alice/bob', 'b');
 		await alice.fs.promises.unlink('/sticky-alice/bob');
 	});
@@ -209,6 +209,27 @@ suite('Permissions', config('permissions'), () => {
 		assert.equal(stats.mode & 0o777, 0o644);
 		assert.equal(stats.mtimeMs, 2000);
 		assert.equal(stats.uid, 2000);
+	});
+
+	test('changing metadata needs no read or write access, even on directories #327', async () => {
+		const alice = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+
+		await rootFS.promises.writeFile('/metadata-file', 'x', { mode: 0o000 });
+		await rootFS.promises.mkdir('/metadata-dir', { mode: 0o000 });
+
+		for (const path of ['/metadata-file', '/metadata-dir']) {
+			rootFS.chownSync(path, 1000, 1000);
+			alice.fs.chmodSync(path, 0o500);
+			await alice.fs.promises.chmod(path, 0o400);
+			alice.fs.utimesSync(path, 1, 2);
+			await alice.fs.promises.utimes(path, 3, 4);
+			alice.fs.chownSync(path, -1, -1);
+			await alice.fs.promises.chown(path, -1, -1);
+
+			const stats = rootFS.statSync(path);
+			assert.equal(stats.mode & 0o777, 0o400);
+			assert.equal(stats.mtimeMs, 4000);
+		}
 	});
 
 	test('moving a directory to another parent needs write permission on it', async () => {
@@ -249,8 +270,8 @@ suite('Permissions', config('permissions'), () => {
 		alice.fs.chmodSync('/sid/file', 0o2755);
 		assert.equal(modeOf('/sid/file'), 0o755);
 
-		await alice.fs.promises.lchmod('/sid/dir', 0o6755);
-		await alice.fs.promises.lchown('/sid/dir', -1, -1);
+		await alice.fs.promises.chmod('/sid/dir', 0o6755);
+		await alice.fs.promises.chown('/sid/dir', -1, -1);
 		assert.equal(modeOf('/sid/dir'), 0o6755);
 	});
 
@@ -271,7 +292,7 @@ suite('Permissions', config('permissions'), () => {
 		const bob = bindContext({ credentials: { uid: 2000, gid: 2000 } });
 
 		await rootFS.promises.mkdir('/private', { mode: 0o700 });
-		await rootFS.promises.lchown('/private', 1000, 1000);
+		await rootFS.promises.chown('/private', 1000, 1000);
 		await rootFS.promises.mkdir('/private/inner', { mode: 0o755 });
 		await rootFS.promises.writeFile('/private/inner/readable.txt', 'secret', { mode: 0o644 });
 		await rootFS.promises.symlink('/private', '/private-link');

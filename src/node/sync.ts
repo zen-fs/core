@@ -550,34 +550,22 @@ export function readlinkSync(
 readlinkSync satisfies typeof fs.readlinkSync;
 
 export function chownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
-	using handle = _sync.open(this, path, { flag: 'r+', mode: constants.F_OK });
-	handle.chownSync(uid, gid);
+	_sync.chown.call(this, path, uid, gid);
 }
 chownSync satisfies typeof fs.chownSync;
 
 export function lchownSync(this: V_Context, path: fs.PathLike, uid: number, gid: number): void {
-	const fd = lopenSync.call(this, path, 'r+');
-	fchownSync.call(this, fd, uid, gid);
-	closeSync.call(this, fd);
+	_sync.chown.call(this, path, uid, gid, true);
 }
 lchownSync satisfies typeof fs.lchownSync;
 
 export function chmodSync(this: V_Context, path: fs.PathLike, mode: fs.Mode): void {
-	let fd: number;
-	try {
-		fd = openSync.call(this, path, 'r+');
-	} catch (e: any) {
-		throw setUVMessage(Object.assign(e, { syscall: 'chmod', path: normalizePath.call(this, path) }));
-	}
-	fchmodSync.call(this, fd, mode);
-	closeSync.call(this, fd);
+	_sync.chmod.call(this, path, mode);
 }
 chmodSync satisfies typeof fs.chmodSync;
 
 export function lchmodSync(this: V_Context, path: fs.PathLike, mode: number | string): void {
-	const fd = lopenSync.call(this, path, 'r+');
-	fchmodSync.call(this, fd, mode);
-	closeSync.call(this, fd);
+	_sync.chmod.call(this, path, mode, true);
 }
 lchmodSync satisfies typeof fs.lchmodSync;
 
@@ -585,9 +573,7 @@ lchmodSync satisfies typeof fs.lchmodSync;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export function utimesSync(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): void {
-	const fd = openSync.call(this, path, 'r+');
-	futimesSync.call(this, fd, atime, mtime);
-	closeSync.call(this, fd);
+	_sync.utimes.call(this, path, atime, mtime);
 }
 utimesSync satisfies typeof fs.utimesSync;
 
@@ -595,9 +581,7 @@ utimesSync satisfies typeof fs.utimesSync;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export function lutimesSync(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): void {
-	const fd = lopenSync.call(this, path, 'r+');
-	futimesSync.call(this, fd, atime, mtime);
-	closeSync.call(this, fd);
+	_sync.utimes.call(this, path, atime, mtime, true);
 }
 lutimesSync satisfies typeof fs.lutimesSync;
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import type { PathLike } from 'node:fs';
+import type { Mode, PathLike, TimeLike } from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { InodeLike } from '../internal/inode.js';
 import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './shared.js';
@@ -11,7 +11,7 @@ import { applyUmask, contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { assertRemovable, assertSearchable, hasAccess, isDirectory, isSymbolicLink } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
-import { normalizeMode, normalizePath } from '../utils.js';
+import { normalizeMode, normalizePath, normalizeTime } from '../utils.js';
 import { cacheOf } from './vcache.js';
 import { checkAccess, resolveFullWalk } from './config.js';
 import { Dirent, ifToDt } from './dir.js';
@@ -368,4 +368,36 @@ export function stat(this: V_Context, path: PathLike, lstat: boolean): InodeLike
 	if (!stats) throw UV('ENOENT', extra);
 
 	return stats;
+}
+
+/**
+ * Opens a handle for changing metadata, which does not need read or write access to the file.
+ */
+function _openMetadata($: V_Context, path: string, syscall: string, noFollow?: boolean): Handle {
+	const { fullPath, cache, path: resolved, stats } = resolve($, path, noFollow, { syscall });
+	if (!stats) throw UV('ENOENT', syscall, path);
+	return new Handle($, fullPath, resolved, constants.O_RDONLY, cache.ref(resolved, stats));
+}
+
+export function chmod(this: V_Context, path: PathLike, mode: Mode, noFollow?: boolean): void {
+	path = normalizePath.call(this, path);
+	const numMode = normalizeMode(mode, -1);
+	if (numMode < 0) throw UV('EINVAL', 'chmod', path);
+	using handle = _openMetadata(this, path, 'chmod', noFollow);
+	handle.chmodSync(numMode);
+	emitChange(this, 'change', handle.path);
+}
+
+export function chown(this: V_Context, path: PathLike, uid: number, gid: number, noFollow?: boolean): void {
+	path = normalizePath.call(this, path);
+	using handle = _openMetadata(this, path, 'chown', noFollow);
+	handle.chownSync(uid, gid);
+	emitChange(this, 'change', handle.path);
+}
+
+export function utimes(this: V_Context, path: PathLike, atime: TimeLike, mtime: TimeLike, noFollow?: boolean): void {
+	path = normalizePath.call(this, path);
+	using handle = _openMetadata(this, path, 'utimes', noFollow);
+	handle.utimesSync(normalizeTime(atime), normalizeTime(mtime));
+	emitChange(this, 'change', handle.path);
 }

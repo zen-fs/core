@@ -888,37 +888,22 @@ export async function readlink(
 readlink satisfies typeof promises.readlink;
 
 export async function chown(this: V_Context, path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	await using handle = await open.call(this, path, 'r+');
-	await handle.chown(uid, gid);
+	await _async.chown.call(this, path, uid, gid, false);
 }
 chown satisfies typeof promises.chown;
 
 export async function lchown(this: V_Context, path: fs.PathLike, uid: number, gid: number): Promise<void> {
-	await using handle = await _async.open(this, path, {
-		flag: 'r+',
-		mode: 0o644,
-		preserveSymlinks: true,
-		allowDirectory: true,
-	});
-	await handle.chown(uid, gid);
+	await _async.chown.call(this, path, uid, gid, true);
 }
 lchown satisfies typeof promises.lchown;
 
 export async function chmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	await using handle = await open.call(this, path, 'r+').catch(rethrow({ syscall: 'chmod', path: normalizePath.call(this, path) }));
-	await handle.chmod(mode);
+	await _async.chmod.call(this, path, mode, false);
 }
 chmod satisfies typeof promises.chmod;
 
 export async function lchmod(this: V_Context, path: fs.PathLike, mode: fs.Mode): Promise<void> {
-	mode = normalizeMode(mode);
-	await using handle = await _async.open(this, path, {
-		flag: 'r+',
-		mode: 0o644,
-		preserveSymlinks: true,
-		allowDirectory: true,
-	});
-	await handle.chmod(mode);
+	await _async.chmod.call(this, path, mode, true);
 }
 lchmod satisfies typeof promises.lchmod;
 
@@ -926,11 +911,7 @@ lchmod satisfies typeof promises.lchmod;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export async function utimes(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
-	await using handle = await _async.open(this, path, {
-		flag: 'r+',
-		allowDirectory: true,
-	});
-	await handle.utimes(normalizeTime(atime), normalizeTime(mtime));
+	await _async.utimes.call(this, path, atime, mtime, false);
 }
 utimes satisfies typeof promises.utimes;
 
@@ -938,13 +919,7 @@ utimes satisfies typeof promises.utimes;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export async function lutimes(this: V_Context, path: fs.PathLike, atime: fs.TimeLike, mtime: fs.TimeLike): Promise<void> {
-	await using handle = await _async.open(this, path, {
-		flag: 'r+',
-		mode: 0o644,
-		preserveSymlinks: true,
-		allowDirectory: true,
-	});
-	await handle.utimes(normalizeTime(atime), normalizeTime(mtime));
+	await _async.utimes.call(this, path, atime, mtime, true);
 }
 lutimes satisfies typeof promises.lutimes;
 

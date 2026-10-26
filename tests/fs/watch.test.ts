@@ -41,6 +41,20 @@ suite('Watch', config('watch'), () => {
 		assert.equal(filename, 'test.txt');
 	});
 
+	test('Events emitted on metadata change', async () => {
+		const { promise, resolve } = Promise.withResolvers<[string, string]>();
+
+		using watcher = fs.watch(testFile, (eventType, filename) => {
+			resolve([eventType, filename]);
+		});
+
+		fs.chmodSync(testFile, 0o600);
+
+		const [eventType, filename] = await withTimeout(promise);
+		assert.equal(eventType, 'change');
+		assert.equal(filename, 'test.txt');
+	});
+
 	test('Events are emitted on delete', async () => {
 		const { promise, resolve } = Promise.withResolvers<string>();
 

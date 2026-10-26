@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import type { PathLike } from 'node:fs';
+import type { Mode, PathLike, TimeLike } from 'node:fs';
 import type { V_Context } from '../internal/contexts.js';
 import type { MkdirOptions, OpenOptions, ReaddirOptions, ResolvedPath } from './shared.js';
 
@@ -9,7 +9,7 @@ import * as constants from '../constants.js';
 import { applyUmask, contextOf } from '../internal/contexts.js';
 import { assertRemovable, assertSearchable, hasAccess, isDirectory, isSymbolicLink, type InodeLike } from '../internal/inode.js';
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
-import { normalizeMode, normalizePath } from '../utils.js';
+import { normalizeMode, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess, resolveFullWalk } from './config.js';
 import { Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
@@ -339,4 +339,36 @@ export async function stat(this: V_Context, path: PathLike, lstat: boolean): Pro
 	if (!stats) throw UV('ENOENT', extra);
 
 	return stats;
+}
+
+/**
+ * Opens a handle for changing metadata, which does not need read or write access to the file.
+ */
+async function _openMetadata($: V_Context, path: string, syscall: string, noFollow?: boolean): Promise<Handle> {
+	const { fullPath, cache, path: resolved, stats } = await resolve($, path, noFollow, { syscall });
+	if (!stats) throw UV('ENOENT', syscall, path);
+	return new Handle($, fullPath, resolved, constants.O_RDONLY, cache.ref(resolved, stats));
+}
+
+export async function chmod(this: V_Context, path: PathLike, mode: Mode, noFollow?: boolean): Promise<void> {
+	path = normalizePath.call(this, path);
+	const numMode = normalizeMode(mode, -1);
+	if (numMode < 0) throw UV('EINVAL', 'chmod', path);
+	await using handle = await _openMetadata(this, path, 'chmod', noFollow);
+	await handle.chmod(numMode);
+	emitChange(this, 'change', handle.path);
+}
+
+export async function chown(this: V_Context, path: PathLike, uid: number, gid: number, noFollow?: boolean): Promise<void> {
+	path = normalizePath.call(this, path);
+	await using handle = await _openMetadata(this, path, 'chown', noFollow);
+	await handle.chown(uid, gid);
+	emitChange(this, 'change', handle.path);
+}
+
+export async function utimes(this: V_Context, path: PathLike, atime: TimeLike, mtime: TimeLike, noFollow?: boolean): Promise<void> {
+	path = normalizePath.call(this, path);
+	await using handle = await _openMetadata(this, path, 'utimes', noFollow);
+	await handle.utimes(normalizeTime(atime), normalizeTime(mtime));
+	emitChange(this, 'change', handle.path);
 }
