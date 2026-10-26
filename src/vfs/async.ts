@@ -121,7 +121,7 @@ export async function open($: V_Context, path: PathLike, opt: OpenOptions): Prom
 
 	if (checkAccess && !hasAccess($, stats, flags.toMode(flag))) throw UV('EACCES', $ex);
 	if (flag & constants.O_EXCL) throw UV('EEXIST', $ex);
-	if (!opt.allowDirectory && isDirectory({ mode })) throw UV('EISDIR', 'open', path);
+	if (!opt.allowDirectory && isDirectory(stats)) throw UV('EISDIR', 'open', path);
 
 	const handle = new Handle($, path, resolved, flag, cache.ref(resolved, stats));
 
