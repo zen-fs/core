@@ -44,6 +44,13 @@ function isInLoop(key: string, error: Error = new Error()): boolean {
 }
 
 /**
+ * Whether the stack has a queued replay below the innermost patched method.
+ */
+function isReplay(): boolean {
+	return /__patched__[^]*__replay__/.test(new Error().stack ?? '');
+}
+
+/**
  * Async() implements synchronous methods on an asynchronous file system
  *
  * Implementing classes must define `_sync` for the synchronous file system used as a cache.
@@ -71,11 +78,22 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		private _promise: Promise<unknown> = Promise.resolve();
 
+		/** How many queued operations have not finished */
+		private _pending: number = 0;
+
 		/** The async methods before patching, which do not update the sync cache */
 		private _unpatched = {} as AsyncFSMethods;
 
 		protected _async(thunk: () => Promise<unknown>) {
-			this._promise = this._promise.finally(() => thunk());
+			this._pending++;
+			const replay = async function __replay__(this: AsyncFS) {
+				try {
+					await thunk();
+				} finally {
+					this._pending--;
+				}
+			};
+			this._promise = this._promise.finally(replay.bind(this));
 		}
 
 		private _isInitialized: boolean = false;
@@ -265,20 +283,22 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		/**
 		 * @internal
-		 * Patch all async methods to also call their synchronous counterparts unless called from themselves (either sync or async)
+		 * Patch all async methods to wait for queued operations,
+		 * and methods that change the file system to also call their synchronous counterparts unless called from themselves (either sync or async)
 		 */
 		private _patchAsync(): void {
-			const noPatch = ['read', 'readdir', 'stat', 'exists'];
-			const toPatch = _asyncFSKeys.filter(key => !noPatch.includes(key));
+			const reads = ['read', 'readdir', 'stat', 'exists'];
 
-			for (const key of toPatch) {
+			for (const key of _asyncFSKeys) {
 				// TS does not narrow the union based on the key
 				const originalMethod = this[key].bind(this) as (...args: unknown[]) => Promise<unknown>;
 
 				const fn = async function __patched__(this: AsyncFS, ...args: unknown[]) {
+					if (this._pending && !isReplay()) await this._promise.catch(() => {});
+
 					const result = await originalMethod(...args);
 
-					if (isInLoop(key)) return result;
+					if (reads.includes(key) || isInLoop(key)) return result;
 
 					if (!this._isInitialized) {
 						this._skippedCacheUpdates++;
@@ -302,7 +322,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				(this as any)[key] = fn;
 			}
 
-			debug(`Async: patched ${toPatch.length} methods`);
+			debug(`Async: patched ${_asyncFSKeys.length} methods`);
 		}
 	}
 

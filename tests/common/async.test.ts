@@ -32,4 +32,15 @@ suite('Async()', () => {
 		assert.deepEqual(calls, ['mkdirSync', 'rmdirSync', 'createFileSync', 'unlinkSync']);
 		assert.deepEqual(await fs.readdir('/'), []);
 	});
+
+	test('async operations see queued sync operations', async () => {
+		const fs = new AsyncMemory(new InMemoryStore());
+		fs.checkRootSync();
+		await fs.ready();
+
+		fs.mkdirSync('/dir', { mode: 0o755, uid: 0, gid: 0 });
+		assert.equal((await fs.stat('/dir')).mode & 0o777, 0o755);
+		fs.rmdirSync('/dir');
+		assert.equal(await fs.exists('/dir'), false);
+	});
 });
