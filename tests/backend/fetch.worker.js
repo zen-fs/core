@@ -1,24 +1,17 @@
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, lstatSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { data } from '@zenfs/devel/tests/setup';
 import { join } from 'node:path';
-import { data, indexPath, port, tmp } from './config.js';
+import { parentPort } from 'node:worker_threads';
 
 const statusCodes = {
 	ENOENT: 404,
 };
 
-try {
-	execFileSync('npx', ['--silent', 'make-index', data, '--output', `${tmp}/index.json`, '--quiet'], { stdio: 'inherit' });
-} catch (e) {
-	if (e.signal == 'SIGINT') {
-		console.log('Aborted whilst creating index');
-		process.exit(0);
-	} else {
-		console.error('Index creation failed: ' + e.message);
-		process.exit(1);
-	}
-}
+const entries = {};
+for (const path of ['', ...readdirSync(data, { recursive: true })]) entries['/' + path] = lstatSync(join(data, path));
+
+const index = JSON.stringify({ version: 1, entries });
 
 const server = createServer((request, response) => {
 	response.statusCode = 200;
@@ -37,7 +30,12 @@ const server = createServer((request, response) => {
 		return;
 	}
 
-	const path = url == indexPath ? join(tmp, 'index.json') : join(data, url.slice(1) || '');
+	if (url == '/.index.json') {
+		response.end(index);
+		return;
+	}
+
+	const path = join(data, url.slice(1) || '');
 	try {
 		response.end(readFileSync(path));
 	} catch (e) {
@@ -46,7 +44,7 @@ const server = createServer((request, response) => {
 	}
 });
 
-server.listen(port);
+server.listen(0, () => parentPort.postMessage(server.address().port));
 
 process.on('beforeExit', () => {
 	server.close().unref();

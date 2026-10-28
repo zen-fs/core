@@ -1,7 +1,18 @@
 import { configure, Fetch } from '@zenfs/core';
-import { log } from 'kerium';
 import type { TestFlag, TestFlagState } from '@zenfs/devel/tests/common';
-import { baseUrl } from './config.js';
+import { log } from 'kerium';
+import { once } from 'node:events';
+import { join } from 'node:path';
+import { after } from 'node:test';
+import { Worker } from 'node:worker_threads';
+
+const server = new Worker(join(import.meta.dirname, '../backend/fetch.worker.js'));
+
+after(() => server.terminate());
+
+const [port] = await once(server, 'message');
+
+const baseUrl = 'http://localhost:' + port;
 
 await configure({
 	mounts: {

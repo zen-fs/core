@@ -69,7 +69,7 @@ jobs:
               run: npx zenfs-test -pvC tests/setup/single-buffer.ts
 
             - name: 'Unit tests: Fetch'
-              run: tests/fetch/run.sh -vC
+              run: npx zenfs-test -pvC tests/setup/fetch.ts
 
             - name: Report coverage
               run: npx zenfs-test --report-only

@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { CopyOnWrite, Fetch, InMemory, configureSingle, fs, mounts, resolveMountConfig, type FetchFS } from '@zenfs/core';
+import { setupLogs } from '@zenfs/devel/tests/logs';
+import { data } from '@zenfs/devel/tests/setup';
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, suite, test } from 'node:test';
 import { Worker } from 'node:worker_threads';
-import { baseUrl, defaultEntries, indexPath, whenServerReady } from '../fetch/config.js';
-import { setupLogs } from '@zenfs/devel/tests/logs';
 
 setupLogs();
 
-const server = new Worker(join(import.meta.dirname, '../fetch/server.js'));
+const server = new Worker(join(import.meta.dirname, 'fetch.worker.js'));
 
-await whenServerReady();
+const [port] = await once(server, 'message');
+
+const baseUrl = 'http://localhost:' + port;
+
+const indexPath = '/.index.json';
+
+const defaultEntries = readdirSync(data);
 
 await configureSingle({
 	backend: Fetch,
