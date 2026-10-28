@@ -23,6 +23,7 @@
 	"files": [
 		"dist",
 		"tests",
+		"scripts/deprecated.js",
 		"license.md",
 		"eslint.shared.js"
 	],
