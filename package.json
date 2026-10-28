@@ -66,7 +66,7 @@
 		"spdx:check": "npx lice -a src tests/*.ts tests/**/*.test.ts",
 		"spdx:fix": "npx lice -aw src tests/*.ts tests/**/*.test.ts",
 		"lint": "eslint src tests",
-		"test": "npx -s zenfs-test --clean; npx -s zenfs-test -abcp; npx -s zenfs-test --report-only",
+		"test": "npx -s zenfs-test -abc --report",
 		"test:native": "npx -s zenfs-test tests/native-setup.ts --verbose",
 		"test:perf": "zbench",
 		"build": "tsc --build",
