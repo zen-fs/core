@@ -2,6 +2,9 @@
 import { constants as c, lstatSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, matchesGlob, relative, resolve } from 'node:path/posix';
 import { parseArgs, styleText } from 'node:util';
+import { useDevel } from './deprecated.js';
+
+await useDevel('make-index');
 
 const { values: options, positionals } = parseArgs({
 	options: {

@@ -4,12 +4,15 @@ import type { NodeFS } from '@zenfs/core/node/types';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+/** @deprecated Use `@zenfs/devel/tests/setup` */
 export const data = join(import.meta.dirname, 'data');
 
+/** @deprecated Use `@zenfs/devel/tests/setup` */
 export const tmp = join(import.meta.dirname, 'tmp');
 
 if (!existsSync(tmp)) mkdirSync(tmp, { recursive: true });
 
+/** @deprecated Use `@zenfs/devel/tests/setup` */
 export async function copyAsync(_path: string, fs: NodeFS = _fs): Promise<void> {
 	const path = relative(data, _path) || '/';
 	const stats = statSync(_path);
@@ -27,6 +30,7 @@ export async function copyAsync(_path: string, fs: NodeFS = _fs): Promise<void> 
 	}
 }
 
+/** @deprecated Use `@zenfs/devel/tests/setup` */
 export function copySync(_path: string, fs: NodeFS = _fs): void {
 	const path = relative(data, _path) || '/';
 	const stats = statSync(_path);

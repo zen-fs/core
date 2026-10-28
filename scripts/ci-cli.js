@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import * as ci from './ci.js';
+import { useDevel } from './deprecated.js';
+
+await useDevel('zci');
+
+const ci = await import('./ci.js');
 
 const {
 	values: options,

@@ -19,11 +19,13 @@ const setup = await import(setupPath).catch(error => {
 });
 
 // Satisfies is used to make sure that ZenFS is fully type compatible with Node.js
+/** @deprecated Use `@zenfs/devel/tests/common` */
 export const fs = (setup.fs || defaultFS) as typeof defaultFS satisfies NodeFS;
 
 /**
  * A feature or function a backend may not support.
  * Tests that need one are skipped when the backend under test does not have it.
+ * @deprecated Use `@zenfs/devel/tests/common`
  */
 export type TestFlag =
 	| 'sync'
@@ -50,13 +52,17 @@ export type TestFlag =
  *
  * `false` is for things a backend can not support, while `'skip'` is for temporarily disabling something.
  * `'todo'` is for things that should work but don't yet.
+ * @deprecated Use `@zenfs/devel/tests/common`
  */
 export type TestFlagState = boolean | 'skip' | 'todo';
 
 /** Flags are supported unless the setup says otherwise */
 const flags = (setup.flags ?? {}) as Partial<Record<TestFlag, TestFlagState>>;
 
-/** Options for `suite` and `test`. Note this is a subset of both, since they do not share a type. */
+/**
+ * Options for `suite` and `test`. Note this is a subset of both, since they do not share a type.
+ * @deprecated Use `@zenfs/devel/tests/common`
+ */
 export interface TestConfig {
 	skip?: string;
 	todo?: string;
@@ -69,6 +75,7 @@ export interface TestConfig {
  * ```ts
  * test('lchmod', config('lchmod', 'async'), async () => { ... });
  * ```
+ * @deprecated Use `@zenfs/devel/tests/common`
  */
 export function config(...required: TestFlag[]): TestConfig {
 	for (const flag of required) {

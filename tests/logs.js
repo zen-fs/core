@@ -1,5 +1,6 @@
 import { log } from 'kerium';
 
+/** @deprecated Use `@zenfs/devel/tests/logs` */
 export function setupLogs(prefix) {
 	const { ZENFS_LOG_LEVEL } = process.env;
 

@@ -4,6 +4,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, globSync, mkdirSync, rmSync } from 'node:fs';
 import { join, parse, basename } from 'node:path';
 import { parseArgs, styleText } from 'node:util';
+import { useDevel } from './deprecated.js';
+
+await useDevel('zenfs-test');
 
 const { values: options, positionals } = parseArgs({
 	options: {

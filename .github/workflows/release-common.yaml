@@ -1,3 +1,4 @@
+# Deprecated: use zen-fs/devel/.github/workflows/release-common.yaml
 name: Release
 on:
     workflow_call:

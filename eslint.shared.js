@@ -3,6 +3,7 @@ import eslint from '@eslint/js';
 import globals from 'globals';
 import { configs } from 'typescript-eslint';
 
+/** @deprecated Use `@zenfs/devel/eslint` */
 export default [
 	{
 		name: 'ZenFS',
