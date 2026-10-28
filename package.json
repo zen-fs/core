@@ -75,7 +75,7 @@
 	},
 	"dependencies": {
 		"@types/node": "^26.0.0",
-		"@zenfs/streams": "^1.0.0",
+		"@zenfs/streams": "^1.0.2",
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
 		"kerium": "^1.5.0",
