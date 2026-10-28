@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync as _write } from 'node:fs';
 import { parentPort, workerData } from 'node:worker_threads';
 import { configureSingle, fs, SingleBuffer } from '../../dist/index.js';
-import { setupLogs } from '../logs.js';
+import { setupLogs } from '@zenfs/devel/tests/logs';
 
 setupLogs('<worker>');
 

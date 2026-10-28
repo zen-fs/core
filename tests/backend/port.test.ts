@@ -4,7 +4,7 @@ import { InMemory, Port, attachFS, configure, configureSingle, fs, resolveMountC
 import assert from 'node:assert/strict';
 import { after, suite, test } from 'node:test';
 import { MessageChannel, Worker } from 'node:worker_threads';
-import { setupLogs } from '../logs.js';
+import { setupLogs } from '@zenfs/devel/tests/logs';
 setupLogs();
 
 // Tests a mis-configured `Port` using a MessageChannel

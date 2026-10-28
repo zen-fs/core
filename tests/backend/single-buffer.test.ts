@@ -6,7 +6,7 @@ import { Worker } from 'worker_threads';
 import { sizeof } from 'memium';
 import { fs, mount, resolveMountConfig, SingleBuffer, vfs } from '@zenfs/core';
 import { MetadataBlock, SuperBlock } from '@zenfs/core/backends/single_buffer/v1';
-import { setupLogs } from '../logs.js';
+import { setupLogs } from '@zenfs/devel/tests/logs';
 
 setupLogs();
 

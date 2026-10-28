@@ -66,8 +66,8 @@
 		"spdx:check": "npx lice -a src tests/*.ts tests/**/*.test.ts",
 		"spdx:fix": "npx lice -aw src tests/*.ts tests/**/*.test.ts",
 		"lint": "eslint src tests",
-		"test": "npx -s zenfs-test --clean; npx -s zenfs-test -abcpn; tests/fetch/run.sh; npx -s zenfs-test --report-only",
-		"test:native": "npx -s zenfs-test -n tests/native-setup.ts --verbose",
+		"test": "npx -s zenfs-test --clean; npx -s zenfs-test -abcp; tests/fetch/run.sh; npx -s zenfs-test --report-only",
+		"test:native": "npx -s zenfs-test tests/native-setup.ts --verbose",
 		"test:perf": "zbench",
 		"build": "tsc --build",
 		"dev": "tsc --build --watch",
@@ -83,16 +83,17 @@
 		"utilium": "^3.7.0"
 	},
 	"devDependencies": {
-		"@eslint/js": "^10.0.1",
-		"@octokit/action": "^8.0.4",
-		"c8": "^12.0.0",
+		"@zenfs/devel": "^0.1.0",
 		"eslint": "^10.1.0",
-		"globals": "^17.3.0",
 		"prettier": "^3.2.5",
 		"typedoc": "^0.28.18",
 		"typescript": "^6.0.0",
-		"typescript-eslint": "^8.58.0",
 		"zbench-js": "^0.2.0"
+	},
+	"overrides": {
+		"@zenfs/devel": {
+			"@zenfs/core": "file:../../.."
+		}
 	},
 	"prettier": {
 		"singleQuote": true,

@@ -1,5 +1,5 @@
 import { fs as _fs, bindContext } from '@zenfs/core';
-import { copySync, data } from '../setup.ts';
+import { copySync, data } from '@zenfs/devel/tests/setup';
 
 _fs.mkdirSync('/new_root');
 

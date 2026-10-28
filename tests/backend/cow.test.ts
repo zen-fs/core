@@ -2,7 +2,7 @@
 import { CopyOnWriteFS, InMemoryStore, StoreFS } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { setupLogs } from '../logs.js';
+import { setupLogs } from '@zenfs/devel/tests/logs';
 setupLogs();
 
 const size = 1 << 20;

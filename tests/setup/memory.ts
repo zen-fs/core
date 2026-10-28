@@ -1,3 +1,3 @@
-import { copySync, data } from '../setup.ts';
+import { copySync, data } from '@zenfs/devel/tests/setup';
 
 copySync(data);

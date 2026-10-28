@@ -2,7 +2,7 @@
 import { Buffer } from 'buffer';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { config, fs } from '../common.ts';
+import { config, fs } from '@zenfs/devel/tests/common';
 
 suite('Utf8Stream', config('write'), () => {
 	test('writes synchronously', config('sync'), () => {

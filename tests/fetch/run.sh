@@ -12,6 +12,6 @@ until nc -z localhost 26514; do
   sleep 0.25
 done
 
-npx --silent zenfs-test $SCRIPT_DIR/fetch.ts --preserve --force --node "$@"
+npx --silent zenfs-test $SCRIPT_DIR/fetch.ts --preserve --force "$@"
 
 kill $PID

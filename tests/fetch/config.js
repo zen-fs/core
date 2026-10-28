@@ -1,10 +1,9 @@
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { join } from 'node:path';
+import { data } from '@zenfs/devel/tests/setup';
 
-// Copied from setup.ts
-
-export const data = join(import.meta.dirname, '../data');
+export { data };
 
 export const defaultEntries = readdirSync(data);
 

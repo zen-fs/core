@@ -1,5 +1,5 @@
 import { defineConfig } from 'eslint/config';
-import shared from './eslint.shared.js';
+import shared from '@zenfs/devel/eslint';
 
 export default defineConfig(
 	...shared,

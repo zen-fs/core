@@ -2,7 +2,7 @@
 import { InMemoryStore, StoreFS } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
-import { setupLogs } from '../logs.js';
+import { setupLogs } from '@zenfs/devel/tests/logs';
 setupLogs();
 
 const fs = new StoreFS(new InMemoryStore(0x100000, 'test'));

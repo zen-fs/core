@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { after, suite, test } from 'node:test';
 import { Worker } from 'node:worker_threads';
 import { baseUrl, defaultEntries, indexPath, whenServerReady } from '../fetch/config.js';
-import { setupLogs } from '../logs.js';
+import { setupLogs } from '@zenfs/devel/tests/logs';
 
 setupLogs();
 

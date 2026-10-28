@@ -3,7 +3,7 @@ import { writeFileSync as _write } from 'node:fs';
 import { parentPort, workerData } from 'node:worker_threads';
 import { SingleBufferStore as SingleBufferStoreV2, SuperBlock } from '../../dist/backends/single_buffer/v2.js';
 import { configureSingle, fs, SingleBuffer } from '../../dist/index.js';
-import { setupLogs } from '../logs.js';
+import { setupLogs } from '@zenfs/devel/tests/logs';
 
 setupLogs('<worker>');
 

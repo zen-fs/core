@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { suite, test } from 'node:test';
 import { Worker } from 'worker_threads';
-import { setupLogs } from '../logs.js';
+import { setupLogs } from '@zenfs/devel/tests/logs';
 
 setupLogs();
 
