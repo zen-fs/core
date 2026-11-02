@@ -2,27 +2,9 @@
 import { withErrno, type Exception } from 'kerium';
 import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';
-import { decodeUTF8, encodeUTF8, type OptionalTuple } from 'utilium';
+import type { OptionalTuple } from 'utilium';
 import { resolve } from './path.js';
 import type { V_Context } from './internal/contexts.js';
-
-/**
- * Decodes a directory listing
- * @hidden
- */
-export function decodeDirListing(data: Uint8Array): Record<string, number> {
-	return JSON.parse(decodeUTF8(data), (k, v) =>
-		k == '' ? v : typeof v == 'string' ? BigInt(v).toString(16).slice(0, Math.min(v.length, 8)) : (v as number),
-	);
-}
-
-/**
- * Encodes a directory listing
- * @hidden
- */
-export function encodeDirListing(data: Record<string, number>): Uint8Array {
-	return encodeUTF8(JSON.stringify(data));
-}
 
 export type Callback<Args extends unknown[] = [], NoError = null> = (e: Exception | NoError, ...args: OptionalTuple<Args>) => unknown;
 
