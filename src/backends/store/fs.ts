@@ -25,6 +25,8 @@ const DirEntry = struct.packed(
 );
 type DirEntry = InstanceType<typeof DirEntry>;
 
+const nameLengthOffset = DirEntry.fields.find(field => field.name == 'name_length')!.offset;
+
 interface DirEntryInit {
 	name: string;
 	id: number | bigint;
@@ -56,30 +58,60 @@ const legacyListingMagic = 0x7b;
  * A directory listing, followed by `entry_count` variable-length `DirEntry`s.
  * Listings are immutable, so they can be backed by store memory; changes return a new listing. (RCU)
  */
-class DirListing extends struct.packed('DirListing', { magic: t.uint8, entry_count: t.uint32 }, { fastFields: true }) {
-	public *entries(): Generator<DirEntry> {
-		let offset = this.byteOffset + sizeof(DirListing);
+class DirListing
+	extends struct.packed('DirListing', { magic: t.uint8, entry_count: t.uint32 }, { fastFields: true })
+	implements ReadonlyMap<string, DirEntry>
+{
+	/**
+	 * Yields the offset and name length of each entry.
+	 * This reads the bytes directly, since struct field access costs too much per entry.
+	 */
+	protected *scan(): Generator<[offset: number, nameLength: number]> {
+		const bytes = new Uint8Array(this.buffer, this.byteOffset, this.byteLength);
+		let offset = sizeof(DirListing);
 		for (let i = 0; i < this.entry_count; i++) {
-			const entry = new DirEntry(this.buffer, offset);
-			yield entry;
-			offset += sizeof(DirEntry) + entry.name_length;
+			const nameLength = bytes[offset + nameLengthOffset] | (bytes[offset + nameLengthOffset + 1] << 8);
+			yield [offset, nameLength];
+			offset += sizeof(DirEntry) + nameLength;
 		}
 	}
 
-	public names(): string[] {
-		const names = [];
-		for (const entry of this.entries()) names.push(decodeUTF8(entry.name));
-		return names;
+	protected nameAt(offset: number, nameLength: number): Uint8Array {
+		return new Uint8Array(this.buffer, this.byteOffset + offset + sizeof(DirEntry), nameLength);
+	}
+
+	public get size(): number {
+		return this.entry_count;
+	}
+
+	public *entries(): MapIterator<[string, DirEntry]> {
+		for (const [offset, nameLength] of this.scan()) {
+			yield [decodeUTF8(this.nameAt(offset, nameLength)), new DirEntry(this.buffer, this.byteOffset + offset)];
+		}
+	}
+
+	public *keys(): MapIterator<string> {
+		for (const [offset, nameLength] of this.scan()) yield decodeUTF8(this.nameAt(offset, nameLength));
+	}
+
+	public *values(): MapIterator<DirEntry> {
+		for (const [offset] of this.scan()) yield new DirEntry(this.buffer, this.byteOffset + offset);
+	}
+
+	public [Symbol.iterator](): MapIterator<[string, DirEntry]> {
+		return this.entries();
+	}
+
+	public forEach(callback: (entry: DirEntry, name: string, listing: this) => void, thisArg?: unknown): void {
+		for (const [name, entry] of this) callback.call(thisArg, entry, name, this);
 	}
 
 	public get(name: string): DirEntry | undefined {
 		const encoded = encodeUTF8(name);
-		for (const entry of this.entries()) {
-			if (entry.name_length != encoded.length) continue;
-			const entryName = entry.name;
-			let i = 0;
-			while (i < encoded.length && entryName[i] == encoded[i]) i++;
-			if (i == encoded.length) return entry;
+		for (const [offset, nameLength] of this.scan()) {
+			if (nameLength != encoded.length) continue;
+			const entryName = this.nameAt(offset, nameLength);
+			if (entryName.every((byte, i) => byte == encoded[i])) return new DirEntry(this.buffer, this.byteOffset + offset);
 		}
 	}
 
@@ -360,8 +392,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			if (isDirectory(inode)) {
 				const dir = DirListing.decode((await tx.get(inode.data)) ?? _throw(withErrno('ENODATA')));
 
-				for (const entry of dir.entries()) {
-					queue.push([join(path, decodeUTF8(entry.name)), Number(entry.id)]);
+				for (const [name, entry] of dir) {
+					queue.push([join(path, name), Number(entry.id)]);
 				}
 			}
 		}
@@ -388,8 +420,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			if (isDirectory(inode)) {
 				const dir = DirListing.decode(tx.getSync(inode.data) ?? _throw(withErrno('ENODATA')));
 
-				for (const entry of dir.entries()) {
-					queue.push([join(path, decodeUTF8(entry.name)), Number(entry.id)]);
+				for (const [name, entry] of dir) {
+					queue.push([join(path, name), Number(entry.id)]);
 				}
 			}
 		}
@@ -586,13 +618,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async readdir(path: string): Promise<string[]> {
 		await using tx = this.transaction();
 		const node = await this.findInode(tx, path);
-		return DirListing.decode((await tx.get(node.data)) ?? _throw(withErrno('ENOENT'))).names();
+		return Array.from(DirListing.decode((await tx.get(node.data)) ?? _throw(withErrno('ENOENT'))).keys());
 	}
 
 	public readdirSync(path: string): string[] {
 		using tx = this.transaction();
 		const node = this.findInodeSync(tx, path);
-		return DirListing.decode(tx.getSync(node.data) ?? _throw(withErrno('ENOENT'))).names();
+		return Array.from(DirListing.decode(tx.getSync(node.data) ?? _throw(withErrno('ENOENT'))).keys());
 	}
 
 	public async sync(): Promise<void> {}
@@ -827,8 +859,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				upgraded++;
 			}
 
-			for (const entry of dirListing.entries()) {
-				queue.push([join(path, decodeUTF8(entry.name)), Number(entry.id)]);
+			for (const [name, entry] of dirListing) {
+				queue.push([join(path, name), Number(entry.id)]);
 			}
 		}
 
@@ -911,8 +943,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				upgraded++;
 			}
 
-			for (const entry of dirListing.entries()) {
-				queue.push([join(path, decodeUTF8(entry.name)), Number(entry.id)]);
+			for (const [name, entry] of dirListing) {
+				queue.push([join(path, name), Number(entry.id)]);
 			}
 		}
 
@@ -931,14 +963,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/** Returns a copy of `listing` with the types of entries with an unknown type read from their inodes */
 	private async _resolveTypes(tx: WrappedTransaction, listing: DirListing): Promise<DirListing> {
 		const entries: DirEntryInit[] = [];
-		for (const entry of listing.entries()) {
+		for (const [name, entry] of listing) {
 			const { id } = entry;
 			let type: DirType = entry.type;
 			if (type == DirType.UNKNOWN) {
 				const data = await tx.get(Number(id));
 				if (data && data.length >= sizeof(Inode)) type = ifToDt(new Inode(data).mode);
 			}
-			entries.push({ name: decodeUTF8(entry.name), id, type });
+			entries.push({ name, id, type });
 		}
 		return DirListing.from(entries);
 	}
@@ -946,14 +978,14 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/** Returns a copy of `listing` with the types of entries with an unknown type read from their inodes */
 	private _resolveTypesSync(tx: WrappedTransaction, listing: DirListing): DirListing {
 		const entries: DirEntryInit[] = [];
-		for (const entry of listing.entries()) {
+		for (const [name, entry] of listing) {
 			const { id } = entry;
 			let type: DirType = entry.type;
 			if (type == DirType.UNKNOWN) {
 				const data = tx.getSync(Number(id));
 				if (data && data.length >= sizeof(Inode)) type = ifToDt(new Inode(data).mode);
 			}
-			entries.push({ name: decodeUTF8(entry.name), id, type });
+			entries.push({ name, id, type });
 		}
 		return DirListing.from(entries);
 	}
@@ -1151,7 +1183,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!isDir && isDirectory(inode)) throw withErrno('EISDIR');
 
-		if (isDir && DirListing.decode((await tx.get(inode.data)) ?? _throw(withErrno('ENODATA'))).entry_count) throw withErrno('ENOTEMPTY');
+		if (isDir && DirListing.decode((await tx.get(inode.data)) ?? _throw(withErrno('ENODATA'))).size) throw withErrno('ENOTEMPTY');
 
 		await tx.set(parentNode.data, updated);
 
@@ -1189,7 +1221,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!isDir && isDirectory(inode)) throw withErrno('EISDIR');
 
-		if (isDir && DirListing.decode(tx.getSync(inode.data) ?? _throw(withErrno('ENODATA'))).entry_count) throw withErrno('ENOTEMPTY');
+		if (isDir && DirListing.decode(tx.getSync(inode.data) ?? _throw(withErrno('ENODATA'))).size) throw withErrno('ENOTEMPTY');
 
 		tx.setSync(parentNode.data, updated);
 
