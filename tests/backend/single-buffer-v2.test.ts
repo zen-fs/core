@@ -90,6 +90,39 @@ await suite('SingleBuffer v2', () => {
 		umountCheck();
 	});
 
+	test('threads creating and removing files in the same directory do not lose entries #329', async () => {
+		const buffer = new SharedArrayBuffer(0x1000000);
+		const [path, umount] = await mountBuffer(buffer);
+		fs.mkdirSync(path + '/shared');
+
+		const count = 100,
+			workers = 4;
+		const gate = new Int32Array(new SharedArrayBuffer(8));
+		const results = Promise.all(Array.from({ length: workers }, (_, id) => runWorker({ buffer, gate, mode: 'shared', id, count })));
+
+		// Start every worker at once so their changes overlap
+		const deadline = Date.now() + 5000;
+		for (let ready; (ready = Atomics.load(gate, 0)) < workers && Date.now() < deadline;) Atomics.wait(gate, 0, ready, 100);
+		Atomics.store(gate, 1, 1);
+		Atomics.notify(gate, 1);
+
+		assert.deepEqual(await results, Array(workers).fill('continue'));
+
+		const [check, umountCheck] = await mountBuffer(buffer);
+		const expected = Array.from({ length: workers }, (_, id) => Array.from({ length: count / 2 }, (_, i) => `${id}-${i * 2}`)).flat();
+		assert.deepEqual(fs.readdirSync(check + '/shared').sort(), expected.sort());
+		for (const name of expected) {
+			const [id, i] = name.split('-');
+			assert.equal(fs.readFileSync(`${check}/shared/${name}`, 'utf8'), `worker ${id} file ${i}`);
+		}
+
+		// The root, the directory, and each remaining file have an inode and data
+		assert.equal(new SingleBufferStoreV2(buffer).keys().length, 2 * (2 + expected.length));
+
+		umount();
+		umountCheck();
+	});
+
 	test('readers see whole versions while another thread writes', async () => {
 		const buffer = new SharedArrayBuffer(0x1000000);
 		const store = new SingleBufferStoreV2(buffer, 0, undefined, { format: true });

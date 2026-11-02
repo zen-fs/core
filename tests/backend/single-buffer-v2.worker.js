@@ -25,6 +25,15 @@ try {
 		case 'write':
 			for (let i = 0; i < count; i++) fs.writeFileSync(`/w${id}/${i}`, `worker ${id} file ${i}`);
 			break;
+		case 'shared':
+			Atomics.add(gate, 0, 1);
+			Atomics.notify(gate, 0);
+			Atomics.wait(gate, 1, 0, 5000);
+			for (let i = 0; i < count; i++) {
+				fs.writeFileSync(`/shared/${id}-${i}`, `worker ${id} file ${i}`);
+				if (i % 2) fs.rmSync(`/shared/${id}-${i}`);
+			}
+			break;
 		case 'read': {
 			const store = new SingleBufferStoreV2(buffer);
 			const deadline = Date.now() + 5000;

@@ -16,8 +16,8 @@ import { decodeUUID, encodeUUID } from 'utilium/string';
 import type { UsageInfo } from '../../internal/filesystem.js';
 import { _inode_version, Inode } from '../../internal/inode.js';
 import type { StoreFS } from '../store/fs.js';
-import { SyncMapTransaction, type SyncMapStore } from '../store/map.js';
-import type { Store } from '../store/store.js';
+import type { SyncMapStore } from '../store/map.js';
+import { SyncTransaction, type Store } from '../store/store.js';
 import { sb_magic } from './v1.js';
 
 const hex = (value: number | bigint): string => '0x' + value.toString(16).padStart(8, '0');
@@ -462,6 +462,55 @@ export class WriteTransaction implements BPlusTreeStorage {
 		if (size) this.retired.push([offset, size]);
 	}
 
+	// Data
+
+	/** Replaces the data for `id`, or writes it at `offset` and keeps the rest */
+	public set(id: bigint, data: Uint8Array, offset?: number): void {
+		if (id === 0n && offset === undefined && data.length < sizeof(Inode))
+			throw alert(withErrno('EIO', `sbfs: tried to set ${data.length} bytes for id 0!`));
+
+		const { bytes } = this.store;
+		const old = this.index.get(id);
+		const kept = offset === undefined ? 0 : (old?.size ?? 0);
+		const start = offset ?? 0;
+		const extent = Object.assign(new DataExtent(), { size: Math.max(kept, start + data.length) });
+
+		// Bytes past the old size are not visible to readers of older versions
+		if (old && offset !== undefined && start >= old.size && extent.size <= old.capacity) {
+			extent.offset = old.offset;
+			extent.capacity = old.capacity;
+		} else {
+			// Partial writes keep the old capacity, and data that outgrows it gets room to keep growing
+			const capacity = offset === undefined ? 0 : (old?.capacity ?? 0);
+			if (extent.size <= capacity) extent.capacity = capacity;
+			else if (capacity) extent.capacity = Math.max(extent.size, Math.floor(capacity * 1.5));
+			else extent.capacity = extent.size;
+			try {
+				extent.offset = extent.capacity ? this.allocate(extent.capacity) : 0;
+			} catch (e) {
+				if (e === sparesExhausted || (e as { code?: string }).code != 'ENOSPC' || extent.capacity == extent.size) throw e;
+				extent.capacity = extent.size;
+				extent.offset = this.allocate(extent.size);
+			}
+
+			if (old) {
+				bytes.copyWithin(extent.offset, old.offset, old.offset + kept);
+				this.retire(old.offset, old.capacity);
+			}
+		}
+
+		bytes.fill(0, extent.offset + kept, extent.offset + start);
+		bytes.set(data, extent.offset + start);
+		this.index.set(id, extent);
+	}
+
+	public delete(id: bigint): void {
+		const old = this.index.get(id);
+		if (!old) return;
+		this.index.delete(id);
+		this.retire(old.offset, old.capacity);
+	}
+
 	// Pending extents
 
 	/** Frees extents retired by generations that readers no longer see */
@@ -579,7 +628,7 @@ const defaultStateSize = sizeof(State) + EpochTable.sizeOf(default_epoch_slots);
  * @category Stores and Transactions
  */
 export class SingleBufferStore extends DataView<ArrayBufferLike> implements SyncMapStore {
-	public readonly flags = ['partial'] as const;
+	public readonly flags = ['partial', 'atomic'] as const;
 	public readonly name = 'sbfs';
 	public readonly type = 0x73626673; // 'sbfs'
 
@@ -606,8 +655,14 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 	protected readonly nextId: BigInt64Array;
 	protected readonly commits: [Commit, Commit];
 
+	/** @internal */
+	public readonly readOnly: BPlusTreeStorage;
+
 	/** The index of the version being read */
 	protected readonly index: BPlusTree<bigint, DataExtent>;
+
+	/** Pins the oldest version read by this thread's unfinished reads */
+	protected pinned?: { release: () => void; users: number };
 
 	/**
 	 * Opens a file system, or creates one if `format` is set.
@@ -693,14 +748,14 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 		this.commits = [new Commit(this.buffer, commits), new Commit(this.buffer, commits + sizeof(Commit))];
 		this.epochs = new EpochTable(this.buffer, state + sizeof(State), epoch_slots);
 
-		const readOnly: BPlusTreeStorage = {
+		this.readOnly = {
 			buffer: this.buffer,
 			pageSize: this.blockSize,
 			offsetOf: block => this.byteOffset + block,
 			alloc: () => _throw(withErrno('EROFS', 'sbfs: snapshots are read-only')),
 			free: () => _throw(withErrno('EROFS', 'sbfs: snapshots are read-only')),
 		};
-		this.index = new BPlusTree<bigint, DataExtent>(readOnly, { key: primitive.uint64, value: DataExtent });
+		this.index = new BPlusTree<bigint, DataExtent>(this.readOnly, { key: primitive.uint64, value: DataExtent });
 
 		if (!format) {
 			if (!this.withCurrentCommit((commit, generation) => commit.isValid(generation)))
@@ -734,16 +789,45 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 		}
 	}
 
-	/** Runs `read` against the current version, which stays valid until `read` returns */
-	protected read<T>(read: (index: BPlusTree<bigint, DataExtent>) => T): T {
-		for (;;) {
-			const generation = Atomics.load(this.generation, 0);
-			using _ = this.epochs.pin(generation);
-			const { index_root, index_count } = this.commits[Number(generation & 1n)];
-			if (Atomics.load(this.generation, 0) !== generation) continue;
-			this.index.reset(index_root, index_count);
-			return read(this.index);
+	/**
+	 * Pins the current version, which stays readable until the snapshot is disposed.
+	 * Snapshots in the same thread share one pin of the oldest version.
+	 * @internal
+	 */
+	public snapshot(): Snapshot {
+		if (!this.pinned) {
+			for (;;) {
+				const generation = Atomics.load(this.generation, 0);
+				const release = this.epochs.pin(generation);
+				if (Atomics.load(this.generation, 0) === generation) {
+					this.pinned = { release, users: 0 };
+					break;
+				}
+				release();
+			}
 		}
+
+		const pinned = this.pinned;
+		pinned.users++;
+		let disposed = false;
+
+		return {
+			...this.withCurrentCommit((commit, generation) => ({ generation, index_root: commit.index_root, index_count: commit.index_count })),
+			[Symbol.dispose]: () => {
+				if (disposed) return;
+				disposed = true;
+				if (--pinned.users) return;
+				pinned.release();
+				this.pinned = undefined;
+			},
+		};
+	}
+
+	/** Runs `read` against the current version */
+	protected read<T>(read: (index: BPlusTree<bigint, DataExtent>) => T): T {
+		using snapshot = this.snapshot();
+		this.index.reset(snapshot.index_root, snapshot.index_count);
+		return read(this.index);
 	}
 
 	/** Runs `change` in a write transaction, retrying with more spare blocks if the free trees run out of them */
@@ -777,65 +861,25 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 	}
 
 	public get(id: number, offset: number = 0, end?: number): Uint8Array | undefined {
-		return this.read(index => {
-			const extent = index.get(BigInt(id));
-			if (!extent) return;
-			const start = this.byteOffset + extent.offset;
-			return new Uint8Array(this.buffer.slice(start + Math.min(offset, extent.size), start + Math.min(end ?? extent.size, extent.size)));
-		});
+		return this.read(index => this.copy(index.get(BigInt(id)), offset, end));
+	}
+
+	/**
+	 * Copies the bytes of an extent from `offset` to `end`
+	 * @internal
+	 */
+	public copy(extent: Extent | undefined, offset: number, end?: number): Uint8Array | undefined {
+		if (!extent) return;
+		const start = this.byteOffset + extent.offset;
+		return new Uint8Array(this.buffer.slice(start + Math.min(offset, extent.size), start + Math.min(end ?? extent.size, extent.size)));
 	}
 
 	public set(id: number, data: Uint8Array, offset?: number): void {
-		if (id === 0 && offset === undefined && data.length < sizeof(Inode))
-			throw alert(withErrno('EIO', `sbfs: tried to set ${data.length} bytes for id 0!`));
-
-		const key = BigInt(id);
-
-		this.write(tx => {
-			const old = tx.index.get(key);
-			const kept = offset === undefined ? 0 : (old?.size ?? 0);
-			const start = offset ?? 0;
-			const extent = Object.assign(new DataExtent(), { size: Math.max(kept, start + data.length) });
-
-			// Bytes past the old size are not visible to readers of older versions
-			if (old && offset !== undefined && start >= old.size && extent.size <= old.capacity) {
-				extent.offset = old.offset;
-				extent.capacity = old.capacity;
-			} else {
-				// Partial writes keep the old capacity, and data that outgrows it gets room to keep growing
-				const capacity = offset === undefined ? 0 : (old?.capacity ?? 0);
-				if (extent.size <= capacity) extent.capacity = capacity;
-				else if (capacity) extent.capacity = Math.max(extent.size, Math.floor(capacity * 1.5));
-				else extent.capacity = extent.size;
-				try {
-					extent.offset = extent.capacity ? tx.allocate(extent.capacity) : 0;
-				} catch (e) {
-					if (e === sparesExhausted || (e as { code?: string }).code != 'ENOSPC' || extent.capacity == extent.size) throw e;
-					extent.capacity = extent.size;
-					extent.offset = tx.allocate(extent.size);
-				}
-
-				if (old) {
-					this.bytes.copyWithin(extent.offset, old.offset, old.offset + kept);
-					tx.retire(old.offset, old.capacity);
-				}
-			}
-
-			this.bytes.fill(0, extent.offset + kept, extent.offset + start);
-			this.bytes.set(data, extent.offset + start);
-			tx.index.set(key, extent);
-		});
+		this.write(tx => tx.set(BigInt(id), data, offset));
 	}
 
 	public delete(id: number): void {
-		const key = BigInt(id);
-
-		this.write(tx => {
-			const old = tx.index.get(key);
-			if (!old) return;
-			tx.index.delete(key);
-			tx.retire(old.offset, old.capacity);
-		});
+		this.write(tx => tx.delete(BigInt(id)));
 	}
 
 	public allocId(): [ino: number, data: number] {
@@ -866,7 +910,116 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 		return Promise.resolve();
 	}
 
-	public transaction(): SyncMapTransaction {
-		return new SyncMapTransaction(this);
+	public transaction(): SingleBufferTransaction {
+		return new SingleBufferTransaction(this);
+	}
+}
+
+/** A pinned version of the file system */
+export interface Snapshot extends Disposable {
+	generation: bigint;
+	index_root: number;
+	index_count: number;
+}
+
+/**
+ * A transaction that reads one version of the file system, then applies its changes together when committed.
+ * Committing throws EAGAIN if another transaction changed something this one read.
+ * @category Stores and Transactions
+ */
+export class SingleBufferTransaction extends SyncTransaction<SingleBufferStore> {
+	protected readonly snapshot: Snapshot;
+
+	protected readonly index: BPlusTree<bigint, DataExtent>;
+
+	/** Where the IDs read were stored, which must be unchanged when committing */
+	protected readonly reads = new Map<bigint, [offset: number, size: number] | undefined>();
+
+	/** Whether the set of IDs was read */
+	protected readKeys = false;
+
+	/** Changes in order, which remove an ID when there is no data */
+	protected changes: [id: bigint, data?: Uint8Array, offset?: number][] = [];
+
+	public constructor(store: SingleBufferStore) {
+		super(store);
+		this.snapshot = store.snapshot();
+		this.index = new BPlusTree<bigint, DataExtent>(
+			store.readOnly,
+			{ key: primitive.uint64, value: DataExtent },
+			this.snapshot.index_root,
+			this.snapshot.index_count,
+		);
+	}
+
+	protected read(id: bigint, offset: number, end?: number): Uint8Array | undefined {
+		const extent = this.index.get(id);
+		if (!this.reads.has(id)) this.reads.set(id, extent && [extent.offset, extent.size]);
+		return this.store.copy(extent, offset, end);
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	public async keys(): Promise<Iterable<number>> {
+		this.readKeys = true;
+		const keys = new Set(this.index.keys());
+		for (const [id, data] of this.changes) {
+			if (data) keys.add(id);
+			else keys.delete(id);
+		}
+		return Array.from(keys, Number);
+	}
+
+	public getSync(id: number, offset: number = 0, end?: number): Uint8Array | undefined {
+		const key = BigInt(id);
+		const changes = this.changes.filter(([changed]) => changed === key);
+		if (!changes.length) return this.read(key, offset, end);
+
+		const replaced = changes.findLastIndex(([, , at]) => at === undefined);
+		let data = replaced == -1 ? this.read(key, 0) : changes[replaced][1];
+		for (const [, chunk, at] of changes.slice(replaced + 1)) {
+			const merged = new Uint8Array(Math.max(data?.length ?? 0, at! + chunk!.length));
+			if (data) merged.set(data);
+			merged.set(chunk!, at);
+			data = merged;
+		}
+		return data?.slice(offset, end);
+	}
+
+	public setSync(id: number, data: Uint8Array, offset?: number): void {
+		this.changes.push([BigInt(id), data, offset]);
+	}
+
+	public removeSync(id: number): void {
+		this.changes.push([BigInt(id)]);
+	}
+
+	/** Whether anything this transaction read was changed after its snapshot */
+	protected conflicts(tx: WriteTransaction): boolean {
+		if (tx.generation == this.snapshot.generation + 1n) return false;
+		if (this.readKeys) return true;
+		for (const [id, read] of this.reads) {
+			const extent = tx.index.get(id);
+			if (extent?.offset !== read?.[0] || extent?.size !== read?.[1]) return true;
+		}
+		return false;
+	}
+
+	public commitSync(): void {
+		using _ = this.snapshot;
+		if (!this.changes.length) return;
+
+		this.store.write(tx => {
+			if (this.conflicts(tx)) throw withErrno('EAGAIN', 'sbfs: another transaction changed data read by this one');
+			for (const [id, data, offset] of this.changes) {
+				if (data) tx.set(id, data, offset);
+				else tx.delete(id);
+			}
+		});
+		this.changes = [];
+	}
+
+	public abortSync(): void {
+		this.changes = [];
+		this.snapshot[Symbol.dispose]();
 	}
 }
