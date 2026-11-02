@@ -484,12 +484,11 @@ export class FileHandle implements promises.FileHandle {
 		if (this.vfs.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.vfs.path);
 		if (this.vfs.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.vfs.path);
 
-		const { autoClose, start, limit, chunkSize = 131072 } = options;
+		const { autoClose, start, limit } = options;
 
 		const handle = this;
 		let position = typeof start == 'number' ? start : handle.vfs.position;
 		let written = 0;
-		let failed = false;
 		// Tracks whether the writer has been ended or failed, so disposal and `autoClose` don't double-close.
 		let done = false;
 
@@ -514,9 +513,9 @@ export class FileHandle implements promises.FileHandle {
 		}
 
 		return {
-			get desiredSize() {
-				if (failed) return null;
-				return typeof limit == 'number' ? Math.max(0, limit - written) : chunkSize;
+			get canWrite() {
+				if (done || handle.vfs.isClosed) return null;
+				return typeof limit != 'number' || written < limit;
 			},
 			async write(chunk, opts) {
 				opts?.signal?.throwIfAborted();
@@ -541,12 +540,10 @@ export class FileHandle implements promises.FileHandle {
 				throw UV('ENOSYS', 'endSync', handle.vfs.path);
 			},
 			fail() {
-				failed = true;
 				void finish();
 			},
 			[Symbol.dispose]() {
 				// `using w = fh.writer()` fails the writer unconditionally.
-				failed = true;
 				void finish();
 			},
 			async [Symbol.asyncDispose]() {

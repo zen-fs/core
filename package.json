@@ -75,7 +75,7 @@
 		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {
-		"@types/node": "^26.0.0",
+		"@types/node": "^26.6.0",
 		"@zenfs/streams": "^1.0.2",
 		"buffer": "^6.0.3",
 		"eventemitter3": "^5.0.1",
