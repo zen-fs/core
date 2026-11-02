@@ -127,6 +127,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				}
 
 				await Promise.all(promises);
+				sync.commitSync();
 
 				this._isInitialized = true;
 				return;
