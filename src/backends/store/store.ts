@@ -12,7 +12,12 @@ import type { StoreFS } from './fs.js';
  */
 export type StoreFlag =
 	/** The store supports reading ranges and writing at offsets */
-	'partial';
+	| 'partial'
+	/**
+	 * Transactions apply their changes together when committed and discard them when aborted.
+	 * Committing throws EAGAIN if another transaction changed what was read, and the operation can be run again.
+	 */
+	| 'atomic';
 
 /**
  * Represents a key-value store.
@@ -123,6 +128,18 @@ export abstract class Transaction<T extends Store = Store> {
 	 * @param id The key to delete from the store.
 	 */
 	public abstract removeSync(id: number): void;
+
+	/** Applies the changes, which stores with the `atomic` flag must implement */
+	public commit?(): Promise<void>;
+
+	/** Applies the changes, which stores with the `atomic` flag must implement */
+	public commitSync?(): void;
+
+	/** Discards the changes, which stores with the `atomic` flag must implement */
+	public abort?(): Promise<void>;
+
+	/** Discards the changes, which stores with the `atomic` flag must implement */
+	public abortSync?(): void;
 }
 
 /**
@@ -142,6 +159,14 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 
 	public async remove(id: number): Promise<void> {
 		return this.removeSync(id);
+	}
+
+	public async commit(): Promise<void> {
+		return this.commitSync?.();
+	}
+
+	public async abort(): Promise<void> {
+		return this.abortSync?.();
 	}
 
 	/* eslint-enable @typescript-eslint/require-await */
@@ -233,10 +258,15 @@ export class WrappedTransaction<T extends Store = Store> {
 		return this.raw.store.flags?.includes(flag) ?? false;
 	}
 
+	/** Whether the store rolls back changes itself */
+	protected readonly atomic: boolean;
+
 	public constructor(
 		public readonly raw: Transaction<T>,
 		protected fs: StoreFS<T>,
-	) {}
+	) {
+		this.atomic = this.flag('atomic');
+	}
 
 	/**
 	 * Stores data in the keys we modify prior to modifying them.
@@ -287,17 +317,19 @@ export class WrappedTransaction<T extends Store = Store> {
 		this.raw.removeSync(id);
 	}
 
-	public commit(): Promise<void> {
+	public async commit(): Promise<void> {
+		if (this.atomic) await this.raw.commit!();
 		this.done = true;
-		return Promise.resolve();
 	}
 
 	public commitSync(): void {
+		if (this.atomic) this.raw.commitSync!();
 		this.done = true;
 	}
 
 	public async abort(): Promise<void> {
 		if (this.done) return;
+		if (this.atomic) await this.raw.abort!();
 		for (const [id, entries] of this.originalData) {
 			if (!this.modifiedKeys.has(id)) continue;
 
@@ -316,6 +348,7 @@ export class WrappedTransaction<T extends Store = Store> {
 
 	public abortSync(): void {
 		if (this.done) return;
+		if (this.atomic) this.raw.abortSync!();
 		for (const [id, entries] of this.originalData) {
 			if (!this.modifiedKeys.has(id)) continue;
 
@@ -351,6 +384,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * on during the transaction.
 	 */
 	protected stash(id: number, data?: Uint8Array, offset?: number): void {
+		if (this.atomic) return;
 		this.originalData.getOrInsertComputed(id, () => []).push({ data, offset });
 	}
 
@@ -358,6 +392,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * Marks an id as modified, and stashes its value if it has not been stashed already.
 	 */
 	protected async markModified(id: number, offset?: number, length?: number): Promise<void> {
+		if (this.atomic) return;
 		this.modifiedKeys.add(id);
 		const end = offset !== undefined && length ? offset + length : undefined;
 		try {
@@ -385,6 +420,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * Marks an id as modified, and stashes its value if it has not been stashed already.
 	 */
 	protected markModifiedSync(id: number, offset?: number, length?: number): void {
+		if (this.atomic) return;
 		this.modifiedKeys.add(id);
 		const end = offset !== undefined && length ? offset + length : undefined;
 

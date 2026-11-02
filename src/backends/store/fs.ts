@@ -13,6 +13,37 @@ import { decodeDirListing, encodeDirListing } from '../../utils.js';
 import { S_IFDIR, S_IFREG, size_max } from '../../constants.js';
 import { WrappedTransaction, type Store } from './store.js';
 
+/** Most times a method is run before giving up when other threads keep changing what it read */
+const maxAttempts = 100;
+
+/** Runs a method again when committing to an atomic store fails because another thread changed what the method read */
+function retry<This extends StoreFS, Args extends unknown[], Result>(
+	method: (this: This, ...args: Args) => Result,
+	_: ClassMethodDecoratorContext<This>,
+) {
+	return function (this: This, ...args: Args): Result {
+		const conflict = (e: unknown, attempt: number): boolean =>
+			attempt < maxAttempts && (e as { code?: string }).code == 'EAGAIN' && !!this['store'].flags?.includes('atomic');
+
+		const run = (attempt: number): Result => {
+			let result: Result;
+			try {
+				result = method.apply(this, args);
+			} catch (e) {
+				if (conflict(e, attempt)) return run(attempt + 1);
+				throw e;
+			}
+			if (!(result instanceof Promise)) return result;
+			return result.catch((e: unknown) => {
+				if (conflict(e, attempt)) return run(attempt + 1);
+				throw e;
+			}) as Result;
+		};
+
+		return run(1);
+	};
+}
+
 /**
  * A file system which uses a `Store`
  *
@@ -223,6 +254,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * @todo Make rename compatible with the cache.
 	 */
+	@retry
 	public async rename(oldPath: string, newPath: string): Promise<void> {
 		await using tx = this.transaction();
 		const _old = parse(oldPath),
@@ -269,6 +301,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._move(oldPath, newPath);
 	}
 
+	@retry
 	public renameSync(oldPath: string, newPath: string): void {
 		using tx = this.transaction();
 		const _old = parse(oldPath),
@@ -325,6 +358,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return this.findInodeSync(tx, path);
 	}
 
+	@retry
 	public async touch(path: string, metadata: Partial<InodeLike>): Promise<void> {
 		await using tx = this.transaction();
 		const inode = await this.findInode(tx, path);
@@ -343,6 +377,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await tx.commit();
 	}
 
+	@retry
 	public touchSync(path: string, metadata: Partial<InodeLike>): void {
 		using tx = this.transaction();
 
@@ -379,12 +414,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	}
 
 	public async rmdir(path: string): Promise<void> {
-		if ((await this.readdir(path)).length) throw withErrno('ENOTEMPTY');
 		await this.remove(path, true);
 	}
 
 	public rmdirSync(path: string): void {
-		if (this.readdirSync(path).length) throw withErrno('ENOTEMPTY');
 		this.removeSync(path, true);
 	}
 
@@ -412,6 +445,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 	public syncSync(): void {}
 
+	@retry
 	public async link(target: string, link: string): Promise<void> {
 		await using tx = this.transaction();
 
@@ -430,6 +464,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await tx.commit();
 	}
 
+	@retry
 	public linkSync(target: string, link: string): void {
 		using tx = this.transaction();
 
@@ -472,6 +507,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		buffer.set(_);
 	}
 
+	@retry
 	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
 		await using tx = this.transaction();
 
@@ -500,6 +536,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await tx.commit();
 	}
 
+	@retry
 	public writeSync(path: string, data: Uint8Array, offset: number): void {
 		using tx = this.transaction();
 
@@ -539,6 +576,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
+	@retry
 	public async checkRoot(): Promise<void> {
 		await using tx = this.transaction();
 		if (await tx.get(rootIno)) return;
@@ -554,6 +592,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * Checks if the root directory exists. Creates it if it doesn't.
 	 */
+	@retry
 	public checkRootSync(): void {
 		using tx = this.transaction();
 		if (tx.getSync(rootIno)) return;
@@ -794,6 +833,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param options The options to create the new file with.
 	 * @param data The data to store at the file's data node.
 	 */
+	@retry
 	protected async commitNew(path: string, options: CreationOptions, data: Uint8Array): Promise<Inode> {
 		/*
 			The root always exists.
@@ -837,6 +877,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param data The data to store at the file's data node.
 	 * @return The Inode for the new file.
 	 */
+	@retry
 	protected commitNewSync(path: string, options: CreationOptions, data: Uint8Array): Inode {
 		/*
 			The root always exists.
@@ -877,6 +918,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The path to remove from the file system.
 	 * @param isDir Does the path belong to a directory, or a file?
 	 */
+	@retry
 	protected async remove(path: string, isDir: boolean): Promise<void> {
 		await using tx = this.transaction();
 
@@ -893,6 +935,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		delete listing[fileName];
 
 		if (!isDir && isDirectory(inode)) throw withErrno('EISDIR');
+
+		if (isDir && Object.keys(decodeDirListing((await tx.get(inode.data)) ?? _throw(withErrno('ENODATA')))).length) throw withErrno('ENOTEMPTY');
 
 		await tx.set(parentNode.data, encodeDirListing(listing));
 
@@ -913,6 +957,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * @param path The path to remove from the file system.
 	 * @param isDir Does the path belong to a directory, or a file?
 	 */
+	@retry
 	protected removeSync(path: string, isDir: boolean): void {
 		using tx = this.transaction();
 		const { dir: parent, base: fileName } = parse(path),
@@ -927,6 +972,8 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		delete listing[fileName];
 
 		if (!isDir && isDirectory(inode)) throw withErrno('EISDIR');
+
+		if (isDir && Object.keys(decodeDirListing(tx.getSync(inode.data) ?? _throw(withErrno('ENODATA')))).length) throw withErrno('ENOTEMPTY');
 
 		tx.setSync(parentNode.data, encodeDirListing(listing));
 
