@@ -372,7 +372,10 @@ export function futimes(this: V_Context, fd: number, atime: number | Date, mtime
 }
 futimes satisfies Omit<typeof fs.futimes, '__promisify__'>;
 
-export function rmdir(this: V_Context, path: fs.PathLike, cb: Callback = nop): void {
+export function rmdir(this: V_Context, path: fs.PathLike, cb?: Callback): void;
+export function rmdir(this: V_Context, path: fs.PathLike, options: fs.RmDirOptions, cb?: Callback): void;
+export function rmdir(this: V_Context, path: fs.PathLike, options?: fs.RmDirOptions | Callback, cb: Callback = nop): void {
+	cb = typeof options == 'function' ? (options as Callback) : cb;
 	promises.rmdir.call(this, path).then(() => cb(null), cb);
 }
 rmdir satisfies Omit<typeof fs.rmdir, '__promisify__'>;
