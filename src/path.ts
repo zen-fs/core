@@ -414,7 +414,7 @@ export function parse(path: string): ParsedPath {
 }
 
 /**
- * Matches `text` against `pattern`, where a star matches any run of items and every other pattern item matches exactly one.
+ * Matches `text` against `pattern`, where a star matches any run of items that `canSkip` allows and every other pattern item matches exactly one.
  * Runs in time proportional to the product of the lengths at worst.
  */
 function matchWildcard<P, T>(
@@ -422,6 +422,7 @@ function matchWildcard<P, T>(
 	text: ArrayLike<T>,
 	isStar: (item: P) => boolean,
 	matchesItem: (item: P, value: T) => boolean,
+	canSkip: (value: T) => boolean = () => true,
 ): boolean {
 	let patternIndex = 0,
 		textIndex = 0,
@@ -441,7 +442,7 @@ function matchWildcard<P, T>(
 			continue;
 		}
 
-		if (starIndex == -1) return false;
+		if (starIndex == -1 || !canSkip(text[resumeIndex])) return false;
 
 		patternIndex = starIndex + 1;
 		textIndex = ++resumeIndex;
@@ -453,6 +454,7 @@ function matchWildcard<P, T>(
 }
 
 function matchesSegment(pattern: string, name: string): boolean {
+	if (name.startsWith('.') && !pattern.startsWith('.')) return false;
 	return matchWildcard(
 		pattern,
 		name,
@@ -463,10 +465,17 @@ function matchesSegment(pattern: string, name: string): boolean {
 
 /**
  * `**` as a whole segment matches any number of segments (at least one when it is the last), `*` and `?` never match `/`.
+ * Names starting with `.` are only matched by pattern segments starting with a literal `.`.
  */
 export function matchesGlob(pattern: string, str: string): boolean {
 	const segments = pattern.split('/');
 	if (segments.length > 1 && segments.at(-1) == '**') segments.splice(-1, 0, '*');
 
-	return matchWildcard(segments, str.split('/'), segment => segment == '**', matchesSegment);
+	return matchWildcard(
+		segments,
+		str.split('/'),
+		segment => segment == '**',
+		matchesSegment,
+		name => !name.startsWith('.'),
+	);
 }

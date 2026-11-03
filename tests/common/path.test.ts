@@ -58,6 +58,17 @@ suite('Path emulation', () => {
 		assert(!matchesGlob('a**b', 'a/c/b'));
 	});
 
+	test('matchesGlob only matches dot files with a literal dot', () => {
+		assert(!matchesGlob('*', '.env'));
+		assert(matchesGlob('.*', '.env'));
+		assert(!matchesGlob('a/*', 'a/.hidden'));
+		assert(!matchesGlob('**', 'a/.hidden'));
+		assert(!matchesGlob('a/**', 'a/.b'));
+		assert(!matchesGlob('a/**/d', 'a/b/.c/d'));
+		assert(matchesGlob('**/.hidden', 'a/.hidden'));
+		assert(matchesGlob('.*/*', '.a/b'));
+	});
+
 	test('matchesGlob does not backtrack exponentially', () => {
 		const start = performance.now();
 		assert(!matchesGlob('**/a/**/a/**/b', Array(5000).fill('a').join('/') + '/c'));
