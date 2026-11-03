@@ -403,6 +403,7 @@ export function readSync(
 	if (position && position > Number.MAX_SAFE_INTEGER) throw UV('EINVAL');
 	if (typeof position == 'bigint') position = Number(position);
 	position = Number.isSafeInteger(position) ? position! : file.position;
+	if (length !== undefined) length |= 0;
 	return file.readSync(buffer, offset, length, position);
 }
 readSync satisfies typeof fs.readSync;

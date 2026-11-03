@@ -236,7 +236,8 @@ export class FileHandle implements promises.FileHandle {
 		position = Number.isSafeInteger(position) ? position! : this.vfs.position;
 		buffer ||= new Uint8Array(this.vfs.inode.size) as T;
 		offset ??= 0;
-		const bytesRead = await this.vfs.read(buffer, offset, length ?? buffer.byteLength - offset, position);
+		length = (length ?? buffer.byteLength - offset) | 0;
+		const bytesRead = await this.vfs.read(buffer, offset, length, position);
 		return { bytesRead, buffer };
 	}
 
