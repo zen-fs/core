@@ -376,14 +376,16 @@ write satisfies Omit<typeof fs.write, '__promisify__'>;
 export function read(
 	this: V_Context,
 	fd: number,
-	buffer: Uint8Array,
+	buffer: NodeJS.ArrayBufferView,
 	offset: number,
 	length: number,
-	position?: number,
-	cb: Callback<[number, Uint8Array]> = nop,
-): void {
+	position?: fs.ReadPosition | null,
+	cb?: Callback<[number, NodeJS.ArrayBufferView]>,
+): void;
+export function read(this: V_Context, fd: number, ...args: unknown[]): void {
+	const cb = (typeof args.at(-1) == 'function' ? args.pop() : nop) as Callback<[number, NodeJS.ArrayBufferView]>;
 	new promises.FileHandle(this, fd)
-		.read(buffer, offset, length, position)
+		.read(...(args as [NodeJS.ArrayBufferView, number?, number?, number?]))
 		.then(({ bytesRead, buffer }) => cb(null, bytesRead, buffer))
 		.catch(cb);
 }
