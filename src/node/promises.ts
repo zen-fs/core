@@ -1194,10 +1194,15 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 			await symlink.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			break;
 		}
-		case constants.S_IFREG:
-			if (opts?.force === false && (await exists.call(this, destination))) return;
-			await copyFile.call(this, source, destination);
+		case constants.S_IFREG: {
+			const existing = await lstat.call<V_Context, [string], Promise<Stats>>(this, destination).catch((error: Exception) => {
+				if (!_isNoEntry(error)) throw error;
+			});
+			if (existing && opts?.force === false) return;
+			if (existing) await unlink.call(this, destination);
+			await copyFile.call(this, source, destination, opts?.mode);
 			break;
+		}
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
 		case constants.S_IFIFO:

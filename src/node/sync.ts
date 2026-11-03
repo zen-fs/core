@@ -803,10 +803,13 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 			symlinkSync.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			break;
 		}
-		case constants.S_IFREG:
-			if (opts?.force === false && existsSync.call(this, destination)) return;
-			copyFileSync.call(this, source, destination);
+		case constants.S_IFREG: {
+			const existing = lstatSync.call(this, destination, { throwIfNoEntry: false });
+			if (existing && opts?.force === false) return;
+			if (existing) unlinkSync.call(this, destination);
+			copyFileSync.call(this, source, destination, opts?.mode);
 			break;
+		}
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
 		case constants.S_IFIFO:
