@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { withErrno, type Exception } from 'kerium';
+import { Errno, withErrno, type Exception } from 'kerium';
 import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';
 import type { OptionalTuple } from 'utilium';
@@ -111,6 +111,24 @@ export function validateData(data: unknown, name: string = 'data'): asserts data
 		),
 		{ code: 'ERR_INVALID_ARG_TYPE' },
 	);
+}
+
+/**
+ * Creates Node's error for copying a directory onto a non-directory, or a non-directory onto a directory.
+ * @internal @hidden
+ */
+export function _cpTypeMismatch(source: string, destination: string, sourceIsDirectory: boolean): Error {
+	const [code, errno, sourceType, destinationType] = sourceIsDirectory
+		? (['ERR_FS_CP_DIR_TO_NON_DIR', 'EISDIR', 'directory', 'non-directory'] as const)
+		: (['ERR_FS_CP_NON_DIR_TO_DIR', 'ENOTDIR', 'non-directory', 'directory'] as const);
+	const message = `cannot overwrite ${destinationType} ${destination} with ${sourceType} ${source}`;
+	return Object.assign(new Error(`Cannot overwrite ${destinationType} with ${sourceType}: cp returned ${errno} (${message}) ${destination}`), {
+		name: 'SystemError',
+		code,
+		errno: Errno[errno],
+		syscall: 'cp',
+		path: destination,
+	});
 }
 
 /**

@@ -14,7 +14,7 @@ import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { assertRemovable, hasAccess, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
-import { _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateData } from '../utils.js';
+import { _cpTypeMismatch, _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateData } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
@@ -783,9 +783,13 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 		if (!shouldCopy) return;
 	}
 
-	const srcStats = (opts?.dereference ? statSync : lstatSync).call<V_Context, [fs.PathLike], Stats>(this, source);
+	const statFn = opts?.dereference ? statSync : lstatSync;
+	const srcStats = statFn.call<V_Context, [fs.PathLike], Stats>(this, source);
+	const destStats = statFn.call(this, destination, { throwIfNoEntry: false });
 
-	if (opts?.errorOnExist && opts.force === false && existsSync.call(this, destination)) throw UV('EEXIST', 'cp', destination);
+	if (destStats && srcStats.isDirectory() != destStats.isDirectory()) throw _cpTypeMismatch(source, destination, srcStats.isDirectory());
+
+	if (opts?.errorOnExist && opts.force === false && destStats) throw UV('EEXIST', 'cp', destination);
 
 	switch (srcStats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR: {
@@ -799,14 +803,13 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 		}
 		case constants.S_IFLNK: {
 			const link = readlinkSync.call<V_Context, [string, BufferEncoding], string>(this, source, 'utf8');
-			if (lstatSync.call(this, destination, { throwIfNoEntry: false })?.isSymbolicLink()) unlinkSync.call(this, destination);
+			if (destStats?.isSymbolicLink()) unlinkSync.call(this, destination);
 			symlinkSync.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			break;
 		}
 		case constants.S_IFREG: {
-			const existing = lstatSync.call(this, destination, { throwIfNoEntry: false });
-			if (existing && opts?.force === false) return;
-			if (existing) unlinkSync.call(this, destination);
+			if (destStats && opts?.force === false) return;
+			if (destStats) unlinkSync.call(this, destination);
 			copyFileSync.call(this, source, destination, opts?.mode);
 			break;
 		}

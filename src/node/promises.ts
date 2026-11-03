@@ -22,7 +22,17 @@ import { contextOf } from '../internal/contexts.js';
 import { assertRemovable, hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import '../polyfills.js';
-import { _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateData, validateFD } from '../utils.js';
+import {
+	_cpTypeMismatch,
+	_isNoEntry,
+	_tempDirName,
+	normalizeMode,
+	normalizeOptions,
+	normalizePath,
+	normalizeTime,
+	validateData,
+	validateFD,
+} from '../utils.js';
 import * as _async from '../vfs/async.js';
 import { checkAccess } from '../vfs/config.js';
 import type { Handle } from '../vfs/file.js';
@@ -1163,9 +1173,15 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 
 	if (opts?.filter && !(await opts.filter(source, destination))) return;
 
-	const srcStats = await (opts?.dereference ? stat : lstat).call<V_Context, [string], Promise<Stats>>(this, source);
+	const statFn = opts?.dereference ? stat : lstat;
+	const srcStats = await statFn.call<V_Context, [string], Promise<Stats>>(this, source);
+	const destStats = await statFn.call<V_Context, [string], Promise<Stats>>(this, destination).catch((error: Exception) => {
+		if (!_isNoEntry(error)) throw error;
+	});
 
-	if (opts?.errorOnExist && opts.force === false && (await exists.call(this, destination))) throw UV('EEXIST', 'cp', destination);
+	if (destStats && srcStats.isDirectory() != destStats.isDirectory()) throw _cpTypeMismatch(source, destination, srcStats.isDirectory());
+
+	if (opts?.errorOnExist && opts.force === false && destStats) throw UV('EEXIST', 'cp', destination);
 
 	switch (srcStats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR: {
@@ -1187,19 +1203,13 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 		}
 		case constants.S_IFLNK: {
 			const link = await readlink.call<V_Context, [string], Promise<string>>(this, source);
-			const existing = await lstat.call<V_Context, [string], Promise<Stats>>(this, destination).catch((error: Exception) => {
-				if (!_isNoEntry(error)) throw error;
-			});
-			if (existing?.isSymbolicLink()) await unlink.call(this, destination);
+			if (destStats?.isSymbolicLink()) await unlink.call(this, destination);
 			await symlink.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			break;
 		}
 		case constants.S_IFREG: {
-			const existing = await lstat.call<V_Context, [string], Promise<Stats>>(this, destination).catch((error: Exception) => {
-				if (!_isNoEntry(error)) throw error;
-			});
-			if (existing && opts?.force === false) return;
-			if (existing) await unlink.call(this, destination);
+			if (destStats && opts?.force === false) return;
+			if (destStats) await unlink.call(this, destination);
 			await copyFile.call(this, source, destination, opts?.mode);
 			break;
 		}
