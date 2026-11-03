@@ -783,7 +783,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 		if (!shouldCopy) return;
 	}
 
-	const srcStats = lstatSync.call<V_Context, [fs.PathLike], Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
+	const srcStats = (opts?.dereference ? statSync : lstatSync).call<V_Context, [fs.PathLike], Stats>(this, source);
 
 	if (opts?.errorOnExist && opts.force === false && existsSync.call(this, destination)) throw UV('EEXIST', 'cp', destination);
 
@@ -797,16 +797,12 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 			if (created !== undefined) chmodSync.call(this, destination, srcStats.mode & 0o7777);
 			break;
 		}
-		case constants.S_IFLNK:
-			if (opts?.dereference) {
-				if (opts.force === false && existsSync.call(this, destination)) return;
-				copyFileSync.call(this, source, destination);
-			} else {
-				const link = readlinkSync.call<V_Context, [string, BufferEncoding], string>(this, source, 'utf8');
-				if (lstatSync.call(this, destination, { throwIfNoEntry: false })?.isSymbolicLink()) unlinkSync.call(this, destination);
-				symlinkSync.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
-			}
+		case constants.S_IFLNK: {
+			const link = readlinkSync.call<V_Context, [string, BufferEncoding], string>(this, source, 'utf8');
+			if (lstatSync.call(this, destination, { throwIfNoEntry: false })?.isSymbolicLink()) unlinkSync.call(this, destination);
+			symlinkSync.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			break;
+		}
 		case constants.S_IFREG:
 			if (opts?.force === false && existsSync.call(this, destination)) return;
 			copyFileSync.call(this, source, destination);

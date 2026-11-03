@@ -1163,7 +1163,7 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 
 	if (opts?.filter && !(await opts.filter(source, destination))) return;
 
-	const srcStats = await lstat.call<V_Context, [string], Promise<Stats>>(this, source); // Use lstat to follow symlinks if not dereferencing
+	const srcStats = await (opts?.dereference ? stat : lstat).call<V_Context, [string], Promise<Stats>>(this, source);
 
 	if (opts?.errorOnExist && opts.force === false && (await exists.call(this, destination))) throw UV('EEXIST', 'cp', destination);
 
@@ -1185,19 +1185,15 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 			if (created !== undefined) await chmod.call(this, destination, srcStats.mode & 0o7777);
 			break;
 		}
-		case constants.S_IFLNK:
-			if (opts?.dereference) {
-				if (opts.force === false && (await exists.call(this, destination))) return;
-				await copyFile.call(this, source, destination);
-			} else {
-				const link = await readlink.call<V_Context, [string], Promise<string>>(this, source);
-				const existing = await lstat.call<V_Context, [string], Promise<Stats>>(this, destination).catch((error: Exception) => {
-					if (!_isNoEntry(error)) throw error;
-				});
-				if (existing?.isSymbolicLink()) await unlink.call(this, destination);
-				await symlink.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
-			}
+		case constants.S_IFLNK: {
+			const link = await readlink.call<V_Context, [string], Promise<string>>(this, source);
+			const existing = await lstat.call<V_Context, [string], Promise<Stats>>(this, destination).catch((error: Exception) => {
+				if (!_isNoEntry(error)) throw error;
+			});
+			if (existing?.isSymbolicLink()) await unlink.call(this, destination);
+			await symlink.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			break;
+		}
 		case constants.S_IFREG:
 			if (opts?.force === false && (await exists.call(this, destination))) return;
 			await copyFile.call(this, source, destination);
