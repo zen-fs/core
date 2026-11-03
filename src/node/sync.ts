@@ -245,6 +245,7 @@ export function writeFileSync(
 					mode: options.mode,
 				});
 	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
+	file.position = encodedData.byteLength;
 	emitChange(this, 'change', path.toString());
 }
 writeFileSync satisfies typeof fs.writeFileSync;
@@ -365,7 +366,6 @@ export function writeSync(
 	}
 
 	const file = fromFD(this, fd);
-	position ??= file.position;
 	const bytesWritten = file.writeSync(buffer, offset, length, position);
 	emitChange(this, 'change', file.path);
 	return bytesWritten;
@@ -406,7 +406,7 @@ export function readSync(
 
 	if (position && position > Number.MAX_SAFE_INTEGER) throw UV('EINVAL');
 	if (typeof position == 'bigint') position = Number(position);
-	position = Number.isSafeInteger(position) ? position! : file.position;
+	position = Number.isSafeInteger(position) ? position! : null;
 	if (length !== undefined) length |= 0;
 	return file.readSync(buffer, offset, length, position);
 }
@@ -719,7 +719,7 @@ export function readvSync(this: V_Context, fd: number, buffers: readonly NodeJS.
 	let bytesRead = 0;
 
 	for (const buffer of buffers) {
-		bytesRead += file.readSync(buffer, 0, buffer.byteLength, position! + bytesRead);
+		bytesRead += file.readSync(buffer, 0, buffer.byteLength, typeof position == 'number' ? position + bytesRead : null);
 	}
 
 	return bytesRead;
@@ -738,7 +738,12 @@ export function writevSync(this: V_Context, fd: number, buffers: readonly ArrayB
 	let bytesWritten = 0;
 
 	for (const buffer of buffers) {
-		bytesWritten += file.writeSync(new Uint8Array(buffer.buffer), 0, buffer.byteLength, position! + bytesWritten);
+		bytesWritten += file.writeSync(
+			new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+			0,
+			buffer.byteLength,
+			typeof position == 'number' ? position + bytesWritten : null,
+		);
 	}
 
 	return bytesWritten;

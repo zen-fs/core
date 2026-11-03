@@ -245,7 +245,7 @@ export class FileHandle implements promises.FileHandle {
 
 		if (position && position > Number.MAX_SAFE_INTEGER) throw UV('EINVAL');
 		if (typeof position == 'bigint') position = Number(position);
-		position = Number.isSafeInteger(position) ? position! : this.vfs.position;
+		position = Number.isSafeInteger(position) ? position! : null;
 		buffer ||= new Uint8Array(this.vfs.inode.size) as T;
 		offset ??= 0;
 		length = (length ?? buffer.byteLength - offset) | 0;
@@ -348,7 +348,6 @@ export class FileHandle implements promises.FileHandle {
 			length = typeof lenOrEnc == 'number' ? lenOrEnc : buffer.byteLength;
 			position = typeof position === 'number' ? position : null;
 		}
-		position ??= this.vfs.position;
 		const bytesWritten = await this.vfs.write(buffer, offset, length, position);
 		this._emitChange();
 		return { buffer: data, bytesWritten };
@@ -372,6 +371,7 @@ export class FileHandle implements promises.FileHandle {
 		const encodedData =
 			typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 		await this.vfs.write(encodedData, 0, encodedData.byteLength, 0);
+		this.vfs.position = encodedData.byteLength;
 		this._emitChange();
 	}
 
@@ -395,12 +395,11 @@ export class FileHandle implements promises.FileHandle {
 		buffers: TBuffers,
 		position?: number,
 	): Promise<fs.WriteVResult<TBuffers>> {
-		if (typeof position == 'number') this.vfs.position = position;
-
 		let bytesWritten = 0;
 
 		for (const buffer of buffers) {
-			bytesWritten += (await this.write(buffer)).bytesWritten;
+			const at = typeof position == 'number' ? position + bytesWritten : null;
+			bytesWritten += (await this.write(buffer, 0, buffer.byteLength, at)).bytesWritten;
 		}
 
 		return { bytesWritten, buffers };
@@ -413,12 +412,11 @@ export class FileHandle implements promises.FileHandle {
 	 * @returns The number of bytes read.
 	 */
 	public async readv<TBuffers extends readonly NodeJS.ArrayBufferView[]>(buffers: TBuffers, position?: number): Promise<fs.ReadVResult<TBuffers>> {
-		if (typeof position == 'number') this.vfs.position = position;
-
 		let bytesRead = 0;
 
 		for (const buffer of buffers) {
-			bytesRead += (await this.read(buffer)).bytesRead;
+			const at = typeof position == 'number' ? position + bytesRead : null;
+			bytesRead += (await this.read(buffer, 0, buffer.byteLength, at)).bytesRead;
 		}
 
 		return { bytesRead, buffers };
@@ -503,7 +501,7 @@ export class FileHandle implements promises.FileHandle {
 		const { autoClose, start, limit } = options;
 
 		const handle = this;
-		let position = typeof start == 'number' ? start : handle.vfs.position;
+		let position = typeof start == 'number' ? start : null;
 		let written = 0;
 		// Tracks whether the writer has been ended or failed, so disposal and `autoClose` don't double-close.
 		let done = false;
@@ -536,7 +534,7 @@ export class FileHandle implements promises.FileHandle {
 				throw new RangeError(`Writer limit of ${limit} bytes exceeded`);
 			}
 			const bytesWritten = await handle.vfs.write(buffer, 0, buffer.byteLength, position);
-			position += bytesWritten;
+			if (position !== null) position += bytesWritten;
 			written += bytesWritten;
 			handle._emitChange();
 		}

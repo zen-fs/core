@@ -149,10 +149,10 @@ export class Handle {
 	 * @param offset Offset in the buffer to start reading data from.
 	 * @param length The amount of bytes to write to the file.
 	 * @param position Offset from the beginning of the file where this data should be written.
-	 * If position is null, the data will be written at  the current position.
+	 * If position is null, the data will be written at the current position, which is then advanced.
 	 * @returns bytes written
 	 */
-	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position: number = this.position): number {
+	public writeSync(buffer: Uint8Array, offset: number = 0, length: number = buffer.byteLength - offset, position?: number | null): number {
 		if (this.closed) throw UV('EBADF', 'write', this.path);
 		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw UV('EBADF', 'write', this.path);
 		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
@@ -161,9 +161,10 @@ export class Handle {
 		using _ = this.vnode.lockSync('rw');
 
 		const slice = buffer.subarray(offset, offset + length);
+		const start = position ?? this.position;
 
-		this.vnode.writeSync(slice, position);
-		this._position = position + slice.byteLength;
+		this.vnode.writeSync(slice, start);
+		if (position == null) this._position = start + slice.byteLength;
 
 		if (this._isSync) this.vnode.syncSync();
 		return slice.byteLength;
@@ -175,15 +176,10 @@ export class Handle {
 	 * @param offset The offset within the buffer where writing will start.
 	 * @param length An integer specifying the number of bytes to read.
 	 * @param position An integer specifying where to begin reading from in the file.
-	 * If position is null, data will be read from the current file position.
+	 * If position is null, data will be read from the current file position, which is then advanced.
 	 * @returns number of bytes written
 	 */
-	public readSync(
-		buffer: ArrayBufferView,
-		offset: number = 0,
-		length: number = buffer.byteLength - offset,
-		position: number = this.position,
-	): number {
+	public readSync(buffer: ArrayBufferView, offset: number = 0, length: number = buffer.byteLength - offset, position?: number | null): number {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
 		if (this.flag & c.O_WRONLY) throw UV('EBADF', 'read', this.path);
 
@@ -194,15 +190,16 @@ export class Handle {
 			this.inode.atimeMs = Date.now();
 		}
 
-		let end = position + length;
+		const start = position ?? this.position;
+		let end = start + length;
 		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
-			end = position + Math.max(this.inode.size - position, 0);
+			end = start + Math.max(this.inode.size - start, 0);
 		}
-		this._position = end;
+		if (position == null) this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		this.vnode.readSync(uint8.subarray(offset, offset + length), position, end);
+		this.vnode.readSync(uint8.subarray(offset, offset + length), start, end);
 		if (this._isSync) this.vnode.syncSync();
-		return end - position;
+		return end - start;
 	}
 
 	public chmodSync(mode: number): void {
@@ -300,14 +297,14 @@ export class Handle {
 	 * @param offset Offset in the buffer to start reading data from.
 	 * @param length The amount of bytes to write to the file.
 	 * @param position Offset from the beginning of the file where this data should be written.
-	 * If position is null, the data will be written at  the current position.
+	 * If position is null, the data will be written at the current position, which is then advanced.
 	 * @returns bytes written
 	 */
 	public async write(
 		buffer: Uint8Array,
 		offset: number = 0,
 		length: number = buffer.byteLength - offset,
-		position: number = this.position,
+		position?: number | null,
 	): Promise<number> {
 		if (this.closed) throw UV('EBADF', 'write', this.path);
 		if (!(this.flag & c.O_WRONLY || this.flag & c.O_RDWR)) throw UV('EBADF', 'write', this.path);
@@ -317,9 +314,10 @@ export class Handle {
 		using _ = await this.vnode.lock('rw');
 
 		const slice = buffer.subarray(offset, offset + length);
+		const start = position ?? this.position;
 
-		await this.vnode.write(slice, position);
-		this._position = position + slice.byteLength;
+		await this.vnode.write(slice, start);
+		if (position == null) this._position = start + slice.byteLength;
 
 		if (this._isSync) await this.vnode.sync();
 		return slice.byteLength;
@@ -331,14 +329,14 @@ export class Handle {
 	 * @param offset The offset within the buffer where writing will start.
 	 * @param length An integer specifying the number of bytes to read.
 	 * @param position An integer specifying where to begin reading from in the file.
-	 * If position is null, data will be read from the current file position.
+	 * If position is null, data will be read from the current file position, which is then advanced.
 	 * @returns number of bytes written
 	 */
 	public async read(
 		buffer: ArrayBufferView,
 		offset: number = 0,
 		length: number = buffer.byteLength - offset,
-		position: number = this.position,
+		position?: number | null,
 	): Promise<number> {
 		if (this.closed) throw UV('EBADF', 'read', this.path);
 		if (this.flag & c.O_WRONLY) throw UV('EBADF', 'read', this.path);
@@ -350,15 +348,16 @@ export class Handle {
 			this.inode.atimeMs = Date.now();
 		}
 
-		let end = position + length;
+		const start = position ?? this.position;
+		let end = start + length;
 		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
-			end = position + Math.max(this.inode.size - position, 0);
+			end = start + Math.max(this.inode.size - start, 0);
 		}
-		this._position = end;
+		if (position == null) this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		await this.vnode.read(uint8.subarray(offset, offset + length), position, end);
+		await this.vnode.read(uint8.subarray(offset, offset + length), start, end);
 		if (this._isSync) await this.vnode.sync();
-		return end - position;
+		return end - start;
 	}
 
 	public async chmod(mode: number): Promise<void> {
