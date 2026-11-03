@@ -769,7 +769,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 
 	const srcStats = lstatSync.call<V_Context, [fs.PathLike], Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
 
-	if (opts?.errorOnExist && existsSync.call(this, destination)) throw UV('EEXIST', 'cp', destination);
+	if (opts?.errorOnExist && opts.force === false && existsSync.call(this, destination)) throw UV('EEXIST', 'cp', destination);
 
 	switch (srcStats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:

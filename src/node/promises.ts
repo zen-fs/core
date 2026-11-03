@@ -1144,7 +1144,7 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 
 	const srcStats = await lstat.call<V_Context, [string], Promise<Stats>>(this, source); // Use lstat to follow symlinks if not dereferencing
 
-	if (opts?.errorOnExist && (await exists.call(this, destination))) throw UV('EEXIST', 'cp', destination);
+	if (opts?.errorOnExist && opts.force === false && (await exists.call(this, destination))) throw UV('EEXIST', 'cp', destination);
 
 	switch (srcStats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR: {
