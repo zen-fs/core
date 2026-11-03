@@ -310,6 +310,7 @@ export function write(
 	position?: number,
 	cb?: Callback<[number, Uint8Array]>,
 ): void;
+export function write(this: V_Context, fd: number, buffer: Uint8Array, options: fs.WriteOptions, cb?: Callback<[number, Uint8Array]>): void;
 export function write(this: V_Context, fd: number, data: FileContents, cb?: Callback<[number, string]>): void;
 export function write(this: V_Context, fd: number, data: FileContents, position?: number, cb?: Callback<[number, string]>): void;
 export function write(
@@ -324,8 +325,8 @@ export function write(
 	this: V_Context,
 	fd: number,
 	data: FileContents,
-	cbPosOff?: number | Callback<[number, string]> | null,
-	cbLenEnc?: number | BufferEncoding | Callback<[number, string]>,
+	cbPosOff?: number | fs.WriteOptions | Callback<[number, string]> | null,
+	cbLenEnc?: number | BufferEncoding | Callback<[number, Uint8Array]> | Callback<[number, string]>,
 	cbPosEnc?: number | BufferEncoding | Callback<[number, Uint8Array]> | Callback<[number, string]>,
 	cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop,
 ): void {
@@ -333,7 +334,7 @@ export function write(
 	let buffer: Buffer, offset: number, length: number, position: number | null, encoding: BufferEncoding;
 	const handle = new promises.FileHandle(this, fd);
 
-	const _cb = ([cbPosOff, cbLenEnc, cbPosEnc].find(arg => typeof arg === 'function') ?? cb) as Callback<[number, Uint8Array | string]>;
+	const _cb = ([cbPosOff, cbLenEnc, cbPosEnc].find(arg => typeof arg === 'function') ?? cb) as Callback<[number, FileContents]>;
 
 	if (typeof data === 'string') {
 		// (fd, string, [position?, [encoding?]], cb?)
@@ -342,6 +343,12 @@ export function write(
 		buffer = Buffer.from(data, encoding);
 		offset = 0;
 		length = buffer.byteLength;
+	} else if (typeof cbPosOff == 'object' && cbPosOff !== null) {
+		// (fd, buffer, options, cb?)
+		buffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+		offset = cbPosOff.offset ?? 0;
+		length = cbPosOff.length ?? buffer.byteLength - offset;
+		position = cbPosOff.position ?? null;
 	} else {
 		// (fd, buffer, [offset?, [length?, [position?]]], cb?)
 		buffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
@@ -352,7 +359,7 @@ export function write(
 
 	handle
 		.write(buffer, offset, length, position)
-		.then(({ bytesWritten }) => _cb(null, bytesWritten, typeof data === 'string' ? data : buffer))
+		.then(({ bytesWritten }) => _cb(null, bytesWritten, data))
 		.catch(_cb);
 }
 write satisfies Omit<typeof fs.write, '__promisify__'>;

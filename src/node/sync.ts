@@ -331,12 +331,13 @@ export function writeSync(
 	length?: number | null,
 	position?: number | null,
 ): number;
+export function writeSync(this: V_Context, fd: number, data: ArrayBufferView, options?: fs.WriteOptions): number;
 export function writeSync(this: V_Context, fd: number, data: string, position?: number | null, encoding?: BufferEncoding | null): number;
 export function writeSync(
 	this: V_Context,
 	fd: number,
 	data: FileContents,
-	posOrOff?: number | null,
+	posOrOff?: number | fs.WriteOptions | null,
 	lenOrEnc?: BufferEncoding | number | null,
 	pos?: number | null,
 ): number {
@@ -349,11 +350,17 @@ export function writeSync(
 		offset = 0;
 		buffer = Buffer.from(data, encoding);
 		length = buffer.byteLength;
-	} else {
-		// Signature 2: (fd, buffer, offset, length, position?)
+	} else if (typeof posOrOff == 'object' && posOrOff !== null) {
+		// Signature 3: (fd, buffer, options?)
 		buffer = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-		offset = posOrOff!;
-		length = lenOrEnc as number;
+		offset = posOrOff.offset ?? 0;
+		length = posOrOff.length ?? buffer.byteLength - offset;
+		position = posOrOff.position ?? null;
+	} else {
+		// Signature 2: (fd, buffer, offset?, length?, position?)
+		buffer = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+		offset = posOrOff ?? 0;
+		length = typeof lenOrEnc == 'number' ? lenOrEnc : buffer.byteLength - offset;
 		position = typeof pos === 'number' ? pos : null;
 	}
 
