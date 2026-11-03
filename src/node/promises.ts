@@ -1187,6 +1187,7 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 		}
 		case constants.S_IFLNK:
 			if (opts?.dereference) {
+				if (opts.force === false && (await exists.call(this, destination))) return;
 				await copyFile.call(this, source, destination);
 			} else {
 				const link = await readlink.call<V_Context, [string], Promise<string>>(this, source);
@@ -1198,6 +1199,7 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 			}
 			break;
 		case constants.S_IFREG:
+			if (opts?.force === false && (await exists.call(this, destination))) return;
 			await copyFile.call(this, source, destination);
 			break;
 		case constants.S_IFBLK:

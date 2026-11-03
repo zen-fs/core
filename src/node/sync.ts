@@ -799,6 +799,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 		}
 		case constants.S_IFLNK:
 			if (opts?.dereference) {
+				if (opts.force === false && existsSync.call(this, destination)) return;
 				copyFileSync.call(this, source, destination);
 			} else {
 				const link = readlinkSync.call<V_Context, [string, BufferEncoding], string>(this, source, 'utf8');
@@ -807,6 +808,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 			}
 			break;
 		case constants.S_IFREG:
+			if (opts?.force === false && existsSync.call(this, destination)) return;
 			copyFileSync.call(this, source, destination);
 			break;
 		case constants.S_IFBLK:
