@@ -22,7 +22,7 @@ import { contextOf } from '../internal/contexts.js';
 import { assertRemovable, hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import '../polyfills.js';
-import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
+import { _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
 import * as _async from '../vfs/async.js';
 import { checkAccess } from '../vfs/config.js';
 import type { Handle } from '../vfs/file.js';
@@ -1229,8 +1229,6 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
-	const regexPatterns = normalizedPatterns.map(globToRegex);
-
 	async function shouldDescend(path: string, relativePath: string): Promise<boolean> {
 		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
 		const inScope = hasGlobStar || isNamed;
@@ -1251,7 +1249,7 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 
 			if (await shouldDescend(fullPath, relPath)) yield* recursiveList(fullPath);
 
-			if (regexPatterns.some(rx => rx.test(relPath))) {
+			if (normalizedPatterns.some(pattern => matchesGlob(pattern, relPath))) {
 				yield withFileTypes ? entry : relPath;
 			}
 		}

@@ -8,7 +8,6 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 import type { ParsedPath } from 'node:path';
 import type { V_Context } from './context.js';
 import { contextOf } from './internal/contexts.js';
-import { globToRegex } from './utils.js';
 
 export type AbsolutePath = `/${string}`;
 
@@ -414,6 +413,60 @@ export function parse(path: string): ParsedPath {
 	return ret;
 }
 
+/**
+ * Matches `text` against `pattern`, where a star matches any run of items and every other pattern item matches exactly one.
+ * Runs in time proportional to the product of the lengths at worst.
+ */
+function matchWildcard<P, T>(
+	pattern: ArrayLike<P>,
+	text: ArrayLike<T>,
+	isStar: (item: P) => boolean,
+	matchesItem: (item: P, value: T) => boolean,
+): boolean {
+	let patternIndex = 0,
+		textIndex = 0,
+		starIndex = -1,
+		resumeIndex = 0;
+
+	while (textIndex < text.length) {
+		if (patternIndex < pattern.length && isStar(pattern[patternIndex])) {
+			starIndex = patternIndex++;
+			resumeIndex = textIndex;
+			continue;
+		}
+
+		if (patternIndex < pattern.length && matchesItem(pattern[patternIndex], text[textIndex])) {
+			patternIndex++;
+			textIndex++;
+			continue;
+		}
+
+		if (starIndex == -1) return false;
+
+		patternIndex = starIndex + 1;
+		textIndex = ++resumeIndex;
+	}
+
+	while (patternIndex < pattern.length && isStar(pattern[patternIndex])) patternIndex++;
+
+	return patternIndex == pattern.length;
+}
+
+function matchesSegment(pattern: string, name: string): boolean {
+	return matchWildcard(
+		pattern,
+		name,
+		char => char == '*',
+		(char, value) => char == '?' || char == value,
+	);
+}
+
+/**
+ * `**` as a whole segment matches any number of segments (at least one when it is the last), `*` and `?` never match `/`.
+ */
 export function matchesGlob(pattern: string, str: string): boolean {
-	return globToRegex(pattern).test(str);
+	const segments = pattern.split('/');
+	if (segments.length > 1 && segments.at(-1) == '**') segments.splice(-1, 0, '*');
+
+	return matchWildcard(segments, str.split('/'), segment => segment == '**', matchesSegment);
 }

@@ -14,7 +14,7 @@ import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { assertRemovable, hasAccess, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
-import { _isNoEntry, _tempDirName, globToRegex, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
@@ -849,8 +849,6 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
-	const regexPatterns = normalizedPatterns.map(globToRegex);
-
 	function shouldDescend(path: string, relativePath: string): boolean {
 		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
 		const inScope = hasGlobStar || isNamed;
@@ -872,7 +870,7 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 
 			if (shouldDescend(fullPath, relPath)) recursiveList(fullPath);
 
-			if (regexPatterns.some(rx => rx.test(relPath))) {
+			if (normalizedPatterns.some(pattern => matchesGlob(pattern, relPath))) {
 				results.push(withFileTypes ? entry : (relPath as any));
 			}
 		}

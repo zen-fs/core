@@ -122,24 +122,6 @@ export function normalizeOptions(
 	};
 }
 
-/**
- * Converts a glob pattern to a regular expression
- * @internal
- */
-export function globToRegex(pattern: string): RegExp {
-	const GLOBSTAR = '\0GS\0';
-	const STAR = '\0S\0';
-	pattern = pattern
-		.replace(/\*\*/g, GLOBSTAR)
-		.replace(/\*/g, STAR)
-		.replace(/[.+^$(){}|[\]\\]/g, '\\$&')
-		.replace(/\?/g, '.')
-		.replaceAll('/' + GLOBSTAR + '/', '(?:/.*)?/')
-		.replaceAll(GLOBSTAR, '.*')
-		.replaceAll(STAR, '[^/]*');
-	return new RegExp(`^${pattern}$`);
-}
-
 export async function waitOnline(worker: NodeWorker): Promise<void> {
 	const online = Promise.withResolvers<void>();
 	setTimeout(() => online.reject(withErrno('ETIMEDOUT')), 500);
