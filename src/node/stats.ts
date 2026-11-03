@@ -51,14 +51,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public gid: T = this._convert(0);
 	/** Time of last access, since epoch */
 	public atimeMs: T;
-
-	public get atime(): Date {
-		return new Date(Number(this.atimeMs));
-	}
-
-	public set atime(value: Date) {
-		this.atimeMs = this._convert(value.getTime());
-	}
+	declare public atime: Date;
 
 	public get atimeInstant(): Temporal.Instant {
 		return _temporal().Instant.fromEpochMilliseconds(Number(this.atimeMs));
@@ -70,12 +63,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	/** Time of last modification, since epoch */
 	public mtimeMs: T;
-	public get mtime(): Date {
-		return new Date(Number(this.mtimeMs));
-	}
-	public set mtime(value: Date) {
-		this.mtimeMs = this._convert(value.getTime());
-	}
+	declare public mtime: Date;
 	public get mtimeInstant(): Temporal.Instant {
 		return _temporal().Instant.fromEpochMilliseconds(Number(this.mtimeMs));
 	}
@@ -85,12 +73,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	/** Time of last time file status was changed, since epoch */
 	public ctimeMs: T;
-	public get ctime(): Date {
-		return new Date(Number(this.ctimeMs));
-	}
-	public set ctime(value: Date) {
-		this.ctimeMs = this._convert(value.getTime());
-	}
+	declare public ctime: Date;
 	public get ctimeInstant(): Temporal.Instant {
 		return _temporal().Instant.fromEpochMilliseconds(Number(this.ctimeMs));
 	}
@@ -100,12 +83,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 
 	/** Time of file creation, since epoch */
 	public birthtimeMs: T;
-	public get birthtime(): Date {
-		return new Date(Number(this.birthtimeMs));
-	}
-	public set birthtime(value: Date) {
-		this.birthtimeMs = this._convert(value.getTime());
-	}
+	declare public birthtime: Date;
 	public get birthtimeInstant(): Temporal.Instant {
 		return _temporal().Instant.fromEpochMilliseconds(Number(this.birthtimeMs));
 	}
@@ -219,6 +197,34 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		return BigInt(this.birthtimeMs) * _nsMultiplier;
 	}
 }
+
+/**
+ * Like Node, each date is computed from its `*Ms` field when first accessed, then stored as an enumerable own property.
+ */
+function lazyDate(name: 'atime' | 'mtime' | 'ctime' | 'birthtime'): PropertyDescriptor {
+	function store(stats: StatsCommon<number | bigint>, value: Date): Date {
+		Object.defineProperty(stats, name, { value, writable: true, enumerable: true, configurable: true });
+		return value;
+	}
+
+	return {
+		enumerable: true,
+		configurable: true,
+		get(this: StatsCommon<number | bigint>): Date {
+			return store(this, new Date(Number(this[`${name}Ms`])));
+		},
+		set(this: StatsCommon<number | bigint>, value: Date): void {
+			store(this, value);
+		},
+	};
+}
+
+Object.defineProperties(StatsCommon.prototype, {
+	atime: lazyDate('atime'),
+	mtime: lazyDate('mtime'),
+	ctime: lazyDate('ctime'),
+	birthtime: lazyDate('birthtime'),
+});
 
 /**
  * Implementation of Node's `Stats`.
