@@ -1171,7 +1171,7 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 		case constants.S_IFDIR: {
 			if (!opts?.recursive) throw UV('EISDIR', 'cp', source);
 
-			const [entries] = await Promise.all(
+			const [entries, created] = await Promise.all(
 				[
 					readdir.call<V_Context, [string, any], Promise<Dirent[]>>(this, source, { withFileTypes: true }),
 					mkdir.call(this, destination, { recursive: true }),
@@ -1182,6 +1182,7 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 				await cp.call(this, join(source, dirent.name), join(destination, dirent.name), opts);
 			};
 			await Promise.all(entries.map(_cp));
+			if (created !== undefined) await chmod.call(this, destination, srcStats.mode & 0o7777);
 			break;
 		}
 		case constants.S_IFLNK:

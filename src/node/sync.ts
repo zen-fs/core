@@ -788,13 +788,15 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 	if (opts?.errorOnExist && opts.force === false && existsSync.call(this, destination)) throw UV('EEXIST', 'cp', destination);
 
 	switch (srcStats.mode & constants.S_IFMT) {
-		case constants.S_IFDIR:
+		case constants.S_IFDIR: {
 			if (!opts?.recursive) throw UV('EISDIR', 'cp', source);
-			mkdirSync.call(this, destination, { recursive: true }); // Ensure the destination directory exists
+			const created = mkdirSync.call(this, destination, { recursive: true });
 			for (const dirent of readdirSync.call<V_Context, [string, any], Dirent[]>(this, source, { withFileTypes: true })) {
 				cpSync.call(this, join(source, dirent.name), join(destination, dirent.name), opts);
 			}
+			if (created !== undefined) chmodSync.call(this, destination, srcStats.mode & 0o7777);
 			break;
+		}
 		case constants.S_IFLNK:
 			if (opts?.dereference) {
 				copyFileSync.call(this, source, destination);
