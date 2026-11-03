@@ -159,7 +159,11 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 			return this._read();
 		}
 
-		void this._read().then(value => cb(null, value));
+		this.checkClosed();
+		this._read().then(
+			value => cb(null, value),
+			(error: Exception) => cb(error),
+		);
 	}
 
 	/**
