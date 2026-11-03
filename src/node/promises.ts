@@ -819,7 +819,7 @@ export async function readdir(
 export async function readdir(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]>;
 export async function readdir(this: V_Context, path: fs.PathLike, options?: NodeReaddirOptions): Promise<string[] | Dirent<any>[] | Buffer[]> {
 	path = normalizePath.call(this, path);
-	const opt = typeof options === 'object' && options != null ? options : { encoding: options, withFileTypes: false, recursive: false };
+	const opt = typeof options === 'object' && options != null ? { ...options } : { encoding: options, withFileTypes: false, recursive: false };
 
 	const rawEntries = await _async.readdir.call(this, path, opt);
 	const values: (string | Buffer | Dirent<any>)[] = [];
