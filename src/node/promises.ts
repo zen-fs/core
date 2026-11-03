@@ -15,7 +15,7 @@ import type { Interface as ReadlineInterface } from './readline.js';
 import type { GlobOptionsU, NodeReaddirOptions } from './types.js';
 
 import { Buffer } from 'buffer';
-import { Exception, rethrow, UV } from 'kerium';
+import { Exception, rethrow, setUVMessage, UV } from 'kerium';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
@@ -876,17 +876,25 @@ link satisfies typeof promises.link;
  * @param path link path
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
-export async function symlink(this: V_Context, dest: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | string | null = 'file'): Promise<void> {
+export async function symlink(
+	this: V_Context,
+	target: fs.PathLike,
+	path: fs.PathLike,
+	type: fs.symlink.Type | string | null = 'file',
+): Promise<void> {
 	if (type != null && !['file', 'dir', 'junction'].includes(type)) throw new TypeError('Invalid symlink type: ' + type);
 
 	path = normalizePath.call(this, path);
+	target = normalizePath.call(this, target, true);
 
-	if (await exists.call(this, path)) throw UV('EEXIST', 'symlink', path);
-
-	await using handle = await _async.open(this, path, { flag: 'w+', mode: 0o644, preserveSymlinks: true });
-	const encoded = encodeUTF8(normalizePath.call(this, dest, true));
-	await handle.write(encoded, 0, encoded.length, 0);
-	await handle.chmod(constants.S_IFLNK | 0o777);
+	try {
+		await using handle = await _async.open(this, path, { flag: 'wx', mode: 0o644, preserveSymlinks: true });
+		const encoded = encodeUTF8(target);
+		await handle.write(encoded, 0, encoded.length, 0);
+		await handle.chmod(constants.S_IFLNK | 0o777);
+	} catch (error) {
+		throw setUVMessage(Object.assign(error as Exception, { syscall: 'symlink', path: target, dest: path }));
+	}
 }
 symlink satisfies typeof promises.symlink;
 

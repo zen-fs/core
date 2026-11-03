@@ -524,10 +524,15 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 	if (type != null && !['file', 'dir', 'junction'].includes(type)) throw new TypeError('Invalid symlink type: ' + type);
 
 	path = normalizePath.call(this, path);
+	target = normalizePath.call(this, target, true);
 
-	using file = _sync.open(this, path, { flag: 'wx', mode: 0o644 });
-	file.writeSync(encodeUTF8(normalizePath.call(this, target, true)));
-	file.chmodSync(constants.S_IFLNK | 0o777);
+	try {
+		using file = _sync.open(this, path, { flag: 'wx', mode: 0o644, preserveSymlinks: true });
+		file.writeSync(encodeUTF8(target));
+		file.chmodSync(constants.S_IFLNK | 0o777);
+	} catch (error) {
+		throw setUVMessage(Object.assign(error as Exception, { syscall: 'symlink', path: target, dest: path }));
+	}
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
