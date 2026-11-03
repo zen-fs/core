@@ -802,6 +802,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 				copyFileSync.call(this, source, destination);
 			} else {
 				const link = readlinkSync.call<V_Context, [string, BufferEncoding], string>(this, source, 'utf8');
+				if (lstatSync.call(this, destination, { throwIfNoEntry: false })?.isSymbolicLink()) unlinkSync.call(this, destination);
 				symlinkSync.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			}
 			break;

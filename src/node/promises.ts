@@ -1190,6 +1190,10 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 				await copyFile.call(this, source, destination);
 			} else {
 				const link = await readlink.call<V_Context, [string], Promise<string>>(this, source);
+				const existing = await lstat.call<V_Context, [string], Promise<Stats>>(this, destination).catch((error: Exception) => {
+					if (!_isNoEntry(error)) throw error;
+				});
+				if (existing?.isSymbolicLink()) await unlink.call(this, destination);
 				await symlink.call(this, opts?.verbatimSymlinks ? link : resolve.call(this, dirname(source), link), destination);
 			}
 			break;
