@@ -14,7 +14,7 @@ import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { assertRemovable, hasAccess, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
-import { _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
+import { _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateData } from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
@@ -231,9 +231,7 @@ export function writeFileSync(
 	if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) {
 		throw new Exception(Errno.EINVAL, 'Flag passed to writeFile must allow for writing');
 	}
-	if (typeof data != 'string' && !options.encoding) {
-		throw new Exception(Errno.EINVAL, 'Encoding not specified');
-	}
+	validateData(data);
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	if (!encodedData) {
@@ -263,9 +261,7 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 	if (!(flag & constants.O_APPEND)) {
 		throw new Exception(Errno.EINVAL, 'Flag passed to appendFile must allow for appending');
 	}
-	if (typeof data != 'string' && !options.encoding) {
-		throw new Exception(Errno.EINVAL, 'Encoding not specified');
-	}
+	validateData(data);
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 
@@ -344,6 +340,7 @@ export function writeSync(
 	lenOrEnc?: BufferEncoding | number | null,
 	pos?: number | null,
 ): number {
+	validateData(data, 'buffer');
 	let buffer: Uint8Array, offset: number | undefined, length: number, position: number | null;
 	if (typeof data === 'string') {
 		// Signature 1: (fd, string, [position?, [encoding?]])

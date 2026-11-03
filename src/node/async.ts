@@ -10,7 +10,7 @@ import type { GlobOptionsU } from './types.js';
 import { Buffer } from 'buffer';
 import { UV, withErrno, type Exception } from 'kerium';
 import { R_OK } from '../constants.js';
-import { normalizeMode, normalizePath } from '../utils.js';
+import { normalizeMode, normalizePath, validateData } from '../utils.js';
 import { FSWatcher, StatWatcher } from '../vfs/watchers.js';
 import * as promises from './promises.js';
 import { BigIntStats } from './stats.js';
@@ -329,6 +329,7 @@ export function write(
 	cbPosEnc?: number | BufferEncoding | Callback<[number, Uint8Array]> | Callback<[number, string]>,
 	cb: Callback<[number, Uint8Array]> | Callback<[number, string]> = nop,
 ): void {
+	validateData(data, 'buffer');
 	let buffer: Buffer, offset: number, length: number, position: number | null, encoding: BufferEncoding;
 	const handle = new promises.FileHandle(this, fd);
 

@@ -22,7 +22,7 @@ import { contextOf } from '../internal/contexts.js';
 import { assertRemovable, hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import '../polyfills.js';
-import { _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
+import { _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateData, validateFD } from '../utils.js';
 import * as _async from '../vfs/async.js';
 import { checkAccess } from '../vfs/config.js';
 import type { Handle } from '../vfs/file.js';
@@ -184,12 +184,14 @@ export class FileHandle implements promises.FileHandle {
 		data: string | Uint8Array,
 		_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {},
 	): Promise<void> {
+		validateData(data);
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = flags.parse(options.flag);
 		if (!(flag & constants.O_APPEND)) throw UV('EBADF', 'write', this.vfs.path);
 
-		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
-		await this.vfs.write(encodedData, 0, encodedData.length);
+		const encodedData =
+			typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+		await this.vfs.write(encodedData, 0, encodedData.byteLength);
 		this._emitChange();
 	}
 
@@ -318,6 +320,7 @@ export class FileHandle implements promises.FileHandle {
 		lenOrEnc?: BufferEncoding | number | null,
 		position?: number | null,
 	): Promise<{ bytesWritten: number; buffer: T }> {
+		validateData(data, 'buffer');
 		let buffer: Uint8Array, offset: number | null | undefined, length: number;
 		if (typeof options == 'object' && options != null) {
 			lenOrEnc = options.length;
@@ -352,11 +355,13 @@ export class FileHandle implements promises.FileHandle {
 	 * - `flag` defaults to `'w'`.
 	 */
 	public async writeFile(data: string | Uint8Array, _options: fs.WriteFileOptions = {}): Promise<void> {
+		validateData(data);
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
 		const flag = flags.parse(options.flag);
 		if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) throw UV('EBADF', 'writeFile', this.vfs.path);
-		const encodedData = typeof data == 'string' ? Buffer.from(data, options.encoding!) : data;
-		await this.vfs.write(encodedData, 0, encodedData.length, 0);
+		const encodedData =
+			typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+		await this.vfs.write(encodedData, 0, encodedData.byteLength, 0);
 		this._emitChange();
 	}
 
@@ -696,14 +701,10 @@ export async function writeFile(
 	data: FileContents | Stream | Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView>,
 	_options?: (fs.ObjectEncodingOptions & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null,
 ): Promise<void> {
+	validateData(data);
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	await using handle = path instanceof FileHandle ? path : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
-
-	const _data = typeof data == 'string' ? data : data instanceof DataView ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : data;
-	if (typeof _data != 'string' && !(_data instanceof Uint8Array))
-		throw new TypeError('The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received ' + typeof data);
-
-	await handle.writeFile(_data, options);
+	await handle.writeFile(typeof data == 'string' ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength), options);
 }
 writeFile satisfies typeof promises.writeFile;
 
@@ -725,8 +726,7 @@ export async function appendFile(
 
 	if (!(flag & constants.O_APPEND)) throw UV('EBADF', $ex);
 
-	if (typeof data != 'string' && !ArrayBuffer.isView(data))
-		throw new TypeError('The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received ' + typeof data);
+	validateData(data);
 
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);

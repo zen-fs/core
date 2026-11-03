@@ -100,6 +100,20 @@ export function normalizePath(this: V_Context, p: fs.PathLike, noResolve: boolea
 }
 
 /**
+ * Throws Node's `ERR_INVALID_ARG_TYPE` unless `data` is a string or an `ArrayBufferView`.
+ * @internal @hidden
+ */
+export function validateData(data: unknown, name: string = 'data'): asserts data is string | ArrayBufferView {
+	if (typeof data == 'string' || ArrayBuffer.isView(data)) return;
+	throw Object.assign(
+		new TypeError(
+			`The "${name}" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received ${data === null ? 'null' : typeof data}`,
+		),
+		{ code: 'ERR_INVALID_ARG_TYPE' },
+	);
+}
+
+/**
  * Normalizes options
  * @param options options to normalize
  * @param encoding default encoding
