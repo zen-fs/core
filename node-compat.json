@@ -1,251 +1,1247 @@
 {
-	"#66939": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#66716": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#66340": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#66095": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#61233": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#65328": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#63886": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#64770": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#64698": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#61950": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#61108": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#59775": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#59681": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#58996": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#56918": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#57811": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#57103": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#55033": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#54653": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#54906": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#53982": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#53627": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#53062": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#52101": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#50090": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#49857": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#47768": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#45095": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#43204": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#43714": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#42910": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#42811": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#49849": { "status": "ignored", "note": "Native code only", "date": "2026-11-03" },
-	"#65489": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#65524": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#65487": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#65327": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#58461": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#58160": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#57725": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#53614": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#53667": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#51078": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#50100": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49884": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49846": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49868": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#50033": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49880": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49847": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49962": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#50131": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49859": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49864": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#50038": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#50032": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49898": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49856": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49705": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#49593": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#44295": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#48658": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#63915": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#53632": { "status": "ignored", "note": "Performance of the Node.js implementation", "date": "2026-11-03" },
-	"#61359": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#61361": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#58728": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#58418": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#58672": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#55998": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#55565": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#55553": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#55353": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#54644": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#54834": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#54369": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#53958": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#53617": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#53861": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#53630": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#53626": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#52135": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51344": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#52129": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#52051": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#52050": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51617": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51494": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51225": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51224": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51037": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51027": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51075": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#51063": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#50907": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#50769": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#50844": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#50448": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#50185": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#49913": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#49308": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#49298": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#48826": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#48526": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#48521": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#47650": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#46696": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#46008": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#45265": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#44767": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#44613": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#44278": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#43569": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#43159": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#43127": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#43073": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#49752": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#49691": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#50990": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#64571": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#62835": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#58236": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#47949": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#59156": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#53127": { "status": "ignored", "note": "Documentation only", "date": "2026-11-03" },
-	"#47654": { "status": "ignored", "note": "Documentation only", "date": "2026-11-03" },
-	"#44791": { "status": "ignored", "note": "Documentation only", "date": "2026-11-03" },
-	"#56549": { "status": "ignored", "note": "Deprecation warning; ZenFS does not emit deprecation warnings", "date": "2026-11-03" },
-	"#55753": { "status": "ignored", "note": "Deprecation warning; ZenFS does not emit deprecation warnings", "date": "2026-11-03" },
-	"#49686": { "status": "ignored", "note": "Deprecation warning; ZenFS does not emit deprecation warnings", "date": "2026-11-03" },
-	"#52067": { "status": "ignored", "note": "Deprecation warning; ZenFS does not emit deprecation warnings", "date": "2026-11-03" },
-	"#42607": { "status": "ignored", "note": "Deprecation warning; ZenFS does not emit deprecation warnings", "date": "2026-11-03" },
-	"#58536": { "status": "ignored", "note": "FileHandle close on GC; ZenFS never closes handles on GC", "date": "2026-11-03" },
-	"#65699": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#65486": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#65635": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#63095": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#63686": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#53452": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#52349": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#51406": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#45500": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#45501": { "status": "ignored", "note": "Node.js's recursive fs.watch implementation", "date": "2026-11-03" },
-	"#64453": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#65378": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#63851": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#64353": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#63709": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#59847": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#56110": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#55527": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#55171": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#54160": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#51032": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#42894": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#62654": { "status": "ignored", "note": "Windows only", "date": "2026-11-03" },
-	"#64817": { "status": "ignored", "note": "Case-insensitive platforms only; ZenFS paths are case-sensitive", "date": "2026-11-03" },
-	"#64227": { "status": "ignored", "note": "Reverted by #65387", "date": "2026-11-03" },
-	"#65387": { "status": "ignored", "note": "Revert of #64227", "date": "2026-11-03" },
-	"#53904": { "status": "ignored", "note": "Revert of #53627", "date": "2026-11-03" },
-	"#60789": { "status": "resolved", "note": "2.6.3 (0815ee1d)", "date": "2026-11-03" },
-	"#62277": { "status": "resolved", "note": "2.6.3 (0815ee1d)", "date": "2026-11-03" },
-	"#61178": { "status": "resolved", "note": "2.6.3 (315005a5)", "date": "2026-11-03" },
-	"#56996": { "status": "resolved", "note": "2.6.3 (315005a5)", "date": "2026-11-03" },
-	"#58897": { "status": "resolved", "note": "2.6.3 (3d75e2f2)", "date": "2026-11-03" },
-	"#58516": { "status": "resolved", "note": "2.4.0 (cf1ea9e6)", "date": "2026-11-03" },
-	"#58206": { "status": "resolved", "note": "1.5.1 (e45de25c)", "date": "2026-11-03" },
-	"#58692": { "status": "resolved", "note": "2.4.0 (4517dd83)", "date": "2026-11-03" },
-	"#51912": { "status": "resolved", "note": "1.6.0 (901467d3, 65551e65)", "date": "2026-11-03" },
-	"#47653": { "status": "resolved", "note": "1.6.0 (901467d3, 65551e65)", "date": "2026-11-03" },
-	"#52837": { "status": "resolved", "note": "1.6.0 (901467d3, 65551e65)", "date": "2026-11-03" },
-	"#53823": { "status": "resolved", "note": "1.6.0 (901467d3, 65551e65)", "date": "2026-11-03" },
-	"#56489": { "status": "resolved", "note": "2.2.0 (2ad96984)", "date": "2026-11-03" },
-	"#62695": { "status": "resolved", "note": "2.6.3 (a7559a9a)", "date": "2026-11-03" },
-	"#65435": { "status": "resolved", "note": "2.6.3 (a7559a9a)", "date": "2026-11-03" },
-	"#58182": { "status": "resolved", "note": "2.5.2 (cf7c84cd)", "date": "2026-11-03" },
-	"#50976": { "status": "resolved", "note": "0.12.6 (df1a1d9a)", "date": "2026-11-03" },
-	"#48518": { "status": "resolved", "note": "0.5.6 (abd077bd)", "date": "2026-11-03" },
-	"#46358": { "status": "resolved", "note": "0.5.6 (abd077bd)", "date": "2026-11-03" },
-	"#42590": { "status": "resolved", "note": "0.5.6 (abd077bd)", "date": "2026-11-03" },
-	"#43177": { "status": "resolved", "note": "0.0.1 (26dea1be)", "date": "2026-11-03" },
-	"#46933": { "status": "resolved", "note": "1.11.0 (93db9575): readableWebStream is always a byte stream", "date": "2026-11-03" },
-	"#55461": { "status": "resolved", "note": "1.11.0 (93db9575): readableWebStream is always a byte stream", "date": "2026-11-03" },
-	"#48698": { "status": "resolved", "note": "0.2.0 (584f5819); callback in <=2.8.3", "date": "2026-11-03" },
-	"#52708": { "status": "resolved", "note": "0.2.0 (87b5ece6)", "date": "2026-11-03" },
-	"#50908": { "status": "resolved", "note": "0.0.1 (28a26cbc): Stats dates are getters", "date": "2026-11-03" },
-	"#51050": { "status": "resolved", "note": "2.3.3 (0193b3e5): Dirent.path warns on access", "date": "2026-11-03" },
-	"#51087": { "status": "resolved", "note": "1.6.0 (fc834e87)", "date": "2026-11-03" },
-	"#55071": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#57420": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#61259": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#61012": { "status": "resolved", "note": "<=2.8.3: dot files excluded from wildcards in 2.9.0 (2f8515a5)", "date": "2026-11-03" },
-	"#50881": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#64895": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#55148": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#52348": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#51346": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#45439": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#61040": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#65888": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#63556": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#65540": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#65731": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#48828": { "status": "resolved", "note": "<=2.8.3", "date": "2026-11-03" },
-	"#58836": { "status": "resolved", "note": "<=2.8.3: _chown skips out-of-range ids", "date": "2026-11-03" },
-	"#55862": { "status": "resolved", "note": "<=2.8.3: these constants were never exposed", "date": "2026-11-03" },
-	"#58327": { "status": "resolved", "note": "<=2.8.3: these constants were never exposed", "date": "2026-11-03" },
-	"#58529": { "status": "resolved", "note": "<=2.8.3: streams have never had open(); a monkey-patched open() is not called", "date": "2026-11-03" },
-	"#58228": { "status": "resolved", "note": "<=2.8.3: read(cb) fixed in 2.9.0 (7d182d72)", "date": "2026-11-03" },
-	"#64124": { "status": "resolved", "note": "2.9.0 (fa595874)", "date": "2026-11-03" },
-	"#60946": { "status": "resolved", "note": "2.9.0 (fa595874)", "date": "2026-11-03" },
-	"#52603": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#49603": { "status": "ignored", "note": "Node.js internals, not exposed via the API", "date": "2026-11-03" },
-	"#49211": { "status": "ignored", "note": "Partial writes from the OS; ZenFS writes are never partial", "date": "2026-11-03" },
-	"#66308": { "status": "ignored", "note": "Native code only; analogous ZenFS bug fixed in 2.9.0 (c70e1b7c)", "date": "2026-11-03" },
-	"#45098": { "status": "resolved", "note": "0.18.0 (60094a6a); non-recursive watchers fixed in 2.9.0 (e9947531)", "date": "2026-11-03" },
-	"#50009": { "status": "resolved", "note": "<=2.8.3: handles are synced on close", "date": "2026-11-03" },
-	"#50095": { "status": "resolved", "note": "<=2.8.3: handles are synced on close", "date": "2026-11-03" },
-	"#50093": { "status": "resolved", "note": "<=2.8.3: handles are synced on close", "date": "2026-11-03" },
-	"#66125": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#62674": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#42835": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#42772": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#44769": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#61230": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#58856": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#58848": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#53776": { "status": "ignored", "note": "Argument validation only", "date": "2026-11-03" },
-	"#47199": { "status": "ignored", "note": "openAsBlob reads eagerly, so blobs are snapshots", "date": "2026-11-03" },
-	"#65521": { "status": "resolved", "note": "2.9.0 (5b6b2f74)", "date": "2026-11-03" },
-	"#49741": { "status": "resolved", "note": "2.9.0 (af47194d)", "date": "2026-11-03" },
-	"#57567": { "status": "resolved", "note": "2.9.0 (0d8b2368)", "date": "2026-11-03" },
-	"#42796": { "status": "resolved", "note": "2.9.0 (26f16653)", "date": "2026-11-03" },
-	"#56057": { "status": "resolved", "note": "2.9.0 (8d4dd71c)", "date": "2026-11-03" },
-	"#55548": { "status": "resolved", "note": "2.9.0 (011edc11)", "date": "2026-11-03" },
-	"#55547": { "status": "resolved", "note": "2.9.0 (011edc11)", "date": "2026-11-03" },
-	"#58616": { "status": "resolved", "note": "<=2.8.3: rmdir does not support options", "date": "2026-11-03" },
-	"#42601": { "status": "resolved", "note": "2.9.0 (2ea1010c)", "date": "2026-11-03" },
-	"#42768": { "status": "resolved", "note": "2.9.0 (42ef4c14)", "date": "2026-11-03" },
-	"#66483": { "status": "resolved", "note": "2.9.0 (d9589068)", "date": "2026-11-03" },
-	"#52178": { "status": "resolved", "note": "<=2.8.3: reads are clamped to inode.size", "date": "2026-11-03" },
-	"#45143": { "status": "resolved", "note": "2.9.0 (f0aec53e)", "date": "2026-11-03" },
-	"#44922": { "status": "resolved", "note": "2.9.0 (f0aec53e)", "date": "2026-11-03" },
-	"#65488": { "status": "resolved", "note": "2.9.0 (e2dce2a3)", "date": "2026-11-03" },
-	"#58476": { "status": "resolved", "note": "2.9.0 (0279b87f)", "date": "2026-11-03" },
-	"#66305": { "status": "resolved", "note": "2.9.0 (0bac764c)", "date": "2026-11-03" },
-	"#54732": { "status": "resolved", "note": "2.9.0 (b49b4d3a)", "date": "2026-11-03" },
-	"#47084": { "status": "resolved", "note": "2.9.0 (f2d5417b)", "date": "2026-11-03" },
-	"#53150": { "status": "resolved", "note": "2.9.0 (7558b5ec)", "date": "2026-11-03" }
+	"#66939": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#66716": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#66340": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#66095": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#61233": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#65328": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#63886": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#64770": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#64698": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#61950": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#61108": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#59775": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#59681": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#58996": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#56918": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#57811": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#57103": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#55033": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#54653": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#54906": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#53982": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#53627": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#53062": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#52101": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#50090": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#49857": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#47768": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#45095": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#43204": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#43714": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#42910": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#42811": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#49849": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-03"
+	},
+	"#65489": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#65524": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#65487": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#65327": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#58461": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#58160": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#57725": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#53614": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#53667": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#51078": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#50100": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49884": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49846": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49868": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#50033": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49880": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49847": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49962": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#50131": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49859": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49864": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#50038": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#50032": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49898": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49856": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49705": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#49593": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#44295": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#48658": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#63915": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#53632": {
+		"status": "ignored",
+		"note": "Performance of the Node.js implementation",
+		"date": "2026-11-03"
+	},
+	"#61359": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#61361": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#58728": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#58418": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#58672": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#55998": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#55565": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#55553": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#55353": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#54644": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#54834": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#54369": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#53958": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#53617": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#53861": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#53630": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#53626": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#52135": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51344": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#52129": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#52051": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#52050": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51617": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51494": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51225": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51224": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51037": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51027": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51075": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#51063": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#50907": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#50769": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#50844": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#50448": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#50185": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#49913": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#49308": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#49298": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#48826": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#48526": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#48521": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#47650": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#46696": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#46008": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#45265": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#44767": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#44613": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#44278": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#43569": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#43159": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#43127": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#43073": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#49752": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#49691": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#50990": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#64571": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#62835": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#58236": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#47949": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#59156": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#53127": {
+		"status": "ignored",
+		"note": "Documentation only",
+		"date": "2026-11-03"
+	},
+	"#47654": {
+		"status": "ignored",
+		"note": "Documentation only",
+		"date": "2026-11-03"
+	},
+	"#44791": {
+		"status": "ignored",
+		"note": "Documentation only",
+		"date": "2026-11-03"
+	},
+	"#56549": {
+		"status": "ignored",
+		"note": "Deprecation warning; ZenFS does not emit deprecation warnings",
+		"date": "2026-11-03"
+	},
+	"#55753": {
+		"status": "ignored",
+		"note": "Deprecation warning; ZenFS does not emit deprecation warnings",
+		"date": "2026-11-03"
+	},
+	"#49686": {
+		"status": "ignored",
+		"note": "Deprecation warning; ZenFS does not emit deprecation warnings",
+		"date": "2026-11-03"
+	},
+	"#52067": {
+		"status": "ignored",
+		"note": "Deprecation warning; ZenFS does not emit deprecation warnings",
+		"date": "2026-11-03"
+	},
+	"#42607": {
+		"status": "ignored",
+		"note": "Deprecation warning; ZenFS does not emit deprecation warnings",
+		"date": "2026-11-03"
+	},
+	"#58536": {
+		"status": "ignored",
+		"note": "FileHandle close on GC; ZenFS never closes handles on GC",
+		"date": "2026-11-03"
+	},
+	"#65699": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#65486": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#65635": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#63095": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#63686": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#53452": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#52349": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#51406": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#45500": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#45501": {
+		"status": "ignored",
+		"note": "Node.js's recursive fs.watch implementation",
+		"date": "2026-11-03"
+	},
+	"#64453": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#65378": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#63851": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#64353": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#63709": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#59847": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#56110": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#55527": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#55171": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#54160": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#51032": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#42894": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#62654": {
+		"status": "ignored",
+		"note": "Windows only",
+		"date": "2026-11-03"
+	},
+	"#64817": {
+		"status": "ignored",
+		"note": "Case-insensitive platforms only; ZenFS paths are case-sensitive",
+		"date": "2026-11-03"
+	},
+	"#64227": {
+		"status": "ignored",
+		"note": "Reverted by #65387",
+		"date": "2026-11-03"
+	},
+	"#65387": {
+		"status": "ignored",
+		"note": "Revert of #64227",
+		"date": "2026-11-03"
+	},
+	"#53904": {
+		"status": "ignored",
+		"note": "Revert of #53627",
+		"date": "2026-11-03"
+	},
+	"#60789": {
+		"status": "resolved",
+		"note": "2.6.3 (0815ee1d)",
+		"date": "2026-11-03"
+	},
+	"#62277": {
+		"status": "resolved",
+		"note": "2.6.3 (0815ee1d)",
+		"date": "2026-11-03"
+	},
+	"#61178": {
+		"status": "resolved",
+		"note": "2.6.3 (315005a5)",
+		"date": "2026-11-03"
+	},
+	"#56996": {
+		"status": "resolved",
+		"note": "2.6.3 (315005a5)",
+		"date": "2026-11-03"
+	},
+	"#58897": {
+		"status": "resolved",
+		"note": "2.6.3 (3d75e2f2)",
+		"date": "2026-11-03"
+	},
+	"#58516": {
+		"status": "resolved",
+		"note": "2.4.0 (cf1ea9e6)",
+		"date": "2026-11-03"
+	},
+	"#58206": {
+		"status": "resolved",
+		"note": "1.5.1 (e45de25c)",
+		"date": "2026-11-03"
+	},
+	"#58692": {
+		"status": "resolved",
+		"note": "2.4.0 (4517dd83)",
+		"date": "2026-11-03"
+	},
+	"#51912": {
+		"status": "resolved",
+		"note": "1.6.0 (901467d3, 65551e65)",
+		"date": "2026-11-03"
+	},
+	"#47653": {
+		"status": "resolved",
+		"note": "1.6.0 (901467d3, 65551e65)",
+		"date": "2026-11-03"
+	},
+	"#52837": {
+		"status": "resolved",
+		"note": "1.6.0 (901467d3, 65551e65)",
+		"date": "2026-11-03"
+	},
+	"#53823": {
+		"status": "resolved",
+		"note": "1.6.0 (901467d3, 65551e65)",
+		"date": "2026-11-03"
+	},
+	"#56489": {
+		"status": "resolved",
+		"note": "2.2.0 (2ad96984)",
+		"date": "2026-11-03"
+	},
+	"#62695": {
+		"status": "resolved",
+		"note": "2.6.3 (a7559a9a)",
+		"date": "2026-11-03"
+	},
+	"#65435": {
+		"status": "resolved",
+		"note": "2.6.3 (a7559a9a)",
+		"date": "2026-11-03"
+	},
+	"#58182": {
+		"status": "resolved",
+		"note": "2.5.2 (cf7c84cd)",
+		"date": "2026-11-03"
+	},
+	"#50976": {
+		"status": "resolved",
+		"note": "0.12.6 (df1a1d9a)",
+		"date": "2026-11-03"
+	},
+	"#48518": {
+		"status": "resolved",
+		"note": "0.5.6 (abd077bd)",
+		"date": "2026-11-03"
+	},
+	"#46358": {
+		"status": "resolved",
+		"note": "0.5.6 (abd077bd)",
+		"date": "2026-11-03"
+	},
+	"#42590": {
+		"status": "resolved",
+		"note": "0.5.6 (abd077bd)",
+		"date": "2026-11-03"
+	},
+	"#43177": {
+		"status": "resolved",
+		"note": "0.0.1 (26dea1be)",
+		"date": "2026-11-03"
+	},
+	"#46933": {
+		"status": "resolved",
+		"note": "1.11.0 (93db9575): readableWebStream is always a byte stream",
+		"date": "2026-11-03"
+	},
+	"#55461": {
+		"status": "resolved",
+		"note": "1.11.0 (93db9575): readableWebStream is always a byte stream",
+		"date": "2026-11-03"
+	},
+	"#48698": {
+		"status": "resolved",
+		"note": "0.2.0 (584f5819); callback in <=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#52708": {
+		"status": "resolved",
+		"note": "0.2.0 (87b5ece6)",
+		"date": "2026-11-03"
+	},
+	"#50908": {
+		"status": "resolved",
+		"note": "0.0.1 (28a26cbc): Stats dates are getters",
+		"date": "2026-11-03"
+	},
+	"#51050": {
+		"status": "resolved",
+		"note": "2.3.3 (0193b3e5): Dirent.path warns on access",
+		"date": "2026-11-03"
+	},
+	"#51087": {
+		"status": "resolved",
+		"note": "1.6.0 (fc834e87)",
+		"date": "2026-11-03"
+	},
+	"#55071": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#57420": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#61259": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#61012": {
+		"status": "resolved",
+		"note": "<=2.8.3: dot files excluded from wildcards in 2.9.0 (2f8515a5)",
+		"date": "2026-11-03"
+	},
+	"#50881": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#64895": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#55148": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#52348": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#51346": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#45439": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#61040": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#65888": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#63556": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#65540": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#65731": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#48828": {
+		"status": "resolved",
+		"note": "<=2.8.3",
+		"date": "2026-11-03"
+	},
+	"#58836": {
+		"status": "resolved",
+		"note": "<=2.8.3: _chown skips out-of-range ids",
+		"date": "2026-11-03"
+	},
+	"#55862": {
+		"status": "resolved",
+		"note": "<=2.8.3: these constants were never exposed",
+		"date": "2026-11-03"
+	},
+	"#58327": {
+		"status": "resolved",
+		"note": "<=2.8.3: these constants were never exposed",
+		"date": "2026-11-03"
+	},
+	"#58529": {
+		"status": "resolved",
+		"note": "<=2.8.3: streams have never had open(); a monkey-patched open() is not called",
+		"date": "2026-11-03"
+	},
+	"#58228": {
+		"status": "resolved",
+		"note": "<=2.8.3: read(cb) fixed in 2.9.0 (7d182d72)",
+		"date": "2026-11-03"
+	},
+	"#64124": {
+		"status": "resolved",
+		"note": "2.9.0 (fa595874)",
+		"date": "2026-11-03"
+	},
+	"#60946": {
+		"status": "resolved",
+		"note": "2.9.0 (fa595874)",
+		"date": "2026-11-03"
+	},
+	"#52603": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#49603": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-03"
+	},
+	"#49211": {
+		"status": "ignored",
+		"note": "Partial writes from the OS; ZenFS writes are never partial",
+		"date": "2026-11-03"
+	},
+	"#66308": {
+		"status": "ignored",
+		"note": "Native code only; analogous ZenFS bug fixed in 2.9.0 (c70e1b7c)",
+		"date": "2026-11-03"
+	},
+	"#45098": {
+		"status": "resolved",
+		"note": "0.18.0 (60094a6a); non-recursive watchers fixed in 2.9.0 (e9947531)",
+		"date": "2026-11-03"
+	},
+	"#50009": {
+		"status": "resolved",
+		"note": "<=2.8.3: handles are synced on close",
+		"date": "2026-11-03"
+	},
+	"#50095": {
+		"status": "resolved",
+		"note": "<=2.8.3: handles are synced on close",
+		"date": "2026-11-03"
+	},
+	"#50093": {
+		"status": "resolved",
+		"note": "<=2.8.3: handles are synced on close",
+		"date": "2026-11-03"
+	},
+	"#66125": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#62674": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#42835": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#42772": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#44769": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#61230": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#58856": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#58848": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#53776": {
+		"status": "ignored",
+		"note": "Argument validation only",
+		"date": "2026-11-03"
+	},
+	"#47199": {
+		"status": "ignored",
+		"note": "openAsBlob reads eagerly, so blobs are snapshots",
+		"date": "2026-11-03"
+	},
+	"#65521": {
+		"status": "resolved",
+		"note": "2.9.0 (5b6b2f74)",
+		"date": "2026-11-03"
+	},
+	"#49741": {
+		"status": "resolved",
+		"note": "2.9.0 (af47194d)",
+		"date": "2026-11-03"
+	},
+	"#57567": {
+		"status": "resolved",
+		"note": "2.9.0 (0d8b2368)",
+		"date": "2026-11-03"
+	},
+	"#42796": {
+		"status": "resolved",
+		"note": "2.9.0 (26f16653)",
+		"date": "2026-11-03"
+	},
+	"#56057": {
+		"status": "resolved",
+		"note": "2.9.0 (8d4dd71c)",
+		"date": "2026-11-03"
+	},
+	"#55548": {
+		"status": "resolved",
+		"note": "2.9.0 (011edc11)",
+		"date": "2026-11-03"
+	},
+	"#55547": {
+		"status": "resolved",
+		"note": "2.9.0 (011edc11)",
+		"date": "2026-11-03"
+	},
+	"#58616": {
+		"status": "resolved",
+		"note": "<=2.8.3: rmdir does not support options; options overload fixed in 2.9.0 (7362f961)",
+		"date": "2026-11-03"
+	},
+	"#42601": {
+		"status": "resolved",
+		"note": "2.9.0 (2ea1010c)",
+		"date": "2026-11-03"
+	},
+	"#42768": {
+		"status": "resolved",
+		"note": "2.9.0 (42ef4c14)",
+		"date": "2026-11-03"
+	},
+	"#66483": {
+		"status": "resolved",
+		"note": "2.9.0 (d9589068)",
+		"date": "2026-11-03"
+	},
+	"#52178": {
+		"status": "resolved",
+		"note": "<=2.8.3: reads are clamped to inode.size",
+		"date": "2026-11-03"
+	},
+	"#45143": {
+		"status": "resolved",
+		"note": "2.9.0 (f0aec53e)",
+		"date": "2026-11-03"
+	},
+	"#44922": {
+		"status": "resolved",
+		"note": "2.9.0 (f0aec53e)",
+		"date": "2026-11-03"
+	},
+	"#65488": {
+		"status": "resolved",
+		"note": "2.9.0 (e2dce2a3)",
+		"date": "2026-11-03"
+	},
+	"#58476": {
+		"status": "resolved",
+		"note": "2.9.0 (0279b87f)",
+		"date": "2026-11-03"
+	},
+	"#66305": {
+		"status": "resolved",
+		"note": "2.9.0 (0bac764c)",
+		"date": "2026-11-03"
+	},
+	"#54732": {
+		"status": "resolved",
+		"note": "2.9.0 (b49b4d3a)",
+		"date": "2026-11-03"
+	},
+	"#47084": {
+		"status": "resolved",
+		"note": "2.9.0 (f2d5417b)",
+		"date": "2026-11-03"
+	},
+	"#53150": {
+		"status": "resolved",
+		"note": "2.9.0 (7558b5ec)",
+		"date": "2026-11-03"
+	}
 }
