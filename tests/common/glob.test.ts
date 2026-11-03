@@ -220,6 +220,28 @@ await suite('promises.glob', () => {
 	});
 });
 
+suite('glob maxDepth', () => {
+	const depths = (results: string[]) => results.map(path => path.split('/').length);
+
+	test('globSync limits the depth of results', () => {
+		assert.deepEqual(fs.globSync('**', { cwd: '/glob', maxDepth: 0 }), []);
+		assert(depths(fs.globSync('**', { cwd: '/glob', maxDepth: 1 })).every(depth => depth == 1));
+		assert(fs.globSync('**', { cwd: '/glob', maxDepth: 2 }).includes('sub/d.txt'));
+		assert(!fs.globSync('**', { cwd: '/glob', maxDepth: 2 }).includes('sub/deep/f.txt'));
+	});
+
+	test('glob limits the depth of results', async () => {
+		const results = await Array.fromAsync(fs.promises.glob('**', { cwd: '/glob', maxDepth: 2 }));
+		assert(results.includes('sub/d.txt'));
+		assert(!results.includes('sub/deep/f.txt'));
+	});
+
+	test('maxDepth must be a non-negative integer', () => {
+		assert.throws(() => fs.globSync('**', { cwd: '/glob', maxDepth: -1 }), { code: 'ERR_OUT_OF_RANGE' });
+		assert.throws(() => fs.globSync('**', { cwd: '/glob', maxDepth: 1.5 }), { code: 'ERR_OUT_OF_RANGE' });
+	});
+});
+
 suite('glob on unreadable directories', () => {
 	fs.mkdirSync('/glob-restricted/locked', { recursive: true });
 	fs.writeFileSync('/glob-restricted/locked/hidden', '');

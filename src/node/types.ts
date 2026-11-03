@@ -38,3 +38,10 @@ type StreamStatics = Exclude<keyof typeof Stream, 'prototype'>;
 
 /** Helper union @hidden */
 export type GlobOptionsU = fs.GlobOptionsWithFileTypes | fs.GlobOptionsWithoutFileTypes | fs.GlobOptions;
+
+declare module 'node:fs' {
+	interface GlobOptions<T extends Dirent | string = Dirent | string> {
+		/** Maximum number of directory levels to traverse, where `cwd` has a depth of 0 */
+		maxDepth?: number | undefined;
+	}
+}

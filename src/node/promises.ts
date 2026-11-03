@@ -26,6 +26,7 @@ import {
 	_cpTypeMismatch,
 	_isNoEntry,
 	_tempDirName,
+	_validateMaxDepth,
 	normalizeMode,
 	normalizeOptions,
 	normalizePath,
@@ -1257,7 +1258,8 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt: 
 export function glob(this: V_Context, pattern: string | readonly string[], opt?: GlobOptionsU): NodeJS.AsyncIterator<Dirent | string> {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const $ = contextOf(this);
-	const { cwd = $.pwd, withFileTypes = false, exclude = () => false, followSymlinks = false } = opt || {};
+	const { cwd = $.pwd, withFileTypes = false, exclude = () => false, followSymlinks = false, maxDepth = Infinity } = opt || {};
+	_validateMaxDepth(maxDepth);
 
 	const base = resolve.call($, cwd instanceof URL ? cwd.pathname : cwd);
 	const normalizedPatterns = pattern.map(p => (p.startsWith('/') ? relative.call($, base, p) : p));
@@ -1285,7 +1287,8 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 		}
 	}
 
-	async function* recursiveList(dir: string): AsyncGenerator<string | Dirent> {
+	async function* recursiveList(dir: string, depth: number = 1): AsyncGenerator<string | Dirent> {
+		if (depth > maxDepth) return;
 		const entries = await readdir.call($, dir, { withFileTypes, encoding: 'utf8' }).catch(() => []);
 
 		for (const entry of entries as Entries) {
@@ -1295,7 +1298,7 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, relPath)) : exclude((withFileTypes ? entry : relPath) as any))
 				continue;
 
-			if (await shouldDescend(fullPath, relPath)) yield* recursiveList(fullPath);
+			if (depth < maxDepth && (await shouldDescend(fullPath, relPath))) yield* recursiveList(fullPath, depth + 1);
 
 			if (normalizedPatterns.some(pattern => matchesGlob(pattern, relPath))) {
 				yield withFileTypes ? entry : relPath;

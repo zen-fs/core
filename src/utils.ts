@@ -132,6 +132,18 @@ export function _cpTypeMismatch(source: string, destination: string, sourceIsDir
 }
 
 /**
+ * Throws Node's `ERR_OUT_OF_RANGE` unless `maxDepth` is `Infinity` or a non-negative integer.
+ * @internal @hidden
+ */
+export function _validateMaxDepth(maxDepth: number): void {
+	if (maxDepth === Infinity || (Number.isSafeInteger(maxDepth) && maxDepth >= 0)) return;
+	const requirement = Number.isInteger(maxDepth) ? '>= 0 && <= 9007199254740991' : 'an integer';
+	throw Object.assign(new RangeError(`The value of "options.maxDepth" is out of range. It must be ${requirement}. Received ${maxDepth}`), {
+		code: 'ERR_OUT_OF_RANGE',
+	});
+}
+
+/**
  * Normalizes options
  * @param options options to normalize
  * @param encoding default encoding

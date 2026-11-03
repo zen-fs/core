@@ -14,7 +14,17 @@ import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { assertRemovable, hasAccess, isDirectory } from '../internal/inode.js';
 import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
-import { _cpTypeMismatch, _isNoEntry, _tempDirName, normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateData } from '../utils.js';
+import {
+	_cpTypeMismatch,
+	_isNoEntry,
+	_tempDirName,
+	_validateMaxDepth,
+	normalizeMode,
+	normalizeOptions,
+	normalizePath,
+	normalizeTime,
+	validateData,
+} from '../utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
@@ -850,7 +860,8 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 export function globSync(this: V_Context, pattern: string | readonly string[], options: GlobOptionsU = {}): Dirent[] | string[] {
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const $ = contextOf(this);
-	const { cwd = $.pwd, withFileTypes = false, exclude = () => false, followSymlinks = false } = options;
+	const { cwd = $.pwd, withFileTypes = false, exclude = () => false, followSymlinks = false, maxDepth = Infinity } = options;
+	_validateMaxDepth(maxDepth);
 
 	const base = resolve.call($, cwd instanceof URL ? cwd.pathname : cwd);
 	const normalizedPatterns = pattern.map(p => (p.startsWith('/') ? relative.call($, base, p) : p));
@@ -879,7 +890,8 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 	}
 
 	const results: Dirent[] | string[] = [];
-	function recursiveList(dir: string) {
+	function recursiveList(dir: string, depth: number = 1) {
+		if (depth > maxDepth) return;
 		let entries;
 		try {
 			entries = readdirSync.call($, dir, { withFileTypes, encoding: 'utf8' });
@@ -894,7 +906,7 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, relPath)) : exclude((withFileTypes ? entry : relPath) as any))
 				continue;
 
-			if (shouldDescend(fullPath, relPath)) recursiveList(fullPath);
+			if (depth < maxDepth && shouldDescend(fullPath, relPath)) recursiveList(fullPath, depth + 1);
 
 			if (normalizedPatterns.some(pattern => matchesGlob(pattern, relPath))) {
 				results.push(withFileTypes ? entry : (relPath as any));
