@@ -69,6 +69,27 @@ suite('FileHandle.writer', () => {
 		await fh.close();
 	});
 
+	test('concurrent writes are applied in call order', async () => {
+		const fh = await promises.open('./writer-concurrent.txt', 'w+');
+		const w = fh.writer();
+		await Promise.all([w.write('aaa'), w.writev(['bbb', 'ccc']), w.write('ddd')]);
+		assert.equal(await w.end(), 12);
+		assert.equal(await fh.readFile('utf8'), 'aaabbbcccddd');
+		await fh.close();
+	});
+
+	test('queued writes are not started after the writer fails', async () => {
+		const fh = await promises.open('./writer-failed.txt', 'w+');
+		const w = fh.writer();
+		const first = w.write('aaa');
+		const second = w.write('bbb');
+		w.fail(new Error('failed'));
+		await assert.rejects(first);
+		await assert.rejects(second);
+		assert.equal(await fh.readFile('utf8'), '');
+		await fh.close();
+	});
+
 	test('limit rejects oversized writes', async () => {
 		const fh = await promises.open('./writer-limit.txt', 'w+');
 		const w = fh.writer({ limit: 4 });

@@ -497,6 +497,19 @@ export class FileHandle implements promises.FileHandle {
 		let written = 0;
 		// Tracks whether the writer has been ended or failed, so disposal and `autoClose` don't double-close.
 		let done = false;
+		let failed = false;
+		let queue: Promise<unknown> = Promise.resolve();
+
+		/** Runs `task` once every previously queued write has settled. */
+		function enqueue(task: () => Promise<void>, signal?: AbortSignal): Promise<void> {
+			const operation = queue.then(() => {
+				if (failed) throw UV('EBADF', 'write', handle.vfs.path);
+				signal?.throwIfAborted();
+				return task();
+			});
+			queue = operation.catch(() => {});
+			return operation;
+		}
 
 		async function finish(): Promise<void> {
 			if (done) return;
@@ -525,11 +538,13 @@ export class FileHandle implements promises.FileHandle {
 			},
 			async write(chunk, opts) {
 				opts?.signal?.throwIfAborted();
-				await writeChunk(chunk);
+				await enqueue(() => writeChunk(chunk), opts?.signal);
 			},
 			async writev(chunks, opts) {
 				opts?.signal?.throwIfAborted();
-				for (const chunk of chunks) await writeChunk(chunk);
+				await enqueue(async () => {
+					for (const chunk of chunks) await writeChunk(chunk);
+				}, opts?.signal);
 			},
 			writeSync() {
 				// Synchronous writes are not supported by the async handle.
@@ -539,6 +554,7 @@ export class FileHandle implements promises.FileHandle {
 				throw UV('ENOSYS', 'writevSync', handle.vfs.path);
 			},
 			async end() {
+				await queue;
 				await finish();
 				return written;
 			},
@@ -546,14 +562,17 @@ export class FileHandle implements promises.FileHandle {
 				throw UV('ENOSYS', 'endSync', handle.vfs.path);
 			},
 			fail() {
+				failed = true;
 				void finish();
 			},
 			[Symbol.dispose]() {
 				// `using w = fh.writer()` fails the writer unconditionally.
+				failed = true;
 				void finish();
 			},
 			async [Symbol.asyncDispose]() {
 				// `await using w = fh.writer()` only finishes if still open.
+				await queue;
 				await finish();
 			},
 		};
