@@ -79,6 +79,12 @@ export function normalizeTime(time: fs.TimeLike): number {
  * @todo clean this up and make it so `path.resolve` is only called when an explicit context is passed (i.e. `normalizePath(..., $)` to use `path.resolve`)
  */
 export function normalizePath(this: V_Context, p: fs.PathLike, noResolve: boolean = false): string {
+	if (typeof p == 'number')
+		throw Object.assign(
+			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+			new TypeError(`The "path" argument must be of type string or an instance of Buffer or URL. Received type number (${p})`),
+			{ code: 'ERR_INVALID_ARG_TYPE' },
+		);
 	if (p instanceof URL) {
 		if (p.protocol != 'file:') throw withErrno('EINVAL', 'URLs must use the file: protocol');
 		p = p.pathname;
