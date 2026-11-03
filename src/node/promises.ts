@@ -1161,6 +1161,8 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 	source = normalizePath.call(this, source);
 	destination = normalizePath.call(this, destination);
 
+	if (opts?.filter && !(await opts.filter(source, destination))) return;
+
 	const srcStats = await lstat.call<V_Context, [string], Promise<Stats>>(this, source); // Use lstat to follow symlinks if not dereferencing
 
 	if (opts?.errorOnExist && opts.force === false && (await exists.call(this, destination))) throw UV('EEXIST', 'cp', destination);
@@ -1177,9 +1179,6 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 			);
 
 			const _cp = async (dirent: Dirent) => {
-				if (opts.filter && !opts.filter(join(source, dirent.name), join(destination, dirent.name))) {
-					return; // Skip if the filter returns false
-				}
 				await cp.call(this, join(source, dirent.name), join(destination, dirent.name), opts);
 			};
 			await Promise.all(entries.map(_cp));

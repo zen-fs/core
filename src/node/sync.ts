@@ -774,6 +774,15 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 	source = normalizePath.call(this, source);
 	destination = normalizePath.call(this, destination);
 
+	if (opts?.filter) {
+		const shouldCopy: unknown = opts.filter(source, destination);
+		if (shouldCopy instanceof Promise)
+			throw Object.assign(new TypeError('Expected boolean to be returned from the "filter" function but got an instance of Promise.'), {
+				code: 'ERR_INVALID_RETURN_VALUE',
+			});
+		if (!shouldCopy) return;
+	}
+
 	const srcStats = lstatSync.call<V_Context, [fs.PathLike], Stats>(this, source); // Use lstat to follow symlinks if not dereferencing
 
 	if (opts?.errorOnExist && opts.force === false && existsSync.call(this, destination)) throw UV('EEXIST', 'cp', destination);
@@ -783,9 +792,6 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 			if (!opts?.recursive) throw UV('EISDIR', 'cp', source);
 			mkdirSync.call(this, destination, { recursive: true }); // Ensure the destination directory exists
 			for (const dirent of readdirSync.call<V_Context, [string, any], Dirent[]>(this, source, { withFileTypes: true })) {
-				if (opts.filter && !opts.filter(join(source, dirent.name), join(destination, dirent.name))) {
-					continue; // Skip if the filter returns false
-				}
 				cpSync.call(this, join(source, dirent.name), join(destination, dirent.name), opts);
 			}
 			break;
