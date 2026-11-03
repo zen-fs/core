@@ -850,7 +850,7 @@ link satisfies typeof promises.link;
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
 export async function symlink(this: V_Context, dest: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | string | null = 'file'): Promise<void> {
-	if (!['file', 'dir', 'junction'].includes(type!)) throw new TypeError('Invalid symlink type: ' + type);
+	if (type != null && !['file', 'dir', 'junction'].includes(type)) throw new TypeError('Invalid symlink type: ' + type);
 
 	path = normalizePath.call(this, path);
 

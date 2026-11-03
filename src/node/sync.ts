@@ -517,7 +517,7 @@ linkSync satisfies typeof fs.linkSync;
  * @param type can be either `'dir'` or `'file'` (default is `'file'`)
  */
 export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathLike, type: fs.symlink.Type | null = 'file'): void {
-	if (!['file', 'dir', 'junction'].includes(type!)) throw new TypeError('Invalid symlink type: ' + type);
+	if (type != null && !['file', 'dir', 'junction'].includes(type)) throw new TypeError('Invalid symlink type: ' + type);
 
 	path = normalizePath.call(this, path);
 
