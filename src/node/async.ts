@@ -440,7 +440,9 @@ export function readlink(
 	callback: Callback<[string]> | Callback<[Uint8Array]> = nop,
 ): void {
 	callback = typeof options == 'function' ? options : callback;
-	promises.readlink.call(this, path).then(result => (callback as Callback<[string | Uint8Array]>)(null, result), callback);
+	promises.readlink
+		.call(this, path, typeof options == 'function' ? null : options)
+		.then(result => (callback as Callback<[string | Uint8Array]>)(null, result), callback);
 }
 readlink satisfies Omit<typeof fs.readlink, '__promisify__'>;
 

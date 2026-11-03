@@ -536,8 +536,8 @@ export function symlinkSync(this: V_Context, target: fs.PathLike, path: fs.PathL
 }
 symlinkSync satisfies typeof fs.symlinkSync;
 
-export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.BufferEncodingOption): NonSharedBuffer;
-export function readlinkSync(this: V_Context, path: fs.PathLike, options: fs.EncodingOption | BufferEncoding): string;
+export function readlinkSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
+export function readlinkSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): NonSharedBuffer;
 export function readlinkSync(
 	this: V_Context,
 	path: fs.PathLike,
