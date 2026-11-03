@@ -22,10 +22,7 @@ const nop = () => {};
  * Asynchronous rename. No arguments other than a possible exception are given to the completion callback.
  */
 export function rename(this: V_Context, oldPath: fs.PathLike, newPath: fs.PathLike, cb: Callback = nop): void {
-	promises.rename
-		.call(this, oldPath, newPath)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.rename.call(this, oldPath, newPath).then(() => cb(null), cb);
 }
 rename satisfies Omit<typeof fs.rename, '__promisify__'>;
 
@@ -35,10 +32,7 @@ rename satisfies Omit<typeof fs.rename, '__promisify__'>;
  * According to Node.js: deprecated Use {@link stat} or {@link access} instead.
  */
 export function exists(this: V_Context, path: fs.PathLike, cb: (exists: boolean) => unknown = nop): void {
-	promises.exists
-		.call(this, path)
-		.then(cb)
-		.catch(() => cb(false));
+	promises.exists.call(this, path).then(cb, () => cb(false));
 }
 exists satisfies Omit<typeof fs.exists, '__promisify__'>;
 
@@ -67,8 +61,7 @@ export function stat(
 	callback = typeof options == 'function' ? options : callback;
 	promises.stat
 		.call(this, path, typeof options != 'function' ? options : {})
-		.then(stats => (callback as Callback<[Stats] | [BigIntStats]>)(null, stats as any))
-		.catch(callback);
+		.then(stats => (callback as Callback<[Stats] | [BigIntStats]>)(null, stats as any), callback);
 }
 stat satisfies Omit<typeof fs.stat, '__promisify__'>;
 
@@ -90,8 +83,7 @@ export function lstat(
 	callback = typeof options == 'function' ? options : callback;
 	promises.lstat
 		.call<V_Context, [fs.PathLike, fs.StatOptions?], Promise<Stats>>(this, path, typeof options != 'function' ? options : {})
-		.then(stats => (callback as Callback<[Stats] | [BigIntStats]>)(null, stats))
-		.catch(callback);
+		.then(stats => (callback as Callback<[Stats] | [BigIntStats]>)(null, stats), callback);
 }
 lstat satisfies Omit<typeof fs.lstat, '__promisify__'>;
 
@@ -100,18 +92,12 @@ export function truncate(this: V_Context, path: fs.PathLike, len: number, cb?: C
 export function truncate(this: V_Context, path: fs.PathLike, cbLen: number | Callback = 0, cb: Callback = nop): void {
 	cb = typeof cbLen === 'function' ? cbLen : cb;
 	const len = typeof cbLen === 'number' ? cbLen : 0;
-	promises.truncate
-		.call(this, path, len)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.truncate.call(this, path, len).then(() => cb(null), cb);
 }
 truncate satisfies Omit<typeof fs.truncate, '__promisify__'>;
 
 export function unlink(this: V_Context, path: fs.PathLike, cb: Callback = nop): void {
-	promises.unlink
-		.call(this, path)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.unlink.call(this, path).then(() => cb(null), cb);
 }
 unlink satisfies Omit<typeof fs.unlink, '__promisify__'>;
 
@@ -134,10 +120,7 @@ export function open(
 ): void {
 	const mode = normalizeMode(cbMode, 0o644);
 	cb = typeof cbMode === 'function' ? cbMode : cb;
-	promises.open
-		.call(this, path, flag, mode)
-		.then(handle => cb(null, handle.fd))
-		.catch(cb);
+	promises.open.call(this, path, flag, mode).then(handle => cb(null, handle.fd), cb);
 }
 open satisfies Omit<typeof fs.open, '__promisify__'>;
 
@@ -165,8 +148,7 @@ export function readFile(
 
 	promises.readFile
 		.call(this, filename, typeof options === 'function' ? null : options)
-		.then(data => (cb as Callback<[string | Uint8Array]>)(null, data))
-		.catch(cb);
+		.then(data => (cb as Callback<[string | Uint8Array]>)(null, data), cb);
 }
 readFile satisfies Omit<typeof fs.readFile, '__promisify__'>;
 
@@ -191,10 +173,7 @@ export function writeFile(
 	cb: Callback = nop,
 ): void {
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
-	promises.writeFile
-		.call(this, filename, data, typeof cbEncOpts != 'function' ? cbEncOpts : null)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.writeFile.call(this, filename, data, typeof cbEncOpts != 'function' ? cbEncOpts : null).then(() => cb(null), cb);
 }
 writeFile satisfies Omit<typeof fs.writeFile, '__promisify__'>;
 
@@ -224,10 +203,7 @@ export function appendFile(
 ): void {
 	const optionsOrEncoding = typeof cbEncOpts != 'function' ? cbEncOpts : undefined;
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
-	promises.appendFile
-		.call(this, filename, data, optionsOrEncoding)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.appendFile.call(this, filename, data, optionsOrEncoding).then(() => cb(null), cb);
 }
 appendFile satisfies Omit<typeof fs.appendFile, '__promisify__'>;
 
@@ -248,16 +224,15 @@ export function fstat(
 
 	new promises.FileHandle(this, fd)
 		.stat()
-		.then(stats => (cb as Callback<[Stats | BigIntStats]>)(null, typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : stats))
-		.catch(cb);
+		.then(
+			stats => (cb as Callback<[Stats | BigIntStats]>)(null, typeof options == 'object' && options?.bigint ? new BigIntStats(stats) : stats),
+			cb,
+		);
 }
 fstat satisfies Omit<typeof fs.fstat, '__promisify__'>;
 
 export function close(this: V_Context, fd: number, cb: Callback = nop): void {
-	new promises.FileHandle(this, fd)
-		.close()
-		.then(() => cb(null))
-		.catch(cb);
+	new promises.FileHandle(this, fd).close().then(() => cb(null), cb);
 }
 close satisfies Omit<typeof fs.close, '__promisify__'>;
 
@@ -268,25 +243,17 @@ export function ftruncate(this: V_Context, fd: number, lenOrCB?: number | Callba
 	cb = typeof lenOrCB === 'function' ? lenOrCB : cb;
 	const file = new promises.FileHandle(this, fd);
 	if (length < 0) throw withErrno('EINVAL');
-	file.truncate(length)
-		.then(() => cb(null))
-		.catch(cb);
+	file.truncate(length).then(() => cb(null), cb);
 }
 ftruncate satisfies Omit<typeof fs.ftruncate, '__promisify__'>;
 
 export function fsync(this: V_Context, fd: number, cb: Callback = nop): void {
-	new promises.FileHandle(this, fd)
-		.sync()
-		.then(() => cb(null))
-		.catch(cb);
+	new promises.FileHandle(this, fd).sync().then(() => cb(null), cb);
 }
 fsync satisfies Omit<typeof fs.fsync, '__promisify__'>;
 
 export function fdatasync(this: V_Context, fd: number, cb: Callback = nop): void {
-	new promises.FileHandle(this, fd)
-		.datasync()
-		.then(() => cb(null))
-		.catch(cb);
+	new promises.FileHandle(this, fd).datasync().then(() => cb(null), cb);
 }
 fdatasync satisfies Omit<typeof fs.fdatasync, '__promisify__'>;
 
@@ -357,10 +324,7 @@ export function write(
 		position = typeof cbPosEnc === 'number' ? cbPosEnc : null;
 	}
 
-	handle
-		.write(buffer, offset, length, position)
-		.then(({ bytesWritten }) => _cb(null, bytesWritten, data))
-		.catch(_cb);
+	handle.write(buffer, offset, length, position).then(({ bytesWritten }) => _cb(null, bytesWritten, data), _cb);
 }
 write satisfies Omit<typeof fs.write, '__promisify__'>;
 
@@ -386,24 +350,17 @@ export function read(this: V_Context, fd: number, ...args: unknown[]): void {
 	const cb = (typeof args.at(-1) == 'function' ? args.pop() : nop) as Callback<[number, NodeJS.ArrayBufferView]>;
 	new promises.FileHandle(this, fd)
 		.read(...(args as [NodeJS.ArrayBufferView, number?, number?, number?]))
-		.then(({ bytesRead, buffer }) => cb(null, bytesRead, buffer))
-		.catch(cb);
+		.then(({ bytesRead, buffer }) => cb(null, bytesRead, buffer), cb);
 }
 read satisfies Omit<typeof fs.read, '__promisify__'>;
 
 export function fchown(this: V_Context, fd: number, uid: number, gid: number, cb: Callback = nop): void {
-	new promises.FileHandle(this, fd)
-		.chown(uid, gid)
-		.then(() => cb(null))
-		.catch(cb);
+	new promises.FileHandle(this, fd).chown(uid, gid).then(() => cb(null), cb);
 }
 fchown satisfies Omit<typeof fs.fchown, '__promisify__'>;
 
 export function fchmod(this: V_Context, fd: number, mode: string | number, cb: Callback): void {
-	new promises.FileHandle(this, fd)
-		.chmod(mode)
-		.then(() => cb(null))
-		.catch(cb);
+	new promises.FileHandle(this, fd).chmod(mode).then(() => cb(null), cb);
 }
 fchmod satisfies Omit<typeof fs.fchmod, '__promisify__'>;
 
@@ -411,18 +368,12 @@ fchmod satisfies Omit<typeof fs.fchmod, '__promisify__'>;
  * Change the file timestamps of a file referenced by the supplied file descriptor.
  */
 export function futimes(this: V_Context, fd: number, atime: number | Date, mtime: number | Date, cb: Callback = nop): void {
-	new promises.FileHandle(this, fd)
-		.utimes(atime, mtime)
-		.then(() => cb(null))
-		.catch(cb);
+	new promises.FileHandle(this, fd).utimes(atime, mtime).then(() => cb(null), cb);
 }
 futimes satisfies Omit<typeof fs.futimes, '__promisify__'>;
 
 export function rmdir(this: V_Context, path: fs.PathLike, cb: Callback = nop): void {
-	promises.rmdir
-		.call(this, path)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.rmdir.call(this, path).then(() => cb(null), cb);
 }
 rmdir satisfies Omit<typeof fs.rmdir, '__promisify__'>;
 
@@ -431,10 +382,7 @@ rmdir satisfies Omit<typeof fs.rmdir, '__promisify__'>;
  * @param mode defaults to `0777`
  */
 export function mkdir(this: V_Context, path: fs.PathLike, mode?: fs.Mode, cb: Callback = nop): void {
-	promises.mkdir
-		.call(this, path, mode)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.mkdir.call(this, path, mode).then(() => cb(null), cb);
 }
 mkdir satisfies Omit<typeof fs.mkdir, '__promisify__'>;
 
@@ -457,16 +405,12 @@ export function readdir(
 	promises.readdir
 		.call(this, path, options as object)
 
-		.then(entries => cb(null, entries as any))
-		.catch(cb);
+		.then(entries => cb(null, entries as any), cb);
 }
 readdir satisfies Omit<typeof fs.readdir, '__promisify__'>;
 
 export function link(this: V_Context, existing: fs.PathLike, newpath: fs.PathLike, cb: Callback = nop): void {
-	promises.link
-		.call(this, existing, newpath)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.link.call(this, existing, newpath).then(() => cb(null), cb);
 }
 link satisfies Omit<typeof fs.link, '__promisify__'>;
 
@@ -481,10 +425,7 @@ export function symlink(this: V_Context, target: fs.PathLike, path: fs.PathLike,
 export function symlink(this: V_Context, target: fs.PathLike, path: fs.PathLike, typeOrCB?: fs.symlink.Type | Callback, cb: Callback = nop): void {
 	const type = typeof typeOrCB === 'string' ? typeOrCB : 'file';
 	cb = typeof typeOrCB === 'function' ? typeOrCB : cb;
-	promises.symlink
-		.call(this, target, path, type)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.symlink.call(this, target, path, type).then(() => cb(null), cb);
 }
 symlink satisfies Omit<typeof fs.symlink, '__promisify__'>;
 
@@ -499,42 +440,27 @@ export function readlink(
 	callback: Callback<[string]> | Callback<[Uint8Array]> = nop,
 ): void {
 	callback = typeof options == 'function' ? options : callback;
-	promises.readlink
-		.call(this, path)
-		.then(result => (callback as Callback<[string | Uint8Array]>)(null, result))
-		.catch(callback);
+	promises.readlink.call(this, path).then(result => (callback as Callback<[string | Uint8Array]>)(null, result), callback);
 }
 readlink satisfies Omit<typeof fs.readlink, '__promisify__'>;
 
 export function chown(this: V_Context, path: fs.PathLike, uid: number, gid: number, cb: Callback = nop): void {
-	promises.chown
-		.call(this, path, uid, gid)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.chown.call(this, path, uid, gid).then(() => cb(null), cb);
 }
 chown satisfies Omit<typeof fs.chown, '__promisify__'>;
 
 export function lchown(this: V_Context, path: fs.PathLike, uid: number, gid: number, cb: Callback = nop): void {
-	promises.lchown
-		.call(this, path, uid, gid)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.lchown.call(this, path, uid, gid).then(() => cb(null), cb);
 }
 lchown satisfies Omit<typeof fs.lchown, '__promisify__'>;
 
 export function chmod(this: V_Context, path: fs.PathLike, mode: number | string, cb: Callback = nop): void {
-	promises.chmod
-		.call(this, path, mode)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.chmod.call(this, path, mode).then(() => cb(null), cb);
 }
 chmod satisfies Omit<typeof fs.chmod, '__promisify__'>;
 
 export function lchmod(this: V_Context, path: fs.PathLike, mode: number | string, cb: Callback = nop): void {
-	promises.lchmod
-		.call(this, path, mode)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.lchmod.call(this, path, mode).then(() => cb(null), cb);
 }
 lchmod satisfies Omit<typeof fs.lchmod, '__promisify__'>;
 
@@ -542,10 +468,7 @@ lchmod satisfies Omit<typeof fs.lchmod, '__promisify__'>;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export function utimes(this: V_Context, path: fs.PathLike, atime: number | Date, mtime: number | Date, cb: Callback = nop): void {
-	promises.utimes
-		.call(this, path, atime, mtime)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.utimes.call(this, path, atime, mtime).then(() => cb(null), cb);
 }
 utimes satisfies Omit<typeof fs.utimes, '__promisify__'>;
 
@@ -553,10 +476,7 @@ utimes satisfies Omit<typeof fs.utimes, '__promisify__'>;
  * Change file timestamps of the file referenced by the supplied path.
  */
 export function lutimes(this: V_Context, path: fs.PathLike, atime: number | Date, mtime: number | Date, cb: Callback = nop): void {
-	promises.lutimes
-		.call(this, path, atime, mtime)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.lutimes.call(this, path, atime, mtime).then(() => cb(null), cb);
 }
 lutimes satisfies Omit<typeof fs.lutimes, '__promisify__'>;
 
@@ -568,10 +488,7 @@ export function realpath(this: V_Context, path: fs.PathLike, cb?: Callback<[stri
 export function realpath(this: V_Context, path: fs.PathLike, options: fs.EncodingOption, cb: Callback<[string]>): void;
 export function realpath(this: V_Context, path: fs.PathLike, arg2?: Callback<[string]> | fs.EncodingOption, cb: Callback<[string]> = nop): void {
 	cb = typeof arg2 === 'function' ? arg2 : cb;
-	promises.realpath
-		.call(this, path, typeof arg2 === 'function' ? null : arg2)
-		.then(result => cb(null, result))
-		.catch(cb);
+	promises.realpath.call(this, path, typeof arg2 === 'function' ? null : arg2).then(result => cb(null, result), cb);
 }
 realpath satisfies Omit<typeof fs.realpath, '__promisify__' | 'native'>;
 
@@ -580,10 +497,7 @@ export function access(this: V_Context, path: fs.PathLike, mode: number, cb: Cal
 export function access(this: V_Context, path: fs.PathLike, cbMode: number | Callback, cb: Callback = nop): void {
 	const mode = typeof cbMode === 'number' ? cbMode : R_OK;
 	cb = typeof cbMode === 'function' ? cbMode : cb;
-	promises.access
-		.call(this, path, mode)
-		.then(() => cb(null))
-		.catch(cb);
+	promises.access.call(this, path, mode).then(() => cb(null), cb);
 }
 access satisfies Omit<typeof fs.access, '__promisify__'>;
 
@@ -726,10 +640,7 @@ export function rm(this: V_Context, path: fs.PathLike, callback: Callback): void
 export function rm(this: V_Context, path: fs.PathLike, options: fs.RmOptions, callback: Callback): void;
 export function rm(this: V_Context, path: fs.PathLike, options: fs.RmOptions | Callback, callback: Callback = nop): void {
 	callback = typeof options === 'function' ? options : callback;
-	promises.rm
-		.call(this, path, typeof options === 'function' ? undefined : options)
-		.then(() => callback(null))
-		.catch(callback);
+	promises.rm.call(this, path, typeof options === 'function' ? undefined : options).then(() => callback(null), callback);
 }
 rm satisfies Omit<typeof fs.rm, '__promisify__'>;
 
@@ -753,8 +664,7 @@ export function mkdtemp(
 			prefix,
 			typeof options != 'function' ? (options as fs.EncodingOption) : null,
 		)
-		.then(result => (callback as Callback<[string | Buffer]>)(null, result))
-		.catch(callback);
+		.then(result => (callback as Callback<[string | Buffer]>)(null, result), callback);
 }
 mkdtemp satisfies Omit<typeof fs.mkdtemp, '__promisify__'>;
 
@@ -762,10 +672,7 @@ export function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathLike, c
 export function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathLike, flags: number, callback: Callback): void;
 export function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathLike, flags: number | Callback, callback: Callback = nop): void {
 	callback = typeof flags === 'function' ? flags : callback;
-	promises.copyFile
-		.call(this, src, dest, typeof flags === 'function' ? undefined : flags)
-		.then(() => callback(null))
-		.catch(callback);
+	promises.copyFile.call(this, src, dest, typeof flags === 'function' ? undefined : flags).then(() => callback(null), callback);
 }
 copyFile satisfies Omit<typeof fs.copyFile, '__promisify__'>;
 
@@ -777,8 +684,7 @@ export function readv(this: V_Context, fd: number, buffers: NodeJS.ArrayBufferVi
 	cb = typeof position === 'function' ? position : cb;
 	new promises.FileHandle(this, fd)
 		.readv(buffers, typeof position === 'function' ? undefined : position)
-		.then(({ buffers, bytesRead }) => cb(null, bytesRead, buffers))
-		.catch(cb);
+		.then(({ buffers, bytesRead }) => cb(null, bytesRead, buffers), cb);
 }
 readv satisfies Omit<typeof fs.readv, '__promisify__'>;
 
@@ -790,8 +696,7 @@ export function writev(this: V_Context, fd: number, buffers: Uint8Array[], posit
 	cb = typeof position === 'function' ? position : cb;
 	new promises.FileHandle(this, fd)
 		.writev(buffers, typeof position === 'function' ? undefined : position)
-		.then(({ buffers, bytesWritten }) => cb(null, bytesWritten, buffers))
-		.catch(cb);
+		.then(({ buffers, bytesWritten }) => cb(null, bytesWritten, buffers), cb);
 }
 writev satisfies Omit<typeof fs.writev, '__promisify__'>;
 
@@ -799,10 +704,7 @@ export function opendir(this: V_Context, path: fs.PathLike, cb: Callback<[Dir]>)
 export function opendir(this: V_Context, path: fs.PathLike, options: fs.OpenDirOptions, cb: Callback<[Dir]>): void;
 export function opendir(this: V_Context, path: fs.PathLike, options: fs.OpenDirOptions | Callback<[Dir]>, cb: Callback<[Dir]> = nop): void {
 	cb = typeof options === 'function' ? options : cb;
-	promises.opendir
-		.call(this, path, typeof options === 'function' ? undefined : options)
-		.then(result => cb(null, result))
-		.catch(cb);
+	promises.opendir.call(this, path, typeof options === 'function' ? undefined : options).then(result => cb(null, result), cb);
 }
 opendir satisfies Omit<typeof fs.opendir, '__promisify__'>;
 
@@ -810,10 +712,7 @@ export function cp(this: V_Context, source: fs.PathLike, destination: fs.PathLik
 export function cp(this: V_Context, source: fs.PathLike, destination: fs.PathLike, opts: fs.CopyOptions, callback: Callback): void;
 export function cp(this: V_Context, source: fs.PathLike, destination: fs.PathLike, opts: fs.CopyOptions | Callback, callback: Callback = nop): void {
 	callback = typeof opts === 'function' ? opts : callback;
-	promises.cp
-		.call(this, source, destination, typeof opts === 'function' ? undefined : opts)
-		.then(() => callback(null))
-		.catch(callback);
+	promises.cp.call(this, source, destination, typeof opts === 'function' ? undefined : opts).then(() => callback(null), callback);
 }
 cp satisfies Omit<typeof fs.cp, '__promisify__'>;
 
@@ -834,8 +733,7 @@ export function statfs(
 	callback = typeof options === 'function' ? options : callback;
 	promises.statfs
 		.call(this, path, typeof options === 'function' ? undefined : options)
-		.then(result => (callback as Callback<[fs.StatsFs | fs.BigIntStatsFs]>)(null, result))
-		.catch(callback);
+		.then(result => (callback as Callback<[fs.StatsFs | fs.BigIntStatsFs]>)(null, result), callback);
 }
 statfs satisfies Omit<typeof fs.statfs, '__promisify__'>;
 
@@ -884,8 +782,9 @@ export function glob(
 		pattern,
 		typeof options === 'function' ? undefined : options,
 	);
-	Array.fromAsync(it)
-		.then(results => callback(null, (results as any) ?? []))
-		.catch((e: Exception) => callback(e));
+	Array.fromAsync(it).then(
+		results => callback(null, (results as any) ?? []),
+		(e: Exception) => callback(e),
+	);
 }
 glob satisfies typeof fs.glob;
