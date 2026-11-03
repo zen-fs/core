@@ -868,14 +868,24 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 	function shouldDescend(path: string, relativePath: string): boolean {
 		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
 		const inScope = hasGlobStar || isNamed;
-		const stats = lstatSync.call<V_Context, [string], Stats>($, path);
-		if (!stats.isSymbolicLink()) return inScope && stats.isDirectory();
-		return inScope && (followSymlinks || isNamed) && !!statSync.call($, path, { throwIfNoEntry: false })?.isDirectory();
+		if (!inScope) return false;
+		try {
+			const stats = lstatSync.call<V_Context, [string], Stats>($, path);
+			if (!stats.isSymbolicLink()) return stats.isDirectory();
+			return (followSymlinks || isNamed) && statSync.call<V_Context, [string], Stats>($, path).isDirectory();
+		} catch {
+			return false;
+		}
 	}
 
 	const results: Dirent[] | string[] = [];
 	function recursiveList(dir: string) {
-		const entries = readdirSync.call($, dir, { withFileTypes, encoding: 'utf8' });
+		let entries;
+		try {
+			entries = readdirSync.call($, dir, { withFileTypes, encoding: 'utf8' });
+		} catch {
+			return;
+		}
 
 		for (const entry of entries as Entries) {
 			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));

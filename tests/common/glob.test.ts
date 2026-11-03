@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
+import { bindContext } from '@zenfs/core';
 import { fs } from '@zenfs/devel/tests/common';
 
 // Set up a directory structure for glob tests
@@ -216,5 +217,22 @@ await suite('promises.glob', () => {
 	test('dangling symlinks do not throw', async () => {
 		const results = await Array.fromAsync(fs.promises.glob('/glob/**', { followSymlinks: true }));
 		assert(results.includes('glob/dangling'));
+	});
+});
+
+suite('glob on unreadable directories', () => {
+	fs.mkdirSync('/glob-restricted/locked', { recursive: true });
+	fs.writeFileSync('/glob-restricted/locked/hidden', '');
+	fs.writeFileSync('/glob-restricted/visible', '');
+	fs.chmodSync('/glob-restricted/locked', 0);
+
+	const user = bindContext({ credentials: { uid: 1000, gid: 1000 } });
+
+	test('globSync skips them', () => {
+		assert.deepEqual(user.fs.globSync('**', { cwd: '/glob-restricted' }).sort(), ['locked', 'visible']);
+	});
+
+	test('glob skips them', async () => {
+		assert.deepEqual((await Array.fromAsync(user.fs.promises.glob('**', { cwd: '/glob-restricted' }))).sort(), ['locked', 'visible']);
 	});
 });
