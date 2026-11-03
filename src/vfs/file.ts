@@ -190,7 +190,7 @@ export class Handle {
 			this.inode.atimeMs = Date.now();
 		}
 
-		const start = position ?? this.position;
+		const start = position ?? this._position;
 		let end = start + length;
 		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
 			end = start + Math.max(this.inode.size - start, 0);
@@ -348,7 +348,7 @@ export class Handle {
 			this.inode.atimeMs = Date.now();
 		}
 
-		const start = position ?? this.position;
+		const start = position ?? this._position;
 		let end = start + length;
 		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
 			end = start + Math.max(this.inode.size - start, 0);

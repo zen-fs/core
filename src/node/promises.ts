@@ -263,8 +263,8 @@ export class FileHandle implements promises.FileHandle {
 
 		const { size } = await this.stat();
 		const data = new Uint8Array(size);
-		await this.vfs.read(data, 0, size, 0);
-		const buffer = Buffer.from(data);
+		const bytesRead = await this.vfs.read(data, 0, size, null);
+		const buffer = Buffer.from(data.buffer, 0, bytesRead);
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}
 
@@ -370,8 +370,7 @@ export class FileHandle implements promises.FileHandle {
 		if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) throw UV('EBADF', 'writeFile', this.vfs.path);
 		const encodedData =
 			typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-		await this.vfs.write(encodedData, 0, encodedData.byteLength, 0);
-		this.vfs.position = encodedData.byteLength;
+		await this.vfs.write(encodedData, 0, encodedData.byteLength);
 		this._emitChange();
 	}
 
@@ -708,8 +707,8 @@ export async function readFile(
 	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null,
 ): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', 0o444);
-	await using handle: FileHandle =
-		typeof path == 'object' && 'fd' in path ? (path as FileHandle) : await open.call(this, path, options.flag, options.mode);
+	await using opened = typeof path == 'object' && 'fd' in path ? undefined : await open.call(this, path, options.flag, options.mode);
+	const handle = opened ?? (path as FileHandle);
 	return await handle.readFile(options);
 }
 readFile satisfies typeof promises.readFile;
@@ -730,7 +729,8 @@ export async function writeFile(
 ): Promise<void> {
 	validateData(data);
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
-	await using handle = path instanceof FileHandle ? path : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
+	await using opened = path instanceof FileHandle ? undefined : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
+	const handle = opened ?? (path as FileHandle);
 	await handle.writeFile(typeof data == 'string' ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength), options);
 }
 writeFile satisfies typeof promises.writeFile;
@@ -757,8 +757,8 @@ export async function appendFile(
 
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-	await using handle: FileHandle | promises.FileHandle =
-		typeof path == 'object' && 'fd' in path ? path : await open.call(this, path as string, options.flag, options.mode);
+	await using opened = typeof path == 'object' && 'fd' in path ? undefined : await open.call(this, path as string, options.flag, options.mode);
+	const handle = opened ?? (path as promises.FileHandle);
 
 	await handle.appendFile(encodedData, options);
 }

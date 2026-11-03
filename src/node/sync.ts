@@ -196,15 +196,14 @@ export function readFileSync(
 	const flag = flags.parse(options.flag);
 	if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', path.toString());
 
-	using file =
-		typeof path == 'number'
-			? fromFD(this, path)
-			: _sync.open(this, path.toString(), { flag: options.flag, mode: 0o644, preserveSymlinks: false });
+	using opened =
+		typeof path == 'number' ? undefined : _sync.open(this, path.toString(), { flag: options.flag, mode: 0o644, preserveSymlinks: false });
+	const file = opened ?? fromFD(this, path as number);
 	const { size } = file.stat();
 
 	const into = typeof _options == 'object' && _options !== null ? _options.buffer : undefined;
-	const data = into === undefined ? Buffer.alloc(size) : intoBuffer(into, size);
-	file.readSync(data, 0, size, 0);
+	const buffer = into === undefined ? Buffer.alloc(size) : intoBuffer(into, size);
+	const data = buffer.subarray(0, file.readSync(buffer, 0, size, null));
 
 	return options.encoding ? data.toString(options.encoding) : data;
 }
@@ -237,16 +236,10 @@ export function writeFileSync(
 	if (!encodedData) {
 		throw new Exception(Errno.EINVAL, 'Data not specified');
 	}
-	using file =
-		typeof path == 'number'
-			? fromFD(this, path)
-			: _sync.open(this, path.toString(), {
-					flag,
-					mode: options.mode,
-				});
-	file.writeSync(encodedData, 0, encodedData.byteLength, 0);
-	file.position = encodedData.byteLength;
-	emitChange(this, 'change', path.toString());
+	using opened = typeof path == 'number' ? undefined : _sync.open(this, path.toString(), { flag, mode: options.mode });
+	const file = opened ?? fromFD(this, path as number);
+	file.writeSync(encodedData, 0, encodedData.byteLength);
+	emitChange(this, 'change', file.path);
 }
 writeFileSync satisfies typeof fs.writeFileSync;
 
@@ -266,15 +259,10 @@ export function appendFileSync(this: V_Context, filename: fs.PathOrFileDescripto
 	const encodedData =
 		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 
-	const file =
-		typeof filename == 'number'
-			? fromFD(this, filename)
-			: _sync.open(this, normalizePath.call(this, filename), {
-					flag,
-					mode: options.mode,
-				});
+	using opened = typeof filename == 'number' ? undefined : _sync.open(this, normalizePath.call(this, filename), { flag, mode: options.mode });
+	const file = opened ?? fromFD(this, filename as number);
 	file.writeSync(encodedData, 0, encodedData.byteLength);
-	if (typeof file != 'number') file.closeSync();
+	emitChange(this, 'change', file.path);
 }
 appendFileSync satisfies typeof fs.appendFileSync;
 

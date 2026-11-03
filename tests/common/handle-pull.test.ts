@@ -65,7 +65,7 @@ suite('FileHandle.writer', () => {
 		const w = fh.writer();
 		await w.write('Hello!');
 		assert.equal(await w.end(), 6);
-		assert.equal(await fh.readFile('utf8'), 'Hello!');
+		assert.equal(await promises.readFile('./writer.txt', 'utf8'), 'Hello!');
 		await fh.close();
 	});
 
@@ -74,7 +74,7 @@ suite('FileHandle.writer', () => {
 		const w = fh.writer();
 		await Promise.all([w.write('aaa'), w.writev(['bbb', 'ccc']), w.write('ddd')]);
 		assert.equal(await w.end(), 12);
-		assert.equal(await fh.readFile('utf8'), 'aaabbbcccddd');
+		assert.equal(await promises.readFile('./writer-concurrent.txt', 'utf8'), 'aaabbbcccddd');
 		await fh.close();
 	});
 
@@ -86,7 +86,7 @@ suite('FileHandle.writer', () => {
 		w.fail(new Error('failed'));
 		await assert.rejects(first);
 		await assert.rejects(second);
-		assert.equal(await fh.readFile('utf8'), '');
+		assert.equal(await promises.readFile('./writer-failed.txt', 'utf8'), '');
 		await fh.close();
 	});
 

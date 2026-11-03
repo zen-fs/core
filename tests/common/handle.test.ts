@@ -17,7 +17,7 @@ suite('FileHandle', () => {
 	});
 
 	test('readFile', async () => {
-		assert.equal(await handle.readFile('utf8'), content);
+		assert.equal(await promises.readFile('./test.txt', 'utf8'), content);
 	});
 
 	test('appendFile', async () => {
@@ -25,12 +25,12 @@ suite('FileHandle', () => {
 	});
 
 	test('readFile after appendFile', async () => {
-		assert.equal(await handle.readFile({ encoding: 'utf8' }), content + appended);
+		assert.equal(await promises.readFile('./test.txt', { encoding: 'utf8' }), content + appended);
 	});
 
 	test('truncate', async () => {
 		await handle.truncate(5);
-		assert.equal(await handle.readFile({ encoding: 'utf8' }), content.slice(0, 5));
+		assert.equal(await promises.readFile('./test.txt', { encoding: 'utf8' }), content.slice(0, 5));
 	});
 
 	test('stat', async () => {
@@ -53,9 +53,10 @@ suite('FileHandle', () => {
 	});
 
 	test('readLines', async () => {
-		await handle.writeFile('first line\nsecond line\nthird line');
+		await promises.writeFile('./lines.txt', 'first line\nsecond line\nthird line');
+		await using source = await promises.open('./lines.txt');
 
-		using rl = handle.readLines();
+		using rl = source.readLines();
 
 		const lines: string[] = [];
 		rl.on('line', (line: string) => lines.push(line));

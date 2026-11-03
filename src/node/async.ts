@@ -130,24 +130,24 @@ open satisfies Omit<typeof fs.open, '__promisify__'>;
  * @option flag Defaults to `'r'`.
  * @param cb If no encoding is specified, then the raw buffer is returned.
  */
-export function readFile(this: V_Context, filename: fs.PathLike, cb: Callback<[Uint8Array]>): void;
-export function readFile(this: V_Context, filename: fs.PathLike, options: { flag?: string }, callback?: Callback<[Uint8Array]>): void;
+export function readFile(this: V_Context, filename: fs.PathOrFileDescriptor, cb: Callback<[Uint8Array]>): void;
+export function readFile(this: V_Context, filename: fs.PathOrFileDescriptor, options: { flag?: string }, callback?: Callback<[Uint8Array]>): void;
 export function readFile(
 	this: V_Context,
-	filename: fs.PathLike,
+	filename: fs.PathOrFileDescriptor,
 	options: { encoding: BufferEncoding; flag?: string } | BufferEncoding,
 	cb: Callback<[string]>,
 ): void;
 export function readFile(
 	this: V_Context,
-	filename: fs.PathLike,
+	filename: fs.PathOrFileDescriptor,
 	options?: fs.WriteFileOptions | BufferEncoding | Callback<[Uint8Array]>,
 	cb: Callback<[string]> | Callback<[Uint8Array]> = nop,
 ) {
 	cb = typeof options === 'function' ? options : cb;
 
 	promises.readFile
-		.call(this, filename, typeof options === 'function' ? null : options)
+		.call(this, typeof filename == 'number' ? new promises.FileHandle(this, filename) : filename, typeof options === 'function' ? null : options)
 		.then(data => (cb as Callback<[string | Uint8Array]>)(null, data), cb);
 }
 readFile satisfies Omit<typeof fs.readFile, '__promisify__'>;
@@ -162,18 +162,25 @@ readFile satisfies Omit<typeof fs.readFile, '__promisify__'>;
  * @option mode Defaults to `0644`.
  * @option flag Defaults to `'w'`.
  */
-export function writeFile(this: V_Context, filename: fs.PathLike, data: FileContents, cb?: Callback): void;
-export function writeFile(this: V_Context, filename: fs.PathLike, data: FileContents, encoding?: BufferEncoding, cb?: Callback): void;
-export function writeFile(this: V_Context, filename: fs.PathLike, data: FileContents, options?: fs.WriteFileOptions, cb?: Callback): void;
+export function writeFile(this: V_Context, filename: fs.PathOrFileDescriptor, data: FileContents, cb?: Callback): void;
+export function writeFile(this: V_Context, filename: fs.PathOrFileDescriptor, data: FileContents, encoding?: BufferEncoding, cb?: Callback): void;
+export function writeFile(this: V_Context, filename: fs.PathOrFileDescriptor, data: FileContents, options?: fs.WriteFileOptions, cb?: Callback): void;
 export function writeFile(
 	this: V_Context,
-	filename: fs.PathLike,
+	filename: fs.PathOrFileDescriptor,
 	data: FileContents,
 	cbEncOpts?: fs.WriteFileOptions | Callback,
 	cb: Callback = nop,
 ): void {
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
-	promises.writeFile.call(this, filename, data, typeof cbEncOpts != 'function' ? cbEncOpts : null).then(() => cb(null), cb);
+	promises.writeFile
+		.call(
+			this,
+			typeof filename == 'number' ? new promises.FileHandle(this, filename) : filename,
+			data,
+			typeof cbEncOpts != 'function' ? cbEncOpts : null,
+		)
+		.then(() => cb(null), cb);
 }
 writeFile satisfies Omit<typeof fs.writeFile, '__promisify__'>;
 
@@ -185,25 +192,27 @@ writeFile satisfies Omit<typeof fs.writeFile, '__promisify__'>;
  * @option mode Defaults to `0644`.
  * @option flag Defaults to `'a'`.
  */
-export function appendFile(this: V_Context, filename: fs.PathLike, data: FileContents, cb?: Callback): void;
+export function appendFile(this: V_Context, filename: fs.PathOrFileDescriptor, data: FileContents, cb?: Callback): void;
 export function appendFile(
 	this: V_Context,
-	filename: fs.PathLike,
+	filename: fs.PathOrFileDescriptor,
 	data: FileContents,
 	options?: fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode },
 	cb?: Callback,
 ): void;
-export function appendFile(this: V_Context, filename: fs.PathLike, data: FileContents, encoding?: BufferEncoding, cb?: Callback): void;
+export function appendFile(this: V_Context, filename: fs.PathOrFileDescriptor, data: FileContents, encoding?: BufferEncoding, cb?: Callback): void;
 export function appendFile(
 	this: V_Context,
-	filename: fs.PathLike,
+	filename: fs.PathOrFileDescriptor,
 	data: FileContents,
 	cbEncOpts?: (fs.EncodingOption & { mode?: fs.Mode; flag?: fs.OpenMode }) | Callback,
 	cb: Callback = nop,
 ): void {
 	const optionsOrEncoding = typeof cbEncOpts != 'function' ? cbEncOpts : undefined;
 	cb = typeof cbEncOpts === 'function' ? cbEncOpts : cb;
-	promises.appendFile.call(this, filename, data, optionsOrEncoding).then(() => cb(null), cb);
+	promises.appendFile
+		.call(this, typeof filename == 'number' ? new promises.FileHandle(this, filename) : filename, data, optionsOrEncoding)
+		.then(() => cb(null), cb);
 }
 appendFile satisfies Omit<typeof fs.appendFile, '__promisify__'>;
 
