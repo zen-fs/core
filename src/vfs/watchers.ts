@@ -107,6 +107,7 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 	implements fs.FSWatcher
 {
 	protected readonly realpath: string;
+	private closed = false;
 
 	/** @internal */
 	public readonly ignores: (filename: string) => boolean;
@@ -131,11 +132,17 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 		this.realpath = join($.root, path);
 
 		addWatcher(this.realpath, this);
+
+		const { signal } = options;
+		if (signal?.aborted) queueMicrotask(() => this.close());
+		else signal?.addEventListener('abort', () => this.close(), { once: true });
 	}
 
 	public close(): void {
-		super.emit('close');
+		if (this.closed) return;
+		this.closed = true;
 		removeWatcher(this.realpath, this);
+		queueMicrotask(() => super.emit('close'));
 	}
 
 	public [Symbol.dispose](): void {
