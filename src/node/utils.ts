@@ -2,6 +2,7 @@
 import { Buffer } from 'buffer';
 import { Errno, Exception, setUVMessage, withErrno } from 'kerium';
 import type * as fs from 'node:fs';
+import type { Stats } from './stats.js';
 import { normalizePath } from '../utils.js';
 
 /**
@@ -123,6 +124,18 @@ export function isNoEntry(e: unknown): boolean {
 	return code == 'ENOENT' || code == 'ENOTDIR';
 }
 
+/** The messages of Node's `SystemError`s, by code */
+const systemErrorMessages = {
+	ERR_FS_EISDIR: 'Path is a directory',
+	ERR_FS_CP_DIR_TO_NON_DIR: 'Cannot overwrite non-directory with directory',
+	ERR_FS_CP_NON_DIR_TO_DIR: 'Cannot overwrite directory with non-directory',
+	ERR_FS_CP_EEXIST: 'Target already exists',
+	ERR_FS_CP_EINVAL: 'Invalid src or dest',
+	ERR_FS_CP_FIFO_PIPE: 'Cannot copy a FIFO pipe',
+	ERR_FS_CP_SOCKET: 'Cannot copy a socket file',
+	ERR_FS_CP_UNKNOWN: 'Cannot copy an unknown file type',
+};
+
 interface SystemErrorContext {
 	code: keyof typeof Errno;
 	message: string;
@@ -133,10 +146,10 @@ interface SystemErrorContext {
 /**
  * Creates one of Node's `SystemError`s, which report an errno error under a Node error code.
  */
-function systemError(code: string, prefix: string, context: SystemErrorContext): Error {
+function systemError(code: keyof typeof systemErrorMessages, context: SystemErrorContext): Error {
 	const { syscall, path } = context;
 	const errno = Errno[context.code];
-	return Object.assign(new Error(`${prefix}: ${syscall} returned ${context.code} (${context.message}) ${path}`), {
+	return Object.assign(new Error(`${systemErrorMessages[code]}: ${syscall} returned ${context.code} (${context.message}) ${path}`), {
 		name: 'SystemError',
 		code,
 		info: { ...context, errno },
@@ -147,21 +160,67 @@ function systemError(code: string, prefix: string, context: SystemErrorContext):
 }
 
 /**
- * Creates Node's error for copying a directory onto a non-directory, or a non-directory onto a directory.
- */
-export function cpTypeMismatch(source: string, destination: string, sourceIsDirectory: boolean): Error {
-	const [code, errno, sourceType, destinationType] = sourceIsDirectory
-		? (['ERR_FS_CP_DIR_TO_NON_DIR', 'EISDIR', 'directory', 'non-directory'] as const)
-		: (['ERR_FS_CP_NON_DIR_TO_DIR', 'ENOTDIR', 'non-directory', 'directory'] as const);
-	const message = `cannot overwrite ${destinationType} ${destination} with ${sourceType} ${source}`;
-	return systemError(code, `Cannot overwrite ${destinationType} with ${sourceType}`, { code: errno, message, syscall: 'cp', path: destination });
-}
-
-/**
  * Creates Node's error for removing a directory with `rm` without `recursive`.
  */
 export function rmDirectoryError(path: string): Error {
-	return systemError('ERR_FS_EISDIR', 'Path is a directory', { code: 'EISDIR', message: 'is a directory', syscall: 'rm', path });
+	return systemError('ERR_FS_EISDIR', { code: 'EISDIR', message: 'is a directory', syscall: 'rm', path });
+}
+
+/**
+ * Creates one of the errors Node's `cp` throws.
+ */
+export function cpError(code: keyof typeof systemErrorMessages, errno: keyof typeof Errno, message: string, path: string): Error {
+	return systemError(code, { code: errno, message, syscall: 'cp', path });
+}
+
+/**
+ * Throws Node's errors for copying `source` onto `destination`: the same file, mismatched types, or a directory into itself.
+ * @param sameFileSystem Whether both paths are on the same file system, since inode numbers are only unique within one.
+ */
+export function cpCheckPaths(
+	source: string,
+	destination: string,
+	sameFileSystem: boolean,
+	sourceStats: Stats,
+	destinationStats?: Stats | void,
+): void {
+	const sourceIsDirectory = sourceStats.isDirectory();
+
+	if (destinationStats) {
+		if (sameFileSystem && sourceStats.ino == destinationStats.ino)
+			throw cpError('ERR_FS_CP_EINVAL', 'EINVAL', 'src and dest cannot be the same', destination);
+
+		if (sourceIsDirectory && !destinationStats.isDirectory())
+			throw cpError(
+				'ERR_FS_CP_DIR_TO_NON_DIR',
+				'EISDIR',
+				`cannot overwrite non-directory ${destination} with directory ${source}`,
+				destination,
+			);
+
+		if (!sourceIsDirectory && destinationStats.isDirectory())
+			throw cpError(
+				'ERR_FS_CP_NON_DIR_TO_DIR',
+				'ENOTDIR',
+				`cannot overwrite directory ${destination} with non-directory ${source}`,
+				destination,
+			);
+	}
+
+	if (sourceIsDirectory && destination.startsWith(source == '/' ? source : source + '/'))
+		throw cpError('ERR_FS_CP_EINVAL', 'EINVAL', `cannot copy ${source} to a subdirectory of self ${destination}`, destination);
+}
+
+/**
+ * Creates the error `cp` throws for a file it cannot copy.
+ */
+export function cpSpecialFileError(stats: Stats, destination: string): Error {
+	const [code, kind] = stats.isSocket()
+		? (['ERR_FS_CP_SOCKET', 'a socket file'] as const)
+		: stats.isFIFO()
+			? (['ERR_FS_CP_FIFO_PIPE', 'a FIFO pipe'] as const)
+			: (['ERR_FS_CP_UNKNOWN', 'an unknown file type'] as const);
+	return cpError(code, 'EINVAL', `cannot copy ${kind}: ${destination}`, destination);
 }
 
 /**

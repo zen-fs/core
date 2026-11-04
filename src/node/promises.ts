@@ -26,7 +26,9 @@ import { _globDescent, dirname, join, matchesGlob, relative, resolve } from '../
 import '../polyfills.js';
 import { normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
 import {
-	cpTypeMismatch,
+	cpCheckPaths,
+	cpError,
+	cpSpecialFileError,
 	isNoEntry,
 	mkstempError,
 	raceSignal,
@@ -46,7 +48,7 @@ import { checkAccess } from '../vfs/config.js';
 import type { Handle } from '../vfs/file.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
-import { _statfs } from '../vfs/shared.js';
+import { _statfs, resolveMount } from '../vfs/shared.js';
 import { emitChange, FSWatcher } from '../vfs/watchers.js';
 import { Dir, Dirent } from './dir.js';
 import { createInterface } from './readline.js';
@@ -1403,13 +1405,15 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 		if (!isNoEntry(error)) throw error;
 	});
 
-	if (destStats && srcStats.isDirectory() != destStats.isDirectory()) throw cpTypeMismatch(source, destination, srcStats.isDirectory());
+	const sameFileSystem = resolveMount(source, this).fs.uuid == resolveMount(destination, this).fs.uuid;
+	cpCheckPaths(source, destination, sameFileSystem, srcStats, destStats);
 
-	if (opts?.errorOnExist && opts.force === false && destStats) throw UV('EEXIST', 'cp', destination);
+	if (opts?.errorOnExist && opts.force === false && destStats)
+		throw cpError('ERR_FS_CP_EEXIST', 'EEXIST', `${destination} already exists`, destination);
 
 	switch (srcStats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR: {
-			if (!opts?.recursive) throw UV('EISDIR', 'cp', source);
+			if (!opts?.recursive) throw cpError('ERR_FS_EISDIR', 'EISDIR', `${source} is a directory (not copied)`, source);
 
 			const [entries, created] = await Promise.all(
 				[
@@ -1439,10 +1443,9 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 		}
 		case constants.S_IFBLK:
 		case constants.S_IFCHR:
-		case constants.S_IFIFO:
-		case constants.S_IFSOCK:
-		default:
 			throw UV('ENOSYS', 'cp', source);
+		default:
+			throw cpSpecialFileError(srcStats, destination);
 	}
 
 	// Optionally preserve timestamps
