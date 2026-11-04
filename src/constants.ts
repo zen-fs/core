@@ -177,6 +177,30 @@ export const S_IXOTH = 1;
 export const UV_FS_O_FILEMAP = 0;
 
 /**
+ * When set, the file is deleted when the last handle to it is closed.
+ * This flag is ignored since a unix-like FS is emulated
+ */
+export const UV_FS_O_TEMPORARY = 0;
+
+/**
+ * Hints that the file is short-lived.
+ * This flag is ignored since a unix-like FS is emulated
+ */
+export const UV_FS_O_SHORT_LIVED = 0;
+
+/**
+ * Hints that the file is accessed sequentially.
+ * This flag is ignored since a unix-like FS is emulated
+ */
+export const UV_FS_O_SEQUENTIAL = 0;
+
+/**
+ * Hints that the file is accessed randomly.
+ * This flag is ignored since a unix-like FS is emulated
+ */
+export const UV_FS_O_RANDOM = 0;
+
+/**
  * Max 32-bit unsigned integer
  * @hidden
  */
