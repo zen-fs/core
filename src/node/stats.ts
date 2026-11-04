@@ -21,10 +21,12 @@ export interface StatsExtra<T extends number | bigint> {
  * Common code used by both Stats and BigIntStats.
  */
 export abstract class StatsCommon<T extends number | bigint> implements Node.StatsBase<T>, StatsLike<T>, StatsExtra<T> {
-	protected abstract _isBigint: T extends bigint ? true : false;
+	/** A getter rather than a field, since fields of subclasses are not yet initialized while the constructor converts values */
+	protected abstract get _isBigint(): T extends bigint ? true : false;
 
 	protected _convert(arg: number | bigint | string | boolean): T {
-		return (this._isBigint ? BigInt(arg) : Number(arg)) as T;
+		if (!this._isBigint) return Number(arg) as T;
+		return (typeof arg == 'number' ? BigInt(Math.trunc(arg)) : BigInt(arg)) as T;
 	}
 
 	public get blocks(): T {
@@ -114,6 +116,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		size,
 		mode,
 		ino,
+		nlink,
 		rdev,
 		dev,
 		blksize,
@@ -128,43 +131,42 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		this.gid = this._convert(gid ?? 0);
 		this.size = this._convert(size ?? 0);
 		this.ino = this._convert(ino ?? 0);
-		this.mode = this._convert(mode ?? 0o644 & c.S_IFREG);
+		this.nlink = this._convert(nlink ?? 1);
+		const numericMode = Number(mode ?? 0o644 & c.S_IFREG);
+		this.mode = this._convert(numericMode & c.S_IFMT ? numericMode : numericMode | c.S_IFREG);
 		this.rdev = this._convert(rdev ?? 0);
 		this.dev = this._convert(dev ?? 0);
 		this.blksize = this._convert(blksize ?? 4096);
 
-		if ((this.mode & c.S_IFMT) == 0) {
-			this.mode = (this.mode | this._convert(c.S_IFREG)) as T;
-		}
 		Object.assign(this, rest);
 	}
 
 	public isFile(): boolean {
-		return (this.mode & c.S_IFMT) === c.S_IFREG;
+		return (Number(this.mode) & c.S_IFMT) === c.S_IFREG;
 	}
 
 	public isDirectory(): boolean {
-		return (this.mode & c.S_IFMT) === c.S_IFDIR;
+		return (Number(this.mode) & c.S_IFMT) === c.S_IFDIR;
 	}
 
 	public isSymbolicLink(): boolean {
-		return (this.mode & c.S_IFMT) === c.S_IFLNK;
+		return (Number(this.mode) & c.S_IFMT) === c.S_IFLNK;
 	}
 
 	public isSocket(): boolean {
-		return (this.mode & c.S_IFMT) === c.S_IFSOCK;
+		return (Number(this.mode) & c.S_IFMT) === c.S_IFSOCK;
 	}
 
 	public isBlockDevice(): boolean {
-		return (this.mode & c.S_IFMT) === c.S_IFBLK;
+		return (Number(this.mode) & c.S_IFMT) === c.S_IFBLK;
 	}
 
 	public isCharacterDevice(): boolean {
-		return (this.mode & c.S_IFMT) === c.S_IFCHR;
+		return (Number(this.mode) & c.S_IFMT) === c.S_IFCHR;
 	}
 
 	public isFIFO(): boolean {
-		return (this.mode & c.S_IFMT) === c.S_IFIFO;
+		return (Number(this.mode) & c.S_IFMT) === c.S_IFIFO;
 	}
 
 	public toJSON(): StatsLike<T> & InodeFields {
@@ -234,7 +236,9 @@ Object.defineProperties(StatsCommon.prototype, {
  * @see http://man7.org/linux/man-pages/man2/stat.2.html
  */
 export class Stats extends StatsCommon<number> implements Node.Stats, StatsLike {
-	protected _isBigint = false as const;
+	protected get _isBigint(): false {
+		return false;
+	}
 }
 Stats satisfies typeof Node.Stats;
 
@@ -242,7 +246,9 @@ Stats satisfies typeof Node.Stats;
  * Stats with bigint
  */
 export class BigIntStats extends StatsCommon<bigint> implements Node.BigIntStats, StatsLike {
-	protected _isBigint = true as const;
+	protected get _isBigint(): true {
+		return true;
+	}
 }
 
 /**

@@ -6,7 +6,7 @@ import type { V_Context } from '../context.js';
 import { EventEmitter } from 'eventemitter3';
 import { Exception, setUVMessage, UV } from 'kerium';
 import { contextOf } from '../internal/contexts.js';
-import { isStatsEqual, type Stats } from '../node/stats.js';
+import { isStatsEqual, type BigIntStats, type Stats } from '../node/stats.js';
 import { statSync } from '../node/sync.js';
 import { basename, dirname, join, matchesGlob, relative } from '../path.js';
 import '../polyfills.js';
@@ -150,7 +150,7 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
  */
 export class StatWatcher
 	extends Watcher<{
-		change: [current: Stats, previous: Stats];
+		change: [current: Stats | BigIntStats, previous: Stats | BigIntStats];
 		close: [];
 		error: [error: Error];
 		stop: [];
@@ -158,21 +158,25 @@ export class StatWatcher
 	implements fs.StatWatcher
 {
 	private intervalId?: NodeJS.Timeout | number;
-	private previous?: Stats;
+	private previous?: Stats | BigIntStats;
 
 	public constructor(
 		context: V_Context,
 		path: string,
-		private options: { persistent?: boolean; interval?: number },
+		private options: fs.WatchFileOptions,
 	) {
 		super(context, path);
 		this.start();
 	}
 
+	private stat(): Stats | BigIntStats {
+		return statSync.call(this._context, this.path, { bigint: this.options.bigint }) as Stats | BigIntStats;
+	}
+
 	protected onInterval() {
 		try {
-			const current = _statSync.call(this._context, this.path);
-			if (!isStatsEqual(this.previous!, current)) {
+			const current = this.stat();
+			if (!isStatsEqual<number | bigint>(this.previous!, current)) {
 				this.emit('change', current, this.previous!);
 				this.previous = current;
 			}
@@ -194,7 +198,7 @@ export class StatWatcher
 	protected start() {
 		const interval = this.options.interval || 5000;
 		try {
-			this.previous = _statSync.call(this._context, this.path);
+			this.previous = this.stat();
 		} catch (e) {
 			this.emit('error', e as Error);
 			return;

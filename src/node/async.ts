@@ -553,20 +553,26 @@ const statWatchers = new Map<string, StatWatcher>();
 /**
  * Watch for changes on a file. The listener is called with the current and previous `Stats` whenever they differ.
  * Every call for the same file returns the same `StatWatcher`.
- * @param options `persistent` and `interval` (in milliseconds)
+ * @param options `bigint`, `persistent`, and `interval` (in milliseconds)
  */
 export function watchFile(this: V_Context, path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void): StatWatcher;
 export function watchFile(
 	this: V_Context,
 	path: fs.PathLike,
-	options: { persistent?: boolean; interval?: number },
+	options: fs.WatchFileOptions & { bigint: true },
+	listener: (curr: BigIntStats, prev: BigIntStats) => void,
+): StatWatcher;
+export function watchFile(
+	this: V_Context,
+	path: fs.PathLike,
+	options: fs.WatchFileOptions & { bigint?: false },
 	listener: (curr: Stats, prev: Stats) => void,
 ): StatWatcher;
 export function watchFile(
 	this: V_Context,
 	path: fs.PathLike,
-	options: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
-	listener?: (curr: Stats, prev: Stats) => void,
+	options: fs.WatchFileOptions | ((curr: Stats, prev: Stats) => void),
+	listener?: ((curr: Stats, prev: Stats) => void) | ((curr: BigIntStats, prev: BigIntStats) => void),
 ): StatWatcher {
 	const normalizedPath = normalizePath.call(this, path);
 	const opts = typeof options != 'function' ? options : {};
@@ -580,7 +586,7 @@ export function watchFile(
 		statWatchers.set(normalizedPath, watcher);
 	}
 
-	watcher.on('change', listener);
+	watcher.on('change', listener as (curr: Stats | BigIntStats, prev: Stats | BigIntStats) => void);
 	return watcher;
 }
 watchFile satisfies Omit<typeof fs.watchFile, '__promisify__'>;
