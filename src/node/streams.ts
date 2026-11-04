@@ -33,6 +33,14 @@ function closeHandle(
 }
 
 /**
+ * Emits `open` and `ready` for a stream that opened its file, which streams created from a descriptor or handle don't.
+ */
+function emitOpen(stream: ReadStream | WriteStream, fd: number): void {
+	stream.emit('open', fd);
+	stream.emit('ready');
+}
+
+/**
  * A ReadStream implementation that wraps an underlying global ReadableStream.
  */
 export class ReadStream extends Readable implements fs.ReadStream {
@@ -62,6 +70,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 				});
 				this.reader = internal.getReader();
 				this.pending = false;
+				if (handleOrPromise instanceof Promise) emitOpen(this, handle.fd);
 			})
 			.catch(err => {
 				this.destroy(err);
@@ -136,6 +145,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 				const internal = handle.writableWebStream({ start: opts.start });
 				this.writer = internal.getWriter();
 				this.pending = false;
+				if (handleOrPromise instanceof Promise) emitOpen(this, handle.fd);
 			})
 			.catch(err => this.destroy(err));
 	}
