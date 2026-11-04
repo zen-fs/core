@@ -154,7 +154,7 @@ function mapError(error: unknown): unknown {
 	if (!error || typeof error != 'object') return error;
 	const e = error as Record<string, unknown>;
 
-	for (const key of ['path', 'dest'] as const) {
+	for (const key of ['path', 'dest', 'filename'] as const) {
 		if (typeof e[key] == 'string' && e[key].startsWith(root)) e[key] = fromNative(e[key]);
 	}
 	if (typeof e.message == 'string') e.message = e.message.replaceAll(root, '');
@@ -213,7 +213,12 @@ for (const [key, value] of Object.entries(native)) {
 
 // `using` support, which node:fs does not have (yet?)
 wrapped.watch = function (...args: Parameters<typeof native.watch>) {
-	const watcher = native.watch(...(mapArgs('watch', args) as Parameters<typeof native.watch>));
+	let watcher: native.FSWatcher;
+	try {
+		watcher = native.watch(...(mapArgs('watch', args) as Parameters<typeof native.watch>));
+	} catch (error) {
+		throw mapError(error);
+	}
 	(watcher as any)[Symbol.dispose] ??= () => watcher.close();
 	(watcher as any)[Symbol.asyncDispose] ??= () => watcher.close();
 	return watcher;
@@ -226,8 +231,18 @@ for (const [key, value] of Object.entries(native.promises)) {
 }
 
 // promises.watch returns an async iterable, not a promise, so it must not be awaited
-promises.watch = (...args: Parameters<typeof native.promises.watch>) =>
-	native.promises.watch(...(mapArgs('watch', args) as Parameters<typeof native.promises.watch>));
+promises.watch = (...args: Parameters<typeof native.promises.watch>) => {
+	const iterator = native.promises.watch(...(mapArgs('watch', args) as Parameters<typeof native.promises.watch>));
+	const next = iterator.next.bind(iterator);
+	iterator.next = async () => {
+		try {
+			return await next();
+		} catch (error) {
+			throw mapError(error);
+		}
+	};
+	return iterator;
+};
 
 wrapped.promises = promises;
 

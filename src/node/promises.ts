@@ -68,6 +68,14 @@ function _validateWatchQueue(maxQueue: unknown, overflow: unknown): void {
 	if (overflow != 'ignore' && overflow != 'error') throw invalidArgumentValue('options.overflow', overflow, "must be one of: 'ignore', 'error'");
 }
 
+/**
+ * Creates an iterator that throws `error` when iterated, like an async generator that throws before its first `yield`.
+ */
+// eslint-disable-next-line require-yield
+async function* rejectOnIteration(error: unknown): AsyncGenerator<never, undefined> {
+	throw error;
+}
+
 /** Options for `readFile`, including the buffer the contents are read into */
 type ReadFileOptions = fs.ObjectEncodingOptions & Abortable & { buffer?: NodeJS.ArrayBufferView | ((size: number) => NodeJS.ArrayBufferView) };
 
@@ -1156,7 +1164,12 @@ export function watch<T extends string | Buffer>(
 	const { maxQueue = 2048, overflow = 'ignore' } = opts as WatchQueueOptions;
 	_validateWatchQueue(maxQueue, overflow);
 
-	const watcher = new FSWatcher<T>(this, filename.toString(), opts);
+	let watcher: FSWatcher<T>;
+	try {
+		watcher = new FSWatcher<T>(this, filename.toString(), opts);
+	} catch (error) {
+		return rejectOnIteration(error);
+	}
 
 	type Result = IteratorResult<promises.FileChangeInfo<T>, undefined>;
 

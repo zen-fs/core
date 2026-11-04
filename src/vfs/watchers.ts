@@ -4,7 +4,7 @@ import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 
 import { EventEmitter } from 'eventemitter3';
-import { UV } from 'kerium';
+import { Exception, setUVMessage, UV } from 'kerium';
 import { contextOf } from '../internal/contexts.js';
 import { isStatsEqual, type Stats } from '../node/stats.js';
 import { statSync } from '../node/sync.js';
@@ -119,6 +119,13 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 		const $ = contextOf(context);
 
 		super($, path);
+
+		try {
+			_statSync.call(this._context, path);
+		} catch (error) {
+			if (error instanceof Exception) throw setUVMessage(Object.assign(error, { syscall: 'watch', path, filename: path }));
+			throw error;
+		}
 
 		this.ignores = createIgnoreMatcher(options.ignore);
 		this.realpath = join($.root, path);

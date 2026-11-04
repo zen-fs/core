@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 
 fs.mkdirSync('/watch-queue');
+fs.writeFileSync('/watch-queue/queued', '');
 
 suite('promises.watch queue', () => {
 	test('events are queued until they are consumed', { timeout: 1000 }, async () => {
