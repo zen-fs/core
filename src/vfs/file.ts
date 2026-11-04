@@ -393,33 +393,30 @@ export class Handle {
 	}
 
 	/**
-	 * Create a stream for reading the file.
-	 * @todo Don't repeat ourselves with the implementation in `FileSystem`
+	 * Create a stream for reading the file from `start`, or from the current position (which is then advanced) if not given.
 	 */
 	public streamRead(options: StreamOptions): ReadableStream {
 		if (this.closed) throw UV('EBADF', 'streamRead', this.path);
 
-		const { vnode } = this;
+		const handle = this;
 		const { chunkSize = streamChunkSize } = options;
-		let offset = options.start ?? 0;
-		let end = options.end;
+		let position = options.start;
+		let remaining = options.end === undefined ? Infinity : options.end - (options.start ?? 0);
 
 		return new ReadableStream({
 			async pull(controller) {
-				using _ = await vnode.lock('ro');
-				end ??= vnode.inode.size;
+				const size = Math.min(chunkSize, remaining);
+				const buffer = new Uint8Array(Math.max(size, 0));
+				const bytesRead = size > 0 ? await handle.read(buffer, 0, size, position ?? null) : 0;
 
-				if (offset >= end) {
+				if (!bytesRead) {
 					controller.close();
 					return;
 				}
 
-				const buffer = new Uint8Array(Math.min(chunkSize, end - offset));
-				await vnode.read(buffer, offset, offset + buffer.byteLength);
-				offset += buffer.byteLength;
-				controller.enqueue(buffer);
-
-				if (offset >= end) controller.close();
+				if (position !== undefined) position += bytesRead;
+				remaining -= bytesRead;
+				controller.enqueue(buffer.subarray(0, bytesRead));
 			},
 			type: 'bytes',
 		});
