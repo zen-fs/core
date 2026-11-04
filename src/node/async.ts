@@ -696,21 +696,23 @@ rm satisfies Omit<typeof fs.rm, '__promisify__'>;
  * Asynchronously creates a unique temporary directory.
  * Generates six random characters to be appended behind a required prefix to create a unique temporary directory.
  */
-export function mkdtemp(this: V_Context, prefix: string, callback: Callback<[string]>): void;
-export function mkdtemp(this: V_Context, prefix: string, options: fs.EncodingOption, callback: Callback<[string]>): void;
-export function mkdtemp(this: V_Context, prefix: string, options: fs.BufferEncodingOption, callback: Callback<[Buffer]>): void;
+export function mkdtemp(this: V_Context, prefix: Buffer, callback: Callback<[Buffer]>): void;
+export function mkdtemp(this: V_Context, prefix: Buffer, options: fs.EncodingOption | fs.BufferEncodingOption, callback: Callback<[Buffer]>): void;
+export function mkdtemp(this: V_Context, prefix: fs.PathLike, callback: Callback<[string]>): void;
+export function mkdtemp(this: V_Context, prefix: fs.PathLike, options: fs.EncodingOption, callback: Callback<[string]>): void;
+export function mkdtemp(this: V_Context, prefix: fs.PathLike, options: fs.BufferEncodingOption, callback: Callback<[Buffer]>): void;
 export function mkdtemp(
 	this: V_Context,
-	prefix: string,
-	options: fs.EncodingOption | fs.BufferEncodingOption | Callback<[string]>,
+	prefix: fs.PathLike,
+	options: fs.EncodingOption | fs.BufferEncodingOption | Callback<[string]> | Callback<[Buffer]>,
 	callback: Callback<[Buffer]> | Callback<[string]> = nop,
 ): void {
 	callback = typeof options === 'function' ? options : callback;
 	promises.mkdtemp
-		.call<V_Context, [string, fs.EncodingOption], Promise<string>>(
+		.call<V_Context, [fs.PathLike, fs.EncodingOption | fs.BufferEncodingOption], Promise<string | NonSharedBuffer>>(
 			this,
 			prefix,
-			typeof options != 'function' ? (options as fs.EncodingOption) : null,
+			typeof options != 'function' ? options : null,
 		)
 		.then(result => (callback as Callback<[string | Buffer]>)(null, result), callback);
 }

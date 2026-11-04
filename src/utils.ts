@@ -208,6 +208,17 @@ export async function _raceSignal<T>(operation: () => Promise<T>, signal?: Abort
 }
 
 /**
+ * Encodes the path of a created temporary directory, which is a `Buffer` if `prefix` is one, like Node.
+ * @internal @hidden
+ */
+export function _tempDirResult(path: string, prefix: unknown, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer {
+	const encoding = typeof options == 'object' ? options?.encoding : options;
+	if (Buffer.isBuffer(prefix) || encoding == 'buffer') return Buffer.from(path);
+	if (!encoding || encoding == 'utf8' || encoding == 'utf-8') return path;
+	return Buffer.from(path).toString(encoding);
+}
+
+/**
  * Normalizes options
  * @param options options to normalize
  * @param encoding default encoding

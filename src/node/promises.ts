@@ -31,6 +31,7 @@ import {
 	_raceSignal,
 	_readFileBuffer,
 	_tempDirName,
+	_tempDirResult,
 	_validateMaxDepth,
 	normalizeMode,
 	normalizeOptions,
@@ -328,7 +329,7 @@ export class FileHandle implements promises.FileHandle {
 				await reader.cancel(reason);
 				await handle.close();
 			},
-		}) as NodeReadableStream<Uint8Array>;
+		});
 	}
 
 	/**
@@ -1183,15 +1184,22 @@ rm satisfies typeof promises.rm;
  * @param options The encoding (or an object including `encoding`).
  * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
-export async function mkdtemp(this: V_Context, prefix: string, options?: fs.EncodingOption): Promise<string>;
-export async function mkdtemp(this: V_Context, prefix: string, options?: fs.BufferEncodingOption): Promise<NonSharedBuffer>;
-export async function mkdtemp(this: V_Context, prefix: string, options?: fs.EncodingOption | fs.BufferEncodingOption): Promise<string | Buffer> {
-	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
+export async function mkdtemp(this: V_Context, prefix: Buffer, options?: fs.EncodingOption | fs.BufferEncodingOption): Promise<NonSharedBuffer>;
+export async function mkdtemp(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption): Promise<string>;
+export async function mkdtemp(this: V_Context, prefix: fs.PathLike, options?: fs.BufferEncodingOption): Promise<NonSharedBuffer>;
+export async function mkdtemp(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options?: fs.EncodingOption | fs.BufferEncodingOption,
+): Promise<string | NonSharedBuffer>;
+export async function mkdtemp(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options?: fs.EncodingOption | fs.BufferEncodingOption,
+): Promise<string | NonSharedBuffer> {
 	const path = _tempDirName(prefix);
-
 	await mkdir.call(this, path);
-
-	return encoding == 'buffer' ? Buffer.from(path) : path;
+	return _tempDirResult(path, prefix, options);
 }
 mkdtemp satisfies typeof promises.mkdtemp;
 

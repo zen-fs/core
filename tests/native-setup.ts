@@ -37,13 +37,15 @@ function isPath(value: unknown): value is PathLike {
 	return typeof value == 'string' || value instanceof Buffer || value instanceof URL;
 }
 
-/** Translate a test path into the scratch directory */
-function toNative(path: PathLike): string {
+/** Translate a test path into the scratch directory, keeping `Buffer` paths as `Buffer`s */
+function toNative(path: PathLike): string | Buffer {
+	const isBuffer = Buffer.isBuffer(path);
 	if (path instanceof URL) path = fileURLToPath(path);
 	path = path.toString();
 	// Do not map the empty path, so it still results in ENOENT
 	if (!path) return path;
-	return join(root, resolve('/', path));
+	const mapped = join(root, resolve('/', path));
+	return isBuffer ? Buffer.from(mapped) : mapped;
 }
 
 /** Translate a native path back into a test path */
@@ -115,6 +117,7 @@ function mapArgs(base: string, args: unknown[]): unknown[] {
 
 function mapResult(base: string, result: unknown): unknown {
 	if (returnsPath.has(base) && typeof result == 'string') return fromNative(result);
+	if (returnsPath.has(base) && Buffer.isBuffer(result)) return Buffer.from(fromNative(result.toString()));
 
 	// `Dirent.parentPath` is a real path, so it needs to be mapped back too
 	if (base == 'readdir' && Array.isArray(result)) {

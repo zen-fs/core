@@ -19,6 +19,7 @@ import {
 	_isNoEntry,
 	_readFileBuffer,
 	_tempDirName,
+	_tempDirResult,
 	_validateMaxDepth,
 	normalizeMode,
 	normalizeOptions,
@@ -636,15 +637,14 @@ rmSync satisfies typeof fs.rmSync;
  * @param options The encoding (or an object including `encoding`).
  * @returns The path to the created temporary directory, encoded as a string or buffer.
  */
+export function mkdtempSync(this: V_Context, prefix: Buffer, options?: fs.EncodingOption | fs.BufferEncodingOption): NonSharedBuffer;
 export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options: fs.BufferEncodingOption): NonSharedBuffer;
 export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption): string;
-export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
-	const encoding = typeof options === 'object' ? options?.encoding : options || 'utf8';
+export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer;
+export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer {
 	const path = _tempDirName(prefix);
-
 	mkdirSync.call(this, path);
-
-	return encoding == 'buffer' ? Buffer.from(path) : path;
+	return _tempDirResult(path, prefix, options);
 }
 mkdtempSync satisfies typeof fs.mkdtempSync;
 
