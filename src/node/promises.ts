@@ -336,7 +336,7 @@ export class FileHandle implements promises.FileHandle {
 		if (position && position > Number.MAX_SAFE_INTEGER) throw UV('EINVAL');
 		if (typeof position == 'bigint') position = Number(position);
 		position = Number.isSafeInteger(position) ? position! : null;
-		buffer ||= new Uint8Array(this.vfs.inode.size) as T;
+		buffer ||= Buffer.alloc(16384) as unknown as T;
 		offset ??= 0;
 		length = (length ?? buffer.byteLength - offset) | 0;
 		const bytesRead = await this.vfs.read(buffer, offset, length, position);

@@ -373,6 +373,21 @@ promisifyResults(write, 'bytesWritten', 'buffer');
  * If position is null, data will be read from the current file position.
  * @param cb The number is the number of bytes read
  */
+export function read(this: V_Context, fd: number, cb: Callback<[number, NonSharedBuffer]>): void;
+export function read<T extends NodeJS.ArrayBufferView = NonSharedBuffer>(
+	this: V_Context,
+	fd: number,
+	options: fs.ReadOptionsWithBuffer<T>,
+	cb: Callback<[number, T]>,
+): void;
+export function read<T extends NodeJS.ArrayBufferView>(
+	this: V_Context,
+	fd: number,
+	buffer: T,
+	options: fs.ReadOptions,
+	cb: Callback<[number, T]>,
+): void;
+export function read<T extends NodeJS.ArrayBufferView>(this: V_Context, fd: number, buffer: T, cb: Callback<[number, T]>): void;
 export function read(
 	this: V_Context,
 	fd: number,
