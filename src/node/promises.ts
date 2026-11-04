@@ -28,6 +28,7 @@ import { normalizeMode, normalizeOptions, normalizePath, normalizeTime, validate
 import {
 	cpCheckPaths,
 	cpError,
+	checkAborted,
 	cpSpecialFileError,
 	isNoEntry,
 	mkstempError,
@@ -352,10 +353,13 @@ export class FileHandle implements promises.FileHandle {
 		const flag = flags.parse(options.flag);
 		if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.vfs.path);
 
+		const { signal, buffer: into } = typeof _options == 'object' && _options !== null ? _options : {};
+		checkAborted(signal);
 		const { size } = await this.stat();
-		const into = typeof _options == 'object' && _options !== null ? _options.buffer : undefined;
 		const data = into === undefined ? Buffer.alloc(size) : readFileBuffer(into, size);
+		checkAborted(signal);
 		const buffer = data.subarray(0, await this.vfs.read(data, 0, size, null));
+		checkAborted(signal);
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}
 
@@ -478,6 +482,7 @@ export class FileHandle implements promises.FileHandle {
 		if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) throw UV('EBADF', 'writeFile', this.vfs.path);
 		const encodedData =
 			typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+		checkAborted(typeof _options == 'object' ? _options?.signal : undefined);
 		await this.vfs.write(encodedData, 0, encodedData.byteLength);
 		this._emitChange();
 	}
@@ -864,6 +869,7 @@ export async function readFile(
 	_options?: (ReadFileOptions & { flag?: fs.OpenMode }) | BufferEncoding | null,
 ): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', 0o444);
+	checkAborted(typeof _options == 'object' ? _options?.signal : undefined);
 	await using opened = typeof path == 'object' && 'fd' in path ? undefined : await open.call(this, path, options.flag, options.mode);
 	const handle = opened ?? (path as FileHandle);
 	return await handle.readFile(_options as ReadFileOptions);
@@ -882,13 +888,15 @@ export async function writeFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
 	data: FileContents | Stream | Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView>,
-	_options?: (fs.ObjectEncodingOptions & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null,
+	_options?: (fs.ObjectEncodingOptions & Abortable & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null,
 ): Promise<void> {
 	validateData(data);
+	const signal = typeof _options == 'object' ? _options?.signal : undefined;
+	checkAborted(signal);
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	await using opened = path instanceof FileHandle ? undefined : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
 	const handle = opened ?? (path as FileHandle);
-	await handle.writeFile(typeof data == 'string' ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength), options);
+	await handle.writeFile(typeof data == 'string' ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength), { ...options, signal });
 }
 writeFile satisfies typeof promises.writeFile;
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type { BufferView } from 'node:buffer';
+import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { Callback } from '../utils.js';
@@ -152,11 +153,16 @@ export function readFile<T extends NodeJS.ArrayBufferView>(
 	options: fs.ReadFileOptionsWithBuffer<T>,
 	cb: Callback<[BufferView<T>]>,
 ): void;
-export function readFile(this: V_Context, filename: fs.PathOrFileDescriptor, options: { flag?: string }, callback?: Callback<[Uint8Array]>): void;
 export function readFile(
 	this: V_Context,
 	filename: fs.PathOrFileDescriptor,
-	options: { encoding: BufferEncoding; flag?: string } | BufferEncoding,
+	options: { encoding?: null; flag?: string } & Abortable,
+	callback?: Callback<[Uint8Array]>,
+): void;
+export function readFile(
+	this: V_Context,
+	filename: fs.PathOrFileDescriptor,
+	options: ({ encoding: BufferEncoding; flag?: string } & Abortable) | BufferEncoding,
 	cb: Callback<[string]>,
 ): void;
 export function readFile(

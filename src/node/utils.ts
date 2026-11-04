@@ -250,6 +250,13 @@ function abortError(signal: AbortSignal): Error {
 }
 
 /**
+ * Throws Node's `AbortError` if `signal` has been aborted.
+ */
+export function checkAborted(signal?: AbortSignal | null): void {
+	if (signal?.aborted) throw abortError(signal);
+}
+
+/**
  * Runs `operation`, rejecting with Node's `AbortError` if `signal` is aborted before it settles.
  */
 export async function raceSignal<T>(operation: () => Promise<T>, signal?: AbortSignal | null): Promise<T> {
