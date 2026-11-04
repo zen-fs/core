@@ -17,7 +17,15 @@ import { blobType, promisifyResults, setPromisified, validateData } from './util
 import { FSWatcher, StatWatcher } from '../vfs/watchers.js';
 import * as promises from './promises.js';
 import { BigIntStats } from './stats.js';
-import { ReadStream, WriteStream, type ReadStreamOptions, type WriteStreamOptions } from './streams.js';
+import {
+	OperationsHandle,
+	ReadStream,
+	validateOperations,
+	WriteStream,
+	type ReadStreamOptions,
+	type StreamOperations,
+	type WriteStreamOptions,
+} from './streams.js';
 
 const nop = () => {};
 
@@ -667,10 +675,15 @@ function streamHandle(
 	path: fs.PathLike,
 	defaultFlags: string,
 	options: ReadStreamOptions | WriteStreamOptions,
-): promises.FileHandle | Promise<promises.FileHandle> {
+): promises.FileHandle | OperationsHandle | Promise<promises.FileHandle | OperationsHandle> {
 	const { fd } = options;
+	const operations = options.fs as StreamOperations | undefined;
+	if (operations) {
+		validateOperations(operations, defaultFlags == 'r' ? 'read' : 'write', options);
+		return OperationsHandle.open(operations, path, fd, options.flags ?? defaultFlags, options.mode ?? 0o666);
+	}
 	if (typeof fd == 'number') return new promises.FileHandle(context, fd);
-	if (fd != null) return fd as unknown as promises.FileHandle;
+	if (fd != null) return fd as promises.FileHandle;
 	return promises.open.call(context, path, options.flags ?? defaultFlags, options.mode);
 }
 
