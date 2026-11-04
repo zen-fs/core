@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import type { Dir as _Dir, Dirent as _Dirent } from 'node:fs';
+import type { Dir as _Dir, Dirent as _Dirent, OpenDirOptions } from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { Callback } from '../utils.js';
 
@@ -97,6 +97,7 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 	public constructor(
 		public readonly path: string,
 		protected readonly context: V_Context,
+		protected readonly options: OpenDirOptions = {},
 	) {}
 
 	/**
@@ -133,6 +134,8 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 		this.checkClosed();
 		this._entries ??= await readdir.call<V_Context, [string, any], Promise<Dirent[]>>(this.context, this.path, {
 			withFileTypes: true,
+			recursive: this.options.recursive,
+			encoding: this.options.encoding,
 		});
 		if (!this._entries.length) return null;
 		return this._entries.shift() ?? null;
@@ -164,7 +167,11 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 	 */
 	public readSync(): Dirent | null {
 		this.checkClosed();
-		this._entries ??= readdirSync.call<V_Context, [string, any], Dirent[]>(this.context, this.path, { withFileTypes: true });
+		this._entries ??= readdirSync.call<V_Context, [string, any], Dirent[]>(this.context, this.path, {
+			withFileTypes: true,
+			recursive: this.options.recursive,
+			encoding: this.options.encoding,
+		});
 		if (!this._entries.length) return null;
 		return this._entries.shift() ?? null;
 	}

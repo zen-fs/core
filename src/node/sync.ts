@@ -731,11 +731,10 @@ writevSync satisfies typeof fs.writevSync;
  * @param path The path to the directory.
  * @param options Options for opening the directory.
  * @returns A `Dir` object representing the opened directory.
- * @todo Handle options
  */
 export function opendirSync(this: V_Context, path: fs.PathLike, options?: fs.OpenDirOptions): Dir {
 	path = normalizePath.call(this, path);
-	return new Dir(path, this);
+	return new Dir(path, this, options);
 }
 opendirSync satisfies typeof fs.opendirSync;
 
