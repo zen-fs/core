@@ -18,9 +18,11 @@ import {
 	_blobType,
 	_cpTypeMismatch,
 	_isNoEntry,
+	_mkstempError,
 	_readFileBuffer,
 	_tempDirName,
-	_tempDirResult,
+	_tempResult,
+	_tempFileName,
 	_validateMaxDepth,
 	normalizeMode,
 	normalizeOptions,
@@ -651,9 +653,26 @@ export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.E
 export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer {
 	const path = _tempDirName(prefix);
 	mkdirSync.call(this, path);
-	return _tempDirResult(path, prefix, options);
+	return _tempResult(path, prefix, options);
 }
 mkdtempSync satisfies typeof fs.mkdtempSync;
+
+/**
+ * Synchronously creates and opens a unique temporary file, named by appending six random characters to `prefix`.
+ */
+export function mkstempSync(this: V_Context, prefix: Buffer, options?: fs.EncodingOption | fs.BufferEncodingOption): fs.TempFile<NonSharedBuffer>;
+export function mkstempSync(this: V_Context, prefix: fs.PathLike, options: fs.BufferEncodingOption): fs.TempFile<NonSharedBuffer>;
+export function mkstempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption): fs.TempFile<string>;
+export function mkstempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): fs.TempFile;
+export function mkstempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): fs.TempFile {
+	const path = _tempFileName(prefix);
+	try {
+		return { path: _tempResult(path, prefix, options), fd: openSync.call(this, path, 'wx+', 0o600) };
+	} catch (error) {
+		throw _mkstempError(error, prefix);
+	}
+}
+mkstempSync satisfies typeof fs.mkstempSync;
 
 /**
  * Returns a disposable object whose `path` property holds the created directory path.

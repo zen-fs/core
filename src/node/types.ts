@@ -53,6 +53,29 @@ declare module 'node:fs' {
 
 	/** Synchronous version of `openAsBlob` */
 	function openAsBlobSync(path: PathLike, options?: OpenAsBlobOptions): Blob;
+
+	/** A temporary file created by `mkstemp` */
+	interface TempFile<T extends string | NonSharedBuffer = string | NonSharedBuffer> {
+		path: T;
+		/** Opened for reading and writing */
+		fd: number;
+	}
+
+	type TempFileCallback<T extends string | NonSharedBuffer> = (error: NodeJS.ErrnoException | null, file: TempFile<T>) => void;
+
+	/** Creates and opens a unique temporary file */
+	function mkstemp(prefix: Buffer, callback: TempFileCallback<NonSharedBuffer>): void;
+	function mkstemp(prefix: Buffer, options: EncodingOption | BufferEncodingOption, callback: TempFileCallback<NonSharedBuffer>): void;
+	function mkstemp(prefix: PathLike, callback: TempFileCallback<string>): void;
+	function mkstemp(prefix: PathLike, options: EncodingOption, callback: TempFileCallback<string>): void;
+	function mkstemp(prefix: PathLike, options: BufferEncodingOption, callback: TempFileCallback<NonSharedBuffer>): void;
+	function mkstemp(prefix: PathLike, options: EncodingOption | BufferEncodingOption, callback: TempFileCallback<string | NonSharedBuffer>): void;
+
+	/** Synchronously creates and opens a unique temporary file */
+	function mkstempSync(prefix: Buffer, options?: EncodingOption | BufferEncodingOption): TempFile<NonSharedBuffer>;
+	function mkstempSync(prefix: PathLike, options: BufferEncodingOption): TempFile<NonSharedBuffer>;
+	function mkstempSync(prefix: PathLike, options?: EncodingOption): TempFile<string>;
+	function mkstempSync(prefix: PathLike, options?: EncodingOption | BufferEncodingOption): TempFile;
 }
 
 declare module 'node:fs/promises' {
@@ -72,4 +95,17 @@ declare module 'node:fs/promises' {
 		pullSync(...transforms: SyncTransform[]): SyncByteReadableStream;
 		pullSync(...args: [...transforms: SyncTransform[], options: PullSyncOptions]): SyncByteReadableStream;
 	}
+
+	/** A temporary file created by `mkstemp` */
+	interface TempFile<T extends string | NonSharedBuffer = string | NonSharedBuffer> {
+		path: T;
+		/** Opened for reading and writing */
+		handle: FileHandle;
+	}
+
+	/** Creates and opens a unique temporary file */
+	function mkstemp(prefix: Buffer, options?: fs.EncodingOption | fs.BufferEncodingOption): Promise<TempFile<NonSharedBuffer>>;
+	function mkstemp(prefix: fs.PathLike, options: fs.BufferEncodingOption): Promise<TempFile<NonSharedBuffer>>;
+	function mkstemp(prefix: fs.PathLike, options?: fs.EncodingOption): Promise<TempFile<string>>;
+	function mkstemp(prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): Promise<TempFile>;
 }

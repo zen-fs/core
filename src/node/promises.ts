@@ -28,10 +28,12 @@ import {
 	_cpTypeMismatch,
 	_describeReceived,
 	_isNoEntry,
+	_mkstempError,
 	_raceSignal,
 	_readFileBuffer,
 	_tempDirName,
-	_tempDirResult,
+	_tempResult,
+	_tempFileName,
 	_validateMaxDepth,
 	normalizeMode,
 	normalizeOptions,
@@ -1295,9 +1297,37 @@ export async function mkdtemp(
 ): Promise<string | NonSharedBuffer> {
 	const path = _tempDirName(prefix);
 	await mkdir.call(this, path);
-	return _tempDirResult(path, prefix, options);
+	return _tempResult(path, prefix, options);
 }
 mkdtemp satisfies typeof promises.mkdtemp;
+
+/**
+ * Creates and opens a unique temporary file, named by appending six random characters to `prefix`.
+ */
+export async function mkstemp(
+	this: V_Context,
+	prefix: Buffer,
+	options?: fs.EncodingOption | fs.BufferEncodingOption,
+): Promise<promises.TempFile<NonSharedBuffer>>;
+export async function mkstemp(this: V_Context, prefix: fs.PathLike, options: fs.BufferEncodingOption): Promise<promises.TempFile<NonSharedBuffer>>;
+export async function mkstemp(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption): Promise<promises.TempFile<string>>;
+export async function mkstemp(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options?: fs.EncodingOption | fs.BufferEncodingOption,
+): Promise<promises.TempFile>;
+export async function mkstemp(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options?: fs.EncodingOption | fs.BufferEncodingOption,
+): Promise<promises.TempFile> {
+	const path = _tempFileName(prefix);
+	const handle = await open.call(this, path, 'wx+', 0o600).catch((error: unknown) => {
+		throw _mkstempError(error, prefix);
+	});
+	return { path: _tempResult(path, prefix, options), handle };
+}
+mkstemp satisfies typeof promises.mkstemp;
 
 /**
  * The resulting Promise holds an async-disposable object whose `path` property holds the created directory path.

@@ -687,6 +687,40 @@ export function mkdtemp(
 }
 mkdtemp satisfies Omit<typeof fs.mkdtemp, '__promisify__'>;
 
+type TempFileCallback<T extends string | NonSharedBuffer> = (error: NodeJS.ErrnoException | null, file: fs.TempFile<T>) => void;
+
+/**
+ * Creates and opens a unique temporary file, named by appending six random characters to `prefix`.
+ */
+export function mkstemp(this: V_Context, prefix: Buffer, callback: TempFileCallback<NonSharedBuffer>): void;
+export function mkstemp(
+	this: V_Context,
+	prefix: Buffer,
+	options: fs.EncodingOption | fs.BufferEncodingOption,
+	callback: TempFileCallback<NonSharedBuffer>,
+): void;
+export function mkstemp(this: V_Context, prefix: fs.PathLike, callback: TempFileCallback<string>): void;
+export function mkstemp(this: V_Context, prefix: fs.PathLike, options: fs.EncodingOption, callback: TempFileCallback<string>): void;
+export function mkstemp(this: V_Context, prefix: fs.PathLike, options: fs.BufferEncodingOption, callback: TempFileCallback<NonSharedBuffer>): void;
+export function mkstemp(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options: fs.EncodingOption | fs.BufferEncodingOption,
+	callback: TempFileCallback<string | NonSharedBuffer>,
+): void;
+export function mkstemp(
+	this: V_Context,
+	prefix: fs.PathLike,
+	options: fs.EncodingOption | fs.BufferEncodingOption | TempFileCallback<string> | TempFileCallback<NonSharedBuffer>,
+	callback: TempFileCallback<string> | TempFileCallback<NonSharedBuffer> = nop,
+): void {
+	const done = (typeof options == 'function' ? options : callback) as Callback<[fs.TempFile]>;
+	promises.mkstemp
+		.call(this, prefix, typeof options == 'function' ? undefined : options)
+		.then(({ path, handle }) => done(null, { path, fd: handle.fd }), done);
+}
+mkstemp satisfies typeof fs.mkstemp;
+
 export function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathLike, callback: Callback): void;
 export function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathLike, flags: number, callback: Callback): void;
 export function copyFile(this: V_Context, src: fs.PathLike, dest: fs.PathLike, flags: number | Callback, callback: Callback = nop): void {

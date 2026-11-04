@@ -74,6 +74,7 @@ const pathArgs: Record<string, number> = {
 	mkdir: 1,
 	mkdtemp: 1,
 	mkdtempDisposable: 1,
+	mkstemp: 1,
 	open: 1,
 	openAsBlob: 1,
 	opendir: 1,
@@ -127,9 +128,12 @@ function mapResult(base: string, result: unknown): unknown {
 		}
 	}
 
-	// `mkdtempDisposable` returns the path on an object. Disposal uses the path it captured, so this is safe to change.
-	const disposable = result as { path?: unknown };
-	if (base == 'mkdtempDisposable' && typeof disposable?.path == 'string') disposable.path = fromNative(disposable.path);
+	// `mkdtempDisposable` and `mkstemp` return the path on an object. Disposal uses the path it captured, so this is safe to change.
+	const withPath = result as { path?: unknown };
+	if (base == 'mkdtempDisposable' || base == 'mkstemp') {
+		if (typeof withPath?.path == 'string') withPath.path = fromNative(withPath.path);
+		if (Buffer.isBuffer(withPath?.path)) withPath.path = Buffer.from(fromNative(withPath.path.toString()));
+	}
 
 	return result;
 }

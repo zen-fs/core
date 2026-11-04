@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { Buffer } from 'buffer';
-import { Errno, withErrno, type Exception } from 'kerium';
+import { Errno, Exception, setUVMessage, withErrno } from 'kerium';
 import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';
 import type { OptionalTuple } from 'utilium';
@@ -224,11 +224,38 @@ export function _blobType(options: unknown): string {
 	});
 }
 
+const tempFileCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
 /**
- * Encodes the path of a created temporary directory, which is a `Buffer` if `prefix` is one, like Node.
+ * Creates the path of a temporary file by appending six random characters to `prefix`, like Node's `mkstemp`.
  * @internal @hidden
  */
-export function _tempDirResult(path: string, prefix: unknown, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer {
+export function _tempFileName(prefix: unknown): string {
+	if (typeof prefix != 'string' && !Buffer.isBuffer(prefix) && !(prefix instanceof URL))
+		throw Object.assign(
+			new TypeError(`The "prefix" argument must be of type string or an instance of Buffer or URL. Received ${_describeReceived(prefix)}`),
+			{ code: 'ERR_INVALID_ARG_TYPE' },
+		);
+
+	let name = normalizePath(prefix, true);
+	for (const byte of crypto.getRandomValues(new Uint8Array(6))) name += tempFileCharacters[byte % tempFileCharacters.length];
+	return name;
+}
+
+/**
+ * Reports an error creating a temporary file against the `prefix` template, like Node's `mkstemp`.
+ * @internal @hidden
+ */
+export function _mkstempError(error: unknown, prefix: fs.PathLike): unknown {
+	if (!(error instanceof Exception)) return error;
+	return setUVMessage(Object.assign(error, { syscall: 'mkstemp', path: normalizePath(prefix, true) + 'XXXXXX' }));
+}
+
+/**
+ * Encodes the path of a created temporary file or directory, which is a `Buffer` if `prefix` is one, like Node.
+ * @internal @hidden
+ */
+export function _tempResult(path: string, prefix: unknown, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer {
 	const encoding = typeof options == 'object' ? options?.encoding : options;
 	if (Buffer.isBuffer(prefix) || encoding == 'buffer') return Buffer.from(path);
 	if (!encoding || encoding == 'utf8' || encoding == 'utf-8') return path;
