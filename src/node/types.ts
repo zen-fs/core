@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type * as fs from 'node:fs';
 import type { Stream } from 'node:stream';
+import type { SyncByteReadableStream, SyncTransform } from 'node:stream/iter';
 
 /**
  * @hidden
@@ -48,5 +49,24 @@ declare module 'node:fs' {
 	interface GlobOptions<T extends Dirent | string = Dirent | string> {
 		/** Maximum number of directory levels to traverse, where `cwd` has a depth of 0 */
 		maxDepth?: number | undefined;
+	}
+}
+
+declare module 'node:fs/promises' {
+	interface PullSyncOptions {
+		/** Close the file handle when the iterable ends */
+		autoClose?: boolean | undefined;
+		/** Byte offset to begin reading from, instead of the current position */
+		start?: number | undefined;
+		/** Maximum number of bytes to read */
+		limit?: number | undefined;
+		/** Size of each read in bytes */
+		chunkSize?: number | undefined;
+	}
+
+	interface FileHandle {
+		/** Return the file contents as an iterable using synchronous reads */
+		pullSync(...transforms: SyncTransform[]): SyncByteReadableStream;
+		pullSync(...args: [...transforms: SyncTransform[], options: PullSyncOptions]): SyncByteReadableStream;
 	}
 }

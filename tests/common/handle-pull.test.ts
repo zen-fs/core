@@ -32,7 +32,7 @@ await handle.writeFile(content);
 
 suite('FileHandle.pull', () => {
 	test('reads file contents', async () => {
-		assert.equal(await text(handle.pull()), content);
+		assert.equal(await text(handle.pull({ start: 0 })), content);
 	});
 
 	test('reads a range with start and limit', async () => {
@@ -41,25 +41,64 @@ suite('FileHandle.pull', () => {
 
 	test('respects a small chunkSize', async () => {
 		const chunks: number[] = [];
-		for await (const part of handle.pull({ chunkSize: 2 })) {
+		for await (const part of handle.pull({ start: 0, chunkSize: 2 })) {
 			for (const c of part) chunks.push(c.length);
 		}
 		assert.deepEqual(chunks, [2, 2, 1]);
 	});
 
 	test('applies the asciiUpper transform from the Node.js docs', async () => {
-		assert.equal(await text(handle.pull(asciiUpper)), content.toUpperCase()); // 'HELLO'
+		assert.equal(await text(handle.pull(asciiUpper, { start: 0 })), content.toUpperCase()); // 'HELLO'
 	});
 
 	test('autoClose closes the handle', async () => {
 		const fh = await promises.open('./pull-autoclose.txt', 'w+');
 		await fh.writeFile(content);
-		assert.equal(await text(fh.pull({ autoClose: true })), content);
+		assert.equal(await text(fh.pull({ start: 0, autoClose: true })), content);
 		await assert.rejects(fh.readFile('utf8'));
 	});
 });
 
-suite('FileHandle.writer', () => {
+suite('FileHandle.pullSync', () => {
+	const textSync = (source: Iterable<Uint8Array[]>): string => Buffer.concat([...source].flat()).toString();
+
+	test('reads from the current position by default', async () => {
+		await using fh = await promises.open('./pull.txt');
+		await fh.read(Buffer.alloc(2));
+		assert.equal(textSync(fh.pullSync()), content.slice(2));
+		assert.equal((await fh.read(Buffer.alloc(1))).bytesRead, 0);
+	});
+
+	test('reads a range with start, limit, and chunkSize', () => {
+		const chunks = [...handle.pullSync({ start: 1, limit: 3, chunkSize: 2 })].map(part => textSync([part]));
+		assert.deepEqual(chunks, ['el', 'l']);
+	});
+
+	test('applies stateless and stateful transforms', () => {
+		assert.equal(textSync(handle.pullSync(asciiUpper, { start: 0 })), content.toUpperCase());
+
+		const counter = {
+			*transform(source: Iterable<Uint8Array[] | null>) {
+				let length = 0;
+				for (const chunks of source) {
+					if (chunks === null) yield `|${length}`;
+					else for (const chunk of chunks) yield ((length += chunk.length), chunk);
+				}
+			},
+		};
+		assert.equal(textSync(handle.pullSync(counter, { start: 0 })), content + '|' + content.length);
+	});
+
+	test('autoClose closes the handle when iteration ends', async () => {
+		const fh = await promises.open('./pull.txt');
+		const iterator = fh.pullSync({ start: 0, chunkSize: 1, autoClose: true })[Symbol.iterator]();
+		iterator.next();
+		iterator.return?.();
+		assert.equal(fh.fd, -1);
+	});
+});
+
+suite('FileHandle.writer', { timeout: 1000 }, () => {
 	test('writes data backed by the handle', async () => {
 		const fh = await promises.open('./writer.txt', 'w+');
 		const w = fh.writer();

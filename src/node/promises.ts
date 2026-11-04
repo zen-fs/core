@@ -6,7 +6,7 @@ import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
 import type { Stream } from 'node:stream';
-import type { ByteReadableStream, Transform, Writer } from 'node:stream/iter';
+import type { ByteReadableStream, SyncByteReadableStream, SyncTransform, Transform, Writer } from 'node:stream/iter';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { V_Context } from '../context.js';
 import type { StreamOptions } from '../internal/filesystem.js';
@@ -140,6 +140,60 @@ async function* applyTransform(source: ByteReadableStream, transform: Transform,
 		for await (const chunk of normalizeTransformResult(result)) out.push(chunk);
 		if (out.length) yield out;
 	}
+}
+
+/** Coerce a synchronous `stream/iter` transform result into `Uint8Array` chunks. */
+function* normalizeTransformResultSync(result: unknown): Generator<Uint8Array> {
+	if (result === null) return;
+	if (typeof result == 'string') {
+		yield encodeUTF8(result);
+		return;
+	}
+	if (ArrayBuffer.isView(result)) {
+		yield new Uint8Array(result.buffer, result.byteOffset, result.byteLength);
+		return;
+	}
+	if (result instanceof ArrayBuffer || (typeof SharedArrayBuffer != 'undefined' && result instanceof SharedArrayBuffer)) {
+		yield new Uint8Array(result);
+		return;
+	}
+	if (typeof (result as Iterable<unknown>)[Symbol.iterator] == 'function') {
+		for (const part of result as Iterable<unknown>) yield* normalizeTransformResultSync(part);
+		return;
+	}
+	throw new TypeError('Invalid transform result');
+}
+
+/** Ponyfill for `node:stream/iter`'s `pullSync()` transform application */
+function* applyTransformSync(source: SyncByteReadableStream, transform: SyncTransform): SyncByteReadableStream {
+	if (typeof transform == 'function') {
+		for (const chunks of source) {
+			const out = [...normalizeTransformResultSync(transform(chunks))];
+			if (out.length) yield out;
+		}
+		const out = [...normalizeTransformResultSync(transform(null))];
+		if (out.length) yield out;
+		return;
+	}
+
+	function* withFlush(): Generator<Uint8Array[] | null> {
+		yield* source;
+		yield null;
+	}
+	for (const result of transform.transform(withFlush())) {
+		const out = [...normalizeTransformResultSync(result)];
+		if (out.length) yield out;
+	}
+}
+
+/**
+ * Splits `pull` and `pullSync` arguments into transforms and the trailing options object, if any.
+ */
+function parsePullArgs<T, O extends object>(args: unknown[]): { transforms: T[]; options: O } {
+	const last = args.at(-1);
+	const hasOptions = last != null && typeof last == 'object' && typeof (last as { transform?: unknown }).transform != 'function';
+	const options = (hasOptions ? args.at(-1) : {}) as O;
+	return { transforms: (hasOptions ? args.slice(0, -1) : args) as T[], options };
 }
 
 export class FileHandle implements promises.FileHandle {
@@ -432,6 +486,14 @@ export class FileHandle implements promises.FileHandle {
 	/**
 	 * Asynchronous close(2) - close a `FileHandle`.
 	 */
+	/** @internal */
+	public _closeSync(): void {
+		if (this._fd == -1) return;
+		this.vfs.closeSync();
+		deleteFD(this.context, this._fd);
+		this._fd = -1;
+	}
+
 	public async close(): Promise<void> {
 		if (this._fd == -1) return;
 		await this.vfs.close();
@@ -501,7 +563,7 @@ export class FileHandle implements promises.FileHandle {
 
 	/**
 	 * Return the file contents as an async iterable using the `node:stream/iter` pull model.
-	 * Reads are performed in `chunkSize`-byte chunks (default 128 KiB).
+	 * Reads are performed in `chunkSize`-byte chunks (default 128 KiB), from `start` or else the current position.
 	 * If transforms are provided, they are applied via `stream/iter`'s `pull()`.
 	 * The handle is closed when iteration completes if `autoClose` is set.
 	 * @experimental
@@ -511,17 +573,12 @@ export class FileHandle implements promises.FileHandle {
 	public pull(...args: Array<Transform | promises.PullOptions>): ByteReadableStream {
 		if (this.vfs.isClosed || this.vfs.flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.vfs.path);
 
-		// A trailing plain object that is neither a transform function nor a stateful transform is the options bag.
-		const last = args.at(-1);
-		const hasOptions = last != null && typeof last == 'object' && typeof (last as { transform?: unknown }).transform != 'function';
-		const options: promises.PullOptions = hasOptions ? (args.pop() as promises.PullOptions) : {};
-		const transforms = args as Transform[];
-
+		const { transforms, options } = parsePullArgs<Transform, promises.PullOptions>(args);
 		const { autoClose, start, limit, chunkSize = 131072, signal } = options;
 
 		const handle = this;
 		async function* source(): ByteReadableStream {
-			let position = typeof start == 'number' ? start : 0;
+			let position = typeof start == 'number' ? start : null;
 			let remaining = typeof limit == 'number' ? limit : Infinity;
 			try {
 				while (remaining > 0) {
@@ -530,7 +587,7 @@ export class FileHandle implements promises.FileHandle {
 					const buffer = new Uint8Array(size);
 					const bytesRead = await handle.vfs.read(buffer, 0, size, position);
 					if (bytesRead <= 0) break;
-					position += bytesRead;
+					if (position !== null) position += bytesRead;
 					remaining -= bytesRead;
 					yield [buffer.subarray(0, bytesRead)];
 				}
@@ -541,6 +598,45 @@ export class FileHandle implements promises.FileHandle {
 
 		let stream = source();
 		for (const transform of transforms) stream = applyTransform(stream, transform, signal);
+		return stream;
+	}
+
+	/**
+	 * Return the file contents as an iterable using the `node:stream/iter` pull model and synchronous reads.
+	 * Reads are performed in `chunkSize`-byte chunks (default 128 KiB), from `start` or else the current position.
+	 * If transforms are provided, they are applied like `stream/iter`'s `pullSync()`.
+	 * The handle is closed when iteration completes if `autoClose` is set.
+	 * @experimental
+	 */
+	public pullSync(...transforms: SyncTransform[]): SyncByteReadableStream;
+	public pullSync(...args: [...transforms: SyncTransform[], options: promises.PullSyncOptions]): SyncByteReadableStream;
+	public pullSync(...args: Array<SyncTransform | promises.PullSyncOptions>): SyncByteReadableStream {
+		if (this.vfs.isClosed || this.vfs.flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.vfs.path);
+
+		const { transforms, options } = parsePullArgs<SyncTransform, promises.PullSyncOptions>(args);
+		const { autoClose, start, limit, chunkSize = 131072 } = options;
+
+		const handle = this;
+		function* source(): SyncByteReadableStream {
+			let position = typeof start == 'number' ? start : null;
+			let remaining = typeof limit == 'number' ? limit : Infinity;
+			try {
+				while (remaining > 0) {
+					const size = Math.min(chunkSize, remaining);
+					const buffer = new Uint8Array(size);
+					const bytesRead = handle.vfs.readSync(buffer, 0, size, position);
+					if (bytesRead <= 0) break;
+					if (position !== null) position += bytesRead;
+					remaining -= bytesRead;
+					yield [buffer.subarray(0, bytesRead)];
+				}
+			} finally {
+				if (autoClose) handle._closeSync();
+			}
+		}
+
+		let stream = source();
+		for (const transform of transforms) stream = applyTransformSync(stream, transform);
 		return stream;
 	}
 
