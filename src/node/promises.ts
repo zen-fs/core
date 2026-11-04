@@ -26,6 +26,7 @@ import '../polyfills.js';
 import {
 	_cpTypeMismatch,
 	_isNoEntry,
+	_raceSignal,
 	_readFileBuffer,
 	_tempDirName,
 	_validateMaxDepth,
@@ -650,7 +651,7 @@ export async function stat(this: V_Context, path: fs.PathLike, options?: fs.Stat
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats | undefined> {
 	let stats: InodeLike;
 	try {
-		stats = await _async.stat.call(this, path, false);
+		stats = await _raceSignal(() => _async.stat.call(this, path, false), options?.signal);
 	} catch (e) {
 		if (options?.throwIfNoEntry === false && _isNoEntry(e)) return;
 		throw e;
@@ -664,10 +665,11 @@ stat satisfies typeof promises.stat;
  * `lstat()` is identical to `stat()`, except that if path is a symbolic link,
  * then the link itself is stat-ed, not the file that it refers to.
  */
-export async function lstat(this: V_Context, path: fs.PathLike, options?: { bigint?: boolean }): Promise<Stats>;
-export async function lstat(this: V_Context, path: fs.PathLike, options: { bigint: true }): Promise<BigIntStats>;
+export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions & { bigint?: false }): Promise<Stats>;
+export async function lstat(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { bigint: true }): Promise<BigIntStats>;
+export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	const stats = await _async.stat.call(this, path, true);
+	const stats = await _raceSignal(() => _async.stat.call(this, path, true), options?.signal);
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 lstat satisfies typeof promises.lstat;

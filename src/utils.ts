@@ -182,6 +182,32 @@ export function _readFileBuffer(into: ArrayBufferView | ((size: number) => Array
 }
 
 /**
+ * Creates Node's `AbortError` for an aborted `signal`.
+ * @internal @hidden
+ */
+export function _abortError(signal: AbortSignal): Error {
+	return Object.assign(new Error('The operation was aborted', { cause: signal.reason }), { name: 'AbortError', code: 'ABORT_ERR' });
+}
+
+/**
+ * Runs `operation`, rejecting with Node's `AbortError` if `signal` is aborted before it settles.
+ * @internal @hidden
+ */
+export async function _raceSignal<T>(operation: () => Promise<T>, signal?: AbortSignal | null): Promise<T> {
+	if (!signal) return await operation();
+	if (signal.aborted) throw _abortError(signal);
+
+	const { promise, reject } = Promise.withResolvers<never>();
+	const onAbort = () => reject(_abortError(signal));
+	signal.addEventListener('abort', onAbort, { once: true });
+	try {
+		return await Promise.race([operation(), promise]);
+	} finally {
+		signal.removeEventListener('abort', onAbort);
+	}
+}
+
+/**
  * Normalizes options
  * @param options options to normalize
  * @param encoding default encoding

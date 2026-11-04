@@ -83,8 +83,8 @@ export function lstat(
 ): void {
 	callback = typeof options == 'function' ? options : callback;
 	promises.lstat
-		.call<V_Context, [fs.PathLike, fs.StatOptions?], Promise<Stats>>(this, path, typeof options != 'function' ? options : {})
-		.then(stats => (callback as Callback<[Stats] | [BigIntStats]>)(null, stats), callback);
+		.call<V_Context, [fs.PathLike, fs.StatOptions?], Promise<Stats | BigIntStats>>(this, path, typeof options != 'function' ? options : {})
+		.then(stats => (callback as Callback<[Stats | BigIntStats]>)(null, stats), callback);
 }
 lstat satisfies Omit<typeof fs.lstat, '__promisify__'>;
 
