@@ -111,18 +111,25 @@ unlink satisfies Omit<typeof fs.unlink, '__promisify__'>;
  * @see https://nodejs.org/api/fs.html#fsopenpath-flags-mode-callback
  * @param flags {@link https://nodejs.org/api/fs.html#file-system-flags}
  */
-export function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, cb?: Callback<[number]>): void;
-export function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, mode: number | string, cb?: Callback<[number]>): void;
+export function open(this: V_Context, path: fs.PathLike, cb: Callback<[number]>): void;
+export function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode | undefined, cb?: Callback<[number]>): void;
 export function open(
 	this: V_Context,
 	path: fs.PathLike,
-	flag: fs.OpenMode,
-	cbMode?: number | string | Callback<[number]>,
+	flag: fs.OpenMode | undefined,
+	mode: fs.Mode | null | undefined,
+	cb?: Callback<[number]>,
+): void;
+export function open(
+	this: V_Context,
+	path: fs.PathLike,
+	flag?: fs.OpenMode | Callback<[number]>,
+	cbMode?: fs.Mode | null | Callback<[number]>,
 	cb: Callback<[number]> = nop,
 ): void {
-	const mode = normalizeMode(cbMode, 0o644);
-	cb = typeof cbMode === 'function' ? cbMode : cb;
-	promises.open.call(this, path, flag, mode).then(handle => cb(null, handle.fd), cb);
+	if (typeof flag == 'function') [cb, flag] = [flag, undefined];
+	if (typeof cbMode == 'function') [cb, cbMode] = [cbMode, undefined];
+	promises.open.call(this, path, flag, normalizeMode(cbMode, 0o644)).then(handle => cb(null, handle.fd), cb);
 }
 open satisfies Omit<typeof fs.open, '__promisify__'>;
 

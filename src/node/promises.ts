@@ -815,8 +815,8 @@ unlink satisfies typeof promises.unlink;
  * @param flag {@link https://nodejs.org/api/fs.html#file-system-flags}
  * @param mode Mode to use to open the file. Can be ignored if the filesystem doesn't support permissions.
  */
-export async function open(this: V_Context, path: fs.PathLike, flag: fs.OpenMode = 'r', mode: fs.Mode = 0o644): Promise<FileHandle> {
-	const handle = await _async.open(this, path, { flag, mode });
+export async function open(this: V_Context, path: fs.PathLike, flag?: fs.OpenMode | null, mode: fs.Mode = 0o644): Promise<FileHandle> {
+	const handle = await _async.open(this, path, { flag: flag ?? 'r', mode });
 	return new FileHandle(this, toFD(handle));
 }
 open satisfies typeof promises.open;

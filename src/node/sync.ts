@@ -134,8 +134,8 @@ unlinkSync satisfies typeof fs.unlinkSync;
  * @see https://nodejs.org/api/fs.html#fsopensyncpath-flags-mode
  * @param flag {@link https://nodejs.org/api/fs.html#file-system-flags}
  */
-export function openSync(this: V_Context, path: fs.PathLike, flag: fs.OpenMode, mode: fs.Mode | null = constants.F_OK): number {
-	return toFD(_sync.open(this, path, { flag, mode }));
+export function openSync(this: V_Context, path: fs.PathLike, flag?: fs.OpenMode | null, mode: fs.Mode | null = constants.F_OK): number {
+	return toFD(_sync.open(this, path, { flag: flag ?? 'r', mode }));
 }
 openSync satisfies typeof fs.openSync;
 
