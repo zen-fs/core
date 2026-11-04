@@ -8,9 +8,9 @@ import { UV } from 'kerium';
 import { contextOf } from '../internal/contexts.js';
 import { isStatsEqual, type Stats } from '../node/stats.js';
 import { statSync } from '../node/sync.js';
-import { basename, dirname, join, relative } from '../path.js';
+import { basename, dirname, join, matchesGlob, relative } from '../path.js';
 import '../polyfills.js';
-import { normalizePath } from '../utils.js';
+import { _describeReceived, normalizePath } from '../utils.js';
 
 /** Alias so `.call` resolves to the non-bigint overload */
 const _statSync: (this: V_Context, path: string) => Stats = statSync;
@@ -70,6 +70,40 @@ class Watcher<TEvents extends Record<string, unknown[]> = Record<string, unknown
 }
 
 /**
+ * Creates a function that determines whether a watcher ignores a filename, validating `ignore` like Node.
+ */
+function createIgnoreMatcher(ignore: fs.WatchOptions['ignore']): (filename: string) => boolean {
+	if (ignore == null) return () => false;
+
+	const isArray = Array.isArray(ignore);
+	const matchers = (isArray ? ignore : [ignore]) as readonly unknown[];
+
+	const compiled = matchers.map((matcher, i): ((filename: string) => boolean) => {
+		const name = isArray ? `options.ignore[${i}]` : 'options.ignore';
+
+		if (typeof matcher == 'string') {
+			if (!matcher.length)
+				throw Object.assign(new TypeError(`The property '${name}' must be a non-empty string. Received ''`), {
+					code: 'ERR_INVALID_ARG_VALUE',
+				});
+			return filename => matchesGlob(matcher, matcher.includes('/') ? filename : basename(filename));
+		}
+
+		if (matcher instanceof RegExp) return filename => matcher.test(filename);
+		if (typeof matcher == 'function') return matcher as (filename: string) => boolean;
+
+		throw Object.assign(
+			new TypeError(
+				`The "${name}" property must be one of type string or function or an instance of RegExp. Received ${_describeReceived(matcher)}`,
+			),
+			{ code: 'ERR_INVALID_ARG_TYPE' },
+		);
+	});
+
+	return filename => compiled.some(matches => matches(filename));
+}
+
+/**
  * Watches for changes on the file system.
  *
  * @template T The type of the filename, either `string` or `Buffer`.
@@ -84,6 +118,9 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 {
 	protected readonly realpath: string;
 
+	/** @internal */
+	public readonly ignores: (filename: string) => boolean;
+
 	public constructor(
 		context: V_Context,
 		path: string,
@@ -93,6 +130,7 @@ export class FSWatcher<T extends string | Buffer = string | Buffer>
 
 		super($, path);
 
+		this.ignores = createIgnoreMatcher(options.ignore);
 		this.realpath = join($.root, path);
 
 		addWatcher(this.realpath, this);
@@ -205,7 +243,9 @@ export function emitChange(context: V_Context, eventType: fs.WatchEventType, fil
 		if (watchersForPath) {
 			for (const watcher of watchersForPath) {
 				if (isNested && !watcher.options.recursive) continue;
-				watcher.emit('change', eventType, relative.call(watcher._context, path, filename) || basename(filename));
+				const name = relative.call(watcher._context, path, filename) || basename(filename);
+				if (watcher.ignores(name)) continue;
+				watcher.emit('change', eventType, name);
 			}
 		}
 

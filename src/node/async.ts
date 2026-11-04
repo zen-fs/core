@@ -613,12 +613,7 @@ export function unwatchFile(this: V_Context, path: fs.PathLike, listener: (curr:
 unwatchFile satisfies Omit<typeof fs.unwatchFile, '__promisify__'>;
 
 export function watch(this: V_Context, path: fs.PathLike, listener?: (event: string, filename: string) => any): FSWatcher;
-export function watch(
-	this: V_Context,
-	path: fs.PathLike,
-	options: { persistent?: boolean },
-	listener?: (event: string, filename: string) => any,
-): FSWatcher;
+export function watch(this: V_Context, path: fs.PathLike, options: fs.WatchOptions, listener?: (event: string, filename: string) => any): FSWatcher;
 export function watch(
 	this: V_Context,
 	path: fs.PathLike,
