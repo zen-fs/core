@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { Buffer } from 'buffer';
-import { Errno, Exception, setUVMessage, withErrno } from 'kerium';
+import { withErrno, type Exception } from 'kerium';
 import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';
 import type { OptionalTuple } from 'utilium';
-import { resolve } from './path.js';
 import type { V_Context } from './internal/contexts.js';
+import { invalidArgumentType, outOfRange } from './node/utils.js';
+import { resolve } from './path.js';
 
 export type Callback<Args extends unknown[] = [], NoError = null> = (e: Exception | NoError, ...args: OptionalTuple<Args>) => unknown;
 
@@ -42,19 +42,7 @@ const fd_max = 0x7fffffff;
  */
 export function validateFD(fd: number): void {
 	if (Number.isInteger(fd) && fd >= 0 && fd <= fd_max) return;
-
-	throw Object.assign(new RangeError(`The value of "fd" is out of range. It must be >= 0 && <= ${fd_max}. Received ${fd}`), {
-		code: 'ERR_OUT_OF_RANGE',
-	});
-}
-
-/**
- * Whether an error means the path does not resolve to an entry. Used for `throwIfNoEntry`.
- * @internal @hidden
- */
-export function _isNoEntry(e: unknown): boolean {
-	const { code } = (e ?? {}) as Exception;
-	return code == 'ENOENT' || code == 'ENOTDIR';
+	throw outOfRange('fd', `>= 0 && <= ${fd_max}`, fd);
 }
 
 /**
@@ -80,12 +68,7 @@ export function normalizeTime(time: fs.TimeLike): number {
  * @todo clean this up and make it so `path.resolve` is only called when an explicit context is passed (i.e. `normalizePath(..., $)` to use `path.resolve`)
  */
 export function normalizePath(this: V_Context, p: fs.PathLike, noResolve: boolean = false): string {
-	if (typeof p == 'number')
-		throw Object.assign(
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			new TypeError(`The "path" argument must be of type string or an instance of Buffer or URL. Received type number (${p})`),
-			{ code: 'ERR_INVALID_ARG_TYPE' },
-		);
+	if (typeof p == 'number') throw invalidArgumentType('path', ['string', 'Buffer', 'URL'], p);
 	if (p instanceof URL) {
 		if (p.protocol != 'file:') throw withErrno('EINVAL', 'URLs must use the file: protocol');
 		p = p.pathname;
@@ -98,168 +81,6 @@ export function normalizePath(this: V_Context, p: fs.PathLike, noResolve: boolea
 
 	// Note: PWD is not resolved here, it is resolved later.
 	return noResolve ? p : resolve.call(this, p);
-}
-
-/**
- * Throws Node's `ERR_INVALID_ARG_TYPE` unless `data` is a string or an `ArrayBufferView`.
- * @internal @hidden
- */
-export function validateData(data: unknown, name: string = 'data'): asserts data is string | ArrayBufferView {
-	if (typeof data == 'string' || ArrayBuffer.isView(data)) return;
-	throw Object.assign(
-		new TypeError(
-			`The "${name}" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received ${data === null ? 'null' : typeof data}`,
-		),
-		{ code: 'ERR_INVALID_ARG_TYPE' },
-	);
-}
-
-/**
- * Creates Node's error for copying a directory onto a non-directory, or a non-directory onto a directory.
- * @internal @hidden
- */
-export function _cpTypeMismatch(source: string, destination: string, sourceIsDirectory: boolean): Error {
-	const [code, errno, sourceType, destinationType] = sourceIsDirectory
-		? (['ERR_FS_CP_DIR_TO_NON_DIR', 'EISDIR', 'directory', 'non-directory'] as const)
-		: (['ERR_FS_CP_NON_DIR_TO_DIR', 'ENOTDIR', 'non-directory', 'directory'] as const);
-	const message = `cannot overwrite ${destinationType} ${destination} with ${sourceType} ${source}`;
-	return Object.assign(new Error(`Cannot overwrite ${destinationType} with ${sourceType}: cp returned ${errno} (${message}) ${destination}`), {
-		name: 'SystemError',
-		code,
-		errno: Errno[errno],
-		syscall: 'cp',
-		path: destination,
-	});
-}
-
-/**
- * Throws Node's `ERR_OUT_OF_RANGE` unless `maxDepth` is `Infinity` or a non-negative integer.
- * @internal @hidden
- */
-export function _validateMaxDepth(maxDepth: number): void {
-	if (maxDepth === Infinity || (Number.isSafeInteger(maxDepth) && maxDepth >= 0)) return;
-	const requirement = Number.isInteger(maxDepth) ? '>= 0 && <= 9007199254740991' : 'an integer';
-	throw Object.assign(new RangeError(`The value of "options.maxDepth" is out of range. It must be ${requirement}. Received ${maxDepth}`), {
-		code: 'ERR_OUT_OF_RANGE',
-	});
-}
-
-/**
- * Describes a value the way Node's argument errors do, e.g. `type string ('x')`.
- * @internal @hidden
- */
-export function _describeReceived(value: unknown): string {
-	if (value == null) return String(value);
-	if (typeof value == 'function') return `function ${value.name}`;
-	if (typeof value == 'object') return value.constructor?.name ? `an instance of ${value.constructor.name}` : String(value);
-	return `type ${typeof value} (${typeof value == 'string' ? `'${value}'` : String(value)})`;
-}
-
-/**
- * Resolves the `buffer` option of `readFile` into a buffer covering the first `size` bytes of the view.
- * @internal @hidden
- */
-export function _readFileBuffer(into: ArrayBufferView | ((size: number) => ArrayBufferView), size: number): Buffer {
-	const isFunction = typeof into == 'function';
-	const view: unknown = isFunction ? into(size) : into;
-	const name = isFunction ? 'options.buffer()' : 'options.buffer';
-
-	if (!ArrayBuffer.isView(view))
-		throw Object.assign(
-			new TypeError(
-				`The "options.buffer" property must be of type function or an instance of Buffer, TypedArray, or DataView. Received ${_describeReceived(view)}`,
-			),
-			{ code: 'ERR_INVALID_ARG_TYPE' },
-		);
-
-	if (view.byteLength < size)
-		throw Object.assign(
-			new TypeError(`The property '${name}.byteLength' is smaller than the file size of ${size} bytes. Received ${view.byteLength}`),
-			{ code: 'ERR_INVALID_ARG_VALUE' },
-		);
-
-	return Buffer.from(view.buffer, view.byteOffset, size);
-}
-
-/**
- * Creates Node's `AbortError` for an aborted `signal`.
- * @internal @hidden
- */
-export function _abortError(signal: AbortSignal): Error {
-	return Object.assign(new Error('The operation was aborted', { cause: signal.reason }), { name: 'AbortError', code: 'ABORT_ERR' });
-}
-
-/**
- * Runs `operation`, rejecting with Node's `AbortError` if `signal` is aborted before it settles.
- * @internal @hidden
- */
-export async function _raceSignal<T>(operation: () => Promise<T>, signal?: AbortSignal | null): Promise<T> {
-	if (!signal) return await operation();
-	if (signal.aborted) throw _abortError(signal);
-
-	const { promise, reject } = Promise.withResolvers<never>();
-	const onAbort = () => reject(_abortError(signal));
-	signal.addEventListener('abort', onAbort, { once: true });
-	try {
-		return await Promise.race([operation(), promise]);
-	} finally {
-		signal.removeEventListener('abort', onAbort);
-	}
-}
-
-/**
- * Validates the options of `openAsBlob` like Node, returning the MIME type.
- * @internal @hidden
- */
-export function _blobType(options: unknown): string {
-	if (typeof options != 'object' || options === null)
-		throw Object.assign(new TypeError(`The "options" argument must be of type object. Received ${_describeReceived(options)}`), {
-			code: 'ERR_INVALID_ARG_TYPE',
-		});
-
-	const { type = '' } = options as { type?: unknown };
-	if (typeof type == 'string') return type;
-	throw Object.assign(new TypeError(`The "options.type" property must be of type string. Received ${_describeReceived(type)}`), {
-		code: 'ERR_INVALID_ARG_TYPE',
-	});
-}
-
-const tempFileCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-/**
- * Creates the path of a temporary file by appending six random characters to `prefix`, like Node's `mkstemp`.
- * @internal @hidden
- */
-export function _tempFileName(prefix: unknown): string {
-	if (typeof prefix != 'string' && !Buffer.isBuffer(prefix) && !(prefix instanceof URL))
-		throw Object.assign(
-			new TypeError(`The "prefix" argument must be of type string or an instance of Buffer or URL. Received ${_describeReceived(prefix)}`),
-			{ code: 'ERR_INVALID_ARG_TYPE' },
-		);
-
-	let name = normalizePath(prefix, true);
-	for (const byte of crypto.getRandomValues(new Uint8Array(6))) name += tempFileCharacters[byte % tempFileCharacters.length];
-	return name;
-}
-
-/**
- * Reports an error creating a temporary file against the `prefix` template, like Node's `mkstemp`.
- * @internal @hidden
- */
-export function _mkstempError(error: unknown, prefix: fs.PathLike): unknown {
-	if (!(error instanceof Exception)) return error;
-	return setUVMessage(Object.assign(error, { syscall: 'mkstemp', path: normalizePath(prefix, true) + 'XXXXXX' }));
-}
-
-/**
- * Encodes the path of a created temporary file or directory, which is a `Buffer` if `prefix` is one, like Node.
- * @internal @hidden
- */
-export function _tempResult(path: string, prefix: unknown, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer {
-	const encoding = typeof options == 'object' ? options?.encoding : options;
-	if (Buffer.isBuffer(prefix) || encoding == 'buffer') return Buffer.from(path);
-	if (!encoding || encoding == 'utf8' || encoding == 'utf-8') return path;
-	return Buffer.from(path).toString(encoding);
 }
 
 /**
@@ -296,21 +117,4 @@ export async function waitOnline(worker: NodeWorker): Promise<void> {
 	setTimeout(() => online.reject(withErrno('ETIMEDOUT')), 500);
 	worker.on('online', online.resolve);
 	await online.promise;
-}
-
-/**
- * @internal @hidden
- */
-export function _tempDirName(prefix: fs.PathLike) {
-	// Like Node, the prefix is a path. A relative one is resolved against the working directory, not `/tmp`.
-	return `${normalizePath(prefix, true)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-/**
- * Resolves the global `Temporal`, which is not implemented by all runtimes.
- * @internal @hidden
- */
-export function _temporal(): typeof Temporal {
-	if ('Temporal' in globalThis && typeof globalThis.Temporal !== 'undefined') return globalThis.Temporal;
-	throw withErrno('ENOTSUP', 'Temporal is not supported by this runtime');
 }

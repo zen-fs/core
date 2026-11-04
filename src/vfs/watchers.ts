@@ -10,7 +10,8 @@ import { isStatsEqual, type Stats } from '../node/stats.js';
 import { statSync } from '../node/sync.js';
 import { basename, dirname, join, matchesGlob, relative } from '../path.js';
 import '../polyfills.js';
-import { _describeReceived, normalizePath } from '../utils.js';
+import { normalizePath } from '../utils.js';
+import { invalidArgumentValue, validateType } from '../node/utils.js';
 
 /** Alias so `.call` resolves to the non-bigint overload */
 const _statSync: (this: V_Context, path: string) => Stats = statSync;
@@ -81,23 +82,12 @@ function createIgnoreMatcher(ignore: fs.WatchOptions['ignore']): (filename: stri
 	const compiled = matchers.map((matcher, i): ((filename: string) => boolean) => {
 		const name = isArray ? `options.ignore[${i}]` : 'options.ignore';
 
-		if (typeof matcher == 'string') {
-			if (!matcher.length)
-				throw Object.assign(new TypeError(`The property '${name}' must be a non-empty string. Received ''`), {
-					code: 'ERR_INVALID_ARG_VALUE',
-				});
-			return filename => matchesGlob(matcher.includes('/') ? filename : basename(filename), matcher);
-		}
+		validateType(matcher, name, 'string', 'function', 'RegExp');
 
-		if (matcher instanceof RegExp) return filename => matcher.test(filename);
 		if (typeof matcher == 'function') return matcher as (filename: string) => boolean;
-
-		throw Object.assign(
-			new TypeError(
-				`The "${name}" property must be one of type string or function or an instance of RegExp. Received ${_describeReceived(matcher)}`,
-			),
-			{ code: 'ERR_INVALID_ARG_TYPE' },
-		);
+		if (matcher instanceof RegExp) return filename => matcher.test(filename);
+		if (!matcher.length) throw invalidArgumentValue(name, matcher, 'must be a non-empty string');
+		return filename => matchesGlob(matcher.includes('/') ? filename : basename(filename), matcher);
 	});
 
 	return filename => compiled.some(matches => matches(filename));

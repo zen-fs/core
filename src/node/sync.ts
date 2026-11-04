@@ -14,22 +14,19 @@ import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { assertRemovable, hasAccess, isDirectory } from '../internal/inode.js';
 import { _globDescent, dirname, join, matchesGlob, relative, resolve } from '../path.js';
+import { normalizeMode, normalizeOptions, normalizePath, normalizeTime } from '../utils.js';
 import {
-	_blobType,
-	_cpTypeMismatch,
-	_isNoEntry,
-	_mkstempError,
-	_readFileBuffer,
-	_tempDirName,
-	_tempResult,
-	_tempFileName,
-	_validateMaxDepth,
-	normalizeMode,
-	normalizeOptions,
-	normalizePath,
-	normalizeTime,
+	blobType,
+	cpTypeMismatch,
+	isNoEntry,
+	mkstempError,
+	readFileBuffer,
+	tempDirName,
+	tempFileName,
+	tempResult,
 	validateData,
-} from '../utils.js';
+	validateMaxDepth,
+} from './utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
 import * as flags from '../vfs/flags.js';
@@ -75,7 +72,7 @@ export function statSync(this: V_Context, path: fs.PathLike, options?: fs.StatOp
 	try {
 		stats = _sync.stat.call(this, path, false);
 	} catch (e) {
-		if (options?.throwIfNoEntry === false && _isNoEntry(e)) return;
+		if (options?.throwIfNoEntry === false && isNoEntry(e)) return;
 		throw e;
 	}
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
@@ -102,7 +99,7 @@ export function lstatSync(this: V_Context, path: fs.PathLike, options?: fs.StatO
 	try {
 		stats = _sync.stat.call(this, path, true);
 	} catch (e) {
-		if (options?.throwIfNoEntry === false && _isNoEntry(e)) return;
+		if (options?.throwIfNoEntry === false && isNoEntry(e)) return;
 		throw e;
 	}
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
@@ -189,7 +186,7 @@ export function readFileSync(
 	const { size } = file.stat();
 
 	const into = typeof _options == 'object' && _options !== null ? _options.buffer : undefined;
-	const buffer = into === undefined ? Buffer.alloc(size) : _readFileBuffer(into, size);
+	const buffer = into === undefined ? Buffer.alloc(size) : readFileBuffer(into, size);
 	const data = buffer.subarray(0, file.readSync(buffer, 0, size, null));
 
 	return options.encoding ? data.toString(options.encoding) : data;
@@ -197,7 +194,7 @@ export function readFileSync(
 readFileSync satisfies typeof fs.readFileSync;
 
 export function openAsBlobSync(this: V_Context, path: fs.PathLike, options: fs.OpenAsBlobOptions = {}): Blob {
-	const type = _blobType(options);
+	const type = blobType(options);
 	return new Blob([readFileSync.call(this, normalizePath.call(this, path), {})], { type });
 }
 openAsBlobSync satisfies typeof fs.openAsBlobSync;
@@ -651,9 +648,9 @@ export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options: fs.Bu
 export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption): string;
 export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer;
 export function mkdtempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer {
-	const path = _tempDirName(prefix);
+	const path = tempDirName(prefix);
 	mkdirSync.call(this, path);
-	return _tempResult(path, prefix, options);
+	return tempResult(path, prefix, options);
 }
 mkdtempSync satisfies typeof fs.mkdtempSync;
 
@@ -665,11 +662,11 @@ export function mkstempSync(this: V_Context, prefix: fs.PathLike, options: fs.Bu
 export function mkstempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption): fs.TempFile<string>;
 export function mkstempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): fs.TempFile;
 export function mkstempSync(this: V_Context, prefix: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): fs.TempFile {
-	const path = _tempFileName(prefix);
+	const path = tempFileName(prefix);
 	try {
-		return { path: _tempResult(path, prefix, options), fd: openSync.call(this, path, 'wx+', 0o600) };
+		return { path: tempResult(path, prefix, options), fd: openSync.call(this, path, 'wx+', 0o600) };
 	} catch (error) {
-		throw _mkstempError(error, prefix);
+		throw mkstempError(error, prefix);
 	}
 }
 mkstempSync satisfies typeof fs.mkstempSync;
@@ -685,7 +682,7 @@ export function mkdtempDisposableSync(
 	prefix: fs.PathLike,
 	options?: fs.EncodingOption | fs.BufferEncodingOption,
 ): fs.DisposableTempDir {
-	const path = _tempDirName(prefix);
+	const path = tempDirName(prefix);
 
 	mkdirSync.call(this, path);
 
@@ -795,7 +792,7 @@ export function cpSync(this: V_Context, source: fs.PathLike, destination: fs.Pat
 	const srcStats = statFn.call<V_Context, [fs.PathLike], Stats>(this, source);
 	const destStats = statFn.call(this, destination, { throwIfNoEntry: false });
 
-	if (destStats && srcStats.isDirectory() != destStats.isDirectory()) throw _cpTypeMismatch(source, destination, srcStats.isDirectory());
+	if (destStats && srcStats.isDirectory() != destStats.isDirectory()) throw cpTypeMismatch(source, destination, srcStats.isDirectory());
 
 	if (opts?.errorOnExist && opts.force === false && destStats) throw UV('EEXIST', 'cp', destination);
 
@@ -861,7 +858,7 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const $ = contextOf(this);
 	const { cwd = $.pwd, withFileTypes = false, exclude = () => false, followSymlinks = false, maxDepth = Infinity } = options;
-	_validateMaxDepth(maxDepth);
+	validateMaxDepth(maxDepth);
 
 	const base = resolve.call($, cwd instanceof URL ? cwd.pathname : cwd);
 	const normalizedPatterns = pattern.map(p => (p.startsWith('/') ? relative.call($, base, p) : p));

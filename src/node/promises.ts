@@ -24,24 +24,22 @@ import { contextOf } from '../internal/contexts.js';
 import { assertRemovable, hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
 import { _globDescent, dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import '../polyfills.js';
+import { normalizeMode, normalizeOptions, normalizePath, normalizeTime, validateFD } from '../utils.js';
 import {
-	_cpTypeMismatch,
-	_describeReceived,
-	_isNoEntry,
-	_mkstempError,
-	_raceSignal,
-	_readFileBuffer,
-	_tempDirName,
-	_tempResult,
-	_tempFileName,
-	_validateMaxDepth,
-	normalizeMode,
-	normalizeOptions,
-	normalizePath,
-	normalizeTime,
+	cpTypeMismatch,
+	isNoEntry,
+	mkstempError,
+	raceSignal,
+	readFileBuffer,
+	tempDirName,
+	tempFileName,
+	tempResult,
 	validateData,
-	validateFD,
-} from '../utils.js';
+	validateMaxDepth,
+	invalidArgumentValue,
+	outOfRange,
+	validateType,
+} from './utils.js';
 import * as _async from '../vfs/async.js';
 import { checkAccess } from '../vfs/config.js';
 import type { Handle } from '../vfs/file.js';
@@ -65,21 +63,9 @@ interface WatchQueueOptions {
  * Throws Node's errors for invalid `maxQueue` and `overflow` options of `watch`.
  */
 function _validateWatchQueue(maxQueue: unknown, overflow: unknown): void {
-	if (typeof maxQueue != 'number')
-		throw Object.assign(new TypeError(`The "options.maxQueue" property must be of type number. Received ${_describeReceived(maxQueue)}`), {
-			code: 'ERR_INVALID_ARG_TYPE',
-		});
-	if (!Number.isInteger(maxQueue))
-		throw Object.assign(new RangeError(`The value of "options.maxQueue" is out of range. It must be an integer. Received ${maxQueue}`), {
-			code: 'ERR_OUT_OF_RANGE',
-		});
-	if (overflow != 'ignore' && overflow != 'error')
-		throw Object.assign(
-			new TypeError(
-				`The property 'options.overflow' must be one of: 'ignore', 'error'. Received ${typeof overflow == 'string' ? `'${overflow}'` : String(overflow)}`,
-			),
-			{ code: 'ERR_INVALID_ARG_VALUE' },
-		);
+	validateType(maxQueue, 'options.maxQueue', 'number');
+	if (!Number.isInteger(maxQueue)) throw outOfRange('options.maxQueue', 'an integer', maxQueue);
+	if (overflow != 'ignore' && overflow != 'error') throw invalidArgumentValue('options.overflow', overflow, "must be one of: 'ignore', 'error'");
 }
 
 /** Options for `readFile`, including the buffer the contents are read into */
@@ -357,7 +343,7 @@ export class FileHandle implements promises.FileHandle {
 
 		const { size } = await this.stat();
 		const into = typeof _options == 'object' && _options !== null ? _options.buffer : undefined;
-		const data = into === undefined ? Buffer.alloc(size) : _readFileBuffer(into, size);
+		const data = into === undefined ? Buffer.alloc(size) : readFileBuffer(into, size);
 		const buffer = data.subarray(0, await this.vfs.read(data, 0, size, null));
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}
@@ -779,9 +765,9 @@ export async function stat(this: V_Context, path: fs.PathLike, options?: fs.Stat
 export async function stat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats | undefined> {
 	let stats: InodeLike;
 	try {
-		stats = await _raceSignal(() => _async.stat.call(this, path, false), options?.signal);
+		stats = await raceSignal(() => _async.stat.call(this, path, false), options?.signal);
 	} catch (e) {
-		if (options?.throwIfNoEntry === false && _isNoEntry(e)) return;
+		if (options?.throwIfNoEntry === false && isNoEntry(e)) return;
 		throw e;
 	}
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
@@ -797,7 +783,7 @@ export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.Sta
 export async function lstat(this: V_Context, path: fs.PathLike, options: fs.StatOptions & { bigint: true }): Promise<BigIntStats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats>;
 export async function lstat(this: V_Context, path: fs.PathLike, options?: fs.StatOptions): Promise<Stats | BigIntStats> {
-	const stats = await _raceSignal(() => _async.stat.call(this, path, true), options?.signal);
+	const stats = await raceSignal(() => _async.stat.call(this, path, true), options?.signal);
 	return options?.bigint ? new BigIntStats(stats) : new Stats(stats);
 }
 lstat satisfies typeof promises.lstat;
@@ -1295,9 +1281,9 @@ export async function mkdtemp(
 	prefix: fs.PathLike,
 	options?: fs.EncodingOption | fs.BufferEncodingOption,
 ): Promise<string | NonSharedBuffer> {
-	const path = _tempDirName(prefix);
+	const path = tempDirName(prefix);
 	await mkdir.call(this, path);
-	return _tempResult(path, prefix, options);
+	return tempResult(path, prefix, options);
 }
 mkdtemp satisfies typeof promises.mkdtemp;
 
@@ -1321,11 +1307,11 @@ export async function mkstemp(
 	prefix: fs.PathLike,
 	options?: fs.EncodingOption | fs.BufferEncodingOption,
 ): Promise<promises.TempFile> {
-	const path = _tempFileName(prefix);
+	const path = tempFileName(prefix);
 	const handle = await open.call(this, path, 'wx+', 0o600).catch((error: unknown) => {
-		throw _mkstempError(error, prefix);
+		throw mkstempError(error, prefix);
 	});
-	return { path: _tempResult(path, prefix, options), handle };
+	return { path: tempResult(path, prefix, options), handle };
 }
 mkstemp satisfies typeof promises.mkstemp;
 
@@ -1340,7 +1326,7 @@ export async function mkdtempDisposable(
 	prefix: fs.PathLike,
 	options?: fs.EncodingOption | fs.BufferEncodingOption,
 ): Promise<promises.DisposableTempDir> {
-	const path = _tempDirName(prefix);
+	const path = tempDirName(prefix);
 
 	await mkdir.call(this, path);
 
@@ -1401,10 +1387,10 @@ export async function cp(this: V_Context, source: fs.PathLike, destination: fs.P
 	const statFn = opts?.dereference ? stat : lstat;
 	const srcStats = await statFn.call<V_Context, [string], Promise<Stats>>(this, source);
 	const destStats = await statFn.call<V_Context, [string], Promise<Stats>>(this, destination).catch((error: Exception) => {
-		if (!_isNoEntry(error)) throw error;
+		if (!isNoEntry(error)) throw error;
 	});
 
-	if (destStats && srcStats.isDirectory() != destStats.isDirectory()) throw _cpTypeMismatch(source, destination, srcStats.isDirectory());
+	if (destStats && srcStats.isDirectory() != destStats.isDirectory()) throw cpTypeMismatch(source, destination, srcStats.isDirectory());
 
 	if (opts?.errorOnExist && opts.force === false && destStats) throw UV('EEXIST', 'cp', destination);
 
@@ -1477,7 +1463,7 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 	pattern = Array.isArray(pattern) ? pattern : [pattern];
 	const $ = contextOf(this);
 	const { cwd = $.pwd, withFileTypes = false, exclude = () => false, followSymlinks = false, maxDepth = Infinity } = opt || {};
-	_validateMaxDepth(maxDepth);
+	validateMaxDepth(maxDepth);
 
 	const base = resolve.call($, cwd instanceof URL ? cwd.pathname : cwd);
 	const normalizedPatterns = pattern.map(p => (p.startsWith('/') ? relative.call($, base, p) : p));

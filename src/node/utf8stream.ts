@@ -9,6 +9,7 @@ import { assertContext, type FSContext } from '../internal/contexts.js';
 import { dirname } from '../path.js';
 import { close, fsync, mkdir, open, write } from './async.js';
 import { fsyncSync, mkdirSync, openSync, writeSync } from './sync.js';
+import { invalidArgumentType, invalidArgumentValue, outOfRange, validateType } from './utils.js';
 
 /* Everything below is a port of Node's `internal/fs/utf8stream`,
 which is itself derived from the SonicBoom module (https://github.com/pinojs/sonic-boom).
@@ -20,20 +21,14 @@ function error(code: string, message: string): Error {
 }
 
 /** @hidden */
-function invalidArgType(name: string, expected: string, value: unknown): Error {
-	return error('ERR_INVALID_ARG_TYPE', `The "${name}" argument must be of type ${expected}. Received ${typeof value}`);
-}
-
-/** @hidden */
 function invalidState(message: string): Error {
 	return error('ERR_INVALID_STATE', 'Invalid state: ' + message);
 }
 
 /** @hidden */
 function validateUint32(value: number, name: string): void {
-	if (typeof value != 'number') throw invalidArgType(name, 'number', value);
-	if (!Number.isInteger(value) || value < 0 || value > 0xffffffff)
-		throw error('ERR_OUT_OF_RANGE', `The value of "${name}" is out of range. It must be an integer >= 0 and <= 4294967295. Received ${value}`);
+	validateType(value, name, 'number');
+	if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) throw outOfRange(name, 'an integer >= 0 and <= 4294967295', value);
 }
 
 /** 16 KB. Don't write more than the docker buffer size. */
@@ -148,7 +143,7 @@ export class Utf8Stream extends EventEmitter<fs.Utf8StreamEventMap> implements N
 	}
 
 	public constructor(options: fs.Utf8StreamOptions = {}) {
-		if (typeof options != 'object' || options === null) throw invalidArgType('options', 'object', options);
+		validateType(options, 'options', 'object');
 
 		const {
 			dest,
@@ -171,11 +166,11 @@ export class Utf8Stream extends EventEmitter<fs.Utf8StreamEventMap> implements N
 
 		const fd = options.fd ?? dest;
 
-		if (typeof overrideFS != 'object' || overrideFS === null) throw invalidArgType('options.fs', 'object', overrideFS);
+		validateType(overrideFS, 'options.fs', 'object');
 		this.#fs = { ...this.constructor[kUtf8StreamFS], ...overrideFS };
 		const _fs = this.#fs as unknown as Record<string, unknown>;
 		for (const key of ['write', 'writeSync', 'fsync', 'fsyncSync', 'close', 'open', 'mkdir', 'mkdirSync']) {
-			if (typeof _fs[key] != 'function') throw invalidArgType(`options.fs.${key}`, 'function', _fs[key]);
+			validateType(_fs[key], `options.fs.${key}`, 'function');
 		}
 
 		this.#hwm = Math.max(minLength || 0, this.#hwm);
@@ -201,14 +196,11 @@ export class Utf8Stream extends EventEmitter<fs.Utf8StreamEventMap> implements N
 			['append', this.#append],
 			['mkdir', this.#mkdir],
 		] as const) {
-			if (typeof value != 'boolean') throw invalidArgType(`options.${key}`, 'boolean', value);
+			validateType(value, `options.${key}`, 'boolean');
 		}
-		if (typeof this.#retryEAGAIN != 'function') throw invalidArgType('options.retryEAGAIN', 'function', this.#retryEAGAIN);
+		validateType(this.#retryEAGAIN, 'options.retryEAGAIN', 'function');
 		if (contentMode != 'buffer' && contentMode != 'utf8')
-			throw error(
-				'ERR_INVALID_ARG_VALUE',
-				`The property 'options.contentMode' must be one of: 'buffer', 'utf8'. Received ${JSON.stringify(contentMode)}`,
-			);
+			throw invalidArgumentValue('options.contentMode', contentMode, "must be one of: 'buffer', 'utf8'");
 
 		this.#contentMode = contentMode;
 		this.#writingBuf = contentMode == 'buffer' ? emptyBuffer : '';
@@ -219,14 +211,11 @@ export class Utf8Stream extends EventEmitter<fs.Utf8StreamEventMap> implements N
 		} else if (typeof fd == 'string') {
 			this.#openFile(fd);
 		} else {
-			throw invalidArgType('fd', 'number or string', fd);
+			throw invalidArgumentType('fd', ['number', 'string'], fd);
 		}
 
 		if (this.#minLength >= this.#maxWrite)
-			throw error(
-				'ERR_INVALID_ARG_VALUE',
-				`The argument 'minLength' should be smaller than maxWrite (${this.#maxWrite}). Received ${this.#minLength}`,
-			);
+			throw invalidArgumentValue('minLength', this.#minLength, `should be smaller than maxWrite (${this.#maxWrite})`);
 
 		if (this.#periodicFlush !== 0) {
 			this.#periodicFlushTimer = setInterval(() => this.flush(), this.#periodicFlush);
@@ -242,9 +231,9 @@ export class Utf8Stream extends EventEmitter<fs.Utf8StreamEventMap> implements N
 		if (this.#destroyed) throw invalidState('Utf8Stream is destroyed');
 
 		if (this.#contentMode == 'buffer') {
-			if (!Buffer.isBuffer(data)) throw invalidArgType('data', 'Buffer', data);
-		} else if (typeof data != 'string') {
-			throw invalidArgType('data', 'string', data);
+			validateType(data, 'data', 'Buffer');
+		} else {
+			validateType(data, 'data', 'string');
 		}
 
 		const len = this.#len + data.length;
@@ -283,7 +272,7 @@ export class Utf8Stream extends EventEmitter<fs.Utf8StreamEventMap> implements N
 	 * Does nothing if `minLength` is zero or if it is already writing.
 	 */
 	public flush(cb?: ((err: Error | null) => void) | null): void {
-		if (cb !== undefined && cb !== null && typeof cb != 'function') throw invalidArgType('cb', 'function', cb);
+		if (cb != null) validateType(cb, 'cb', 'function');
 
 		if (this.#destroyed) {
 			const error = invalidState('Utf8Stream is destroyed');

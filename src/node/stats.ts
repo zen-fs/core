@@ -5,7 +5,7 @@ import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
 import type { InodeFields, InodeLike, StatsLike } from '../internal/inode.js';
 import { _inode_fields, hasAccess } from '../internal/inode.js';
-import { _temporal } from '../utils.js';
+import { temporal } from './utils.js';
 
 const _nsMultiplier = BigInt(1_000_000) as 1_000_000n;
 
@@ -54,7 +54,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	declare public atime: Date;
 
 	public get atimeInstant(): Temporal.Instant {
-		return _temporal().Instant.fromEpochMilliseconds(Number(this.atimeMs));
+		return temporal().Instant.fromEpochMilliseconds(Number(this.atimeMs));
 	}
 
 	public set atimeInstant(value: Temporal.Instant) {
@@ -65,7 +65,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public mtimeMs: T;
 	declare public mtime: Date;
 	public get mtimeInstant(): Temporal.Instant {
-		return _temporal().Instant.fromEpochMilliseconds(Number(this.mtimeMs));
+		return temporal().Instant.fromEpochMilliseconds(Number(this.mtimeMs));
 	}
 	public set mtimeInstant(value: Temporal.Instant) {
 		this.mtimeMs = this._convert(value.epochMilliseconds);
@@ -75,7 +75,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public ctimeMs: T;
 	declare public ctime: Date;
 	public get ctimeInstant(): Temporal.Instant {
-		return _temporal().Instant.fromEpochMilliseconds(Number(this.ctimeMs));
+		return temporal().Instant.fromEpochMilliseconds(Number(this.ctimeMs));
 	}
 	public set ctimeInstant(value: Temporal.Instant) {
 		this.ctimeMs = this._convert(value.epochMilliseconds);
@@ -85,7 +85,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public birthtimeMs: T;
 	declare public birthtime: Date;
 	public get birthtimeInstant(): Temporal.Instant {
-		return _temporal().Instant.fromEpochMilliseconds(Number(this.birthtimeMs));
+		return temporal().Instant.fromEpochMilliseconds(Number(this.birthtimeMs));
 	}
 	public set birthtimeInstant(value: Temporal.Instant) {
 		this.birthtimeMs = this._convert(value.epochMilliseconds);
