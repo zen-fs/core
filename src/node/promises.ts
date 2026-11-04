@@ -277,11 +277,28 @@ export class FileHandle implements promises.FileHandle {
 
 	/**
 	 * Read file data using a `ReadableStream`.
-	 * The handle will not be closed automatically.
+	 * The handle is closed when the stream ends or is cancelled if `autoClose` is set.
 	 */
 	public readableWebStream(options: StreamOptions = {}): NodeReadableStream<Uint8Array> {
 		if (this.vfs.isClosed) throw UV('EBADF', 'readableWebStream', this.vfs.path);
-		return this.vfs.streamRead(options);
+		const stream = this.vfs.streamRead(options);
+		if (!options.autoClose) return stream;
+
+		const reader = stream.getReader();
+		const handle = this;
+		return new ReadableStream({
+			type: 'bytes',
+			async pull(controller) {
+				const { done, value } = await reader.read();
+				if (!done) return controller.enqueue(value);
+				await handle.close();
+				controller.close();
+			},
+			async cancel(reason) {
+				await reader.cancel(reason);
+				await handle.close();
+			},
+		}) as NodeReadableStream<Uint8Array>;
 	}
 
 	/**
