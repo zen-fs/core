@@ -1318,5 +1318,15 @@
 		"status": "resolved",
 		"note": "2.9.0 (952dae69)",
 		"date": "2026-11-04"
+	},
+	"#65644": {
+		"status": "resolved",
+		"note": "2.9.0 (7d4b3c43)",
+		"date": "2026-11-04"
+	},
+	"#66484": {
+		"status": "resolved",
+		"note": "2.9.0 (0ac25e97)",
+		"date": "2026-11-04"
 	}
 }
