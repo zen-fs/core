@@ -15,6 +15,7 @@ import { wrap } from '../internal/error.js';
 import { assertRemovable, hasAccess, isDirectory } from '../internal/inode.js';
 import { _globDescent, dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import {
+	_blobType,
 	_cpTypeMismatch,
 	_isNoEntry,
 	_readFileBuffer,
@@ -192,6 +193,12 @@ export function readFileSync(
 	return options.encoding ? data.toString(options.encoding) : data;
 }
 readFileSync satisfies typeof fs.readFileSync;
+
+export function openAsBlobSync(this: V_Context, path: fs.PathLike, options: fs.OpenAsBlobOptions = {}): Blob {
+	const type = _blobType(options);
+	return new Blob([readFileSync.call(this, normalizePath.call(this, path), {})], { type });
+}
+openAsBlobSync satisfies typeof fs.openAsBlobSync;
 
 /**
  * Synchronously writes data to a file, replacing the file if it already exists.

@@ -208,6 +208,23 @@ export async function _raceSignal<T>(operation: () => Promise<T>, signal?: Abort
 }
 
 /**
+ * Validates the options of `openAsBlob` like Node, returning the MIME type.
+ * @internal @hidden
+ */
+export function _blobType(options: unknown): string {
+	if (typeof options != 'object' || options === null)
+		throw Object.assign(new TypeError(`The "options" argument must be of type object. Received ${_describeReceived(options)}`), {
+			code: 'ERR_INVALID_ARG_TYPE',
+		});
+
+	const { type = '' } = options as { type?: unknown };
+	if (typeof type == 'string') return type;
+	throw Object.assign(new TypeError(`The "options.type" property must be of type string. Received ${_describeReceived(type)}`), {
+		code: 'ERR_INVALID_ARG_TYPE',
+	});
+}
+
+/**
  * Encodes the path of a created temporary directory, which is a `Buffer` if `prefix` is one, like Node.
  * @internal @hidden
  */

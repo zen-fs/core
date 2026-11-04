@@ -50,6 +50,9 @@ declare module 'node:fs' {
 		/** Maximum number of directory levels to traverse, where `cwd` has a depth of 0 */
 		maxDepth?: number | undefined;
 	}
+
+	/** Synchronous version of `openAsBlob` */
+	function openAsBlobSync(path: PathLike, options?: OpenAsBlobOptions): Blob;
 }
 
 declare module 'node:fs/promises' {

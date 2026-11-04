@@ -11,7 +11,7 @@ import type { GlobOptionsU } from './types.js';
 import { Buffer } from 'buffer';
 import { UV, withErrno, type Exception } from 'kerium';
 import { R_OK } from '../constants.js';
-import { normalizeMode, normalizePath, validateData } from '../utils.js';
+import { _blobType, normalizeMode, normalizePath, validateData } from '../utils.js';
 import { FSWatcher, StatWatcher } from '../vfs/watchers.js';
 import * as promises from './promises.js';
 import { BigIntStats } from './stats.js';
@@ -756,11 +756,9 @@ export function statfs(
 }
 statfs satisfies Omit<typeof fs.statfs, '__promisify__'>;
 
-export async function openAsBlob(this: V_Context, path: fs.PathLike, options?: fs.OpenAsBlobOptions): Promise<Blob> {
-	const handle = await promises.open.call(this, path.toString(), 'r');
-	const buffer = await handle.readFile();
-	await handle.close();
-	return new Blob([buffer], options);
+export async function openAsBlob(this: V_Context, path: fs.PathLike, options: fs.OpenAsBlobOptions = {}): Promise<Blob> {
+	const type = _blobType(options);
+	return new Blob([await promises.readFile.call(this, normalizePath.call(this, path), {})], { type });
 }
 openAsBlob satisfies typeof fs.openAsBlob;
 

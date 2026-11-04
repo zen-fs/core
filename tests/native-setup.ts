@@ -75,6 +75,7 @@ const pathArgs: Record<string, number> = {
 	mkdtemp: 1,
 	mkdtempDisposable: 1,
 	open: 1,
+	openAsBlob: 1,
 	opendir: 1,
 	readFile: 1,
 	readdir: 1,
