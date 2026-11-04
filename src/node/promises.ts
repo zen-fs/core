@@ -31,6 +31,7 @@ import {
 	mkstempError,
 	raceSignal,
 	readFileBuffer,
+	rmDirectoryError,
 	tempDirName,
 	tempFileName,
 	tempResult,
@@ -1253,10 +1254,9 @@ export async function rm(this: V_Context, path: fs.PathLike, options?: fs.RmOpti
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
-			if (options?.recursive) {
-				for (const entry of await readdir.call<V_Context, any, Promise<string[]>>(this, path)) {
-					await rm.call(this, join(path, entry), options);
-				}
+			if (!options?.recursive) throw rmDirectoryError(path);
+			for (const entry of await readdir.call<V_Context, any, Promise<string[]>>(this, path)) {
+				await rm.call(this, join(path, entry), options);
 			}
 
 			await rmdir.call(this, path);

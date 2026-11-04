@@ -123,6 +123,29 @@ export function isNoEntry(e: unknown): boolean {
 	return code == 'ENOENT' || code == 'ENOTDIR';
 }
 
+interface SystemErrorContext {
+	code: keyof typeof Errno;
+	message: string;
+	syscall: string;
+	path: string;
+}
+
+/**
+ * Creates one of Node's `SystemError`s, which report an errno error under a Node error code.
+ */
+function systemError(code: string, prefix: string, context: SystemErrorContext): Error {
+	const { syscall, path } = context;
+	const errno = Errno[context.code];
+	return Object.assign(new Error(`${prefix}: ${syscall} returned ${context.code} (${context.message}) ${path}`), {
+		name: 'SystemError',
+		code,
+		info: { ...context, errno },
+		errno,
+		syscall,
+		path,
+	});
+}
+
 /**
  * Creates Node's error for copying a directory onto a non-directory, or a non-directory onto a directory.
  */
@@ -131,13 +154,14 @@ export function cpTypeMismatch(source: string, destination: string, sourceIsDire
 		? (['ERR_FS_CP_DIR_TO_NON_DIR', 'EISDIR', 'directory', 'non-directory'] as const)
 		: (['ERR_FS_CP_NON_DIR_TO_DIR', 'ENOTDIR', 'non-directory', 'directory'] as const);
 	const message = `cannot overwrite ${destinationType} ${destination} with ${sourceType} ${source}`;
-	return Object.assign(new Error(`Cannot overwrite ${destinationType} with ${sourceType}: cp returned ${errno} (${message}) ${destination}`), {
-		name: 'SystemError',
-		code,
-		errno: Errno[errno],
-		syscall: 'cp',
-		path: destination,
-	});
+	return systemError(code, `Cannot overwrite ${destinationType} with ${sourceType}`, { code: errno, message, syscall: 'cp', path: destination });
+}
+
+/**
+ * Creates Node's error for removing a directory with `rm` without `recursive`.
+ */
+export function rmDirectoryError(path: string): Error {
+	return systemError('ERR_FS_EISDIR', 'Path is a directory', { code: 'EISDIR', message: 'is a directory', syscall: 'rm', path });
 }
 
 /**

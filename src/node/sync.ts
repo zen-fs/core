@@ -21,6 +21,7 @@ import {
 	isNoEntry,
 	mkstempError,
 	readFileBuffer,
+	rmDirectoryError,
 	tempDirName,
 	tempFileName,
 	tempResult,
@@ -609,10 +610,9 @@ export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOption
 
 	switch (stats.mode & constants.S_IFMT) {
 		case constants.S_IFDIR:
-			if (options?.recursive) {
-				for (const entry of readdirSync.call<V_Context, any, string[]>(this, path)) {
-					rmSync.call(this, join(path, entry), options);
-				}
+			if (!options?.recursive) throw rmDirectoryError(path);
+			for (const entry of readdirSync.call<V_Context, any, string[]>(this, path)) {
+				rmSync.call(this, join(path, entry), options);
 			}
 
 			rmdirSync.call(this, path);
