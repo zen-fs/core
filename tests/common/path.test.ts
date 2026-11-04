@@ -46,72 +46,72 @@ suite('Path emulation', () => {
 	});
 
 	test('matchesGlob', () => {
-		assert(matchesGlob('**/x', 'x'));
-		assert(matchesGlob('**/x', 'a/b/x'));
-		assert(matchesGlob('a/**/b', 'a/b'));
-		assert(matchesGlob('a/**/b', 'a/c/d/b'));
-		assert(matchesGlob('x/**', 'x/a/b'));
-		assert(!matchesGlob('x/**', 'x'));
-		assert(matchesGlob('*.txt', 'a.txt'));
-		assert(!matchesGlob('*.txt', 'a/b.txt'));
-		assert(!matchesGlob('a?b', 'a/b'));
-		assert(!matchesGlob('a**b', 'a/c/b'));
+		assert(matchesGlob('x', '**/x'));
+		assert(matchesGlob('a/b/x', '**/x'));
+		assert(matchesGlob('a/b', 'a/**/b'));
+		assert(matchesGlob('a/c/d/b', 'a/**/b'));
+		assert(matchesGlob('x/a/b', 'x/**'));
+		assert(!matchesGlob('x', 'x/**'));
+		assert(matchesGlob('a.txt', '*.txt'));
+		assert(!matchesGlob('a/b.txt', '*.txt'));
+		assert(!matchesGlob('a/b', 'a?b'));
+		assert(!matchesGlob('a/c/b', 'a**b'));
 	});
 
 	test('matchesGlob only matches dot files with a literal dot', () => {
-		assert(!matchesGlob('*', '.env'));
-		assert(matchesGlob('.*', '.env'));
-		assert(!matchesGlob('a/*', 'a/.hidden'));
-		assert(!matchesGlob('**', 'a/.hidden'));
-		assert(!matchesGlob('a/**', 'a/.b'));
-		assert(!matchesGlob('a/**/d', 'a/b/.c/d'));
-		assert(matchesGlob('**/.hidden', 'a/.hidden'));
-		assert(matchesGlob('.*/*', '.a/b'));
+		assert(!matchesGlob('.env', '*'));
+		assert(matchesGlob('.env', '.*'));
+		assert(!matchesGlob('a/.hidden', 'a/*'));
+		assert(!matchesGlob('a/.hidden', '**'));
+		assert(!matchesGlob('a/.b', 'a/**'));
+		assert(!matchesGlob('a/b/.c/d', 'a/**/d'));
+		assert(matchesGlob('a/.hidden', '**/.hidden'));
+		assert(matchesGlob('.a/b', '.*/*'));
 	});
 
 	test('matchesGlob supports character classes', () => {
-		assert(matchesGlob('file[0-9].txt', 'file1.txt'));
-		assert(!matchesGlob('[!a]', 'a'));
-		assert(matchesGlob('[^a]', 'b'));
-		assert(matchesGlob('[]x]', ']'));
-		assert(matchesGlob('[[:alpha:]]', 'é'));
-		assert(!matchesGlob('[[:digit:]]', 'a'));
+		assert(matchesGlob('file1.txt', 'file[0-9].txt'));
+		assert(!matchesGlob('a', '[!a]'));
+		assert(matchesGlob('b', '[^a]'));
+		assert(matchesGlob(']', '[]x]'));
+		assert(matchesGlob('é', '[[:alpha:]]'));
+		assert(!matchesGlob('a', '[[:digit:]]'));
 		assert(matchesGlob('a[', 'a['));
 	});
 
 	test('matchesGlob supports extended globs', () => {
-		assert(matchesGlob('*.@(js|ts)', 'index.ts'));
-		assert(matchesGlob('?(a)', ''));
-		assert(!matchesGlob('?(a)', 'aa'));
-		assert(matchesGlob('*(a)', 'aaa'));
-		assert(!matchesGlob('+(a)', ''));
-		assert(matchesGlob('!(*.js)', 'index.css'));
-		assert(!matchesGlob('!(*.js)', 'index.js'));
-		assert(matchesGlob('foo.!(bar)', 'foo.baz'));
-		assert(matchesGlob('a@(b|c@(d|e))', 'ace'));
-		assert(matchesGlob('@(.a|b)', '.a'));
+		assert(matchesGlob('index.ts', '*.@(js|ts)'));
+		assert(matchesGlob('', '?(a)'));
+		assert(!matchesGlob('aa', '?(a)'));
+		assert(matchesGlob('aaa', '*(a)'));
+		assert(!matchesGlob('', '+(a)'));
+		assert(matchesGlob('index.css', '!(*.js)'));
+		assert(!matchesGlob('index.js', '!(*.js)'));
+		assert(matchesGlob('foo.baz', 'foo.!(bar)'));
+		assert(matchesGlob('ace', 'a@(b|c@(d|e))'));
+		assert(matchesGlob('.a', '@(.a|b)'));
 	});
 
 	test('matchesGlob expands braces', () => {
-		assert(matchesGlob('src/*.{js,ts}', 'src/index.ts'));
-		assert(matchesGlob('page{1..5}.html', 'page3.html'));
-		assert(matchesGlob('{1..9..3}', '4'));
-		assert(!matchesGlob('{1..9..3}', '5'));
-		assert(matchesGlob('{01..12}', '07'));
-		assert(matchesGlob('{a..e}', 'c'));
-		assert(matchesGlob('a{b,{c,d}}', 'ad'));
+		assert(matchesGlob('src/index.ts', 'src/*.{js,ts}'));
+		assert(matchesGlob('page3.html', 'page{1..5}.html'));
+		assert(matchesGlob('4', '{1..9..3}'));
+		assert(!matchesGlob('5', '{1..9..3}'));
+		assert(matchesGlob('07', '{01..12}'));
+		assert(matchesGlob('c', '{a..e}'));
+		assert(matchesGlob('ad', 'a{b,{c,d}}'));
 		assert(matchesGlob('a{b}c', 'a{b}c'));
 	});
 
 	test('matchesGlob treats backslashes and repeated slashes as separators', () => {
-		assert(matchesGlob('a\\b', 'a/b'));
-		assert(matchesGlob('a//b', 'a/b'));
+		assert(matchesGlob('a/b', 'a\\b'));
+		assert(matchesGlob('a/b', 'a//b'));
 	});
 
-	test('matchesGlob does not backtrack exponentially', () => {
+	test('matchesGlob does not backtrack exponentially', { timeout: 1000 }, () => {
 		const start = performance.now();
-		assert(!matchesGlob('**/a/**/a/**/b', Array(5000).fill('a').join('/') + '/c'));
-		assert(!matchesGlob('*a*a*a*a*b', 'a'.repeat(5000) + 'c'));
+		assert(!matchesGlob(Array(5000).fill('a').join('/') + '/c', '**/a/**/a/**/b'));
+		assert(!matchesGlob('a'.repeat(5000) + 'c', '*a*a*a*a*b'));
 		assert(performance.now() - start < 1000);
 	});
 });
