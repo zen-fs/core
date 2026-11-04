@@ -153,6 +153,7 @@ export class StatWatcher
 		change: [current: Stats, previous: Stats];
 		close: [];
 		error: [error: Error];
+		stop: [];
 	}>
 	implements fs.StatWatcher
 {
@@ -205,14 +206,14 @@ export class StatWatcher
 	}
 
 	/**
+	 * Stops polling, emitting `stop` asynchronously.
 	 * @internal
 	 */
 	public stop() {
-		if (this.intervalId) {
-			clearInterval(this.intervalId);
-			this.intervalId = undefined;
-		}
-		this.removeAllListeners();
+		if (!this.intervalId) return;
+		clearInterval(this.intervalId);
+		this.intervalId = undefined;
+		queueMicrotask(() => this.emit('stop'));
 	}
 }
 
