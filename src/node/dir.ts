@@ -107,18 +107,10 @@ export class Dir implements _Dir, AsyncIterator<Dirent> {
 	public close(): Promise<void>;
 	public close(cb: Callback): void;
 	public close(cb?: Callback): void | Promise<void> {
-		if (this.closed) {
-			const error = dirClosed();
-			if (!cb) return Promise.reject(error);
-			cb(error as Exception);
-			return;
-		}
-
+		const error = this.closed ? dirClosed() : null;
 		this.closed = true;
-		if (!cb) {
-			return Promise.resolve();
-		}
-		cb(null);
+		if (!cb) return error ? Promise.reject(error) : Promise.resolve();
+		queueMicrotask(() => cb(error as Exception | null));
 	}
 
 	/**
