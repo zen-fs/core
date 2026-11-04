@@ -193,9 +193,16 @@ export function blobType(options: unknown): string {
 	return type;
 }
 
+/**
+ * Normalizes the prefix of a temporary path, which may be empty.
+ */
+function normalizePrefix(prefix: fs.PathLike): string {
+	return typeof prefix != 'number' && !(prefix instanceof URL) && !prefix.length ? '' : normalizePath(prefix, true);
+}
+
 export function tempDirName(prefix: fs.PathLike) {
 	// Like Node, the prefix is a path. A relative one is resolved against the working directory, not `/tmp`.
-	return `${normalizePath(prefix, true)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	return `${normalizePrefix(prefix)}${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 const tempFileCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -205,7 +212,7 @@ const tempFileCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
  */
 export function tempFileName(prefix: unknown): string {
 	validateType(prefix, 'prefix', 'string', 'Buffer', 'URL');
-	let name = normalizePath(prefix, true);
+	let name = normalizePrefix(prefix);
 	for (const byte of crypto.getRandomValues(new Uint8Array(6))) name += tempFileCharacters[byte % tempFileCharacters.length];
 	return name;
 }
@@ -215,7 +222,7 @@ export function tempFileName(prefix: unknown): string {
  */
 export function mkstempError(error: unknown, prefix: fs.PathLike): unknown {
 	if (!(error instanceof Exception)) return error;
-	return setUVMessage(Object.assign(error, { syscall: 'mkstemp', path: normalizePath(prefix, true) + 'XXXXXX' }));
+	return setUVMessage(Object.assign(error, { syscall: 'mkstemp', path: normalizePrefix(prefix) + 'XXXXXX' }));
 }
 
 /**

@@ -110,6 +110,11 @@ function mapArgs(base: string, args: unknown[]): unknown[] {
 		return out;
 	}
 
+	if ((base == 'mkdtemp' || base == 'mkstemp') && isPath(out[0]) && !out[0].toString()) {
+		out[0] = Buffer.isBuffer(out[0]) ? Buffer.from(root + '/') : root + '/';
+		return out;
+	}
+
 	for (let i = 0; i < (pathArgs[base] ?? 0); i++) {
 		const arg = out[i];
 		if (isPath(arg)) out[i] = toNative(arg);
