@@ -86,7 +86,7 @@ function createIgnoreMatcher(ignore: fs.WatchOptions['ignore']): (filename: stri
 				throw Object.assign(new TypeError(`The property '${name}' must be a non-empty string. Received ''`), {
 					code: 'ERR_INVALID_ARG_VALUE',
 				});
-			return filename => matchesGlob(matcher, matcher.includes('/') ? filename : basename(filename));
+			return filename => matchesGlob(matcher.includes('/') ? filename : basename(filename), matcher);
 		}
 
 		if (matcher instanceof RegExp) return filename => matcher.test(filename);

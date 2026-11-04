@@ -740,8 +740,8 @@ export function _globDescent(patterns: readonly string[], directory: string): 'l
  * `**` as a whole segment matches any number of segments (at least one when it is the last), and nothing else matches `/`.
  * Names starting with `.` are only matched by pattern segments starting with a literal `.`.
  */
-export function matchesGlob(pattern: string, str: string): boolean {
-	const names = str.split('/');
+export function matchesGlob(path: string, pattern: string): boolean {
+	const names = path.split('/');
 	return compileGlob(pattern).some(segments =>
 		matchWildcard(
 			segments,

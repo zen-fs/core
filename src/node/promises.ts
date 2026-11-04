@@ -1364,12 +1364,12 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));
 			const relPath = relative.call($, base, fullPath);
 
-			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, relPath)) : exclude((withFileTypes ? entry : relPath) as any))
+			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(relPath, p)) : exclude((withFileTypes ? entry : relPath) as any))
 				continue;
 
 			if (depth < maxDepth && (await shouldDescend(fullPath, relPath))) yield* recursiveList(fullPath, depth + 1);
 
-			if (normalizedPatterns.some(pattern => matchesGlob(pattern, relPath))) {
+			if (normalizedPatterns.some(pattern => matchesGlob(relPath, pattern))) {
 				yield withFileTypes ? entry : relPath;
 			}
 		}

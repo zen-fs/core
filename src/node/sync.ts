@@ -865,12 +865,12 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 			const fullPath = join(dir, withFileTypes ? entry.name : (entry as any));
 			const relPath = relative.call($, base, fullPath);
 
-			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(p, relPath)) : exclude((withFileTypes ? entry : relPath) as any))
+			if (typeof exclude != 'function' ? exclude.some(p => matchesGlob(relPath, p)) : exclude((withFileTypes ? entry : relPath) as any))
 				continue;
 
 			if (depth < maxDepth && shouldDescend(fullPath, relPath)) recursiveList(fullPath, depth + 1);
 
-			if (normalizedPatterns.some(pattern => matchesGlob(pattern, relPath))) {
+			if (normalizedPatterns.some(pattern => matchesGlob(relPath, pattern))) {
 				results.push(withFileTypes ? entry : (relPath as any));
 			}
 		}
