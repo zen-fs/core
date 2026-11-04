@@ -183,6 +183,16 @@ export class StatWatcher
 		}
 	}
 
+	public ref(): this {
+		if (typeof this.intervalId == 'object') this.intervalId.ref();
+		return this;
+	}
+
+	public unref(): this {
+		if (typeof this.intervalId == 'object') this.intervalId.unref();
+		return this;
+	}
+
 	protected start() {
 		const interval = this.options.interval || 5000;
 		try {

@@ -542,89 +542,58 @@ export function access(this: V_Context, path: fs.PathLike, cbMode: number | Call
 }
 access satisfies Omit<typeof fs.access, '__promisify__'>;
 
-const statWatchers: Map<string, { watcher: StatWatcher; listeners: Set<(curr: Stats, prev: Stats) => void> }> = new Map();
+const statWatchers = new Map<string, StatWatcher>();
 
 /**
- * Watch for changes on a file. The callback listener will be called each time the file is accessed.
- *
- * The `options` argument may be omitted. If provided, it should be an object with a `persistent` boolean and an `interval` number specifying the polling interval in milliseconds.
- *
- * When a change is detected, the `listener` callback is called with the current and previous `Stats` objects.
- *
- * @param path The path to the file to watch.
- * @param options Optional options object specifying `persistent` and `interval`.
- * @param listener The callback listener to be called when the file changes.
+ * Watch for changes on a file. The listener is called with the current and previous `Stats` whenever they differ.
+ * Every call for the same file returns the same `StatWatcher`.
+ * @param options `persistent` and `interval` (in milliseconds)
  */
-export function watchFile(this: V_Context, path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void): void;
+export function watchFile(this: V_Context, path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void): StatWatcher;
 export function watchFile(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { persistent?: boolean; interval?: number },
 	listener: (curr: Stats, prev: Stats) => void,
-): void;
+): StatWatcher;
 export function watchFile(
 	this: V_Context,
 	path: fs.PathLike,
 	options: { persistent?: boolean; interval?: number } | ((curr: Stats, prev: Stats) => void),
 	listener?: (curr: Stats, prev: Stats) => void,
-): void {
+): StatWatcher {
 	const normalizedPath = normalizePath.call(this, path);
 	const opts = typeof options != 'function' ? options : {};
-
-	if (typeof options == 'function') {
-		listener = options;
-	}
+	listener = typeof options == 'function' ? options : listener;
 
 	if (!listener) throw UV('EINVAL', 'watch', path.toString());
 
-	if (statWatchers.has(normalizedPath)) {
-		const entry = statWatchers.get(normalizedPath);
-		if (entry) {
-			entry.listeners.add(listener);
-		}
-		return;
+	let watcher = statWatchers.get(normalizedPath);
+	if (!watcher) {
+		watcher = new StatWatcher(this, normalizedPath, opts);
+		statWatchers.set(normalizedPath, watcher);
 	}
 
-	const watcher = new StatWatcher(this, normalizedPath, opts);
-	watcher.on('change', (curr: Stats, prev: Stats) => {
-		const entry = statWatchers.get(normalizedPath);
-		if (!entry) {
-			return;
-		}
-		for (const listener of entry.listeners) {
-			listener(curr, prev);
-		}
-	});
-	statWatchers.set(normalizedPath, { watcher, listeners: new Set([listener]) });
+	watcher.on('change', listener);
+	return watcher;
 }
 watchFile satisfies Omit<typeof fs.watchFile, '__promisify__'>;
 
 /**
  * Stop watching for changes on a file.
- *
- * If the `listener` is specified, only that particular listener is removed.
- * If no `listener` is specified, all listeners are removed, and the file is no longer watched.
- *
- * @param path The path to the file to stop watching.
- * @param listener Optional listener to remove.
+ * If `listener` is given, only it is removed. Once no listeners remain, the file is no longer watched.
  */
-export function unwatchFile(this: V_Context, path: fs.PathLike, listener: (curr: Stats, prev: Stats) => void = nop): void {
+export function unwatchFile(this: V_Context, path: fs.PathLike, listener?: (curr: Stats, prev: Stats) => void): void {
 	const normalizedPath = normalizePath.call(this, path);
+	const watcher = statWatchers.get(normalizedPath);
+	if (!watcher) return;
 
-	const entry = statWatchers.get(normalizedPath);
-	if (entry) {
-		if (listener && listener !== nop) {
-			entry.listeners.delete(listener);
-		} else {
-			// If no listener is specified, remove all listeners
-			entry.listeners.clear();
-		}
-		if (entry.listeners.size === 0) {
-			// No more listeners, stop the watcher
-			entry.watcher.stop();
-			statWatchers.delete(normalizedPath);
-		}
-	}
+	if (listener) watcher.off('change', listener);
+	else watcher.removeAllListeners('change');
+
+	if (watcher.listenerCount('change')) return;
+	watcher.stop();
+	statWatchers.delete(normalizedPath);
 }
 unwatchFile satisfies Omit<typeof fs.unwatchFile, '__promisify__'>;
 
