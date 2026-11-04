@@ -325,3 +325,34 @@ export function temporal(): typeof Temporal {
 	if ('Temporal' in globalThis && typeof globalThis.Temporal !== 'undefined') return globalThis.Temporal;
 	throw withErrno('ENOTSUP', 'Temporal is not supported by this runtime');
 }
+
+/** The symbol `util.promisify` uses for custom implementations */
+const promisifyCustom = Symbol.for('nodejs.util.promisify.custom');
+
+/**
+ * Gets the function `util.promisify` uses for `fn`, if it has a custom one.
+ */
+export function getPromisified(fn: unknown): ((...args: any[]) => Promise<unknown>) | undefined {
+	return typeof fn == 'function' ? (fn as { [promisifyCustom]?: (...args: any[]) => Promise<unknown> })[promisifyCustom] : undefined;
+}
+
+/**
+ * Sets the function `util.promisify` uses for `fn`.
+ */
+export function setPromisified(fn: object, promisified: (...args: any[]) => Promise<unknown>): void {
+	Object.defineProperty(fn, promisifyCustom, { value: promisified, configurable: true });
+}
+
+/**
+ * Makes `util.promisify` resolve with the callback's results as an object with the property `names`, like Node's `read` and `write`.
+ */
+export function promisifyResults(fn: (...args: any[]) => void, ...names: string[]): void {
+	setPromisified(fn, function (this: unknown, ...args: unknown[]) {
+		const { promise, resolve, reject } = Promise.withResolvers<Record<string, unknown>>();
+		fn.call(this, ...args, (error: unknown, ...results: unknown[]) => {
+			if (error) reject(error);
+			else resolve(Object.fromEntries(names.map((name, i) => [name, results[i]])));
+		});
+		return promise;
+	});
+}

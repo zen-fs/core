@@ -208,6 +208,11 @@ for (const [key, value] of Object.entries(native)) {
 	for (const [property, member] of Object.entries(value)) {
 		if (typeof member == 'function') fn[property] = wrap(key, member, false);
 	}
+	// `util.promisify` metadata, which is a promise-returning function for `exists`
+	for (const symbol of Object.getOwnPropertySymbols(value)) {
+		const member: unknown = (value as any)[symbol];
+		Object.defineProperty(fn, symbol, { value: typeof member == 'function' ? wrap(key, member, true) : member });
+	}
 	wrapped[key] = fn;
 }
 

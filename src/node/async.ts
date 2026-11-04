@@ -12,7 +12,7 @@ import { Buffer } from 'buffer';
 import { UV, type Exception } from 'kerium';
 import { R_OK } from '../constants.js';
 import { normalizeMode, normalizePath } from '../utils.js';
-import { blobType, validateData } from './utils.js';
+import { blobType, promisifyResults, setPromisified, validateData } from './utils.js';
 import { FSWatcher, StatWatcher } from '../vfs/watchers.js';
 import * as promises from './promises.js';
 import { BigIntStats } from './stats.js';
@@ -37,6 +37,12 @@ export function exists(this: V_Context, path: fs.PathLike, cb: (exists: boolean)
 	promises.exists.call(this, path).then(cb, () => cb(false));
 }
 exists satisfies Omit<typeof fs.exists, '__promisify__'>;
+export declare namespace exists {
+	const __promisify__: typeof fs.exists.__promisify__;
+}
+setPromisified(exists, function (this: V_Context, path: fs.PathLike) {
+	return new Promise<boolean>(resolve => exists.call(this, path, resolve));
+});
 
 export function stat(this: V_Context, path: fs.PathLike, callback: Callback<[Stats]>): void;
 export function stat(this: V_Context, path: fs.PathLike, options: { bigint?: false; throwIfNoEntry?: true }, callback: Callback<[Stats]>): void;
@@ -353,6 +359,10 @@ export function write(
 	handle.write(buffer, offset, length, position).then(({ bytesWritten }) => _cb(null, bytesWritten, data), _cb);
 }
 write satisfies Omit<typeof fs.write, '__promisify__'>;
+export declare namespace write {
+	const __promisify__: typeof fs.write.__promisify__;
+}
+promisifyResults(write, 'bytesWritten', 'buffer');
 
 /**
  * Read data from the file specified by `fd`.
@@ -379,6 +389,10 @@ export function read(this: V_Context, fd: number, ...args: unknown[]): void {
 		.then(({ bytesRead, buffer }) => cb(null, bytesRead, buffer), cb);
 }
 read satisfies Omit<typeof fs.read, '__promisify__'>;
+export declare namespace read {
+	const __promisify__: typeof fs.read.__promisify__;
+}
+promisifyResults(read, 'bytesRead', 'buffer');
 
 export function fchown(this: V_Context, fd: number, uid: number, gid: number, cb: Callback = nop): void {
 	new promises.FileHandle(this, fd).chown(uid, gid).then(() => cb(null), cb);
@@ -752,6 +766,10 @@ export function readv(this: V_Context, fd: number, buffers: NodeJS.ArrayBufferVi
 		.then(({ buffers, bytesRead }) => cb(null, bytesRead, buffers), cb);
 }
 readv satisfies Omit<typeof fs.readv, '__promisify__'>;
+export declare namespace readv {
+	const __promisify__: typeof fs.readv.__promisify__;
+}
+promisifyResults(readv, 'bytesRead', 'buffers');
 
 type writevCb = Callback<[number, NodeJS.ArrayBufferView[]]>;
 
@@ -764,6 +782,15 @@ export function writev(this: V_Context, fd: number, buffers: Uint8Array[], posit
 		.then(({ buffers, bytesWritten }) => cb(null, bytesWritten, buffers), cb);
 }
 writev satisfies Omit<typeof fs.writev, '__promisify__'>;
+export declare namespace writev {
+	/** Like Node, the buffers are resolved as `buffer`, not `buffers` as `WriteVResult` declares */
+	function __promisify__<T extends readonly NodeJS.ArrayBufferView[]>(
+		fd: number,
+		buffers: T,
+		position?: number,
+	): Promise<{ bytesWritten: number; buffer: T }>;
+}
+promisifyResults(writev, 'bytesWritten', 'buffer');
 
 export function opendir(this: V_Context, path: fs.PathLike, cb: Callback<[Dir]>): void;
 export function opendir(this: V_Context, path: fs.PathLike, options: fs.OpenDirOptions, cb: Callback<[Dir]>): void;

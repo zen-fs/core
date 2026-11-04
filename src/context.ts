@@ -4,6 +4,7 @@ import { bindFunctions } from 'utilium';
 import type { BoundContext, ContextInit, FSContext, V_Context } from './internal/contexts.js';
 import { contextOf, createChildContext, defaultContext } from './internal/contexts.js';
 import * as fs from './node/index.js';
+import { getPromisified, setPromisified } from './node/utils.js';
 import * as path from './path.js';
 import * as xattr from './vfs/xattr.js';
 
@@ -33,6 +34,10 @@ export function bindContext(this: V_Context, init: ContextInit = {}): BoundConte
 	const boundFS = bindFunctions(fs, ctx);
 	boundFS.realpath.native = boundFS.realpath;
 	boundFS.realpathSync.native = boundFS.realpathSync;
+	for (const [name, value] of Object.entries(fs)) {
+		const promisified = getPromisified(value);
+		if (promisified) setPromisified(boundFS[name as keyof typeof boundFS], promisified.bind(ctx));
+	}
 
 	const bound = Object.assign(ctx, {
 		fs: {
