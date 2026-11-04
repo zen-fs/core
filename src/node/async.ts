@@ -9,7 +9,7 @@ import type { Stats } from './stats.js';
 import type { GlobOptionsU } from './types.js';
 
 import { Buffer } from 'buffer';
-import { UV, withErrno, type Exception } from 'kerium';
+import { UV, type Exception } from 'kerium';
 import { R_OK } from '../constants.js';
 import { normalizeMode, normalizePath } from '../utils.js';
 import { blobType, validateData } from './utils.js';
@@ -269,9 +269,7 @@ export function ftruncate(this: V_Context, fd: number, len?: number, cb?: Callba
 export function ftruncate(this: V_Context, fd: number, lenOrCB?: number | Callback, cb: Callback = nop): void {
 	const length = typeof lenOrCB === 'number' ? lenOrCB : 0;
 	cb = typeof lenOrCB === 'function' ? lenOrCB : cb;
-	const file = new promises.FileHandle(this, fd);
-	if (length < 0) throw withErrno('EINVAL');
-	file.truncate(length).then(() => cb(null), cb);
+	new promises.FileHandle(this, fd).truncate(length).then(() => cb(null), cb);
 }
 ftruncate satisfies Omit<typeof fs.ftruncate, '__promisify__'>;
 

@@ -241,10 +241,10 @@ export class FileHandle implements promises.FileHandle {
 
 	/**
 	 * Asynchronous ftruncate(2) - Truncate a file to a specified length.
-	 * @param length If not specified, defaults to `0`.
+	 * @param length If not specified, defaults to `0`. Negative lengths are treated as `0`.
 	 */
 	public async truncate(length: number = 0): Promise<void> {
-		await this.vfs.truncate(length);
+		await this.vfs.truncate(Math.max(0, length || 0));
 		this._emitChange();
 	}
 

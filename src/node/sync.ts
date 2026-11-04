@@ -108,9 +108,7 @@ lstatSync satisfies typeof fs.lstatSync;
 
 export function truncateSync(this: V_Context, path: fs.PathLike, len: number | null = 0): void {
 	using file = _sync.open(this, path, { flag: 'r+' });
-	len ||= 0;
-	if (len < 0) throw UV('EINVAL', 'truncate', path.toString());
-	file.truncateSync(len);
+	file.truncateSync(Math.max(0, len || 0));
 }
 truncateSync satisfies typeof fs.truncateSync;
 
@@ -276,11 +274,7 @@ export function closeSync(this: V_Context, fd: number): void {
 closeSync satisfies typeof fs.closeSync;
 
 export function ftruncateSync(this: V_Context, fd: number, len: number | null = 0): void {
-	len ||= 0;
-	if (len < 0) {
-		throw new Exception(Errno.EINVAL);
-	}
-	fromFD(this, fd).truncateSync(len);
+	fromFD(this, fd).truncateSync(Math.max(0, len || 0));
 }
 ftruncateSync satisfies typeof fs.ftruncateSync;
 
