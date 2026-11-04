@@ -17,6 +17,7 @@ import { _globDescent, dirname, join, matchesGlob, relative, resolve } from '../
 import {
 	_cpTypeMismatch,
 	_isNoEntry,
+	_readFileBuffer,
 	_tempDirName,
 	_validateMaxDepth,
 	normalizeMode,
@@ -146,34 +147,6 @@ export function lopenSync(this: V_Context, path: fs.PathLike, flag: string, mode
 }
 
 /**
- * Resolves the `buffer` option of `readFileSync` into a buffer covering the first `size` bytes of the view.
- * @hidden
- */
-function intoBuffer(into: ArrayBufferView | ((size: number) => ArrayBufferView), size: number): Buffer {
-	const isFn = typeof into == 'function';
-	const view = isFn ? into(size) : into;
-	const name = isFn ? 'options.buffer()' : 'options.buffer';
-
-	if (!ArrayBuffer.isView(view))
-		throw Object.assign(
-			new TypeError(
-				`The "options.buffer" property must be of type function or an instance of Buffer, TypedArray, or DataView. Received ${typeof view}`,
-			),
-			{ code: 'ERR_INVALID_ARG_TYPE' },
-		);
-
-	if (view.byteLength < size)
-		throw Object.assign(
-			new TypeError(`The property '${name}.byteLength' is smaller than the file size of ${size} bytes. Received ${view.byteLength}`),
-			{
-				code: 'ERR_INVALID_ARG_VALUE',
-			},
-		);
-
-	return Buffer.from(view.buffer, view.byteOffset, size);
-}
-
-/**
  * Synchronously reads the entire contents of a file.
  * @option encoding The string encoding for the file contents. Defaults to `null`.
  * @option flag Defaults to `'r'`.
@@ -212,7 +185,7 @@ export function readFileSync(
 	const { size } = file.stat();
 
 	const into = typeof _options == 'object' && _options !== null ? _options.buffer : undefined;
-	const buffer = into === undefined ? Buffer.alloc(size) : intoBuffer(into, size);
+	const buffer = into === undefined ? Buffer.alloc(size) : _readFileBuffer(into, size);
 	const data = buffer.subarray(0, file.readSync(buffer, 0, size, null));
 
 	return options.encoding ? data.toString(options.encoding) : data;

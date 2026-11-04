@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 // SPDX-License-Identifier: LGPL-3.0-or-later
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
+import type { BufferView } from 'node:buffer';
 import type { Abortable } from 'node:events';
 import type * as fs from 'node:fs';
 import type * as promises from 'node:fs/promises';
@@ -25,6 +26,7 @@ import '../polyfills.js';
 import {
 	_cpTypeMismatch,
 	_isNoEntry,
+	_readFileBuffer,
 	_tempDirName,
 	_validateMaxDepth,
 	normalizeMode,
@@ -46,6 +48,9 @@ import { createInterface } from './readline.js';
 import { BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from '../constants.js';
+
+/** Options for `readFile`, including the buffer the contents are read into */
+type ReadFileOptions = fs.ObjectEncodingOptions & Abortable & { buffer?: NodeJS.ArrayBufferView | ((size: number) => NodeJS.ArrayBufferView) };
 
 /** Coerce a `stream/iter` transform result into a flat array of `Uint8Array` chunks. */
 async function* normalizeTransformResult(result: unknown): AsyncGenerator<Uint8Array> {
@@ -254,18 +259,19 @@ export class FileHandle implements promises.FileHandle {
 		return { bytesRead, buffer };
 	}
 
+	public async readFile<T extends NodeJS.ArrayBufferView>(options: Omit<fs.ReadFileOptionsWithBuffer<T>, 'flag'>): Promise<BufferView<T>>;
 	public async readFile(options?: ({ encoding?: null } & Abortable) | null): Promise<NonSharedBuffer>;
-	public async readFile(options: ({ encoding: BufferEncoding } & Abortable) | BufferEncoding): Promise<string>;
+	public async readFile(options: ({ encoding: BufferEncoding } & Abortable & Pick<ReadFileOptions, 'buffer'>) | BufferEncoding): Promise<string>;
 	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | NonSharedBuffer>;
-	public async readFile(_options?: (fs.ObjectEncodingOptions & Abortable) | BufferEncoding | null): Promise<string | Buffer> {
+	public async readFile(_options?: ReadFileOptions | BufferEncoding | null): Promise<string | Buffer> {
 		const options = normalizeOptions(_options, null, 'r', 0o444);
 		const flag = flags.parse(options.flag);
 		if (flag & constants.O_WRONLY) throw UV('EBADF', 'read', this.vfs.path);
 
 		const { size } = await this.stat();
-		const data = new Uint8Array(size);
-		const bytesRead = await this.vfs.read(data, 0, size, null);
-		const buffer = Buffer.from(data.buffer, 0, bytesRead);
+		const into = typeof _options == 'object' && _options !== null ? _options.buffer : undefined;
+		const data = into === undefined ? Buffer.alloc(size) : _readFileBuffer(into, size);
+		const buffer = data.subarray(0, await this.vfs.read(data, 0, size, null));
 		return options.encoding ? buffer.toString(options.encoding) : buffer;
 	}
 
@@ -688,6 +694,11 @@ open satisfies typeof promises.open;
  * @option flag Defaults to `'r'`.
  * @returns the file data
  */
+export async function readFile<T extends NodeJS.ArrayBufferView>(
+	this: V_Context,
+	path: fs.PathLike | promises.FileHandle,
+	options: fs.ReadFileOptionsWithBuffer<T>,
+): Promise<BufferView<T>>;
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
@@ -696,7 +707,7 @@ export async function readFile(
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	options: ({ encoding: BufferEncoding; flag?: fs.OpenMode } & Abortable) | BufferEncoding,
+	options: ({ encoding: BufferEncoding; flag?: fs.OpenMode } & Abortable & Pick<ReadFileOptions, 'buffer'>) | BufferEncoding,
 ): Promise<string>;
 export async function readFile(
 	this: V_Context,
@@ -706,12 +717,12 @@ export async function readFile(
 export async function readFile(
 	this: V_Context,
 	path: fs.PathLike | promises.FileHandle,
-	_options?: (fs.ObjectEncodingOptions & { flag?: fs.OpenMode }) | BufferEncoding | null,
+	_options?: (ReadFileOptions & { flag?: fs.OpenMode }) | BufferEncoding | null,
 ): Promise<Buffer | string> {
 	const options = normalizeOptions(_options, null, 'r', 0o444);
 	await using opened = typeof path == 'object' && 'fd' in path ? undefined : await open.call(this, path, options.flag, options.mode);
 	const handle = opened ?? (path as FileHandle);
-	return await handle.readFile(options);
+	return await handle.readFile(_options as ReadFileOptions);
 }
 readFile satisfies typeof promises.readFile;
 

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import type { BufferView } from 'node:buffer';
 import type * as fs from 'node:fs';
 import type { V_Context } from '../context.js';
 import type { Callback } from '../utils.js';
@@ -131,6 +132,12 @@ open satisfies Omit<typeof fs.open, '__promisify__'>;
  * @param cb If no encoding is specified, then the raw buffer is returned.
  */
 export function readFile(this: V_Context, filename: fs.PathOrFileDescriptor, cb: Callback<[Uint8Array]>): void;
+export function readFile<T extends NodeJS.ArrayBufferView>(
+	this: V_Context,
+	filename: fs.PathOrFileDescriptor,
+	options: fs.ReadFileOptionsWithBuffer<T>,
+	cb: Callback<[BufferView<T>]>,
+): void;
 export function readFile(this: V_Context, filename: fs.PathOrFileDescriptor, options: { flag?: string }, callback?: Callback<[Uint8Array]>): void;
 export function readFile(
 	this: V_Context,
@@ -141,13 +148,17 @@ export function readFile(
 export function readFile(
 	this: V_Context,
 	filename: fs.PathOrFileDescriptor,
-	options?: fs.WriteFileOptions | BufferEncoding | Callback<[Uint8Array]>,
-	cb: Callback<[string]> | Callback<[Uint8Array]> = nop,
+	options?: fs.WriteFileOptions | fs.ReadFileOptionsWithBuffer<NodeJS.ArrayBufferView> | BufferEncoding | Callback<[Uint8Array]>,
+	cb: Callback<[string]> | Callback<[Uint8Array]> | Callback<[BufferView<any>]> = nop,
 ) {
 	cb = typeof options === 'function' ? options : cb;
 
 	promises.readFile
-		.call(this, typeof filename == 'number' ? new promises.FileHandle(this, filename) : filename, typeof options === 'function' ? null : options)
+		.call<V_Context, [fs.PathLike | promises.FileHandle, fs.ReadFileOptions | BufferEncoding | null], Promise<string | Buffer>>(
+			this,
+			typeof filename == 'number' ? new promises.FileHandle(this, filename) : filename,
+			typeof options === 'function' ? null : (options as fs.ReadFileOptions),
+		)
 		.then(data => (cb as Callback<[string | Uint8Array]>)(null, data), cb);
 }
 readFile satisfies Omit<typeof fs.readFile, '__promisify__'>;

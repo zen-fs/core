@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { Buffer } from 'buffer';
 import { Errno, withErrno, type Exception } from 'kerium';
 import type * as fs from 'node:fs';
 import type { Worker as NodeWorker } from 'node:worker_threads';
@@ -141,6 +142,43 @@ export function _validateMaxDepth(maxDepth: number): void {
 	throw Object.assign(new RangeError(`The value of "options.maxDepth" is out of range. It must be ${requirement}. Received ${maxDepth}`), {
 		code: 'ERR_OUT_OF_RANGE',
 	});
+}
+
+/**
+ * Describes a value the way Node's argument errors do, e.g. `type string ('x')`.
+ * @internal @hidden
+ */
+export function _describeReceived(value: unknown): string {
+	if (value == null) return String(value);
+	if (typeof value == 'function') return `function ${value.name}`;
+	if (typeof value == 'object') return value.constructor?.name ? `an instance of ${value.constructor.name}` : String(value);
+	return `type ${typeof value} (${typeof value == 'string' ? `'${value}'` : String(value)})`;
+}
+
+/**
+ * Resolves the `buffer` option of `readFile` into a buffer covering the first `size` bytes of the view.
+ * @internal @hidden
+ */
+export function _readFileBuffer(into: ArrayBufferView | ((size: number) => ArrayBufferView), size: number): Buffer {
+	const isFunction = typeof into == 'function';
+	const view: unknown = isFunction ? into(size) : into;
+	const name = isFunction ? 'options.buffer()' : 'options.buffer';
+
+	if (!ArrayBuffer.isView(view))
+		throw Object.assign(
+			new TypeError(
+				`The "options.buffer" property must be of type function or an instance of Buffer, TypedArray, or DataView. Received ${_describeReceived(view)}`,
+			),
+			{ code: 'ERR_INVALID_ARG_TYPE' },
+		);
+
+	if (view.byteLength < size)
+		throw Object.assign(
+			new TypeError(`The property '${name}.byteLength' is smaller than the file size of ${size} bytes. Received ${view.byteLength}`),
+			{ code: 'ERR_INVALID_ARG_VALUE' },
+		);
+
+	return Buffer.from(view.buffer, view.byteOffset, size);
 }
 
 /**
