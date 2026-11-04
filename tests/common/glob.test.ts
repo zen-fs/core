@@ -233,6 +233,14 @@ suite('glob wildcard directories', () => {
 	});
 });
 
+suite('glob syntax', () => {
+	test('braces and extended globs select directories', async () => {
+		assert.deepEqual(fs.globSync('glob/{sub,link}/*.txt').sort(), ['glob/link/d.txt', 'glob/sub/d.txt']);
+		assert.deepEqual(fs.globSync('glob/@(sub)/*/*.txt'), ['glob/sub/deep/f.txt']);
+		assert.deepEqual((await Array.fromAsync(fs.promises.glob('glob/*.@(js|txt)'))).sort(), ['glob/a.txt', 'glob/b.txt', 'glob/c.js']);
+	});
+});
+
 suite('glob maxDepth', () => {
 	const depths = (results: string[]) => results.map(path => path.split('/').length);
 

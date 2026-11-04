@@ -69,6 +69,45 @@ suite('Path emulation', () => {
 		assert(matchesGlob('.*/*', '.a/b'));
 	});
 
+	test('matchesGlob supports character classes', () => {
+		assert(matchesGlob('file[0-9].txt', 'file1.txt'));
+		assert(!matchesGlob('[!a]', 'a'));
+		assert(matchesGlob('[^a]', 'b'));
+		assert(matchesGlob('[]x]', ']'));
+		assert(matchesGlob('[[:alpha:]]', 'é'));
+		assert(!matchesGlob('[[:digit:]]', 'a'));
+		assert(matchesGlob('a[', 'a['));
+	});
+
+	test('matchesGlob supports extended globs', () => {
+		assert(matchesGlob('*.@(js|ts)', 'index.ts'));
+		assert(matchesGlob('?(a)', ''));
+		assert(!matchesGlob('?(a)', 'aa'));
+		assert(matchesGlob('*(a)', 'aaa'));
+		assert(!matchesGlob('+(a)', ''));
+		assert(matchesGlob('!(*.js)', 'index.css'));
+		assert(!matchesGlob('!(*.js)', 'index.js'));
+		assert(matchesGlob('foo.!(bar)', 'foo.baz'));
+		assert(matchesGlob('a@(b|c@(d|e))', 'ace'));
+		assert(matchesGlob('@(.a|b)', '.a'));
+	});
+
+	test('matchesGlob expands braces', () => {
+		assert(matchesGlob('src/*.{js,ts}', 'src/index.ts'));
+		assert(matchesGlob('page{1..5}.html', 'page3.html'));
+		assert(matchesGlob('{1..9..3}', '4'));
+		assert(!matchesGlob('{1..9..3}', '5'));
+		assert(matchesGlob('{01..12}', '07'));
+		assert(matchesGlob('{a..e}', 'c'));
+		assert(matchesGlob('a{b,{c,d}}', 'ad'));
+		assert(matchesGlob('a{b}c', 'a{b}c'));
+	});
+
+	test('matchesGlob treats backslashes and repeated slashes as separators', () => {
+		assert(matchesGlob('a\\b', 'a/b'));
+		assert(matchesGlob('a//b', 'a/b'));
+	});
+
 	test('matchesGlob does not backtrack exponentially', () => {
 		const start = performance.now();
 		assert(!matchesGlob('**/a/**/a/**/b', Array(5000).fill('a').join('/') + '/c'));

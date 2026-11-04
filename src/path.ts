@@ -453,14 +453,260 @@ function matchWildcard<P, T>(
 	return patternIndex == pattern.length;
 }
 
-function matchesSegment(pattern: string, name: string): boolean {
-	if (name.startsWith('.') && !pattern.startsWith('.')) return false;
-	return matchWildcard(
-		pattern,
-		name,
-		char => char == '*',
-		(char, value) => char == '?' || char == value,
-	);
+/** POSIX character classes, as Unicode property escapes for use within a character class */
+const posixClasses: Record<string, string> = {
+	alnum: '\\p{L}\\p{Nl}\\p{Nd}',
+	alpha: '\\p{L}\\p{Nl}',
+	ascii: '\\x00-\\x7f',
+	blank: '\\p{Zs}\\t',
+	cntrl: '\\p{Cc}',
+	digit: '\\p{Nd}',
+	graph: '\\p{L}\\p{M}\\p{N}\\p{P}\\p{S}',
+	lower: '\\p{Ll}',
+	print: '\\p{L}\\p{M}\\p{N}\\p{P}\\p{S}\\p{Zs}',
+	punct: '\\p{P}',
+	space: '\\p{Z}\\t\\r\\n\\v\\f',
+	upper: '\\p{Lu}',
+	word: '\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}',
+	xdigit: 'A-Fa-f0-9',
+};
+
+const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
+const escapeClass = (char: string): string => (/[\\\]\[^-]/.test(char) ? '\\' + char : char);
+
+/**
+ * Expands a brace sequence such as `1..9`, `a..z`, `1..9..3`, or `01..12`.
+ */
+function expandSequence(body: string): string[] | undefined {
+	const numeric = /^(-?\d+)\.\.(-?\d+)(?:\.\.(-?\d+))?$/.exec(body);
+	const alphabetic = /^([a-zA-Z])\.\.([a-zA-Z])(?:\.\.(-?\d+))?$/.exec(body);
+	const match = numeric ?? alphabetic;
+	if (!match) return;
+
+	const [, first, last, increment] = match;
+	const start = numeric ? parseInt(first) : first.charCodeAt(0);
+	const end = numeric ? parseInt(last) : last.charCodeAt(0);
+	const step = Math.abs(parseInt(increment ?? '1')) || 1;
+	const padded = numeric && (/^-?0\d/.test(first) || /^-?0\d/.test(last)) ? Math.max(first.length, last.length) : 0;
+
+	const values: string[] = [];
+	for (let value = start; start <= end ? value <= end : value >= end; value += start <= end ? step : -step) {
+		if (!numeric) values.push(String.fromCharCode(value));
+		else if (value < 0) values.push('-' + String(-value).padStart(padded - 1, '0'));
+		else values.push(String(value).padStart(padded, '0'));
+	}
+	return values;
+}
+
+/**
+ * Expands brace groups into the patterns they stand for, leaving groups with neither a comma nor a sequence as-is.
+ */
+function expandBraces(pattern: string, from: number = 0): string[] {
+	for (let i = pattern.indexOf('{', from); i != -1; i = pattern.indexOf('{', i + 1)) {
+		let depth = 0,
+			end = -1;
+		const commas: number[] = [];
+		for (let j = i; j < pattern.length; j++) {
+			if (pattern[j] == '{') depth++;
+			else if (pattern[j] == '}' && --depth == 0) {
+				end = j;
+				break;
+			} else if (pattern[j] == ',' && depth == 1) commas.push(j);
+		}
+		if (end == -1) return [pattern];
+
+		const body = pattern.slice(i + 1, end);
+		const alternatives = commas.length
+			? [i, ...commas].map((comma, index) => pattern.slice(comma + 1, commas[index] ?? end))
+			: expandSequence(body);
+		if (!alternatives) continue;
+
+		const prefix = pattern.slice(0, i),
+			suffix = pattern.slice(end + 1);
+		return alternatives.flatMap(alternative => expandBraces(prefix + alternative + suffix, i));
+	}
+	return [pattern];
+}
+
+/**
+ * Parses a bracket expression starting at `start`, returning `undefined` if it is not closed.
+ */
+function parseClass(source: string, start: number): [regex: string, end: number] | undefined {
+	let i = start + 1;
+	const negate = source[i] == '!' || source[i] == '^';
+	if (negate) i++;
+
+	let body = '';
+	for (let first = true; i < source.length; first = false) {
+		const char = source[i];
+		if (char == ']' && !first) return [`[${negate ? '^' : ''}${body}]`, i + 1];
+
+		if (char == '[' && source[i + 1] == ':') {
+			const close = source.indexOf(':]', i + 2);
+			const posix = close == -1 ? undefined : posixClasses[source.slice(i + 2, close)];
+			if (posix) {
+				body += posix;
+				i = close + 2;
+				continue;
+			}
+		}
+
+		if (source[i + 1] == '-' && i + 2 < source.length && source[i + 2] != ']') {
+			body += `${escapeClass(char)}-${escapeClass(source[i + 2])}`;
+			i += 3;
+			continue;
+		}
+
+		body += escapeClass(char);
+		i++;
+	}
+}
+
+/**
+ * Parses the alternatives of an extended glob starting after its `(`, returning `undefined` if it is not closed.
+ */
+function parseGroup(source: string, start: number): [alternatives: string[], end: number] | undefined {
+	const alternatives: string[] = [];
+	for (let i = start; i < source.length;) {
+		const [alternative, end] = parseSegment(source, i, true);
+		alternatives.push(alternative);
+		if (source[end] == ')') return [alternatives, end + 1];
+		if (source[end] != '|') return;
+		i = end + 1;
+	}
+}
+
+const extglobQuantifiers: Record<string, string> = { '?': '?', '*': '*', '+': '+', '@': '' };
+
+/**
+ * Compiles part of a glob segment into regular expression source, stopping at `|` or `)` within an extended glob.
+ */
+function parseSegment(source: string, start: number, inGroup: boolean): [regex: string, end: number] {
+	let regex = '';
+	let i = start;
+	while (i < source.length) {
+		const char = source[i];
+		if (inGroup && (char == '|' || char == ')')) break;
+
+		const group = '?*+@!'.includes(char) && source[i + 1] == '(' ? parseGroup(source, i + 2) : undefined;
+		if (group) {
+			const [alternatives, end] = group;
+			const body = alternatives.join('|');
+			if (char != '!') {
+				regex += `(?:${body})${extglobQuantifiers[char]}`;
+				i = end;
+				continue;
+			}
+			const [rest, restEnd] = parseSegment(source, end, inGroup);
+			return [`${regex}(?:(?!(?:${body})${rest}${inGroup ? '' : '$'})[^/]*?)${rest}`, restEnd];
+		}
+
+		const bracket = char == '[' ? parseClass(source, i) : undefined;
+		if (bracket) {
+			regex += bracket[0];
+			i = bracket[1];
+			continue;
+		}
+
+		regex += char == '*' ? '[^/]*' : char == '?' ? '[^/]' : escapeRegex(char);
+		i++;
+	}
+	return [regex, i];
+}
+
+/** A character matcher within a segment, or `true` for `*` */
+type GlobToken = true | ((char: string) => boolean);
+
+interface GlobSegment {
+	/** Whether the segment starts with a literal `.`, allowing it to match dot files */
+	dot: boolean;
+	/** Set for segments without wildcards, which are compared directly */
+	literal?: string;
+	/** Set for segments matched in linear time by tokens */
+	tokens?: GlobToken[];
+	/** Set for other segments with wildcards */
+	regex?: RegExp;
+	globstar?: boolean;
+}
+
+const isMagic = (segment: string): boolean => /[*?[]|[?*+@!]\(/.test(segment);
+
+/**
+ * Splits a segment without extended globs into tokens for `*`, `?`, bracket expressions, and literal characters.
+ */
+function tokenizeSegment(source: string): GlobToken[] {
+	const tokens: GlobToken[] = [];
+	for (let i = 0; i < source.length;) {
+		const char = source[i];
+		const bracket = char == '[' ? parseClass(source, i) : undefined;
+		if (bracket) {
+			const regex = new RegExp(`^${bracket[0]}$`, 'u');
+			tokens.push(value => regex.test(value));
+			i = bracket[1];
+			continue;
+		}
+		const codePoint = String.fromCodePoint(source.codePointAt(i)!);
+		tokens.push(char == '*' ? true : char == '?' ? () => true : value => value == codePoint);
+		i += codePoint.length;
+	}
+	return tokens;
+}
+
+/**
+ * Whether a segment can match dot files, because it or one of its leading extended glob's alternatives starts with a literal `.`.
+ */
+function allowsDot(source: string): boolean {
+	if (source.startsWith('.')) return true;
+	if (!/^[?*+@]\(/.test(source)) return false;
+	return !!parseGroup(source, 2)?.[0].some(alternative => alternative.startsWith('\\.'));
+}
+
+function compileSegment(source: string): GlobSegment {
+	if (source == '**') return { dot: false, globstar: true };
+	const dot = allowsDot(source);
+	if (!isMagic(source)) return { dot, literal: source };
+	try {
+		// Segments without extended globs and with more than one `*` are matched with tokens in linear time
+		if (!/[?*+@!]\(/.test(source) && source.split('*').length > 2) return { dot, tokens: tokenizeSegment(source) };
+		return { dot, regex: new RegExp(`^${parseSegment(source, 0, false)[0]}$`, 'u') };
+	} catch {
+		return { dot, literal: source };
+	}
+}
+
+const compiledGlobs = new Map<string, GlobSegment[][]>();
+
+/**
+ * Compiles a glob pattern into the segments of each pattern its braces expand to.
+ */
+function compileGlob(pattern: string): GlobSegment[][] {
+	const cached = compiledGlobs.get(pattern);
+	if (cached) return cached;
+
+	const normalized = pattern.replaceAll('\\', '/').replace(/\/{2,}/g, '/');
+	const compiled = expandBraces(normalized).map(expanded => {
+		const segments = expanded.split('/');
+		if (segments.length > 1 && segments.at(-1) == '**') segments.splice(-1, 0, '*');
+		return segments.map(compileSegment);
+	});
+
+	if (compiledGlobs.size >= 1024) compiledGlobs.clear();
+	compiledGlobs.set(pattern, compiled);
+	return compiled;
+}
+
+function matchesSegment(segment: GlobSegment, name: string): boolean {
+	if (name.startsWith('.') && !segment.dot) return false;
+	if (segment.literal !== undefined) return segment.literal == name;
+	if (segment.tokens)
+		return matchWildcard(
+			segment.tokens,
+			Array.from(name),
+			token => token === true,
+			(token, char) => token !== true && token(char),
+		);
+	return !!segment.regex?.test(name);
 }
 
 /**
@@ -472,17 +718,16 @@ export function _globDescent(patterns: readonly string[], directory: string): 'l
 	const segments = directory.split('/');
 	let descent: 'pattern' | undefined;
 
-	for (const pattern of patterns) {
-		const patternSegments = pattern.split('/');
+	for (const patternSegments of patterns.flatMap(compileGlob)) {
 		for (let i = 0; i < segments.length; i++) {
 			const patternSegment = patternSegments[i];
-			if (patternSegment == '**') {
+			if (patternSegment.globstar) {
 				descent = 'pattern';
 				break;
 			}
 			if (i >= patternSegments.length - 1 || !matchesSegment(patternSegment, segments[i])) break;
 			if (i < segments.length - 1) continue;
-			if (!/[*?[\]{]/.test(patternSegment)) return 'literal';
+			if (patternSegment.literal !== undefined) return 'literal';
 			descent = 'pattern';
 		}
 	}
@@ -491,18 +736,19 @@ export function _globDescent(patterns: readonly string[], directory: string): 'l
 }
 
 /**
- * `**` as a whole segment matches any number of segments (at least one when it is the last), `*` and `?` never match `/`.
+ * Matches `str` against a glob pattern with Node's syntax: brace expansion, character classes, and extended globs.
+ * `**` as a whole segment matches any number of segments (at least one when it is the last), and nothing else matches `/`.
  * Names starting with `.` are only matched by pattern segments starting with a literal `.`.
  */
 export function matchesGlob(pattern: string, str: string): boolean {
-	const segments = pattern.split('/');
-	if (segments.length > 1 && segments.at(-1) == '**') segments.splice(-1, 0, '*');
-
-	return matchWildcard(
-		segments,
-		str.split('/'),
-		segment => segment == '**',
-		matchesSegment,
-		name => !name.startsWith('.'),
+	const names = str.split('/');
+	return compileGlob(pattern).some(segments =>
+		matchWildcard(
+			segments,
+			names,
+			segment => !!segment.globstar,
+			matchesSegment,
+			name => !name.startsWith('.'),
+		),
 	);
 }
