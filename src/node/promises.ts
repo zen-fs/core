@@ -17,6 +17,7 @@ import type { GlobOptionsU, NodeReaddirOptions } from './types.js';
 
 import { Buffer } from 'buffer';
 import { Exception, rethrow, setUVMessage, UV } from 'kerium';
+import { warn } from 'kerium/log';
 import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
@@ -25,6 +26,7 @@ import { _globDescent, dirname, join, matchesGlob, relative, resolve } from '../
 import '../polyfills.js';
 import {
 	_cpTypeMismatch,
+	_describeReceived,
 	_isNoEntry,
 	_raceSignal,
 	_readFileBuffer,
@@ -49,6 +51,33 @@ import { createInterface } from './readline.js';
 import { BigIntStats, Stats } from './stats.js';
 import { ReadStream, WriteStream } from './streams.js';
 export * as constants from '../constants.js';
+
+/** Queue options for `watch`, where Node accepts `'error'` for `overflow` */
+interface WatchQueueOptions {
+	maxQueue?: number;
+	overflow?: 'ignore' | 'error' | 'throw';
+}
+
+/**
+ * Throws Node's errors for invalid `maxQueue` and `overflow` options of `watch`.
+ */
+function _validateWatchQueue(maxQueue: unknown, overflow: unknown): void {
+	if (typeof maxQueue != 'number')
+		throw Object.assign(new TypeError(`The "options.maxQueue" property must be of type number. Received ${_describeReceived(maxQueue)}`), {
+			code: 'ERR_INVALID_ARG_TYPE',
+		});
+	if (!Number.isInteger(maxQueue))
+		throw Object.assign(new RangeError(`The value of "options.maxQueue" is out of range. It must be an integer. Received ${maxQueue}`), {
+			code: 'ERR_OUT_OF_RANGE',
+		});
+	if (overflow != 'ignore' && overflow != 'error')
+		throw Object.assign(
+			new TypeError(
+				`The property 'options.overflow' must be one of: 'ignore', 'error'. Received ${typeof overflow == 'string' ? `'${overflow}'` : String(overflow)}`,
+			),
+			{ code: 'ERR_INVALID_ARG_VALUE' },
+		);
+}
 
 /** Options for `readFile`, including the buffer the contents are read into */
 type ReadFileOptions = fs.ObjectEncodingOptions & Abortable & { buffer?: NodeJS.ArrayBufferView | ((size: number) => NodeJS.ArrayBufferView) };
@@ -1034,25 +1063,39 @@ export function watch<T extends string | Buffer>(
 ): AsyncIteratorObject<promises.FileChangeInfo<T>, undefined> {
 	const opts = typeof options !== 'string' ? options : ({ encoding: options as BufferEncoding | 'buffer' } satisfies fs.WatchOptions);
 
+	const { maxQueue = 2048, overflow = 'ignore' } = opts as WatchQueueOptions;
+	_validateWatchQueue(maxQueue, overflow);
+
 	const watcher = new FSWatcher<T>(this, filename.toString(), opts);
 
-	// A queue to hold change events, since we need to resolve them in the async iterator
-	const eventQueue: ((value: IteratorResult<promises.FileChangeInfo<T>>) => void)[] = [];
+	type Result = IteratorResult<promises.FileChangeInfo<T>, undefined>;
 
+	const queue: (promises.FileChangeInfo<T> | Error)[] = [];
+	const waiting: PromiseWithResolvers<Result>[] = [];
 	let done = false;
 
 	watcher.on('change', (eventType: promises.FileChangeInfo<T>['eventType'], filename: T) => {
-		eventQueue.shift()?.({ value: { eventType, filename }, done: false });
+		const event = { eventType, filename };
+		const next = waiting.shift();
+		if (next) return next.resolve({ value: event, done: false });
+
+		if (queue.length < maxQueue) {
+			queue.push(event);
+			return;
+		}
+
+		if (overflow != 'error') return warn('fs.watch maxQueue exceeded');
+
+		queue.length = 0;
+		queue.push(Object.assign(new Error(`fs.watch() queued more than ${maxQueue} events`), { code: 'ERR_FS_WATCH_QUEUE_OVERFLOW' }));
 	});
 
 	function cleanup(): Promise<IteratorReturnResult<undefined>> {
 		done = true;
 		watcher.close();
 		opts.signal?.removeEventListener('abort', cleanup);
-		for (const resolve of eventQueue) {
-			resolve({ value: null, done });
-		}
-		eventQueue.length = 0; // Clear the queue
+		for (const { resolve } of waiting) resolve({ value: undefined, done });
+		waiting.length = 0;
 		return Promise.resolve({ value: undefined, done: true as const });
 	}
 
@@ -1060,11 +1103,17 @@ export function watch<T extends string | Buffer>(
 	else opts.signal?.addEventListener('abort', cleanup, { once: true });
 
 	return {
-		async next() {
-			if (done) return Promise.resolve({ value: undefined, done });
-			const { promise, resolve } = Promise.withResolvers<IteratorResult<promises.FileChangeInfo<T>>>();
-			eventQueue.push(resolve);
-			return promise;
+		async next(): Promise<Result> {
+			const item = queue.shift();
+			if (item instanceof Error) {
+				await cleanup();
+				throw item;
+			}
+			if (item) return { value: item, done: false };
+			if (done) return { value: undefined, done };
+			const next = Promise.withResolvers<Result>();
+			waiting.push(next);
+			return next.promise;
 		},
 		return: cleanup,
 		throw: cleanup,
