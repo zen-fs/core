@@ -17,6 +17,7 @@ export type { ReadStreamOptions, WriteStreamOptions } from 'node:fs';
  * Closes a stream's handle once it has been opened, then calls `callback` with the first error.
  */
 function closeHandle(
+	stream: { fd: number | null },
 	ready: Promise<unknown>,
 	handle: () => FileHandle | undefined,
 	error: Error | null,
@@ -24,6 +25,7 @@ function closeHandle(
 ): void {
 	ready
 		.then(() => handle()?.close())
+		.then(() => (stream.fd = null))
 		.then(
 			() => callback(error),
 			(closeError: Error) => callback(error ?? closeError),
@@ -35,6 +37,8 @@ function closeHandle(
  */
 export class ReadStream extends Readable implements fs.ReadStream {
 	public pending = true;
+	/** The file descriptor, or `null` before the file is opened and after it is closed */
+	public fd: number | null = null;
 	private _path = '<unknown>';
 	private _bytesRead = 0;
 	private reader?: ReadableStreamDefaultReader<Uint8Array>;
@@ -47,6 +51,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 		this.ready = Promise.resolve(handleOrPromise)
 			.then(handle => {
 				this.handle = handle;
+				this.fd = handle.fd;
 				this._path = handle['vfs'].path;
 
 				// `end` is inclusive for streams, but the internal range is not
@@ -81,7 +86,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 	}
 
 	_destroy(error: Error | null, callback: (error?: Error | null) => void): void {
-		closeHandle(this.ready, () => this.handle, error, callback);
+		closeHandle(this, this.ready, () => this.handle, error, callback);
 	}
 
 	/**
@@ -112,6 +117,8 @@ export class ReadStream extends Readable implements fs.ReadStream {
  */
 export class WriteStream extends Writable implements fs.WriteStream {
 	public pending = true;
+	/** The file descriptor, or `null` before the file is opened and after it is closed */
+	public fd: number | null = null;
 	private _path = '<unknown>';
 	private _bytesWritten = 0;
 	private writer?: WritableStreamDefaultWriter<Uint8Array>;
@@ -124,8 +131,9 @@ export class WriteStream extends Writable implements fs.WriteStream {
 		this.ready = Promise.resolve(handleOrPromise)
 			.then(handle => {
 				this.handle = handle;
+				this.fd = handle.fd;
 				this._path = handle['vfs'].path;
-				const internal = handle.writableWebStream({ start: opts.start ?? handle['vfs'].position });
+				const internal = handle.writableWebStream({ start: opts.start });
 				this.writer = internal.getWriter();
 				this.pending = false;
 			})
@@ -163,7 +171,7 @@ export class WriteStream extends Writable implements fs.WriteStream {
 	}
 
 	_destroy(error: Error | null, callback: (error?: Error | null) => void): void {
-		closeHandle(this.ready, () => this.handle, error, callback);
+		closeHandle(this, this.ready, () => this.handle, error, callback);
 	}
 
 	/**

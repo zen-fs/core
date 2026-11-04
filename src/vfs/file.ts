@@ -423,7 +423,7 @@ export class Handle {
 	}
 
 	/**
-	 * Create a stream for writing the file.
+	 * Create a stream for writing the file at `start`, or at the current position (which is then advanced) if not given.
 	 * Chunks are written to the vnode's cache, then synced when the stream is closed.
 	 * @todo Don't repeat ourselves with the implementation in `FileSystem`
 	 */
@@ -432,13 +432,13 @@ export class Handle {
 		if (this.inode.flags! & InodeFlags.Immutable) throw UV('EPERM', 'write', this.path);
 		if (this.fs.attributes.has('readonly')) throw UV('EROFS', 'write', this.path);
 
+		const handle = this;
 		const { vnode } = this;
-		let position = options.start ?? 0;
+		let position = options.start;
 		return new WritableStream<Uint8Array>({
 			async write(chunk, controller) {
-				using _ = await vnode.lock('rw');
-				await vnode.write(chunk, position).catch(controller.error.bind(controller));
-				position += chunk.byteLength;
+				await handle.write(chunk, 0, chunk.byteLength, position ?? null).catch(controller.error.bind(controller));
+				if (position !== undefined) position += chunk.byteLength;
 			},
 			async close() {
 				using _ = await vnode.lock('rw');
