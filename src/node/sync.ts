@@ -566,19 +566,21 @@ export function lutimesSync(this: V_Context, path: fs.PathLike, atime: fs.TimeLi
 }
 lutimesSync satisfies typeof fs.lutimesSync;
 
-export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): Buffer;
 export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string;
-export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | Buffer {
+export function realpathSync(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption): NonSharedBuffer;
+export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption): string | NonSharedBuffer;
+export function realpathSync(this: V_Context, path: fs.PathLike, options?: fs.EncodingOption | fs.BufferEncodingOption): string | NonSharedBuffer {
 	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
 	path = normalizePath.call(this, path, true);
 
 	const { fullPath } = _sync.resolve(this, path);
 	if (encoding == 'utf8' || encoding == 'utf-8') return fullPath;
-	const buf = Buffer.from(fullPath, 'utf-8');
+	const buf: NonSharedBuffer = Buffer.from(fullPath, 'utf-8');
 	if (encoding == 'buffer') return buf;
 	return buf.toString(encoding);
 }
-realpathSync satisfies Omit<typeof fs.realpathSync, 'native'>;
+realpathSync.native = realpathSync;
+realpathSync satisfies typeof fs.realpathSync;
 
 export function accessSync(this: V_Context, path: fs.PathLike, mode: number = 0o600): void {
 	if (!checkAccess) return;

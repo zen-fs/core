@@ -185,7 +185,17 @@ const wrapped: Record<string, unknown> = {};
 for (const [key, value] of Object.entries(native)) {
 	if (key == 'promises') continue;
 	// Classes (Stats, Dirent, ReadStream, ...) must not be wrapped, or `instanceof` breaks
-	wrapped[key] = typeof value == 'function' && !/^[A-Z]/.test(key) ? wrap(key, value, false) : value;
+	if (typeof value != 'function' || /^[A-Z]/.test(key)) {
+		wrapped[key] = value;
+		continue;
+	}
+
+	const fn = wrap(key, value, false) as Function & Record<string, unknown>;
+	// Function properties such as `realpath.native` take the same arguments as the function
+	for (const [property, member] of Object.entries(value)) {
+		if (typeof member == 'function') fn[property] = wrap(key, member, false);
+	}
+	wrapped[key] = fn;
 }
 
 // `using` support, which node:fs does not have (yet?)

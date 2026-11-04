@@ -509,13 +509,29 @@ lutimes satisfies Omit<typeof fs.lutimes, '__promisify__'>;
  * Asynchronous `realpath`. The callback gets two arguments
  * `(err, resolvedPath)`. May use `process.cwd` to resolve relative paths.
  */
-export function realpath(this: V_Context, path: fs.PathLike, cb?: Callback<[string]>): void;
-export function realpath(this: V_Context, path: fs.PathLike, options: fs.EncodingOption, cb: Callback<[string]>): void;
-export function realpath(this: V_Context, path: fs.PathLike, arg2?: Callback<[string]> | fs.EncodingOption, cb: Callback<[string]> = nop): void {
-	cb = typeof arg2 === 'function' ? arg2 : cb;
-	promises.realpath.call(this, path, typeof arg2 === 'function' ? null : arg2).then(result => cb(null, result), cb);
+type RealpathCallback<T> = (error: NodeJS.ErrnoException | null, resolvedPath: T) => void;
+
+export function realpath(this: V_Context, path: fs.PathLike, options: fs.EncodingOption, callback: RealpathCallback<string>): void;
+export function realpath(this: V_Context, path: fs.PathLike, options: fs.BufferEncodingOption, callback: RealpathCallback<NonSharedBuffer>): void;
+export function realpath(this: V_Context, path: fs.PathLike, options: fs.EncodingOption, callback: RealpathCallback<string | NonSharedBuffer>): void;
+export function realpath(this: V_Context, path: fs.PathLike, callback: RealpathCallback<string>): void;
+export function realpath(
+	this: V_Context,
+	path: fs.PathLike,
+	options: fs.EncodingOption | fs.BufferEncodingOption | RealpathCallback<string>,
+	callback?: RealpathCallback<string> | RealpathCallback<NonSharedBuffer>,
+): void {
+	const cb = (typeof options == 'function' ? options : (callback ?? nop)) as Callback<[string | NonSharedBuffer]>;
+	promises.realpath
+		.call<V_Context, [fs.PathLike, fs.EncodingOption | fs.BufferEncodingOption], Promise<string | NonSharedBuffer>>(
+			this,
+			path,
+			typeof options == 'function' ? null : options,
+		)
+		.then(result => cb(null, result), cb);
 }
-realpath satisfies Omit<typeof fs.realpath, '__promisify__' | 'native'>;
+realpath.native = realpath;
+realpath satisfies Omit<typeof fs.realpath, '__promisify__'>;
 
 export function access(this: V_Context, path: fs.PathLike, cb: Callback): void;
 export function access(this: V_Context, path: fs.PathLike, mode: number, cb: Callback): void;

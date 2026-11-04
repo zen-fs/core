@@ -30,9 +30,13 @@ export function bindContext(this: V_Context, init: ContextInit = {}): BoundConte
 
 	const ctx = createChildContext($, init);
 
+	const boundFS = bindFunctions(fs, ctx);
+	boundFS.realpath.native = boundFS.realpath;
+	boundFS.realpathSync.native = boundFS.realpathSync;
+
 	const bound = Object.assign(ctx, {
 		fs: {
-			...bindFunctions(fs, ctx),
+			...boundFS,
 			Utf8Stream: fs.Utf8Stream._withContext(ctx),
 			promises: bindFunctions(fs.promises, ctx),
 			xattr: bindFunctions(xattr, ctx),

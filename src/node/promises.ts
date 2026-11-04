@@ -1028,6 +1028,11 @@ export async function realpath(this: V_Context, path: fs.PathLike, options?: fs.
 export async function realpath(
 	this: V_Context,
 	path: fs.PathLike,
+	options?: fs.EncodingOption | fs.BufferEncodingOption,
+): Promise<string | NonSharedBuffer>;
+export async function realpath(
+	this: V_Context,
+	path: fs.PathLike,
 	options?: fs.EncodingOption | BufferEncoding | fs.BufferEncodingOption,
 ): Promise<string | Buffer> {
 	const encoding = typeof options == 'string' ? options : (options?.encoding ?? 'utf8');
