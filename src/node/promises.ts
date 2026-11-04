@@ -30,6 +30,7 @@ import {
 	cpError,
 	checkAborted,
 	cpSpecialFileError,
+	isIterableData,
 	isNoEntry,
 	mkstempError,
 	raceSignal,
@@ -40,6 +41,7 @@ import {
 	tempResult,
 	validateData,
 	validateMaxDepth,
+	type WriteFileData,
 	invalidArgumentValue,
 	outOfRange,
 	validateType,
@@ -282,17 +284,30 @@ export class FileHandle implements promises.FileHandle {
 	 * - `flag` defaults to `'a'`.
 	 */
 	public async appendFile(
-		data: string | Uint8Array,
-		_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode) | BufferEncoding = {},
+		data: WriteFileData | Stream,
+		_options: (fs.ObjectEncodingOptions & promises.FlagAndOpenMode & Abortable) | BufferEncoding = {},
 	): Promise<void> {
-		validateData(data);
+		if (!isIterableData(data)) validateData(data);
 		const options = normalizeOptions(_options, 'utf8', 'a', 0o644);
 		const flag = flags.parse(options.flag);
 		if (!(flag & constants.O_APPEND)) throw UV('EBADF', 'write', this.vfs.path);
 
-		const encodedData =
-			typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-		await this.vfs.write(encodedData, 0, encodedData.byteLength);
+		await this._writeData(data, options.encoding!, typeof _options == 'object' ? _options.signal : undefined);
+	}
+
+	/**
+	 * Writes `data` at the current position, encoding strings with `encoding`.
+	 * Iterables are written one chunk at a time, and `signal` is checked before each write.
+	 */
+	private async _writeData(data: WriteFileData | Stream, encoding: BufferEncoding, signal?: AbortSignal | null): Promise<void> {
+		const chunks = isIterableData(data) ? data : [data as string | ArrayBufferView];
+		for await (const chunk of chunks) {
+			checkAborted(signal);
+			validateData(chunk);
+			const encoded =
+				typeof chunk == 'string' ? Buffer.from(chunk, encoding) : new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+			await this.vfs.write(encoded, 0, encoded.byteLength);
+		}
 		this._emitChange();
 	}
 
@@ -475,16 +490,12 @@ export class FileHandle implements promises.FileHandle {
 	 * - `mode` defaults to `0o666`.
 	 * - `flag` defaults to `'w'`.
 	 */
-	public async writeFile(data: string | Uint8Array, _options: fs.WriteFileOptions = {}): Promise<void> {
-		validateData(data);
+	public async writeFile(data: WriteFileData | Stream, _options: fs.WriteFileOptions = {}): Promise<void> {
+		if (!isIterableData(data)) validateData(data);
 		const options = normalizeOptions(_options, 'utf8', 'w', 0o644);
 		const flag = flags.parse(options.flag);
 		if (!(flag & constants.O_WRONLY || flag & constants.O_RDWR)) throw UV('EBADF', 'writeFile', this.vfs.path);
-		const encodedData =
-			typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-		checkAborted(typeof _options == 'object' ? _options?.signal : undefined);
-		await this.vfs.write(encodedData, 0, encodedData.byteLength);
-		this._emitChange();
+		await this._writeData(data, options.encoding!, typeof _options == 'object' ? _options?.signal : undefined);
 	}
 
 	/**
@@ -890,13 +901,13 @@ export async function writeFile(
 	data: FileContents | Stream | Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView>,
 	_options?: (fs.ObjectEncodingOptions & Abortable & { mode?: fs.Mode; flag?: fs.OpenMode; flush?: boolean }) | BufferEncoding | null,
 ): Promise<void> {
-	validateData(data);
+	if (!isIterableData(data)) validateData(data);
 	const signal = typeof _options == 'object' ? _options?.signal : undefined;
 	checkAborted(signal);
 	const options = normalizeOptions(_options, 'utf8', 'w+', 0o644);
 	await using opened = path instanceof FileHandle ? undefined : await open.call(this, (path as fs.PathLike).toString(), options.flag, options.mode);
 	const handle = opened ?? (path as FileHandle);
-	await handle.writeFile(typeof data == 'string' ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength), { ...options, signal });
+	await handle.writeFile(data, { ...options, signal });
 }
 writeFile satisfies typeof promises.writeFile;
 
@@ -918,14 +929,12 @@ export async function appendFile(
 
 	if (!(flag & constants.O_APPEND)) throw UV('EBADF', $ex);
 
-	validateData(data);
+	if (!isIterableData(data)) validateData(data);
 
-	const encodedData =
-		typeof data == 'string' ? Buffer.from(data, options.encoding!) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 	await using opened = typeof path == 'object' && 'fd' in path ? undefined : await open.call(this, path as string, options.flag, options.mode);
-	const handle = opened ?? (path as promises.FileHandle);
+	const handle = opened ?? (path as FileHandle);
 
-	await handle.appendFile(encodedData, options);
+	await handle.appendFile(data, options);
 }
 appendFile satisfies typeof promises.appendFile;
 

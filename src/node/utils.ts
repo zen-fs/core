@@ -108,6 +108,16 @@ export function validateData(data: unknown, name: string = 'data'): asserts data
 	validateType(data, name, 'string', 'Buffer', 'TypedArray', 'DataView');
 }
 
+/** Data that can be written by `writeFile` and `appendFile` */
+export type WriteFileData = string | ArrayBufferView | Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView>;
+
+/**
+ * Whether `data` is an iterable of chunks, rather than a string or a view.
+ */
+export function isIterableData(data: unknown): data is Iterable<string | ArrayBufferView> | AsyncIterable<string | ArrayBufferView> {
+	return typeof data == 'object' && data !== null && !ArrayBuffer.isView(data) && (Symbol.iterator in data || Symbol.asyncIterator in data);
+}
+
 /**
  * Throws Node's `ERR_OUT_OF_RANGE` unless `maxDepth` is `Infinity` or a non-negative integer.
  */
