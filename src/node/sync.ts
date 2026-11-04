@@ -13,7 +13,7 @@ import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
 import { wrap } from '../internal/error.js';
 import { assertRemovable, hasAccess, isDirectory } from '../internal/inode.js';
-import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
+import { _globDescent, dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import {
 	_cpTypeMismatch,
 	_isNoEntry,
@@ -865,25 +865,15 @@ export function globSync(this: V_Context, pattern: string | readonly string[], o
 
 	const base = resolve.call($, cwd instanceof URL ? cwd.pathname : cwd);
 	const normalizedPatterns = pattern.map(p => (p.startsWith('/') ? relative.call($, base, p) : p));
-	const hasGlobStar = normalizedPatterns.some(p => p.includes('**'));
-
-	const patternBases = normalizedPatterns.map(p => {
-		const firstGlob = p.search(/[*?[\]{]/);
-		if (firstGlob === -1) return p;
-		const lastSlash = p.lastIndexOf('/', firstGlob);
-		return lastSlash === -1 ? '' : p.slice(0, lastSlash);
-	});
-
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
 	function shouldDescend(path: string, relativePath: string): boolean {
-		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
-		const inScope = hasGlobStar || isNamed;
-		if (!inScope) return false;
+		const descent = _globDescent(normalizedPatterns, relativePath);
+		if (!descent) return false;
 		try {
 			const stats = lstatSync.call<V_Context, [string], Stats>($, path);
 			if (!stats.isSymbolicLink()) return stats.isDirectory();
-			return (followSymlinks || isNamed) && statSync.call<V_Context, [string], Stats>($, path).isDirectory();
+			return (followSymlinks || descent == 'literal') && statSync.call<V_Context, [string], Stats>($, path).isDirectory();
 		} catch {
 			return false;
 		}

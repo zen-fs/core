@@ -220,6 +220,19 @@ await suite('promises.glob', () => {
 	});
 });
 
+suite('glob wildcard directories', () => {
+	test('wildcard segments are descended into', () => {
+		assert.deepEqual(fs.globSync('glob/*/*.txt'), ['glob/sub/d.txt']);
+		assert.deepEqual(fs.globSync('*/sub/*.txt', { cwd: '/' }), ['glob/sub/d.txt']);
+	});
+
+	test('symlinks are only followed through literal segments', async () => {
+		assert(fs.globSync('glob/link/*').includes('glob/link/d.txt'));
+		assert(!fs.globSync('glob/*/d.txt').includes('glob/link/d.txt'));
+		assert(!(await Array.fromAsync(fs.promises.glob('glob/l*/d.txt'))).includes('glob/link/d.txt'));
+	});
+});
+
 suite('glob maxDepth', () => {
 	const depths = (results: string[]) => results.map(path => path.split('/').length);
 

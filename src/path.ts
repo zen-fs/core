@@ -464,6 +464,33 @@ function matchesSegment(pattern: string, name: string): boolean {
 }
 
 /**
+ * Determines whether entries below `directory` could match one of `patterns`:
+ * `'literal'` when its last segment is matched by a literal pattern segment, `'pattern'` when matched by a wildcard or `**`.
+ * @internal @hidden
+ */
+export function _globDescent(patterns: readonly string[], directory: string): 'literal' | 'pattern' | undefined {
+	const segments = directory.split('/');
+	let descent: 'pattern' | undefined;
+
+	for (const pattern of patterns) {
+		const patternSegments = pattern.split('/');
+		for (let i = 0; i < segments.length; i++) {
+			const patternSegment = patternSegments[i];
+			if (patternSegment == '**') {
+				descent = 'pattern';
+				break;
+			}
+			if (i >= patternSegments.length - 1 || !matchesSegment(patternSegment, segments[i])) break;
+			if (i < segments.length - 1) continue;
+			if (!/[*?[\]{]/.test(patternSegment)) return 'literal';
+			descent = 'pattern';
+		}
+	}
+
+	return descent;
+}
+
+/**
  * `**` as a whole segment matches any number of segments (at least one when it is the last), `*` and `?` never match `/`.
  * Names starting with `.` are only matched by pattern segments starting with a literal `.`.
  */

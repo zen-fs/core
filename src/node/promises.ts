@@ -20,7 +20,7 @@ import { encodeUTF8 } from 'utilium';
 import * as constants from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
 import { assertRemovable, hasAccess, InodeFlags, isDirectory } from '../internal/inode.js';
-import { dirname, join, matchesGlob, relative, resolve } from '../path.js';
+import { _globDescent, dirname, join, matchesGlob, relative, resolve } from '../path.js';
 import '../polyfills.js';
 import {
 	_cpTypeMismatch,
@@ -1263,25 +1263,15 @@ export function glob(this: V_Context, pattern: string | readonly string[], opt?:
 
 	const base = resolve.call($, cwd instanceof URL ? cwd.pathname : cwd);
 	const normalizedPatterns = pattern.map(p => (p.startsWith('/') ? relative.call($, base, p) : p));
-	const hasGlobStar = normalizedPatterns.some(p => p.includes('**'));
-
-	const patternBases = normalizedPatterns.map(p => {
-		const firstGlob = p.search(/[*?[\]{]/);
-		if (firstGlob === -1) return p;
-		const lastSlash = p.lastIndexOf('/', firstGlob);
-		return lastSlash === -1 ? '' : p.slice(0, lastSlash);
-	});
-
 	type Entries = true extends typeof withFileTypes ? Dirent[] : string[];
 
 	async function shouldDescend(path: string, relativePath: string): Promise<boolean> {
-		const isNamed = patternBases.some(base => relativePath === base || base.startsWith(relativePath + '/'));
-		const inScope = hasGlobStar || isNamed;
-		if (!inScope) return false;
+		const descent = _globDescent(normalizedPatterns, relativePath);
+		if (!descent) return false;
 		try {
 			const stats = await lstat.call<V_Context, [string], Promise<Stats>>($, path);
 			if (!stats.isSymbolicLink()) return stats.isDirectory();
-			return (followSymlinks || isNamed) && (await stat.call<V_Context, [string], Promise<Stats>>($, path)).isDirectory();
+			return (followSymlinks || descent == 'literal') && (await stat.call<V_Context, [string], Promise<Stats>>($, path)).isDirectory();
 		} catch {
 			return false;
 		}
