@@ -1243,5 +1243,75 @@
 		"status": "resolved",
 		"note": "2.9.0 (7558b5ec)",
 		"date": "2026-11-03"
+	},
+	"#63328": {
+		"status": "resolved",
+		"note": "2.9.0 (f4cd5cd4)",
+		"date": "2026-11-03"
+	},
+	"#58674": {
+		"status": "resolved",
+		"note": "2.9.0 (ca82133a)",
+		"date": "2026-11-03"
+	},
+	"#64003": {
+		"status": "resolved",
+		"note": "2.9.0 (e6744eb2)",
+		"date": "2026-11-03"
+	},
+	"#66131": {
+		"status": "resolved",
+		"note": "2.9.0 (b7fdb792)",
+		"date": "2026-11-04"
+	},
+	"#63634": {
+		"status": "resolved",
+		"note": "2.9.0 (79034b0c)",
+		"date": "2026-11-04"
+	},
+	"#58548": {
+		"status": "resolved",
+		"note": "2.9.0 (73e1d53a)",
+		"date": "2026-11-04"
+	},
+	"#57775": {
+		"status": "resolved",
+		"note": "2.9.0 (ece8ec62)",
+		"date": "2026-11-04"
+	},
+	"#63142": {
+		"status": "resolved",
+		"note": "2.9.0 (ece8ec62)",
+		"date": "2026-11-04"
+	},
+	"#63143": {
+		"status": "resolved",
+		"note": "2.9.0 (ece8ec62)",
+		"date": "2026-11-04"
+	},
+	"#61433": {
+		"status": "resolved",
+		"note": "2.9.0 (580635fb)",
+		"date": "2026-11-04"
+	},
+	"#58490": {
+		"status": "resolved",
+		"note": "2.9.0 (96b1462f)",
+		"date": "2026-11-04"
+	},
+	"#41439": {
+		"status": "resolved",
+		"note": "2.9.0 (467bcf74)",
+		"date": "2026-11-04"
+	},
+	"#55744": {
+		"status": "resolved",
+		"note": "2.9.0 (467bcf74)",
+		"date": "2026-11-04"
+	},
+	"#65392": {
+		"status": "resolved",
+		"note": "2.9.0 (b95a6829)",
+		"date": "2026-11-04"
 	}
 }
