@@ -379,6 +379,7 @@ export class FileHandle implements promises.FileHandle {
 	 * Asynchronous close(2) - close a `FileHandle`.
 	 */
 	public async close(): Promise<void> {
+		if (this._fd == -1) return;
 		await this.vfs.close();
 		deleteFD(this.context, this._fd);
 		// Like Node, the descriptor is invalidated so later use fails validation

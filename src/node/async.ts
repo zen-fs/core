@@ -622,6 +622,21 @@ export function watch(
 watch satisfies Omit<typeof fs.watch, '__promisify__'>;
 
 /**
+ * Resolves the handle a file stream uses: the `fd` option if given, otherwise `path` opened with the `flags` option.
+ */
+function streamHandle(
+	context: V_Context,
+	path: fs.PathLike,
+	defaultFlags: string,
+	options: ReadStreamOptions | WriteStreamOptions,
+): promises.FileHandle | Promise<promises.FileHandle> {
+	const { fd } = options;
+	if (typeof fd == 'number') return new promises.FileHandle(context, fd);
+	if (fd != null) return fd as unknown as promises.FileHandle;
+	return promises.open.call(context, path, options.flags ?? defaultFlags, options.mode);
+}
+
+/**
  * Opens a file in read mode and creates a Node.js-like ReadStream.
  *
  * @param path The path to the file to be opened.
@@ -630,8 +645,7 @@ watch satisfies Omit<typeof fs.watch, '__promisify__'>;
  */
 export function createReadStream(this: V_Context, path: fs.PathLike, options?: BufferEncoding | ReadStreamOptions): ReadStream {
 	options = typeof options == 'object' ? options : { encoding: options };
-	const _handle = promises.open.call(this, path, 'r', options?.mode);
-	return new ReadStream({ ...options, autoClose: true, signal: options?.signal ?? undefined }, _handle);
+	return new ReadStream({ ...options, signal: options?.signal ?? undefined }, streamHandle(this, path, 'r', options));
 }
 createReadStream satisfies Omit<typeof fs.createReadStream, '__promisify__'>;
 
@@ -644,9 +658,7 @@ createReadStream satisfies Omit<typeof fs.createReadStream, '__promisify__'>;
  */
 export function createWriteStream(this: V_Context, path: fs.PathLike, options?: BufferEncoding | WriteStreamOptions): WriteStream {
 	options = typeof options == 'object' ? options : { encoding: options };
-
-	const _handle = promises.open.call(this, path, 'w', options?.mode);
-	return new WriteStream(options, _handle);
+	return new WriteStream(options, streamHandle(this, path, 'w', options));
 }
 createWriteStream satisfies Omit<typeof fs.createWriteStream, '__promisify__'>;
 

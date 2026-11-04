@@ -14,6 +14,23 @@ import { warn } from 'kerium/log';
 export type { ReadStreamOptions, WriteStreamOptions } from 'node:fs';
 
 /**
+ * Closes a stream's handle once it has been opened, then calls `callback` with the first error.
+ */
+function closeHandle(
+	ready: Promise<unknown>,
+	handle: () => FileHandle | undefined,
+	error: Error | null,
+	callback: (error?: Error | null) => void,
+): void {
+	ready
+		.then(() => handle()?.close())
+		.then(
+			() => callback(error),
+			(closeError: Error) => callback(error ?? closeError),
+		);
+}
+
+/**
  * A ReadStream implementation that wraps an underlying global ReadableStream.
  */
 export class ReadStream extends Readable implements fs.ReadStream {
@@ -21,13 +38,15 @@ export class ReadStream extends Readable implements fs.ReadStream {
 	private _path = '<unknown>';
 	private _bytesRead = 0;
 	private reader?: ReadableStreamDefaultReader<Uint8Array>;
+	private handle?: FileHandle;
 	private ready: Promise<void>;
 
 	public constructor(opts: CreateReadStreamOptions = {}, handleOrPromise: FileHandle | Promise<FileHandle>) {
-		super({ ...opts, encoding: opts.encoding ?? undefined });
+		super({ ...opts, encoding: opts.encoding ?? undefined, autoDestroy: opts.autoClose ?? true });
 
 		this.ready = Promise.resolve(handleOrPromise)
 			.then(handle => {
+				this.handle = handle;
 				this._path = handle['vfs'].path;
 
 				// `end` is inclusive for streams, but the internal range is not
@@ -61,6 +80,10 @@ export class ReadStream extends Readable implements fs.ReadStream {
 		}
 	}
 
+	_destroy(error: Error | null, callback: (error?: Error | null) => void): void {
+		closeHandle(this.ready, () => this.handle, error, callback);
+	}
+
 	/**
 	 * Like Node, the callback is invoked once the stream is closed.
 	 * Closing before the stream has finished reports `ERR_STREAM_PREMATURE_CLOSE`.
@@ -92,15 +115,17 @@ export class WriteStream extends Writable implements fs.WriteStream {
 	private _path = '<unknown>';
 	private _bytesWritten = 0;
 	private writer?: WritableStreamDefaultWriter<Uint8Array>;
+	private handle?: FileHandle;
 	private ready: Promise<unknown>;
 
 	public constructor(opts: CreateWriteStreamOptions = {}, handleOrPromise: FileHandle | Promise<FileHandle>) {
-		super(opts);
+		super({ ...opts, autoDestroy: opts.autoClose ?? true });
 
 		this.ready = Promise.resolve(handleOrPromise)
 			.then(handle => {
+				this.handle = handle;
 				this._path = handle['vfs'].path;
-				const internal = handle.writableWebStream({ start: opts.start });
+				const internal = handle.writableWebStream({ start: opts.start ?? handle['vfs'].position });
 				this.writer = internal.getWriter();
 				this.pending = false;
 			})
@@ -137,14 +162,21 @@ export class WriteStream extends Writable implements fs.WriteStream {
 		}
 	}
 
-	close(callback: Callback<[void]> = () => null): void {
-		try {
-			this.destroy();
-			this.emit('close');
-			callback(null);
-		} catch (error: any) {
-			callback(new Exception(Errno.EIO, error.toString()));
+	_destroy(error: Error | null, callback: (error?: Error | null) => void): void {
+		closeHandle(this.ready, () => this.handle, error, callback);
+	}
+
+	/**
+	 * Like Node, the stream is ended and the callback is invoked once it is closed.
+	 */
+	close(callback?: Callback<[void]>): void {
+		if (this.closed) {
+			callback?.(null);
+			return;
 		}
+		if (callback) this.once('close', () => callback(null));
+		if (!this._writableState.autoDestroy) this.once('finish', () => this.destroy());
+		this.end();
 	}
 
 	public get path(): string {
