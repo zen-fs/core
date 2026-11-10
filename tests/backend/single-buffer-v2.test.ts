@@ -30,7 +30,7 @@ let mounts = 0;
 async function mountBuffer(buffer: ArrayBufferLike): Promise<[path: string, umount: () => void]> {
 	const path = `/sbfs-v2-${mounts++}`;
 	mount(path, await resolveMountConfig({ backend: SingleBuffer, buffer, v2: true }));
-	return [path, () => vfs.umount(path)];
+	return [path, () => vfs.umountSync(path)];
 }
 
 /** Bytes not available for new data */
@@ -275,7 +275,7 @@ await suite('SingleBuffer v2', () => {
 
 		const stats = new Map(Array.from(files.keys(), file => [file, fs.statSync(v1 + file)]));
 		const v1Free = 0x300000 - used(v1);
-		vfs.umount(v1);
+		vfs.umountSync(v1);
 		assert.equal(new SuperBlock(buffer, 0).version, 1);
 
 		const [path, umount] = await mountBuffer(buffer);
@@ -320,7 +320,7 @@ await suite('SingleBuffer v2', () => {
 		mount('/sbfs-detect', await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false }));
 		fs.writeFileSync('/sbfs-detect/file', 'still version 2');
 		assert.equal(version(buffer), 2);
-		vfs.umount('/sbfs-detect');
+		vfs.umountSync('/sbfs-detect');
 
 		assert.throws(() => new SingleBufferStore(buffer), { code: 'EIO' });
 	});

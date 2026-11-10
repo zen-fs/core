@@ -3,6 +3,6 @@ export * from './async.js';
 export * from './dir.js';
 export * from './file.js';
 export * from './ioctl.js';
-export { chroot, mount, umount } from './shared.js';
+export { chroot, mount, umount, umountSync } from './shared.js';
 export * as sync from './sync.js';
 export * as xattr from './xattr.js';
