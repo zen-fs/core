@@ -315,17 +315,15 @@ export class WriteTransaction implements BPlusTreeStorage {
 
 	/** Frees extents retired by generations that readers no longer see */
 	protected releasePending(oldest: bigint | undefined): void {
-		const { store } = this;
-
 		while (this.pendingHead) {
 			const block = this.pendingHead;
-			if (oldest !== undefined && store.getBigUint64(block + offsetof(PendingHeader, 'generation'), true) > oldest) break;
+			if (oldest !== undefined && this.store.getBigUint64(block + offsetof(PendingHeader, 'generation'), true) > oldest) break;
 
 			// Released blocks become spares, up to twice the low-water mark
-			for (let i = 0; i < store.getUint32(block + offsetof(PendingHeader, 'count'), true); i++) {
+			for (let i = 0; i < this.store.getUint32(block + offsetof(PendingHeader, 'count'), true); i++) {
 				const entry = block + sizeof(PendingHeader) + i * sizeof(Extent);
-				const offset = store.getUint32(entry + offsetof(Extent, 'offset'), true);
-				const size = store.getUint32(entry + offsetof(Extent, 'size'), true);
+				const offset = this.store.getUint32(entry + offsetof(Extent, 'offset'), true);
+				const size = this.store.getUint32(entry + offsetof(Extent, 'size'), true);
 
 				this.pendingBytes -= size;
 				if (size == this.pageSize && this.availableBlocks() < 2 * this.lowWater()) this.pushSpare(offset);
@@ -333,7 +331,7 @@ export class WriteTransaction implements BPlusTreeStorage {
 			}
 
 			const last = block == this.pendingTail;
-			this.pendingHead = last ? 0 : store.getUint32(block + offsetof(PendingHeader, 'next'), true);
+			this.pendingHead = last ? 0 : this.store.getUint32(block + offsetof(PendingHeader, 'next'), true);
 			if (last) this.pendingTail = 0;
 
 			// The base commit still lists this block
@@ -342,31 +340,31 @@ export class WriteTransaction implements BPlusTreeStorage {
 	}
 
 	protected appendPending(offset: number, size: number): void {
-		const { store } = this;
 		let tail = this.pendingTail;
 
 		if (
 			!tail
-			|| store.getBigUint64(tail + offsetof(PendingHeader, 'generation'), true) !== this.generation
-			|| store.getUint32(tail + offsetof(PendingHeader, 'count'), true) >= Math.floor((this.pageSize - sizeof(PendingHeader)) / sizeof(Extent))
+			|| this.store.getBigUint64(tail + offsetof(PendingHeader, 'generation'), true) !== this.generation
+			|| this.store.getUint32(tail + offsetof(PendingHeader, 'count'), true)
+				>= Math.floor((this.pageSize - sizeof(PendingHeader)) / sizeof(Extent))
 		) {
 			const block = this.alloc();
-			store.setUint32(block + offsetof(PendingHeader, 'next'), 0, true);
-			store.setUint32(block + offsetof(PendingHeader, 'count'), 0, true);
-			store.setBigUint64(block + offsetof(PendingHeader, 'generation'), this.generation, true);
+			this.store.setUint32(block + offsetof(PendingHeader, 'next'), 0, true);
+			this.store.setUint32(block + offsetof(PendingHeader, 'count'), 0, true);
+			this.store.setBigUint64(block + offsetof(PendingHeader, 'generation'), this.generation, true);
 
 			// Earlier commits stop at their own tail
-			if (tail) store.setUint32(tail + offsetof(PendingHeader, 'next'), block, true);
+			if (tail) this.store.setUint32(tail + offsetof(PendingHeader, 'next'), block, true);
 			else this.pendingHead = block;
 
 			this.pendingTail = tail = block;
 		}
 
-		const count = store.getUint32(tail + offsetof(PendingHeader, 'count'), true);
+		const count = this.store.getUint32(tail + offsetof(PendingHeader, 'count'), true);
 		const entry = tail + sizeof(PendingHeader) + count * sizeof(Extent);
-		store.setUint32(entry + offsetof(Extent, 'offset'), offset, true);
-		store.setUint32(entry + offsetof(Extent, 'size'), size, true);
-		store.setUint32(tail + offsetof(PendingHeader, 'count'), count + 1, true);
+		this.store.setUint32(entry + offsetof(Extent, 'offset'), offset, true);
+		this.store.setUint32(entry + offsetof(Extent, 'size'), size, true);
+		this.store.setUint32(tail + offsetof(PendingHeader, 'count'), count + 1, true);
 		this.pendingBytes += size;
 	}
 
