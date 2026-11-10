@@ -127,13 +127,13 @@ await suite('SingleBuffer v2', () => {
 		const buffer = new SharedArrayBuffer(0x1000000);
 		const store = new SingleBufferStoreV2(buffer, 0, undefined, { format: true });
 
-		store.set(100, new Uint8Array(1000).fill(1));
+		store.set(100n, new Uint8Array(1000).fill(1));
 		const gate = new Int32Array(new SharedArrayBuffer(4));
 		const reader = runWorker({ buffer, gate, mode: 'read' });
 		Atomics.wait(gate, 0, 0, 5000);
 
-		for (let i = 0; i < 2000; i++) store.set(100, new Uint8Array(1000 + ((i * 7919) % 50000)).fill(i % 255 || 1));
-		store.set(101, new Uint8Array(1));
+		for (let i = 0; i < 2000; i++) store.set(100n, new Uint8Array(1000 + ((i * 7919) % 50000)).fill(i % 255 || 1));
+		store.set(101n, new Uint8Array(1));
 
 		assert.ok(((await reader) as number) > 0, 'the reader never read anything');
 	});
@@ -147,39 +147,39 @@ await suite('SingleBuffer v2', () => {
 
 	test('partial reads and writes', () => {
 		const store = new SingleBufferStoreV2(new ArrayBuffer(0x100000), 0, undefined, { format: true });
-		store.set(10, new Uint8Array([1, 2, 3, 4]));
-		assert.deepEqual(store.get(10, 1, 3), new Uint8Array([2, 3]));
-		assert.deepEqual(store.get(10, 2), new Uint8Array([3, 4]));
+		store.set(10n, new Uint8Array([1, 2, 3, 4]));
+		assert.deepEqual(store.get(10n, 1, 3), new Uint8Array([2, 3]));
+		assert.deepEqual(store.get(10n, 2), new Uint8Array([3, 4]));
 
-		store.set(10, new Uint8Array([9]), 2);
-		assert.deepEqual(store.get(10), new Uint8Array([1, 2, 9, 4]));
+		store.set(10n, new Uint8Array([9]), 2);
+		assert.deepEqual(store.get(10n), new Uint8Array([1, 2, 9, 4]));
 
-		store.set(10, new Uint8Array([7]), 6);
-		assert.deepEqual(store.get(10), new Uint8Array([1, 2, 9, 4, 0, 0, 7]));
+		store.set(10n, new Uint8Array([7]), 6);
+		assert.deepEqual(store.get(10n), new Uint8Array([1, 2, 9, 4, 0, 0, 7]));
 
-		store.set(10, new Uint8Array([5]));
-		assert.deepEqual(store.get(10), new Uint8Array([5]));
+		store.set(10n, new Uint8Array([5]));
+		assert.deepEqual(store.get(10n), new Uint8Array([5]));
 
-		store.set(11, new Uint8Array([8]), 2);
-		assert.deepEqual(store.get(11), new Uint8Array([0, 0, 8]));
+		store.set(11n, new Uint8Array([8]), 2);
+		assert.deepEqual(store.get(11n), new Uint8Array([0, 0, 8]));
 	});
 
 	test('appended data is rarely moved', () => {
 		const store = new SingleBufferStoreV2(new ArrayBuffer(0x100000), 0, undefined, { format: true });
-		const offsetOf = (id: number) => store['read'](index => index.get(BigInt(id))!.offset);
+		const offsetOf = (id: bigint) => store['read'](index => index.get(id)!.offset);
 
-		store.set(10, new Uint8Array(100).fill(1));
+		store.set(10n, new Uint8Array(100).fill(1));
 		let moves = 0;
 		for (let i = 0; i < 200; i++) {
-			const before = offsetOf(10);
-			store.set(10, new Uint8Array(100).fill(i + 2), 100 + i * 100);
-			if (offsetOf(10) != before) moves++;
+			const before = offsetOf(10n);
+			store.set(10n, new Uint8Array(100).fill(i + 2), 100 + i * 100);
+			if (offsetOf(10n) != before) moves++;
 		}
 
 		// Capacity grows by half each time data moves
 		assert.ok(moves <= Math.ceil(Math.log(201) / Math.log(1.5)), `data moved ${moves} times`);
 
-		const data = store.get(10)!;
+		const data = store.get(10n)!;
 		assert.equal(data.length, 20100);
 		assert.ok(data.subarray(0, 100).every(byte => byte == 1));
 		assert.ok(data.subarray(20000).every(byte => byte == 201));
@@ -222,18 +222,18 @@ await suite('SingleBuffer v2', () => {
 
 	test('failed writes leave the store unchanged', () => {
 		const store = new SingleBufferStoreV2(new ArrayBuffer(0x100000), 0, undefined, { format: true });
-		store.set(10, new Uint8Array([1, 2, 3]));
+		store.set(10n, new Uint8Array([1, 2, 3]));
 		const before = store.usage();
 
-		assert.throws(() => store.set(12, new Uint8Array(0x200000)), { code: 'ENOSPC' });
-		assert.throws(() => store.set(10, new Uint8Array(0x200000)), { code: 'ENOSPC' });
+		assert.throws(() => store.set(12n, new Uint8Array(0x200000)), { code: 'ENOSPC' });
+		assert.throws(() => store.set(10n, new Uint8Array(0x200000)), { code: 'ENOSPC' });
 
-		assert.deepEqual(store.get(10), new Uint8Array([1, 2, 3]));
-		assert.equal(store.get(12), undefined);
+		assert.deepEqual(store.get(10n), new Uint8Array([1, 2, 3]));
+		assert.equal(store.get(12n), undefined);
 		assert.deepEqual(store.usage(), before);
 
-		store.set(12, new Uint8Array([4]));
-		assert.deepEqual(store.get(12), new Uint8Array([4]));
+		store.set(12n, new Uint8Array([4]));
+		assert.deepEqual(store.get(12n), new Uint8Array([4]));
 	});
 
 	test('recovers from a writer that stopped while holding the lock', async () => {

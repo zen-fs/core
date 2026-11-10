@@ -20,12 +20,12 @@ function legacyStore(): InMemoryStore {
 		return new Uint8Array(buffer, byteOffset, byteLength);
 	};
 
-	store.set(0, inode({ ino: 0, data: 1, mode: S_IFDIR | 0o777, nlink: 1 }));
-	store.set(1, json({ 'file.txt': 2, dir: 4 }));
-	store.set(2, inode({ ino: 2, data: 3, mode: S_IFREG | 0o644, nlink: 1, size: 5 }));
-	store.set(3, encodeUTF8('hello'));
-	store.set(4, inode({ ino: 4, data: 5, mode: S_IFDIR | 0o755, nlink: 1 }));
-	store.set(5, json({}));
+	store.set(0n, inode({ ino: 0n, data: 1n, mode: S_IFDIR | 0o777, nlink: 1 }));
+	store.set(1n, json({ 'file.txt': 2, dir: 4 }));
+	store.set(2n, inode({ ino: 2n, data: 3n, mode: S_IFREG | 0o644, nlink: 1, size: 5 }));
+	store.set(3n, encodeUTF8('hello'));
+	store.set(4n, inode({ ino: 4n, data: 5n, mode: S_IFDIR | 0o755, nlink: 1 }));
+	store.set(5n, json({}));
 	return store;
 }
 
@@ -77,6 +77,31 @@ suite('StoreFS', () => {
 		assert.equal(stats.size, 5);
 	});
 
+	test('IDs too large for a number #233', async () => {
+		class LargeIdStore extends InMemoryStore {
+			next = 2n ** 60n;
+
+			allocId(): [bigint, bigint] {
+				const id = this.next;
+				this.next += 2n;
+				return [id, id + 1n];
+			}
+		}
+
+		const store = new LargeIdStore(0x100000, 'large-ids');
+		const largeFS = new StoreFS(store);
+		await largeFS.ready();
+
+		await largeFS.mkdir('/dir', { mode: 0o755, uid: 0, gid: 0 });
+		await largeFS.createFile('/dir/file', { mode: 0o644, uid: 0, gid: 0 });
+		assert.equal((await largeFS.stat('/dir/file')).ino, 2n ** 60n + 2n);
+
+		const remounted = new StoreFS(store);
+		await remounted.ready();
+		assert.deepEqual(await remounted.readdir('/dir'), ['file']);
+		assert.equal((await remounted.stat('/dir/file')).ino, 2n ** 60n + 2n);
+	});
+
 	suite('Directory listing upgrade #235', () => {
 		for (const sync of [false, true]) {
 			test(sync ? 'readySync' : 'ready', async () => {
@@ -85,8 +110,8 @@ suite('StoreFS', () => {
 				if (sync) legacyFS.readySync();
 				else await legacyFS.ready();
 
-				for (const id of [1, 5]) assert.notEqual(store.get(id)![0], '{'.charCodeAt(0));
-				assert.deepEqual(listingTypes(store.get(1)!), [DirType.REG, DirType.DIR]);
+				for (const id of [1n, 5n]) assert.notEqual(store.get(id)![0], '{'.charCodeAt(0));
+				assert.deepEqual(listingTypes(store.get(1n)!), [DirType.REG, DirType.DIR]);
 
 				assert.deepEqual(await legacyFS.readdir('/'), ['file.txt', 'dir']);
 				assert.deepEqual(legacyFS.readdirSync('/dir'), []);
@@ -94,7 +119,7 @@ suite('StoreFS', () => {
 
 				await legacyFS.rename('/file.txt', '/dir/moved.txt');
 				assert.deepEqual(await legacyFS.readdir('/dir'), ['moved.txt']);
-				assert.deepEqual(listingTypes(store.get(5)!), [DirType.REG]);
+				assert.deepEqual(listingTypes(store.get(5n)!), [DirType.REG]);
 			});
 		}
 	});
