@@ -58,7 +58,7 @@
 		"test": "npx -s zenfs-test -abc --report",
 		"test:native": "npx -s zenfs-test tests/native-setup.ts --verbose",
 		"test:perf": "zbench",
-		"build": "tsc --build && (cd dist; prettier --write . --config ../package.json)",
+		"build": "tsc --build && (cd dist; prettier --write . --config ../package.json --log-level silent)",
 		"dev": "tsc --build --watch",
 		"prepublishOnly": "npm run build"
 	},
