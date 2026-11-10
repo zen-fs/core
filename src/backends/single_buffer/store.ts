@@ -14,9 +14,8 @@ import { _inode_version } from '../../internal/inode.js';
 import type { StoreFS } from '../store/fs.js';
 import type { SyncMapStore } from '../store/map.js';
 import { SyncTransaction, type Store } from '../store/store.js';
-import { Commit, DataExtent, max_size, SpareHeader, State, SuperBlock, type Extent } from './data.js';
+import { Commit, DataExtent, max_size, sb_magic, SpareHeader, State, SuperBlock, type Extent } from './data.js';
 import { WriteTransaction, sparesExhausted } from './transaction.js';
-import { sb_magic } from './v1.js';
 
 const default_epoch_slots = 64;
 const default_block_size = 4096;
@@ -146,7 +145,7 @@ export interface SingleBufferStoreOptions {
 }
 
 /**
- * A store for version 2 of the single-buffer format.
+ * A store for the single-buffer format.
  *
  * Every change is a transaction that copies what it modifies.
  * Readers never block, and an interrupted writer does not change the file system.

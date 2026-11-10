@@ -121,13 +121,15 @@ export class SpareHeader extends $from(BufferView) {
  */
 export const max_size = 0xffffffff;
 
+export const sb_magic = 0x62732e7a; // 'z.sb'
+
 /**
- * The super block for version 2 of the single-buffer format.
+ * The super block for the single-buffer format.
  * Bytes 0 through 12 have the same layout in every version.
  */
 @struct.packed()
 export class SuperBlock extends $from(BufferView) {
-	static name = 'SuperBlockV2';
+	static name = 'sbfs.SuperBlock';
 
 	/** crc32c of the bytes from 4 up to `lock` */
 	@t.uint32 accessor checksum!: number;
@@ -136,7 +138,7 @@ export class SuperBlock extends $from(BufferView) {
 
 	/**
 	 * The version of the on-disk format
-	 * 1: v1.10.0+, append-only metadata blocks
+	 * 1: v1.10.0+, append-only metadata blocks. No longer supported.
 	 * 2: copy-on-write B+ trees
 	 */
 	@t.uint16 accessor version!: number;

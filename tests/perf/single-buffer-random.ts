@@ -13,13 +13,11 @@ export interface Config {
 
 	/** Number of blocks accessed, each once */
 	count: number;
-
-	sbfs_v2: boolean;
 }
 
 /** Mounts a SingleBuffer with room for the file twice over, then creates the file */
 export async function mountWithFile(config: Config): Promise<void> {
-	await configureSingle({ backend: SingleBuffer, buffer: new ArrayBuffer(config.size * 2 + 4 * MB), v2: config.sbfs_v2 });
+	await configureSingle({ backend: SingleBuffer, buffer: new ArrayBuffer(config.size * 2 + 4 * MB) });
 	fs.writeFileSync('/f', new Uint8Array(config.size).fill(0x5a));
 }
 

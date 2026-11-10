@@ -1,7 +1,6 @@
 {
 	"flags": {
-		"prep": ["writeFile", "stream"],
-		"sbfs_v2": [true, false]
+		"prep": ["writeFile", "stream"]
 	},
 	"tests": [
 		{
@@ -84,7 +83,6 @@
 		{
 			"path": "single-buffer-read.ts",
 			"name": "Random 4 KB reads from one file in a SingleBuffer",
-			"flags": ["sbfs_v2"],
 			"measure": {
 				"bytes": { "throughput": "s", "unit": "MB" },
 				"reads": { "cost": true, "unit": "read" }
@@ -98,7 +96,6 @@
 		{
 			"path": "single-buffer-write.ts",
 			"name": "Random 4 KB writes to one file in a SingleBuffer",
-			"flags": ["sbfs_v2"],
 			"measure": {
 				"bytes": { "throughput": "s", "unit": "MB" },
 				"writes": { "cost": true, "unit": "write" }
