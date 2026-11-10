@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { writeFileSync as _write } from 'node:fs';
 import { parentPort, workerData } from 'node:worker_threads';
-import { SingleBufferStore as SingleBufferStoreV2, SuperBlock } from '../../dist/backends/single_buffer/v2.js';
+import { SuperBlock } from '../../dist/backends/single_buffer/data.js';
+import { SingleBufferStore } from '../../dist/backends/single_buffer/store.js';
 import { configureSingle, fs, SingleBuffer } from '../../dist/index.js';
 import { setupLogs } from '@zenfs/devel/tests/logs';
 
@@ -35,7 +36,7 @@ try {
 			}
 			break;
 		case 'read': {
-			const store = new SingleBufferStoreV2(buffer);
+			const store = new SingleBufferStore(buffer);
 			const deadline = Date.now() + 5000;
 			let reads = 0;
 			while (!store.get(101) && Date.now() < deadline) {

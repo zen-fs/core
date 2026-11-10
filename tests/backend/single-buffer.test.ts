@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { fs, mount, resolveMountConfig, SingleBuffer, vfs } from '@zenfs/core';
-import { SingleBufferStore } from '@zenfs/core/backends/single_buffer/v1';
-import { SingleBufferStore as SingleBufferStoreV2, SuperBlock } from '@zenfs/core/backends/single_buffer/v2';
+import { sb_magic, SuperBlock } from '@zenfs/core/backends/single_buffer/data';
+import { SingleBufferStore } from '@zenfs/core/backends/single_buffer/store';
 import { Mutex } from 'memium/locks';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -12,7 +12,7 @@ import { setupLogs } from '@zenfs/devel/tests/logs';
 setupLogs();
 
 function runWorker(workerData: object): Promise<unknown> {
-	const worker = new Worker(import.meta.dirname + '/single-buffer-v2.worker.js', { workerData });
+	const worker = new Worker(import.meta.dirname + '/single-buffer.worker.js', { workerData });
 	const { promise, resolve, reject } = Promise.withResolvers<unknown>();
 	const timeout = setTimeout(() => reject(new Error('worker timed out')), 5000);
 	worker.on('error', reject);
@@ -28,8 +28,8 @@ let mounts = 0;
 
 /** Mounts a SingleBuffer on a unique mount point */
 async function mountBuffer(buffer: ArrayBufferLike): Promise<[path: string, umount: () => void]> {
-	const path = `/sbfs-v2-${mounts++}`;
-	mount(path, await resolveMountConfig({ backend: SingleBuffer, buffer, v2: true }));
+	const path = `/sbfs-${mounts++}`;
+	mount(path, await resolveMountConfig({ backend: SingleBuffer, buffer }));
 	return [path, () => vfs.umountSync(path)];
 }
 
@@ -39,7 +39,7 @@ function used(path: string): number {
 	return (blocks - bfree) * bsize;
 }
 
-await suite('SingleBuffer v2', () => {
+await suite('SingleBuffer', () => {
 	test('filesystem restoration from original buffer (with same metadata)', async () => {
 		const buffer = new ArrayBuffer(0x100000);
 
@@ -117,7 +117,7 @@ await suite('SingleBuffer v2', () => {
 		}
 
 		// The root, the directory, and each remaining file have an inode and data
-		assert.equal(new SingleBufferStoreV2(buffer).keys().length, 2 * (2 + expected.length));
+		assert.equal(new SingleBufferStore(buffer).keys().length, 2 * (2 + expected.length));
 
 		umount();
 		umountCheck();
@@ -125,7 +125,7 @@ await suite('SingleBuffer v2', () => {
 
 	test('readers see whole versions while another thread writes', async () => {
 		const buffer = new SharedArrayBuffer(0x1000000);
-		const store = new SingleBufferStoreV2(buffer, 0, undefined, { format: true });
+		const store = new SingleBufferStore(buffer, 0, undefined, { format: true });
 
 		store.set(100n, new Uint8Array(1000).fill(1));
 		const gate = new Int32Array(new SharedArrayBuffer(4));
@@ -146,7 +146,7 @@ await suite('SingleBuffer v2', () => {
 	});
 
 	test('partial reads and writes', () => {
-		const store = new SingleBufferStoreV2(new ArrayBuffer(0x100000), 0, undefined, { format: true });
+		const store = new SingleBufferStore(new ArrayBuffer(0x100000), 0, undefined, { format: true });
 		store.set(10n, new Uint8Array([1, 2, 3, 4]));
 		assert.deepEqual(store.get(10n, 1, 3), new Uint8Array([2, 3]));
 		assert.deepEqual(store.get(10n, 2), new Uint8Array([3, 4]));
@@ -165,7 +165,7 @@ await suite('SingleBuffer v2', () => {
 	});
 
 	test('appended data is rarely moved', () => {
-		const store = new SingleBufferStoreV2(new ArrayBuffer(0x100000), 0, undefined, { format: true });
+		const store = new SingleBufferStore(new ArrayBuffer(0x100000), 0, undefined, { format: true });
 		const offsetOf = (id: bigint) => store['read'](index => index.get(id)!.offset);
 
 		store.set(10n, new Uint8Array(100).fill(1));
@@ -221,7 +221,7 @@ await suite('SingleBuffer v2', () => {
 	});
 
 	test('failed writes leave the store unchanged', () => {
-		const store = new SingleBufferStoreV2(new ArrayBuffer(0x100000), 0, undefined, { format: true });
+		const store = new SingleBufferStore(new ArrayBuffer(0x100000), 0, undefined, { format: true });
 		store.set(10n, new Uint8Array([1, 2, 3]));
 		const before = store.usage();
 
@@ -248,81 +248,19 @@ await suite('SingleBuffer v2', () => {
 		umount();
 	});
 
-	test('upgrades version 1 file systems in place', async () => {
-		const buffer = new ArrayBuffer(0x300000);
-		const v1 = '/sbfs-v1';
-		mount(v1, await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false }));
-
-		// Enough files for several metadata blocks, with growth and deletion leaking space
-		fs.mkdirSync(v1 + '/dir/nested', { recursive: true });
-		const files = new Map<string, string>();
-		const deleted: string[] = [];
-		for (let i = 0; i < 300; i++) {
-			const file = (i % 3 ? '/dir/' : i % 2 ? '/dir/nested/' : '/') + 'f' + i;
-			let content = `file ${i}\n`.repeat((i % 7) + 1);
-			fs.writeFileSync(v1 + file, content);
-
-			if (i % 10 == 0) {
-				content += 'grown\n'.repeat(20);
-				fs.writeFileSync(v1 + file, content);
-			}
-
-			if (i % 25 == 0) {
-				fs.unlinkSync(v1 + file);
-				deleted.push(file);
-			} else files.set(file, content);
-		}
-
-		const stats = new Map(Array.from(files.keys(), file => [file, fs.statSync(v1 + file)]));
-		const v1Free = 0x300000 - used(v1);
-		vfs.umountSync(v1);
-		assert.equal(new SuperBlock(buffer, 0).version, 1);
-
-		const [path, umount] = await mountBuffer(buffer);
-		assert.equal(new SuperBlock(buffer, 0).version, 2);
-
-		for (const [file, content] of files) {
-			assert.deepEqual(fs.statSync(path + file), stats.get(file), `stats of ${file}`);
-			assert.equal(fs.readFileSync(path + file, 'utf8'), content, `content of ${file}`);
-		}
-		for (const file of deleted) assert.ok(!fs.existsSync(path + file), `${file} should have been deleted`);
-
-		// Space leaked by version 1 and its metadata blocks are reclaimed
-		fs.writeFileSync(path + '/new', 'written after upgrading');
-		fs.rmSync(path + '/new');
-		const free = 0x300000 - used(path);
-		assert.ok(free > v1Free + 0x10000, `only ${free} bytes are free after upgrading, compared to ${v1Free}`);
-
-		const [again, umountAgain] = await mountBuffer(buffer);
-		assert.equal(fs.readFileSync(again + '/dir/f1', 'utf8'), files.get('/dir/f1'));
-
-		umount();
-		umountAgain();
-	});
-
-	test('is the default, but not used for existing version 1 file systems unless asked for', async () => {
-		const version = (buffer: ArrayBufferLike) => new SuperBlock(buffer, 0).version;
-
+	test('formats new file systems and refuses version 1 ones', async () => {
 		const fresh = new ArrayBuffer(0x100000);
 		await resolveMountConfig({ backend: SingleBuffer, buffer: fresh });
-		assert.equal(version(fresh), 2);
+		assert.equal(new SuperBlock(fresh, 0).version, 2);
 
 		const buffer = new ArrayBuffer(0x100000);
-		await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false });
-		assert.equal(version(buffer), 1);
+		const view = new DataView(buffer);
+		view.setUint32(4, sb_magic, true);
+		view.setUint16(8, 1, true);
+		const before = new Uint8Array(buffer).slice();
 
-		await resolveMountConfig({ backend: SingleBuffer, buffer });
-		assert.equal(version(buffer), 1);
-
-		await resolveMountConfig({ backend: SingleBuffer, buffer, v2: true });
-		assert.equal(version(buffer), 2);
-
-		mount('/sbfs-detect', await resolveMountConfig({ backend: SingleBuffer, buffer, v2: false }));
-		fs.writeFileSync('/sbfs-detect/file', 'still version 2');
-		assert.equal(version(buffer), 2);
-		vfs.umountSync('/sbfs-detect');
-
-		assert.throws(() => new SingleBufferStore(buffer), { code: 'EIO' });
+		await assert.rejects(resolveMountConfig({ backend: SingleBuffer, buffer }), { code: 'EIO' });
+		assert.deepEqual(new Uint8Array(buffer), before);
 	});
 
 	test('reliability across varied file sizes', async () => {
