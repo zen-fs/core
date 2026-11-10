@@ -9,7 +9,7 @@ import { SyncMapTransaction, type SyncMapStore } from './store/map.js';
  * A simple in-memory store
  * @category Stores and Transactions
  */
-export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapStore {
+export class InMemoryStore extends Map<bigint, Uint8Array> implements SyncMapStore {
 	public readonly flags = [] as const;
 
 	public readonly name: string = 'tmpfs';
@@ -28,7 +28,7 @@ export class InMemoryStore extends Map<number, Uint8Array> implements SyncMapSto
 	}
 
 	public get bytes(): number {
-		let size = this.size * 4;
+		let size = this.size * 8;
 		for (const data of this.values()) size += data.byteLength;
 		return size;
 	}

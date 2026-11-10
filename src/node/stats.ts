@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import type * as Node from 'node:fs';
-import { pick } from 'utilium';
+import { omit, pick } from 'utilium';
 import * as c from '../constants.js';
 import type { V_Context } from '../context.js';
-import type { InodeFields, InodeLike, StatsLike } from '../internal/inode.js';
+import type { InodeFields, StatsLike } from '../internal/inode.js';
 import { _inode_fields, hasAccess } from '../internal/inode.js';
 import { temporal } from './utils.js';
 
@@ -97,7 +97,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 	public size: T;
 
 	/** @internal Used by inodes */
-	public data?: number;
+	public data?: bigint;
 
 	/** @internal Used by inodes */
 	public flags?: number;
@@ -121,7 +121,7 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		dev,
 		blksize,
 		...rest
-	}: Partial<InodeLike<number | bigint> & StatsExtra<number | bigint>> = {}) {
+	}: Partial<StatsLike<number | bigint> & InodeFields & StatsExtra<number | bigint>> = {}) {
 		const now = Date.now();
 		this.atimeMs = this._convert(atimeMs ?? now);
 		this.mtimeMs = this._convert(mtimeMs ?? now);
@@ -169,8 +169,8 @@ export abstract class StatsCommon<T extends number | bigint> implements Node.Sta
 		return (Number(this.mode) & c.S_IFMT) === c.S_IFIFO;
 	}
 
-	public toJSON(): StatsLike<T> & InodeFields {
-		return pick(this, ..._inode_fields, 'dev', 'blksize');
+	public toJSON(): StatsLike<T> & Omit<InodeFields, 'data'> {
+		return omit(pick(this, ..._inode_fields, 'dev', 'blksize'), 'data');
 	}
 
 	/**

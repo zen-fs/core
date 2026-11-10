@@ -5,6 +5,7 @@ import type { InodeLike } from '../internal/inode.js';
 import type { Backend, FilesystemOf } from './backend.js';
 
 import { info } from 'kerium/log';
+import { omit } from 'utilium';
 import { resolveMountConfig } from '../config.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { Inode } from '../internal/inode.js';
@@ -81,7 +82,7 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 	}
 
 	public async createFile(path: string, options: CreationOptions): Promise<Inode> {
-		if (options instanceof Inode) options = options.toJSON();
+		if (options instanceof Inode) options = omit(options.toJSON(), 'ino', 'data');
 		const result = await this.rpc('createFile', path, options);
 		return result instanceof Inode ? result : new Inode(result);
 	}
@@ -95,7 +96,7 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 	}
 
 	public async mkdir(path: string, options: CreationOptions): Promise<Inode> {
-		if (options instanceof Inode) options = options.toJSON();
+		if (options instanceof Inode) options = omit(options.toJSON(), 'ino', 'data');
 		const result = await this.rpc('mkdir', path, options);
 		return result instanceof Inode ? result : new Inode(result);
 	}

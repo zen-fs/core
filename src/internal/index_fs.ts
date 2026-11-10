@@ -168,7 +168,7 @@ export abstract class IndexFS extends FileSystem {
 
 		const inode = new Inode({
 			ino: id,
-			data: id + 1,
+			data: id + 1n,
 			mode: options.mode,
 			size: 0,
 			uid: parent.mode & S_ISUID ? parent.uid : options.uid,

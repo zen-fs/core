@@ -205,3 +205,9 @@ export const UV_FS_O_RANDOM = 0;
  * @hidden
  */
 export const size_max = 0xffffffff; // 2^32 - 1
+
+/**
+ * Max inode or data ID, which are 64-bit unsigned integers
+ * @hidden
+ */
+export const id_max = 0xffff_ffff_ffff_ffffn;

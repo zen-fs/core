@@ -16,7 +16,7 @@ import { InodeFlags, isBlockDevice, isCharacterDevice, type InodeLike } from '..
  */
 export class VNode extends RwLockable {
 	/** Cached file data. This is a page cache, but with byte granularity */
-	public readonly data: Resource<number>;
+	public readonly data: Resource<bigint>;
 
 	/** Ranges of `data` that have been written but not yet synced to the backend */
 	protected dirtyRanges: Range[] = [];
@@ -47,7 +47,7 @@ export class VNode extends RwLockable {
 		this.data = new Resource(inode.ino, inode.size, { sparse: true });
 	}
 
-	public get ino(): number {
+	public get ino(): bigint {
 		return this.inode.ino;
 	}
 

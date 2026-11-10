@@ -18,7 +18,7 @@ import { VNode } from './vnode.js';
  * @todo Add LRU or something to limit memory usage
  */
 export class VCache {
-	protected byIno = new Map<number, VNode>();
+	protected byIno = new Map<bigint, VNode>();
 	protected byPath = new Map<string, VNode>();
 
 	public constructor(public readonly fs: FileSystem) {}

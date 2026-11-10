@@ -13,6 +13,7 @@ import { _throw } from 'utilium';
 import { BufferView } from 'utilium/buffer';
 import { crc32c } from 'utilium/checksum';
 import { decodeUUID, encodeUUID } from 'utilium/string';
+import { id_max } from '../../constants.js';
 import type { UsageInfo } from '../../internal/filesystem.js';
 import { _inode_version, Inode } from '../../internal/inode.js';
 import type { StoreFS } from '../store/fs.js';
@@ -30,9 +31,6 @@ const initial_spares = 16;
 
 /** Offsets are 32 bits */
 const max_size = 0xffffffff;
-
-/** Highest ID that fits in an inode */
-const max_id = 0xffffffffn;
 
 /** A range of bytes */
 @struct.packed()
@@ -652,7 +650,7 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 
 	protected readonly mutex: Mutex;
 	protected readonly generation: BigInt64Array;
-	protected readonly nextId: BigInt64Array;
+	protected readonly nextId: BigUint64Array;
 	protected readonly commits: [Commit, Commit];
 
 	/** @internal */
@@ -744,7 +742,7 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 		this.blockSize = block_size;
 		this.mutex = new Mutex(this.buffer, state + offsetof(State, 'lock'));
 		this.generation = new BigInt64Array(this.buffer, state + offsetof(State, 'generation'), 1);
-		this.nextId = new BigInt64Array(this.buffer, state + offsetof(State, 'next_id'), 1);
+		this.nextId = new BigUint64Array(this.buffer, state + offsetof(State, 'next_id'), 1);
 		this.commits = [new Commit(this.buffer, commits), new Commit(this.buffer, commits + sizeof(Commit))];
 		this.epochs = new EpochTable(this.buffer, state + sizeof(State), epoch_slots);
 
@@ -856,12 +854,12 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 
 	// Store
 
-	public keys(): number[] {
-		return this.read(index => Array.from(index.keys(), Number));
+	public keys(): bigint[] {
+		return this.read(index => Array.from(index.keys()));
 	}
 
-	public get(id: number, offset: number = 0, end?: number): Uint8Array | undefined {
-		return this.read(index => this.copy(index.get(BigInt(id)), offset, end));
+	public get(id: bigint, offset: number = 0, end?: number): Uint8Array | undefined {
+		return this.read(index => this.copy(index.get(id), offset, end));
 	}
 
 	/**
@@ -874,18 +872,18 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 		return new Uint8Array(this.buffer.slice(start + Math.min(offset, extent.size), start + Math.min(end ?? extent.size, extent.size)));
 	}
 
-	public set(id: number, data: Uint8Array, offset?: number): void {
-		this.write(tx => tx.set(BigInt(id), data, offset));
+	public set(id: bigint, data: Uint8Array, offset?: number): void {
+		this.write(tx => tx.set(id, data, offset));
 	}
 
-	public delete(id: number): void {
-		this.write(tx => tx.delete(BigInt(id)));
+	public delete(id: bigint): void {
+		this.write(tx => tx.delete(id));
 	}
 
-	public allocId(): [ino: number, data: number] {
+	public allocId(): [ino: bigint, data: bigint] {
 		const id = Atomics.add(this.nextId, 0, 2n);
-		if (id + 1n > max_id) throw err(withErrno('ENOSPC', 'sbfs: no IDs available'));
-		return [Number(id), Number(id + 1n)];
+		if (id + 1n > id_max) throw err(withErrno('ENOSPC', 'sbfs: no IDs available'));
+		return [id, id + 1n];
 	}
 
 	public usage(): UsageInfo {
@@ -959,23 +957,22 @@ export class SingleBufferTransaction extends SyncTransaction<SingleBufferStore> 
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
-	public async keys(): Promise<Iterable<number>> {
+	public async keys(): Promise<Iterable<bigint>> {
 		this.readKeys = true;
 		const keys = new Set(this.index.keys());
 		for (const [id, data] of this.changes) {
 			if (data) keys.add(id);
 			else keys.delete(id);
 		}
-		return Array.from(keys, Number);
+		return keys;
 	}
 
-	public getSync(id: number, offset: number = 0, end?: number): Uint8Array | undefined {
-		const key = BigInt(id);
-		const changes = this.changes.filter(([changed]) => changed === key);
-		if (!changes.length) return this.read(key, offset, end);
+	public getSync(id: bigint, offset: number = 0, end?: number): Uint8Array | undefined {
+		const changes = this.changes.filter(([changed]) => changed === id);
+		if (!changes.length) return this.read(id, offset, end);
 
 		const replaced = changes.findLastIndex(([, , at]) => at === undefined);
-		let data = replaced == -1 ? this.read(key, 0) : changes[replaced][1];
+		let data = replaced == -1 ? this.read(id, 0) : changes[replaced][1];
 		for (const [, chunk, at] of changes.slice(replaced + 1)) {
 			const merged = new Uint8Array(Math.max(data?.length ?? 0, at! + chunk!.length));
 			if (data) merged.set(data);
@@ -985,12 +982,12 @@ export class SingleBufferTransaction extends SyncTransaction<SingleBufferStore> 
 		return data?.slice(offset, end);
 	}
 
-	public setSync(id: number, data: Uint8Array, offset?: number): void {
-		this.changes.push([BigInt(id), data, offset]);
+	public setSync(id: bigint, data: Uint8Array, offset?: number): void {
+		this.changes.push([id, data, offset]);
 	}
 
-	public removeSync(id: number): void {
-		this.changes.push([BigInt(id)]);
+	public removeSync(id: bigint): void {
+		this.changes.push([id]);
 	}
 
 	/** Whether anything this transaction read was changed after its snapshot */

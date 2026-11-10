@@ -1,10 +1,29 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { err, warn } from 'kerium/log';
+import { debug, err } from 'kerium/log';
+import type { BigIntStats } from 'node:fs';
 import type { CreationOptions, UsageInfo } from '../internal/filesystem.js';
 import { FileSystem } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
 import type { NodeFS } from '../node/types.js';
 import type { Backend } from './backend.js';
+
+/** Converts the stats of a host file, keeping its exact inode number */
+function inodeOf(stats: BigIntStats): InodeLike {
+	const ms = (ns: bigint) => Number(ns) / 1e6;
+	return {
+		ino: stats.ino,
+		size: Number(stats.size),
+		mode: Number(stats.mode),
+		nlink: Number(stats.nlink),
+		uid: Number(stats.uid),
+		gid: Number(stats.gid),
+		rdev: Number(stats.rdev),
+		atimeMs: ms(stats.atimeNs),
+		mtimeMs: ms(stats.mtimeNs),
+		ctimeMs: ms(stats.ctimeNs),
+		birthtimeMs: ms(stats.birthtimeNs),
+	};
+}
 
 /**
  * Passthrough backend options
@@ -44,11 +63,11 @@ export class PassthroughFS extends FileSystem {
 	}
 
 	public async stat(path: string): Promise<InodeLike> {
-		return await this.nodeFS.promises.stat(this.path(path));
+		return inodeOf(await this.nodeFS.promises.stat(this.path(path), { bigint: true }));
 	}
 
 	public statSync(path: string): InodeLike {
-		return this.nodeFS.statSync(this.path(path));
+		return inodeOf(this.nodeFS.statSync(this.path(path), { bigint: true }));
 	}
 
 	/**
@@ -88,12 +107,12 @@ export class PassthroughFS extends FileSystem {
 
 	public async mkdir(path: string, options: CreationOptions): Promise<InodeLike> {
 		await this.nodeFS.promises.mkdir(this.path(path), options);
-		return await this.nodeFS.promises.stat(this.path(path));
+		return await this.stat(path);
 	}
 
 	public mkdirSync(path: string, options: CreationOptions): InodeLike {
 		this.nodeFS.mkdirSync(this.path(path), options);
-		return this.nodeFS.statSync(this.path(path));
+		return this.statSync(path);
 	}
 
 	public async readdir(path: string): Promise<string[]> {
@@ -112,7 +131,7 @@ export class PassthroughFS extends FileSystem {
 			await handle.close();
 		}
 
-		return await this.nodeFS.promises.stat(this.path(path));
+		return await this.stat(path);
 	}
 
 	public createFileSync(path: string, options: CreationOptions): InodeLike {
@@ -122,7 +141,7 @@ export class PassthroughFS extends FileSystem {
 			const fd = this.nodeFS.openSync(this.path(path), 'wx');
 			this.nodeFS.closeSync(fd);
 		}
-		return this.nodeFS.statSync(this.path(path));
+		return this.statSync(path);
 	}
 
 	public async rmdir(path: string): Promise<void> {
@@ -134,11 +153,11 @@ export class PassthroughFS extends FileSystem {
 	}
 
 	public async sync(): Promise<void> {
-		warn('Sync on passthrough is unnecessary');
+		debug('unnecessary sync() on Passthrough');
 	}
 
 	public syncSync(): void {
-		warn('Sync on passthrough is unnecessary');
+		debug('unnecessary sync() on Passthrough');
 	}
 
 	public async link(target: string, link: string): Promise<void> {

@@ -588,7 +588,7 @@ realpathSync satisfies typeof fs.realpathSync;
 
 export function accessSync(this: V_Context, path: fs.PathLike, mode: number = 0o600): void {
 	if (!checkAccess) return;
-	if (!hasAccess(this, statSync.call<V_Context, [fs.PathLike], InodeLike>(this, path), mode)) {
+	if (!hasAccess(this, statSync.call<V_Context, [fs.PathLike], Stats>(this, path), mode)) {
 		throw new Exception(Errno.EACCES);
 	}
 }
@@ -601,9 +601,9 @@ accessSync satisfies typeof fs.accessSync;
 export function rmSync(this: V_Context, path: fs.PathLike, options?: fs.RmOptions): void {
 	path = normalizePath.call(this, path);
 
-	let stats: InodeLike | undefined;
+	let stats: Stats | undefined;
 	try {
-		stats = lstatSync.call<V_Context, [fs.PathLike], InodeLike>(this, path);
+		stats = lstatSync.call<V_Context, [fs.PathLike], Stats>(this, path);
 	} catch (error) {
 		if ((error as Exception).code != 'ENOENT' || !options?.force) throw error;
 	}

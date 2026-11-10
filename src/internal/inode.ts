@@ -13,7 +13,7 @@ import { contextOf, type V_Context } from './contexts.js';
  * Root inode
  * @hidden
  */
-export const rootIno = 0;
+export const rootIno = 0n;
 
 /** 4 KiB minus static inode data */
 const maxDynamicData = 3968;
@@ -177,7 +177,7 @@ export class Attributes extends $from(BufferView) {
  * @internal @hidden
  */
 export interface InodeFields {
-	data?: number;
+	data?: bigint;
 	flags?: number;
 	version?: number;
 	/** Extended attributes */
@@ -212,9 +212,25 @@ export interface StatsLike<T extends number | bigint = number | bigint> {
 /**
  * @category Internals
  * @internal
- * @todo [breaking] switch fully to using bigints
  */
-export interface InodeLike<T extends number | bigint = number> extends InodeFields, StatsLike<T> {}
+export interface InodeLike extends InodeFields, Omit<StatsLike<number>, 'ino'> {
+	/** Inode number */
+	ino: bigint;
+}
+
+/**
+ * An `InodeLike` in JSON, where IDs are numbers or, when too large for a number, strings
+ * @category Internals
+ * @internal
+ */
+export interface InodeJSON extends Omit<InodeLike, 'ino' | 'data'> {
+	ino: number | string;
+	data?: number | string;
+}
+
+function idToJSON(id: bigint): number | string {
+	return id <= Number.MAX_SAFE_INTEGER ? Number(id) : id.toString();
+}
 
 /**
  * @internal @hidden
@@ -242,7 +258,7 @@ export const _inode_fields = [
  * 2. 66 bytes. Renamed the first member from `ino` to `data` and added a separate `ino` field
  * 3. 72 bytes. Changed the ID fields from 64 to 32 bits and added `flags`.
  * 4. >= 128 bytes. Added extended attributes.
- * 5. (current) 4 KiB. Changed flags
+ * 5. (current) 4 KiB. Changed flags. IDs were widened to 64 bits in 3.0 without changing the layout.
  * @internal @hidden
  */
 export const _inode_version = 5;
@@ -330,9 +346,7 @@ export class Inode extends $from(BufferView) implements InodeLike {
 		}
 	}
 
-	@t.uint32 accessor data!: number;
-	/** For future use */
-	@t.uint32 accessor __data_old!: number;
+	@t.uint64 accessor data!: bigint;
 	@t.uint32 accessor size!: number;
 	@t.uint16 accessor mode!: number;
 	@t.uint32 accessor nlink!: number;
@@ -349,9 +363,7 @@ export class Inode extends $from(BufferView) implements InodeLike {
 	 */
 	@t.float64 accessor ctimeMs!: number;
 
-	@t.uint32 accessor ino!: number;
-	/** For future use */
-	@t.uint32 accessor __ino_old!: number;
+	@t.uint64 accessor ino!: bigint;
 	@t.uint32 accessor flags!: number;
 	/** For future use */
 	@t.uint16 protected accessor __after_flags!: number;
@@ -384,11 +396,17 @@ export class Inode extends $from(BufferView) implements InodeLike {
 		return `<Inode ${this.ino}>`;
 	}
 
-	public toJSON(): InodeLike {
+	public toJSON(): InodeJSON {
 		return {
 			...pick(this, _inode_fields),
+			ino: idToJSON(this.ino),
+			data: idToJSON(this.data),
 			attributes: this.attributes,
 		};
+	}
+
+	public static fromJSON({ ino, data, ...rest }: InodeJSON): Inode {
+		return new Inode({ ...rest, ino: BigInt(ino), data: data === undefined ? undefined : BigInt(data) });
 	}
 
 	/**

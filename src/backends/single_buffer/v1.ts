@@ -16,6 +16,12 @@ import type { Store } from '../store/store.js';
 
 type SBLock = Disposable & (() => void);
 
+/** Converts an ID for a metadata entry, which version 1 stores as 32 bits */
+function entryId(id: bigint): number {
+	if (id > 0xffffffffn) throw withErrno('EOVERFLOW', 'sbfs: version 1 only supports 32-bit IDs');
+	return Number(id);
+}
+
 const hex = (value: number | bigint): string => '0x' + value.toString(16).padStart(8, '0');
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -393,19 +399,20 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		this.superblock = new SuperBlock(this.buffer, this.byteOffset);
 	}
 
-	public *keys(): Iterable<number> {
+	public *keys(): Iterable<bigint> {
 		const keys = new Set<number>();
 		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
 			block.waitUnlocked();
 			for (const entry of block.items) {
 				if (!entry.offset || keys.has(entry.id)) continue;
 				keys.add(entry.id);
-				yield entry.id;
+				yield BigInt(entry.id);
 			}
 		}
 	}
 
-	public get(id: number): Uint8Array | undefined {
+	public get(key: bigint): Uint8Array | undefined {
+		const id = entryId(key);
 		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
 			block.waitUnlocked();
 			for (const entry of block.items) {
@@ -416,7 +423,8 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		}
 	}
 
-	public set(id: number, data: Uint8Array): void {
+	public set(key: bigint, data: Uint8Array): void {
+		const id = entryId(key);
 		if (id === 0 && data.length < sizeof(Inode)) throw alert(withErrno('EIO', `sbfs: tried to set ${data.length} bytes for id 0!`));
 
 		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
@@ -469,7 +477,8 @@ export class SingleBufferStore extends BufferView implements SyncMapStore {
 		_update(this.superblock);
 	}
 
-	public delete(id: number): void {
+	public delete(key: bigint): void {
+		const id = entryId(key);
 		for (let block: MetadataBlock | undefined = this.superblock.metadata; block; block = block.previous) {
 			block.waitUnlocked();
 			for (const entry of block.items) {

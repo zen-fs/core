@@ -11,7 +11,7 @@ import { readdir } from './promises.js';
 import { readdirSync } from './sync.js';
 
 export class Dirent<Name extends string | Buffer = string> implements _Dirent<Name> {
-	ino!: number;
+	ino!: bigint;
 	type!: DirType;
 	protected _name!: string;
 

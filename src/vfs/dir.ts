@@ -31,7 +31,7 @@ export function dtToIf(dt: DirType): number {
 }
 
 export interface Dirent {
-	ino: number;
+	ino: bigint;
 	type: DirType;
 	path: string;
 	name: string;

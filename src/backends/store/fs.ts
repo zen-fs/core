@@ -4,7 +4,7 @@ import { crit, debug, err, notice, warn } from 'kerium/log';
 import { sizeof, struct, types as t } from 'memium';
 import { _throw, canary, decodeUTF8, encodeUTF8 } from 'utilium';
 import { extendBuffer } from 'utilium/buffer';
-import { S_IFDIR, S_IFREG, size_max } from '../../constants.js';
+import { id_max, S_IFDIR, S_IFREG } from '../../constants.js';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
@@ -29,7 +29,7 @@ const nameLengthOffset = DirEntry.fields.find(field => field.name == 'name_lengt
 
 interface DirEntryInit {
 	name: string;
-	id: number | bigint;
+	id: bigint;
 	type: DirType;
 }
 
@@ -40,9 +40,9 @@ function encodeName(name: string): Uint8Array {
 }
 
 /** Writes an entry at `offset` and returns its size in bytes */
-function writeEntry(buffer: ArrayBufferLike, offset: number, name: Uint8Array, id: number | bigint, type: DirType): number {
+function writeEntry(buffer: ArrayBufferLike, offset: number, name: Uint8Array, id: bigint, type: DirType): number {
 	const entry = new DirEntry(buffer, offset);
-	entry.id = BigInt(id);
+	entry.id = id;
 	entry.type = type;
 	entry.name_length = name.length;
 	new Uint8Array(buffer, offset + sizeof(DirEntry), name.length).set(name);
@@ -120,7 +120,7 @@ class DirListing
 	}
 
 	/** Returns a listing with `name` added, replacing any existing entry with that name */
-	public with(name: string, id: number | bigint, type: DirType): DirListing {
+	public with(name: string, id: bigint, type: DirType): DirListing {
 		const base = this.without(name);
 		const encoded = encodeName(name);
 
@@ -187,7 +187,7 @@ class DirListing
 	}
 
 	/** Creates the listing for the directory at `path` from `Index.directories` entries */
-	public static fromIndex(index: Index, path: string, entries: Record<string, number>): DirListing {
+	public static fromIndex(index: Index, path: string, entries: Record<string, bigint>): DirListing {
 		return DirListing.from(Object.entries(entries).map(([name, id]) => ({ name, id, type: ifToDt(index.get(join(path, name))!.mode) })));
 	}
 }
@@ -235,18 +235,18 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	 * A map of paths to inode IDs
 	 * @internal @hidden
 	 */
-	readonly _ids = new Map<string, number>([['/', 0]]);
+	readonly _ids = new Map<string, bigint>([['/', rootIno]]);
 
 	/**
 	 * A map of inode IDs to paths
 	 * @internal @hidden
 	 */
-	readonly _paths = new Map<number, Set<string>>([[0, new Set('/')]]);
+	readonly _paths = new Map<bigint, Set<string>>([[rootIno, new Set('/')]]);
 
 	/**
 	 * Gets the first path associated with an inode
 	 */
-	_path(id: number): string | undefined {
+	_path(id: bigint): string | undefined {
 		const [path] = this._paths.get(id) ?? [];
 		return path;
 	}
@@ -254,7 +254,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * Add a inode/path pair
 	 */
-	_add(ino: number, path: string) {
+	_add(ino: bigint, path: string) {
 		this._paths.getOrInsertComputed(ino, () => new Set()).add(path);
 		this._ids.set(path, ino);
 	}
@@ -262,7 +262,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	/**
 	 * Remove a inode/path pair
 	 */
-	_remove(ino: number) {
+	_remove(ino: bigint) {
 		for (const path of this._paths.get(ino) ?? []) {
 			this._ids.delete(path);
 		}
@@ -379,7 +379,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		await using tx = this.transaction();
 
-		const queue: [path: string, ino: number][] = [['/', 0]];
+		const queue: [path: string, ino: bigint][] = [['/', rootIno]];
 
 		const silence = canary(withErrno('EDEADLK'));
 		while (queue.length) {
@@ -393,7 +393,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				const dir = DirListing.decode((await tx.get(inode.data)) ?? _throw(withErrno('ENODATA')));
 
 				for (const [name, entry] of dir) {
-					queue.push([join(path, name), Number(entry.id)]);
+					queue.push([join(path, name), entry.id]);
 				}
 			}
 		}
@@ -407,7 +407,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		using tx = this.transaction();
 
-		const queue: [path: string, ino: number][] = [['/', 0]];
+		const queue: [path: string, ino: bigint][] = [['/', rootIno]];
 
 		const silence = canary(withErrno('EDEADLK'));
 		while (queue.length) {
@@ -421,7 +421,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				const dir = DirListing.decode(tx.getSync(inode.data) ?? _throw(withErrno('ENODATA')));
 
 				for (const [name, entry] of dir) {
-					queue.push([join(path, name), Number(entry.id)]);
+					queue.push([join(path, name), entry.id]);
 				}
 			}
 		}
@@ -445,7 +445,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!entry) throw withErrno('ENOENT');
 
-		const ino = Number(entry.id),
+		const ino = entry.id,
 			type = entry.type;
 
 		if (ino != this._ids.get(oldPath)) err(`Ino mismatch while renaming ${oldPath} to ${newPath}`);
@@ -466,7 +466,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const newDirList = sameParent ? oldDirList : DirListing.decode((await tx.get(newDirNode.data)) ?? _throw(withErrno('ENODATA')));
 
 		const existingEntry = newDirList.get(_new.base);
-		const existingIno = existingEntry && Number(existingEntry.id);
+		const existingIno = existingEntry?.id;
 		const updated = newDirList.with(_new.base, ino, type);
 
 		if (existingIno !== undefined) {
@@ -495,7 +495,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!entry) throw withErrno('ENOENT');
 
-		const ino = Number(entry.id),
+		const ino = entry.id,
 			type = entry.type;
 
 		if (ino != this._ids.get(oldPath)) err(`Ino mismatch while renaming ${oldPath} to ${newPath}`);
@@ -517,7 +517,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const newDirList = sameParent ? oldDirList : DirListing.decode(tx.getSync(newDirNode.data) ?? _throw(withErrno('ENODATA')));
 
 		const existingEntry = newDirList.get(_new.base);
-		const existingIno = existingEntry && Number(existingEntry.id);
+		const existingIno = existingEntry?.id;
 		const updated = newDirList.with(_new.base, ino, type);
 
 		if (existingIno !== undefined) {
@@ -765,7 +765,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await using tx = this.transaction();
 		if (await tx.get(rootIno)) return;
 
-		const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
+		const inode = new Inode({ ino: rootIno, data: 1n, mode: 0o777 | S_IFDIR });
 		await tx.set(inode.data, DirListing.from([]));
 
 		this._add(rootIno, '/');
@@ -781,7 +781,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		using tx = this.transaction();
 		if (tx.getSync(rootIno)) return;
 
-		const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
+		const inode = new Inode({ ino: rootIno, data: 1n, mode: 0o777 | S_IFDIR });
 		tx.setSync(inode.data, DirListing.from([]));
 
 		this._add(rootIno, '/');
@@ -803,7 +803,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const rootData = await tx.get(rootIno);
 		if (!rootData) {
 			notice('Store does not have a root inode');
-			const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
+			const inode = new Inode({ ino: rootIno, data: 1n, mode: 0o777 | S_IFDIR });
 			await tx.set(inode.data, DirListing.from([]));
 			this._add(rootIno, '/');
 			await tx.set(rootIno, inode);
@@ -816,12 +816,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			return;
 		}
 
-		const visitedDirectories = new Set<number>();
+		const visitedDirectories = new Set<bigint>();
 
 		let i = 0,
 			upgraded = 0;
 
-		const queue: Array<[path: string, ino: number]> = [['/', rootIno]];
+		const queue: Array<[path: string, ino: bigint]> = [['/', rootIno]];
 
 		while (queue.length > 0) {
 			i++;
@@ -860,7 +860,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			}
 
 			for (const [name, entry] of dirListing) {
-				queue.push([join(path, name), Number(entry.id)]);
+				queue.push([join(path, name), entry.id]);
 			}
 		}
 
@@ -887,7 +887,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const rootData = tx.getSync(rootIno);
 		if (!rootData) {
 			notice('Store does not have a root inode');
-			const inode = new Inode({ ino: rootIno, data: 1, mode: 0o777 | S_IFDIR });
+			const inode = new Inode({ ino: rootIno, data: 1n, mode: 0o777 | S_IFDIR });
 			tx.setSync(inode.data, DirListing.from([]));
 			this._add(rootIno, '/');
 			tx.setSync(rootIno, inode);
@@ -900,10 +900,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			return;
 		}
 
-		const visitedDirectories = new Set<number>();
+		const visitedDirectories = new Set<bigint>();
 		let i = 0,
 			upgraded = 0;
-		const queue: Array<[path: string, ino: number]> = [['/', rootIno]];
+		const queue: Array<[path: string, ino: bigint]> = [['/', rootIno]];
 
 		while (queue.length > 0) {
 			i++;
@@ -944,7 +944,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			}
 
 			for (const [name, entry] of dirListing) {
-				queue.push([join(path, name), Number(entry.id)]);
+				queue.push([join(path, name), entry.id]);
 			}
 		}
 
@@ -967,7 +967,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			const { id } = entry;
 			let type: DirType = entry.type;
 			if (type == DirType.UNKNOWN) {
-				const data = await tx.get(Number(id));
+				const data = await tx.get(id);
 				if (data && data.length >= sizeof(Inode)) type = ifToDt(new Inode(data).mode);
 			}
 			entries.push({ name, id, type });
@@ -982,7 +982,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 			const { id } = entry;
 			let type: DirType = entry.type;
 			if (type == DirType.UNKNOWN) {
-				const data = tx.getSync(Number(id));
+				const data = tx.getSync(id);
 				if (data && data.length >= sizeof(Inode)) type = ifToDt(new Inode(data).mode);
 			}
 			entries.push({ name, id, type });
@@ -1006,7 +1006,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!entry) throw withErrno('ENOENT');
 
-		return new Inode((await tx.get(Number(entry.id))) ?? _throw(withErrno('ENODATA')));
+		return new Inode((await tx.get(entry.id)) ?? _throw(withErrno('ENODATA')));
 	}
 
 	/**
@@ -1025,7 +1025,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!entry) throw withErrno('ENOENT');
 
-		return new Inode(tx.getSync(Number(entry.id)) ?? _throw(withErrno('ENODATA')));
+		return new Inode(tx.getSync(entry.id) ?? _throw(withErrno('ENODATA')));
 	}
 
 	/**
@@ -1053,10 +1053,10 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return new Inode(tx.getSync(ino) ?? _throw(withErrno('ENOENT')));
 	}
 
-	private _lastID?: number;
+	private _lastID?: bigint;
 
 	/** Allocates a new ID and adds the ID/path */
-	protected allocNew(path: string): [number, number] {
+	protected allocNew(path: string): [bigint, bigint] {
 		if (this.store.allocId) {
 			const ids = this.store.allocId();
 			this._add(ids[0], path);
@@ -1064,12 +1064,12 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		// @todo use `Iterator` helper #296
-		this._lastID ||= Array.from(this._paths.keys()).reduce((max, ino) => Math.max(max, ino), 0);
-		this._lastID += 2;
+		this._lastID ||= Array.from(this._paths.keys()).reduce((max, ino) => (ino > max ? ino : max), 0n);
+		this._lastID += 2n;
 		const id = this._lastID;
-		if (id > size_max) throw err(withErrno('ENOSPC', 'No IDs available'));
+		if (id + 1n > id_max) throw err(withErrno('ENOSPC', 'No IDs available'));
 		this._add(id, path);
-		return [id, id + 1];
+		return [id, id + 1n];
 	}
 
 	/**
@@ -1176,7 +1176,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!entry) throw withErrno('ENOENT');
 
-		const ino = Number(entry.id);
+		const ino = entry.id;
 		const updated = listing.without(fileName);
 
 		const inode = new Inode((await tx.get(ino)) ?? _throw(withErrno('ENOENT')));
@@ -1214,7 +1214,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		if (!entry) throw withErrno('ENOENT');
 
-		const ino = Number(entry.id);
+		const ino = entry.id;
 		const updated = listing.without(fileName);
 
 		const inode = new Inode(tx.getSync(ino) ?? _throw(withErrno('ENOENT')));

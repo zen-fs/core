@@ -5,7 +5,7 @@ import { isJSON, randomInt } from 'utilium';
 import { basename, dirname } from '../path.js';
 import { S_IFDIR, S_IFMT, size_max } from '../constants.js';
 import type { UsageInfo } from './filesystem.js';
-import type { InodeLike } from './inode.js';
+import type { InodeJSON } from './inode.js';
 import { Inode } from './inode.js';
 
 /**
@@ -15,7 +15,7 @@ import { Inode } from './inode.js';
 export interface IndexData {
 	version: number;
 	maxSize?: number;
-	entries: Record<string, InodeLike>;
+	entries: Record<string, InodeJSON>;
 }
 
 export const version = 1;
@@ -49,7 +49,7 @@ export class Index extends Map<string, Inode> {
 
 	public clear() {
 		super.clear();
-		this.#lastAlloc = 0;
+		this.#lastAlloc = 0n;
 	}
 
 	/**
@@ -68,30 +68,30 @@ export class Index extends Map<string, Inode> {
 		};
 	}
 
-	public pathOf(id: number): string | undefined {
+	public pathOf(id: bigint): string | undefined {
 		for (const [path, inode] of this) {
 			if (inode.ino == id || inode.data == id) return path;
 		}
 	}
 
-	public getByID(id: number): Inode | undefined {
+	public getByID(id: bigint): Inode | undefined {
 		return this.entryByID(id)?.inode;
 	}
 
-	public entryByID(id: number): { path: string; inode: Inode } | undefined {
+	public entryByID(id: bigint): { path: string; inode: Inode } | undefined {
 		for (const [path, inode] of this) {
 			if (inode.ino == id || inode.data == id) return { path, inode };
 		}
 	}
 
-	public directoryEntries(path: string): Record<string, number> {
+	public directoryEntries(path: string): Record<string, bigint> {
 		const node = this.get(path);
 
 		if (!node) throw withErrno('ENOENT');
 
 		if ((node.mode & S_IFMT) != S_IFDIR) throw withErrno('ENOTDIR');
 
-		const entries: Record<string, number> = {};
+		const entries: Record<string, bigint> = {};
 
 		for (const entry of this.keys()) {
 			if (dirname(entry) == path && entry != path) {
@@ -102,15 +102,16 @@ export class Index extends Map<string, Inode> {
 		return entries;
 	}
 
-	#lastAlloc = 0;
+	#lastAlloc = 0n;
 
 	/**
 	 * Get the next available ID in the index
 	 * @internal
 	 */
-	_alloc(): number {
+	_alloc(): bigint {
 		// @todo use `Iterator.flatMap` #296
-		this.#lastAlloc ||= Array.from(this.values()).reduce((max, inode) => Math.max(max, inode.ino, inode.data), 0);
+		const _max = (a: bigint, b: bigint) => (a > b ? a : b);
+		this.#lastAlloc ||= Array.from(this.values()).reduce((max, { ino, data }) => _max(max, _max(ino, data)), 0n);
 		this.#lastAlloc++;
 		return this.#lastAlloc++;
 	}
@@ -119,12 +120,12 @@ export class Index extends Map<string, Inode> {
 	 * Gets a list of entries for each directory in the index.
 	 * Use
 	 */
-	public directories(): Map<string, Record<string, number>> {
-		const dirs = new Map<string, Record<string, number>>();
+	public directories(): Map<string, Record<string, bigint>> {
+		const dirs = new Map<string, Record<string, bigint>>();
 		for (const [path, node] of this) {
 			if ((node.mode & S_IFMT) != S_IFDIR) continue;
 
-			const entries: Record<string, number> = {};
+			const entries: Record<string, bigint> = {};
 
 			for (const entry of this.keys()) {
 				if (dirname(entry) == path && entry != path) entries[basename(entry)] = this.get(entry)!.ino;
@@ -145,11 +146,7 @@ export class Index extends Map<string, Inode> {
 		this.clear();
 
 		for (const [path, node] of Object.entries(json.entries)) {
-			node.data ??= randomInt(1, size_max);
-
-			if (path == '/') node.ino = 0;
-
-			this.set(path, new Inode(node));
+			this.set(path, Inode.fromJSON({ ...node, ino: path == '/' ? 0 : node.ino, data: node.data ?? randomInt(1, size_max) }));
 		}
 
 		return this;

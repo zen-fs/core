@@ -69,7 +69,7 @@ export interface Store {
 	/**
 	 * Allocate IDs for a new inode + data
 	 */
-	allocId?(): [ino: number, data: number];
+	allocId?(): [ino: bigint, data: bigint];
 
 	/**
 	 * @internal @hidden
@@ -87,13 +87,13 @@ export abstract class Transaction<T extends Store = Store> {
 	/**
 	 * Gets all of the keys
 	 */
-	public abstract keys(): Promise<Iterable<number>>;
+	public abstract keys(): Promise<Iterable<bigint>>;
 
 	/**
 	 * Retrieves data.
 	 * @param id The key to look under for data.
 	 */
-	public abstract get(id: number, offset: number, end?: number): Promise<Uint8Array | undefined>;
+	public abstract get(id: bigint, offset: number, end?: number): Promise<Uint8Array | undefined>;
 
 	/**
 	 * Retrieves data.
@@ -101,33 +101,33 @@ export abstract class Transaction<T extends Store = Store> {
 	 * @param id The key to look under for data.
 	 * @return The data stored under the key, or undefined if not present.
 	 */
-	public abstract getSync(id: number, offset: number, end?: number): Uint8Array | undefined;
+	public abstract getSync(id: bigint, offset: number, end?: number): Uint8Array | undefined;
 
 	/**
 	 * Stores data under an id.
 	 * Without `offset`, replaces any existing data.
 	 * With `offset`, writes the data at `offset` and keeps the rest, which partial stores must support.
 	 */
-	public abstract set(id: number, data: Uint8Array, offset?: number): Promise<void>;
+	public abstract set(id: bigint, data: Uint8Array, offset?: number): Promise<void>;
 
 	/**
 	 * Stores data under an id.
 	 * Without `offset`, replaces any existing data.
 	 * With `offset`, writes the data at `offset` and keeps the rest, which partial stores must support.
 	 */
-	public abstract setSync(id: number, data: Uint8Array, offset?: number): void;
+	public abstract setSync(id: bigint, data: Uint8Array, offset?: number): void;
 
 	/**
 	 * Deletes the data at `ino`.
 	 * @param id The key to delete from the store.
 	 */
-	public abstract remove(id: number): Promise<void>;
+	public abstract remove(id: bigint): Promise<void>;
 
 	/**
 	 * Deletes the data at `ino`.
 	 * @param id The key to delete from the store.
 	 */
-	public abstract removeSync(id: number): void;
+	public abstract removeSync(id: bigint): void;
 
 	/** Applies the changes, which stores with the `atomic` flag must implement */
 	public commit?(): Promise<void>;
@@ -149,15 +149,15 @@ export abstract class Transaction<T extends Store = Store> {
 export abstract class SyncTransaction<T extends Store = Store> extends Transaction<T> {
 	/* eslint-disable @typescript-eslint/require-await */
 
-	public async get(id: number, offset: number, end?: number): Promise<Uint8Array | undefined> {
+	public async get(id: bigint, offset: number, end?: number): Promise<Uint8Array | undefined> {
 		return this.getSync(id, offset, end);
 	}
 
-	public async set(id: number, data: Uint8Array, offset?: number): Promise<void> {
+	public async set(id: bigint, data: Uint8Array, offset?: number): Promise<void> {
 		return this.setSync(id, data, offset);
 	}
 
-	public async remove(id: number): Promise<void> {
+	public async remove(id: bigint): Promise<void> {
 		return this.removeSync(id);
 	}
 
@@ -176,7 +176,7 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
  * @category Stores and Transactions
  */
 export interface AsyncStore extends Store {
-	cache?: Map<number, Resource<number>>;
+	cache?: Map<bigint, Resource<bigint>>;
 }
 
 /**
@@ -201,7 +201,7 @@ export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extend
 	 * If `info` is set and the resource doesn't exist, it will be created
 	 * @internal
 	 */
-	_cached(id: number, info?: { size: number }) {
+	_cached(id: bigint, info?: { size: number }) {
 		this.store.cache ??= new Map();
 		const resource = this.store.cache.get(id);
 		if (!resource) return !info ? undefined : new Resource(id, info.size, {}, this.store.cache);
@@ -209,7 +209,7 @@ export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extend
 		return resource;
 	}
 
-	public getSync(id: number, offset: number, end?: number): Uint8Array | undefined {
+	public getSync(id: bigint, offset: number, end?: number): Uint8Array | undefined {
 		const resource = this._cached(id);
 		if (!resource) return;
 
@@ -231,11 +231,11 @@ export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extend
 		return region.data.subarray(offset - region.offset, end - region.offset);
 	}
 
-	public setSync(id: number, data: Uint8Array, offset?: number): void {
+	public setSync(id: bigint, data: Uint8Array, offset?: number): void {
 		this.async(this.set(id, data, offset));
 	}
 
-	public removeSync(id: number): void {
+	public removeSync(id: bigint): void {
 		this.async(this.remove(id));
 
 		this.store.cache?.delete(id);
@@ -272,47 +272,47 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * Stores data in the keys we modify prior to modifying them.
 	 * Allows us to roll back commits.
 	 */
-	protected originalData: Map<number, { data?: Uint8Array; offset?: number }[]> = new Map();
+	protected originalData: Map<bigint, { data?: Uint8Array; offset?: number }[]> = new Map();
 
 	/**
 	 * List of keys modified in this transaction, if any.
 	 */
-	protected modifiedKeys: Set<number> = new Set();
+	protected modifiedKeys: Set<bigint> = new Set();
 
-	public keys(): Promise<Iterable<number>> {
+	public keys(): Promise<Iterable<bigint>> {
 		return this.raw.keys();
 	}
 
-	public async get(id: number, offset: number = 0, end?: number): Promise<Uint8Array | undefined> {
+	public async get(id: bigint, offset: number = 0, end?: number): Promise<Uint8Array | undefined> {
 		const data = await this.raw.get(id, offset, end);
 		this.stash(id);
 		return data;
 	}
 
-	public getSync(id: number, offset: number = 0, end?: number): Uint8Array | undefined {
+	public getSync(id: bigint, offset: number = 0, end?: number): Uint8Array | undefined {
 		const data = this.raw.getSync(id, offset, end);
 		this.stash(id);
 		return data;
 	}
 
-	public async set(id: number, view: Uint8Array | ArrayBufferView, offset?: number): Promise<void> {
+	public async set(id: bigint, view: Uint8Array | ArrayBufferView, offset?: number): Promise<void> {
 		await this.markModified(id, offset, view.byteLength);
 		const buffer = view instanceof Uint8Array ? view : new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
 		await this.raw.set(id, buffer, offset);
 	}
 
-	public setSync(id: number, view: Uint8Array | ArrayBufferView, offset?: number): void {
+	public setSync(id: bigint, view: Uint8Array | ArrayBufferView, offset?: number): void {
 		this.markModifiedSync(id, offset, view.byteLength);
 		const buffer = view instanceof Uint8Array ? view : new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
 		this.raw.setSync(id, buffer, offset);
 	}
 
-	public async remove(id: number): Promise<void> {
+	public async remove(id: bigint): Promise<void> {
 		await this.markModified(id);
 		await this.raw.remove(id);
 	}
 
-	public removeSync(id: number): void {
+	public removeSync(id: bigint): void {
 		this.markModifiedSync(id);
 		this.raw.removeSync(id);
 	}
@@ -383,7 +383,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	 * prevent needless `get` requests if the program modifies the data later
 	 * on during the transaction.
 	 */
-	protected stash(id: number, data?: Uint8Array, offset?: number): void {
+	protected stash(id: bigint, data?: Uint8Array, offset?: number): void {
 		if (this.atomic) return;
 		this.originalData.getOrInsertComputed(id, () => []).push({ data, offset });
 	}
@@ -391,7 +391,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	/**
 	 * Marks an id as modified, and stashes its value if it has not been stashed already.
 	 */
-	protected async markModified(id: number, offset?: number, length?: number): Promise<void> {
+	protected async markModified(id: bigint, offset?: number, length?: number): Promise<void> {
 		if (this.atomic) return;
 		this.modifiedKeys.add(id);
 		const end = offset !== undefined && length ? offset + length : undefined;
@@ -419,7 +419,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	/**
 	 * Marks an id as modified, and stashes its value if it has not been stashed already.
 	 */
-	protected markModifiedSync(id: number, offset?: number, length?: number): void {
+	protected markModifiedSync(id: bigint, offset?: number, length?: number): void {
 		if (this.atomic) return;
 		this.modifiedKeys.add(id);
 		const end = offset !== undefined && length ? offset + length : undefined;
