@@ -42,7 +42,7 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends $from.typed
 	}
 
 	public get value(): Uint8Array {
-		return this.subarray(8 + this.keySize, this.size);
+		return new Uint8Array(this.buffer, this.byteOffset + 8 + this.keySize, this.valueSize);
 	}
 
 	public set value(value: Uint8Array) {
@@ -62,7 +62,7 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends $from.typed
  * @internal
  */
 @struct.packed()
-export class Attributes extends $from(BufferView) {
+export class Attributes extends $from(BufferView) implements Map<string, Uint8Array> {
 	static name = 'Attributes';
 
 	@t.uint32 accessor size!: number;
@@ -73,7 +73,7 @@ export class Attributes extends $from(BufferView) {
 			const entry = new Attribute(this.buffer, offset);
 			offset += entry.size;
 		}
-		return offset;
+		return offset - this.byteOffset;
 	}
 
 	public has(name: string): boolean {
@@ -95,7 +95,26 @@ export class Attributes extends $from(BufferView) {
 		}
 	}
 
-	public set(name: string, value: Uint8Array): void {
+	public getOrInsert(name: string, defaultValue: Uint8Array): Uint8Array {
+		return this.getOrInsertComputed(name, () => defaultValue);
+	}
+
+	public getOrInsertComputed(name: string, callback: (name: string) => Uint8Array): Uint8Array {
+		let offset = this.byteOffset + sizeof(this);
+		for (let i = 0; i < this.size; i++) {
+			const entry = new Attribute(this.buffer, offset);
+			if (entry.name == name) return entry.value;
+			offset += entry.size;
+		}
+
+		const attr = new Attribute(this.buffer, offset);
+		attr.name = name;
+		attr.value = callback(name);
+		this.size++;
+		return attr.value;
+	}
+
+	public set(name: string, value: Uint8Array): this {
 		let offset = this.byteOffset + sizeof(this);
 		let remove;
 		for (let i = 0; i < this.size; i++) {
@@ -118,9 +137,10 @@ export class Attributes extends $from(BufferView) {
 		attr.name = name;
 		attr.value = value;
 		this.size++;
+		return this;
 	}
 
-	public remove(name: string): boolean {
+	public delete(name: string): boolean {
 		let offset = this.byteOffset + sizeof(this);
 		let remove;
 		for (let i = 0; i < this.size; i++) {
@@ -140,12 +160,18 @@ export class Attributes extends $from(BufferView) {
 		return true;
 	}
 
-	public copyFrom(other: Attributes): void {
-		const { byteSize } = other;
-		new Uint8Array(this.buffer, this.byteOffset, byteSize).set(new Uint8Array(other.buffer, other.byteOffset, byteSize));
+	public clear(): void {
+		new Uint8Array(this.buffer, this.byteOffset, this.byteSize).fill(0);
 	}
 
-	public *keys() {
+	public copyFrom(other: Attributes): void {
+		const { byteSize } = other;
+		const bytes = new Uint8Array(this.buffer, this.byteOffset, Math.max(byteSize, this.byteSize));
+		bytes.set(new Uint8Array(other.buffer, other.byteOffset, byteSize));
+		bytes.fill(0, byteSize);
+	}
+
+	public *keys(): MapIterator<string> {
 		let offset = this.byteOffset + sizeof(this);
 		for (let i = 0; i < this.size; i++) {
 			const entry = new Attribute(this.buffer, offset);
@@ -154,7 +180,7 @@ export class Attributes extends $from(BufferView) {
 		}
 	}
 
-	public *values() {
+	public *values(): MapIterator<Uint8Array> {
 		let offset = this.byteOffset + sizeof(this);
 		for (let i = 0; i < this.size; i++) {
 			const entry = new Attribute(this.buffer, offset);
@@ -163,13 +189,21 @@ export class Attributes extends $from(BufferView) {
 		}
 	}
 
-	public *entries() {
+	public *entries(): MapIterator<[string, Uint8Array]> {
 		let offset = this.byteOffset + sizeof(this);
 		for (let i = 0; i < this.size; i++) {
 			const entry = new Attribute(this.buffer, offset);
 			yield [entry.name, entry.value];
 			offset += entry.size;
 		}
+	}
+
+	public forEach(callback: (value: Uint8Array, name: string, attributes: this) => void, thisArg?: unknown): void {
+		for (const [name, value] of this.entries()) callback.call(thisArg, value, name, this);
+	}
+
+	public [Symbol.iterator](): MapIterator<[string, Uint8Array]> {
+		return this.entries();
 	}
 }
 

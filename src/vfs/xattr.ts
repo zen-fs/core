@@ -230,7 +230,7 @@ export async function remove(this: V_Context, path: string, name: Name): Promise
 	const attr = inode.attributes.get(name);
 	if (!attr) throw UV('ENODATA', 'xattr.remove', path);
 
-	inode.attributes.remove(name);
+	inode.attributes.delete(name);
 
 	await fs.touch(resolved, inode);
 }
@@ -260,7 +260,7 @@ export function removeSync(this: V_Context, path: string, name: Name): void {
 	const attr = inode.attributes.get(name);
 	if (!attr) throw UV('ENODATA', 'xattr.remove', path);
 
-	inode.attributes.remove(name);
+	inode.attributes.delete(name);
 
 	try {
 		fs.touchSync(resolved, inode);

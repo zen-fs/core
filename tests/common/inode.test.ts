@@ -2,6 +2,7 @@
 import { Inode } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
+import { encodeUTF8 } from 'utilium';
 
 suite('Inode manipulation', () => {
 	const inode = new Inode();
@@ -43,5 +44,63 @@ suite('64-bit IDs #233', () => {
 		const json = JSON.parse(JSON.stringify(inode));
 		assert.equal(json.data, 3);
 		assert.equal(Inode.fromJSON(json).ino, 2n ** 60n);
+	});
+});
+
+suite('Attributes', () => {
+	test('getOrInsert and getOrInsertComputed only insert missing attributes', () => {
+		const { attributes } = new Inode();
+		attributes.set('user.a', encodeUTF8('a'));
+
+		assert.deepEqual(attributes.getOrInsert('user.a', encodeUTF8('other')), encodeUTF8('a'));
+		assert.deepEqual(attributes.getOrInsert('user.b', encodeUTF8('b')), encodeUTF8('b'));
+
+		let calls = 0;
+		const compute = (name: string) => (calls++, encodeUTF8(name));
+		assert.deepEqual(attributes.getOrInsertComputed('user.a', compute), encodeUTF8('a'));
+		assert.deepEqual(attributes.getOrInsertComputed('user.c', compute), encodeUTF8('user.c'));
+		assert.equal(calls, 1);
+		assert.equal(attributes.size, 3);
+	});
+
+	test('forEach and clear', () => {
+		const { attributes } = new Inode();
+		attributes.set('user.a', encodeUTF8('1'));
+		attributes.set('user.b', encodeUTF8('2'));
+
+		const seen: [string, string][] = [];
+		attributes.forEach((value, name, map) => {
+			assert.equal(map, attributes);
+			seen.push([name, new TextDecoder().decode(value)]);
+		});
+		assert.deepEqual(seen, [
+			['user.a', '1'],
+			['user.b', '2'],
+		]);
+
+		attributes.clear();
+		assert.equal(attributes.size, 0);
+		assert.equal(attributes.get('user.a'), undefined);
+	});
+
+	test('copying nearly full attributes', () => {
+		const source = new Inode();
+		source.attributes.set('user.big', new Uint8Array(3900).fill(7));
+
+		const copy = new Inode();
+		copy.update({ attributes: source.attributes });
+		assert.deepEqual(copy.attributes.get('user.big'), source.attributes.get('user.big'));
+	});
+
+	test('copying shorter attributes clears the rest', () => {
+		const copy = new Inode();
+		copy.attributes.set('user.long', new Uint8Array(200).fill(9));
+
+		const source = new Inode();
+		source.attributes.set('user.a', encodeUTF8('a'));
+		copy.update({ attributes: source.attributes });
+
+		copy.attributes.set('user.b', encodeUTF8('b'));
+		assert.deepEqual(Array.from(copy.attributes.keys()), ['user.a', 'user.b']);
 	});
 });
