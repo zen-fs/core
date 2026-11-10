@@ -195,17 +195,6 @@ export interface Configuration<T extends ConfigMounts> extends SharedConfig {
 	resolveFullWalk: boolean;
 
 	/**
-	 * If true, files will only sync to the file system when closed.
-	 * This overrides `disableUpdateOnRead`
-	 *
-	 * This can increase performance.
-	 * @experimental
-	 * @default false
-	 * @deprecated Replaced by the `Sync` inode flag in v2.0.0
-	 */
-	onlySyncOnClose: boolean;
-
-	/**
 	 * Configurations options for the log.
 	 */
 	log: log.Configuration;
