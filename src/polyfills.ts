@@ -5,17 +5,6 @@
 import { warn } from 'kerium/log';
 import type { UUID } from 'node:crypto';
 
-Promise.withResolvers ??=
-	(warn('Using a polyfill of Promise.withResolvers'),
-	function <T>(): PromiseWithResolvers<T> {
-		let _resolve: ((value: T | PromiseLike<T>) => void) | undefined, _reject: ((reason?: any) => void) | undefined;
-		const promise = new Promise<T>((resolve, reject) => {
-			_resolve = resolve;
-			_reject = reject;
-		});
-		return { promise, resolve: _resolve!, reject: _reject! };
-	});
-
 // @ts-expect-error 2540
 Symbol['dispose'] ??= (warn('Using a polyfill of Symbol.dispose'), Symbol('Symbol.dispose'));
 // @ts-expect-error 2540
