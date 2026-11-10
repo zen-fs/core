@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { configure, fs, InMemory, mounts } from '@zenfs/core';
+import { configure, defaultContext, fs, InMemory } from '@zenfs/core';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 
@@ -15,7 +15,7 @@ suite('Mounts', () => {
 		assert.deepEqual(fs.readdirSync('/nested'), ['dir']);
 
 		// cleanup
-		fs.umount('/nested/dir');
+		await fs.umount('/nested/dir');
 		fs.rmSync('/nested', { recursive: true, force: true });
 	});
 
@@ -27,7 +27,7 @@ suite('Mounts', () => {
 		assert.equal(fs.lstatSync('/mounted').mtimeMs, 1000);
 		assert.equal((await fs.promises.lstat('/mounted')).mtimeMs, 1000);
 
-		fs.umount('/mounted');
+		await fs.umount('/mounted');
 		fs.rmdirSync('/mounted');
 	});
 
@@ -41,7 +41,7 @@ suite('Mounts', () => {
 			},
 		});
 
-		assert.equal(mounts.size, 5); // 4 + default `/` mount
+		assert.equal(defaultContext.mounts.size, 5); // 4 + default `/` mount
 		assert.equal(fs.readdirSync('/').length, 4);
 	});
 });

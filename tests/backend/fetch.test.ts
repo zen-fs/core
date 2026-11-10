@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { CopyOnWrite, Fetch, InMemory, configureSingle, fs, mounts, resolveMountConfig, type FetchFS } from '@zenfs/core';
+import { CopyOnWrite, Fetch, InMemory, configureSingle, defaultContext, fs, resolveMountConfig, type FetchFS } from '@zenfs/core';
 import { setupLogs } from '@zenfs/devel/tests/logs';
 import { data } from '@zenfs/devel/tests/setup';
 import assert from 'node:assert/strict';
@@ -87,7 +87,7 @@ suite('CopyOnWrite over uncached Fetch #301', () => {
 });
 
 after(async () => {
-	await (mounts.get('/') as FetchFS)._asyncDone;
+	await (defaultContext.mounts.get('/') as FetchFS)._asyncDone;
 	await server.terminate();
 	server.unref();
 });

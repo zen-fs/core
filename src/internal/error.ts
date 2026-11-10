@@ -1,24 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { Errno, Exception, setUVMessage, UV, type ExceptionExtra, type ExceptionJSON } from 'kerium';
+import type { Exception, ExceptionExtra } from 'kerium';
+import { Errno, setUVMessage, UV } from 'kerium';
 import type { FileSystem } from './filesystem.js';
-
-/**
- * @deprecated Use {@link ExceptionJSON} instead
- * @category Internals
- */
-export type ErrnoErrorJSON = ExceptionJSON;
-
-/**
- * @deprecated Use {@link Exception} instead
- * @category Internals
- */
-export const ErrnoError = Exception;
-
-/**
- * @deprecated Use {@link Exception} instead
- * @category Internals
- */
-export type ErrnoError = Exception;
 
 export function withPath<E extends Exception>(e: E, path: string): E {
 	e.path = path;
