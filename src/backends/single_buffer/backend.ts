@@ -8,7 +8,8 @@ import { _inode_version } from '../../internal/inode.js';
 import type { Backend } from '../backend.js';
 import { StoreFS } from '../store/fs.js';
 import * as v1 from './v1.js';
-import * as v2 from './v2.js';
+import { DataExtent, SuperBlock } from './data.js';
+import { SingleBufferStore } from './store.js';
 
 const hex = (value: number | bigint): string => '0x' + value.toString(16).padStart(8, '0');
 
@@ -27,7 +28,7 @@ export interface SingleBufferOptions {
 }
 
 /** The lock held while a file system is created or upgraded, which is in the padding of a version 1 super block */
-const lockOffset = offsetof(v2.SuperBlock, 'lock');
+const lockOffset = offsetof(SuperBlock, 'lock');
 
 /** Checksum of a version 1 super block, treating the lock as zero */
 function v1Checksum(bytes: Uint8Array): number {
@@ -57,7 +58,7 @@ function lockSetup(bytes: Uint8Array, view: DataView): MutexGuard | undefined {
  * Upgrades a version 1 file system in place.
  * Existing data is not moved, and the version 1 metadata stays intact until the new super block is written.
  */
-function upgrade(bytes: Uint8Array, view: DataView): v2.SingleBufferStore {
+function upgrade(bytes: Uint8Array, view: DataView): SingleBufferStore {
 	info('sbfs: upgrading from version 1');
 
 	const field = (name: string) => offsetof(v1.SuperBlock, name);
@@ -103,7 +104,7 @@ function upgrade(bytes: Uint8Array, view: DataView): v2.SingleBufferStore {
 	let maxId = 0;
 	for (const id of entries.keys()) maxId = Math.max(maxId, id);
 
-	const store = new v2.SingleBufferStore(bytes.buffer, bytes.byteOffset, bytes.byteLength, {
+	const store = new SingleBufferStore(bytes.buffer, bytes.byteOffset, bytes.byteLength, {
 		format: {
 			used,
 			uuid: bytes.slice(field('uuid'), field('uuid') + 16),
@@ -111,7 +112,7 @@ function upgrade(bytes: Uint8Array, view: DataView): v2.SingleBufferStore {
 			nextId: BigInt(Math.max(2, maxId + 1)),
 			populate(tx) {
 				for (const [id, [offset, size]] of entries)
-					tx.index.set(BigInt(id), Object.assign(new v2.DataExtent(), { offset, size, capacity: size }));
+					tx.index.set(BigInt(id), Object.assign(new DataExtent(), { offset, size, capacity: size }));
 				for (const block of blocks) tx.retire(block, sizeof(v1.MetadataBlock));
 			},
 		},
@@ -140,14 +141,14 @@ const _SingleBuffer = {
 		const formatted = view.getUint32(4, true) == v1.sb_magic;
 		using _ = opt.v2 || (!formatted && opt.v2 !== false) ? lockSetup(bytes, view) : undefined;
 
-		let store: v1.SingleBufferStore | v2.SingleBufferStore;
+		let store: v1.SingleBufferStore | SingleBufferStore;
 
 		switch (view.getUint32(4, true) == v1.sb_magic ? view.getUint16(8, true) : undefined) {
 			case undefined:
 				store =
 					opt.v2 === false
 						? new v1.SingleBufferStore(buffer, byteOffset, byteLength)
-						: new v2.SingleBufferStore(buffer, byteOffset, byteLength, { format: true });
+						: new SingleBufferStore(buffer, byteOffset, byteLength, { format: true });
 				break;
 			case 0:
 				err('sbfs: got unexpected super block version 0');
@@ -156,7 +157,7 @@ const _SingleBuffer = {
 				store = opt.v2 ? upgrade(bytes, view) : new v1.SingleBufferStore(buffer, byteOffset, byteLength);
 				break;
 			case 2:
-				store = new v2.SingleBufferStore(buffer, byteOffset, byteLength);
+				store = new SingleBufferStore(buffer, byteOffset, byteLength);
 				break;
 			default:
 				throw crit(withErrno('EIO', 'sbfs: unsupported super block version'));
@@ -166,7 +167,7 @@ const _SingleBuffer = {
 		fs.checkRootSync();
 		return fs;
 	},
-} as const satisfies Backend<StoreFS<v1.SingleBufferStore | v2.SingleBufferStore>, SingleBufferOptions>;
+} as const satisfies Backend<StoreFS<v1.SingleBufferStore | SingleBufferStore>, SingleBufferOptions>;
 type _SingleBuffer = typeof _SingleBuffer;
 /**
  * A backend that uses a single buffer for storing data
