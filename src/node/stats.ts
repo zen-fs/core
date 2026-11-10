@@ -7,7 +7,7 @@ import type { InodeFields, InodeLike, StatsLike } from '../internal/inode.js';
 import { _inode_fields, hasAccess } from '../internal/inode.js';
 import { temporal } from './utils.js';
 
-const _nsMultiplier = BigInt(1_000_000) as 1_000_000n;
+const _nsMultiplier = 1_000_000n;
 
 export interface StatsExtra<T extends number | bigint> {
 	/** ID of device containing file */
@@ -296,19 +296,19 @@ export class StatsFs implements Node.StatsFsBase<number> {
  */
 export class BigIntStatsFs implements Node.StatsFsBase<bigint> {
 	/** Type of file system. */
-	public type: bigint = BigInt('0x7a656e6673');
+	public type: bigint = 0x7a656e6673n;
 	/**  Optimal transfer block size. */
-	public bsize: bigint = BigInt(4096);
+	public bsize: bigint = 4096n;
 	/**  Total data blocks in file system. */
-	public blocks: bigint = BigInt(0);
+	public blocks: bigint = 0n;
 	/** Free blocks in file system. */
-	public bfree: bigint = BigInt(0);
+	public bfree: bigint = 0n;
 	/** Available blocks for unprivileged users */
-	public bavail: bigint = BigInt(0);
+	public bavail: bigint = 0n;
 	/** Total file nodes in file system. */
 	public files: bigint = BigInt(c.size_max);
 	/** Fundamental file system block size. */
-	public frsize: bigint = BigInt(4096);
+	public frsize: bigint = 4096n;
 	/** Free file nodes in file system. */
 	public ffree: bigint = BigInt(c.size_max);
 }
