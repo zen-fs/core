@@ -11,7 +11,7 @@ import { assertRemovable, assertSearchable, hasAccess, isDirectory, isSymbolicLi
 import { basename, dirname, join, parse, resolve as resolvePath } from '../path.js';
 import { normalizeMode, normalizePath, normalizeTime } from '../utils.js';
 import { checkAccess, resolveFullWalk } from './config.js';
-import { Dirent, ifToDt } from './dir.js';
+import { type Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
 import * as flags from './flags.js';
 import { resolveMount } from './shared.js';
@@ -228,12 +228,7 @@ export async function readdir(this: V_Context, path: PathLike, options: ReaddirO
 
 		if (!entryStats) return;
 
-		const ent = new Dirent();
-		ent.ino = entryStats.ino;
-		ent.type = ifToDt(entryStats.mode);
-		ent.path = entry;
-		ent.name = basename(entry);
-		values.push(ent);
+		values.push({ ino: entryStats.ino, type: ifToDt(entryStats.mode), path: entry, name: basename(entry) });
 
 		if (!options.recursive || !isDirectory(entryStats)) return;
 

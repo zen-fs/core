@@ -14,7 +14,7 @@ import { basename, dirname, join, parse, resolve as resolvePath } from '../path.
 import { normalizeMode, normalizePath, normalizeTime } from '../utils.js';
 import { cacheOf } from './vcache.js';
 import { checkAccess, resolveFullWalk } from './config.js';
-import { Dirent, ifToDt } from './dir.js';
+import { type Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
 import * as flags from './flags.js';
 import { resolveMount } from './shared.js';
@@ -246,12 +246,7 @@ export function readdir(this: V_Context, path: PathLike, options: ReaddirOptions
 			throw e;
 		}
 
-		const ent = new Dirent();
-		ent.ino = entryStat.ino;
-		ent.type = ifToDt(entryStat.mode);
-		ent.path = entry;
-		ent.name = basename(entry);
-		values.push(ent);
+		values.push({ ino: entryStat.ino, type: ifToDt(entryStat.mode), path: entry, name: basename(entry) });
 
 		if (!isDirectory(entryStat) || !options?.recursive) return;
 
