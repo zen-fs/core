@@ -15,17 +15,9 @@
 		"fs",
 		"browser"
 	],
-	"bin": {
-		"make-index": "scripts/make-index.js",
-		"zenfs-test": "scripts/test.js",
-		"zci": "scripts/ci-cli.js"
-	},
 	"files": [
 		"dist",
-		"tests",
-		"scripts/deprecated.js",
-		"license.md",
-		"eslint.shared.js"
+		"license.md"
 	],
 	"type": "module",
 	"homepage": "https://zenfs.dev/core",
@@ -50,12 +42,7 @@
 		"./*": "./dist/*.js",
 		"./emulation/*": "./dist/node/*",
 		"./promises": "./dist/node/promises.js",
-		"./readline": "./dist/node/readline.js",
-		"./eslint": "./eslint.shared.js",
-		"./tests/*.ts": "./tests/*.ts",
-		"./tests/*.js": "./tests/*.js",
-		"./tests/*": "./tests/*.js",
-		"./types/*": "./types/*"
+		"./readline": "./dist/node/readline.js"
 	},
 	"publishConfig": {
 		"access": "public",

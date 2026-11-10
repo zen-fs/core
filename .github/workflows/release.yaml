@@ -8,10 +8,10 @@ jobs:
         uses: ./.github/workflows/ci.yaml
     docs:
         name: Docs
-        uses: ./.github/workflows/deploy-docs.yaml
+        uses: zen-fs/devel/.github/workflows/deploy-docs.yaml@main
         needs: ci
         secrets: inherit
     release:
         name: Release
-        uses: ./.github/workflows/release-common.yaml
+        uses: zen-fs/devel/.github/workflows/release-common.yaml@main
         needs: ci

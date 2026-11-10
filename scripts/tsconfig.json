@@ -5,6 +5,7 @@
 		"moduleResolution": "NodeNext",
 		"noEmit": true,
 		"lib": ["ESNext"],
+		"types": ["node"],
 		"verbatimModuleSyntax": true
 	},
 	"include": ["*.js", "*.ts", ".*.js"]
