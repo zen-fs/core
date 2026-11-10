@@ -14,7 +14,7 @@ import { _inode_version } from '../../internal/inode.js';
 import type { StoreFS } from '../store/fs.js';
 import type { SyncMapStore } from '../store/map.js';
 import { SyncTransaction, type Store } from '../store/store.js';
-import { Commit, DataExtent, max_size, sb_magic, SpareHeader, State, SuperBlock } from './data.js';
+import { Commit, DataExtent, max_size, sb_magic, SpareHeader, State, SuperBlock, type Extent } from './data.js';
 import { WriteTransaction, sparesExhausted } from './transaction.js';
 
 const default_epoch_slots = 64;
@@ -366,7 +366,7 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 	 * Copies the bytes of an extent from `offset` to `end`
 	 * @internal
 	 */
-	public copy(extent: DataExtent | undefined, offset: number, end?: number): Uint8Array | undefined {
+	public copy(extent: Extent | undefined, offset: number, end?: number): Uint8Array | undefined {
 		if (!extent) return;
 		const start = this.byteOffset + extent.offset;
 		return new Uint8Array(this.buffer.slice(start + Math.min(offset, extent.size), start + Math.min(end ?? extent.size, extent.size)));

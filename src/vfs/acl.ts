@@ -7,9 +7,7 @@
 */
 import { withErrno } from 'kerium';
 import { err } from 'kerium/log';
-import { sizeof } from 'memium';
-import { $from, struct, types as t } from 'memium/decorators';
-import { BufferView } from 'utilium/buffer';
+import { sizeof, struct, types as t } from 'memium';
 import { R_OK, S_IRWXG, S_IRWXO, S_IRWXU, W_OK, X_OK } from '../constants.js';
 import { contextOf, type V_Context } from '../internal/contexts.js';
 import { Attributes, type InodeLike } from '../internal/inode.js';
@@ -33,25 +31,18 @@ export const enum Tag {
 	_None = 0x00,
 }
 
-@struct.packed()
-export class Entry extends $from(BufferView) {
-	static name = 'ACL.Entry';
+export class Entry extends struct.packed('ACL.Entry', {
+	tag: t.uint16.$type<Tag>(),
+	perm: t.uint16,
+	id: t.uint32,
+}) {}
 
-	@t.uint16 accessor tag!: Tag;
-	@t.uint16 accessor perm!: number;
-	@t.uint32 accessor id!: number;
-}
-
-@struct.packed()
-export class ACL extends $from(BufferView) {
-	static name = 'ACL';
-
-	@t.uint32 accessor version!: number;
-
+export class ACL extends struct.packed('ACL', { version: t.uint32 }) {
 	public entries: Entry[] = [];
 
-	public constructor(...args: ConstructorParameters<typeof BufferView>) {
-		super(...(args as any));
+	public constructor(data: ArrayBufferLike | ArrayBufferView = new ArrayBuffer(sizeof(ACL))) {
+		const view = ArrayBuffer.isView(data) ? data : new Uint8Array(data);
+		super(view.buffer, view.byteOffset, view.byteLength);
 
 		this.version ||= version;
 
@@ -60,7 +51,7 @@ export class ACL extends $from(BufferView) {
 		for (let offset = sizeof(ACL); offset < this.byteLength; offset += sizeof(Entry)) {
 			if (offset + sizeof(Entry) > this.byteLength) throw err(withErrno('EIO', 'Invalid ACL data'));
 
-			this.entries.push(new Entry(this.buffer, offset));
+			this.entries.push(new Entry(this.buffer, this.byteOffset + offset));
 		}
 	}
 }

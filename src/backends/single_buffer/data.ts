@@ -1,68 +1,69 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
 import { crit } from 'kerium/log';
-import type { ArrayOf } from 'memium';
-import { array, offsetof, sizeof } from 'memium';
-import { $from, field, struct, types as t } from 'memium/decorators';
-import { BufferView } from 'utilium/buffer';
+import { array, offsetof, sizeof, struct, types as t } from 'memium';
 import { crc32c } from 'utilium/checksum';
 import { _inode_version } from '../../internal/inode.js';
 
 /** A range of bytes */
-@struct.packed()
-export class Extent extends $from(BufferView) {
-	static name = 'sbfs.Extent';
-
-	@t.uint32 accessor offset!: number;
-	@t.uint32 accessor size!: number;
-}
+export class Extent extends struct.packed(
+	'sbfs.Extent',
+	{
+		offset: t.uint32,
+		size: t.uint32,
+	},
+	{ fastFields: true },
+) {}
 
 /** Where the data for an ID is stored */
-@struct.packed()
-export class DataExtent extends Extent {
-	static name = 'sbfs.DataExtent';
-
-	/** Bytes allocated, which can exceed `size` so data can grow in place */
-	@t.uint32 accessor capacity!: number;
-}
+export class DataExtent extends struct.extend(
+	Extent,
+	'sbfs.DataExtent',
+	{
+		/** Bytes allocated, which can exceed `size` so data can grow in place */
+		capacity: t.uint32,
+	},
+	{ isPacked: true, fastFields: true },
+) {}
 
 /** The roots and allocator state written by a transaction */
-@struct.packed()
-export class Commit extends $from(BufferView) {
-	static name = 'sbfs.Commit';
+export class Commit extends struct.packed(
+	'sbfs.Commit',
+	{
+		/** crc32c of the rest of the commit */
+		checksum: t.uint32,
 
-	/** crc32c of the rest of the commit */
-	@t.uint32 accessor checksum!: number;
+		generation: t.uint64,
 
-	@t.uint64 accessor generation!: bigint;
+		/** ID to extent */
+		index_root: t.uint32,
+		index_count: t.uint32,
 
-	/** ID to extent */
-	@t.uint32 accessor index_root!: number;
-	@t.uint32 accessor index_count!: number;
+		/** Free extents by offset */
+		free_root: t.uint32,
 
-	/** Free extents by offset */
-	@t.uint32 accessor free_root!: number;
+		/** Free extents by size then offset */
+		size_root: t.uint32,
 
-	/** Free extents by size then offset */
-	@t.uint32 accessor size_root!: number;
+		free_count: t.uint32,
+		free_bytes: t.uint32,
 
-	@t.uint32 accessor free_count!: number;
-	@t.uint32 accessor free_bytes!: number;
+		/** The newest block in the list of spare blocks for tree nodes */
+		spare_head: t.uint32,
 
-	/** The newest block in the list of spare blocks for tree nodes */
-	@t.uint32 accessor spare_head!: number;
+		/** Spare blocks listed by `spare_head` */
+		spare_count: t.uint32,
 
-	/** Spare blocks listed by `spare_head` */
-	@t.uint32 accessor spare_count!: number;
+		/** Spare blocks in the entire list */
+		spare_total: t.uint32,
 
-	/** Spare blocks in the entire list */
-	@t.uint32 accessor spare_total!: number;
-
-	/** Blocks listing extents that are free once no reader can see them */
-	@t.uint32 accessor pending_head!: number;
-	@t.uint32 accessor pending_tail!: number;
-	@t.uint32 accessor pending_bytes!: number;
-
+		/** Blocks listing extents that are free once no reader can see them */
+		pending_head: t.uint32,
+		pending_tail: t.uint32,
+		pending_bytes: t.uint32,
+	},
+	{ fastFields: true },
+) {
 	protected computeChecksum(): number {
 		return crc32c(new Uint8Array(this.buffer, this.byteOffset + 4, sizeof(Commit) - 4));
 	}
@@ -77,43 +78,46 @@ export class Commit extends $from(BufferView) {
 }
 
 /** State shared by every thread using a file system, which is followed by an epoch table */
-@struct.packed()
-export class State extends $from(BufferView) {
-	static name = 'sbfs.State';
+export class State extends struct.packed(
+	'sbfs.State',
+	{
+		/** Held by writers */
+		lock: t.uint64,
 
-	/** Held by writers */
-	@t.uint64 accessor lock!: bigint;
+		/** The generation of the current commit */
+		generation: t.uint64,
 
-	/** The generation of the current commit */
-	@t.uint64 accessor generation!: bigint;
+		next_id: t.uint64,
 
-	@t.uint64 accessor next_id!: bigint;
-
-	/** The current and previous commits, at their generation modulo 2 */
-	@field(array(Commit, 2)) accessor commits!: ArrayOf<Commit>;
-}
+		/** The current and previous commits, at their generation modulo 2 */
+		commits: array(Commit, 2),
+	},
+	{ fastFields: true },
+) {}
 
 /** The start of a block listing extents retired by a generation, which is followed by the extents */
-@struct.packed()
-export class PendingHeader extends $from(BufferView) {
-	static name = 'sbfs.PendingHeader';
-
-	@t.uint32 accessor next!: number;
-	@t.uint32 accessor count!: number;
-	@t.uint64 accessor generation!: bigint;
-}
+export class PendingHeader extends struct.packed(
+	'sbfs.PendingHeader',
+	{
+		next: t.uint32,
+		count: t.uint32,
+		generation: t.uint64,
+	},
+	{ fastFields: true },
+) {}
 
 /**
  * The start of a block listing spare blocks, which is followed by their offsets.
  * The newest block's count is in the commit instead.
  */
-@struct.packed()
-export class SpareHeader extends $from(BufferView) {
-	static name = 'sbfs.SpareHeader';
-
-	@t.uint32 accessor next!: number;
-	@t.uint32 accessor count!: number;
-}
+export class SpareHeader extends struct.packed(
+	'sbfs.SpareHeader',
+	{
+		next: t.uint32,
+		count: t.uint32,
+	},
+	{ fastFields: true },
+) {}
 
 /**
  * Offsets are 32 bits
@@ -127,52 +131,53 @@ export const sb_magic = 0x62732e7a; // 'z.sb'
  * The super block for the single-buffer format.
  * Bytes 0 through 12 have the same layout in every version.
  */
-@struct.packed()
-export class SuperBlock extends $from(BufferView) {
-	static name = 'sbfs.SuperBlock';
+export class SuperBlock extends struct.packed(
+	'sbfs.SuperBlock',
+	{
+		/** crc32c of the bytes from 4 up to `lock` */
+		checksum: t.uint32,
 
-	/** crc32c of the bytes from 4 up to `lock` */
-	@t.uint32 accessor checksum!: number;
+		magic: t.uint32,
 
-	@t.uint32 accessor magic!: number;
+		/**
+		 * The version of the on-disk format
+		 * 1: v1.10.0+, append-only metadata blocks. No longer supported.
+		 * 2: copy-on-write B+ trees
+		 */
+		version: t.uint16,
 
-	/**
-	 * The version of the on-disk format
-	 * 1: v1.10.0+, append-only metadata blocks. No longer supported.
-	 * 2: copy-on-write B+ trees
-	 */
-	@t.uint16 accessor version!: number;
+		/** Which format of `Inode` is used */
+		inode_format: t.uint16,
 
-	/** Which format of `Inode` is used */
-	@t.uint16 accessor inode_format!: number;
+		/** Features that must be supported to mount the file system. None are defined. */
+		required_features: t.uint32,
 
-	/** Features that must be supported to mount the file system. None are defined. */
-	@t.uint32 accessor required_features!: number;
+		/** Features that may be ignored. None are defined. */
+		optional_features: t.uint32,
 
-	/** Features that may be ignored. None are defined. */
-	@t.uint32 accessor optional_features!: number;
+		/** Size of tree nodes and other metadata blocks */
+		block_size: t.uint32,
 
-	/** Size of tree nodes and other metadata blocks */
-	@t.uint32 accessor block_size!: number;
+		/** The size of the entire file system, including the super block */
+		total_bytes: t.uint64,
 
-	/** The size of the entire file system, including the super block */
-	@t.uint64 accessor total_bytes!: bigint;
+		uuid: t.uint8(16),
 
-	@t.uint8(16) accessor uuid!: Uint8Array;
+		/** Byte offset of the shared state */
+		state_offset: t.uint32,
 
-	/** Byte offset of the shared state */
-	@t.uint32 accessor state_offset!: number;
+		epoch_slots: t.uint32,
 
-	@t.uint32 accessor epoch_slots!: number;
+		/** An optional label for the file system */
+		label: t.char(64),
 
-	/** An optional label for the file system */
-	@t.char(64) accessor label!: Uint8Array;
+		_padding: t.char(128),
 
-	@t.char(128) protected accessor _padding!: Uint8Array;
-
-	/** Held while the file system is created or upgraded. Not covered by the checksum. */
-	@t.uint64 accessor lock!: bigint;
-
+		/** Held while the file system is created or upgraded. Not covered by the checksum. */
+		lock: t.uint64,
+	},
+	{ fastFields: true },
+) {
 	protected computeChecksum(): number {
 		return crc32c(new Uint8Array(this.buffer, this.byteOffset + 4, offsetof(SuperBlock, 'lock') - 4));
 	}

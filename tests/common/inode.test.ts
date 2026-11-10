@@ -19,6 +19,18 @@ suite('Inode manipulation', () => {
 		assert.equal(newInode.mode, inode.mode);
 	});
 
+	test('Views are copied and ArrayBuffers are not', () => {
+		const bytes = new Uint8Array(inode.buffer, inode.byteOffset, inode.byteLength).slice();
+
+		const copy = new Inode(bytes);
+		copy.mode = 0o100600;
+		assert.equal(new Inode(bytes).mode, 0o40755);
+
+		const alias = new Inode(bytes.buffer);
+		alias.mode = 0o100600;
+		assert.equal(new Inode(bytes).mode, 0o100600);
+	});
+
 	test('Copy to new Inode using the constructor does not alias', () => {
 		const newInode = new Inode(inode);
 		assert.equal(newInode.mode, inode.mode);

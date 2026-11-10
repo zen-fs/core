@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { UV, withErrno, type ExceptionExtra } from 'kerium';
 import { crit, warn } from 'kerium/log';
-import { sizeof } from 'memium';
-import { $from, field, struct, types as t } from 'memium/decorators';
+import { sizeof, struct, types as t } from 'memium';
 import { decodeUTF8, encodeUTF8, pick } from 'utilium';
-import { BufferView } from 'utilium/buffer';
 import * as c from '../constants.js';
 import { checkAccess } from '../vfs/config.js';
 import { contextOf, type V_Context } from './contexts.js';
@@ -18,15 +16,13 @@ export const rootIno = 0n;
 /** 4 KiB minus static inode data */
 const maxDynamicData = 3968;
 
-@struct.packed()
-class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends $from.typed(Uint8Array)<B> {
-	static name = 'Attribute';
-
-	@t.uint32 public accessor keySize!: number;
-	@t.uint32 public accessor valueSize!: number;
+class Attribute extends struct.packed('Attribute', { keySize: t.uint32, valueSize: t.uint32 }, { fastFields: true }) {
+	protected data(isValue: boolean, length: number): Uint8Array {
+		return new Uint8Array(this.buffer, this.byteOffset + 8 + (isValue ? this.keySize : 0), length);
+	}
 
 	public get name(): string {
-		return decodeUTF8(this.subarray(8, 8 + this.keySize));
+		return decodeUTF8(this.data(false, this.keySize));
 	}
 
 	/**
@@ -37,18 +33,18 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends $from.typed
 	public set name(value: string) {
 		const buf = encodeUTF8(value);
 		if (8 + buf.length + this.valueSize > maxDynamicData) throw withErrno('EOVERFLOW');
-		this.set(buf, 8);
+		this.data(false, buf.length).set(buf);
 		this.keySize = buf.length;
 	}
 
 	public get value(): Uint8Array {
-		return new Uint8Array(this.buffer, this.byteOffset + 8 + this.keySize, this.valueSize);
+		return this.data(true, this.valueSize);
 	}
 
 	public set value(value: Uint8Array) {
 		if (8 + this.keySize + value.length > maxDynamicData) throw withErrno('EOVERFLOW');
 		this.valueSize = value.length;
-		this.set(value, 8 + this.keySize);
+		this.data(true, value.length).set(value);
 	}
 
 	public get size(): number {
@@ -61,12 +57,7 @@ class Attribute<B extends ArrayBufferLike = ArrayBufferLike> extends $from.typed
  * @category Internals
  * @internal
  */
-@struct.packed()
-export class Attributes extends $from(BufferView) implements Map<string, Uint8Array> {
-	static name = 'Attributes';
-
-	@t.uint32 accessor size!: number;
-
+export class Attributes extends struct.packed('Attributes', { size: t.uint32 }) implements Map<string, Uint8Array> {
 	public get byteSize(): number {
 		let offset = this.byteOffset + sizeof(this);
 		for (let i = 0; i < this.size; i++) {
@@ -346,29 +337,69 @@ export enum InodeFlags {
  * @category Internals
  * @internal
  */
-@struct.packed()
-export class Inode extends $from(BufferView) implements InodeLike {
-	static name = 'Inode';
+export class Inode
+	extends struct.packed('Inode', {
+		data: t.uint64,
+		size: t.uint32,
+		mode: t.uint16,
+		nlink: t.uint32,
+		uid: t.uint32,
+		gid: t.uint32,
+		atimeMs: t.float64,
+		birthtimeMs: t.float64,
+		mtimeMs: t.float64,
 
-	public constructor(...args: ConstructorParameters<typeof BufferView> | [Readonly<Partial<InodeLike>>]) {
-		let data = {};
+		/**
+		 * The time the inode was changed.
+		 *
+		 * This is automatically updated whenever changed are made using `update()`.
+		 */
+		ctimeMs: t.float64,
 
-		if (typeof args[0] === 'object' && args[0] !== null && !ArrayBuffer.isView(args[0])) {
-			data = args[0];
-			args = [sizeof(Inode)];
-		}
+		ino: t.uint64,
+		flags: t.uint32,
+		/** For future use */
+		__after_flags: t.uint16,
 
-		if (args[0] instanceof Inode) {
-			args = [new Uint8Array(args[0].buffer, args[0].byteOffset, args[0].byteLength)];
-		}
+		/**
+		 * The "version" of the inode/data.
+		 * Unrelated to the inode format!
+		 */
+		version: t.uint32,
 
-		super(...(args as any));
+		rdev: t.uint32,
+
+		/**
+		 * Padding up to 128 bytes.
+		 * This ensures there is enough room for expansion without breaking the ABI.
+		 * @internal
+		 */
+		__padding: t.uint8(44),
+
+		attributes: Attributes,
+
+		/**
+		 * Since the attribute data uses dynamic arrays,
+		 * it is necessary to add this so attributes can be added.
+		 * @internal @hidden
+		 */
+		__data: t.uint8(maxDynamicData),
+	})
+	implements InodeLike
+{
+	/** Views are copied, while an `ArrayBuffer` is used as-is */
+	public constructor(data?: ArrayBufferLike | ArrayBufferView | Readonly<Partial<InodeLike>>, byteOffset?: number, byteLength?: number) {
+		const init = data && !ArrayBuffer.isView(data) && !('byteLength' in data) ? data : undefined;
+
+		if (ArrayBuffer.isView(data)) super(new Uint8Array(data.buffer, data.byteOffset, data.byteLength).slice().buffer);
+		else if (data && !init) super(data, byteOffset, byteLength);
+		else super(new ArrayBuffer(sizeof(Inode)));
 
 		if (this.byteLength < sizeof(Inode)) {
 			throw crit(withErrno('EIO', `Buffer is too small to create an inode (${this.byteLength} bytes)`));
 		}
 
-		Object.assign(this, data);
+		Object.assign(this, init);
 
 		this.atimeMs ||= Date.now();
 		this.mtimeMs ||= Date.now();
@@ -379,52 +410,6 @@ export class Inode extends $from(BufferView) implements InodeLike {
 			warn(`Inode ${this.ino} has an nlink of 0`);
 		}
 	}
-
-	@t.uint64 accessor data!: bigint;
-	@t.uint32 accessor size!: number;
-	@t.uint16 accessor mode!: number;
-	@t.uint32 accessor nlink!: number;
-	@t.uint32 accessor uid!: number;
-	@t.uint32 accessor gid!: number;
-	@t.float64 accessor atimeMs!: number;
-	@t.float64 accessor birthtimeMs!: number;
-	@t.float64 accessor mtimeMs!: number;
-
-	/**
-	 * The time the inode was changed.
-	 *
-	 * This is automatically updated whenever changed are made using `update()`.
-	 */
-	@t.float64 accessor ctimeMs!: number;
-
-	@t.uint64 accessor ino!: bigint;
-	@t.uint32 accessor flags!: number;
-	/** For future use */
-	@t.uint16 protected accessor __after_flags!: number;
-
-	/**
-	 * The "version" of the inode/data.
-	 * Unrelated to the inode format!
-	 */
-	@t.uint32 accessor version!: number;
-
-	@t.uint32 accessor rdev!: number;
-
-	/**
-	 * Padding up to 128 bytes.
-	 * This ensures there is enough room for expansion without breaking the ABI.
-	 * @internal
-	 */
-	@t.uint8(44) protected accessor __padding!: Uint8Array;
-
-	@field(Attributes) accessor attributes!: Attributes;
-
-	/**
-	 * Since the attribute data uses dynamic arrays,
-	 * it is necessary to add this so attributes can be added.
-	 * @internal @hidden
-	 */
-	@t.uint8(maxDynamicData) protected accessor __data!: Uint8Array;
 
 	public toString(): string {
 		return `<Inode ${this.ino}>`;
