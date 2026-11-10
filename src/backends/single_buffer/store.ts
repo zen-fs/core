@@ -14,7 +14,7 @@ import { _inode_version } from '../../internal/inode.js';
 import type { StoreFS } from '../store/fs.js';
 import type { SyncMapStore } from '../store/map.js';
 import { SyncTransaction, type Store } from '../store/store.js';
-import { Commit, DataExtent, max_size, sb_magic, SpareHeader, State, SuperBlock, type Extent } from './data.js';
+import { Commit, DataExtent, max_size, sb_magic, SpareHeader, State, SuperBlock } from './data.js';
 import { WriteTransaction, sparesExhausted } from './transaction.js';
 
 const default_epoch_slots = 64;
@@ -126,22 +126,9 @@ export class SingleBufferTransaction extends SyncTransaction<SingleBufferStore> 
 	}
 }
 
-export interface FormatOptions {
-	/** Byte ranges that are already in use */
-	used?: [start: number, end: number][];
-	uuid?: Uint8Array;
-	label?: Uint8Array;
-
-	/** The first ID to allocate */
-	nextId?: bigint;
-
-	/** Adds existing data in the first transaction */
-	populate?(tx: WriteTransaction): void;
-}
-
 export interface SingleBufferStoreOptions {
 	/** Erases the buffer and creates a new file system */
-	format?: boolean | FormatOptions;
+	format?: boolean;
 }
 
 /**
@@ -188,10 +175,7 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 	/** Pins the oldest version read by this thread's unfinished reads */
 	protected pinned?: { release: () => void; users: number };
 
-	/**
-	 * Opens a file system, or creates one if `format` is set.
-	 * When creating one, byte ranges in `used` are kept, and the first transaction runs `populate` after making everything else free.
-	 */
+	/** Opens a file system, or creates one if `format` is set */
 	public constructor(
 		buffer: ArrayBufferLike | ArrayBufferView,
 		byteOffset: number = 0,
@@ -207,7 +191,7 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 		this.bytes = new Uint8Array(this.buffer, this.byteOffset, this.byteLength);
 		this.superblock = new SuperBlock(this.buffer, this.byteOffset);
 
-		const format = options.format === true ? {} : options.format;
+		const { format } = options;
 		let { superblock } = this;
 		const gaps: [start: number, end: number][] = [];
 		let spares = 0,
@@ -217,15 +201,7 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 		else {
 			if (this.byteLength > max_size) throw crit(withErrno('EINVAL', 'sbfs: buffers larger than 4 GiB are not supported'));
 
-			const used: [start: number, end: number][] = [[0, sizeof(SuperBlock)], ...(format.used ?? [])];
-			used.sort(([a], [b]) => a - b);
-
-			let cursor = 0;
-			for (const [start, end] of used) {
-				if (start > cursor) gaps.push([cursor, start]);
-				cursor = Math.max(cursor, end);
-			}
-			if (cursor < this.byteLength) gaps.push([cursor, this.byteLength]);
+			gaps.push([sizeof(SuperBlock), this.byteLength]);
 
 			const take = (size: number, alignment: number): number => {
 				const align = (start: number) => Math.ceil((this.byteOffset + start) / alignment) * alignment - this.byteOffset;
@@ -250,10 +226,9 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 				block_size: default_block_size,
 				epoch_slots: default_epoch_slots,
 				total_bytes: BigInt(this.byteLength),
-				uuid: format.uuid ?? encodeUUID(crypto.randomUUID()),
+				uuid: encodeUUID(crypto.randomUUID()),
 				state_offset: take(defaultStateSize, 8),
 			});
-			if (format.label) superblock.label = format.label;
 
 			const free = gaps.reduce((total, [start, end]) => total + end - start, 0);
 			spareBlocks = Math.min(initial_spares, Math.floor(free / superblock.block_size / 4));
@@ -288,7 +263,7 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 		}
 
 		this.bytes.fill(0, state_offset, state_offset + defaultStateSize);
-		Atomics.store(this.nextId, 0, format.nextId ?? 2n);
+		Atomics.store(this.nextId, 0, 2n);
 		this.setUint32(spares + offsetof(SpareHeader, 'next'), 0, true);
 		for (let i = 1; i < spareBlocks; i++) this.setUint32(spares + sizeof(SpareHeader) + (i - 1) * 4, spares + i * block_size, true);
 		Object.assign(this.commits[0], { spare_head: spares, spare_count: spareBlocks - 1, spare_total: spareBlocks - 1 });
@@ -296,7 +271,6 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 
 		this.write(tx => {
 			for (const [start, end] of gaps) tx.freeExtent(start, end - start);
-			format.populate?.(tx);
 		});
 
 		superblock.lock = Atomics.load(new BigInt64Array(this.buffer, this.byteOffset + offsetof(SuperBlock, 'lock'), 1), 0);
@@ -392,7 +366,7 @@ export class SingleBufferStore extends DataView<ArrayBufferLike> implements Sync
 	 * Copies the bytes of an extent from `offset` to `end`
 	 * @internal
 	 */
-	public copy(extent: Extent | undefined, offset: number, end?: number): Uint8Array | undefined {
+	public copy(extent: DataExtent | undefined, offset: number, end?: number): Uint8Array | undefined {
 		if (!extent) return;
 		const start = this.byteOffset + extent.offset;
 		return new Uint8Array(this.buffer.slice(start + Math.min(offset, extent.size), start + Math.min(end ?? extent.size, extent.size)));
