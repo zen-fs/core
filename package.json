@@ -49,6 +49,7 @@
 		"provenance": true
 	},
 	"scripts": {
+		"clean": "rm -rf dist tsconfig.tsbuildinfo",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"spdx:check": "npx lice -a src tests/*.ts tests/**/*.test.ts",
@@ -57,7 +58,7 @@
 		"test": "npx -s zenfs-test -abc --report",
 		"test:native": "npx -s zenfs-test tests/native-setup.ts --verbose",
 		"test:perf": "zbench",
-		"build": "tsc --build",
+		"build": "tsc --build && (cd dist; prettier --write . --config ../package.json)",
 		"dev": "tsc --build --watch",
 		"prepublishOnly": "npm run build"
 	},
@@ -71,7 +72,7 @@
 		"utilium": "^3.7.0"
 	},
 	"devDependencies": {
-		"@zenfs/devel": "^1.1.0",
+		"@zenfs/devel": "^1.2.2",
 		"eslint": "^10.1.0",
 		"prettier": "^3.2.5",
 		"typedoc": "^0.28.18",
@@ -83,12 +84,5 @@
 			"@zenfs/core": "file:../../.."
 		}
 	},
-	"prettier": {
-		"singleQuote": true,
-		"useTabs": true,
-		"tabWidth": 4,
-		"printWidth": 150,
-		"arrowParens": "avoid",
-		"experimentalOperatorPosition": "start"
-	}
+	"prettier": "@zenfs/devel/prettier"
 }
