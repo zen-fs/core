@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { InMemoryStore, Inode, StoreFS, type InodeLike } from '@zenfs/core';
-import { S_IFDIR, S_IFREG } from '@zenfs/core/constants';
-import { DirType } from '@zenfs/core/vfs/dir';
+import { InMemoryStore, Inode, StoreFS } from '@zenfs/core';
+import { S_IFDIR } from '@zenfs/core/constants';
 import { setupLogs } from '@zenfs/devel/tests/logs';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
@@ -10,35 +9,6 @@ setupLogs();
 
 const fs = new StoreFS(new InMemoryStore(0x100000, 'test'));
 await fs.ready();
-
-/** Creates a store with JSON directory listings, as written by versions before #235 */
-function legacyStore(): InMemoryStore {
-	const store = new InMemoryStore(0x100000, 'legacy');
-	const json = (listing: Record<string, number>) => encodeUTF8(JSON.stringify(listing));
-	const inode = (init: Partial<InodeLike>) => {
-		const { buffer, byteOffset, byteLength } = new Inode(init);
-		return new Uint8Array(buffer, byteOffset, byteLength);
-	};
-
-	store.set(0n, inode({ ino: 0n, data: 1n, mode: S_IFDIR | 0o777, nlink: 1 }));
-	store.set(1n, json({ 'file.txt': 2, dir: 4 }));
-	store.set(2n, inode({ ino: 2n, data: 3n, mode: S_IFREG | 0o644, nlink: 1, size: 5 }));
-	store.set(3n, encodeUTF8('hello'));
-	store.set(4n, inode({ ino: 4n, data: 5n, mode: S_IFDIR | 0o755, nlink: 1 }));
-	store.set(5n, json({}));
-	return store;
-}
-
-/** Reads the type of each entry of a binary directory listing */
-function listingTypes(data: Uint8Array): number[] {
-	const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-	const types = [];
-	for (let i = 0, offset = 5; i < view.getUint32(1, true); i++) {
-		types.push(view.getUint8(offset + 8));
-		offset += 11 + view.getUint16(offset + 9, true);
-	}
-	return types;
-}
 
 suite('StoreFS', () => {
 	test('write updates inode metadata atomically #286', async () => {
@@ -102,25 +72,13 @@ suite('StoreFS', () => {
 		assert.equal((await remounted.stat('/dir/file')).ino, 2n ** 60n + 2n);
 	});
 
-	suite('Directory listing upgrade #235', () => {
-		for (const sync of [false, true]) {
-			test(sync ? 'readySync' : 'ready', async () => {
-				const store = legacyStore();
-				const legacyFS = new StoreFS(store);
-				if (sync) legacyFS.readySync();
-				else await legacyFS.ready();
+	test('refuses JSON directory listings from before #235', async () => {
+		const store = new InMemoryStore(0x100000, 'json-listing');
+		const { buffer, byteOffset, byteLength } = new Inode({ ino: 0n, data: 1n, mode: S_IFDIR | 0o777, nlink: 1 });
+		store.set(0n, new Uint8Array(buffer, byteOffset, byteLength));
+		store.set(1n, encodeUTF8('{}'));
 
-				for (const id of [1n, 5n]) assert.notEqual(store.get(id)![0], '{'.charCodeAt(0));
-				assert.deepEqual(listingTypes(store.get(1n)!), [DirType.REG, DirType.DIR]);
-
-				assert.deepEqual(await legacyFS.readdir('/'), ['file.txt', 'dir']);
-				assert.deepEqual(legacyFS.readdirSync('/dir'), []);
-				assert.equal((await legacyFS.stat('/file.txt')).size, 5);
-
-				await legacyFS.rename('/file.txt', '/dir/moved.txt');
-				assert.deepEqual(await legacyFS.readdir('/dir'), ['moved.txt']);
-				assert.deepEqual(listingTypes(store.get(5n)!), [DirType.REG]);
-			});
-		}
+		await assert.rejects(new StoreFS(store).ready(), { code: 'EIO' });
+		assert.throws(() => new StoreFS(store).readySync(), { code: 'EIO' });
 	});
 });

@@ -10,7 +10,7 @@ import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
 import { FileSystem } from '../../internal/filesystem.js';
 import { Inode, isDirectory, isFile, rootIno, type InodeLike } from '../../internal/inode.js';
 import { basename, dirname, join, parse, relative } from '../../path.js';
-import { DirType, ifToDt } from '../../vfs/dir.js';
+import { type DirType, ifToDt } from '../../vfs/dir.js';
 import { WrappedTransaction, type Store } from './store.js';
 
 const DirEntry = struct.packed(
@@ -50,9 +50,6 @@ function writeEntry(buffer: ArrayBufferLike, offset: number, name: Uint8Array, i
 }
 
 const dirListingMagic = 0xd1;
-
-/** The first byte of a directory listing written as JSON by older versions, '{' */
-const legacyListingMagic = 0x7b;
 
 /**
  * A directory listing, followed by `entry_count` variable-length `DirEntry`s.
@@ -168,22 +165,10 @@ class DirListing
 		return listing;
 	}
 
-	/**
-	 * Reads a listing from store data, including JSON listings written by older versions.
-	 * Entries of JSON listings have an unknown type.
-	 */
+	/** Reads a listing from store data */
 	public static decode(data: Uint8Array): DirListing {
-		if (data[0] == dirListingMagic) return new DirListing(data.buffer, data.byteOffset, data.byteLength);
-
-		if (data[0] != legacyListingMagic) throw crit(withErrno('EIO', 'Invalid directory listing'));
-
-		const legacy = JSON.parse(decodeUTF8(data)) as Record<string, number | string>;
-		return DirListing.from(Object.entries(legacy).map(([name, id]) => ({ name, id: BigInt(id), type: DirType.UNKNOWN })));
-	}
-
-	/** Whether `data` is a listing in the JSON format written by older versions */
-	public static isLegacy(data: Uint8Array): boolean {
-		return data[0] == legacyListingMagic;
+		if (data[0] != dirListingMagic) throw crit(withErrno('EIO', 'Invalid directory listing'));
+		return new DirListing(data.buffer, data.byteOffset, data.byteLength);
 	}
 
 	/** Creates the listing for the directory at `path` from `Index.directories` entries */
@@ -818,8 +803,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		const visitedDirectories = new Set<bigint>();
 
-		let i = 0,
-			upgraded = 0;
+		let i = 0;
 
 		const queue: Array<[path: string, ino: bigint]> = [['/', rootIno]];
 
@@ -851,13 +835,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				warn('Store is missing directory data: ' + inode.data);
 				continue;
 			}
-			let dirListing = DirListing.decode(dirData);
-
-			if (DirListing.isLegacy(dirData)) {
-				dirListing = await this._resolveTypes(tx, dirListing);
-				await tx.set(inode.data, dirListing);
-				upgraded++;
-			}
+			const dirListing = DirListing.decode(dirData);
 
 			for (const [name, entry] of dirListing) {
 				queue.push([join(path, name), entry.id]);
@@ -865,15 +843,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		debug(`Added ${i} existing inode(s) from store`);
-
-		if (!upgraded) return;
-
-		try {
-			await tx.commit();
-			notice(`Upgraded ${upgraded} directory listing(s)`);
-		} catch (e) {
-			warn('Failed to upgrade directory listings: ' + e);
-		}
 	}
 
 	private _populateSync(): void {
@@ -901,8 +870,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		const visitedDirectories = new Set<bigint>();
-		let i = 0,
-			upgraded = 0;
+		let i = 0;
 		const queue: Array<[path: string, ino: bigint]> = [['/', rootIno]];
 
 		while (queue.length > 0) {
@@ -935,13 +903,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 				warn('Store is missing directory data: ' + inode.data);
 				continue;
 			}
-			let dirListing = DirListing.decode(dirData);
-
-			if (DirListing.isLegacy(dirData)) {
-				dirListing = this._resolveTypesSync(tx, dirListing);
-				tx.setSync(inode.data, dirListing);
-				upgraded++;
-			}
+			const dirListing = DirListing.decode(dirData);
 
 			for (const [name, entry] of dirListing) {
 				queue.push([join(path, name), entry.id]);
@@ -949,45 +911,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		}
 
 		debug(`Added ${i} existing inode(s) from store`);
-
-		if (!upgraded) return;
-
-		try {
-			tx.commitSync();
-			notice(`Upgraded ${upgraded} directory listing(s)`);
-		} catch (e) {
-			warn('Failed to upgrade directory listings: ' + e);
-		}
-	}
-
-	/** Returns a copy of `listing` with the types of entries with an unknown type read from their inodes */
-	private async _resolveTypes(tx: WrappedTransaction, listing: DirListing): Promise<DirListing> {
-		const entries: DirEntryInit[] = [];
-		for (const [name, entry] of listing) {
-			const { id } = entry;
-			let type: DirType = entry.type;
-			if (type == DirType.UNKNOWN) {
-				const data = await tx.get(id);
-				if (data && data.length >= sizeof(Inode)) type = ifToDt(new Inode(data).mode);
-			}
-			entries.push({ name, id, type });
-		}
-		return DirListing.from(entries);
-	}
-
-	/** Returns a copy of `listing` with the types of entries with an unknown type read from their inodes */
-	private _resolveTypesSync(tx: WrappedTransaction, listing: DirListing): DirListing {
-		const entries: DirEntryInit[] = [];
-		for (const [name, entry] of listing) {
-			const { id } = entry;
-			let type: DirType = entry.type;
-			if (type == DirType.UNKNOWN) {
-				const data = tx.getSync(id);
-				if (data && data.length >= sizeof(Inode)) type = ifToDt(new Inode(data).mode);
-			}
-			entries.push({ name, id, type });
-		}
-		return DirListing.from(entries);
 	}
 
 	/**
