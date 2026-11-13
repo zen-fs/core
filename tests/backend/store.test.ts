@@ -93,6 +93,44 @@ suite('StoreFS', () => {
 		assert.equal((await missing.stat('/empty')).size, 2);
 	});
 
+	test('a failed operation restores what it changed', async () => {
+		class FailingDelete extends InMemoryStore {
+			failures = 0;
+
+			public delete(id: bigint): boolean {
+				if (this.failures-- > 0) throw new Error('delete failed');
+				return super.delete(id);
+			}
+		}
+
+		const store = new FailingDelete(0x100000, 'rollback');
+		const rollback = new StoreFS(store);
+		await rollback.ready();
+		rollback.createFileSync('/file', { mode: 0o644, uid: 0, gid: 0 });
+
+		store.failures = 1;
+		assert.throws(() => rollback.unlinkSync('/file'), { message: 'delete failed' });
+		assert.deepEqual(rollback.readdirSync('/'), ['file']);
+
+		store.failures = 1;
+		await assert.rejects(rollback.unlink('/file'), { message: 'delete failed' });
+		assert.deepEqual(await rollback.readdir('/'), ['file']);
+		assert.equal((await rollback.stat('/file')).size, 0);
+	});
+
+	test('aborting restores a key that was removed and then set again', () => {
+		const original = encodeUTF8('original');
+		const store = new InMemoryStore(0x100000, 'abort');
+		store.set(100n, original);
+
+		const tx = new StoreFS(store).transaction();
+		tx.removeSync(100n);
+		tx.setSync(100n, encodeUTF8('replacement'));
+		tx.abortSync();
+
+		assert.deepEqual(store.get(100n), original);
+	});
+
 	test('refuses JSON directory listings from before #235', async () => {
 		const store = new InMemoryStore(0x100000, 'json-listing');
 		const { buffer, byteOffset, byteLength } = new Inode({ ino: 0n, data: 1n, mode: S_IFDIR | 0o777, nlink: 1 });

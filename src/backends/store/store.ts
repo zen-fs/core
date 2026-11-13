@@ -269,30 +269,21 @@ export class WrappedTransaction<T extends Store = Store> {
 	}
 
 	/**
-	 * Stores data in the keys we modify prior to modifying them.
+	 * The data of each modified key before each modification, in order. Missing data means the key did not exist.
 	 * Allows us to roll back commits.
 	 */
 	protected originalData: Map<bigint, { data?: Uint8Array; offset?: number }[]> = new Map();
-
-	/**
-	 * List of keys modified in this transaction, if any.
-	 */
-	protected modifiedKeys: Set<bigint> = new Set();
 
 	public keys(): Promise<Iterable<bigint>> {
 		return this.raw.keys();
 	}
 
-	public async get(id: bigint, offset: number = 0, end?: number): Promise<Uint8Array | undefined> {
-		const data = await this.raw.get(id, offset, end);
-		this.stash(id);
-		return data;
+	public get(id: bigint, offset: number = 0, end?: number): Promise<Uint8Array | undefined> {
+		return this.raw.get(id, offset, end);
 	}
 
 	public getSync(id: bigint, offset: number = 0, end?: number): Uint8Array | undefined {
-		const data = this.raw.getSync(id, offset, end);
-		this.stash(id);
-		return data;
+		return this.raw.getSync(id, offset, end);
 	}
 
 	public async set(id: bigint, view: Uint8Array | ArrayBufferView, offset?: number): Promise<void> {
@@ -331,17 +322,11 @@ export class WrappedTransaction<T extends Store = Store> {
 		if (this.done) return;
 		if (this.atomic) await this.raw.abort!();
 		for (const [id, entries] of this.originalData) {
-			if (!this.modifiedKeys.has(id)) continue;
-
-			if (entries.some(ent => !ent.data)) {
-				await this.raw.remove(id);
-				this.fs._remove(id);
-				continue;
+			for (const { data, offset } of entries.toReversed()) {
+				if (data) await this.raw.set(id, data, offset);
+				else await this.raw.remove(id);
 			}
-
-			for (const entry of entries.reverse()) {
-				await this.raw.set(id, entry.data!, entry.offset);
-			}
+			if (!entries[0].data) this.fs._remove(id);
 		}
 		this.done = true;
 	}
@@ -350,17 +335,11 @@ export class WrappedTransaction<T extends Store = Store> {
 		if (this.done) return;
 		if (this.atomic) this.raw.abortSync!();
 		for (const [id, entries] of this.originalData) {
-			if (!this.modifiedKeys.has(id)) continue;
-
-			if (entries.some(ent => !ent.data)) {
-				this.raw.removeSync(id);
-				this.fs._remove(id);
-				continue;
+			for (const { data, offset } of entries.toReversed()) {
+				if (data) this.raw.setSync(id, data, offset);
+				else this.raw.removeSync(id);
 			}
-
-			for (const entry of entries.reverse()) {
-				this.raw.setSync(id, entry.data!, entry.offset);
-			}
+			if (!entries[0].data) this.fs._remove(id);
 		}
 		this.done = true;
 	}
@@ -377,12 +356,7 @@ export class WrappedTransaction<T extends Store = Store> {
 		this.abortSync();
 	}
 
-	/**
-	 * Stashes given key value pair into `originalData` if it doesn't already exist.
-	 * Allows us to stash values the program is requesting anyway to
-	 * prevent needless `get` requests if the program modifies the data later
-	 * on during the transaction.
-	 */
+	/** Records the data of a key before it is modified, or that it did not exist */
 	protected stash(id: bigint, data?: Uint8Array, offset?: number): void {
 		if (this.atomic) return;
 		this.originalData.getOrInsertComputed(id, () => []).push({ data, offset });
@@ -393,7 +367,6 @@ export class WrappedTransaction<T extends Store = Store> {
 	 */
 	protected async markModified(id: bigint, offset?: number, length?: number): Promise<void> {
 		if (this.atomic) return;
-		this.modifiedKeys.add(id);
 		const end = offset !== undefined && length ? offset + length : undefined;
 		try {
 			this.stash(id, await this.raw.get(id, offset ?? 0, end), offset);
@@ -421,7 +394,6 @@ export class WrappedTransaction<T extends Store = Store> {
 	 */
 	protected markModifiedSync(id: bigint, offset?: number, length?: number): void {
 		if (this.atomic) return;
-		this.modifiedKeys.add(id);
 		const end = offset !== undefined && length ? offset + length : undefined;
 
 		try {
