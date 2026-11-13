@@ -43,4 +43,23 @@ suite('Async()', () => {
 		fs.rmdirSync('/dir');
 		assert.equal(await fs.exists('/dir'), false);
 	});
+
+	test('sync reports a queued operation that failed', async () => {
+		class FailingWrites extends AsyncMemory {
+			public write(): Promise<void> {
+				return Promise.reject(new Error('backend write failed'));
+			}
+		}
+
+		const fs = new FailingWrites(new InMemoryStore());
+		fs.checkRootSync();
+		await fs.ready();
+
+		fs.createFileSync('/file', { mode: 0o644, uid: 0, gid: 0 });
+		fs.writeSync('/file', new Uint8Array([1, 2, 3]), 0);
+
+		await assert.rejects(fs.sync(), { message: 'backend write failed' });
+		await fs.sync();
+		assert.deepEqual(await fs.readdir('/'), ['file']);
+	});
 });

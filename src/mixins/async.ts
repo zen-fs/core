@@ -64,6 +64,9 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 		/** How many queued operations have not finished */
 		private _pending: number = 0;
 
+		/** The first failure of a queued operation, which is reported by the next `sync` */
+		private _queueError?: Error;
+
 		/** The async methods before patching, which do not update the sync cache */
 		private _unpatched = {} as AsyncFSMethods;
 
@@ -72,6 +75,11 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			const replay = async function __replay__(this: AsyncFS) {
 				try {
 					await thunk();
+				} catch (e) {
+					const isError = Error.isError(e);
+					this._queueError ??= isError ? e : new Error(String(e));
+					err('Async: deferred backend update failed: ' + (isError ? e.message : String(e)));
+					if (isError && e.stack) debug(e.stack);
 				} finally {
 					this._pending--;
 				}
@@ -191,12 +199,22 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public async sync(): Promise<void> {
 			if (!this.attributes.has('no_async_preload') && this._sync) this._sync.syncSync();
-			await this._promise.catch(() => {});
+			await this._promise;
+			this._throwQueueError();
 		}
 
+		/** Note this can only report failures of queued operations that have already finished */
 		public syncSync(): void {
 			this.checkSync();
 			this._sync.syncSync();
+			this._throwQueueError();
+		}
+
+		private _throwQueueError(): void {
+			if (!this._queueError) return;
+			const error = this._queueError;
+			delete this._queueError;
+			throw error;
 		}
 
 		public existsSync(path: string): boolean {
@@ -278,7 +296,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				const originalMethod = this[key].bind(this) as (...args: unknown[]) => Promise<unknown>;
 
 				const fn = async function __patched__(this: AsyncFS, ...args: unknown[]) {
-					if (this._pending && !isReplay()) await this._promise.catch(() => {});
+					if (this._pending && !isReplay()) await this._promise;
 
 					const result = await originalMethod(...args);
 
