@@ -16,8 +16,7 @@
 		"browser"
 	],
 	"files": [
-		"dist",
-		"license.md"
+		"dist"
 	],
 	"type": "module",
 	"homepage": "https://zenfs.dev/core",
