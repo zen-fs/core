@@ -16,7 +16,7 @@ function runWorker(workerData: object): Promise<unknown> {
 	const { promise, resolve, reject } = Promise.withResolvers<unknown>();
 	const timeout = setTimeout(() => reject(new Error('worker timed out')), 5000);
 	worker.on('error', reject);
-	worker.on('message', message => (message instanceof Error ? reject(message) : resolve(message)));
+	worker.on('message', message => (Error.isError(message) ? reject(message) : resolve(message)));
 	return promise.finally(() => {
 		clearTimeout(timeout);
 		void worker.terminate();

@@ -1228,7 +1228,7 @@ export function watch<T extends string | Buffer>(
 	return {
 		async next(): Promise<Result> {
 			const item = queue.shift();
-			if (item instanceof Error) {
+			if (Error.isError(item)) {
 				await cleanup();
 				throw item;
 			}
