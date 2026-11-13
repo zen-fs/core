@@ -97,9 +97,9 @@ export abstract class Transaction<T extends Store = Store> {
 
 	/**
 	 * Retrieves data.
-	 * Throws an error if an error occurs or if the key does not exist.
 	 * @param id The key to look under for data.
-	 * @return The data stored under the key, or undefined if not present.
+	 * @throws `EAGAIN` If the data exists but can't be read synchronously, for example because it is not cached.
+	 * @returns The data stored under the key. `undefined` only if the key does not exist.
 	 */
 	public abstract getSync(id: bigint, offset: number, end?: number): Uint8Array | undefined;
 

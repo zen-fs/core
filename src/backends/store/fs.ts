@@ -177,6 +177,13 @@ class DirListing
 	}
 }
 
+/** The stored data of a file, which only an empty file may be missing */
+function existingData(inode: Inode, data: Uint8Array | undefined): Uint8Array {
+	if (data) return data;
+	if (inode.size) throw withErrno('ENODATA');
+	return new Uint8Array();
+}
+
 /** Most times a method is run before giving up when other threads keep changing what it read */
 const maxAttempts = 100;
 
@@ -535,7 +542,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = await this.findInode(tx, path);
 
 		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
-			const data = (await tx.get(inode.data)) ?? new Uint8Array();
+			const data = existingData(inode, await tx.get(inode.data));
 			if (metadata.size < data.byteLength) data.fill(0, metadata.size);
 			await tx.set(inode.data, metadata.size < data.byteLength ? data.subarray(0, metadata.size) : extendBuffer(data, metadata.size));
 		}
@@ -555,7 +562,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = this.findInodeSync(tx, path);
 
 		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
-			const data = tx.getSync(inode.data) ?? new Uint8Array();
+			const data = existingData(inode, tx.getSync(inode.data));
 			if (metadata.size < data.byteLength) data.fill(0, metadata.size);
 			tx.setSync(inode.data, metadata.size < data.byteLength ? data.subarray(0, metadata.size) : extendBuffer(data, metadata.size));
 		}
@@ -684,7 +691,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const end = offset + data.byteLength;
 
 		if (!tx.flag('partial')) {
-			const buffer = extendBuffer((await tx.get(inode.data)) ?? new Uint8Array(), end);
+			const buffer = extendBuffer(existingData(inode, await tx.get(inode.data)), end);
 			buffer.set(data, offset);
 			await tx.set(inode.data, buffer);
 		} else if (offset <= inode.size) {
@@ -713,7 +720,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const end = offset + data.byteLength;
 
 		if (!tx.flag('partial')) {
-			const buffer = extendBuffer(tx.getSync(inode.data) ?? new Uint8Array(), end);
+			const buffer = extendBuffer(existingData(inode, tx.getSync(inode.data)), end);
 			buffer.set(data, offset);
 			tx.setSync(inode.data, buffer);
 		} else if (offset <= inode.size) {

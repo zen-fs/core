@@ -72,6 +72,27 @@ suite('StoreFS', () => {
 		assert.equal((await remounted.stat('/dir/file')).ino, 2n ** 60n + 2n);
 	});
 
+	test('writes and resizes fail instead of zero-filling missing data', async () => {
+		const store = new InMemoryStore(0x100000, 'missing-data');
+		const missing = new StoreFS(store);
+		await missing.ready();
+
+		await missing.createFile('/file', { mode: 0o644, uid: 0, gid: 0 });
+		await missing.write('/file', encodeUTF8('hello world'), 0);
+		store.delete((await missing.stat('/file')).data);
+
+		await assert.rejects(missing.write('/file', encodeUTF8('X'), 0), { code: 'ENODATA' });
+		assert.throws(() => missing.writeSync('/file', encodeUTF8('X'), 0), { code: 'ENODATA' });
+		await assert.rejects(missing.touch('/file', { size: 3 }), { code: 'ENODATA' });
+		assert.throws(() => missing.touchSync('/file', { size: 3 }), { code: 'ENODATA' });
+		assert.equal((await missing.stat('/file')).size, 11);
+
+		await missing.createFile('/empty', { mode: 0o644, uid: 0, gid: 0 });
+		store.delete((await missing.stat('/empty')).data);
+		missing.writeSync('/empty', encodeUTF8('ok'), 0);
+		assert.equal((await missing.stat('/empty')).size, 2);
+	});
+
 	test('refuses JSON directory listings from before #235', async () => {
 		const store = new InMemoryStore(0x100000, 'json-listing');
 		const { buffer, byteOffset, byteLength } = new Inode({ ino: 0n, data: 1n, mode: S_IFDIR | 0o777, nlink: 1 });
