@@ -39,7 +39,6 @@
 		".": "./dist/index.js",
 		"./*.js": "./dist/*.js",
 		"./*": "./dist/*.js",
-		"./emulation/*": "./dist/node/*",
 		"./promises": "./dist/node/promises.js",
 		"./readline": "./dist/node/readline.js"
 	},
