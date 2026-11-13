@@ -7,7 +7,7 @@ import type { FileSystem } from '../internal/filesystem.js';
 import type { InodeLike } from '../internal/inode.js';
 
 import { Errno, Exception, UV, withErrno, type ExceptionExtra } from 'kerium';
-import { alert, debug, err, info, notice, warn } from 'kerium/log';
+import { alert, crit, debug, err, info, notice, warn } from 'kerium/log';
 import { InMemory } from '../backends/memory.js';
 import { size_max } from '../constants.js';
 import { contextOf } from '../internal/contexts.js';
@@ -45,7 +45,17 @@ export function mount(this: V_Context, mountPoint: string, fs: FileSystem): void
 }
 
 /**
+ * Write cached changes to a file system, then sync the file system itself.
+ * @internal @hidden
+ */
+export async function flush(fs: FileSystem): Promise<void> {
+	await caches.get(fs.uuid)?.sync();
+	await fs.sync();
+}
+
+/**
  * Unmounts the file system at `mountPoint`.
+ * Changes are written first, and like Linux a failure to write them is logged and does not stop the unmount.
  * @category Backends and Configuration
  */
 export async function umount(this: V_Context, mountPoint: string): Promise<void> {
@@ -59,7 +69,11 @@ export async function umount(this: V_Context, mountPoint: string): Promise<void>
 		return;
 	}
 
-	await caches.get(fs.uuid)?.sync();
+	try {
+		await flush(fs);
+	} catch (e) {
+		crit(`Failed to flush ${mountPoint} while unmounting: ${Error.isError(e) ? e.message : String(e)}`);
+	}
 	caches.delete(fs.uuid);
 	$.mounts.delete(mountPoint);
 	notice('Unmounted ' + mountPoint);
@@ -67,6 +81,7 @@ export async function umount(this: V_Context, mountPoint: string): Promise<void>
 
 /**
  * Unmounts the file system at `mountPoint`.
+ * If changes can not be written synchronously, they are written in the background and failures can only be logged.
  * @category Backends and Configuration
  */
 export function umountSync(this: V_Context, mountPoint: string): void {
@@ -80,17 +95,18 @@ export function umountSync(this: V_Context, mountPoint: string): void {
 		return;
 	}
 
-	const _done = () => {
-		caches.delete(fs.uuid);
-		info('Synced all changes to ' + mountPoint);
-	};
-
 	try {
 		caches.get(fs.uuid)?.syncSync();
-		_done();
+		fs.syncSync();
+		caches.delete(fs.uuid);
 	} catch {
 		warn(`Could not flush to ${mountPoint} synchronously.`);
-		void caches.get(fs.uuid)?.sync().then(_done);
+		flush(fs)
+			.then(
+				() => info('Synced all changes to ' + mountPoint),
+				(e: unknown) => crit(`Failed to flush ${mountPoint} after unmounting: ${Error.isError(e) ? e.message : String(e)}`),
+			)
+			.finally(() => caches.delete(fs.uuid));
 	}
 
 	$.mounts.delete(mountPoint);

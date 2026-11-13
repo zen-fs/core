@@ -9,7 +9,7 @@ import { FileSystem } from './internal/filesystem.js';
 import { exists, mkdir, stat } from './node/promises.js';
 import { existsSync, mkdirSync, statSync } from './node/sync.js';
 import { _setVFSConfig } from './vfs/config.js';
-import { mount, umount, umountSync } from './vfs/shared.js';
+import { flush, mount, umount, umountSync } from './vfs/shared.js';
 
 /**
  * Update the configuration of a file system.
@@ -383,6 +383,20 @@ export function configureSync<T extends ConfigMounts>(configuration: Partial<Con
 	}
 }
 
+/**
+ * Write cached changes to every mounted file system and sync them.
+ * Every file system is synced even if one fails, then the first failure is thrown.
+ * @category Backends and Configuration
+ */
 export async function sync(): Promise<void> {
-	for (const fs of defaultContext.mounts.values()) await fs.sync();
+	let error: Error | undefined;
+	for (const [mountPoint, fs] of defaultContext.mounts) {
+		try {
+			await flush(fs);
+		} catch (e) {
+			log.err(`Failed to sync ${mountPoint}: ${Error.isError(e) ? e.message : String(e)}`);
+			error ??= Error.isError(e) ? e : new Error(String(e));
+		}
+	}
+	if (error) throw error;
 }

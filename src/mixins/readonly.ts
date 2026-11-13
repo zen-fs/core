@@ -22,8 +22,8 @@ export interface ReadonlyMixin {
 	linkSync(srcpath: string, dstpath: string): never;
 	touch(path: string, metadata: Readonly<InodeLike>): Promise<never>;
 	touchSync(path: string, metadata: Readonly<InodeLike>): never;
-	sync(): Promise<never>;
-	syncSync(): never;
+	sync(): Promise<void>;
+	syncSync(): void;
 	write(path: string, buffer: Uint8Array, offset: number): Promise<never>;
 	writeSync(path: string, buffer: Uint8Array, offset: number): never;
 }
@@ -96,13 +96,9 @@ export function Readonly<T extends abstract new (...args: any[]) => FileSystem>(
 			throw withErrno('EROFS');
 		}
 
-		public async sync(): Promise<never> {
-			throw withErrno('EROFS');
-		}
+		public async sync(): Promise<void> {}
 
-		public syncSync(): never {
-			throw withErrno('EROFS');
-		}
+		public syncSync(): void {}
 
 		public async write(): Promise<never> {
 			throw withErrno('EROFS');
