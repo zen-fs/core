@@ -194,7 +194,7 @@ function retry<This extends StoreFS, Args extends unknown[], Result>(
 ) {
 	return function (this: This, ...args: Args): Result {
 		const conflict = (e: unknown, attempt: number): boolean =>
-			attempt < maxAttempts && (e as { code?: string }).code == 'EAGAIN' && !!this['store'].flags?.includes('atomic');
+			attempt < maxAttempts && (e as { code?: string }).code == 'ESTALE' && !!this['store'].flags?.includes('atomic');
 
 		const run = (attempt: number): Result => {
 			let result: Result;

@@ -27,7 +27,7 @@ const defaultStateSize = sizeof(State) + EpochTable.sizeOf(default_epoch_slots);
 
 /**
  * A transaction that reads one version of the file system, then applies its changes together when committed.
- * Committing throws EAGAIN if another transaction changed something this one read.
+ * Committing throws ESTALE if another transaction changed something this one read.
  * @category Stores and Transactions
  */
 export class SingleBufferTransaction extends SyncTransaction<SingleBufferStore> {
@@ -111,7 +111,7 @@ export class SingleBufferTransaction extends SyncTransaction<SingleBufferStore> 
 		if (!this.changes.length) return;
 
 		this.store.write(tx => {
-			if (this.conflicts(tx)) throw withErrno('EAGAIN', 'sbfs: another transaction changed data read by this one');
+			if (this.conflicts(tx)) throw withErrno('ESTALE', 'sbfs: another transaction changed data read by this one');
 			for (const [id, data, offset] of this.changes) {
 				if (data) tx.set(id, data, offset);
 				else tx.delete(id);

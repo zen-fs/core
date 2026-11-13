@@ -15,7 +15,7 @@ export type StoreFlag =
 	| 'partial'
 	/**
 	 * Transactions apply their changes together when committed and discard them when aborted.
-	 * Committing throws EAGAIN if another transaction changed what was read, and the operation can be run again.
+	 * Committing may throw ESTALE if another transaction changed what was read, and the operation is then run again.
 	 */
 	| 'atomic';
 

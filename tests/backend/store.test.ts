@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { InMemoryStore, Inode, StoreFS } from '@zenfs/core';
+import { InMemoryStore, Inode, StoreFS, SyncMapTransaction } from '@zenfs/core';
 import { S_IFDIR } from '@zenfs/core/constants';
 import { setupLogs } from '@zenfs/devel/tests/logs';
+import { withErrno } from 'kerium';
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import { encodeUTF8 } from 'utilium';
@@ -139,5 +140,71 @@ suite('StoreFS', () => {
 
 		await assert.rejects(new StoreFS(store).ready(), { code: 'EIO' });
 		assert.throws(() => new StoreFS(store).readySync(), { code: 'EIO' });
+	});
+
+	suite('Atomic stores', () => {
+		/** Fails the next `conflicts` commits with a conflict, and treats the keys in `uncached` as cache misses */
+		class AtomicStore extends InMemoryStore {
+			public commits = 0;
+			public conflicts = 0;
+			public misses = 0;
+			public readonly uncached = new Set<bigint>();
+
+			public constructor() {
+				super(0x100000, 'atomic');
+				Object.defineProperty(this, 'flags', { value: ['atomic'] });
+			}
+
+			public get(id: bigint): Uint8Array | undefined {
+				if (!this.uncached.has(id)) return super.get(id);
+				this.misses++;
+				throw withErrno('EAGAIN');
+			}
+
+			/** Changes are kept in the transaction until it is committed */
+			public transaction(): SyncMapTransaction {
+				const store = this;
+				const changes = new Map<bigint, Uint8Array | undefined>();
+				return Object.assign(new SyncMapTransaction(this), {
+					getSync: (id: bigint) => (changes.has(id) ? changes.get(id) : store.get(id)),
+					setSync: (id: bigint, data: Uint8Array) => void changes.set(id, data),
+					removeSync: (id: bigint) => void changes.set(id, undefined),
+					commitSync() {
+						store.commits++;
+						if (store.conflicts-- > 0) throw withErrno('ESTALE');
+						for (const [id, data] of changes) {
+							if (data) store.set(id, data);
+							else store.delete(id);
+						}
+					},
+					abortSync() {},
+				});
+			}
+		}
+
+		test('operations are run again after a conflict', async () => {
+			const store = new AtomicStore();
+			const atomic = new StoreFS(store);
+			await atomic.ready();
+
+			store.commits = 0;
+			store.conflicts = 2;
+			atomic.createFileSync('/file', { mode: 0o644, uid: 0, gid: 0 });
+			assert.equal(store.commits, 3);
+			assert.deepEqual(atomic.readdirSync('/'), ['file']);
+		});
+
+		test('cache misses are not treated as conflicts', async () => {
+			const store = new AtomicStore();
+			const atomic = new StoreFS(store);
+			await atomic.ready();
+
+			atomic.createFileSync('/file', { mode: 0o644, uid: 0, gid: 0 });
+			atomic.writeSync('/file', encodeUTF8('hello'), 0);
+			store.uncached.add(atomic.statSync('/file').data);
+
+			assert.throws(() => atomic.writeSync('/file', encodeUTF8('X'), 0), { code: 'EAGAIN' });
+			assert.equal(store.misses, 1);
+		});
 	});
 });
