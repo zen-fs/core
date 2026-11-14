@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { CopyOnWrite, Fetch, InMemory, configureSingle, defaultContext, fs, resolveMountConfig, type FetchFS } from '@zenfs/core';
+import { constants, CopyOnWrite, Fetch, FetchFS, Index, Inode, InMemory, configureSingle, defaultContext, fs, resolveMountConfig } from '@zenfs/core';
 import { setupLogs } from '@zenfs/devel/tests/logs';
 import { data } from '@zenfs/devel/tests/setup';
 import assert from 'node:assert/strict';
@@ -86,8 +86,20 @@ suite('CopyOnWrite over uncached Fetch #301', () => {
 	});
 });
 
+suite('Fetch deferred changes', () => {
+	test('sync reports a change that failed', async () => {
+		const index = new Index();
+		index.set('/', new Inode({ ino: 0n, mode: constants.S_IFDIR | 0o755 }));
+		const unreachable = new FetchFS(index, 'http://localhost:1', {}, true);
+		unreachable.createFileSync('/file', { mode: 0o644, uid: 0, gid: 0 });
+
+		await assert.rejects(unreachable.sync(), { code: 'EREMOTEIO' });
+		await unreachable.sync();
+	});
+});
+
 after(async () => {
-	await (defaultContext.mounts.get('/') as FetchFS)._asyncDone;
+	await defaultContext.mounts.get('/')!.sync();
 	await server.terminate();
 	server.unref();
 });

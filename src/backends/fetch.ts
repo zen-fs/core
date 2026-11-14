@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import { withErrno } from 'kerium';
-import { debug, err, warn } from 'kerium/log';
+import { err, warn } from 'kerium/log';
 import { _throw, decodeUTF8 } from 'utilium';
+import { AsyncQueue } from 'utilium/async-queue';
 import { Resource } from 'utilium/cache';
 import * as requests from 'utilium/requests';
 import type { IndexData } from '../internal/file_index.js';
@@ -63,18 +64,8 @@ export interface FetchOptions extends SharedConfig {
  * @internal
  */
 export class FetchFS extends IndexFS {
-	/**
-	 * @internal @hidden
-	 */
-	_asyncDone: Promise<unknown> = Promise.resolve();
-
-	/**
-	 * Queue an async operation started from a sync method.
-	 * Failures aren't rethrown to prevent further async ops from failing
-	 */
-	protected _async(p: Promise<unknown>) {
-		this._asyncDone = this._asyncDone.then(() => p).catch(e => debug('Async operation failed: ' + (e.message ?? e)));
-	}
+	/** Changes made by sync methods, whose first failure is thrown by the next `sync` */
+	protected readonly changes = new AsyncQueue();
 
 	public constructor(
 		index: Index,
@@ -83,6 +74,20 @@ export class FetchFS extends IndexFS {
 		protected remoteWrite?: boolean,
 	) {
 		super(0x206e6673, 'nfs', index);
+		this.changes.addEventListener('error', event => {
+			const { error } = event as ErrorEvent;
+			err('Fetch: deferred update failed: ' + (Error.isError(error) ? error.message : String(error)));
+		});
+	}
+
+	public async sync(): Promise<void> {
+		await this.changes.settled();
+		this.changes.throwIfError();
+	}
+
+	/** Note this can only report failures of changes that have already finished */
+	public syncSync(): void {
+		this.changes.throwIfError();
 	}
 
 	protected resize(path: string, inode: Inode, oldSize: number): Promise<void> | void {
@@ -107,7 +112,7 @@ export class FetchFS extends IndexFS {
 	}
 
 	protected _createSync(path: string, inode: Inode): void {
-		this._async(this._create(path, inode));
+		this.changes.add(this._create(path, inode));
 	}
 
 	public override async touch(path: string, metadata: InodeLike): Promise<void> {
@@ -122,7 +127,7 @@ export class FetchFS extends IndexFS {
 		const oldSize = inode.size;
 		inode.update(metadata);
 		const pending = this.resize(path, inode, oldSize);
-		if (pending) this._async(pending);
+		if (pending) this.changes.add(pending);
 	}
 
 	protected async remove(path: string): Promise<void> {
@@ -130,7 +135,7 @@ export class FetchFS extends IndexFS {
 	}
 
 	protected removeSync(path: string): void {
-		this._async(this.remove(path));
+		this.changes.add(this.remove(path));
 	}
 
 	public async read(path: string, buffer: Uint8Array, offset: number = 0, end: number): Promise<void> {
@@ -160,7 +165,9 @@ export class FetchFS extends IndexFS {
 		if (!data) throw withErrno('ENODATA');
 
 		if (missing.length) {
-			this._async(requests.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }, this.requestInit));
+			void requests
+				.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }, this.requestInit)
+				.catch(error => warn('Fetch: background load failed: ' + (Error.isError(error) ? error.message : String(error))));
 			throw withErrno('EAGAIN');
 		}
 
@@ -182,7 +189,7 @@ export class FetchFS extends IndexFS {
 
 		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
 
-		this._async(requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError));
+		this.changes.add(requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError));
 	}
 }
 

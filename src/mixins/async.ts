@@ -2,6 +2,7 @@
 import { withErrno } from 'kerium';
 import type { Semaphore } from 'kerium/locks';
 import { crit, debug, err } from 'kerium/log';
+import { AsyncQueue } from 'utilium/async-queue';
 import { StoreFS } from '../backends/store/fs.js';
 import type { CreationOptions, FileSystem, StreamOptions } from '../internal/filesystem.js';
 import { isDirectory, type InodeLike } from '../internal/inode.js';
@@ -59,32 +60,16 @@ function isReplay(): boolean {
  */
 export function Async<const T extends abstract new (...args: any[]) => FileSystem>(FS: T): Mixin<T, AsyncMixin> {
 	abstract class AsyncFS extends FS implements AsyncMixin {
-		private _promise: Promise<unknown> = Promise.resolve();
-
-		/** How many queued operations have not finished */
-		private _pending: number = 0;
-
-		/** The first failure of a queued operation, which is reported by the next `sync` */
-		private _queueError?: Error;
+		/** Backend updates made by sync methods, whose first failure is thrown by the next `sync` */
+		private queue = new AsyncQueue();
 
 		/** The async methods before patching, which do not update the sync cache */
 		private _unpatched = {} as AsyncFSMethods;
 
 		protected _async(thunk: () => Promise<unknown>) {
-			this._pending++;
-			const replay = async function __replay__(this: AsyncFS) {
-				try {
-					await thunk();
-				} catch (e) {
-					const isError = Error.isError(e);
-					this._queueError ??= isError ? e : new Error(String(e));
-					err('Async: deferred backend update failed: ' + (isError ? e.message : String(e)));
-					if (isError && e.stack) debug(e.stack);
-				} finally {
-					this._pending--;
-				}
-			};
-			this._promise = this._promise.finally(replay.bind(this));
+			this.queue.defer(async function __replay__() {
+				await thunk();
+			});
 		}
 
 		private _isInitialized: boolean = false;
@@ -95,13 +80,19 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public constructor(...args: any[]) {
 			super(...args);
+			this.queue.addEventListener('error', event => {
+				const { error } = event as ErrorEvent;
+				const isError = Error.isError(error);
+				err('Async: deferred backend update failed: ' + (isError ? error.message : String(error)));
+				if (isError && error.stack) debug(error.stack);
+			});
 			this._patchAsync();
 		}
 
 		public async ready(): Promise<void> {
 			await super.ready();
 			if (this._isInitialized || this.attributes.has('no_async_preload')) return;
-			await this._promise;
+			await this.queue.settled();
 
 			this.checkSync();
 
@@ -199,22 +190,15 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 
 		public async sync(): Promise<void> {
 			if (!this.attributes.has('no_async_preload') && this._sync) this._sync.syncSync();
-			await this._promise;
-			this._throwQueueError();
+			await this.queue.settled();
+			this.queue.throwIfError();
 		}
 
 		/** Note this can only report failures of queued operations that have already finished */
 		public syncSync(): void {
 			this.checkSync();
 			this._sync.syncSync();
-			this._throwQueueError();
-		}
-
-		private _throwQueueError(): void {
-			if (!this._queueError) return;
-			const error = this._queueError;
-			delete this._queueError;
-			throw error;
+			this.queue.throwIfError();
 		}
 
 		public existsSync(path: string): boolean {
@@ -296,7 +280,7 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 				const originalMethod = this[key].bind(this) as (...args: unknown[]) => Promise<unknown>;
 
 				const fn = async function __patched__(this: AsyncFS, ...args: unknown[]) {
-					if (this._pending && !isReplay()) await this._promise;
+					if (this.queue.size && !isReplay()) await this.queue.settled();
 
 					const result = await originalMethod(...args);
 
