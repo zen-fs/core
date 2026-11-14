@@ -363,7 +363,7 @@ export abstract class FileSystem {
 
 	/** @internal */
 	public async ioctl(context: IoctlContext, command: number, ...args: any[]): Promise<any> {
-		// eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-unnecessary-type-assertion
+		// eslint-disable-next-line @typescript-eslint/unbound-method
 		const cmd = ioctl_default_ops_async[command as keyof typeof ioctl_default_ops_async];
 		if (!cmd) throw withErrno('ENOTTY');
 		return await (cmd as any)(context, ...args);
@@ -371,7 +371,7 @@ export abstract class FileSystem {
 
 	/** @internal */
 	public ioctlSync(context: IoctlContext, command: number, ...args: any[]): any {
-		// eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-unnecessary-type-assertion
+		// eslint-disable-next-line @typescript-eslint/unbound-method
 		const cmd = ioctl_default_ops_sync[command as keyof typeof ioctl_default_ops_sync];
 		if (!cmd) throw withErrno('ENOTTY');
 		return (cmd as any)(context, ...args);
