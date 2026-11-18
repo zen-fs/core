@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { withErrno } from 'kerium';
-import { warn } from 'kerium/log';
 import type { UUID } from 'node:crypto';
-import { Resource } from 'utilium/cache';
 import type { UsageInfo } from '../../internal/filesystem.js';
 import '../../polyfills.js';
 import type { StoreFS } from './fs.js';
@@ -179,76 +176,6 @@ export abstract class SyncTransaction<T extends Store = Store> extends Transacti
 }
 
 /**
- * @category Stores and Transactions
- */
-export interface AsyncStore extends Store {
-	cache?: Map<bigint, Resource<bigint>>;
-}
-
-/**
- * Transaction that implements synchronous operations with a cache
- * Implementors: You *must* update the cache and wait for `store.asyncDone` in your asynchronous methods.
- * @todo Make sure we handle abortions correctly, especially since the cache is shared between transactions.
- * @category Stores and Transactions
- */
-export abstract class AsyncTransaction<T extends AsyncStore = AsyncStore> extends Transaction<T> {
-	protected asyncDone: Promise<unknown> = Promise.resolve();
-
-	/**
-	 * Run a asynchronous operation from a sync context. Not magic and subject to (race) conditions.
-	 * @internal
-	 */
-	protected async(promise: Promise<unknown>): void {
-		this.asyncDone = this.asyncDone.then(() => promise);
-	}
-
-	/**
-	 * Gets a cache resource
-	 * If `info` is set and the resource doesn't exist, it will be created
-	 * @internal
-	 */
-	_cached(id: bigint, info?: { size: number }) {
-		this.store.cache ??= new Map();
-		const resource = this.store.cache.get(id);
-		if (!resource) return !info ? undefined : new Resource(id, info.size, {}, this.store.cache);
-		if (info) resource.size = info.size;
-		return resource;
-	}
-
-	public getSync(id: bigint, offset: number, end?: number): Uint8Array | undefined {
-		const resource = this._cached(id);
-		if (!resource) return;
-
-		end ??= resource.size;
-		const missing = resource.missing(offset, end);
-		for (const { start, end } of missing) {
-			this.async(this.get(id, start, end));
-		}
-
-		if (missing.length) throw withErrno('EAGAIN');
-
-		const region = resource.regionAt(offset);
-
-		if (!region) {
-			warn('Missing cache region for ' + id);
-			return;
-		}
-
-		return region.data.subarray(offset - region.offset, end - region.offset);
-	}
-
-	public setSync(id: bigint, data: Uint8Array, offset?: number): void {
-		this.async(this.set(id, data, offset));
-	}
-
-	public removeSync(id: bigint): void {
-		this.async(this.remove(id));
-
-		this.store.cache?.delete(id);
-	}
-}
-
-/**
  * Wraps a transaction with the ability to roll-back changes, among other things.
  * This is used by `StoreFS`
  * @category Stores and Transactions
@@ -377,25 +304,7 @@ export class WrappedTransaction<T extends Store = Store> {
 	protected async markModified(id: bigint, offset?: number, length?: number): Promise<void> {
 		if (this.atomic) return;
 		const end = offset !== undefined && length ? offset + length : undefined;
-		try {
-			this.stash(id, await this.raw.get(id, offset ?? 0, end), offset);
-		} catch (e) {
-			if (!(this.raw instanceof AsyncTransaction)) throw e;
-
-			/*
-				async transaction has a quirk:
-				setting the buffer to a larger size doesn't work correctly due to cache ranges
-				so, we cache the existing sub-ranges
-			*/
-
-			const tx = this.raw as AsyncTransaction<AsyncStore>;
-			const resource = tx._cached(id);
-			if (!resource) throw e;
-
-			for (const range of resource.cached(offset ?? 0, end ?? offset ?? 0)) {
-				this.stash(id, await this.raw.get(id, range.start, range.end), range.start);
-			}
-		}
+		this.stash(id, await this.raw.get(id, offset ?? 0, end), offset);
 	}
 
 	/**
@@ -404,25 +313,6 @@ export class WrappedTransaction<T extends Store = Store> {
 	protected markModifiedSync(id: bigint, offset?: number, length?: number): void {
 		if (this.atomic) return;
 		const end = offset !== undefined && length ? offset + length : undefined;
-
-		try {
-			this.stash(id, this.raw.getSync(id, offset ?? 0, end), offset);
-		} catch (e) {
-			if (!(this.raw instanceof AsyncTransaction)) throw e;
-
-			/*
-				async transaction has a quirk:
-				setting the buffer to a larger size doesn't work correctly due to cache ranges
-				so, we cache the existing sub-ranges
-			*/
-
-			const tx = this.raw as AsyncTransaction<AsyncStore>;
-			const resource = tx._cached(id);
-			if (!resource) throw e;
-
-			for (const range of resource.cached(offset ?? 0, end ?? offset ?? 0)) {
-				this.stash(id, this.raw.getSync(id, range.start, range.end), range.start);
-			}
-		}
+		this.stash(id, this.raw.getSync(id, offset ?? 0, end), offset);
 	}
 }
