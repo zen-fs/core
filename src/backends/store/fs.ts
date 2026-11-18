@@ -3,7 +3,6 @@ import { withErrno } from 'kerium';
 import { crit, debug, err, notice, warn } from 'kerium/log';
 import { sizeof, struct, types as t } from 'memium';
 import { _throw, canary, decodeUTF8, encodeUTF8 } from 'utilium';
-import { extendBuffer } from 'utilium/buffer';
 import { id_max, S_IFDIR, S_IFREG } from '../../constants.js';
 import { Index } from '../../internal/file_index.js';
 import type { CreationOptions, UsageInfo } from '../../internal/filesystem.js';
@@ -177,11 +176,15 @@ class DirListing
 	}
 }
 
-/** The stored data of a file, which only an empty file may be missing */
-function existingData(inode: Inode, data: Uint8Array | undefined): Uint8Array {
-	if (data) return data;
-	if (inode.size) throw withErrno('ENODATA');
-	return new Uint8Array();
+/**
+ * Copies a file's stored data into `size` bytes, since data from a store must not be modified.
+ * Only an empty file may be missing its data.
+ */
+function resizeData(inode: Inode, data: Uint8Array | undefined, size: number): Uint8Array {
+	if (!data && inode.size) throw withErrno('ENODATA');
+	const copy = new Uint8Array(size);
+	if (data) copy.set(data.subarray(0, Math.min(size, inode.size)));
+	return copy;
 }
 
 /** Most times a method is run before giving up when other threads keep changing what it read */
@@ -341,7 +344,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		for (const [path, inode] of index) {
 			this._add(inode.ino, path);
-			await tx.set(inode.ino, inode);
+			await tx.set(inode.ino, new Inode(inode));
 			if (dirs.has(path)) await tx.set(inode.data, DirListing.fromIndex(index, path, dirs.get(path)!));
 		}
 
@@ -359,7 +362,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 
 		for (const [path, inode] of index) {
 			this._add(inode.ino, path);
-			tx.setSync(inode.ino, inode);
+			tx.setSync(inode.ino, new Inode(inode));
 			if (dirs.has(path)) tx.setSync(inode.data, DirListing.fromIndex(index, path, dirs.get(path)!));
 		}
 
@@ -542,9 +545,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = await this.findInode(tx, path);
 
 		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
-			const data = existingData(inode, await tx.get(inode.data));
-			if (metadata.size < data.byteLength) data.fill(0, metadata.size);
-			await tx.set(inode.data, metadata.size < data.byteLength ? data.subarray(0, metadata.size) : extendBuffer(data, metadata.size));
+			await tx.set(inode.data, resizeData(inode, await tx.get(inode.data), metadata.size));
 		}
 
 		if (inode.update(metadata)) {
@@ -562,9 +563,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const inode = this.findInodeSync(tx, path);
 
 		if (!isDirectory(inode) && metadata.size !== undefined && metadata.size !== inode.size) {
-			const data = existingData(inode, tx.getSync(inode.data));
-			if (metadata.size < data.byteLength) data.fill(0, metadata.size);
-			tx.setSync(inode.data, metadata.size < data.byteLength ? data.subarray(0, metadata.size) : extendBuffer(data, metadata.size));
+			tx.setSync(inode.data, resizeData(inode, tx.getSync(inode.data), metadata.size));
 		}
 
 		if (inode.update(metadata)) {
@@ -691,7 +690,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const end = offset + data.byteLength;
 
 		if (!tx.flag('partial')) {
-			const buffer = extendBuffer(existingData(inode, await tx.get(inode.data)), end);
+			const buffer = resizeData(inode, await tx.get(inode.data), Math.max(inode.size, end));
 			buffer.set(data, offset);
 			await tx.set(inode.data, buffer);
 		} else if (offset <= inode.size) {
@@ -720,7 +719,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		const end = offset + data.byteLength;
 
 		if (!tx.flag('partial')) {
-			const buffer = extendBuffer(existingData(inode, tx.getSync(inode.data)), end);
+			const buffer = resizeData(inode, tx.getSync(inode.data), Math.max(inode.size, end));
 			buffer.set(data, offset);
 			tx.setSync(inode.data, buffer);
 		} else if (offset <= inode.size) {
@@ -1042,7 +1041,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		await tx.set(inode.data, data);
 		await tx.set(parent.data, updated);
 		await tx.commit();
-		return inode;
+		return new Inode(inode);
 	}
 
 	/**
@@ -1087,7 +1086,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.setSync(inode.data, data);
 		tx.setSync(parent.data, updated);
 		tx.commitSync();
-		return inode;
+		return new Inode(inode);
 	}
 
 	/**

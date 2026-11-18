@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-import { InMemoryStore, Inode, StoreFS, SyncMapTransaction } from '@zenfs/core';
+import { InMemoryStore, Inode, StoreFS, SyncMapTransaction, type StoreFlag } from '@zenfs/core';
 import { S_IFDIR } from '@zenfs/core/constants';
 import { setupLogs } from '@zenfs/devel/tests/logs';
 import { withErrno } from 'kerium';
@@ -74,7 +74,11 @@ suite('StoreFS', () => {
 	});
 
 	test('writes and resizes fail instead of zero-filling missing data', async () => {
-		const store = new InMemoryStore(0x100000, 'missing-data');
+		class WholeRecords extends InMemoryStore {
+			public readonly flags: readonly StoreFlag[] = [];
+		}
+
+		const store = new WholeRecords(0x100000, 'missing-data');
 		const missing = new StoreFS(store);
 		await missing.ready();
 
@@ -117,6 +121,79 @@ suite('StoreFS', () => {
 		await assert.rejects(rollback.unlink('/file'), { message: 'delete failed' });
 		assert.deepEqual(await rollback.readdir('/'), ['file']);
 		assert.equal((await rollback.stat('/file')).size, 0);
+	});
+
+	test('a failed write or resize leaves the existing data unchanged', async () => {
+		class FailingInodeSet extends InMemoryStore {
+			failOn?: bigint;
+
+			public set(id: bigint, data: Uint8Array, offset?: number): this {
+				if (id === this.failOn) {
+					this.failOn = undefined;
+					throw new Error('set failed');
+				}
+				return super.set(id, data, offset);
+			}
+		}
+
+		const store = new FailingInodeSet(0x100000, 'in-place');
+		const inPlace = new StoreFS(store);
+		await inPlace.ready();
+		inPlace.createFileSync('/file', { mode: 0o644, uid: 0, gid: 0 });
+		inPlace.writeSync('/file', encodeUTF8('hello world'), 0);
+
+		const contents = () => {
+			const buffer = new Uint8Array(11);
+			inPlace.readSync('/file', buffer, 0, 11);
+			return new TextDecoder().decode(buffer);
+		};
+
+		const { ino } = inPlace.statSync('/file');
+
+		store.failOn = ino;
+		assert.throws(() => inPlace.writeSync('/file', encodeUTF8('X'), 0), { message: 'set failed' });
+		assert.equal(contents(), 'hello world');
+
+		store.failOn = ino;
+		await assert.rejects(inPlace.write('/file', encodeUTF8('!'), 11), { message: 'set failed' });
+		assert.equal(contents(), 'hello world');
+
+		store.failOn = ino;
+		assert.throws(() => inPlace.touchSync('/file', { size: 5 }), { message: 'set failed' });
+		assert.equal(contents(), 'hello world');
+
+		store.failOn = ino;
+		await assert.rejects(inPlace.touch('/file', { size: 20 }), { message: 'set failed' });
+		assert.equal(contents(), 'hello world');
+		assert.equal(inPlace.statSync('/file').size, 11);
+
+		inPlace.touchSync('/file', { size: 12 });
+		const extended = new Uint8Array(12);
+		inPlace.readSync('/file', extended, 0, 12);
+		assert.equal(extended[11], 0);
+	});
+
+	test('in-memory stores read and write ranges', () => {
+		const store = new InMemoryStore(0x100000, 'partial');
+		store.set(1n, encodeUTF8('hello'));
+		assert.deepEqual(store.get(1n, 1, 3), encodeUTF8('el'));
+
+		store.set(1n, encodeUTF8('J'), 0);
+		store.set(1n, encodeUTF8('!'), 7);
+		assert.deepEqual(store.get(1n), encodeUTF8('Jello\0\0!'));
+
+		store.set(2n, encodeUTF8('new'), 2);
+		assert.deepEqual(store.get(2n), encodeUTF8('\0\0new'));
+	});
+
+	test('created inodes are not the stored records', async () => {
+		const created = fs.createFileSync('/created', { mode: 0o644, uid: 0, gid: 0 });
+		created.size = 1234;
+		assert.equal(fs.statSync('/created').size, 0);
+
+		const made = await fs.mkdir('/made', { mode: 0o755, uid: 0, gid: 0 });
+		made.mode = S_IFDIR | 0o700;
+		assert.equal(fs.statSync('/made').mode & 0o777, 0o755);
 	});
 
 	test('aborting restores a key that was removed and then set again', () => {

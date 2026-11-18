@@ -79,6 +79,7 @@ export interface Store {
 
 /**
  * A transaction for a store.
+ * @remarks `get`'s return value and `set`'s `data` may be live data for the store, avoid changing.
  * @category Stores and Transactions
  */
 export abstract class Transaction<T extends Store = Store> {
@@ -356,10 +357,13 @@ export class WrappedTransaction<T extends Store = Store> {
 		this.abortSync();
 	}
 
-	/** Records the data of a key before it is modified, or that it did not exist */
+	/**
+	 * Records the data of a key before it is modified, or that it did not exist
+	 * @remarks A range is copied, since setting it may change the store's data in place
+	 */
 	protected stash(id: bigint, data?: Uint8Array, offset?: number): void {
 		if (this.atomic) return;
-		this.originalData.getOrInsertComputed(id, () => []).push({ data, offset });
+		this.originalData.getOrInsertComputed(id, () => []).push({ data: offset === undefined ? data : data?.slice(), offset });
 	}
 
 	/**
