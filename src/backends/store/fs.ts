@@ -295,10 +295,6 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 	public async ready(): Promise<void> {
 		if (this._initialized) return;
 
-		if (!this.attributes.has('no_async_preload')) {
-			this.checkRootSync();
-		}
-
 		await this.checkRoot();
 		await this._populate();
 		this._initialized = true;
@@ -618,9 +614,13 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		return Array.from(DirListing.decode(tx.getSync(node.data) ?? _throw(withErrno('ENOENT'))).keys());
 	}
 
-	public async sync(): Promise<void> {}
+	public async sync(): Promise<void> {
+		await this.store.sync();
+	}
 
-	public syncSync(): void {}
+	public syncSync(): void {
+		this.store.syncSync?.();
+	}
 
 	@retry
 	public async link(target: string, link: string): Promise<void> {

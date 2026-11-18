@@ -52,6 +52,11 @@ export interface Store {
 	sync(): Promise<void>;
 
 	/**
+	 * Syncs the store, reporting what it can without waiting
+	 */
+	syncSync?(): void;
+
+	/**
 	 * Begins a new transaction.
 	 */
 	transaction(): Transaction;
