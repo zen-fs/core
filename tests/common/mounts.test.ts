@@ -59,7 +59,7 @@ suite('Mounts', () => {
 		let attempted = false;
 		class FailingWrites extends Async(StoreFS) {
 			_sync = InMemory.create({ label: 'sync' });
-			public async write(): Promise<void> {
+			public async write(): Promise<never> {
 				await setTimeout(5);
 				attempted = true;
 				throw new Error('backend write failed');
@@ -100,10 +100,10 @@ suite('Mounts', () => {
 
 	test('umountSync logs a failed background flush instead of rejecting', async () => {
 		class AsyncOnly extends StoreFS {
-			public writeSync(): void {
+			public writeSync(): never {
 				throw withErrno('EAGAIN');
 			}
-			public write(): Promise<void> {
+			public write(): Promise<never> {
 				return Promise.reject(new Error('backend write failed'));
 			}
 		}

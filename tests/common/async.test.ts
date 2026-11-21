@@ -46,7 +46,7 @@ suite('Async()', () => {
 
 	test('sync reports a queued operation that failed', async () => {
 		class FailingWrites extends AsyncMemory {
-			public write(): Promise<void> {
+			public write(): Promise<never> {
 				return Promise.reject(new Error('backend write failed'));
 			}
 		}
