@@ -6,6 +6,7 @@ https://raw.githubusercontent.com/nodejs/node/3907bd1/lib/path.js
 */
 
 import type { ParsedPath } from 'node:path';
+import './polyfills.js';
 import type { V_Context } from './context.js';
 import { contextOf } from './internal/contexts.js';
 
@@ -471,8 +472,6 @@ const posixClasses: Record<string, string> = {
 	xdigit: 'A-Fa-f0-9',
 };
 
-const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-
 const escapeClass = (char: string): string => (/[\\\]\[^-]/.test(char) ? '\\' + char : char);
 
 /**
@@ -609,7 +608,7 @@ function parseSegment(source: string, start: number, inGroup: boolean): [regex: 
 			continue;
 		}
 
-		regex += char == '*' ? '[^/]*' : char == '?' ? '[^/]' : escapeRegex(char);
+		regex += char == '*' ? '[^/]*' : char == '?' ? '[^/]' : RegExp.escape(char);
 		i++;
 	}
 	return [regex, i];
