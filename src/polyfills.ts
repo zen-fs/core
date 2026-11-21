@@ -28,8 +28,18 @@ Uint8Array.prototype.toBase64 ??=
 
 Uint8Array.fromBase64 ??=
 	(warn('Using a polyfill of Uint8Array.fromBase64'),
-	function fromBase64(base64: string): Uint8Array<ArrayBuffer> {
-		const binaryString = atob(base64);
+	function fromBase64(base64: string, options?: { alphabet?: 'base64' | 'base64url' }): Uint8Array<ArrayBuffer> {
+		if (options?.alphabet == 'base64url') {
+			if (/[+/]/.test(base64)) throw new SyntaxError('Invalid base64url string');
+			base64 = base64.replaceAll('-', '+').replaceAll('_', '/');
+		}
+
+		let binaryString: string;
+		try {
+			binaryString = atob(base64);
+		} catch {
+			throw new SyntaxError('Invalid base64 string');
+		}
 		const bytes = new Uint8Array(binaryString.length);
 		for (let i = 0; i < binaryString.length; i++) {
 			bytes[i] = binaryString.charCodeAt(i);
