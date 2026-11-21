@@ -81,6 +81,17 @@
 			]
 		},
 		{
+			"path": "index-walk.ts",
+			"name": "List every directory in an index",
+			"measure": {
+				"directories": { "cost": true, "aggregate_cost": true, "unit": "directory" }
+			},
+			"configurations": [
+				{ "name": "200 x 50", "value": { "directories": 200, "files": 50 } },
+				{ "name": "2000 x 50", "cpu": 1, "value": { "directories": 2000, "files": 50 } }
+			]
+		},
+		{
 			"path": "single-buffer-read.ts",
 			"name": "Random 4 KB reads from one file in a SingleBuffer",
 			"measure": {

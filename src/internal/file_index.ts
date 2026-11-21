@@ -2,7 +2,8 @@
 import { withErrno } from 'kerium';
 import { sizeof } from 'memium';
 import { isJSON, randomInt } from 'utilium';
-import { basename, dirname } from '../path.js';
+import '../polyfills.js';
+import { basename, dirname, join } from '../path.js';
 import { S_IFDIR, S_IFMT, size_max } from '../constants.js';
 import type { UsageInfo } from './filesystem.js';
 import type { InodeJSON } from './inode.js';
@@ -47,8 +48,27 @@ export class Index extends Map<string, Inode> {
 		return JSON.stringify(this.toJSON());
 	}
 
+	/** The names in each directory, by the directory's path */
+	#children = new Map<string, Set<string>>();
+
+	public set(path: string, inode: Inode): this {
+		if (path != '/' && !this.has(path)) this.#children.getOrInsertComputed(dirname(path), () => new Set()).add(basename(path));
+		return super.set(path, inode);
+	}
+
+	public delete(path: string): boolean {
+		if (!super.delete(path)) return false;
+		if (path == '/') return true;
+		const parent = dirname(path);
+		const names = this.#children.get(parent);
+		names?.delete(basename(path));
+		if (!names?.size) this.#children.delete(parent);
+		return true;
+	}
+
 	public clear() {
 		super.clear();
+		this.#children.clear();
 		this.#lastAlloc = 0n;
 	}
 
@@ -91,14 +111,14 @@ export class Index extends Map<string, Inode> {
 
 		if ((node.mode & S_IFMT) != S_IFDIR) throw withErrno('ENOTDIR');
 
+		return this.#entriesOf(path);
+	}
+
+	#entriesOf(path: string): Record<string, bigint> {
 		const entries: Record<string, bigint> = {};
-
-		for (const entry of this.keys()) {
-			if (dirname(entry) == path && entry != path) {
-				entries[basename(entry)] = this.get(entry)!.ino;
-			}
+		for (const name of this.#children.get(path) ?? []) {
+			entries[name] = this.get(join(path, name))!.ino;
 		}
-
 		return entries;
 	}
 
@@ -123,15 +143,7 @@ export class Index extends Map<string, Inode> {
 	public directories(): Map<string, Record<string, bigint>> {
 		const dirs = new Map<string, Record<string, bigint>>();
 		for (const [path, node] of this) {
-			if ((node.mode & S_IFMT) != S_IFDIR) continue;
-
-			const entries: Record<string, bigint> = {};
-
-			for (const entry of this.keys()) {
-				if (dirname(entry) == path && entry != path) entries[basename(entry)] = this.get(entry)!.ino;
-			}
-
-			dirs.set(path, entries);
+			if ((node.mode & S_IFMT) == S_IFDIR) dirs.set(path, this.#entriesOf(path));
 		}
 
 		return dirs;

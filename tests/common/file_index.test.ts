@@ -53,6 +53,32 @@ suite('Index', () => {
 		assert.equal(index.toJSON().entries['/file'].ino, 5);
 	});
 
+	test('directoryEntries follows set and delete', () => {
+		const index = buildIndex(2);
+		index.set('/dir', new Inode({ ino: 10n, data: 11n, mode: 0o40755, nlink: 1 }));
+		index.set('/dir/a', new Inode({ ino: 12n, data: 13n, mode: 0o100644, nlink: 1 }));
+		index.set('/dir/a', new Inode({ ino: 14n, data: 15n, mode: 0o100644, nlink: 1 }));
+		index.delete('/f0');
+		index.delete('/f0');
+
+		assert.deepEqual(index.directoryEntries('/'), { f1: 4n, dir: 10n });
+		assert.deepEqual(index.directoryEntries('/dir'), { a: 14n });
+		assert.deepEqual(
+			index.directories(),
+			new Map([
+				['/', { f1: 4n, dir: 10n }],
+				['/dir', { a: 14n }],
+			]),
+		);
+
+		index.delete('/dir/a');
+		assert.deepEqual(index.directoryEntries('/dir'), {});
+
+		index.clear();
+		index.set('/', new Inode({ ino: 0n, data: 1n, mode: 0o40755, nlink: 1 }));
+		assert.deepEqual(index.directoryEntries('/'), {});
+	});
+
 	test('_alloc works with a large index #312', () => {
 		const index = buildIndex(100_000);
 		assert.equal(index._alloc(), 200_002n);
