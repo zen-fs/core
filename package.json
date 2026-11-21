@@ -70,7 +70,7 @@
 		"utilium": "^3.12.0"
 	},
 	"devDependencies": {
-		"@zenfs/devel": "^1.2.2",
+		"@zenfs/devel": "^1.2.3",
 		"eslint": "^10.1.0",
 		"prettier": "^3.2.5",
 		"typedoc": "^0.28.18",
