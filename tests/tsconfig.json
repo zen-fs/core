@@ -2,7 +2,7 @@
 	"extends": "../tsconfig.json",
 	"type": "module",
 	"compilerOptions": {
-		"target": "ES2022",
+		"target": "ES2024",
 		"noEmit": true,
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true,

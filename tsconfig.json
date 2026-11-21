@@ -8,7 +8,7 @@
 		"resolveJsonModule": true,
 		"rootDir": "src",
 		"strict": true,
-		"target": "ES2022",
+		"target": "ES2024",
 		"verbatimModuleSyntax": true,
 		"useDefineForClassFields": true,
 		"types": ["node"]
