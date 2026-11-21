@@ -22,8 +22,10 @@ globalThis.crypto.randomUUID ??=
 
 Uint8Array.prototype.toBase64 ??=
 	(warn('Using a polyfill of Uint8Array.prototype.toBase64'),
-	function toBase64(this: Uint8Array): string {
-		return btoa(String.fromCharCode(...this));
+	function toBase64(this: Uint8Array, options?: { alphabet?: 'base64' | 'base64url'; omitPadding?: boolean }): string {
+		let base64 = btoa(String.fromCharCode(...this));
+		if (options?.alphabet == 'base64url') base64 = base64.replaceAll('+', '-').replaceAll('/', '_');
+		return options?.omitPadding ? base64.replace(/=+$/, '') : base64;
 	});
 
 Uint8Array.fromBase64 ??=
