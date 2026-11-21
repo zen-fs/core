@@ -163,11 +163,11 @@ export class Handle {
 		const slice = buffer.subarray(offset, offset + length);
 		const start = position ?? this.position;
 
-		this.vnode.writeSync(slice, start);
-		if (position == null) this._position = start + slice.byteLength;
+		const count = this.vnode.writeSync(slice, start);
+		if (position == null) this._position = start + count;
 
 		if (this._isSync) this.vnode.syncSync();
-		return slice.byteLength;
+		return count;
 	}
 
 	/**
@@ -195,11 +195,11 @@ export class Handle {
 		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
 			end = start + Math.max(this.inode.size - start, 0);
 		}
-		if (position == null) this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		this.vnode.readSync(uint8.subarray(offset, offset + length), start, end);
+		const count = this.vnode.readSync(uint8.subarray(offset, offset + length), start, end);
+		if (position == null) this._position = start + count;
 		if (this._isSync) this.vnode.syncSync();
-		return end - start;
+		return count;
 	}
 
 	public chmodSync(mode: number): void {
@@ -316,11 +316,11 @@ export class Handle {
 		const slice = buffer.subarray(offset, offset + length);
 		const start = position ?? this.position;
 
-		await this.vnode.write(slice, start);
-		if (position == null) this._position = start + slice.byteLength;
+		const count = await this.vnode.write(slice, start);
+		if (position == null) this._position = start + count;
 
 		if (this._isSync) await this.vnode.sync();
-		return slice.byteLength;
+		return count;
 	}
 
 	/**
@@ -353,11 +353,11 @@ export class Handle {
 		if (!isCharacterDevice(this.inode) && !isBlockDevice(this.inode) && end > this.inode.size) {
 			end = start + Math.max(this.inode.size - start, 0);
 		}
-		if (position == null) this._position = end;
 		const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-		await this.vnode.read(uint8.subarray(offset, offset + length), start, end);
+		const count = await this.vnode.read(uint8.subarray(offset, offset + length), start, end);
+		if (position == null) this._position = start + count;
 		if (this._isSync) await this.vnode.sync();
-		return end - start;
+		return count;
 	}
 
 	public async chmod(mode: number): Promise<void> {
@@ -437,8 +437,16 @@ export class Handle {
 		let position = options.start;
 		return new WritableStream<Uint8Array>({
 			async write(chunk, controller) {
-				await handle.write(chunk, 0, chunk.byteLength, position ?? null).catch(controller.error.bind(controller));
-				if (position !== undefined) position += chunk.byteLength;
+				try {
+					for (let written = 0; written < chunk.byteLength;) {
+						const count = await handle.write(chunk, written, chunk.byteLength - written, position ?? null);
+						if (!count) throw UV('EIO', 'write', handle.path);
+						written += count;
+						if (position !== undefined) position += count;
+					}
+				} catch (error) {
+					controller.error(error);
+				}
 			},
 			async close() {
 				using _ = await vnode.lock('rw');

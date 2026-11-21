@@ -145,7 +145,7 @@ export interface Methods {
 	link(target: string, link: string): void;
 	sync(): void;
 	read(path: string, buffer: Uint8Array, start: number, end: number): Uint8Array;
-	write(path: string, buffer: Uint8Array, offset: number): void;
+	write(path: string, buffer: Uint8Array, offset: number): number;
 	stat(path: string): Uint8Array;
 }
 
@@ -360,8 +360,7 @@ export async function handleRequest(port: Port, fs: FileSystem & { _descriptors?
 		switch (request.method) {
 			case 'read': {
 				const [path, buffer, start, end] = request.args;
-				await fs.read(path, buffer, start, end);
-				value = buffer;
+				value = buffer.subarray(0, await fs.read(path, buffer, start, end));
 				break;
 			}
 			case 'stat':

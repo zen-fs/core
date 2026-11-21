@@ -658,32 +658,34 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		tx.commitSync();
 	}
 
-	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
+	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<number> {
 		await using tx = this.transaction();
 		const inode = await this.findInode(tx, path);
 
-		if (inode.size == 0) return;
+		if (inode.size == 0) return 0;
 
 		const data = (await tx.get(inode.data, offset, end)) ?? _throw(withErrno('ENODATA'));
 		const _ = tx.flag('partial') ? data : data.subarray(offset, end);
 		if (_.byteLength > buffer.byteLength) err(`Trying to place ${_.byteLength} bytes into a ${buffer.byteLength} byte buffer on read`);
 		buffer.set(_);
+		return _.byteLength;
 	}
 
-	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
+	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): number {
 		using tx = this.transaction();
 		const inode = this.findInodeSync(tx, path);
 
-		if (inode.size == 0) return;
+		if (inode.size == 0) return 0;
 
 		const data = tx.getSync(inode.data, offset, end) ?? _throw(withErrno('ENODATA'));
 		const _ = tx.flag('partial') ? data : data.subarray(offset, end);
 		if (_.byteLength > buffer.byteLength) err(`Trying to place ${_.byteLength} bytes into a ${buffer.byteLength} byte buffer on read`);
 		buffer.set(_);
+		return _.byteLength;
 	}
 
 	@retry
-	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
+	public async write(path: string, data: Uint8Array, offset: number): Promise<number> {
 		await using tx = this.transaction();
 
 		const inode = await this.findInode(tx, path);
@@ -709,10 +711,11 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._add(inode.ino, path);
 
 		await tx.commit();
+		return data.byteLength;
 	}
 
 	@retry
-	public writeSync(path: string, data: Uint8Array, offset: number): void {
+	public writeSync(path: string, data: Uint8Array, offset: number): number {
 		using tx = this.transaction();
 
 		const inode = this.findInodeSync(tx, path);
@@ -738,6 +741,7 @@ export class StoreFS<T extends Store = Store> extends FileSystem {
 		this._add(inode.ino, path);
 
 		tx.commitSync();
+		return data.byteLength;
 	}
 
 	/**

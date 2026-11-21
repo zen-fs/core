@@ -282,33 +282,28 @@ export abstract class FileSystem {
 	public abstract syncSync(): void;
 
 	/**
-	 * Reads into a buffer
-	 * @param buffer The buffer to read into. You must set the `byteOffset` and `byteLength` appropriately!
-	 * @param start The offset into the file to start reading from
-	 * @param end The position in the file to stop reading
+	 * Reads `[start, end)` of a file into the start of `buffer`.
+	 * Returns the number of bytes read, which is less than `end - start` at the end of the file or when a device has less to give.
 	 */
-	public abstract read(path: string, buffer: Uint8Array, start: number, end: number): Promise<void>;
-	/**
-	 * Reads into a buffer
-	 * @param buffer The buffer to read into. You must set the `byteOffset` and `byteLength` appropriately!
-	 * @param start The offset into the file to start reading from
-	 * @param end The position in the file to stop reading
-	 */
-	public abstract readSync(path: string, buffer: Uint8Array, start: number, end: number): void;
+	public abstract read(path: string, buffer: Uint8Array, start: number, end: number): Promise<number>;
 
 	/**
-	 * Writes a buffer to a file
-	 * @param buffer The buffer to write. You must set the `byteOffset` and `byteLength` appropriately!
-	 * @param offset The offset in the file to start writing
+	 * Reads `[start, end)` of a file into the start of `buffer`.
+	 * Returns the number of bytes read, which is less than `end - start` at the end of the file or when a device has less to give.
 	 */
-	public abstract write(path: string, buffer: Uint8Array, offset: number): Promise<void>;
+	public abstract readSync(path: string, buffer: Uint8Array, start: number, end: number): number;
 
 	/**
-	 * Writes a buffer to a file
-	 * @param buffer The buffer to write. You must set the `byteOffset` and `byteLength` appropriately!
-	 * @param offset The offset in the file to start writing
+	 * Writes `buffer` to a file at `offset`.
+	 * Returns the number of bytes written, which is less than `buffer.byteLength` only when a device takes less.
 	 */
-	public abstract writeSync(path: string, buffer: Uint8Array, offset: number): void;
+	public abstract write(path: string, buffer: Uint8Array, offset: number): Promise<number>;
+
+	/**
+	 * Writes `buffer` to a file at `offset`.
+	 * Returns the number of bytes written, which is less than `buffer.byteLength` only when a device takes less.
+	 */
+	public abstract writeSync(path: string, buffer: Uint8Array, offset: number): number;
 
 	/**
 	 * Read a file using a stream.
@@ -329,11 +324,11 @@ export abstract class FileSystem {
 				}
 
 				const buffer = new Uint8Array(Math.min(chunkSize, end - offset));
-				await this.read(path, buffer, offset, offset + buffer.byteLength);
-				offset += buffer.byteLength;
-				controller.enqueue(buffer);
+				const count = await this.read(path, buffer, offset, offset + buffer.byteLength);
+				offset += count;
+				if (count) controller.enqueue(buffer.subarray(0, count));
 
-				if (offset >= end) controller.close();
+				if (!count || offset >= end) controller.close();
 			},
 			type: 'bytes',
 		});
@@ -347,16 +342,18 @@ export abstract class FileSystem {
 		let position = options.start ?? 0;
 		return new WritableStream<Uint8Array>({
 			write: async (chunk, controller) => {
-				let err = false;
-				const _err = (ex: any) => {
-					err = true;
-					controller.error(ex);
-				};
-				const { size } = await this.stat(path);
-				await this.write(path, chunk, position).catch(_err);
-				if (err) return;
-				position += chunk.byteLength;
-				await this.touch(path, { mtimeMs: Date.now(), size: Math.max(size, position) }).catch(_err);
+				try {
+					const { size } = await this.stat(path);
+					for (let written = 0; written < chunk.byteLength;) {
+						const count = await this.write(path, chunk.subarray(written), position + written);
+						if (!count) throw withErrno('EIO', 'Write made no progress');
+						written += count;
+					}
+					position += chunk.byteLength;
+					await this.touch(path, { mtimeMs: Date.now(), size: Math.max(size, position) });
+				} catch (error) {
+					controller.error(error);
+				}
 			},
 		});
 	}

@@ -155,8 +155,7 @@ export function readlink(this: V_Context, path: PathLike): string {
 	if (!isSymbolicLink(stats)) throw UV('EINVAL', 'readlink', path);
 	const size = stats.size;
 	const data = new Uint8Array(size);
-	fs.readSync(resolved, data, 0, size);
-	return decodeUTF8(data);
+	return decodeUTF8(data.subarray(0, fs.readSync(resolved, data, 0, size)));
 }
 
 export function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {}): string | void {

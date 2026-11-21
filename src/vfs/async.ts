@@ -141,8 +141,7 @@ export async function readlink(this: V_Context, path: PathLike): Promise<string>
 	if (!isSymbolicLink(stats)) throw UV('EINVAL', $ex);
 	const size = stats.size;
 	const data = new Uint8Array(size);
-	await fs.read(resolved, data, 0, size);
-	return decodeUTF8(data);
+	return decodeUTF8(data.subarray(0, await fs.read(resolved, data, 0, size)));
 }
 
 export async function mkdir(this: V_Context, path: PathLike, options: MkdirOptions = {}): Promise<string | void> {

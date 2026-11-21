@@ -168,29 +168,31 @@ export class PassthroughFS extends FileSystem {
 		this.nodeFS.linkSync(this.path(target), this.path(link));
 	}
 
-	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
+	public async read(path: string, buffer: Uint8Array, start: number, end: number): Promise<number> {
 		await using handle = await this.nodeFS.promises.open(this.path(path), 'r');
-		await handle.read({ buffer, offset, length: end - offset });
+		const { bytesRead } = await handle.read(buffer, 0, end - start, start);
+		return bytesRead;
 	}
 
-	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
+	public readSync(path: string, buffer: Uint8Array, start: number, end: number): number {
 		const fd = this.nodeFS.openSync(this.path(path), 'r');
 		try {
-			this.nodeFS.readSync(fd, buffer, { offset, length: end - offset });
+			return this.nodeFS.readSync(fd, buffer, 0, end - start, start);
 		} finally {
 			this.nodeFS.closeSync(fd);
 		}
 	}
 
-	public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
-		await using handle = await this.nodeFS.promises.open(this.path(path), 'w');
-		await handle.write(buffer, offset);
+	public async write(path: string, buffer: Uint8Array, offset: number): Promise<number> {
+		await using handle = await this.nodeFS.promises.open(this.path(path), 'r+');
+		const { bytesWritten } = await handle.write(buffer, 0, buffer.byteLength, offset);
+		return bytesWritten;
 	}
 
-	public writeSync(path: string, buffer: Uint8Array, offset: number): void {
-		const fd = this.nodeFS.openSync(this.path(path), 'w');
+	public writeSync(path: string, buffer: Uint8Array, offset: number): number {
+		const fd = this.nodeFS.openSync(this.path(path), 'r+');
 		try {
-			this.nodeFS.writeSync(fd, buffer, offset);
+			return this.nodeFS.writeSync(fd, buffer, 0, buffer.byteLength, offset);
 		} finally {
 			this.nodeFS.closeSync(fd);
 		}

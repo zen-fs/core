@@ -113,11 +113,13 @@ export class PortFS<T extends RPC.Channel = RPC.Channel> extends Async(FileSyste
 		return this.rpc('link', srcpath, dstpath);
 	}
 
-	public async read(path: string, buffer: Uint8Array, start: number, end: number): Promise<void> {
-		buffer.set(await this.rpc('read', path, buffer, start, end));
+	public async read(path: string, buffer: Uint8Array, start: number, end: number): Promise<number> {
+		const data = await this.rpc('read', path, buffer, start, end);
+		buffer.set(data);
+		return data.byteLength;
 	}
 
-	public write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
+	public write(path: string, buffer: Uint8Array, offset: number): Promise<number> {
 		return this.rpc('write', path, buffer, offset);
 	}
 }

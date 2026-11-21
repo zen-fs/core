@@ -221,22 +221,22 @@ export class CopyOnWriteFS extends FileSystem {
 		this.writable.syncSync();
 	}
 
-	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
+	public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<number> {
 		return (await this.writable.exists(path))
 			? await this.writable.read(path, buffer, offset, end)
 			: await this.readable.read(path, buffer, offset, end);
 	}
 
-	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
+	public readSync(path: string, buffer: Uint8Array, offset: number, end: number): number {
 		return this.writable.existsSync(path) ? this.writable.readSync(path, buffer, offset, end) : this.readable.readSync(path, buffer, offset, end);
 	}
 
-	public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
+	public async write(path: string, buffer: Uint8Array, offset: number): Promise<number> {
 		await this.copyForWrite(path);
 		return await this.writable.write(path, buffer, offset);
 	}
 
-	public writeSync(path: string, buffer: Uint8Array, offset: number): void {
+	public writeSync(path: string, buffer: Uint8Array, offset: number): number {
 		this.copyForWriteSync(path);
 		return this.writable.writeSync(path, buffer, offset);
 	}

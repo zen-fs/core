@@ -55,11 +55,11 @@ export function Sync<T extends abstract new (...args: any[]) => FileSystem>(FS: 
 			return this.syncSync();
 		}
 
-		public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<void> {
+		public async read(path: string, buffer: Uint8Array, offset: number, end: number): Promise<number> {
 			return this.readSync(path, buffer, offset, end);
 		}
 
-		public async write(path: string, buffer: Uint8Array, offset: number): Promise<void> {
+		public async write(path: string, buffer: Uint8Array, offset: number): Promise<number> {
 			return this.writeSync(path, buffer, offset);
 		}
 

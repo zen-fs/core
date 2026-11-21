@@ -206,15 +206,17 @@ export function Async<const T extends abstract new (...args: any[]) => FileSyste
 			return this._sync.existsSync(path);
 		}
 
-		public readSync(path: string, buffer: Uint8Array, offset: number, end: number): void {
+		public readSync(path: string, buffer: Uint8Array, offset: number, end: number): number {
 			this.checkSync();
-			this._sync.readSync(path, buffer, offset, end);
+			return this._sync.readSync(path, buffer, offset, end);
 		}
 
-		public writeSync(path: string, buffer: Uint8Array, offset: number): void {
+		public writeSync(path: string, buffer: Uint8Array, offset: number): number {
 			this.checkSync();
-			this._sync.writeSync(path, buffer, offset);
-			this._async(() => this._unpatched.write(path, buffer, offset));
+			const count = this._sync.writeSync(path, buffer, offset);
+			const written = buffer.subarray(0, count);
+			this._async(() => this._unpatched.write(path, written, offset));
+			return count;
 		}
 
 		public ioctlSync(context: IoctlContext, command: number, ...args: any[]) {

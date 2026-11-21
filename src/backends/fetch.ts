@@ -138,11 +138,11 @@ export class FetchFS extends IndexFS {
 		this.changes.add(this.remove(path));
 	}
 
-	public async read(path: string, buffer: Uint8Array, offset: number = 0, end: number): Promise<void> {
+	public async read(path: string, buffer: Uint8Array, offset: number = 0, end: number): Promise<number> {
 		const inode = this.index.get(path);
 		if (!inode) throw withErrno('ENOENT');
 
-		if (end - offset == 0) return;
+		if (end - offset == 0) return 0;
 
 		const data = await requests
 			.get(this.baseUrl + path, { start: offset, end, size: inode.size, warn }, this.requestInit)
@@ -152,13 +152,14 @@ export class FetchFS extends IndexFS {
 		if (!data) throw withErrno('ENODATA');
 
 		buffer.set(data);
+		return data.byteLength;
 	}
 
-	public readSync(path: string, buffer: Uint8Array, offset: number = 0, end: number): void {
+	public readSync(path: string, buffer: Uint8Array, offset: number = 0, end: number): number {
 		const inode = this.index.get(path);
 		if (!inode) throw withErrno('ENOENT');
 
-		if (end - offset == 0) return;
+		if (end - offset == 0) return 0;
 
 		const { data, missing } = requests.getCached(this.baseUrl + path, { start: offset, end, size: inode.size, warn });
 
@@ -172,24 +173,27 @@ export class FetchFS extends IndexFS {
 		}
 
 		buffer.set(data);
+		return data.byteLength;
 	}
 
-	public async write(path: string, data: Uint8Array, offset: number): Promise<void> {
+	public async write(path: string, data: Uint8Array, offset: number): Promise<number> {
 		const inode = this.index.get(path);
 		if (!inode) throw withErrno('ENOENT');
 
 		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
 
 		await requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError);
+		return data.byteLength;
 	}
 
-	public writeSync(path: string, data: Uint8Array, offset: number): void {
+	public writeSync(path: string, data: Uint8Array, offset: number): number {
 		const inode = this.index.get(path);
 		if (!inode) throw withErrno('ENOENT');
 
 		inode.update({ mtimeMs: Date.now(), size: Math.max(inode.size, data.byteLength + offset) });
 
 		this.changes.add(requests.set(this.baseUrl + path, data, { offset, warn, cacheOnly: !this.remoteWrite }, this.requestInit).catch(parseError));
+		return data.byteLength;
 	}
 }
 

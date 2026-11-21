@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+import { withErrno } from 'kerium';
 import { RwLockable } from 'kerium/locks';
 import { addRange, Resource, type Range } from 'utilium/cache';
 import type { FileSystem } from '../internal/filesystem.js';
@@ -97,8 +98,9 @@ export class VNode extends RwLockable {
 
 	/**
 	 * Read `[start, end)` into `buffer`, fetching any missing ranges from the backend.
+	 * Returns the number of bytes read, which is only less than `end - start` for devices.
 	 */
-	public async read(buffer: Uint8Array, start: number, end: number): Promise<void> {
+	public async read(buffer: Uint8Array, start: number, end: number): Promise<number> {
 		if (this.bypassCache) return await this.fs.read(this.path, buffer, start, end);
 
 		for (const { start: rangeStart, end: rangeEnd } of this.data.missing(start, end)) {
@@ -108,9 +110,10 @@ export class VNode extends RwLockable {
 		}
 
 		this.copyFromCache(buffer, start, end);
+		return end - start;
 	}
 
-	public readSync(buffer: Uint8Array, start: number, end: number): void {
+	public readSync(buffer: Uint8Array, start: number, end: number): number {
 		if (this.bypassCache) return this.fs.readSync(this.path, buffer, start, end);
 
 		for (const { start: rangeStart, end: rangeEnd } of this.data.missing(start, end)) {
@@ -120,25 +123,27 @@ export class VNode extends RwLockable {
 		}
 
 		this.copyFromCache(buffer, start, end);
+		return end - start;
 	}
 
 	/**
 	 * Write `data` at `offset` into the cache and update metadata.
 	 * The backend is not written to until `sync`, except for devices, which bypass the cache.
+	 * Returns the number of bytes written, which is only less than `data.byteLength` for devices.
 	 */
-	public async write(data: Uint8Array, offset: number): Promise<void> {
-		if (this.bypassCache) await this.fs.write(this.path, data, offset);
-		else this._writeCached(data, offset);
-		this._writeMetadata(offset + data.byteLength);
+	public async write(data: Uint8Array, offset: number): Promise<number> {
+		const count = this.bypassCache ? await this.fs.write(this.path, data, offset) : this._writeCached(data, offset);
+		this._writeMetadata(offset + count);
+		return count;
 	}
 
-	public writeSync(data: Uint8Array, offset: number): void {
-		if (this.bypassCache) this.fs.writeSync(this.path, data, offset);
-		else this._writeCached(data, offset);
-		this._writeMetadata(offset + data.byteLength);
+	public writeSync(data: Uint8Array, offset: number): number {
+		const count = this.bypassCache ? this.fs.writeSync(this.path, data, offset) : this._writeCached(data, offset);
+		this._writeMetadata(offset + count);
+		return count;
 	}
 
-	protected _writeCached(data: Uint8Array, offset: number): void {
+	protected _writeCached(data: Uint8Array, offset: number): number {
 		const end = offset + data.byteLength;
 
 		// Copy since the region can keep a reference and the caller may reuse the buffer
@@ -146,6 +151,7 @@ export class VNode extends RwLockable {
 
 		if (end > this.data.size) this.data.size = end;
 		this.markDirty(offset, end);
+		return data.byteLength;
 	}
 
 	protected _writeMetadata(end: number): void {
@@ -190,8 +196,9 @@ export class VNode extends RwLockable {
 				const region = this.data.regionAt(pos);
 				if (!region) break; // should not happen since dirty ranges are always cached
 				const end = Math.min(range.end, region.offset + region.data.byteLength);
-				await this.fs.write(this.path, region.data.subarray(pos - region.offset, end - region.offset), pos);
-				pos = end;
+				const count = await this.fs.write(this.path, region.data.subarray(pos - region.offset, end - region.offset), pos);
+				if (!count) throw withErrno('EIO', 'Write made no progress');
+				pos += count;
 			}
 		}
 		this.dirtyRanges = [];
@@ -210,8 +217,9 @@ export class VNode extends RwLockable {
 				const region = this.data.regionAt(pos);
 				if (!region) break; // should not happen since dirty ranges are always cached
 				const end = Math.min(range.end, region.offset + region.data.byteLength);
-				this.fs.writeSync(this.path, region.data.subarray(pos - region.offset, end - region.offset), pos);
-				pos = end;
+				const count = this.fs.writeSync(this.path, region.data.subarray(pos - region.offset, end - region.offset), pos);
+				if (!count) throw withErrno('EIO', 'Write made no progress');
+				pos += count;
 			}
 		}
 		this.dirtyRanges = [];
