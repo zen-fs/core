@@ -187,7 +187,7 @@ export class ReadStream extends Readable implements fs.ReadStream {
 				const internal = handle.readableWebStream({
 					start: opts.start,
 					end: opts.end === undefined ? undefined : opts.end + 1,
-					chunkSize: opts.highWaterMark,
+					chunkSize: this.readableHighWaterMark,
 				});
 				this.reader = internal.getReader();
 				this.pending = false;
