@@ -28,6 +28,9 @@ export interface StreamOperations {
 /** The default size of the chunks read by streams using `fs` operations, in bytes */
 const operationsChunkSize = 64 * 1024;
 
+/** How many writes in a row may write nothing before a stream gives up */
+const maxWriteRetries = 5;
+
 /**
  * Calls a callback-based operation, resolving with its result.
  */
@@ -109,8 +112,19 @@ export class OperationsHandle {
 
 		return new WritableStream({
 			async write(chunk) {
-				const bytesWritten = await write(chunk);
-				if (position !== undefined) position += bytesWritten;
+				let retries = 0;
+				for (let data = chunk; data.byteLength;) {
+					const bytesWritten = await write(data).catch((error: NodeJS.ErrnoException) => {
+						if (error?.code != 'EAGAIN') throw error;
+						return 0;
+					});
+
+					retries = bytesWritten ? 0 : retries + 1;
+					if (retries > maxWriteRetries) throw Object.assign(new Error('write failed'), { code: 'ERR_SYSTEM_ERROR' });
+
+					if (position !== undefined) position += bytesWritten;
+					data = data.subarray(bytesWritten);
+				}
 			},
 		});
 	}
