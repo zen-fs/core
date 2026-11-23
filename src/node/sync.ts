@@ -30,6 +30,7 @@ import {
 	validateData,
 	validateMaxDepth,
 	validateOpenDirOptions,
+	validatePathType,
 } from './utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
@@ -49,14 +50,12 @@ renameSync satisfies typeof fs.renameSync;
  * Test whether or not `path` exists by checking with the file system.
  */
 export function existsSync(this: V_Context, path: fs.PathLike): boolean {
-	path = normalizePath.call(this, path);
+	validatePathType(path);
 	try {
-		const { fs, path: resolvedPath } = _sync.resolve(this, path);
+		const { fs, path: resolvedPath } = _sync.resolve(this, normalizePath.call(this, path));
 		return fs.existsSync(resolvedPath);
-	} catch (e: any) {
-		if (e.errno == Errno.ENOENT || e.errno == Errno.ENOTDIR || e.errno == Errno.EACCES) return false;
-
-		throw e;
+	} catch {
+		return false;
 	}
 }
 existsSync satisfies typeof fs.existsSync;

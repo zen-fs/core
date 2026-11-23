@@ -38,7 +38,8 @@ function isPath(value: unknown): value is PathLike {
 }
 
 /** Translate a test path into the scratch directory, keeping `Buffer` paths as `Buffer`s */
-function toNative(path: PathLike): string | Buffer {
+function toNative(path: PathLike): string | Buffer | URL {
+	if (path instanceof URL && path.protocol != 'file:') return path;
 	const isBuffer = Buffer.isBuffer(path);
 	if (path instanceof URL) path = fileURLToPath(path);
 	path = path.toString();

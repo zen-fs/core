@@ -127,6 +127,14 @@ export function validateMaxDepth(maxDepth: number): void {
 }
 
 /**
+ * Throws Node's `ERR_INVALID_ARG_TYPE` unless `path` is a string, `Uint8Array`, or `URL`.
+ */
+export function validatePathType(path: unknown, name: string = 'path'): asserts path is fs.PathLike {
+	if (typeof path == 'string' || path instanceof Uint8Array || path instanceof URL) return;
+	throw invalidArgumentType(name, ['string', 'Buffer', 'URL'], path);
+}
+
+/**
  * Throws Node's errors unless `options.bufferSize`, which defaults to 32, is a positive 32-bit unsigned integer.
  */
 export function validateOpenDirOptions(options?: fs.OpenDirOptions | null): void {
