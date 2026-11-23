@@ -17,7 +17,7 @@ import { checkAccess, resolveFullWalk } from './config.js';
 import { type Dirent, ifToDt } from './dir.js';
 import { Handle } from './file.js';
 import * as flags from './flags.js';
-import { resolveMount } from './shared.js';
+import { maxSymlinks, resolveMount, walkComponents, type Walk } from './shared.js';
 import { emitChange } from './watchers.js';
 
 /**
@@ -30,6 +30,7 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 	path = resolvePath.call($, path);
 	/* Try to resolve it directly. If this works,
 	that means we don't need to perform any resolution for parent directories. */
+	let isLink = false;
 	if (!resolveFullWalk)
 		try {
 			const resolved = resolveMount(path, $);
@@ -41,42 +42,98 @@ export function resolve($: V_Context, path: string, preserveSymlinks?: boolean, 
 				return { ...resolved, fullPath: path, stats };
 			}
 
-			const target = resolvePath.call($, dirname(path), readlink.call($, path));
-			return resolve($, target, preserveSymlinks, extra);
+			isLink = true;
 		} catch {
 			// Go the long way
 		}
 
-	const { base, dir } = parse(path);
-	const $ex = { syscall: 'stat', path, ...extra };
+	const direct = isLink && followDirect($, dirname(path), readlink.call($, path));
+	if (direct) return { ...resolveMount(direct.path, $), fullPath: direct.path, stats: direct.stats };
 
-	let realDir = '/';
-	if (dir != '/') {
-		const parent = resolve($, dir, false, extra);
-		if (parent.stats && isDirectory(parent.stats)) assertSearchable($, parent.stats, $ex);
-		realDir = parent.fullPath;
-	} else if (base && checkAccess) {
-		const root = resolveMount('/', $);
-		assertSearchable($, root.cache.statSync(root.path), $ex);
-	}
+	const walk: Walk = { original: path, preserveSymlinks, extra };
+	if (path == '/') return resolveWalk($, walk, '/', statReal($, '/'), []);
 
-	const maybePath = join(realDir, base);
-	const resolved = resolveMount(maybePath, $);
+	const parent = resolve($, dirname(path), false, extra);
+	if (parent.stats) return resolveWalk($, walk, parent.fullPath, parent.stats, [basename(path)]);
 
-	let stats: InodeLike | undefined;
+	const fullPath = join(parent.fullPath, basename(path));
+	return { ...resolveMount(fullPath, $), fullPath };
+}
+
+function statReal($: V_Context, real: string): InodeLike {
+	const { cache, path } = resolveMount(real, $);
+	return cache.statSync(path);
+}
+
+/**
+ * Resolves a symbolic link's target in one lookup, when it has no `..` and no symbolic links along it.
+ */
+function followDirect($: V_Context, real: string, target: string): { path: string; stats: InodeLike } | undefined {
+	if (target.split('/').includes('..')) return;
+	const path = resolvePath.call($, real, target);
 	try {
-		stats = resolved.cache.statSync(resolved.path);
-	} catch (e: any) {
-		if (e.code === 'ENOENT') return { ...resolved, fullPath: maybePath };
-		throw setUVMessage(Object.assign(e, { syscall: 'stat', path: maybePath, ...extra }));
+		const stats = statReal($, path);
+		if (!isSymbolicLink(stats)) return { path, stats };
+	} catch {
+		return;
+	}
+}
+
+/**
+ * Resolves the `pending` components, last first, from the real directory `real`.
+ * Symbolic links are followed before the components after them, so `..` always applies to a real parent.
+ */
+function resolveWalk($: V_Context, walk: Walk, real: string, stats: InodeLike, pending: string[]): ResolvedPath {
+	const { preserveSymlinks, extra } = walk;
+	const $ex = { syscall: 'stat', path: walk.original, ...extra };
+	let links = 0;
+
+	while (pending.length) {
+		const name = pending.pop()!;
+		if (!isDirectory(stats)) throw UV('ENOTDIR', $ex);
+		if (name == '.') continue;
+
+		if (name == '..') {
+			real = dirname(real);
+			stats = statReal($, real);
+			continue;
+		}
+
+		assertSearchable($, stats, $ex);
+
+		const next = join(real, name);
+		const resolved = resolveMount(next, $);
+		let nextStats: InodeLike;
+		try {
+			nextStats = resolved.cache.statSync(resolved.path);
+		} catch (e: any) {
+			if (e.code !== 'ENOENT') throw setUVMessage(Object.assign(e, { syscall: 'stat', path: next, ...extra }));
+			const fullPath = join(next, ...pending.reverse());
+			return { ...resolveMount(fullPath, $), fullPath };
+		}
+
+		if (!isSymbolicLink(nextStats) || (preserveSymlinks && !pending.length)) {
+			real = next;
+			stats = nextStats;
+			continue;
+		}
+
+		if (++links > maxSymlinks) throw UV('ELOOP', $ex);
+		const target = readlink.call($, next);
+		const direct = followDirect($, real, target);
+		if (direct) {
+			real = direct.path;
+			stats = direct.stats;
+			continue;
+		}
+
+		pending.push(...walkComponents(target));
+		if (!target.startsWith('/')) continue;
+		real = '/';
+		stats = statReal($, real);
 	}
 
-	if (!isSymbolicLink(stats) || preserveSymlinks) {
-		return { ...resolved, fullPath: maybePath, stats };
-	}
-
-	const target = resolvePath.call($, realDir, readlink.call($, maybePath));
-	return resolve($, target, false, extra);
+	return { ...resolveMount(real, $), fullPath: real, stats };
 }
 
 /**

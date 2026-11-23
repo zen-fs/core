@@ -135,6 +135,35 @@ export interface ResolvedPath extends ResolvedMount {
 }
 
 /**
+ * The most symbolic links followed while resolving one path, like Linux's `MAXSYMLINKS`
+ * @internal @hidden
+ */
+export const maxSymlinks = 40;
+
+/**
+ * Splits a path into the stack of components a resolution walk pops from, so the first component is last.
+ * @internal @hidden
+ */
+export function walkComponents(path: string): string[] {
+	return path
+		.split('/')
+		.filter(p => p)
+		.reverse();
+}
+
+/**
+ * What is being resolved, for walking a path one component at a time
+ * @internal @hidden
+ */
+export interface Walk {
+	/** The path being resolved, for errors */
+	original: string;
+	/** Whether a symbolic link as the last component is returned instead of followed */
+	preserveSymlinks?: boolean;
+	extra?: ExceptionExtra;
+}
+
+/**
  * Gets the internal `FileSystem` for the path, then returns it along with the path relative to the FS' root
  * @internal @hidden
  */
