@@ -127,6 +127,16 @@ export function validateMaxDepth(maxDepth: number): void {
 }
 
 /**
+ * Throws Node's errors unless `options.bufferSize`, which defaults to 32, is a positive 32-bit unsigned integer.
+ */
+export function validateOpenDirOptions(options?: fs.OpenDirOptions | null): void {
+	const { bufferSize } = { bufferSize: 32, ...options };
+	validateType(bufferSize, 'options.bufferSize', 'number');
+	if (!Number.isInteger(bufferSize)) throw outOfRange('options.bufferSize', 'an integer', bufferSize);
+	if (bufferSize < 1 || bufferSize > 0xffffffff) throw outOfRange('options.bufferSize', '>= 1 && <= 4294967295', bufferSize);
+}
+
+/**
  * Whether an error means the path does not resolve to an entry. Used for `throwIfNoEntry`.
  */
 export function isNoEntry(e: unknown): boolean {

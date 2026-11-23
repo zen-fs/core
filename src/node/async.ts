@@ -14,7 +14,7 @@ import { Buffer } from 'buffer';
 import { UV, type Exception } from 'kerium';
 import { R_OK } from '../constants.js';
 import { normalizeMode, normalizePath } from '../utils.js';
-import { blobType, promisifyResults, setPromisified, validateData } from './utils.js';
+import { blobType, promisifyResults, setPromisified, validateData, validateOpenDirOptions } from './utils.js';
 import { FSWatcher, StatWatcher } from '../vfs/watchers.js';
 import * as promises from './promises.js';
 import { BigIntStats } from './stats.js';
@@ -831,7 +831,9 @@ export function opendir(this: V_Context, path: fs.PathLike, cb: Callback<[Dir]>)
 export function opendir(this: V_Context, path: fs.PathLike, options: fs.OpenDirOptions, cb: Callback<[Dir]>): void;
 export function opendir(this: V_Context, path: fs.PathLike, options: fs.OpenDirOptions | Callback<[Dir]>, cb: Callback<[Dir]> = nop): void {
 	cb = typeof options === 'function' ? options : cb;
-	promises.opendir.call(this, path, typeof options === 'function' ? undefined : options).then(result => cb(null, result), cb);
+	const openOptions = typeof options === 'function' ? undefined : options;
+	validateOpenDirOptions(openOptions);
+	promises.opendir.call(this, path, openOptions).then(result => cb(null, result), cb);
 }
 opendir satisfies Omit<typeof fs.opendir, '__promisify__'>;
 

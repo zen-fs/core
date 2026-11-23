@@ -41,6 +41,7 @@ import {
 	tempResult,
 	validateData,
 	validateMaxDepth,
+	validateOpenDirOptions,
 	type WriteFileData,
 	invalidArgumentValue,
 	outOfRange,
@@ -1392,9 +1393,10 @@ copyFile satisfies typeof promises.copyFile;
  * @param options Options for opening the directory.
  * @returns A `Dir` object representing the opened directory.
  */
-export function opendir(this: V_Context, path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
+export async function opendir(this: V_Context, path: fs.PathLike, options?: fs.OpenDirOptions): Promise<Dir> {
 	path = normalizePath.call(this, path);
-	return Promise.resolve(new Dir(path, this, options));
+	validateOpenDirOptions(options);
+	return new Dir(path, this, options);
 }
 opendir satisfies typeof promises.opendir;
 

@@ -29,6 +29,7 @@ import {
 	tempResult,
 	validateData,
 	validateMaxDepth,
+	validateOpenDirOptions,
 } from './utils.js';
 import { checkAccess } from '../vfs/config.js';
 import { deleteFD, fromFD, toFD } from '../vfs/file.js';
@@ -755,6 +756,7 @@ writevSync satisfies typeof fs.writevSync;
  */
 export function opendirSync(this: V_Context, path: fs.PathLike, options?: fs.OpenDirOptions): Dir {
 	path = normalizePath.call(this, path);
+	validateOpenDirOptions(options);
 	return new Dir(path, this, options);
 }
 opendirSync satisfies typeof fs.opendirSync;
