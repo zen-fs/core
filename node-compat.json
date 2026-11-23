@@ -2604,11 +2604,6 @@
 		"note": "Pipes, sockets, and pseudofiles; ZenFS has none",
 		"date": "2026-11-04"
 	},
-	"#49211": {
-		"status": "ignored",
-		"note": "Partial writes from the OS; ZenFS writes are never partial",
-		"date": "2026-11-03"
-	},
 	"#66308": {
 		"status": "ignored",
 		"note": "Native code only; analogous ZenFS bug fixed in 2.9.0 (c70e1b7c)",
@@ -3098,5 +3093,75 @@
 		"status": "resolved",
 		"note": "2.9.0 (0ac25e97)",
 		"date": "2026-11-04"
+	},
+	"#67524": {
+		"status": "resolved",
+		"note": "<=2.9.0",
+		"date": "2026-11-23"
+	},
+	"#66738": {
+		"status": "resolved",
+		"note": "<=2.9.0",
+		"date": "2026-11-23"
+	},
+	"#67142": {
+		"status": "resolved",
+		"note": "<=2.9.0",
+		"date": "2026-11-23"
+	},
+	"#66757": {
+		"status": "resolved",
+		"note": "<=2.9.0",
+		"date": "2026-11-23"
+	},
+	"#67545": {
+		"status": "ignored",
+		"note": "Node.js internals, not exposed via the API",
+		"date": "2026-11-23"
+	},
+	"#67497": {
+		"status": "ignored",
+		"note": "Native code only",
+		"date": "2026-11-23"
+	},
+	"#66726": {
+		"status": "ignored",
+		"note": "Node.js permission model; ZenFS has none",
+		"date": "2026-11-23"
+	},
+	"#67525": {
+		"status": "ignored",
+		"note": "Node.js permission model; ZenFS has none",
+		"date": "2026-11-23"
+	},
+	"#66956": {
+		"status": "resolved",
+		"note": "3.0.0 (9ce7d837)",
+		"date": "2026-11-23"
+	},
+	"#67183": {
+		"status": "resolved",
+		"note": "3.0.0 (f45fc12d)",
+		"date": "2026-11-23"
+	},
+	"#67494": {
+		"status": "resolved",
+		"note": "3.0.0 (5476e421)",
+		"date": "2026-11-23"
+	},
+	"#66203": {
+		"status": "resolved",
+		"note": "3.0.0 (ebb628aa)",
+		"date": "2026-11-23"
+	},
+	"#49211": {
+		"status": "resolved",
+		"note": "3.0.0 (ebb628aa)",
+		"date": "2026-11-23"
+	},
+	"#65457": {
+		"status": "resolved",
+		"note": "3.0.0 (d6df8d73)",
+		"date": "2026-11-23"
 	}
 }
